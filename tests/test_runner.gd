@@ -1,0 +1,118 @@
+extends Node
+## Headless integration test for the v0.1 slice: boots Main, then walks the core loop —
+## verbs, power puzzle chain, night crab, contact-respawn, end-card path. Run with:
+##   godot --headless res://tests/TestRunner.tscn
+
+var failures: int = 0
+
+func _check(cond: bool, label: String) -> void:
+	if cond:
+		print("PASS  ", label)
+	else:
+		failures += 1
+		printerr("FAIL  ", label)
+
+func _ready() -> void:
+	await _run()
+	print("---")
+	print("FAILURES: ", failures)
+	get_tree().quit(1 if failures > 0 else 0)
+
+func _run() -> void:
+	var main: Node3D = load("res://scenes/Main.tscn").instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	await get_tree().process_frame
+
+	var rig: RigBuilder = main.rig
+	var player: Node3D = main.player
+	_check(rig != null, "rig built")
+	_check(player != null, "player spawned")
+	_check(rig.sphl_hatch != null and rig.sphl_hatch.locked, "SPHL hatch starts locked")
+	_check(rig.countdown_label != null, "countdown readout exists")
+	_check(player.global_position.distance_to(rig.player_spawn) < 1.0, "player starts in SPHL")
+
+	# Cold open completes -> hatch unlocks.
+	main._countdown = 0.1
+	await get_tree().create_timer(0.3).timeout
+	_check(not rig.sphl_hatch.locked, "hatch unlocked after countdown")
+	_check(not rig.sphl_hatch.available_verbs().is_empty(), "hatch now OPEN-able")
+	rig.sphl_hatch.interact("OPEN", player)
+	_check(rig.sphl_hatch.is_open, "hatch opens")
+
+	# Readables.
+	Readable.load_texts()
+	_check(Readable._texts.has("sphl_manual") and Readable._texts.has("breaker_log"),
+		"readable texts loaded from data")
+	var readable_count: int = 0
+	for c in rig.get_children():
+		if c is Readable:
+			readable_count += 1
+	_check(readable_count >= 8, "8+ readables placed (found %d)" % readable_count)
+
+	# Power puzzle chain: gap blocks breaker; spool -> connect -> operate -> light.
+	var cable: CableSegment = null
+	var breaker: BreakerPanel = null
+	var zone: LightZone = null
+	for c in rig.get_children():
+		if c is CableSegment:
+			cable = c
+		elif c is BreakerPanel:
+			breaker = c
+		elif c is LightZone:
+			zone = c
+	_check(cable != null and breaker != null and zone != null, "power chain nodes exist")
+	breaker.interact("OPERATE", player)
+	_check(not PowerGrid.is_powered("topside_floodlights"), "breaker refuses with burned cable")
+	cable.interact("CONNECT", player)
+	_check(not cable.connected, "cable refuses without spool")
+	PlayerState.add_item("cable_spool")
+	cable.interact("CONNECT", player)
+	_check(cable.connected, "cable splices with spool")
+	_check(not PlayerState.has_item("cable_spool"), "spool consumed")
+	breaker.interact("OPERATE", player)
+	_check(PowerGrid.is_powered("topside_floodlights"), "breaker powers circuit")
+	_check(zone.is_lit(), "light zone lit")
+	_check(LightZone.point_is_safe(get_tree(), Vector3(0, 20, 0)), "topside center is safe")
+	_check(not LightZone.point_is_safe(get_tree(), Vector3(20, 3, -10)), "wet deck stays dark")
+
+	# Inventory + eating.
+	PlayerState.add_item("canned_food")
+	var before: float = 0.4
+	PlayerState.hunger = before
+	var slot: int = PlayerState.hotbar.find("canned_food")
+	_check(slot != -1, "canned food in hotbar")
+	PlayerState.use_hotbar(slot)
+	_check(PlayerState.hunger > before, "eating restores hunger")
+
+	# Night: crab spawns, pursues in darkness, respects light.
+	GameClock.force_phase(GameClock.Phase.NIGHT)
+	await get_tree().process_frame
+	var crab: LamplightCrab = null
+	for c in main.get_children():
+		if c is LamplightCrab:
+			crab = c
+	_check(crab != null, "crab spawns at night")
+	if crab:
+		crab.global_position = Vector3(20, 3, -10)
+		player.global_position = Vector3(21, 3, -10)   # dark wet deck, 1m away
+		await get_tree().process_frame
+		await get_tree().process_frame
+		_check(crab.state == LamplightCrab.State.PURSUE or crab._contact_fired,
+			"crab pursues player in darkness")
+
+	# Contact stub: blackout -> SPHL -> dawn.
+	var start_day: int = GameClock.day_count
+	EventBus.creature_contact.emit()
+	await get_tree().create_timer(3.2).timeout
+	_check(player.global_position.distance_to(rig.sphl_interior) < 2.0, "contact returns player to SPHL")
+	_check(GameClock.day_count > start_day, "contact skips to dawn")
+	_check(GameClock.current_phase == GameClock.Phase.DAWN, "phase is dawn after contact")
+	_check(main._ending, "end sequence armed at final dawn")
+
+	# Save round-trip.
+	SaveManager.save_game()
+	PlayerState.hunger = 0.123
+	var ok: bool = SaveManager.load_game()
+	_check(ok, "save file loads")
+	_check(absf(PlayerState.hunger - 0.123) > 0.01, "load restores saved hunger")

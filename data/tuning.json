@@ -1,0 +1,12 @@
+{
+	"_schema": "All feel-values for the slice. PLACEHOLDER values pending designer tuning pass (GDD par.8). Rates are per real-time second; stats run 0..1.",
+	"hunger_per_sec": 0.00055,
+	"warmth_per_sec_neutral": 0.0,
+	"warmth_per_sec_cold": -0.004,
+	"warmth_per_sec_night": -0.0015,
+	"warmth_per_sec_heated": 0.02,
+	"crab_patrol_speed": 1.6,
+	"crab_pursue_speed": 3.8,
+	"crab_detect_radius": 6.0,
+	"crab_contact_radius": 1.2
+}

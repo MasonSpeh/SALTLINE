@@ -1,0 +1,86 @@
+class_name PauseMenu extends CanvasLayer
+## Esc pause with settings (volume, mouse sensitivity, invert-Y), resume, quit.
+## The only menu in the slice besides the end card.
+
+var panel: CenterContainer
+var _sens_slider: HSlider
+var _vol_slider: HSlider
+var _invert_check: CheckBox
+
+func _ready() -> void:
+	layer = 15
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	panel = CenterContainer.new()
+	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	panel.visible = false
+	add_child(panel)
+	var bg := PanelContainer.new()
+	bg.custom_minimum_size = Vector2(380, 320)
+	panel.add_child(bg)
+	var v := VBoxContainer.new()
+	v.add_theme_constant_override("separation", 14)
+	bg.add_child(v)
+	var title := Label.new()
+	title.text = "PAUSED"
+	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	title.add_theme_font_size_override("font_size", 24)
+	v.add_child(title)
+
+	v.add_child(_label("Volume"))
+	_vol_slider = HSlider.new()
+	_vol_slider.min_value = 0.0
+	_vol_slider.max_value = 1.0
+	_vol_slider.step = 0.05
+	_vol_slider.value = 1.0
+	_vol_slider.value_changed.connect(func(val: float) -> void:
+		AudioServer.set_bus_volume_db(0, linear_to_db(maxf(val, 0.001))))
+	v.add_child(_vol_slider)
+
+	v.add_child(_label("Mouse sensitivity"))
+	_sens_slider = HSlider.new()
+	_sens_slider.min_value = 0.3
+	_sens_slider.max_value = 2.5
+	_sens_slider.step = 0.1
+	_sens_slider.value = 1.0
+	_sens_slider.value_changed.connect(func(val: float) -> void:
+		var p: Node = get_tree().get_first_node_in_group("player")
+		if p:
+			p.mouse_sensitivity_scale = val)
+	v.add_child(_sens_slider)
+
+	_invert_check = CheckBox.new()
+	_invert_check.text = "Invert Y"
+	_invert_check.toggled.connect(func(on: bool) -> void:
+		var p: Node = get_tree().get_first_node_in_group("player")
+		if p:
+			p.invert_y = on)
+	v.add_child(_invert_check)
+
+	var resume := Button.new()
+	resume.text = "Resume"
+	resume.pressed.connect(toggle)
+	v.add_child(resume)
+	var quit := Button.new()
+	quit.text = "Quit"
+	quit.pressed.connect(func() -> void: get_tree().quit())
+	v.add_child(quit)
+
+func _label(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 13)
+	return l
+
+func _unhandled_input(event: InputEvent) -> void:
+	if event.is_action_pressed("ui_cancel"):
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.reading_open:
+			return   # reading overlay consumes Esc first
+		toggle()
+		get_viewport().set_input_as_handled()
+
+func toggle() -> void:
+	var opening: bool = not panel.visible
+	panel.visible = opening
+	get_tree().paused = opening
+	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if opening else Input.MOUSE_MODE_CAPTURED

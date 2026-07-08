@@ -1,0 +1,9 @@
+{
+	"_schema": "item_id -> { name, use: eat|tool, hunger: restore amount }",
+	"canned_food": { "name": "Canned Food", "use": "eat", "hunger": 0.35 },
+	"canned_peaches": { "name": "Canned Peaches", "use": "eat", "hunger": 0.25 },
+	"water_ration": { "name": "Water Ration", "use": "eat", "hunger": 0.05 },
+	"cable_spool": { "name": "Cable Spool", "use": "tool" },
+	"prybar": { "name": "Prybar", "use": "tool" },
+	"flare": { "name": "Flare", "use": "tool" }
+}
