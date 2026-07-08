@@ -18,6 +18,8 @@ item · Esc pause/settings
 ## Verify
 ```sh
 godot --headless res://tests/TestRunner.tscn   # 29-check integration test
+godot --headless res://tests/SoakTest.tscn     # full day loop at 20x (~2.5 min)
+godot res://tests/VerbRoom.tscn                # walkable verb demo room
 godot res://tests/Screenshot.tscn              # renders vantage PNGs to /tmp
 python3 tools/gen_audio.py                     # regenerate placeholder audio
 ```

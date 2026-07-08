@@ -20,13 +20,14 @@ signal time_updated(phase_fraction: float) ## 0.0-1.0 fraction through current p
 
 var current_phase: Phase = Phase.DAWN
 var day_count: int = 0 ## increments each time NIGHT completes (drives the end card)
+var time_scale: float = 1.0 ## testing/debug only — accelerates the day, never shipped >1
 var _phase_elapsed_sec: float = 0.0
 var _running: bool = true
 
 func _process(delta: float) -> void:
 	if not _running:
 		return
-	_phase_elapsed_sec += delta
+	_phase_elapsed_sec += delta * time_scale
 	var duration_sec: float = phase_durations_minutes[current_phase] * 60.0
 	time_updated.emit(clampf(_phase_elapsed_sec / duration_sec, 0.0, 1.0))
 	if _phase_elapsed_sec >= duration_sec:

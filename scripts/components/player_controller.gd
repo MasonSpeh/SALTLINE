@@ -32,6 +32,7 @@ var _head_bob_time: float = 0.0
 var _camera_base_y: float
 var _climbing: Ladder = null
 var _drowning: bool = false
+var _step_accum: float = 0.0
 
 func _ready() -> void:
 	add_to_group("player")
@@ -80,7 +81,18 @@ func _physics_process(delta: float) -> void:
 	move_and_slide()
 	_update_stamina(delta, wants_sprint and direction.length() > 0.0)
 	_update_head_bob(delta, direction.length() > 0.0, wants_sprint)
+	_update_footsteps(delta)
 	_check_water()
+
+func _update_footsteps(_delta: float) -> void:
+	if not is_on_floor():
+		return
+	var horizontal: Vector3 = Vector3(velocity.x, 0, velocity.z)
+	_step_accum += horizontal.length() * _delta
+	var stride: float = 2.6 if Input.is_action_pressed("sprint") else 2.1
+	if _step_accum >= stride:
+		_step_accum = 0.0
+		AudioDirector.play_one_shot("step", global_position + Vector3(0, -0.6, 0), -16.0)
 
 func start_climb(ladder: Ladder) -> void:
 	_climbing = ladder

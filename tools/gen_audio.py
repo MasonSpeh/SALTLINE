@@ -142,4 +142,9 @@ eat = lowpass(noise(n), 0.08)
 eat = [e * (0.8 if (i / SR % 0.16) < 0.07 else 0.15) * math.exp(-i / SR * 2) * 0.6 for i, e in enumerate(eat)]
 write_wav("eat", env_fade(eat, 0.05))
 
+n = int(SR * 0.12)
+step = lowpass([random.uniform(-1, 1) * math.exp(-i / SR * 70) for i in range(n)], 0.09)
+step = [s * 0.8 + 0.35 * math.sin(2 * math.pi * 85 * i / SR) * math.exp(-i / SR * 55) for i, s in enumerate(step)]
+write_wav("step", env_fade(step, 0.03))
+
 print("done")

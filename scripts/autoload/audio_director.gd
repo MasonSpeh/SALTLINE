@@ -19,12 +19,14 @@ const ONE_SHOTS: Dictionary = {
 	"hatch": "res://audio/hatch.wav",
 	"splash": "res://audio/splash.wav",
 	"eat": "res://audio/eat.wav",
+	"step": "res://audio/step.wav",
 }
 
 var _beds: Dictionary = {}       ## name -> AudioStreamPlayer
 var _streams: Dictionary = {}    ## name -> AudioStream (one-shots)
 var _groan_timer: Timer
 var _gull_timer: Timer
+var _tick_timer: Timer           ## dusk onward: distant claw ticks from below (GDD 5.5)
 var night_range_multiplier: float = 1.0
 
 func _ready() -> void:
@@ -52,6 +54,10 @@ func _ready() -> void:
 	_gull_timer.one_shot = true
 	add_child(_gull_timer)
 	_gull_timer.timeout.connect(_random_gull)
+	_tick_timer = Timer.new()
+	_tick_timer.one_shot = true
+	add_child(_tick_timer)
+	_tick_timer.timeout.connect(_distant_tick)
 
 	GameClock.phase_changed.connect(_on_phase_changed)
 	PowerGrid.circuit_powered.connect(func(_id: String) -> void: _update_hum())
@@ -60,17 +66,24 @@ func _ready() -> void:
 
 func _on_phase_changed(phase: GameClock.Phase) -> void:
 	var is_night: bool = phase == GameClock.Phase.NIGHT
+	var is_dusk: bool = phase == GameClock.Phase.DUSK
 	var is_day: bool = phase == GameClock.Phase.DAY
 	night_range_multiplier = 2.0 if is_night else 1.0
-	# Beds: wind always; sea louder low/dawn; groans denser at night.
+	# Beds: wind always; sea constant; groans denser toward and through the night.
 	_fade("wind", -14.0 if not is_night else -10.0)
 	_fade("sea", -16.0)
 	_update_hum()
-	_schedule(_groan_timer, 20.0 if is_night else 50.0)
+	_schedule(_groan_timer, 20.0 if is_night else (32.0 if is_dusk else 50.0))
 	if is_day or phase == GameClock.Phase.DAWN:
 		_schedule(_gull_timer, 12.0)
 	else:
 		_gull_timer.stop()
+	# The player should HEAR the crab for minutes before seeing it (GDD 5.5):
+	# from dusk on, faint claw ticks rise from the structure below.
+	if is_dusk or is_night:
+		_schedule(_tick_timer, 18.0 if is_dusk else 12.0)
+	else:
+		_tick_timer.stop()
 
 func _update_hum() -> void:
 	var any_power: bool = not PowerGrid.powered_ids().is_empty()
@@ -92,6 +105,16 @@ func _random_groan() -> void:
 		var offset := Vector3(randf_range(-25, 25), randf_range(-8, 4), randf_range(-25, 25))
 		play_one_shot("groan", player.global_position + offset)
 	_schedule(_groan_timer, 20.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 50.0)
+
+func _distant_tick() -> void:
+	# Two or three faint clicks somewhere below the player, through the steel.
+	var player: Node3D = get_tree().get_first_node_in_group("player")
+	if player:
+		var base: Vector3 = player.global_position + Vector3(randf_range(-14, 14), randf_range(-14, -6), randf_range(-14, 14))
+		for i in range(randi_range(2, 3)):
+			var t := get_tree().create_timer(i * 0.35)
+			t.timeout.connect(func() -> void: play_one_shot("claw", base, -14.0))
+	_schedule(_tick_timer, 18.0 if GameClock.current_phase == GameClock.Phase.DUSK else 12.0)
 
 func _random_gull() -> void:
 	var player: Node3D = get_tree().get_first_node_in_group("player")

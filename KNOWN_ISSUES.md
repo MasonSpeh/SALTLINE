@@ -1,7 +1,5 @@
 # Known Issues
 
-- **No physical verb-demo room.** The Phase 1 gate is covered by `tests/test_runner.gd`
-  (29 automated checks incl. every verb) instead of a walkable test room.
 - **Windows export preset not generated.** Export templates aren't installed on this
   machine. In the editor: Project → Export → Add → Windows Desktop, install templates.
 - **Interior lighting is faked** with sun-scaled "spill" omni lights, not real light

@@ -32,6 +32,9 @@ func _unhandled_key_input(event: InputEvent) -> void:
 			if player:
 				player.global_position = Vector3(20, 3.5, -8)
 				print("DEBUG: teleport wet deck")
+		KEY_F6:
+			GameClock.time_scale = 20.0 if GameClock.time_scale == 1.0 else 1.0
+			print("DEBUG: time_scale = ", GameClock.time_scale)
 
 func _process(_delta: float) -> void:
 	if infinite_stats:
