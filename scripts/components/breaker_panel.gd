@@ -7,13 +7,13 @@ class_name BreakerPanel extends Interactable
 var _cable: CableSegment = null
 
 func _init() -> void:
-	verbs = ["OPERATE"]
+	verbs = ["OPERATE"] as Array[String]
 
 func set_cable(c: CableSegment) -> void:
 	_cable = c
 
 func available_verbs() -> Array[String]:
-	return [] if PowerGrid.is_powered(circuit_id) else ["OPERATE"]
+	return ([] if PowerGrid.is_powered(circuit_id) else ["OPERATE"]) as Array[String]
 
 func interact(verb: String, player: Node3D) -> void:
 	super(verb, player)

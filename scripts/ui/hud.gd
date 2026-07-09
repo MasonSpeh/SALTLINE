@@ -3,6 +3,8 @@ class_name HUD extends CanvasLayer
 ## full-screen reading overlay, black fade layer, and the dawn end card. Built in code.
 
 var prompt_label: Label
+var prompt_chip: PanelContainer
+var prompt_locked: bool = false   # scripted hint owns the chip; ray won't overwrite
 var toast_label: Label
 var crosshair: Label
 var objective_label: Label
@@ -49,15 +51,32 @@ func _build() -> void:
 	root.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(root)
 
-	# Center-bottom context prompt.
+	# Context prompt — a subtle chip sitting just under the crosshair, so the "what
+	# button do I press" answer is always right where the eyes already are. Auto-sizes
+	# to its text and stays centered; hidden entirely when there's nothing to interact with.
+	prompt_chip = PanelContainer.new()
+	prompt_chip.set_anchors_preset(Control.PRESET_CENTER)
+	prompt_chip.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	prompt_chip.grow_vertical = Control.GROW_DIRECTION_BOTH
+	prompt_chip.position = Vector2(0, 44)
+	prompt_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var chip_style := StyleBoxFlat.new()
+	chip_style.bg_color = Color(0.04, 0.05, 0.06, 0.72)
+	chip_style.set_corner_radius_all(7)
+	chip_style.content_margin_top = 6
+	chip_style.content_margin_bottom = 6
+	chip_style.content_margin_left = 16
+	chip_style.content_margin_right = 16
+	chip_style.border_color = Color(0.55, 0.6, 0.62, 0.5)
+	chip_style.set_border_width_all(1)
+	prompt_chip.add_theme_stylebox_override("panel", chip_style)
+	prompt_chip.visible = false
+	root.add_child(prompt_chip)
 	prompt_label = Label.new()
-	prompt_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	prompt_label.position += Vector2(-200, -120)
-	prompt_label.custom_minimum_size = Vector2(400, 30)
 	prompt_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	prompt_label.add_theme_font_size_override("font_size", 18)
-	prompt_label.add_theme_color_override("font_color", Color(0.9, 0.9, 0.85))
-	root.add_child(prompt_label)
+	prompt_label.add_theme_font_size_override("font_size", 17)
+	prompt_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.9))
+	prompt_chip.add_child(prompt_label)
 
 	# Toast line above the prompt.
 	toast_label = Label.new()
@@ -210,12 +229,27 @@ func _build() -> void:
 	card_box.add_child(credits)
 
 func show_prompt(text: String) -> void:
-	prompt_label.text = ("[E]  " + text) if text != "" else ""
+	if prompt_locked:
+		return   # a scripted hint (e.g. the cold open) owns the chip right now
+	_set_chip(("[E]   " + text) if text != "" else "")
 	set_targeting(text != "")
 
 func show_prompt_raw(text: String) -> void:
 	## Used while carrying a prop — full control of the line, no "[E]" prefix.
+	if prompt_locked:
+		return
+	_set_chip(text)
+
+## A persistent, ray-proof prompt for scripted moments (cold open, tutorials).
+## Pass "" to release it back to the interaction system.
+func set_hint(text: String) -> void:
+	prompt_locked = text != ""
+	_set_chip(text)
+	set_targeting(text != "")
+
+func _set_chip(text: String) -> void:
 	prompt_label.text = text
+	prompt_chip.visible = text != ""
 
 func set_targeting(on: bool) -> void:
 	if not crosshair:

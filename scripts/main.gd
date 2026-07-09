@@ -41,10 +41,13 @@ func _ready() -> void:
 	_spawn_props()
 	# Cold open: black screen, regulator hiss, rhythmic hull clang.
 	hud.set_black()
-	hud.set_objective("Surface pressure equalizing…    [E] force the hatch")
+	hud.set_objective("Surface pressure equalizing…")
 	AudioDirector.play_one_shot("hiss", Vector3.ZERO, -6.0)
 	var t := get_tree().create_timer(1.2)
-	t.timeout.connect(func() -> void: hud.fade_from_black(3.0))
+	t.timeout.connect(func() -> void:
+		hud.fade_from_black(3.0)
+		# Once the player can see, tell them plainly how to get out.
+		hud.set_hint("Press  E  to force the hatch open"))
 
 func _spawn_props() -> void:
 	var base: Vector3 = rig.wet_deck_respawn
@@ -187,6 +190,7 @@ func _end_cold_open() -> void:
 	rig.countdown_label.modulate = Color(0.3, 0.9, 0.4)
 	AudioDirector.play_one_shot("hiss", rig.sphl_interior, 0.0)
 	rig.sphl_hatch.unlock()
+	hud.set_hint("")   # hand the prompt chip back to the interaction system
 	hud.set_objective("Get out. Find the cable spool and restore power before dark.")
 	hud.toast("The hatch gives. Cold air. You're on the rig.")
 	EventBus.cold_open_finished.emit()

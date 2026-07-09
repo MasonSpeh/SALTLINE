@@ -32,19 +32,11 @@ var night_range_multiplier: float = 1.0
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for bed_name in BED_DEFS:
-		var stream: AudioStream = load(BED_DEFS[bed_name]) if ResourceLoader.exists(BED_DEFS[bed_name]) else null
 		var p := AudioStreamPlayer.new()
-		p.stream = stream
 		p.volume_db = -80.0
 		p.bus = "Master"
 		add_child(p)
-		if stream:
-			p.finished.connect(p.play) # seamless-enough looping for noise beds
-			p.play()
 		_beds[bed_name] = p
-	for shot_name in ONE_SHOTS:
-		if ResourceLoader.exists(ONE_SHOTS[shot_name]):
-			_streams[shot_name] = load(ONE_SHOTS[shot_name])
 
 	_groan_timer = Timer.new()
 	_groan_timer.one_shot = true
@@ -62,7 +54,20 @@ func _ready() -> void:
 	GameClock.phase_changed.connect(_on_phase_changed)
 	PowerGrid.circuit_powered.connect(func(_id: String) -> void: _update_hum())
 	PowerGrid.circuit_lost.connect(func(_id: String) -> void: _update_hum())
-	_on_phase_changed(GameClock.current_phase)
+	call_deferred("_load_audio")
+	call_deferred("_on_phase_changed", GameClock.current_phase)
+
+func _load_audio() -> void:
+	for bed_name in BED_DEFS:
+		if ResourceLoader.exists(BED_DEFS[bed_name]):
+			var stream: AudioStream = load(BED_DEFS[bed_name])
+			_beds[bed_name].stream = stream
+			if stream:
+				_beds[bed_name].finished.connect(_beds[bed_name].play)
+				_beds[bed_name].play()
+	for shot_name in ONE_SHOTS:
+		if ResourceLoader.exists(ONE_SHOTS[shot_name]):
+			_streams[shot_name] = load(ONE_SHOTS[shot_name])
 
 func _on_phase_changed(phase: GameClock.Phase) -> void:
 	var is_night: bool = phase == GameClock.Phase.NIGHT

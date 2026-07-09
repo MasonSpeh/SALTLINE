@@ -15,13 +15,27 @@ func _ready() -> void:
 	buoyant = true
 	mass = 0.3
 	add_to_group("lit_flares")
-	build_visual(Vector3(0.09, 0.28, 0.09), MatLib.flat(Color(0.9, 0.2, 0.12), true, 3.0), true)
+	_build_visual(Vector3(0.09, 0.28, 0.09), MatLib.flat(Color(0.9, 0.2, 0.12), true, 3.0))
 	_light = OmniLight3D.new()
 	_light.light_color = Color(1.0, 0.25, 0.12)
 	_light.light_energy = 2.6
 	_light.omni_range = 8.0
 	_light.light_volumetric_fog_energy = 2.5
 	add_child(_light)
+
+## Build a simple boxed mesh + matching collision for this physics prop.
+func _build_visual(size: Vector3, material: Material) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	bm.material = material
+	mi.mesh = bm
+	add_child(mi)
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = size
+	col.shape = shape
+	add_child(col)
 
 func _process(delta: float) -> void:
 	if not lit:

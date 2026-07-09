@@ -8,10 +8,10 @@ class_name CableSegment extends Interactable
 var connected: bool = false
 
 func _init() -> void:
-	verbs = ["CONNECT"]
+	verbs = ["CONNECT"] as Array[String]
 
 func available_verbs() -> Array[String]:
-	return [] if connected else ["CONNECT"]
+	return ([] if connected else ["CONNECT"]) as Array[String]
 
 func interact(verb: String, player: Node3D) -> void:
 	super(verb, player)

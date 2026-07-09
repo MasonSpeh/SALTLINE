@@ -21,7 +21,7 @@ static func _noise_tex(seed_val: int, frequency: float, floor_val: float = 0.7, 
 	tex.color_ramp = g
 	return tex
 
-static func _surface(key: String, base: Color, tint: Color, roughness: float,
+static func _surface(key: String, base: Color, _tint: Color, roughness: float,
 		noise_seed: int, noise_freq: float, metallic: float = 0.0) -> StandardMaterial3D:
 	if _cache.has(key):
 		return _cache[key]

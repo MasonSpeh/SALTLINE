@@ -8,12 +8,12 @@ var is_open: bool = false
 var _busy: bool = false
 
 func _init() -> void:
-	verbs = ["OPEN"]
+	verbs = ["OPEN"] as Array[String]
 
 func available_verbs() -> Array[String]:
 	if locked or _busy:
-		return []
-	return ["CLOSE"] if is_open else ["OPEN"]
+		return [] as Array[String]
+	return (["CLOSE"] if is_open else ["OPEN"]) as Array[String]
 
 func unlock() -> void:
 	locked = false

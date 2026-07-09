@@ -6,10 +6,10 @@ class_name LootContainer extends Interactable
 var _opened: bool = false
 
 func _init() -> void:
-	verbs = ["OPEN"]
+	verbs = ["OPEN"] as Array[String]
 
 func available_verbs() -> Array[String]:
-	return [] if _opened else ["OPEN"]
+	return ([] if _opened else ["OPEN"]) as Array[String]
 
 func interact(verb: String, player: Node3D) -> void:
 	super(verb, player)
