@@ -11,9 +11,11 @@ func _init() -> void:
 	verbs = ["OPEN"] as Array[String]
 
 func available_verbs() -> Array[String]:
+	var out: Array[String] = []
 	if locked or _busy:
-		return [] as Array[String]
-	return (["CLOSE"] if is_open else ["OPEN"]) as Array[String]
+		return out
+	out.append("CLOSE" if is_open else "OPEN")
+	return out
 
 func unlock() -> void:
 	locked = false

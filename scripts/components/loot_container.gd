@@ -9,7 +9,10 @@ func _init() -> void:
 	verbs = ["OPEN"] as Array[String]
 
 func available_verbs() -> Array[String]:
-	return ([] if _opened else ["OPEN"]) as Array[String]
+	var out: Array[String] = []
+	if not _opened:
+		out.append("OPEN")
+	return out
 
 func interact(verb: String, player: Node3D) -> void:
 	super(verb, player)

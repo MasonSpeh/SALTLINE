@@ -13,7 +13,10 @@ func set_cable(c: CableSegment) -> void:
 	_cable = c
 
 func available_verbs() -> Array[String]:
-	return ([] if PowerGrid.is_powered(circuit_id) else ["OPERATE"]) as Array[String]
+	var out: Array[String] = []
+	if not PowerGrid.is_powered(circuit_id):
+		out.append("OPERATE")
+	return out
 
 func interact(verb: String, player: Node3D) -> void:
 	super(verb, player)

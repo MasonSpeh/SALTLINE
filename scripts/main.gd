@@ -2,15 +2,12 @@ extends Node3D
 ## Main orchestrator: builds environment/ocean/rig/player/UI in code, then runs the
 ## slice's scripted beats — cold open, PA crackle at dusk, crab at night, dawn end card.
 
-const COUNTDOWN_SECONDS: float = 20.0
-
 var rig: RigBuilder
 var player: CharacterBody3D
 var hud: HUD
 var sun_ctl: SunController
-var _countdown: float = COUNTDOWN_SECONDS
+var _countdown: float = 0.0   # retained for the screenshot harness; no longer ticks
 var _cold_open_active: bool = true
-var _clang_accum: float = 0.0
 var _ending: bool = false
 var _contact_handled: bool = false
 
@@ -26,7 +23,7 @@ func _ready() -> void:
 	player = load("res://scenes/Player.tscn").instantiate()
 	add_child(player)
 	player.global_position = rig.player_spawn
-	player.rotation.y = deg_to_rad(-90)   # face the hatch end
+	player.rotation.y = deg_to_rad(180)   # face the hatch (+Z), so forward walks out
 	player.respawn_point = rig.wet_deck_respawn
 	hud = HUD.new()
 	add_child(hud)
@@ -39,15 +36,12 @@ func _ready() -> void:
 	EventBus.creature_contact.connect(_on_creature_contact)
 	# Drop a few loose grabbables on the wet deck — something to physically handle.
 	_spawn_props()
-	# Cold open: black screen, regulator hiss, rhythmic hull clang.
-	hud.set_black()
-	hud.set_objective("Surface pressure equalizing…")
+	# Immediate start — no countdown, no black screen, no locked input. The hatch is
+	# already unlocked, so the player can look at it and press E to swing it open on
+	# the first try, then walk straight out onto the rig.
 	AudioDirector.play_one_shot("hiss", Vector3.ZERO, -6.0)
-	var t := get_tree().create_timer(1.2)
-	t.timeout.connect(func() -> void:
-		hud.fade_from_black(3.0)
-		# Once the player can see, tell them plainly how to get out.
-		hud.set_hint("Press  E  to force the hatch open"))
+	hud.set_objective("Surface pressure equalized. Open the hatch [E] and get out.")
+	rig.sphl_hatch.interacted.connect(_on_hatch_used)
 
 func _spawn_props() -> void:
 	var base: Vector3 = rig.wet_deck_respawn
@@ -73,12 +67,6 @@ func _spawn_props() -> void:
 		shape.size = size
 		col.shape = shape
 		prop.add_child(col)
-
-func _unhandled_input(event: InputEvent) -> void:
-	# Let the player cut the cold open short instead of watching the whole countdown.
-	if _cold_open_active and event.is_action_pressed("interact"):
-		_end_cold_open()
-		get_viewport().set_input_as_handled()
 
 func _build_environment() -> void:
 	# Physical sky: real sun disc, natural dawn/dusk scattering, black at night.
@@ -168,31 +156,21 @@ func _build_ocean() -> void:
 	add_child(far)
 	far.position.y = -1.35   # below the deepest v2 trough so it never pokes through
 
-func _process(delta: float) -> void:
-	if _cold_open_active:
-		_countdown -= delta
-		_clang_accum += delta
-		if _clang_accum > 4.0:
-			_clang_accum = 0.0
-			AudioDirector.play_one_shot("clang", rig.sphl_interior, -4.0)
-		if _countdown <= 0.0:
-			_end_cold_open()
-		else:
-			var m: int = int(_countdown) / 60
-			var s: int = int(_countdown) % 60
-			rig.countdown_label.text = "SURFACE PRESSURE — %02d:%02d:%02d" % [0, m, s]
+func _on_hatch_used(_verb: String) -> void:
+	# First time the player opens the SPHL hatch, advance from the intro beat.
+	_end_cold_open()
 
 func _end_cold_open() -> void:
 	if not _cold_open_active:
 		return
 	_cold_open_active = false
-	rig.countdown_label.text = "SURFACE PRESSURE — 00:00:00"
+	rig.countdown_label.text = "PRESSURE — EQUALIZED"
 	rig.countdown_label.modulate = Color(0.3, 0.9, 0.4)
 	AudioDirector.play_one_shot("hiss", rig.sphl_interior, 0.0)
 	rig.sphl_hatch.unlock()
 	hud.set_hint("")   # hand the prompt chip back to the interaction system
 	hud.set_objective("Get out. Find the cable spool and restore power before dark.")
-	hud.toast("The hatch gives. Cold air. You're on the rig.")
+	hud.toast("Cold air. You're on the rig.")
 	EventBus.cold_open_finished.emit()
 
 func _on_circuit_powered(id: String) -> void:

@@ -8,7 +8,7 @@ const WET_Y: float = 2.0          # Wet Deck floor
 const WALL_H: float = 3.2
 const WALL_T: float = 0.25
 
-var player_spawn: Vector3 = Vector3(16.5, WET_Y + 0.2, -24.0)
+var player_spawn: Vector3 = Vector3(20.0, WET_Y + 0.2, -24.7)   # dead ahead of the hatch
 var wet_deck_respawn: Vector3 = Vector3(20.0, WET_Y + 0.6, -10.0)
 var sphl_hatch: InteractDoor
 var sphl_interior: Vector3 = Vector3(16.5, WET_Y + 0.4, -24.0)
@@ -538,7 +538,7 @@ func _build_sphl() -> void:
 	# Hatch door (locked until the countdown ends).
 	sphl_hatch = InteractDoor.new()
 	sphl_hatch.display_name = "Hatch"
-	sphl_hatch.locked = true
+	sphl_hatch.locked = false   # openable on the first E press — no forced cold-open wait
 	add_child(sphl_hatch)
 	sphl_hatch.global_position = Vector3(19.42, WET_Y + 0.25, -22.75)
 	sphl_hatch.build_box_visual(Vector3(1.16, 2.0, 0.15), MatLib.sphl_orange().albedo_color)
@@ -556,10 +556,10 @@ func _build_sphl() -> void:
 	add_child(red)
 	red.global_position = Vector3(17, WET_Y + 2.2, -24)
 	countdown_label = Label3D.new()
-	countdown_label.text = "SURFACE PRESSURE — 00:01:30"
+	countdown_label.text = "PRESSURE — EQUALIZED"
 	countdown_label.font_size = 40
 	countdown_label.pixel_size = 0.004
-	countdown_label.modulate = Color(1.0, 0.3, 0.2)
+	countdown_label.modulate = Color(0.3, 0.9, 0.4)
 	add_child(countdown_label)
 	countdown_label.global_position = Vector3(15.05, WET_Y + 1.6, -24)
 	countdown_label.rotation.y = deg_to_rad(-90)

@@ -28,17 +28,19 @@ func _run() -> void:
 	var player: Node3D = main.player
 	_check(rig != null, "rig built")
 	_check(player != null, "player spawned")
-	_check(rig.sphl_hatch != null and rig.sphl_hatch.locked, "SPHL hatch starts locked")
-	_check(rig.countdown_label != null, "countdown readout exists")
-	_check(player.global_position.distance_to(rig.player_spawn) < 1.0, "player starts in SPHL")
+	# Immediate-start design: the hatch is unlocked from the first frame, so a new
+	# player can open it on the first E press instead of waiting out a countdown.
+	_check(rig.sphl_hatch != null and not rig.sphl_hatch.locked, "SPHL hatch starts unlocked")
+	_check(rig.countdown_label != null, "pressure readout exists")
+	_check(player.global_position.distance_to(rig.player_spawn) < 1.0, "player starts at the hatch")
 
-	# Cold open completes -> hatch unlocks.
-	main._countdown = 0.1
-	await get_tree().create_timer(0.3).timeout
-	_check(not rig.sphl_hatch.locked, "hatch unlocked after countdown")
-	_check(not rig.sphl_hatch.available_verbs().is_empty(), "hatch now OPEN-able")
+	# Opening the hatch advances the intro objective (cold_open_finished beat).
+	_check(not rig.sphl_hatch.available_verbs().is_empty(), "hatch is OPEN-able immediately")
 	rig.sphl_hatch.interact("OPEN", player)
 	_check(rig.sphl_hatch.is_open, "hatch opens")
+	await get_tree().process_frame
+	_check(main.hud.objective_label.text.to_lower().contains("power"),
+		"opening the hatch advances the objective")
 
 	# Readables.
 	Readable.load_texts()

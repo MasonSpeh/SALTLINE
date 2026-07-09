@@ -11,7 +11,10 @@ func _init() -> void:
 	verbs = ["CONNECT"] as Array[String]
 
 func available_verbs() -> Array[String]:
-	return ([] if connected else ["CONNECT"]) as Array[String]
+	var out: Array[String] = []
+	if not connected:
+		out.append("CONNECT")
+	return out
 
 func interact(verb: String, player: Node3D) -> void:
 	super(verb, player)

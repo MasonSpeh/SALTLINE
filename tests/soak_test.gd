@@ -29,10 +29,9 @@ func _run() -> void:
 	for sig in ["dawn", "day", "dusk", "night"]:
 		GameClock.connect(sig, func() -> void: events[sig] = true)
 
-	# Cold open at real speed would take 90s; compress it.
-	main._countdown = 1.0
-	await get_tree().create_timer(1.5).timeout
-	_check(not main.rig.sphl_hatch.locked, "cold open completed, hatch unlocked")
+	# Immediate start: the hatch is unlocked from the first frame — no countdown to wait out.
+	await get_tree().process_frame
+	_check(not main.rig.sphl_hatch.locked, "hatch unlocked from the start")
 
 	# Wait for DAY, then solve the power puzzle the way a player would.
 	await _wait_for_phase(GameClock.Phase.DAY, 30.0)
