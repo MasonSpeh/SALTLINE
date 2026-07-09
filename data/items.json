@@ -5,5 +5,6 @@
 	"water_ration": { "name": "Water Ration", "use": "eat", "hunger": 0.05 },
 	"cable_spool": { "name": "Cable Spool", "use": "tool" },
 	"prybar": { "name": "Prybar", "use": "tool" },
-	"flare": { "name": "Flare", "use": "tool" }
+	"flare": { "name": "Flare", "use": "tool" },
+	"life_ring": { "name": "Life Ring", "use": "tool" }
 }

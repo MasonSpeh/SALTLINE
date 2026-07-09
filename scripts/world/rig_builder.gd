@@ -38,6 +38,9 @@ func _ready() -> void:
 	_build_sphl()
 	_build_imposters()
 	_build_spill_lights()
+	_build_access()
+	_decorate_interiors()
+	_build_env_objects()
 
 ## Daylight spill for interiors (greybox stand-in for door/window light shafts).
 ## Grouped so SunController scales them with the sun — interiors go dark at night.
@@ -178,7 +181,8 @@ func _ladder(pos: Vector3, height: float, facing_deg: float, name_: String = "La
 func _build_structure() -> void:
 	var legs := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 	for leg_pos in legs:
-		_box(leg_pos + Vector3(0, 7, 0), Vector3(6, 22, 6), MatLib.rust_steel())
+		# Top ends below the deck slab — coplanar faces z-fight through the floors above.
+		_box(leg_pos + Vector3(0, 6.6, 0), Vector3(6, 20.8, 6), MatLib.rust_steel())
 	# Pontoons at the waterline.
 	_box(Vector3(0, -1.5, -12), Vector3(56, 4, 8), MatLib.dark_metal())
 	_box(Vector3(0, -1.5, 12), Vector3(56, 4, 8), MatLib.dark_metal())
@@ -565,6 +569,194 @@ func _build_sphl() -> void:
 	# Mooring cradle under the pod.
 	_box(Vector3(18, WET_Y - 0.6, -23.2), Vector3(1.0, 1.2, 0.4), MatLib.rust_steel())
 	_box(Vector3(18, WET_Y - 0.6, -24.8), Vector3(1.0, 1.2, 0.4), MatLib.rust_steel())
+
+# ---------- Accessibility: every area reachable ----------
+
+func _build_access() -> void:
+	# Wet Deck -> south pontoon (the under-rig walkway: barnacles, eel, jellies up close).
+	_ladder(Vector3(7.8, 0.5, -12), 1.6, 90.0, "Pontoon Ladder", 0.9)
+	# Wet Deck -> pump room roof (small vantage, stashed crate).
+	_ladder(Vector3(18.25, WET_Y, -8), 3.5, -90.0, "Roof Ladder", 1.0)
+	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.55, -8.5))
+	# Topside -> galley roof (antenna array, vent fan, the best sunset seat).
+	_ladder(Vector3(14.25, DECK_Y, 15), 3.55, -90.0, "Galley Roof Ladder", 1.0)
+	# Topside -> bunkhouse roof (vent fans, and the long view west).
+	_ladder(Vector3(-7.75, DECK_Y, 15.5), 3.55, 90.0, "Bunkhouse Roof Ladder", 1.0)
+	_readable("roof_mark", "Chalk Tally", Vector3(-18, DECK_Y + WALL_H + 0.4, 8), Vector3(0.4, 0.05, 0.3))
+
+# ---------- Interior decoration (GDD room dressing) ----------
+
+func _cyl_nc(pos: Vector3, radius: float, height: float, mat: Material) -> CSGCylinder3D:
+	var c := CSGCylinder3D.new()
+	c.radius = radius
+	c.height = height
+	c.material = mat
+	c.use_collision = false
+	add_child(c)
+	c.position = pos
+	return c
+
+func _decorate_interiors() -> void:
+	_decorate_bunkhouse()
+	_decorate_galley()
+	_decorate_rec_room()
+	_decorate_machine_shop()
+	_decorate_pump_room()
+	_decorate_sphl()
+	_decorate_electrical()
+
+func _decorate_bunkhouse() -> void:
+	var y: float = DECK_Y
+	var bed_positions := [
+		Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
+		Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5),
+	]
+	for i in range(bed_positions.size()):
+		var p: Vector3 = bed_positions[i]
+		# Pillow at the head of every bed.
+		_box(p + Vector3(0, 0.68, -0.8), Vector3(0.55, 0.1, 0.35), MatLib.flat(Color(0.88, 0.88, 0.84)), self, false)
+		if i % 2 == 1:
+			# Boots kicked off at the foot of the slept-in beds.
+			_box(p + Vector3(-0.35, 0.12, 1.3), Vector3(0.14, 0.24, 0.3), MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
+			_box(p + Vector3(-0.15, 0.12, 1.35), Vector3(0.14, 0.24, 0.3), MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
+			# Locker door left hanging open.
+			var door := _box(p + Vector3(1.45, 0.9, -0.45), Vector3(0.04, 1.7, 0.45), MatLib.painted_steel(), self, false)
+			door.rotation.y = 0.7
+	# Corridor light strip (dead — the grid is down; it stays a dark fixture).
+	_box(Vector3(-18, y + 3.0, 11), Vector3(16, 0.08, 0.3), MatLib.dark_metal(), self, false)
+	# A duffel someone packed and never took.
+	_box(Vector3(-21.5, y + 0.2, 8.5), Vector3(0.5, 0.4, 0.95), MatLib.flat(Color(0.3, 0.35, 0.28)), self, false)
+	# Faded poster of somewhere green.
+	_box(Vector3(-12.0, y + 1.8, 17.85), Vector3(0.7, 0.9, 0.03), MatLib.flat(Color(0.35, 0.5, 0.4)), self, false)
+
+func _decorate_galley() -> void:
+	var y: float = DECK_Y
+	# Stove with two burners and one pot still on the heat that never came.
+	_box(Vector3(11.5, y + 0.5, 16.2), Vector3(1.3, 1.0, 1.2), MatLib.dark_metal())
+	_cyl_nc(Vector3(11.2, y + 1.02, 15.9), 0.18, 0.03, MatLib.flat(Color(0.1, 0.1, 0.1)))
+	_cyl_nc(Vector3(11.8, y + 1.02, 16.5), 0.18, 0.03, MatLib.flat(Color(0.1, 0.1, 0.1)))
+	_cyl_nc(Vector3(11.2, y + 1.15, 15.9), 0.2, 0.24, MatLib.painted_steel())
+	# Fridge, door ajar.
+	_box(Vector3(-1.2, y + 0.95, 15.2), Vector3(0.9, 1.9, 0.9), MatLib.flat(Color(0.82, 0.84, 0.82)))
+	var fdoor := _box(Vector3(-0.7, y + 0.95, 15.85), Vector3(0.06, 1.85, 0.85), MatLib.flat(Color(0.78, 0.8, 0.78)), self, false)
+	fdoor.rotation.y = 0.5
+	# Wall shelves with canned rows.
+	for sy in [1.6, 2.2]:
+		_box(Vector3(-1.6, y + sy, 12.5), Vector3(0.35, 0.06, 3.2), MatLib.wood(), self, false)
+		for i in range(5):
+			_cyl_nc(Vector3(-1.6, y + sy + 0.12, 11.2 + i * 0.6), 0.09, 0.18, MatLib.flat(Color(0.6, 0.58, 0.5)))
+	# Pan rail over the counter.
+	_cyl_nc(Vector3(9.5, y + 2.2, 17.4), 0.02, 3.0, MatLib.dark_metal()).rotation.z = deg_to_rad(90)
+	for i in range(3):
+		_cyl_nc(Vector3(8.3 + i * 1.1, y + 1.95, 17.4), 0.22, 0.04, MatLib.dark_metal())
+
+func _decorate_rec_room() -> void:
+	var y: float = DECK_Y
+	# Rug, low table, and a card game nobody finished.
+	_box(Vector3(23, y + 0.02, 12.5), Vector3(3.4, 0.03, 2.4), MatLib.flat(Color(0.4, 0.2, 0.18)), self, false)
+	_box(Vector3(23, y + 0.28, 12.5), Vector3(1.5, 0.08, 0.95), MatLib.wood())
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 4242
+	for i in range(7):
+		var card := _box(Vector3(23 + rng.randf_range(-0.6, 0.6), y + 0.34, 12.5 + rng.randf_range(-0.35, 0.35)),
+			Vector3(0.12, 0.005, 0.18), MatLib.flat(Color(0.92, 0.92, 0.88)), self, false)
+		card.rotation.y = rng.randf_range(0, TAU)
+	# Bookshelf with two rows.
+	_box(Vector3(25.5, y + 1.0, 17.6), Vector3(1.8, 2.0, 0.35), MatLib.wood())
+	for row in [0.6, 1.5]:
+		for i in range(6):
+			_box(Vector3(24.85 + i * 0.24, y + row + 0.25, 17.55), Vector3(0.16, 0.5, 0.24),
+				MatLib.flat(Color(0.25 + (i % 3) * 0.12, 0.22, 0.3 - (i % 2) * 0.08)), self, false)
+	# Wall clock, stopped at 2:47 — nobody wound it again.
+	_cyl_nc(Vector3(18.2, y + 2.3, 15), 0.28, 0.05, MatLib.flat(Color(0.9, 0.9, 0.86))).rotation.z = deg_to_rad(90)
+	var hand_h := _box(Vector3(18.26, y + 2.34, 15.04), Vector3(0.02, 0.12, 0.02), MatLib.flat(Color(0.1, 0.1, 0.1)), self, false)
+	hand_h.rotation.x = deg_to_rad(52)
+	var hand_m := _box(Vector3(18.26, y + 2.3, 14.92), Vector3(0.02, 0.2, 0.02), MatLib.flat(Color(0.1, 0.1, 0.1)), self, false)
+	hand_m.rotation.x = deg_to_rad(-64)
+
+func _decorate_machine_shop() -> void:
+	var y: float = DECK_Y
+	# Pegboard of tools, visible through the window — the tease continues.
+	_box(Vector3(-21, y + 1.9, -17.6), Vector3(3.0, 1.4, 0.06), MatLib.flat(Color(0.75, 0.72, 0.6)), self, false)
+	var tool_colors := [Color(0.7, 0.3, 0.2), Color(0.3, 0.4, 0.6), Color(0.5, 0.5, 0.5), Color(0.7, 0.6, 0.2), Color(0.4, 0.4, 0.4), Color(0.6, 0.35, 0.25)]
+	for i in range(6):
+		_box(Vector3(-22.2 + i * 0.5, y + 1.9 + (0.25 if i % 2 == 0 else -0.2), -17.55),
+			Vector3(0.1, 0.4, 0.06), MatLib.flat(tool_colors[i]), self, false)
+	# Vise on the drafting table; parts bins along the wall.
+	_box(Vector3(-19.6, y + 1.2, -12), Vector3(0.35, 0.25, 0.3), MatLib.dark_metal(), self, false)
+	for i in range(3):
+		_box(Vector3(-26.5, y + 0.2, -14.5 + i * 1.4), Vector3(0.8, 0.4, 1.0),
+			MatLib.flat([Color(0.55, 0.25, 0.2), Color(0.25, 0.35, 0.5), Color(0.45, 0.45, 0.4)][i]))
+
+func _decorate_pump_room() -> void:
+	var y: float = WET_Y
+	# Pipe runs along the north wall, one valve wheel each.
+	for py in [2.6, 3.2]:
+		var pipe := _cyl_nc(Vector3(14, y + py, -6.5), 0.12, 7.0, MatLib.rusty_metal())
+		pipe.rotation.z = deg_to_rad(90)
+	for vx in [12.0, 16.0]:
+		var wheel := CSGTorus3D.new()
+		wheel.inner_radius = 0.12
+		wheel.outer_radius = 0.22
+		wheel.material = MatLib.flat(Color(0.6, 0.15, 0.1))
+		wheel.use_collision = false
+		add_child(wheel)
+		wheel.position = Vector3(vx, y + 2.6, -6.75)
+		wheel.rotation.x = deg_to_rad(90)
+	# Gauges on the dead pump — needles all at zero.
+	for gx in [11.6, 12.4]:
+		_cyl_nc(Vector3(gx, y + 1.9, -11.2), 0.11, 0.04, MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
+
+func _decorate_sphl() -> void:
+	var y: float = WET_Y
+	# Bench seats, a first-aid box, an overhead grab rail — the pod you woke up in.
+	_box(Vector3(17.0, y + 0.42, -24.8), Vector3(3.5, 0.45, 0.45), MatLib.flat(Color(0.75, 0.4, 0.15)))
+	_box(Vector3(16.0, y + 0.42, -23.2), Vector3(1.8, 0.45, 0.45), MatLib.flat(Color(0.75, 0.4, 0.15)))
+	_box(Vector3(15.05, y + 1.3, -23.6), Vector3(0.12, 0.4, 0.5), MatLib.flat(Color(0.92, 0.92, 0.9)), self, false)
+	_box(Vector3(15.12, y + 1.3, -23.6), Vector3(0.02, 0.26, 0.08), MatLib.flat(Color(0.8, 0.15, 0.1)), self, false)
+	_box(Vector3(15.12, y + 1.3, -23.6), Vector3(0.02, 0.08, 0.26), MatLib.flat(Color(0.8, 0.15, 0.1)), self, false)
+	_cyl_nc(Vector3(17.5, y + 2.05, -24), 0.03, 4.0, MatLib.painted_steel()).rotation.z = deg_to_rad(90)
+
+func _decorate_electrical() -> void:
+	# Breaker Room 4-A: conduit drop and a hazard strip underfoot.
+	_box(Vector3(23, 10.35, 9.55), Vector3(0.08, 0.7, 0.08), MatLib.dark_metal(), self, false)
+	_box(Vector3(23, 10.02, 9.0), Vector3(1.6, 0.02, 0.8), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
+	# Machinery room: pipe run + a gauge on the dead machine.
+	var pipe := _cyl_nc(Vector3(29.6, 8.2, 6), 0.1, 7.0, MatLib.rusty_metal())
+	pipe.rotation.x = deg_to_rad(90)
+	_cyl_nc(Vector3(27, 7.1, 5.35), 0.1, 0.04, MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
+
+# ---------- Environmental objects ----------
+
+func _build_env_objects() -> void:
+	# 1. Oil drums — loose physics props, wet deck and topside.
+	for p in [Vector3(23.5, WET_Y + 0.6, -15.5), Vector3(24.4, WET_Y + 0.6, -14.6),
+			Vector3(10.5, WET_Y + 0.6, -17.5), Vector3(6.5, DECK_Y + 0.6, -13.2),
+			Vector3(-2.5, DECK_Y + 0.6, -17.2)]:
+		EnvObjects.oil_drum(self, p)
+	# 2. Life rings — one takeable by the SPHL, cosmetic ones on the topside rails.
+	EnvObjects.life_ring(self, Vector3(16.1, WET_Y + 1.4, -20.5), true)
+	EnvObjects.life_ring(self, Vector3(0, DECK_Y + 1.1, -19.75))
+	EnvObjects.life_ring(self, Vector3(-20, DECK_Y + 1.1, 19.75))
+	# 3. Fire barrel — warmth you don't need the grid for, out on the wet deck.
+	var barrel := EnvObjects.FireBarrel.new()
+	add_child(barrel)
+	barrel.global_position = Vector3(23, WET_Y + 0.01, -11)
+	# 4. Crane — hook swinging slow over the south deck.
+	var crane := EnvObjects.CraneHook.new()
+	add_child(crane)
+	crane.global_position = Vector3(18, DECK_Y, -17)
+	crane.rotation.y = deg_to_rad(180)
+	# 5. Antenna array with the blinking beacon, on the galley roof.
+	var antenna := EnvObjects.AntennaArray.new()
+	add_child(antenna)
+	antenna.global_position = Vector3(10, DECK_Y + WALL_H + 0.15, 12)
+	# 6. Vent fans — bunkhouse and galley roofs; they spin up when the grid comes on.
+	for p in [Vector3(-24, DECK_Y + WALL_H + 0.15, 8), Vector3(-14, DECK_Y + WALL_H + 0.15, 14),
+			Vector3(3, DECK_Y + WALL_H + 0.15, 15)]:
+		var fan := EnvObjects.VentFan.new()
+		add_child(fan)
+		fan.global_position = p
 
 # ---------- Horizon ----------
 

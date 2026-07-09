@@ -1,47 +1,51 @@
 {
-	"_schema": "readable_id -> { title, body }. Slice story carriers (GDD 5.3). Drafts by build AI from GDD canon - flag for designer pass.",
-	"sphl_manual": {
-		"title": "SPHL OPERATIONS MANUAL — PAGE 12",
-		"body": "SELF-PROPELLED HYPERBARIC LIFEBOAT — OCCUPANT NOTICE\n\nThis vessel is a pressure chamber. If you are reading this, the automated decompression schedule is ACTIVE. Do not attempt to open the hatch before the surface-pressure indicator reads zero. Explosive decompression at depth-saturation is not survivable.\n\nThe schedule cannot be shortened. The schedule cannot be paused. Your body is being returned to the surface world at the only speed it will tolerate.\n\nRemain calm. Ration water. The sea will hold you until the machine is done.\n\n— Meridian Deep Energy, Marine Safety Division"
-	},
-	"pressure_log": {
-		"title": "AUTOMATED PRESSURE LOG",
-		"body": "DECOMPRESSION SCHEDULE — DAY 6 OF 6\n\nDAY 1 — 09.2 BAR. OCCUPANT UNRESPONSIVE. VITALS STABLE.\nDAY 2 — 07.4 BAR. OCCUPANT UNRESPONSIVE. VITALS STABLE.\nDAY 3 — 05.1 BAR. OCCUPANT INTERMITTENTLY CONSCIOUS. SEDATION MAINTAINED PER PROTOCOL.\nDAY 4 — 03.3 BAR. HULL CONTACT EVENT. DRIFT ANCHOR DEPLOYED.\nDAY 5 — 01.9 BAR. OCCUPANT RESTLESS. SPOKE. NO CREW RESPONSE LOGGED.\nDAY 6 — 01.0 BAR. SURFACE PRESSURE IMMINENT.\n\nNOTE: NO RESPONSE FROM FIELD TRAFFIC CONTROL ON ANY CHANNEL. DAYS 1 THROUGH 6."
-	},
-	"crew_letter_1": {
-		"title": "UNSENT LETTER — BUNKHOUSE CABIN 2",
-		"body": "Marta —\n\nThree more weeks and I'm done, I mean it this time. The money's good but something's gone strange out here. They cut the food order again and nobody will say why. Whole pallets of tinned stuff going out on the supply boat instead of in.\n\nDon't tell your mother I said this, but the water's wrong lately. Osk saw something off the derrick at night watch, wouldn't say what, and he doesn't spook.\n\nKiss the boys. Three weeks.\n\n— Henrik"
-	},
-	"crew_letter_2": {
-		"title": "NOTE TAPED INSIDE A LOCKER — CABIN 5",
-		"body": "To whoever gets this bunk after me:\n\nThe heater rattles unless you wedge a coin in the grate. Third rung on the aft ladder is loose. Cook does real eggs on Sundays if you're early.\n\nAnd do yourself a favor — don't ask about the rig at the end of the line. Not because you'll get in trouble. Because nobody knows anything, and watching them realize it ruins card night.\n\n— G."
-	},
-	"rationing_memo": {
-		"title": "OPERATIONS MEMO — GALLEY COPY, GREASE-STAINED",
-		"body": "FROM: MERIDIAN DEEP ENERGY, LOGISTICS\nTO: ALL SALTLINE GALLEY STATIONS\nRE: PROVISIONING ADJUSTMENT — EFFECTIVE IMMEDIATELY\n\nStanding food resupply is reduced 40% for the remainder of the quarter. Galley staff will implement portion scheduling per the attached table.\n\nThis adjustment is logistical in nature. Crews with questions should direct them to their section leads, who have been instructed not to answer them.\n\nNOTE IN PEN, UNDERLINED TWICE: 'reduced for WHAT. we are 900 miles from anywhere. where does 40% of our food GO'"
-	},
-	"quiet_rig_note": {
-		"title": "TALLY BOOK PAGE — REC ROOM, UNDER THE DARTBOARD",
-		"body": "Werner swears the crew on the end rig signed papers thick as a fist. Says his cousin worked the supply run — they offload at night, nobody on deck, crane does it all.\n\nKristjan asked the company man straight out at the safety brief: what's it called, the end platform. Man smiled and said 'that's a processing terminus.' Processing what? Smiled again.\n\nWe've started calling it the Quiet Rig. Feels wrong to even write it down.\n\nAnyway. Darts Thursday. Werner owes me a bottle."
-	},
-	"breaker_log": {
-		"title": "MAINTENANCE LOG — BREAKER ROOM 4-A",
-		"body": "ELECTRICAL MAINTENANCE — RUNNING LOG\n\n04TH — Topside floodlight circuit tripping under load. Suspect corroded feed line in the stairwell corridor run. Flagged for splice.\n\n09TH — Splice postponed. Cable stock requisition DENIED, all spool inventory redirected 'down the line.' Down the line. Everything goes down the line now.\n\n11TH — Found scorch marks on the corridor run. Arc fault. Killed the whole circuit at the master rather than risk a fire. Topside's dark until we get spool stock.\n\nIf you need the deck lights: splice the corridor gap FIRST, then close the master here. In that order, unless you enjoy arc flash.\n\n— E.V., chief electrician"
-	},
-	"machine_shop_sign": {
-		"title": "NOTICE — MACHINE SHOP WINDOW",
-		"body": "MACHINE SHOP SEALED BY ORDER OF OIM\n\nHot-work permits suspended pending investigation of unauthorized fabrication activity.\n\nBeneath the notice, scratched into the paint:\n\n'they know about the raft'"
-	},
-	"lookout_note": {
-		"title": "WEATHERED NOTEBOOK — LOOKOUT POINT",
-		"body": "Best view on the whole line, and nobody comes up here but me and the gulls.\n\nYou can see all seven from the mast on a clear day. Ours, then the line of them, smaller and smaller, all the way out to the end one. The bridges look like stitches. Like somebody sewed the sea shut.\n\nFunny thing I noticed and can't stop noticing: the bridges get worse the farther out you look. Every big storm they patch ours first. Like the far end doesn't matter.\n\nOr like they know something's going to happen to it anyway."
-	},
-	"pump_room_tag": {
-		"title": "LAMINATED TAG — FLOODED PUMP ROOM",
-		"body": "PUMP ROOM 1-C — LOCKOUT/TAGOUT\n\nDO NOT RESTART. Bilge pumps offline for impeller service.\n\nDated the 11th. The month is smeared.\n\nThe tag is attached to a valve wheel below the waterline now. Whoever meant to come back to this never did."
-	},
-	"coffee_note": {
-		"title": "NAPKIN UNDER A FULL COFFEE CUP — GALLEY",
-		"body": "In pencil, casual handwriting:\n\n'Osk — night shift owes you for covering. Coffee's fresh, made a whole pot at 0330. Drink it while it's hot.\n\nBack in five.'\n\nThe cup is full. The pot is full.\n\nEverything here is exactly five minutes before something."
-	}
+ "_schema": "readable_id -> { title, body }. Slice story carriers (GDD 5.3). Drafts by build AI from GDD canon - flag for designer pass.",
+ "sphl_manual": {
+  "title": "SPHL OPERATIONS MANUAL — PAGE 12",
+  "body": "SELF-PROPELLED HYPERBARIC LIFEBOAT — OCCUPANT NOTICE\n\nThis vessel is a pressure chamber. If you are reading this, the automated decompression schedule is ACTIVE. Do not attempt to open the hatch before the surface-pressure indicator reads zero. Explosive decompression at depth-saturation is not survivable.\n\nThe schedule cannot be shortened. The schedule cannot be paused. Your body is being returned to the surface world at the only speed it will tolerate.\n\nRemain calm. Ration water. The sea will hold you until the machine is done.\n\n— Meridian Deep Energy, Marine Safety Division"
+ },
+ "pressure_log": {
+  "title": "AUTOMATED PRESSURE LOG",
+  "body": "DECOMPRESSION SCHEDULE — DAY 6 OF 6\n\nDAY 1 — 09.2 BAR. OCCUPANT UNRESPONSIVE. VITALS STABLE.\nDAY 2 — 07.4 BAR. OCCUPANT UNRESPONSIVE. VITALS STABLE.\nDAY 3 — 05.1 BAR. OCCUPANT INTERMITTENTLY CONSCIOUS. SEDATION MAINTAINED PER PROTOCOL.\nDAY 4 — 03.3 BAR. HULL CONTACT EVENT. DRIFT ANCHOR DEPLOYED.\nDAY 5 — 01.9 BAR. OCCUPANT RESTLESS. SPOKE. NO CREW RESPONSE LOGGED.\nDAY 6 — 01.0 BAR. SURFACE PRESSURE IMMINENT.\n\nNOTE: NO RESPONSE FROM FIELD TRAFFIC CONTROL ON ANY CHANNEL. DAYS 1 THROUGH 6."
+ },
+ "crew_letter_1": {
+  "title": "UNSENT LETTER — BUNKHOUSE CABIN 2",
+  "body": "Marta —\n\nThree more weeks and I'm done, I mean it this time. The money's good but something's gone strange out here. They cut the food order again and nobody will say why. Whole pallets of tinned stuff going out on the supply boat instead of in.\n\nDon't tell your mother I said this, but the water's wrong lately. Osk saw something off the derrick at night watch, wouldn't say what, and he doesn't spook.\n\nKiss the boys. Three weeks.\n\n— Henrik"
+ },
+ "crew_letter_2": {
+  "title": "NOTE TAPED INSIDE A LOCKER — CABIN 5",
+  "body": "To whoever gets this bunk after me:\n\nThe heater rattles unless you wedge a coin in the grate. Third rung on the aft ladder is loose. Cook does real eggs on Sundays if you're early.\n\nAnd do yourself a favor — don't ask about the rig at the end of the line. Not because you'll get in trouble. Because nobody knows anything, and watching them realize it ruins card night.\n\n— G."
+ },
+ "rationing_memo": {
+  "title": "OPERATIONS MEMO — GALLEY COPY, GREASE-STAINED",
+  "body": "FROM: MERIDIAN DEEP ENERGY, LOGISTICS\nTO: ALL SALTLINE GALLEY STATIONS\nRE: PROVISIONING ADJUSTMENT — EFFECTIVE IMMEDIATELY\n\nStanding food resupply is reduced 40% for the remainder of the quarter. Galley staff will implement portion scheduling per the attached table.\n\nThis adjustment is logistical in nature. Crews with questions should direct them to their section leads, who have been instructed not to answer them.\n\nNOTE IN PEN, UNDERLINED TWICE: 'reduced for WHAT. we are 900 miles from anywhere. where does 40% of our food GO'"
+ },
+ "quiet_rig_note": {
+  "title": "TALLY BOOK PAGE — REC ROOM, UNDER THE DARTBOARD",
+  "body": "Werner swears the crew on the end rig signed papers thick as a fist. Says his cousin worked the supply run — they offload at night, nobody on deck, crane does it all.\n\nKristjan asked the company man straight out at the safety brief: what's it called, the end platform. Man smiled and said 'that's a processing terminus.' Processing what? Smiled again.\n\nWe've started calling it the Quiet Rig. Feels wrong to even write it down.\n\nAnyway. Darts Thursday. Werner owes me a bottle."
+ },
+ "breaker_log": {
+  "title": "MAINTENANCE LOG — BREAKER ROOM 4-A",
+  "body": "ELECTRICAL MAINTENANCE — RUNNING LOG\n\n04TH — Topside floodlight circuit tripping under load. Suspect corroded feed line in the stairwell corridor run. Flagged for splice.\n\n09TH — Splice postponed. Cable stock requisition DENIED, all spool inventory redirected 'down the line.' Down the line. Everything goes down the line now.\n\n11TH — Found scorch marks on the corridor run. Arc fault. Killed the whole circuit at the master rather than risk a fire. Topside's dark until we get spool stock.\n\nIf you need the deck lights: splice the corridor gap FIRST, then close the master here. In that order, unless you enjoy arc flash.\n\n— E.V., chief electrician"
+ },
+ "machine_shop_sign": {
+  "title": "NOTICE — MACHINE SHOP WINDOW",
+  "body": "MACHINE SHOP SEALED BY ORDER OF OIM\n\nHot-work permits suspended pending investigation of unauthorized fabrication activity.\n\nBeneath the notice, scratched into the paint:\n\n'they know about the raft'"
+ },
+ "lookout_note": {
+  "title": "WEATHERED NOTEBOOK — LOOKOUT POINT",
+  "body": "Best view on the whole line, and nobody comes up here but me and the gulls.\n\nYou can see all seven from the mast on a clear day. Ours, then the line of them, smaller and smaller, all the way out to the end one. The bridges look like stitches. Like somebody sewed the sea shut.\n\nFunny thing I noticed and can't stop noticing: the bridges get worse the farther out you look. Every big storm they patch ours first. Like the far end doesn't matter.\n\nOr like they know something's going to happen to it anyway."
+ },
+ "pump_room_tag": {
+  "title": "LAMINATED TAG — FLOODED PUMP ROOM",
+  "body": "PUMP ROOM 1-C — LOCKOUT/TAGOUT\n\nDO NOT RESTART. Bilge pumps offline for impeller service.\n\nDated the 11th. The month is smeared.\n\nThe tag is attached to a valve wheel below the waterline now. Whoever meant to come back to this never did."
+ },
+ "coffee_note": {
+  "title": "NAPKIN UNDER A FULL COFFEE CUP — GALLEY",
+  "body": "In pencil, casual handwriting:\n\n'Osk — night shift owes you for covering. Coffee's fresh, made a whole pot at 0330. Drink it while it's hot.\n\nBack in five.'\n\nThe cup is full. The pot is full.\n\nEverything here is exactly five minutes before something."
+ },
+ "roof_mark": {
+  "title": "CHALK TALLY — BUNKHOUSE ROOF",
+  "body": "Someone came up here often. A wind-worn chalk tally on the roof plate, grouped in fives — thirty-one marks, then a gap, then four more drawn heavier, gouged in.\n\nBeside it, a chalk sketch: the horizon line, and above it a shape with wide flat wings. Underneath, three words, gone over twice:\n\nIT COMES BACK."
+ }
 }

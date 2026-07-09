@@ -19,10 +19,17 @@ func _ready() -> void:
 	await _shot(Vector3(28, 19.6, -18), 90.0, 4.0, GameClock.Phase.DUSK, "sl_dusk_sea", 0.55)
 	await _shot(Vector3(28, 19.6, -18), 270.0, 4.0, GameClock.Phase.DUSK, "sl_dusk_sea_w", 0.55)
 	await _shot(Vector3(20, 3.4, -12), -95.0, -10.0, GameClock.Phase.DAY, "sl_waves_close")
+	# New content: interiors, env objects, wildlife.
+	await _shot(Vector3(6, 19.7, 9.5), 180.0, -6.0, GameClock.Phase.DAY, "sl_galley")
+	await _shot(Vector3(19.5, 19.7, 9.5), 228.0, -8.0, GameClock.Phase.DAY, "sl_rec_room")
+	await _shot(Vector3(-8.6, 19.7, 11), 90.0, -4.0, GameClock.Phase.DAY, "sl_bunkhouse")
+	await _shot(Vector3(20.5, 3.8, -15), 210.0, -12.0, GameClock.Phase.DUSK, "sl_firebarrel", 0.6)
 	GameClock.force_phase(GameClock.Phase.DUSK)
 	await get_tree().create_timer(1.0).timeout
 	PowerGrid.power_circuit("topside_floodlights")
 	await _shot(Vector3(-8, 19.4, -1), 250.0, -8.0, GameClock.Phase.NIGHT, "sl_night_lit")
+	await _shot(Vector3(2, 1.6, -12), 90.0, -2.0, GameClock.Phase.NIGHT, "sl_pontoon_night")
+	await _shot(Vector3(-5, 19.8, 19), 180.0, -30.0, GameClock.Phase.NIGHT, "sl_bloom_sea")
 	get_tree().quit()
 
 func _shot(pos: Vector3, yaw_deg: float, pitch_deg: float, phase: GameClock.Phase, name_: String, frac: float = 0.0) -> void:

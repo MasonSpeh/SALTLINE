@@ -21,6 +21,7 @@ func _ready() -> void:
 	add_child(rig)
 	var jelly := JellyGlow.new()
 	add_child(jelly)
+	add_child(BloomFauna.new())   # gulls, jellies, barnacles, eel, shoal, ray, worms
 	player = load("res://scenes/Player.tscn").instantiate()
 	add_child(player)
 	player.global_position = rig.player_spawn
