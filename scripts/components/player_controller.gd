@@ -27,6 +27,7 @@ const STAMINA_MIN_TO_SPRINT: float = 0.1
 
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
+var carried: Node3D = null         ## currently held physics object
 var _stamina: float = STAMINA_MAX
 var _head_bob_time: float = 0.0
 var _camera_base_y: float
@@ -157,3 +158,15 @@ func _update_head_bob(delta: float, is_moving: bool, is_sprinting: bool) -> void
 	else:
 		_head_bob_time = 0.0
 		head.position.y = move_toward(head.position.y, _camera_base_y, delta * 0.1)
+
+func try_grab(prop: Node3D) -> void:
+	if carried:
+		drop_carried()
+	carried = prop
+	if carried is PhysProp:
+		(carried as PhysProp).held_by = self
+
+func drop_carried() -> void:
+	if carried is PhysProp:
+		(carried as PhysProp).held_by = null
+	carried = null

@@ -24,7 +24,7 @@ func _ready() -> void:
 		add_child(quad)
 		var angle: float = rng.randf_range(0, TAU)
 		var radius: float = rng.randf_range(34, 58)
-		quad.position = Vector3(cos(angle) * radius, 0.18, sin(angle) * radius)
+		quad.position = Vector3(cos(angle) * radius, 0.4, sin(angle) * radius)
 		quad.rotation.x = deg_to_rad(-90)
 	GameClock.dusk.connect(func() -> void: _target_energy = 1.6)
 	GameClock.dawn.connect(func() -> void: _target_energy = 0.0)

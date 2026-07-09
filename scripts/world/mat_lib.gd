@@ -78,3 +78,33 @@ static func flat(color: Color, emissive: bool = false, energy: float = 1.0) -> S
 		m.emission_energy_multiplier = energy
 	_cache[key] = m
 	return m
+
+static func glass(tint: Color = Color.WHITE) -> StandardMaterial3D:
+	var key: String = "glass_%s" % tint.to_html()
+	if _cache.has(key):
+		return _cache[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = Color(tint.r, tint.g, tint.b, 0.15)
+	m.roughness = 0.05
+	m.metallic = 0.1
+	_cache[key] = m
+	return m
+
+static func glowing(color: Color, intensity: float = 2.0) -> StandardMaterial3D:
+	var key: String = "glow_%s_%f" % [color.to_html(), intensity]
+	if _cache.has(key):
+		return _cache[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = color
+	m.emission_enabled = true
+	m.emission = color
+	m.emission_energy_multiplier = intensity
+	m.roughness = 0.4
+	_cache[key] = m
+	return m
+
+static func rusty_metal() -> StandardMaterial3D:
+	return _surface("rusty", Color(0.45, 0.25, 0.12), Color(0.25, 0.12, 0.05), 0.85, 102, 0.08)
+
+static func weathered_wood() -> StandardMaterial3D:
+	return _surface("weathered", Color(0.35, 0.28, 0.22), Color(0.2, 0.16, 0.12), 0.75, 607, 0.1)

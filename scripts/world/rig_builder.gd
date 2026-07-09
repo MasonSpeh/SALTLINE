@@ -468,6 +468,7 @@ func _build_floodlights() -> void:
 		spot.spot_range = 18.0
 		spot.spot_angle = 55.0
 		spot.light_energy = 10.0
+		spot.light_volumetric_fog_energy = 2.5   # visible beams in night air
 		spot.light_color = Color(1.0, 0.9, 0.7)   # warm light is player-made safety (canon)
 		spot.shadow_enabled = true
 		zone.add_light(spot)
@@ -547,6 +548,7 @@ func _build_sphl() -> void:
 	red.light_color = Color(0.9, 0.15, 0.1)
 	red.light_energy = 1.6
 	red.omni_range = 5.0
+	red.light_volumetric_fog_energy = 2.0
 	add_child(red)
 	red.global_position = Vector3(17, WET_Y + 2.2, -24)
 	countdown_label = Label3D.new()

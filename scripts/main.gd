@@ -41,36 +41,92 @@ func _ready() -> void:
 	t.timeout.connect(func() -> void: hud.fade_from_black(3.0))
 
 func _build_environment() -> void:
-	var sky_mat := ProceduralSkyMaterial.new()
+	# Physical sky: real sun disc, natural dawn/dusk scattering, black at night.
+	var sky_mat := PhysicalSkyMaterial.new()
+	sky_mat.sun_disk_scale = 3.0
+	sky_mat.mie_coefficient = 0.012
+	sky_mat.mie_eccentricity = 0.85
+	sky_mat.turbidity = 4.0
+	sky_mat.ground_color = Color(0.08, 0.1, 0.12)
 	var sky := Sky.new()
 	sky.sky_material = sky_mat
 	var env := Environment.new()
 	env.background_mode = Environment.BG_SKY
 	env.sky = sky
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_SKY
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	env.tonemap_white = 4.0
+	env.glow_enabled = true
+	env.glow_intensity = 0.6
+	env.glow_bloom = 0.05
+	env.glow_hdr_threshold = 0.8
+	env.ssao_enabled = true
+	env.ssao_radius = 2.0
+	env.ssao_intensity = 1.5
 	env.fog_enabled = true
-	env.fog_density = 0.0012
+	env.fog_density = 0.0008
+	env.volumetric_fog_enabled = true
+	env.volumetric_fog_density = 0.012
+	env.volumetric_fog_length = 110.0
+	env.volumetric_fog_sky_affect = 0.05
+	env.ambient_light_energy = 1.0
 	var we := WorldEnvironment.new()
 	we.environment = env
+	# Auto-exposure: the eye adapts — dark scenes stay readable without lying about night.
+	var cam_attrs := CameraAttributesPractical.new()
+	cam_attrs.auto_exposure_enabled = true
+	cam_attrs.auto_exposure_scale = 0.3
+	cam_attrs.auto_exposure_speed = 0.4
+	we.camera_attributes = cam_attrs
 	add_child(we)
-	var sun := DirectionalLight3D.new()
+	var sun := DirectionalLight3D.new()   # must be first DirectionalLight: sky tracks it
 	sun.shadow_enabled = true
+	sun.directional_shadow_max_distance = 120.0
 	add_child(sun)
+	var moon := DirectionalLight3D.new()
+	moon.light_color = Color(0.62, 0.72, 0.95)
+	moon.light_energy = 0.0
+	moon.shadow_enabled = true
+	moon.rotation_degrees = Vector3(-42, 140, 0)
+	add_child(moon)
+	# Star dome, faded in by the controller at night.
+	var star_mat := ShaderMaterial.new()
+	star_mat.shader = load("res://materials/stars.gdshader")
+	var dome_mesh := SphereMesh.new()
+	dome_mesh.radius = 1600.0
+	dome_mesh.height = 3200.0
+	dome_mesh.material = star_mat
+	var dome := MeshInstance3D.new()
+	dome.mesh = dome_mesh
+	add_child(dome)
 	sun_ctl = SunController.new()
 	add_child(sun_ctl)
-	sun_ctl.setup(sun, env)
+	sun_ctl.setup(sun, moon, env, star_mat)
 
 func _build_ocean() -> void:
-	var mesh := PlaneMesh.new()
-	mesh.size = Vector2(3000, 3000)
-	mesh.subdivide_width = 64
-	mesh.subdivide_depth = 64
-	var mat := ShaderMaterial.new()
-	mat.shader = load("res://materials/ocean_water.gdshader")
-	mesh.material = mat
-	var ocean := MeshInstance3D.new()
-	ocean.mesh = mesh
-	add_child(ocean)
+	var shader: Shader = load("res://materials/ocean_water.gdshader")
+	# Near mesh: dense enough for vertex waves around the rig.
+	var near_mat := ShaderMaterial.new()
+	near_mat.shader = shader
+	var near_mesh := PlaneMesh.new()
+	near_mesh.size = Vector2(500, 500)
+	near_mesh.subdivide_width = 250
+	near_mesh.subdivide_depth = 250
+	near_mesh.material = near_mat
+	var near := MeshInstance3D.new()
+	near.mesh = near_mesh
+	add_child(near)
+	# Far plane: flat, fragment ripples only, meets the horizon under the fog.
+	var far_mat := ShaderMaterial.new()
+	far_mat.shader = shader
+	far_mat.set_shader_parameter("vertex_waves", false)
+	var far_mesh := PlaneMesh.new()
+	far_mesh.size = Vector2(6000, 6000)
+	far_mesh.material = far_mat
+	var far := MeshInstance3D.new()
+	far.mesh = far_mesh
+	add_child(far)
+	far.position.y = -0.35
 
 func _process(delta: float) -> void:
 	if _cold_open_active:

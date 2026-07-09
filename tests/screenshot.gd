@@ -15,14 +15,19 @@ func _ready() -> void:
 	await _shot(Vector3(-22, 19.2, -3), 235.0, -4.0, GameClock.Phase.DAY, "sl_topside_day")
 	await _shot(Vector3(3.5, 35.5, -18), 175.0, -18.0, GameClock.Phase.DAY, "sl_lookout")
 	await _shot(Vector3(26.5, 11.2, 4.5), 155.0, -5.0, GameClock.Phase.DAY, "sl_breaker_room")
+	await _shot(Vector3(28, 19.6, -18), 90.0, 4.0, GameClock.Phase.DUSK, "sl_dusk_sea", 0.55)
+	await _shot(Vector3(28, 19.6, -18), 270.0, 4.0, GameClock.Phase.DUSK, "sl_dusk_sea_w", 0.55)
+	await _shot(Vector3(20, 3.4, -12), -95.0, -10.0, GameClock.Phase.DAY, "sl_waves_close")
 	GameClock.force_phase(GameClock.Phase.DUSK)
 	await get_tree().create_timer(1.0).timeout
 	PowerGrid.power_circuit("topside_floodlights")
 	await _shot(Vector3(-8, 19.4, -1), 250.0, -8.0, GameClock.Phase.NIGHT, "sl_night_lit")
 	get_tree().quit()
 
-func _shot(pos: Vector3, yaw_deg: float, pitch_deg: float, phase: GameClock.Phase, name_: String) -> void:
+func _shot(pos: Vector3, yaw_deg: float, pitch_deg: float, phase: GameClock.Phase, name_: String, frac: float = 0.0) -> void:
 	GameClock.force_phase(phase)
+	if frac > 0.0:
+		GameClock._phase_elapsed_sec = GameClock.phase_durations_minutes[phase] * 60.0 * frac
 	var p: Node3D = main.player
 	p.global_position = pos
 	p.rotation.y = deg_to_rad(yaw_deg)

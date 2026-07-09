@@ -106,6 +106,11 @@ func _ready() -> void:
 	ladder.add_child(lshape)
 	lshape.position = Vector3(0, 1.6, 0)
 
+	# Test props: physics objects to pick up
+	_add_prop(Vector3(-2, 0.6, 2), "Box", Vector3(0.4, 0.4, 0.4), Color(0.6, 0.3, 0.2))
+	_add_prop(Vector3(2, 0.6, 2), "Sphere", Vector3(0.4, 0.4, 0.4), Color(0.2, 0.5, 0.7))
+	_add_prop(Vector3(0, 0.6, 2), "Cylinder", Vector3(0.3, 0.5, 0.3), Color(0.7, 0.6, 0.2))
+
 	# Player + UI
 	var player: CharacterBody3D = load("res://scenes/Player.tscn").instantiate()
 	add_child(player)
@@ -120,3 +125,45 @@ func _box(pos: Vector3, size: Vector3, mat: Material) -> void:
 	b.use_collision = true
 	add_child(b)
 	b.position = pos
+
+func _add_prop(pos: Vector3, shape_name: String, size: Vector3, color: Color) -> void:
+	var prop := PhysProp.new()
+	add_child(prop)
+	prop.position = pos
+	prop.mass = 1.0
+	var mesh_inst := MeshInstance3D.new()
+	prop.add_child(mesh_inst)
+	match shape_name:
+		"Box":
+			var box := BoxMesh.new()
+			box.size = size
+			mesh_inst.mesh = box
+			var col := CollisionShape3D.new()
+			var box_shape := BoxShape3D.new()
+			box_shape.size = size
+			col.shape = box_shape
+			prop.add_child(col)
+		"Sphere":
+			var sphere := SphereMesh.new()
+			sphere.radius = size.x
+			mesh_inst.mesh = sphere
+			var col := CollisionShape3D.new()
+			var sphere_shape := SphereShape3D.new()
+			sphere_shape.radius = size.x
+			col.shape = sphere_shape
+			prop.add_child(col)
+		"Cylinder":
+			var cyl := CylinderMesh.new()
+			cyl.radius = size.x
+			cyl.height = size.y
+			mesh_inst.mesh = cyl
+			var col := CollisionShape3D.new()
+			var cyl_shape := CylinderShape3D.new()
+			cyl_shape.radius = size.x
+			cyl_shape.height = size.y
+			col.shape = cyl_shape
+			prop.add_child(col)
+	var mat := StandardMaterial3D.new()
+	mat.albedo_color = color
+	mat.roughness = 0.6
+	mesh_inst.material_override = mat
