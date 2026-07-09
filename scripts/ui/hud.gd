@@ -4,6 +4,8 @@ class_name HUD extends CanvasLayer
 
 var prompt_label: Label
 var toast_label: Label
+var crosshair: Label
+var objective_label: Label
 var hotbar_slots: Array[PanelContainer] = []
 var hunger_icon: Label
 var warmth_icon: Label
@@ -53,13 +55,23 @@ func _build() -> void:
 	toast_label.modulate.a = 0.0
 	root.add_child(toast_label)
 
-	# Crosshair dot.
-	var dot := Label.new()
-	dot.text = "·"
-	dot.set_anchors_preset(Control.PRESET_CENTER)
-	dot.add_theme_font_size_override("font_size", 24)
-	dot.add_theme_color_override("font_color", Color(1, 1, 1, 0.4))
-	root.add_child(dot)
+	# Crosshair dot — brightens and swells to a ring when aimed at something usable.
+	crosshair = Label.new()
+	crosshair.text = "·"
+	crosshair.set_anchors_preset(Control.PRESET_CENTER)
+	crosshair.add_theme_font_size_override("font_size", 24)
+	crosshair.add_theme_color_override("font_color", Color(1, 1, 1, 0.35))
+	crosshair.pivot_offset = Vector2(6, 16)
+	root.add_child(crosshair)
+
+	# Objective line, top-left — the one thing the player should be doing right now.
+	objective_label = Label.new()
+	objective_label.position = Vector2(20, 18)
+	objective_label.add_theme_font_size_override("font_size", 16)
+	objective_label.add_theme_color_override("font_color", Color(0.82, 0.85, 0.88))
+	objective_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
+	objective_label.add_theme_constant_override("outline_size", 4)
+	root.add_child(objective_label)
 
 	# Hotbar: 4 slots, bottom-left.
 	var bar := HBoxContainer.new()
@@ -165,6 +177,24 @@ func _build() -> void:
 
 func show_prompt(text: String) -> void:
 	prompt_label.text = ("[E]  " + text) if text != "" else ""
+	set_targeting(text != "")
+
+func show_prompt_raw(text: String) -> void:
+	## Used while carrying a prop — full control of the line, no "[E]" prefix.
+	prompt_label.text = text
+
+func set_targeting(on: bool) -> void:
+	if not crosshair:
+		return
+	if on:
+		crosshair.text = "◎"
+		crosshair.add_theme_color_override("font_color", Color(1.0, 0.92, 0.6, 0.95))
+	else:
+		crosshair.text = "·"
+		crosshair.add_theme_color_override("font_color", Color(1, 1, 1, 0.35))
+
+func set_objective(text: String) -> void:
+	objective_label.text = text
 
 func toast(text: String) -> void:
 	toast_label.text = text

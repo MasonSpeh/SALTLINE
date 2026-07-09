@@ -52,6 +52,16 @@ func _unhandled_input(event: InputEvent) -> void:
 			pitch_delta = -pitch_delta
 		head.rotate_x(pitch_delta)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-85.0), deg_to_rad(85.0))
+	# Carrying a prop: left-click throws, E or G sets it down.
+	if carried and not input_locked:
+		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
+			_throw_carried()
+			get_viewport().set_input_as_handled()
+			return
+		if event.is_action_pressed("interact") or (event is InputEventKey and event.keycode == KEY_G and event.pressed):
+			drop_carried()
+			get_viewport().set_input_as_handled()
+			return
 	if event is InputEventKey and event.pressed and not event.echo and not input_locked:
 		match event.keycode:
 			KEY_1: PlayerState.use_hotbar(0)
@@ -165,8 +175,22 @@ func try_grab(prop: Node3D) -> void:
 	carried = prop
 	if carried is PhysProp:
 		(carried as PhysProp).held_by = self
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud:
+		hud.show_prompt_raw("[LMB] throw    [E] set down")
 
 func drop_carried() -> void:
 	if carried is PhysProp:
 		(carried as PhysProp).held_by = null
 	carried = null
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud:
+		hud.show_prompt("")
+
+func _throw_carried() -> void:
+	var prop: Node3D = carried
+	drop_carried()
+	if prop is RigidBody3D:
+		var forward: Vector3 = -camera.global_transform.basis.z
+		(prop as RigidBody3D).apply_central_impulse(forward * 6.5 + Vector3(0, 1.6, 0))
+		AudioDirector.play_one_shot("clang", prop.global_position, -12.0)

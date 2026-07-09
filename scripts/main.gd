@@ -2,7 +2,7 @@ extends Node3D
 ## Main orchestrator: builds environment/ocean/rig/player/UI in code, then runs the
 ## slice's scripted beats — cold open, PA crackle at dusk, crab at night, dawn end card.
 
-const COUNTDOWN_SECONDS: float = 90.0
+const COUNTDOWN_SECONDS: float = 20.0
 
 var rig: RigBuilder
 var player: CharacterBody3D
@@ -33,12 +33,47 @@ func _ready() -> void:
 	GameClock.dusk.connect(_on_dusk)
 	GameClock.night.connect(_on_night)
 	GameClock.dawn.connect(_on_dawn)
+	PowerGrid.circuit_powered.connect(_on_circuit_powered)
 	EventBus.creature_contact.connect(_on_creature_contact)
+	# Drop a few loose grabbables on the wet deck — something to physically handle.
+	_spawn_props()
 	# Cold open: black screen, regulator hiss, rhythmic hull clang.
 	hud.set_black()
+	hud.set_objective("Surface pressure equalizing…    [E] force the hatch")
 	AudioDirector.play_one_shot("hiss", Vector3.ZERO, -6.0)
 	var t := get_tree().create_timer(1.2)
 	t.timeout.connect(func() -> void: hud.fade_from_black(3.0))
+
+func _spawn_props() -> void:
+	var base: Vector3 = rig.wet_deck_respawn
+	var specs := [
+		[Vector3(1.4, 0.6, 0.8), Vector3(0.4, 0.4, 0.4), Color(0.55, 0.3, 0.18)],
+		[Vector3(-1.2, 0.6, 1.4), Vector3(0.35, 0.35, 0.35), Color(0.3, 0.45, 0.5)],
+		[Vector3(0.6, 0.6, 2.2), Vector3(0.45, 0.3, 0.3), Color(0.6, 0.55, 0.25)],
+	]
+	for s in specs:
+		var prop := PhysProp.new()
+		add_child(prop)
+		prop.global_position = base + (s[0] as Vector3)
+		prop.mass = 1.2
+		var size: Vector3 = s[1]
+		var mesh_inst := MeshInstance3D.new()
+		var box := BoxMesh.new()
+		box.size = size
+		mesh_inst.mesh = box
+		mesh_inst.material_override = MatLib.flat(s[2])
+		prop.add_child(mesh_inst)
+		var col := CollisionShape3D.new()
+		var shape := BoxShape3D.new()
+		shape.size = size
+		col.shape = shape
+		prop.add_child(col)
+
+func _unhandled_input(event: InputEvent) -> void:
+	# Let the player cut the cold open short instead of watching the whole countdown.
+	if _cold_open_active and event.is_action_pressed("interact"):
+		_end_cold_open()
+		get_viewport().set_input_as_handled()
 
 func _build_environment() -> void:
 	# Physical sky: real sun disc, natural dawn/dusk scattering, black at night.
@@ -143,20 +178,35 @@ func _process(delta: float) -> void:
 			rig.countdown_label.text = "SURFACE PRESSURE — %02d:%02d:%02d" % [0, m, s]
 
 func _end_cold_open() -> void:
+	if not _cold_open_active:
+		return
 	_cold_open_active = false
 	rig.countdown_label.text = "SURFACE PRESSURE — 00:00:00"
 	rig.countdown_label.modulate = Color(0.3, 0.9, 0.4)
 	AudioDirector.play_one_shot("hiss", rig.sphl_interior, 0.0)
 	rig.sphl_hatch.unlock()
+	hud.set_objective("Get out. Find the cable spool and restore power before dark.")
+	hud.toast("The hatch gives. Cold air. You're on the rig.")
 	EventBus.cold_open_finished.emit()
+
+func _on_circuit_powered(id: String) -> void:
+	if id == "topside_floodlights":
+		hud.set_objective("Power's on. When night comes, stay inside the light.")
+		hud.toast("The floodlights hum to life.")
 
 func _on_dusk() -> void:
 	# The PA crackle: one half-sentence of static-mangled speech, then dead (GDD 5.8).
 	AudioDirector.play_one_shot("pa_crackle", rig.pa_speaker_pos, 2.0)
+	if not _ending:
+		if PowerGrid.is_powered("topside_floodlights"):
+			hud.set_objective("Light's failing. Get to a lit deck before full dark.")
+		else:
+			hud.set_objective("No power and no light. Get the floodlights on — now.")
 
 func _on_night() -> void:
 	if _ending:
 		return
+	hud.set_objective("Something's out there. Stay in the light until dawn.")
 	var crab := LamplightCrab.new()
 	crab.z1_loop = rig.crab_z1_loop
 	crab.ascend_path = rig.crab_ascend_path
@@ -168,6 +218,7 @@ func _on_night() -> void:
 func _on_dawn() -> void:
 	if GameClock.day_count >= 1 and not _ending:
 		_ending = true
+		hud.set_objective("You made it. The sun is up.")
 		# 30 seconds of peace, then the card (GDD 5.8).
 		var t := get_tree().create_timer(30.0)
 		t.timeout.connect(func() -> void:

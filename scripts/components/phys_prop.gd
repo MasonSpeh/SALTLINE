@@ -10,14 +10,13 @@ func _ready() -> void:
 
 func _physics_process(_delta: float) -> void:
 	if held_by:
-		# Follow player's hand (camera + offset)
-		var player: Node3D = held_by
-		var cam_forward: Vector3 = -player.get_node("Head/Camera3D").global_transform.basis.z
-		var cam_right: Vector3 = player.get_node("Head/Camera3D").global_transform.basis.x
-		var target: Vector3 = player.global_position + cam_forward * 0.8 + cam_right * 0.3 + Vector3(0, -0.3, 0)
-		global_position = global_position.lerp(target, 0.2)
-		linear_velocity = Vector3.ZERO
-		angular_velocity = Vector3.ZERO
+		# Float in front of the camera at arm's length, tracking where you look.
+		var cam: Camera3D = held_by.get_node("Head/Camera3D")
+		var target: Vector3 = cam.global_position - cam.global_transform.basis.z * 1.3
+		# Velocity-based follow keeps collisions honest — the prop shoves crates aside,
+		# and can't be pushed through walls the way a hard position-set would.
+		linear_velocity = (target - global_position) * 12.0
+		angular_velocity = angular_velocity.lerp(Vector3.ZERO, 0.3)
 
 func get_prompt() -> String:
-	return "E — Pick up"
+	return "Pick up"

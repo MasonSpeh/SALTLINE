@@ -12,6 +12,7 @@ func _ready() -> void:
 	main.hud.fade_rect.color.a = 0.0
 
 	await _shot(Vector3(24, 2.2, -18), -140.0, -5.0, GameClock.Phase.DAWN, "sl_wetdeck_sphl")
+	await _shot(Vector3(23.5, 3.2, -13.5), -125.0, -14.0, GameClock.Phase.DAY, "sl_props")
 	await _shot(Vector3(-22, 19.2, -3), 235.0, -4.0, GameClock.Phase.DAY, "sl_topside_day")
 	await _shot(Vector3(3.5, 35.5, -18), 175.0, -18.0, GameClock.Phase.DAY, "sl_lookout")
 	await _shot(Vector3(26.5, 11.2, 4.5), 155.0, -5.0, GameClock.Phase.DAY, "sl_breaker_room")
