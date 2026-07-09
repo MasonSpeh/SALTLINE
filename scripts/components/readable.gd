@@ -25,3 +25,8 @@ func interact(verb: String, player: Node3D) -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		hud.show_reading(entry.get("title", display_name), entry.get("body", ""))
+	Journal.discover_log(readable_id, entry.get("title", display_name))
+
+static func text_for(id: String) -> Dictionary:
+	load_texts()
+	return _texts.get(id, {})

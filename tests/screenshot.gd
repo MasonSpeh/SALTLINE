@@ -20,6 +20,17 @@ func _ready() -> void:
 	await _shot(Vector3(28, 19.6, -18), 270.0, 4.0, GameClock.Phase.DUSK, "sl_dusk_sea_w", 0.55)
 	await _shot(Vector3(20, 3.4, -12), -95.0, -10.0, GameClock.Phase.DAY, "sl_waves_close")
 	await _shot(Vector3(2, 19.9, -19), 3.0, -16.0, GameClock.Phase.DAY, "sl_gyre")
+	# UI panels: seed some discoveries, then help/journal/inventory.
+	for it in ["throwing_hook", "canned_food", "rope", "kelp_bundle"]:
+		PlayerState.add_item(it)
+	Journal.discover("place_gyre")
+	Journal.discover("creature_gull")
+	Journal.discover("creature_jelly_drifter")
+	Journal.discover_log("sphl_manual", "SPHL OPERATIONS MANUAL — PAGE 12")
+	await _ui_shot("help", "sl_ui_help")
+	await _ui_shot("journal", "sl_ui_journal")
+	await _ui_shot("inventory", "sl_ui_inventory")
+
 	# New content: interiors, env objects, wildlife.
 	await _shot(Vector3(6, 19.7, 9.5), 180.0, -6.0, GameClock.Phase.DAY, "sl_galley")
 	await _shot(Vector3(19.5, 19.7, 9.5), 228.0, -8.0, GameClock.Phase.DAY, "sl_rec_room")
@@ -32,6 +43,14 @@ func _ready() -> void:
 	await _shot(Vector3(2, 1.6, -12), 90.0, -2.0, GameClock.Phase.NIGHT, "sl_pontoon_night")
 	await _shot(Vector3(-5, 19.8, 19), 180.0, -30.0, GameClock.Phase.NIGHT, "sl_bloom_sea")
 	get_tree().quit()
+
+func _ui_shot(panel: String, name_: String) -> void:
+	main.hud.toggle_panel(panel)
+	await get_tree().create_timer(0.6).timeout
+	var img: Image = get_viewport().get_texture().get_image()
+	img.save_png("/tmp/%s.png" % name_)
+	print("saved /tmp/%s.png" % name_)
+	main.hud.toggle_panel(panel)
 
 func _shot(pos: Vector3, yaw_deg: float, pitch_deg: float, phase: GameClock.Phase, name_: String, frac: float = 0.0) -> void:
 	GameClock.force_phase(phase)

@@ -105,3 +105,34 @@ func _run() -> void:
 	_check(not player.hook_out, "hook returns and clears the cooldown")
 	var inv_after: int = PlayerState.inventory.size() + PlayerState.hotbar.filter(func(x): return x != null).size()
 	_check(inv_after > inv_before, "hauled at least one resource from the gyre (%d -> %d)" % [inv_before, inv_after])
+
+	# --- Journal / Help / Inventory UI ---
+	_check(Journal.discovered.has("item_throwing_hook"), "journal logged the crafted hook")
+	_check(Journal.discovered.has("place_rigging_bench"), "journal logged the rigging bench")
+	_check(Journal.unseen_count > 0, "journal badge counts unseen entries")
+	main.hud.toggle_panel("journal")
+	_check(main.hud.journal_panel.visible, "journal panel opens (J / button)")
+	_check(Journal.unseen_count == 0, "opening the journal clears the badge")
+	_check(main.hud.journal_text.text.contains("Throwing Hook"), "journal lists the hook entry")
+	main.hud.toggle_panel("inventory")
+	_check(main.hud.inventory_panel.visible and not main.hud.journal_panel.visible,
+		"inventory replaces journal (one panel at a time)")
+	_check(player.ui_locked, "open panel locks player movement")
+	# Click-to-move: hotbar slot 0 -> pack, then back.
+	var first_item: Variant = PlayerState.hotbar[0]
+	_check(first_item != null, "hotbar has an item to move")
+	PlayerState.hotbar_to_backpack(0)
+	_check(PlayerState.hotbar[0] == null and PlayerState.inventory.has(first_item), "hotbar -> pack move works")
+	PlayerState.backpack_to_hotbar(PlayerState.inventory.find(first_item))
+	_check(PlayerState.hotbar.has(first_item), "pack -> hotbar move works")
+	main.hud.toggle_panel("inventory")
+	_check(not main.hud.any_panel_open() and not player.ui_locked, "closing panel unlocks the player")
+	main.hud.toggle_panel("help")
+	_check(main.hud.help_panel.visible and main.hud.help_panel.get_child(0).text.contains("SALTLINE"),
+		"help panel opens with the controls sheet")
+	main.hud.toggle_panel("help")
+	# Readable -> journal logs section.
+	Journal.discover_log("sphl_manual", "SPHL OPERATIONS MANUAL — PAGE 12")
+	main.hud.toggle_panel("journal")
+	_check(main.hud.journal_text.text.contains("PAPERS I'VE READ"), "read papers appear in the journal")
+	main.hud.toggle_panel("journal")

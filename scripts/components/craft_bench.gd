@@ -20,6 +20,7 @@ func available_verbs() -> Array[String]:
 	return verbs
 
 func interact(_verb: String, player: Node3D) -> void:
+	Journal.discover("place_rigging_bench")
 	var hud: Node = player.get_tree().get_first_node_in_group("hud")
 	var missing: Array[String] = []
 	for item in NEEDS:

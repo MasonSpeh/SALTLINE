@@ -29,6 +29,7 @@ var input_locked: bool = false     ## cold open / cutscenes: look allowed, movem
 var respawn_point: Vector3 = Vector3.ZERO
 var carried: Node3D = null         ## currently held physics object
 var hook_out: bool = false         ## throwing hook is in flight / reeling
+var ui_locked: bool = false        ## a HUD panel (inventory/journal/help) is open
 var _stamina: float = STAMINA_MAX
 var _head_bob_time: float = 0.0
 var _camera_base_y: float
@@ -91,7 +92,7 @@ func _physics_process(delta: float) -> void:
 		velocity.y -= GRAVITY * delta
 
 	var input_dir: Vector2 = Vector2.ZERO
-	if not input_locked:
+	if not input_locked and not ui_locked:
 		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
 	var wants_sprint: bool = Input.is_action_pressed("sprint") and _stamina > STAMINA_MIN_TO_SPRINT
 	var stamina_ceiling: float = PlayerState.stamina_ceiling_multiplier()

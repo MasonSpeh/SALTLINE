@@ -15,6 +15,17 @@ var reading_body: RichTextLabel
 var fade_rect: ColorRect
 var end_card: CenterContainer
 
+# Panels: help / journal / inventory (one open at a time)
+var help_button: Button
+var journal_button: Button
+var help_panel: Panel
+var journal_panel: Panel
+var journal_text: RichTextLabel
+var inventory_panel: Panel
+var inv_grid: GridContainer
+var inv_info: Label
+var _inv_buttons: Array[Button] = []
+
 var _toast_tween: Tween
 var reading_open: bool = false
 
@@ -23,9 +34,12 @@ func _ready() -> void:
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build()
+	_build_panels()
 	PlayerState.inventory_changed.connect(_refresh_hotbar)
+	PlayerState.inventory_changed.connect(_refresh_inventory_panel)
 	PlayerState.hunger_changed.connect(func(v: float) -> void: hunger_icon.visible = v < 0.5)
 	PlayerState.warmth_changed.connect(func(v: float) -> void: warmth_icon.visible = v < 0.5)
+	Journal.entry_added.connect(func(_id: String, _t: String) -> void: _update_journal_badge())
 	_refresh_hotbar()
 
 func _build() -> void:
@@ -72,6 +86,25 @@ func _build() -> void:
 	objective_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
 	objective_label.add_theme_constant_override("outline_size", 4)
 	root.add_child(objective_label)
+
+	# Top-right: journal + help buttons (also on keys J / H; I for inventory).
+	var topright := HBoxContainer.new()
+	topright.set_anchors_preset(Control.PRESET_TOP_RIGHT)
+	topright.position = Vector2(-190, 14)
+	topright.add_theme_constant_override("separation", 8)
+	root.add_child(topright)
+	journal_button = Button.new()
+	journal_button.text = "✎ JOURNAL"
+	journal_button.custom_minimum_size = Vector2(110, 34)
+	journal_button.focus_mode = Control.FOCUS_NONE
+	journal_button.pressed.connect(func() -> void: toggle_panel("journal"))
+	topright.add_child(journal_button)
+	help_button = Button.new()
+	help_button.text = "?"
+	help_button.custom_minimum_size = Vector2(34, 34)
+	help_button.focus_mode = Control.FOCUS_NONE
+	help_button.pressed.connect(func() -> void: toggle_panel("help"))
+	topright.add_child(help_button)
 
 	# Hotbar: 4 slots, bottom-left.
 	var bar := HBoxContainer.new()
@@ -248,3 +281,242 @@ func set_black() -> void:
 
 func show_end_card() -> void:
 	end_card.visible = true
+
+# ============================ panels: help / journal / inventory ==============
+
+func _panel_style() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.07, 0.09, 0.1, 0.97)
+	s.border_color = Color(0.35, 0.4, 0.42)
+	s.set_border_width_all(2)
+	s.set_corner_radius_all(6)
+	s.set_content_margin_all(18)
+	return s
+
+func _make_panel(w: float, h: float) -> Panel:
+	var p := Panel.new()
+	p.set_anchors_preset(Control.PRESET_CENTER)
+	p.custom_minimum_size = Vector2(w, h)
+	p.position = Vector2(-w * 0.5, -h * 0.5)
+	p.add_theme_stylebox_override("panel", _panel_style())
+	p.visible = false
+	add_child(p)
+	return p
+
+func _build_panels() -> void:
+	# HELP — controls and the shape of the day.
+	help_panel = _make_panel(560, 520)
+	var help_text := RichTextLabel.new()
+	help_text.bbcode_enabled = true
+	help_text.set_anchors_preset(Control.PRESET_FULL_RECT)
+	help_text.offset_left = 18
+	help_text.offset_top = 14
+	help_text.offset_right = -18
+	help_text.offset_bottom = -14
+	help_text.add_theme_font_size_override("normal_font_size", 15)
+	help_text.text = """[b]SALTLINE — HOW TO SURVIVE THE FIRST NIGHT[/b]
+
+[b]The day:[/b] wake in the lifeboat → climb the rig → find the cable spool →
+splice the burned cable → throw Master Breaker 4-A → when night falls,
+[b]stay inside the floodlight wash[/b] → see the dawn.
+
+[b]Move[/b]           WASD  ·  Shift sprint  ·  no jump (heavy world)
+[b]Interact[/b]       E — one context verb (take / open / read / connect / operate / climb)
+[b]Carry[/b]          E grabs loose props · LMB throws · E/G sets down
+[b]Hotbar[/b]         1–4 eat / use
+[b]Inventory[/b]      I — pack and hotbar, click items to move them
+[b]Journal[/b]        J — discoveries, item notes, craft hints
+[b]Hook[/b]           F — throw the rigging hook (craft: rope + prybar at the bench)
+[b]Pause[/b]          Esc — volume, mouse, invert-Y
+
+[b]Tips[/b]
+· The fire barrel on the wet deck is warmth that needs no power.
+· The gyre south of the rig collects what the sea carries. Hook it.
+· When the gulls leave, you have one dusk of grace. Use it.
+· Listen. The claw-ticks through the deck are a countdown."""
+	help_panel.add_child(help_text)
+
+	# JOURNAL — discoveries, grouped; logs re-readable.
+	journal_panel = _make_panel(640, 560)
+	var jscroll := ScrollContainer.new()
+	jscroll.set_anchors_preset(Control.PRESET_FULL_RECT)
+	jscroll.offset_left = 18
+	jscroll.offset_top = 14
+	jscroll.offset_right = -18
+	jscroll.offset_bottom = -14
+	journal_panel.add_child(jscroll)
+	journal_text = RichTextLabel.new()
+	journal_text.bbcode_enabled = true
+	journal_text.fit_content = true
+	journal_text.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	journal_text.add_theme_font_size_override("normal_font_size", 15)
+	jscroll.add_child(journal_text)
+
+	# INVENTORY — hotbar row + pack grid, click to move. Minecraft, pocket edition.
+	inventory_panel = _make_panel(560, 480)
+	var ivbox := VBoxContainer.new()
+	ivbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	ivbox.offset_left = 18
+	ivbox.offset_top = 12
+	ivbox.offset_right = -18
+	ivbox.offset_bottom = -12
+	ivbox.add_theme_constant_override("separation", 10)
+	inventory_panel.add_child(ivbox)
+	var ititle := Label.new()
+	ititle.text = "PACK        (click: hotbar ⇄ pack)"
+	ititle.add_theme_font_size_override("font_size", 17)
+	ivbox.add_child(ititle)
+	inv_grid = GridContainer.new()
+	inv_grid.columns = 4
+	inv_grid.add_theme_constant_override("h_separation", 8)
+	inv_grid.add_theme_constant_override("v_separation", 8)
+	ivbox.add_child(inv_grid)
+	for i in range(PlayerState.HOTBAR_SIZE + PlayerState.MAX_BACKPACK):
+		var b := Button.new()
+		b.custom_minimum_size = Vector2(118, 52)
+		b.focus_mode = Control.FOCUS_NONE
+		var idx: int = i
+		b.pressed.connect(func() -> void: _inv_slot_clicked(idx))
+		b.mouse_entered.connect(func() -> void: _inv_slot_hovered(idx))
+		inv_grid.add_child(b)
+		_inv_buttons.append(b)
+	inv_info = Label.new()
+	inv_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
+	inv_info.custom_minimum_size = Vector2(0, 90)
+	inv_info.add_theme_font_size_override("font_size", 13)
+	inv_info.add_theme_color_override("font_color", Color(0.72, 0.76, 0.72))
+	ivbox.add_child(inv_info)
+
+func any_panel_open() -> bool:
+	return help_panel.visible or journal_panel.visible or inventory_panel.visible
+
+func toggle_panel(which: String) -> void:
+	var target: Panel = {"help": help_panel, "journal": journal_panel, "inventory": inventory_panel}[which]
+	var was_open: bool = target.visible
+	help_panel.visible = false
+	journal_panel.visible = false
+	inventory_panel.visible = false
+	if not was_open:
+		target.visible = true
+		if which == "journal":
+			Journal.mark_seen()
+			_update_journal_badge()
+			_rebuild_journal()
+		elif which == "inventory":
+			_refresh_inventory_panel()
+	_sync_panel_mode()
+
+func _sync_panel_mode() -> void:
+	var player: Node = get_tree().get_first_node_in_group("player")
+	if any_panel_open():
+		Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
+		if player:
+			player.ui_locked = true
+	else:
+		if not get_tree().paused and not end_card.visible:
+			Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
+		if player:
+			player.ui_locked = false
+
+func _input(event: InputEvent) -> void:
+	if end_card.visible or reading_open:
+		return
+	if event is InputEventKey and event.pressed and not event.echo:
+		if get_tree().paused:
+			return   # pause menu owns the screen
+		match event.keycode:
+			KEY_I:
+				toggle_panel("inventory")
+				get_viewport().set_input_as_handled()
+			KEY_J:
+				toggle_panel("journal")
+				get_viewport().set_input_as_handled()
+			KEY_H:
+				toggle_panel("help")
+				get_viewport().set_input_as_handled()
+			KEY_ESCAPE:
+				if any_panel_open():
+					toggle_panel("help" if help_panel.visible else ("journal" if journal_panel.visible else "inventory"))
+					get_viewport().set_input_as_handled()
+
+func _update_journal_badge() -> void:
+	journal_button.text = ("✎ JOURNAL (%d)" % Journal.unseen_count) if Journal.unseen_count > 0 else "✎ JOURNAL"
+
+func _rebuild_journal() -> void:
+	var bb: String = "[b]SURVIVOR'S JOURNAL[/b]\n"
+	var sections := [
+		["creature", "THINGS ALIVE OUT HERE"],
+		["item", "THINGS IN MY HANDS"],
+		["place", "THINGS I UNDERSTAND NOW"],
+	]
+	var total: int = 0
+	for sec in sections:
+		var ids: Array = Journal.entries_by_category(sec[0])
+		if ids.is_empty():
+			continue
+		bb += "\n[color=#8fb0a8][b]— %s —[/b][/color]\n" % sec[1]
+		for id in ids:
+			var e: Dictionary = Journal.data[id]
+			bb += "\n[b]%s[/b]\n%s\n" % [e.get("title", id), e.get("body", "")]
+			if e.get("hint", "") != "":
+				bb += "[color=#c9b458]▸ %s[/color]\n" % e["hint"]
+			total += 1
+	var logs: Array[String] = Journal.read_logs
+	if not logs.is_empty():
+		bb += "\n[color=#8fb0a8][b]— PAPERS I'VE READ —[/b][/color]\n"
+		for rid in logs:
+			var entry: Dictionary = Readable.text_for(rid)
+			bb += "\n[b]%s[/b]\n[color=#9a9a90]%s[/color]\n" % [entry.get("title", rid), entry.get("body", "")]
+			total += 1
+	if total == 0:
+		bb += "\nNothing yet. Touch things. Read things. Get close to what glows\n(within reason)."
+	journal_text.text = bb
+
+func _inv_all_slots() -> Array:
+	var slots: Array = []
+	for i in range(PlayerState.HOTBAR_SIZE):
+		slots.append(PlayerState.hotbar[i])
+	for i in range(PlayerState.MAX_BACKPACK):
+		slots.append(PlayerState.inventory[i] if i < PlayerState.inventory.size() else null)
+	return slots
+
+func _refresh_inventory_panel() -> void:
+	if inventory_panel == null or not inventory_panel.visible:
+		return
+	var slots: Array = _inv_all_slots()
+	for i in range(_inv_buttons.size()):
+		var item: Variant = slots[i]
+		var label: String = str(item).capitalize() if item != null else "—"
+		if i < PlayerState.HOTBAR_SIZE:
+			_inv_buttons[i].text = "%d· %s" % [i + 1, label]
+			_inv_buttons[i].modulate = Color(1, 0.95, 0.75) if item != null else Color(0.85, 0.85, 0.8, 0.7)
+		else:
+			_inv_buttons[i].text = label
+			_inv_buttons[i].modulate = Color(1, 1, 1) if item != null else Color(1, 1, 1, 0.45)
+
+func _inv_slot_clicked(idx: int) -> void:
+	if idx < PlayerState.HOTBAR_SIZE:
+		PlayerState.hotbar_to_backpack(idx)
+	else:
+		PlayerState.backpack_to_hotbar(idx - PlayerState.HOTBAR_SIZE)
+	_refresh_inventory_panel()
+
+func _inv_slot_hovered(idx: int) -> void:
+	var slots: Array = _inv_all_slots()
+	var item: Variant = slots[idx]
+	if item == null:
+		inv_info.text = ""
+		return
+	var id: String = str(item)
+	var def: Dictionary = PlayerState.items.get(id, {})
+	var jinfo: Dictionary = Journal.item_info(id)
+	var line: String = def.get("name", id.capitalize())
+	if def.get("use", "") == "eat":
+		line += "  —  edible (+%d%% hunger)" % int(def.get("hunger", 0.0) * 100.0)
+	else:
+		line += "  —  tool"
+	if jinfo.get("body", "") != "":
+		line += "\n%s" % jinfo["body"]
+	if jinfo.get("hint", "") != "":
+		line += "\n▸ %s" % jinfo["hint"]
+	inv_info.text = line

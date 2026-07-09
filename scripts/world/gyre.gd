@@ -46,6 +46,9 @@ func _ready() -> void:
 	_build_surface_hints()
 
 func _process(_delta: float) -> void:
+	var _pl: Node3D = get_tree().get_first_node_in_group("player")
+	if _pl and _pl.global_position.distance_to(CENTER) < 45.0:
+		Journal.discover("place_gyre")
 	# The Bloom gathers faintly under the eye at night.
 	var want: float = 0.0
 	if GameClock.current_phase == GameClock.Phase.NIGHT:

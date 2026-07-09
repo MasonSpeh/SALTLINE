@@ -10,6 +10,7 @@ signal inventory_changed
 
 const LOW_THRESHOLD: float = 0.5
 const HOTBAR_SIZE: int = 4
+const MAX_BACKPACK: int = 12   ## Minecraft-ish, but a day pack, not a warehouse
 
 var hunger: float = 1.0 : set = set_hunger
 var warmth: float = 1.0 : set = set_warmth
@@ -90,8 +91,38 @@ func add_item(item_id: String) -> bool:
 		if hotbar[i] == null:
 			hotbar[i] = item_id
 			inventory_changed.emit()
+			Journal.discover("item_" + item_id)
 			return true
+	if inventory.size() >= MAX_BACKPACK:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud:
+			hud.toast("Pack is full.")
+		return false
 	inventory.append(item_id)
+	inventory_changed.emit()
+	Journal.discover("item_" + item_id)
+	return true
+
+## Inventory panel moves: click a pack item into a free hotbar slot, or stow a
+## hotbar item back into the pack.
+func backpack_to_hotbar(inv_idx: int) -> bool:
+	if inv_idx < 0 or inv_idx >= inventory.size():
+		return false
+	for i in range(HOTBAR_SIZE):
+		if hotbar[i] == null:
+			hotbar[i] = inventory[inv_idx]
+			inventory.remove_at(inv_idx)
+			inventory_changed.emit()
+			return true
+	return false
+
+func hotbar_to_backpack(slot: int) -> bool:
+	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:
+		return false
+	if inventory.size() >= MAX_BACKPACK:
+		return false
+	inventory.append(hotbar[slot])
+	hotbar[slot] = null
 	inventory_changed.emit()
 	return true
 

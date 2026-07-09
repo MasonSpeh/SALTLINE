@@ -8,7 +8,8 @@ func _init() -> void:
 
 func interact(verb: String, player: Node3D) -> void:
 	super(verb, player)
-	PlayerState.add_item(item_id)
+	if not PlayerState.add_item(item_id):
+		return   # pack full — leave it in the world
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		hud.toast("Took %s" % display_name)

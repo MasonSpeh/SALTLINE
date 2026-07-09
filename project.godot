@@ -23,6 +23,7 @@ PlayerState="*res://scripts/autoload/player_state.gd"
 AudioDirector="*res://scripts/autoload/audio_director.gd"
 SaveManager="*res://scripts/autoload/save_manager.gd"
 EventBus="*res://scripts/autoload/event_bus.gd"
+Journal="*res://scripts/autoload/journal.gd"
 DEBUG="*res://scripts/autoload/debug.gd"
 
 [display]

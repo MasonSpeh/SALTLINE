@@ -129,6 +129,7 @@ class FireBarrel extends Node3D:
 
 	func _process(delta: float) -> void:
 		_t += delta
+		Journal.discover_if_near(self, "place_fire_barrel", 5.0)
 		var flicker: float = 2.2 + sin(_t * 9.0) * 0.35 + sin(_t * 23.0) * 0.2
 		_light.light_energy = flicker
 		_coals.emission_energy_multiplier = flicker * 0.9

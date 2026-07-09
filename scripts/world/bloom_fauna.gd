@@ -107,6 +107,7 @@ class Gull extends Node3D:
 		if not visible:
 			return
 		_t += delta * _speed
+		Journal.discover_if_near(self, "creature_gull", 35.0)
 		var r: float = _radius + _leave * 220.0          # spiral out when leaving
 		var y: float = _center.y + sin(_t * 0.9 + _idx) * 2.0 + _leave * 60.0
 		var next := Vector3(_center.x + cos(_t) * r, y, _center.z + sin(_t) * r)
@@ -155,6 +156,7 @@ class JellyDrifter extends Node3D:
 		if not visible:
 			return
 		_t += delta
+		Journal.discover_if_near(self, "creature_jelly_drifter", 16.0)
 		var angle: float = _idx * 0.9 + _t * 0.045
 		var radius: float = 15.0 + _idx * 3.2 + sin(_t * 0.2 + _idx) * 2.0
 		global_position = Vector3(cos(angle) * radius, 0.35 + sin(_t * 0.8 + _idx) * 0.25, sin(angle) * radius)
@@ -187,6 +189,7 @@ class BarnacleCluster extends Node3D:
 		_t += delta
 		var target: float = 0.05
 		if GameClock.current_phase == GameClock.Phase.NIGHT:
+			Journal.discover_if_near(self, "creature_barnacle", 7.0)
 			target = 0.9 + 0.5 * sin(_t * 1.3 + _phase_offset)
 			var player: Node3D = get_tree().get_first_node_in_group("player")
 			if player and player.global_position.distance_to(global_position) < 4.5:
@@ -225,6 +228,7 @@ class LampEel extends Node3D:
 		if not visible:
 			return
 		_t += delta
+		Journal.discover_if_near(_segs[0], "creature_lamp_eel", 24.0)
 		# Figure-eights at the surface off the north edge, clear of the deck overhang.
 		var head := Vector3(sin(_t * 0.5) * 13.0, 0.12, 26.0 + sin(_t * 1.0) * 5.0)
 		_segs[0].global_position = _segs[0].global_position.lerp(head, delta * 4.0)
@@ -263,6 +267,8 @@ class FiddlerShoal extends Node3D:
 		_mat.emission = BloomFauna.TEAL if GameClock.current_phase == GameClock.Phase.DUSK else Color(0.7, 0.78, 0.8)
 		_mat.emission_energy_multiplier = 0.7 if GameClock.current_phase == GameClock.Phase.DUSK else 0.15
 		var center := Vector3(19.0 + cos(_t * 0.13) * 8.0, -0.15, -10.0 + sin(_t * 0.19) * 7.0)
+		global_position = center
+		Journal.discover_if_near(self, "creature_fiddler_shoal", 13.0)
 		for i in range(COUNT):
 			var a: float = _t * 1.6 + i * (TAU / COUNT)
 			var r: float = 1.2 + sin(_t * 0.9 + i) * 0.5
@@ -333,7 +339,8 @@ class MantleRay extends Node3D:
 			_cooldown = randf_range(90.0, 150.0)
 			return
 		var pos: Vector3 = _from.lerp(_to, _progress)
-		pos.y += sin(_progress * PI) * -6.0   # dips lowest right over the deck
+		pos.y += sin(_progress * PI) * -6.0
+		Journal.discover_if_near(self, "creature_mantle_ray", 90.0)   # dips lowest right over the deck
 		global_position = pos
 		look_at(pos + (_to - _from).normalized(), Vector3.UP)
 		var flap: float = sin(_t * 1.1) * 0.18
@@ -390,6 +397,8 @@ class TideWorm extends Node3D:
 		if player and player.global_position.distance_to(global_position) < 2.5:
 			want = 0.0   # felt your footsteps — gone
 		_emerge = move_toward(_emerge, want, delta * (2.5 if want < _emerge else 0.35))
+		if _emerge > 0.5:
+			Journal.discover_if_near(self, "creature_tide_worm", 5.0)
 		_body.scale.y = maxf(_emerge, 0.001)
 		_body.visible = _emerge > 0.02
 		_body.rotation.x = sin(_t * 1.7) * 0.22 * _emerge

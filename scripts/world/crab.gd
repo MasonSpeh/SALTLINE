@@ -62,6 +62,7 @@ func _build_body() -> void:
 		spot.position = Vector3(-0.3 + i * 0.2, 0.62, 0.1 * (1 if i % 2 == 0 else -1))
 
 func _process(delta: float) -> void:
+	Journal.discover_if_near(self, "creature_lamplight_crab", 20.0)
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	match state:
 		State.GONE:
