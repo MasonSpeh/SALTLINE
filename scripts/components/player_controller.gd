@@ -29,7 +29,8 @@ var input_locked: bool = false     ## cold open / cutscenes: look allowed, movem
 var respawn_point: Vector3 = Vector3.ZERO
 var carried: Node3D = null         ## currently held physics object
 var hook_out: bool = false         ## throwing hook is in flight / reeling
-var ui_locked: bool = false        ## a HUD panel (inventory/journal/help) is open
+var ui_locked: bool = false        ## a HUD panel (inventory/journal/help/bench) is open
+var build: BuildMode = null        ## build mode controller (B)
 var _stamina: float = STAMINA_MAX
 var _head_bob_time: float = 0.0
 var _camera_base_y: float
@@ -44,6 +45,9 @@ func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	var ray := InteractionRay.new()
 	camera.add_child(ray)
+	build = BuildMode.new()
+	add_child(build)
+	build.setup(self, camera)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -71,9 +75,13 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_3: PlayerState.use_hotbar(2)
 			KEY_4: PlayerState.use_hotbar(3)
 			KEY_F: _throw_hook()
+			KEY_B:
+				if not ui_locked and not _climbing:
+					build.toggle()
 
 func _throw_hook() -> void:
-	if hook_out or carried or _climbing or not PlayerState.has_item("throwing_hook"):
+	if hook_out or carried or _climbing or ui_locked or build.active \
+			or not PlayerState.has_item("throwing_hook"):
 		return
 	hook_out = true
 	var hook := ThrowingHook.new()

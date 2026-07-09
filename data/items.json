@@ -13,5 +13,9 @@
 	"scrap_metal": { "name": "Scrap Metal", "use": "tool" },
 	"tarp": { "name": "Canvas Tarp", "use": "tool" },
 	"sealed_tin": { "name": "Sealed Tin", "use": "eat", "hunger": 0.3 },
-	"kelp_bundle": { "name": "Kelp Bundle", "use": "eat", "hunger": 0.12 }
+	"kelp_bundle": { "name": "Kelp Bundle", "use": "eat", "hunger": 0.12 },
+	"bloom_lamp_kit": { "name": "Bloom Lamp (kit)", "use": "build" },
+	"leanto_kit": { "name": "Lean-To (kit)", "use": "build" },
+	"walkway_kit": { "name": "Plank Walkway (kit)", "use": "build" },
+	"barricade_kit": { "name": "Barricade (kit)", "use": "build" }
 }

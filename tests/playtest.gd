@@ -68,20 +68,80 @@ func _run() -> void:
 	var debris: Array = get_tree().get_nodes_in_group("floating_debris")
 	_check(debris.size() >= 10, "gyre stocked with debris (got %d)" % debris.size())
 
-	# Craft: bench refuses without parts, crafts with them.
+	# Craft: lay-on-bench flow — partial hint, exact match, hold-to-work.
 	var bench: CraftBench = null
 	for c in main.rig.get_children():
 		if c is CraftBench:
 			bench = c
 	_check(bench != null, "rigging bench exists on the wet deck")
 	bench.interact("OPERATE", player)
-	_check(not PlayerState.has_item("throwing_hook"), "bench refuses craft without parts")
+	var bp: BenchPanel = main.hud.bench_panel
+	_check(bp.visible, "bench opens its lay-parts panel")
 	PlayerState.add_item("rope")
 	PlayerState.add_item("prybar")
-	bench.interact("OPERATE", player)
-	_check(PlayerState.has_item("throwing_hook"), "bench crafts hook from rope + prybar")
+	bp.refresh()
+	_check(bp.lay_item("rope"), "can lay a part on the bench")
+	_check(bp.current_match() == "" and bp.partial_matches().has("throwing_hook"),
+		"partial parts whisper what they want to become")
+	_check(bp._match_label.text.contains("still needs"), "bench lists the missing parts")
+	bp.lay_item("prybar")
+	_check(bp.current_match() == "throwing_hook", "rope + prybar match the hook recipe")
+	_check(not bp._work_button.disabled, "work button arms on an exact match")
+	bp.test_hold = true
+	var work_wait: float = 0.0
+	while not PlayerState.has_item("throwing_hook") and work_wait < 6.0:
+		await get_tree().create_timer(0.25).timeout
+		work_wait += 0.25
+	bp.test_hold = false
+	_check(PlayerState.has_item("throwing_hook"), "holding the work makes the hook")
 	_check(not PlayerState.has_item("rope") and not PlayerState.has_item("prybar"),
-		"crafting consumes the parts")
+		"crafting consumes the laid parts")
+	_check(bp.laid.is_empty(), "bench surface clears after the work")
+	# Panel closes politely and never eats parts.
+	PlayerState.add_item("driftwood")
+	bp.refresh()
+	bp.lay_item("driftwood")
+	main.hud.toggle_panel("bench")
+	_check(PlayerState.has_item("driftwood"), "closing the bench returns laid parts")
+	PlayerState.remove_item("driftwood")
+
+	# Build mode: craft a bloom lamp kit's worth, build it, verify REAL safety.
+	PlayerState.add_item("bloom_lamp_kit")
+	player.global_position = Vector3(0, 19.4, -5)   # open topside deck
+	player.rotation.y = 0.0
+	player.get_node("Head").rotation.x = deg_to_rad(-55)
+	player.build.toggle()
+	_check(player.build.active, "B enters build mode with a kit in the pack")
+	_check(player.build._ghost != null, "build mode shows a ghost preview")
+	var ghost_wait: float = 0.0
+	while not player.build._valid and ghost_wait < 3.0:
+		await get_tree().physics_frame
+		ghost_wait += 0.016
+	_check(player.build._valid, "ghost turns valid over open deck")
+	var lamp_pos: Vector3 = player.build._place_pos
+	_check(player.build.place(), "LMB places the structure")
+	_check(not PlayerState.has_item("bloom_lamp_kit"), "placing consumes the kit")
+	_check(not player.build.active, "build mode exits when the last kit is spent")
+	await get_tree().process_frame
+	_check(get_tree().get_nodes_in_group("built_structures").size() >= 1, "structure stands in the world")
+	_check(PowerGrid.is_powered("bloom_lamps"), "bloom circuit lives the moment a lamp exists")
+	_check(LightZone.point_is_safe(get_tree(), lamp_pos + Vector3(1, 0.5, 1)),
+		"player-built lamp casts REAL safety the crab honors")
+	# Lean-to: warmth without the grid.
+	PlayerState.add_item("leanto_kit")
+	player.build.toggle()
+	var g2: float = 0.0
+	while not player.build._valid and g2 < 3.0:
+		await get_tree().physics_frame
+		g2 += 0.016
+	player.build.place()
+	await get_tree().process_frame
+	var warm_zones: int = 0
+	for s in get_tree().get_nodes_in_group("built_structures"):
+		for ch in s.get_children():
+			if ch is WarmthZone:
+				warm_zones += 1
+	_check(warm_zones >= 1, "built lean-to carries a live warmth zone")
 
 	# Throw: stand over the gyre eye aimed down at a debris piece and reel one in.
 	var target: Node3D = null

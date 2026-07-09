@@ -1,5 +1,10 @@
 # Known Issues
 
+- **Built structures and journal don't persist** — SaveManager saves stats/inventory/
+  power, not placed structures or journal discoveries. Wire into save_game() for v0.2.
+- **Build placement has no overlap check** — you can place structures intersecting
+  props or each other. Grid snap keeps it mostly sane; add a shape sweep in v0.2.
+
 - **Windows export preset not generated.** Export templates aren't installed on this
   machine. In the editor: Project → Export → Add → Windows Desktop, install templates.
 - **Interior lighting is faked** with sun-scaled "spill" omni lights, not real light

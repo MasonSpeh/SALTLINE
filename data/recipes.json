@@ -1,0 +1,43 @@
+{
+	"_schema": "recipe_id -> { name, needs: {item: count}, makes, work_sec, desc, hint }. Bench crafting: lay parts, work them.",
+	"throwing_hook": {
+		"name": "Throwing Hook",
+		"needs": { "rope": 1, "prybar": 1 },
+		"makes": "throwing_hook",
+		"work_sec": 2.5,
+		"desc": "A heaving line with teeth. Takes back what the gyre holds.",
+		"hint": "Rope from the crane deck; prybar from the pump room."
+	},
+	"bloom_lamp_kit": {
+		"name": "Bloom Lamp",
+		"needs": { "kelp_bundle": 2, "scrap_metal": 1 },
+		"makes": "bloom_lamp_kit",
+		"work_sec": 3.0,
+		"desc": "Bloom-kelp sealed in a scrap housing. Cold teal light, no power needed — and what walks at night honors it.",
+		"hint": "Kelp glows for weeks in a sealed housing. The crew knew."
+	},
+	"leanto_kit": {
+		"name": "Lean-To",
+		"needs": { "tarp": 1, "driftwood": 2 },
+		"makes": "leanto_kit",
+		"work_sec": 3.0,
+		"desc": "Canvas over a driftwood frame. A pocket of warmth anywhere on the rig.",
+		"hint": "The sea gives back wood and canvas. Make a roof of them."
+	},
+	"walkway_kit": {
+		"name": "Plank Walkway",
+		"needs": { "driftwood": 2 },
+		"makes": "walkway_kit",
+		"work_sec": 2.0,
+		"desc": "A lashed plank section. Bridges a gap, extends a deck.",
+		"hint": "Two sound planks make a path where there wasn't one."
+	},
+	"barricade_kit": {
+		"name": "Barricade",
+		"needs": { "driftwood": 1, "scrap_metal": 2 },
+		"makes": "barricade_kit",
+		"work_sec": 3.0,
+		"desc": "Scrap plate on a wood brace. Waist-high, storm-solid.",
+		"hint": "Plate the gyre coughs up still remembers being a wall."
+	}
+}

@@ -25,6 +25,7 @@ var inventory_panel: Panel
 var inv_grid: GridContainer
 var inv_info: Label
 var _inv_buttons: Array[Button] = []
+var bench_panel: BenchPanel
 
 var _toast_tween: Tween
 var reading_open: bool = false
@@ -326,12 +327,16 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]Hotbar[/b]         1–4 eat / use
 [b]Inventory[/b]      I — pack and hotbar, click items to move them
 [b]Journal[/b]        J — discoveries, item notes, craft hints
-[b]Hook[/b]           F — throw the rigging hook (craft: rope + prybar at the bench)
+[b]Hook[/b]           F — throw the rigging hook (craft it at the bench)
+[b]Craft[/b]          E at the rigging bench — lay parts on it, hold WORK / Space
+[b]Build[/b]          B — ghost preview · LMB place · R rotate · Tab next kit · B done
 [b]Pause[/b]          Esc — volume, mouse, invert-Y
 
 [b]Tips[/b]
 · The fire barrel on the wet deck is warmth that needs no power.
 · The gyre south of the rig collects what the sea carries. Hook it.
+· Bloom lamps you build make real safe light — the crab honors them.
+· A lean-to is a pocket of warmth anywhere. Walkways bridge anything.
 · When the gulls leave, you have one dusk of grace. Use it.
 · Listen. The claw-ticks through the deck are a countdown."""
 	help_panel.add_child(help_text)
@@ -387,15 +392,34 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	inv_info.add_theme_color_override("font_color", Color(0.72, 0.76, 0.72))
 	ivbox.add_child(inv_info)
 
+	# BENCH — crafting surface, opened by the in-world rigging bench.
+	bench_panel = BenchPanel.new()
+	bench_panel.add_theme_stylebox_override("panel", _panel_style())
+	add_child(bench_panel)
+	bench_panel.set_anchors_preset(Control.PRESET_CENTER)
+	bench_panel.offset_left = -310
+	bench_panel.offset_top = -270
+	bench_panel.offset_right = 310
+	bench_panel.offset_bottom = 270
+
 func any_panel_open() -> bool:
-	return help_panel.visible or journal_panel.visible or inventory_panel.visible
+	return help_panel.visible or journal_panel.visible or inventory_panel.visible \
+		or bench_panel.visible
+
+func open_bench(bench: Node3D) -> void:
+	bench_panel.bench = bench
+	toggle_panel("bench")
 
 func toggle_panel(which: String) -> void:
-	var target: Panel = {"help": help_panel, "journal": journal_panel, "inventory": inventory_panel}[which]
+	var target: Panel = {"help": help_panel, "journal": journal_panel,
+		"inventory": inventory_panel, "bench": bench_panel}[which]
 	var was_open: bool = target.visible
+	if bench_panel.visible:
+		bench_panel.return_all()   # never eat laid parts on close
 	help_panel.visible = false
 	journal_panel.visible = false
 	inventory_panel.visible = false
+	bench_panel.visible = false
 	if not was_open:
 		target.visible = true
 		if which == "journal":
@@ -404,6 +428,8 @@ func toggle_panel(which: String) -> void:
 			_rebuild_journal()
 		elif which == "inventory":
 			_refresh_inventory_panel()
+		elif which == "bench":
+			bench_panel.refresh()
 	_sync_panel_mode()
 
 func _sync_panel_mode() -> void:
@@ -436,7 +462,10 @@ func _input(event: InputEvent) -> void:
 				get_viewport().set_input_as_handled()
 			KEY_ESCAPE:
 				if any_panel_open():
-					toggle_panel("help" if help_panel.visible else ("journal" if journal_panel.visible else "inventory"))
+					var open: String = "help" if help_panel.visible else (
+						"journal" if journal_panel.visible else (
+						"inventory" if inventory_panel.visible else "bench"))
+					toggle_panel(open)
 					get_viewport().set_input_as_handled()
 
 func _update_journal_badge() -> void:

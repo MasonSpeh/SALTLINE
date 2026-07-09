@@ -13,8 +13,16 @@ godot --path .
 
 ## Controls
 WASD move · mouse look · Shift sprint · **E interact** (context verb, also grab/set
-down props) · LMB throw a carried prop · 1–4 use hotbar item · **F throw the rigging
-hook** (craft it first: rope + prybar at the wet-deck bench) · Esc pause/settings
+down props) · LMB throw a carried prop · 1–4 use hotbar item · **I inventory** ·
+**J journal** · **H help** · **F throw the rigging hook** · Esc pause/settings
+
+**Crafting** — E at the wet-deck rigging bench: click parts from your pack to lay
+them on the bench; when they match a recipe, hold WORK (or Space) to hammer it real.
+Partial layouts show what the parts *want* to become and what's still missing.
+
+**Building** — B with a crafted kit in your pack: ghost preview snapped to the deck
+grid · LMB place · R rotate · Tab/scroll cycle kits · B/Esc done. Bloom lamps make
+real crab-safe light; lean-tos make warmth; walkways extend the rig itself.
 
 Debug keys: F1 next phase · F2 toggle power · F3 infinite stats · F4/F5 teleport ·
 F6 toggle 20x time

@@ -17,8 +17,8 @@ func _player() -> Node3D:
 func _physics_process(_delta: float) -> void:
 	var player: Node3D = _player()
 	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if player and player.carried:
-		# Player controller owns the prompt while carrying.
+	if player and (player.carried or player.ui_locked or (player.build and player.build.active)):
+		# Carrying, in a panel, or building — someone else owns the prompt.
 		_current = null
 		return
 	var hit: Object = get_collider() if is_colliding() else null
@@ -36,7 +36,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("interact") or _current == null:
 		return
 	var player: Node3D = _player()
-	if player and player.carried:
+	if player and (player.carried or player.ui_locked or (player.build and player.build.active)):
 		return
 	if _current is Interactable:
 		var v: Array[String] = (_current as Interactable).available_verbs()

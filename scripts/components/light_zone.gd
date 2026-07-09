@@ -14,7 +14,7 @@ func _ready() -> void:
 	for c in get_children():
 		if c is Light3D:
 			_lights.append(c)
-			c.visible = false
+			c.visible = is_lit()   # circuit may already be live (e.g. bloom lamps)
 
 func add_light(l: Light3D) -> void:
 	add_child(l)

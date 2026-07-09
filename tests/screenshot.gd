@@ -30,6 +30,25 @@ func _ready() -> void:
 	await _ui_shot("help", "sl_ui_help")
 	await _ui_shot("journal", "sl_ui_journal")
 	await _ui_shot("inventory", "sl_ui_inventory")
+	# Bench with a partial recipe laid out.
+	PlayerState.add_item("driftwood")
+	PlayerState.add_item("tarp")
+	main.hud.bench_panel.bench = null
+	main.hud.toggle_panel("bench")
+	main.hud.bench_panel.lay_item("driftwood")
+	main.hud.bench_panel.lay_item("tarp")
+	await get_tree().create_timer(0.6).timeout
+	var bimg: Image = get_viewport().get_texture().get_image()
+	bimg.save_png("/tmp/sl_ui_bench.png")
+	print("saved /tmp/sl_ui_bench.png")
+	main.hud.toggle_panel("bench")
+	# A built homestead: lamp + lean-to + walkway + barricade on the south deck, at night.
+	for spec in [["bloom_lamp_kit", Vector3(6, 18.0, -16)], ["leanto_kit", Vector3(3.5, 18.0, -17)],
+			["walkway_kit", Vector3(8.5, 18.0, -17.5)], ["barricade_kit", Vector3(4.5, 18.0, -14.2)]]:
+		var s: Node3D = Structures.build(spec[0], false)
+		main.add_child(s)
+		s.global_position = spec[1]
+	await _shot(Vector3(12, 19.6, -10), 45.0, -16.0, GameClock.Phase.NIGHT, "sl_built_night")
 
 	# New content: interiors, env objects, wildlife.
 	await _shot(Vector3(6, 19.7, 9.5), 180.0, -6.0, GameClock.Phase.DAY, "sl_galley")
