@@ -12,8 +12,12 @@ godot --path .
 ```
 
 ## Controls
-WASD move · mouse look · Shift sprint · **E interact** (context verb) · 1–4 use hotbar
-item · Esc pause/settings
+WASD move · mouse look · Shift sprint · **E interact** (context verb, also grab/set
+down props) · LMB throw a carried prop · 1–4 use hotbar item · **F throw the rigging
+hook** (craft it first: rope + prybar at the wet-deck bench) · Esc pause/settings
+
+Debug keys: F1 next phase · F2 toggle power · F3 infinite stats · F4/F5 teleport ·
+F6 toggle 20x time
 
 ## Verify
 ```sh

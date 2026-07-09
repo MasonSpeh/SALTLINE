@@ -22,6 +22,7 @@ func _ready() -> void:
 	var jelly := JellyGlow.new()
 	add_child(jelly)
 	add_child(BloomFauna.new())   # gulls, jellies, barnacles, eel, shoal, ray, worms
+	add_child(Gyre.new())         # the turning water south of the rig, and what it collects
 	player = load("res://scenes/Player.tscn").instantiate()
 	add_child(player)
 	player.global_position = rig.player_spawn
@@ -162,7 +163,7 @@ func _build_ocean() -> void:
 	var far := MeshInstance3D.new()
 	far.mesh = far_mesh
 	add_child(far)
-	far.position.y = -0.35
+	far.position.y = -1.35   # below the deepest v2 trough so it never pokes through
 
 func _process(delta: float) -> void:
 	if _cold_open_active:

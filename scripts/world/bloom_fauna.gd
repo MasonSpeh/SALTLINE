@@ -34,7 +34,7 @@ func _ready() -> void:
 	add_child(MantleRay.new())
 	# Tide worms along the wet-deck tide line and out on the pontoon.
 	for p in [Vector3(24.5, 2.02, -17.5), Vector3(21.5, 2.02, -19.5), Vector3(26.5, 2.02, -13.0),
-			Vector3(2.0, 0.52, -12.0), Vector3(-6.0, 0.52, -11.0)]:
+			Vector3(2.0, 0.97, -12.0), Vector3(-6.0, 0.97, -11.0)]:
 		var w := TideWorm.new()
 		add_child(w)
 		w.global_position = p

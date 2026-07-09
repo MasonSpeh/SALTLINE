@@ -183,9 +183,9 @@ func _build_structure() -> void:
 	for leg_pos in legs:
 		# Top ends below the deck slab — coplanar faces z-fight through the floors above.
 		_box(leg_pos + Vector3(0, 6.6, 0), Vector3(6, 20.8, 6), MatLib.rust_steel())
-	# Pontoons at the waterline.
-	_box(Vector3(0, -1.5, -12), Vector3(56, 4, 8), MatLib.dark_metal())
-	_box(Vector3(0, -1.5, 12), Vector3(56, 4, 8), MatLib.dark_metal())
+	# Pontoons riding just above the bigger v2 swell (crests reach ~0.9).
+	_box(Vector3(0, -1.05, -12), Vector3(56, 4, 8), MatLib.dark_metal())
+	_box(Vector3(0, -1.05, 12), Vector3(56, 4, 8), MatLib.dark_metal())
 
 # ---------- Z1: Wet Deck ----------
 
@@ -574,7 +574,7 @@ func _build_sphl() -> void:
 
 func _build_access() -> void:
 	# Wet Deck -> south pontoon (the under-rig walkway: barnacles, eel, jellies up close).
-	_ladder(Vector3(7.8, 0.5, -12), 1.6, 90.0, "Pontoon Ladder", 0.9)
+	_ladder(Vector3(7.8, 0.95, -12), 1.2, 90.0, "Pontoon Ladder", 0.9)
 	# Wet Deck -> pump room roof (small vantage, stashed crate).
 	_ladder(Vector3(18.25, WET_Y, -8), 3.5, -90.0, "Roof Ladder", 1.0)
 	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.55, -8.5))
@@ -729,6 +729,14 @@ func _decorate_electrical() -> void:
 # ---------- Environmental objects ----------
 
 func _build_env_objects() -> void:
+	# Rigging bench + hook ingredients: rope by the crane, prybar in the pump room.
+	var bench := CraftBench.new()
+	add_child(bench)
+	bench.global_position = Vector3(19.5, WET_Y, -19.5)
+	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3))
+	_box(Vector3(19.5, WET_Y + 0.97, -19.5), Vector3(1.7, 0.06, 0.8), MatLib.wood(), self, false)
+	_takeable("rope", "Rope Coil", Vector3(17.2, DECK_Y + 0.25, -15.8), Vector3(0.45, 0.3, 0.45))
+	_takeable("prybar", "Prybar", Vector3(12.8, WET_Y + 1.95, -12.0), Vector3(0.15, 0.12, 0.9))
 	# 1. Oil drums — loose physics props, wet deck and topside.
 	for p in [Vector3(23.5, WET_Y + 0.6, -15.5), Vector3(24.4, WET_Y + 0.6, -14.6),
 			Vector3(10.5, WET_Y + 0.6, -17.5), Vector3(6.5, DECK_Y + 0.6, -13.2),

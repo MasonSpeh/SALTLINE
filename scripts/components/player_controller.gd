@@ -28,6 +28,7 @@ const STAMINA_MIN_TO_SPRINT: float = 0.1
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
 var carried: Node3D = null         ## currently held physics object
+var hook_out: bool = false         ## throwing hook is in flight / reeling
 var _stamina: float = STAMINA_MAX
 var _head_bob_time: float = 0.0
 var _camera_base_y: float
@@ -68,6 +69,19 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_2: PlayerState.use_hotbar(1)
 			KEY_3: PlayerState.use_hotbar(2)
 			KEY_4: PlayerState.use_hotbar(3)
+			KEY_F: _throw_hook()
+
+func _throw_hook() -> void:
+	if hook_out or carried or _climbing or not PlayerState.has_item("throwing_hook"):
+		return
+	hook_out = true
+	var hook := ThrowingHook.new()
+	get_tree().current_scene.add_child(hook)
+	hook.setup(self, camera)
+	AudioDirector.play_one_shot("splash", global_position, -20.0)   # the heave grunt stand-in
+
+func hook_returned() -> void:
+	hook_out = false
 
 func _physics_process(delta: float) -> void:
 	if _climbing:
