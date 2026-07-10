@@ -5,14 +5,25 @@ extends CharacterBody3D
 
 const WALK_SPEED: float = 3.2
 const SPRINT_SPEED: float = 5.0
+const CROUCH_SPEED: float = 1.5
 const CLIMB_SPEED: float = 1.8
 const ACCELERATION: float = 8.0
 const GRAVITY: float = 9.8
+const JUMP_VELOCITY: float = 4.2
 const MOUSE_SENSITIVITY: float = 0.0025
 const HEAD_BOB_WALK_FREQ: float = 1.8
 const HEAD_BOB_SPRINT_FREQ: float = 2.6
 const HEAD_BOB_AMPLITUDE: float = 0.03
 const WATER_LEVEL: float = 0.4
+
+# Crouch: halves the standing capsule and drops the eye line. Held on the crouch key.
+const STAND_HEIGHT: float = 1.8
+const CROUCH_HEIGHT: float = 0.9
+const STAND_COL_Y: float = 0.9
+const CROUCH_COL_Y: float = 0.45
+const STAND_HEAD_Y: float = 1.6
+const CROUCH_HEAD_Y: float = 0.85
+const CROUCH_LERP: float = 12.0
 
 const STAMINA_MAX: float = 1.0
 const STAMINA_DRAIN_PER_SEC: float = 0.2
@@ -24,6 +35,7 @@ const STAMINA_MIN_TO_SPRINT: float = 0.1
 
 @onready var head: Node3D = $Head
 @onready var camera: Camera3D = $Head/Camera3D
+@onready var _col: CollisionShape3D = $CollisionShape3D
 
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
@@ -31,12 +43,23 @@ var carried: Node3D = null         ## currently held physics object
 var hook_out: bool = false         ## throwing hook is in flight / reeling
 var ui_locked: bool = false        ## a HUD panel (inventory/journal/help/bench) is open
 var build: BuildMode = null        ## build mode controller (B)
+var crouching: bool = false        ## held crouch — half height, slower, harder to detect
 var _stamina: float = STAMINA_MAX
 var _head_bob_time: float = 0.0
 var _camera_base_y: float
+var _crouch_t: float = 0.0         ## 0 = standing, 1 = fully crouched
+var _jump_buffer: float = 0.0      ## brief window after a jump press, so it still fires on landing
+var _jump_was_pressed: bool = false
 var _climbing: Ladder = null
 var _drowning: bool = false
 var _step_accum: float = 0.0
+
+const JUMP_BUFFER_TIME: float = 0.15
+
+## How detectable the player is to creatures right now (1.0 standing, 0.5 crouched).
+## The Lamplight Crab multiplies its detect radius by this.
+func detection_factor() -> float:
+	return 0.5 if crouching else 1.0
 
 func _ready() -> void:
 	add_to_group("player")
@@ -99,12 +122,29 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
 
+	_update_crouch(delta)
+
+	var can_act: bool = not input_locked and not ui_locked and not (build and build.active)
+	# Jump: buffer the rising edge of the press (polled, so it survives frame timing),
+	# then fire on the next grounded frame. A press just before landing still counts.
+	var jump_pressed: bool = can_act and Input.is_action_pressed("jump")
+	if jump_pressed and not _jump_was_pressed:
+		_jump_buffer = JUMP_BUFFER_TIME
+	_jump_was_pressed = jump_pressed
+	if _jump_buffer > 0.0:
+		_jump_buffer -= delta
+	if can_act and _jump_buffer > 0.0 and is_on_floor() and not crouching:
+		velocity.y = JUMP_VELOCITY
+		_jump_buffer = 0.0
+
 	var input_dir: Vector2 = Vector2.ZERO
 	if not input_locked and not ui_locked:
 		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	var wants_sprint: bool = Input.is_action_pressed("sprint") and _stamina > STAMINA_MIN_TO_SPRINT
+	# Crouch is slow and steady; sprint is disabled while crouched.
+	var wants_sprint: bool = Input.is_action_pressed("sprint") and _stamina > STAMINA_MIN_TO_SPRINT and not crouching
 	var stamina_ceiling: float = PlayerState.stamina_ceiling_multiplier()
-	var target_speed: float = (SPRINT_SPEED if wants_sprint else WALK_SPEED) * stamina_ceiling
+	var base_speed: float = CROUCH_SPEED if crouching else (SPRINT_SPEED if wants_sprint else WALK_SPEED)
+	var target_speed: float = base_speed * stamina_ceiling
 
 	var direction: Vector3 = (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
 	var target_velocity: Vector3 = direction * target_speed
@@ -118,15 +158,29 @@ func _physics_process(delta: float) -> void:
 	_update_footsteps(delta)
 	_check_water()
 
+## Held crouch: lerp the capsule height, collider offset, and eye line together so the
+## feet stay planted. Sets `crouching` for creature detection to read.
+func _update_crouch(delta: float) -> void:
+	crouching = Input.is_action_pressed("crouch") and not input_locked and not ui_locked \
+		and not (build and build.active)
+	_crouch_t = move_toward(_crouch_t, 1.0 if crouching else 0.0, CROUCH_LERP * delta)
+	var cap := _col.shape as CapsuleShape3D
+	if cap:
+		cap.height = lerpf(STAND_HEIGHT, CROUCH_HEIGHT, _crouch_t)
+	_col.position.y = lerpf(STAND_COL_Y, CROUCH_COL_Y, _crouch_t)
+	_camera_base_y = lerpf(STAND_HEAD_Y, CROUCH_HEAD_Y, _crouch_t)
+
 func _update_footsteps(_delta: float) -> void:
 	if not is_on_floor():
 		return
 	var horizontal: Vector3 = Vector3(velocity.x, 0, velocity.z)
 	_step_accum += horizontal.length() * _delta
-	var stride: float = 2.6 if Input.is_action_pressed("sprint") else 2.1
+	# Crouched steps are longer-spaced and much quieter — the stealth payoff.
+	var stride: float = 3.6 if crouching else (2.6 if Input.is_action_pressed("sprint") else 2.1)
 	if _step_accum >= stride:
 		_step_accum = 0.0
-		AudioDirector.play_one_shot("step", global_position + Vector3(0, -0.6, 0), -16.0)
+		var vol: float = -28.0 if crouching else -16.0
+		AudioDirector.play_one_shot("step", global_position + Vector3(0, -0.6, 0), vol)
 
 func start_climb(ladder: Ladder) -> void:
 	_climbing = ladder
@@ -190,7 +244,8 @@ func _update_head_bob(delta: float, is_moving: bool, is_sprinting: bool) -> void
 		head.position.y = _camera_base_y + sin(_head_bob_time) * HEAD_BOB_AMPLITUDE
 	else:
 		_head_bob_time = 0.0
-		head.position.y = move_toward(head.position.y, _camera_base_y, delta * 0.1)
+		# Settle to the current base briskly so crouching drops the eye line right away.
+		head.position.y = move_toward(head.position.y, _camera_base_y, delta * 4.0)
 
 func try_grab(prop: Node3D) -> void:
 	if carried:

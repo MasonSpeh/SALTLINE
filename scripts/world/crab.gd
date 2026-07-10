@@ -78,7 +78,11 @@ func _process(delta: float) -> void:
 	# Detection: darkness only, same layer-ish height, never into powered light.
 	if player and GameClock.current_phase == GameClock.Phase.NIGHT:
 		var d: float = global_position.distance_to(player.global_position)
-		if d < detect_radius \
+		# Crouching halves how far the crab can sense the player (stealth).
+		var eff_radius: float = detect_radius
+		if player.has_method("detection_factor"):
+			eff_radius *= player.detection_factor()
+		if d < eff_radius \
 				and absf(player.global_position.y - global_position.y) < 2.5 \
 				and not LightZone.point_is_safe(get_tree(), player.global_position):
 			_resume_state = state

@@ -355,7 +355,7 @@ func _build_panels() -> void:
 splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]stay inside the floodlight wash[/b] → see the dawn.
 
-[b]Move[/b]           WASD  ·  Shift sprint  ·  no jump (heavy world)
+[b]Move[/b]           WASD · Shift sprint · Space jump · Ctrl crouch (slow, quiet, hard to spot)
 [b]Interact[/b]       E — one context verb (take / open / read / connect / operate / climb)
 [b]Carry[/b]          E grabs loose props · LMB throws · E/G sets down
 [b]Hotbar[/b]         1–4 eat / use

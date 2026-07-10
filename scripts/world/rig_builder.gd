@@ -137,7 +137,14 @@ func _takeable(item: String, name_: String, pos: Vector3, size: Vector3 = Vector
 	t.display_name = name_
 	add_child(t)
 	t.global_position = pos
-	t.build_box_visual(size, Interactable.COLOR_TAKEABLE)
+	# Collision box for the interaction ray, plus a distinctive item mesh you can read.
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(maxf(size.x, 0.4), maxf(size.y, 0.4), maxf(size.z, 0.4))
+	col.shape = box
+	t.add_child(col)
+	col.position.y = box.size.y * 0.5
+	t.add_child(ItemVisual.build(item))
 	return t
 
 func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
@@ -160,14 +167,26 @@ func _ladder(pos: Vector3, height: float, facing_deg: float, name_: String = "La
 	add_child(l)
 	l.global_position = pos
 	l.rotation.y = deg_to_rad(facing_deg)
-	# Rails + rungs greybox: one thin box, painted safety-yellow.
-	var mi := MeshInstance3D.new()
-	var mesh := BoxMesh.new()
-	mesh.size = Vector3(0.6, height, 0.12)
-	mesh.material = MatLib.flat(Interactable.COLOR_TAKEABLE)
-	mi.mesh = mesh
-	l.add_child(mi)
-	mi.position = Vector3(0, height * 0.5, 0)
+	# Two safety-yellow side rails with rungs stepped up between them — reads as a ladder.
+	var rail_mat := MatLib.flat(Interactable.COLOR_TAKEABLE)
+	var rung_mat := MatLib.flat(Color(0.75, 0.65, 0.15))
+	for side in [-0.24, 0.24]:
+		var rail := MeshInstance3D.new()
+		var rm := BoxMesh.new()
+		rm.size = Vector3(0.09, height, 0.09)
+		rm.material = rail_mat
+		rail.mesh = rm
+		l.add_child(rail)
+		rail.position = Vector3(side, height * 0.5, 0)
+	var rungs: int = maxi(2, int(height / 0.32))
+	for i in range(rungs):
+		var rung := MeshInstance3D.new()
+		var gm := BoxMesh.new()
+		gm.size = Vector3(0.56, 0.05, 0.05)
+		gm.material = rung_mat
+		rung.mesh = gm
+		l.add_child(rung)
+		rung.position = Vector3(0, (i + 0.5) * (height / rungs), 0)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = Vector3(0.7, height, 0.35)

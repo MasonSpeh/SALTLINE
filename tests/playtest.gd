@@ -105,6 +105,40 @@ func _run() -> void:
 	_check(PlayerState.has_item("driftwood"), "closing the bench returns laid parts")
 	PlayerState.remove_item("driftwood")
 
+	# --- Jump + crouch ---
+	player.global_position = Vector3(0, 19.6, -5)   # open topside deck
+	var grounded: bool = false
+	for i in range(120):
+		await get_tree().physics_frame
+		if player.is_on_floor():
+			grounded = true
+			break
+	_check(grounded, "player settles onto the deck")
+	var jy: float = player.global_position.y
+	Input.action_press("jump")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Input.action_release("jump")
+	var jpeak: float = jy
+	for i in range(40):
+		await get_tree().physics_frame
+		jpeak = maxf(jpeak, player.global_position.y)
+	_check(jpeak - jy > 0.4, "Space jumps the player off the deck (rose %.2fm)" % (jpeak - jy))
+	for i in range(30):
+		await get_tree().physics_frame   # land again
+	# Crouch: half capsule, lower eye line, halved detection.
+	var cap: CapsuleShape3D = player.get_node("CollisionShape3D").shape
+	Input.action_press("crouch")
+	for i in range(24):
+		await get_tree().physics_frame
+	_check(player.crouching, "holding crouch sets the crouch state")
+	_check(cap.height < 1.0, "crouch halves the capsule (%.2f)" % cap.height)
+	_check(player.detection_factor() < 0.6, "crouch halves creature detection")
+	Input.action_release("crouch")
+	for i in range(24):
+		await get_tree().physics_frame
+	_check(not player.crouching and cap.height > 1.5, "releasing crouch stands back up")
+
 	# Build mode: craft a bloom lamp kit's worth, build it, verify REAL safety.
 	PlayerState.add_item("bloom_lamp_kit")
 	player.global_position = Vector3(0, 19.4, -5)   # open topside deck

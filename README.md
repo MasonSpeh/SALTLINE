@@ -12,8 +12,9 @@ godot --path .
 ```
 
 ## Controls
-WASD move · mouse look · Shift sprint · **E interact** (context verb, also grab/set
-down props) · LMB throw a carried prop · 1–4 use hotbar item · **I inventory** ·
+WASD move · mouse look · Shift sprint · **Space jump** · **Ctrl crouch** (half height,
+slower, quieter, harder for the crab to detect) · **E interact** (context verb, also
+grab/set down props) · LMB throw a carried prop · 1–4 use hotbar item · **I inventory** ·
 **J journal** · **H help** · **F throw the rigging hook** · Esc pause/settings
 
 **Crafting** — E at the wet-deck rigging bench: click parts from your pack to lay
