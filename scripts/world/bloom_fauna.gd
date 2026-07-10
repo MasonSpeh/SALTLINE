@@ -33,6 +33,11 @@ func _ready() -> void:
 	add_child(FiddlerShoal.new())
 	add_child(MantleRay.new())
 	add_child(Epic4EyedWhale.new())  # night visitor from the deep
+	# Glow worms — rare creatures in dark corners, skittish and edible
+	for p in [Vector3(8.5, 3.2, -20.5), Vector3(-8.2, 2.8, 15.5), Vector3(25.5, 12.2, -12.0)]:
+		var gw := GlowWorm.new()
+		add_child(gw)
+		gw.global_position = p
 	# Tide worms along the wet-deck tide line and out on the pontoon.
 	for p in [Vector3(24.5, 2.02, -17.5), Vector3(21.5, 2.02, -19.5), Vector3(26.5, 2.02, -13.0),
 			Vector3(2.0, 0.97, -12.0), Vector3(-6.0, 0.97, -11.0)]:
@@ -405,6 +410,51 @@ class TideWorm extends Node3D:
 		_body.rotation.x = sin(_t * 1.7) * 0.22 * _emerge
 		_body.rotation.z = cos(_t * 1.3) * 0.22 * _emerge
 
+
+# ------------------------------------------------- Glow Worm
+class GlowWorm extends Node3D:
+	var _t: float = 0.0
+	var _visible_presence: float = 0.0  ## 0 = hiding, 1 = visible
+	var _glow_body: MeshInstance3D
+	var _glow_mat: StandardMaterial3D
+
+	func _ready() -> void:
+		_glow_body = MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.15
+		sm.height = 0.3
+		_glow_mat = BloomFauna.glow_mat(BloomFauna.TEAL, 1.2)
+		sm.material = _glow_mat
+		_glow_body.mesh = sm
+		add_child(_glow_body)
+		# Small collision sphere for grabbing
+		var col := CollisionShape3D.new()
+		var shape := SphereShape3D.new()
+		shape.radius = 0.2
+		col.shape = shape
+		add_child(col)
+
+	func _process(delta: float) -> void:
+		_t += delta
+		# Visible only at night; fade in/out with time
+		var night: bool = BloomFauna.is_dark_phase()
+		var target_presence: float = 1.0 if night else 0.0
+		_visible_presence = move_toward(_visible_presence, target_presence, delta * 0.12)
+		_glow_mat.emission_energy_multiplier = _visible_presence * (0.8 + 0.6 * sin(_t * 2.0))
+		_glow_body.visible = _visible_presence > 0.1
+		if not _glow_body.visible:
+			return
+		Journal.discover_if_near(self, "creature_glow_worm", 8.0)
+		# Hide when player gets close (skittish behavior)
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		if player:
+			var dist: float = global_position.distance_to(player.global_position)
+			if dist < 2.5:
+				# Dart away from player
+				global_position += (global_position - player.global_position).normalized() * delta * 3.0
+			# Gentle bobbing motion when player not too close
+			if dist > 4.0:
+				global_position.y += sin(_t * 1.5) * delta * 0.3
 
 # ------------------------------------------------- Epic 4-Eyed Whale
 class Epic4EyedWhale extends Node3D:

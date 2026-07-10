@@ -37,6 +37,9 @@ const STAMINA_MIN_TO_SPRINT: float = 0.1
 @onready var camera: Camera3D = $Head/Camera3D
 @onready var _col: CollisionShape3D = $CollisionShape3D
 
+var _hand_item: Node3D = null  ## visual item mesh held in right hand
+var _held_item_id: String = ""
+
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
 var carried: Node3D = null         ## currently held physics object
@@ -71,6 +74,11 @@ func _ready() -> void:
 	build = BuildMode.new()
 	add_child(build)
 	build.setup(self, camera)
+	# Create hand item holder (positioned in front of camera, to the right)
+	_hand_item = Node3D.new()
+	camera.add_child(_hand_item)
+	_hand_item.position = Vector3(0.35, -0.3, -0.8)
+	PlayerState.inventory_changed.connect(_update_held_item)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -93,10 +101,18 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if event is InputEventKey and event.pressed and not event.echo and not input_locked:
 		match event.keycode:
-			KEY_1: PlayerState.use_hotbar(0)
-			KEY_2: PlayerState.use_hotbar(1)
-			KEY_3: PlayerState.use_hotbar(2)
-			KEY_4: PlayerState.use_hotbar(3)
+			KEY_1:
+				PlayerState.selected_hotbar = 0
+				_update_held_item()
+			KEY_2:
+				PlayerState.selected_hotbar = 1
+				_update_held_item()
+			KEY_3:
+				PlayerState.selected_hotbar = 2
+				_update_held_item()
+			KEY_4:
+				PlayerState.selected_hotbar = 3
+				_update_held_item()
 			KEY_F: _throw_hook()
 			KEY_B:
 				if not ui_locked and not _climbing:
@@ -190,6 +206,11 @@ func start_climb(ladder: Ladder) -> void:
 	global_position = Vector3(base.x, y, base.z) + ladder.face_dir() * 0.45
 
 func _climb_process(_delta: float) -> void:
+	# Exit climbing if E is released or player input-locked (cutscene)
+	if not Input.is_action_pressed("interact") or input_locked:
+		_climbing = null
+		return
+
 	var up_input: float = 0.0
 	if not input_locked:
 		up_input = Input.get_axis("move_back", "move_forward")
@@ -203,8 +224,6 @@ func _climb_process(_delta: float) -> void:
 		global_position = ladder.top_point() - ladder.face_dir() * ladder.exit_forward + Vector3(0, 0.4, 0)
 		_climbing = null
 	elif global_position.y <= bottom_y + 0.1 and up_input < 0.0:
-		_climbing = null
-	elif Input.is_action_just_pressed("interact"):
 		_climbing = null
 
 func _check_water() -> void:
@@ -272,3 +291,19 @@ func _throw_carried() -> void:
 		var forward: Vector3 = -camera.global_transform.basis.z
 		(prop as RigidBody3D).apply_central_impulse(forward * 6.5 + Vector3(0, 1.6, 0))
 		AudioDirector.play_one_shot("clang", prop.global_position, -12.0)
+
+func _update_held_item() -> void:
+	# Clear previous hand item
+	for child in _hand_item.get_children():
+		child.queue_free()
+	_held_item_id = ""
+	
+	# Show the selected hotbar item in hand
+	if PlayerState.selected_hotbar >= 0 and PlayerState.selected_hotbar < PlayerState.HOTBAR_SIZE:
+		var item_id: String = PlayerState.hotbar[PlayerState.selected_hotbar]
+		if item_id:
+			_held_item_id = item_id
+			var mesh: Node3D = ItemVisual.build(item_id)
+			if mesh:
+				_hand_item.add_child(mesh)
+				mesh.scale *= 0.6

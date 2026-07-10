@@ -7,6 +7,7 @@ signal warmth_changed(value: float)
 signal stat_low(stat_name: String)
 signal stat_recovered(stat_name: String)
 signal inventory_changed
+signal item_eaten(item_id: String)
 
 const LOW_THRESHOLD: float = 0.5
 const HOTBAR_SIZE: int = 4
@@ -16,9 +17,11 @@ var hunger: float = 1.0 : set = set_hunger
 var warmth: float = 1.0 : set = set_warmth
 var hotbar: Array = [null, null, null, null]
 var inventory: Array = [] ## overflow list beyond the hotbar
+var selected_hotbar: int = -1  ## last hotbar slot pressed (#1-4)
 
 ## Environmental warmth modifier, set by cold/heat zones: -1 cold, 0 neutral, +1 heated.
 var warmth_zone: int = 0
+var sickness: float = 0.0  ## 0-1, sick reduces stamina; decays over time
 
 var tuning: Dictionary = {}
 var items: Dictionary = {}
@@ -51,6 +54,7 @@ func _process(delta: float) -> void:
 	elif GameClock.current_phase == GameClock.Phase.NIGHT:
 		w_rate = tuning.get("warmth_per_sec_night", -0.0015)
 	warmth += w_rate * delta
+	sickness = maxf(0.0, sickness - delta * 0.15)  # recover from sickness over time
 
 func set_depleting(v: bool) -> void:
 	_depleting = v
@@ -77,13 +81,15 @@ func _check_threshold(stat_name: String, value: float, was_low: bool) -> void:
 		"warmth":
 			_warmth_was_low = is_low
 
-## Stamina ceiling reduction when stats are low (soft consequence, no hard failure).
+## Stamina ceiling reduction when stats are low or player is sick.
 func stamina_ceiling_multiplier() -> float:
 	var mult: float = 1.0
 	if hunger < LOW_THRESHOLD:
 		mult *= 0.75
 	if warmth < LOW_THRESHOLD:
 		mult *= 0.75
+	if sickness > 0.5:
+		mult *= 0.5
 	return mult
 
 func add_item(item_id: String) -> bool:
@@ -146,16 +152,25 @@ func has_item(item_id: String) -> bool:
 func use_hotbar(slot: int) -> void:
 	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:
 		return
+	selected_hotbar = slot
 	var id: String = hotbar[slot]
 	var def: Dictionary = items.get(id, {})
 	if def.get("use", "") == "eat":
 		hunger += def.get("hunger", 0.35)
+		# Apply side effects (raw glow worm causes sickness)
+		if def.get("side_effect", "") == "sick":
+			sickness = 0.8
 		hotbar[slot] = null
 		# Pull an overflow item into the freed slot.
 		if not inventory.is_empty():
 			hotbar[slot] = inventory.pop_front()
 		inventory_changed.emit()
+		item_eaten.emit(id)
 		AudioDirector.play_one_shot("eat", Vector3.ZERO)
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud:
-			hud.toast("Ate %s. Better." % def.get("name", id))
+			var msg: String = def.get("name", id)
+			if def.get("side_effect", "") == "sick":
+				hud.toast("%s tasted... wrong. Feeling queasy." % msg)
+			else:
+				hud.toast("Ate %s. Better." % msg)

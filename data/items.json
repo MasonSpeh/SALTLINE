@@ -17,5 +17,7 @@
 	"bloom_lamp_kit": { "name": "Bloom Lamp (kit)", "use": "build" },
 	"leanto_kit": { "name": "Lean-To (kit)", "use": "build" },
 	"walkway_kit": { "name": "Plank Walkway (kit)", "use": "build" },
-	"barricade_kit": { "name": "Barricade (kit)", "use": "build" }
+	"barricade_kit": { "name": "Barricade (kit)", "use": "build" },
+	"glow_worm": { "name": "Glow Worm (raw)", "use": "eat", "hunger": 0.15, "side_effect": "sick" },
+	"glow_worm_cooked": { "name": "Cooked Glow Worm", "use": "eat", "hunger": 0.5, "side_effect": "none" }
 }
