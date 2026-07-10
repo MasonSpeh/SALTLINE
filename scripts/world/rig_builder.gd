@@ -623,6 +623,7 @@ func _decorate_interiors() -> void:
 	_decorate_pump_room()
 	_decorate_sphl()
 	_decorate_electrical()
+	_add_wall_details()  # pipes, labels, signs, conduit
 
 func _decorate_bunkhouse() -> void:
 	var y: float = DECK_Y
@@ -829,3 +830,58 @@ func _build_imposters() -> void:
 		stub_b.position = p - u * (stub_len * 0.5) + Vector3(0, 15, 0)
 		stub_b.rotation.y = -atan2(u.z, u.x)
 		prev = p
+
+func _add_wall_details() -> void:
+	# Overhead conduit runs — electrical lines in corridor areas
+	var conduit_runs := [
+		# North corridor, topside
+		[Vector3(10, DECK_Y + WALL_H - 0.15, -5), Vector3(26, DECK_Y + WALL_H - 0.15, -5)],
+		# East wall, topside
+		[Vector3(29, DECK_Y + WALL_H - 0.15, -10), Vector3(29, DECK_Y + WALL_H - 0.15, 8)],
+		# Wet deck north
+		[Vector3(10, WET_Y + WALL_H - 0.15, -20), Vector3(28, WET_Y + WALL_H - 0.15, -20)],
+	]
+	for run in conduit_runs:
+		var start: Vector3 = run[0]
+		var end: Vector3 = run[1]
+		var dist: float = start.distance_to(end)
+		var mid: Vector3 = (start + end) * 0.5
+		var conduit := _cyl_nc(mid, 0.06, dist, MatLib.dark_metal())
+		var dir: Vector3 = (end - start).normalized()
+		conduit.rotation.z = atan2(dir.y, Vector2(dir.x, dir.z).length())
+
+	# Pressure gauges and valve wheels on key walls
+	var gauges := [
+		Vector3(27.5, WET_Y + 2.0, -6.0),   # pump room wall
+		Vector3(11.8, WET_Y + 1.8, -20.5),  # north corridor
+		Vector3(24.5, DECK_Y + 2.0, 8.5),   # topside machinery
+	]
+	for gpos in gauges:
+		_cyl_nc(gpos, 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
+
+	# Warning labels on hazardous areas — yellow + red stripe pattern
+	var warning_strips := [
+		Vector3(23, DECK_Y + 0.5, 9.1),     # electrical hazard strip
+		Vector3(30, WET_Y + 0.5, -6.0),     # pump room floor
+		Vector3(14, WET_Y + 0.5, -20.5),    # wet deck stairs
+	]
+	for wpos in warning_strips:
+		_box(wpos, Vector3(2.0, 0.02, 1.2), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
+
+	# Painted directional arrows on the floor (navigation hints)
+	var arrow_y: float = WET_Y + 0.08
+	_box(Vector3(16, arrow_y, -18), Vector3(0.6, 0.01, 0.3), MatLib.flat(Color(0.3, 0.6, 0.9)), self, false)  # blue arrow
+	_box(Vector3(20, arrow_y, -15), Vector3(0.3, 0.01, 0.6), MatLib.flat(Color(0.3, 0.6, 0.9)), self, false)
+
+	# Safety grab rails — horizontal pipes on high-traffic walls
+	for rail_pos in [
+		Vector3(14.5, DECK_Y + 1.5, -4.8),
+		Vector3(28.5, DECK_Y + 1.5, 5),
+		Vector3(-18, DECK_Y + 1.5, 15),
+	]:
+		_cyl_nc(rail_pos, 0.04, 1.6, MatLib.painted_steel()).rotation.z = deg_to_rad(90)
+
+	# Maintenance labels — small plaques and decals
+	_box(Vector3(27.8, WET_Y + 2.4, -6), Vector3(0.4, 0.25, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)  # pump label
+	_box(Vector3(11.5, DECK_Y + 2.2, 9.5), Vector3(0.5, 0.3, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)  # breaker label
+	_box(Vector3(23.2, DECK_Y + 0.6, 9.2), Vector3(0.8, 0.15, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)  # electrical placard

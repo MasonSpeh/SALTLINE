@@ -32,6 +32,7 @@ func _ready() -> void:
 	add_child(LampEel.new())
 	add_child(FiddlerShoal.new())
 	add_child(MantleRay.new())
+	add_child(Epic4EyedWhale.new())  # night visitor from the deep
 	# Tide worms along the wet-deck tide line and out on the pontoon.
 	for p in [Vector3(24.5, 2.02, -17.5), Vector3(21.5, 2.02, -19.5), Vector3(26.5, 2.02, -13.0),
 			Vector3(2.0, 0.97, -12.0), Vector3(-6.0, 0.97, -11.0)]:
@@ -403,3 +404,117 @@ class TideWorm extends Node3D:
 		_body.visible = _emerge > 0.02
 		_body.rotation.x = sin(_t * 1.7) * 0.22 * _emerge
 		_body.rotation.z = cos(_t * 1.3) * 0.22 * _emerge
+
+	# ------------------------------------------------- Epic 4-Eyed Whale
+	class Epic4EyedWhale extends Node3D:
+		var _t: float = 0.0
+		var _presence: float = 0.0
+		var _flying: bool = false
+		var _from: Vector3
+		var _to: Vector3
+		var _progress: float = 0.0
+		var _cooldown: float = 40.0
+		var _body_mesh: MeshInstance3D
+		var _eye_mats: Array[StandardMaterial3D] = []
+		var _fin_mats: Array[StandardMaterial3D] = []
+
+		func _ready() -> void:
+			visible = false
+			# Massive bioluminescent whale hull — deep teal with pearlescent spots
+			_body_mesh = MeshInstance3D.new()
+			var bm := SphereMesh.new()
+			bm.radius = 4.5
+			bm.height = 9.0
+			var hull_mat := BloomFauna.glow_mat(Color(0.08, 0.25, 0.24), 0.35)
+			bm.material = hull_mat
+			_body_mesh.mesh = bm
+			add_child(_body_mesh)
+
+			# Four glowing eyes — two sets on top, alien and epic
+			var eye_color := BloomFauna.TEAL
+			for i in range(4):
+				var eye := MeshInstance3D.new()
+				var em := SphereMesh.new()
+				em.radius = 0.35
+				em.height = 0.7
+				var eye_mat := BloomFauna.glow_mat(eye_color, 1.8)
+				_eye_mats.append(eye_mat)
+				em.material = eye_mat
+				eye.mesh = em
+				add_child(eye)
+				# Two on left, two on right; spaced front-back
+				var side: float = -2.0 if i < 2 else 2.0
+				var forward: float = -3.0 + (i % 2) * 4.0
+				eye.position = Vector3(side, 3.2 + (i % 2) * 0.8, forward)
+
+			# Crazy wild fins — three on top, three on bottom, flapping wildly
+			for i in range(6):
+				var fin := MeshInstance3D.new()
+				var fm := PrismMesh.new()
+				fm.size = Vector3(1.2, 2.8, 3.2)
+				var fin_mat := BloomFauna.glow_mat(Color(0.15, 0.35, 0.33), 0.5)
+				_fin_mats.append(fin_mat)
+				fm.material = fin_mat
+				fin.mesh = fm
+				add_child(fin)
+				# Top and bottom pairs, staggered along the body
+				var y: float = 4.8 if i < 3 else -4.8
+				var z: float = -1.5 + (i % 3) * 1.5
+				fin.position = Vector3(0, y, z)
+				fin.rotation.x = deg_to_rad(45) * (-1 if i < 3 else 1)
+				fin.scale = Vector3(0.6, 1.0, 1.0)
+
+		func _process(delta: float) -> void:
+			_t += delta
+			_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.08)
+			visible = _presence > 0.02
+
+			# Pulsing glow
+			for mat in _eye_mats:
+				mat.emission_energy_multiplier = _presence * (1.5 + 0.8 * sin(_t * 0.8))
+			for mat in _fin_mats:
+				mat.emission_energy_multiplier = _presence * (0.4 + 0.3 * sin(_t * 1.2))
+
+			if not visible:
+				return
+
+			if not _flying:
+				if GameClock.current_phase == GameClock.Phase.NIGHT:
+					_cooldown -= delta
+					if _cooldown <= 0.0:
+						_begin_pass()
+				return
+
+			_progress += delta / 60.0    # even slower than mantle ray, majestic
+			if _progress >= 1.0:
+				_flying = false
+				visible = false
+				_cooldown = randf_range(120.0, 180.0)
+				return
+
+			var pos: Vector3 = _from.lerp(_to, _progress)
+			pos.y += sin(_progress * PI) * -8.0
+			Journal.discover_if_near(self, "creature_epic_whale", 120.0)
+			global_position = pos
+			look_at(pos + (_to - _from).normalized(), Vector3.UP)
+
+			# Fin flapping: chaotic wild motion
+			for i in range(get_child_count()):
+				var ch = get_child(i)
+				if ch is MeshInstance3D and ch != _body_mesh:
+					# Skip eye meshes (first 4 children after body)
+					if i < 5:
+						continue
+					var fin_idx: int = i - 5
+					ch.rotation.z = sin(_t * (1.5 + fin_idx * 0.4)) * (0.6 + fin_idx * 0.15)
+
+		func _begin_pass() -> void:
+			_flying = true
+			visible = true
+			_progress = 0.0
+			var angle: float = randf_range(0, TAU)
+			var dist: float = 240.0
+			var dir := Vector3(cos(angle), 0, sin(angle))
+			_from = -dir * dist + Vector3(0, randf_range(45.0, 55.0), 0)
+			_to = dir * dist + Vector3(0, randf_range(45.0, 55.0), 0)
+			AudioDirector.play_one_shot("groan", global_position, -4.0)   # deep, epic whale call
