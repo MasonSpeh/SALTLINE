@@ -72,6 +72,7 @@ func _ready() -> void:
 	await _shot(Vector3(19, 30.2, 15.7), 180.0, -8.0, GameClock.Phase.DAY, "sl_workshop")
 	await _shot(Vector3(10, 33.8, 9.5), 229.0, 18.0, GameClock.Phase.DUSK, "sl_roof_mast", 0.55)
 	await _shot(Vector3(33, 30.2, 12), 90.0, 2.0, GameClock.Phase.NIGHT, "sl_helipad_night")
+	await _shot(Vector3(24.0, 23.2, 15.0), 280.0, -2.0, GameClock.Phase.DAY, "sl_ladder_well")
 	await _shot(Vector3(14, 19.7, -4), 47.0, 24.0, GameClock.Phase.DUSK, "sl_derrick", 0.55)
 	await _shot(Vector3(-31.5, 19.0, -8.5), 24.0, 24.0, GameClock.Phase.DUSK, "sl_flare_west", 0.55)
 	get_tree().quit()

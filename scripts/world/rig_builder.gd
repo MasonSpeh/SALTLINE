@@ -98,8 +98,8 @@ func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float =
 		var size := Vector3(length, height, WALL_T) if along_x else Vector3(WALL_T, height, length)
 		_box(mid + Vector3(0, height * 0.5, 0), size, mat)
 		return
-	# Split around a 1.2m doorway, 2.2m tall, with lintel above.
-	var door_w: float = 1.2
+	# Split around a 1.4m doorway, 2.2m tall, with lintel above.
+	var door_w: float = 1.4
 	var door_pos: float = clampf(door_t, 0.1, 0.9) * length
 	var seg1: float = door_pos - door_w * 0.5
 	var seg2: float = length - door_pos - door_w * 0.5
@@ -152,6 +152,8 @@ func _takeable(item: String, name_: String, pos: Vector3, size: Vector3 = Vector
 	t.add_child(col)
 	col.position.y = box.size.y * 0.5
 	t.add_child(ItemVisual.build(item))
+	# Adhere to whatever surface is actually below (shelf, counter, deck).
+	preload("res://scripts/world/surface_snap.gd").attach(t)
 	return t
 
 func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
@@ -165,6 +167,7 @@ func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
 	add_child(c)
 	c.global_position = pos
 	c.build_box_visual(Vector3(1.1, 0.8, 0.8), Color(0.5, 0.45, 0.3), false, true)
+	preload("res://scripts/world/surface_snap.gd").attach(c)
 	return c
 
 func _ladder(pos: Vector3, height: float, facing_deg: float, name_: String = "Ladder", exit_fwd: float = 0.8) -> Ladder:
@@ -768,8 +771,8 @@ func _build_env_objects() -> void:
 	var bench := CraftBench.new()
 	add_child(bench)
 	bench.global_position = Vector3(19.5, WET_Y, -19.5)
-	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3))
-	_box(Vector3(19.5, WET_Y + 0.97, -19.5), Vector3(1.7, 0.06, 0.8), MatLib.wood(), self, false)
+	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true)
+	_box(Vector3(19.5, WET_Y + 0.93, -19.5), Vector3(1.7, 0.06, 0.8), MatLib.wood(), self, false)
 	_takeable("rope", "Rope Coil", Vector3(17.2, DECK_Y + 0.01, -15.8), Vector3(0.45, 0.3, 0.45))
 	_takeable("prybar", "Prybar", Vector3(12.8, WET_Y + 1.81, -12.0), Vector3(0.15, 0.12, 0.9))
 	# 1. Oil drums — loose physics props, wet deck and topside.
@@ -984,7 +987,8 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 32,
 		color: Color = Color(0.82, 0.83, 0.8)) -> void:
 	var l := Label3D.new()
 	l.text = text
-	l.font_size = font_size
+	# Scaled down — oversized paint bled across panel joints and door reveals.
+	l.font_size = maxi(12, int(font_size * 0.75))
 	l.pixel_size = 0.01
 	l.modulate = Color(color.r, color.g, color.b, 0.92)
 	l.outline_size = 0

@@ -4,8 +4,9 @@ class_name RigSuperstructure extends Node3D
 ## positions are level design. Decks (floor surface Y): A = the existing topside rooms
 ## at 18.0, B quarters 21.6, C control 25.1, D works 28.6, roof 32.1.
 ##
-## Access: exterior ramp from the topside deck up to the Deck B south balcony, then an
-## internal switchback stairwell (x 23..27, z 13..17.5) linking B -> C -> D -> roof hut.
+## Access: exterior ramp from the topside deck up to the Deck B south balcony, the
+## external west stair to the C terrace, and a LADDER WELL in the old shaft
+## (x 23..27, z 13..17.5) linking B -> C -> D -> roof hut through slab hatches.
 
 const DECK_Y: float = 18.0
 const B_Y: float = 21.6
@@ -86,7 +87,7 @@ func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float =
 		var size := Vector3(length, height, WT) if along_x else Vector3(WT, height, length)
 		_box(mid + Vector3(0, height * 0.5, 0), size, mat)
 		return
-	var door_w: float = 1.2
+	var door_w: float = 1.4
 	var door_pos: float = clampf(door_t, 0.1, 0.9) * length
 	var seg1: float = door_pos - door_w * 0.5
 	var seg2: float = length - door_pos - door_w * 0.5
@@ -135,7 +136,8 @@ func _label(text: String, pos: Vector3, yaw_deg: float, font_size: int = 48,
 		color: Color = Color(0.85, 0.87, 0.84)) -> void:
 	var l := Label3D.new()
 	l.text = text
-	l.font_size = font_size
+	# Scaled down — oversized paint bled across panel joints and door reveals.
+	l.font_size = maxi(12, int(font_size * 0.72))
 	l.pixel_size = 0.01
 	l.modulate = Color(color.r, color.g, color.b, minf(color.a, 0.92))
 	l.outline_size = 0
@@ -227,6 +229,7 @@ func _takeable(item: String, name_: String, pos: Vector3) -> void:
 	t.add_child(col)
 	col.position.y = 0.2
 	t.add_child(ItemVisual.build(item))
+	preload("res://scripts/world/surface_snap.gd").attach(t)
 
 func _readable(id: String, name_: String, pos: Vector3, size: Vector3 = Vector3(0.32, 0.42, 0.05)) -> void:
 	var r := Readable.new()
@@ -246,6 +249,7 @@ func _crate(items: Array, name_: String, pos: Vector3) -> void:
 	add_child(c)
 	c.position = pos
 	c.build_box_visual(Vector3(1.0, 0.75, 0.75), Color(0.5, 0.45, 0.3), false, true)
+	preload("res://scripts/world/surface_snap.gd").attach(c)
 
 # ---- furniture kits (decoration-grade: no collision except the big hulls) ----
 
@@ -289,17 +293,58 @@ func _supports() -> void:
 		_box(Vector3(p.x, (DECK_Y + B_Y - 0.3) * 0.5, p.z),
 			Vector3(0.35, B_Y - 0.3 - DECK_Y, 0.35), mat)
 
-## One switchback flight inside the shaft: floor_y -> floor_y + RISE, plus the
-## arrival strips that form the next floor inside the shaft.
-func _stair_flight(floor_y: float) -> void:
-	var mat: Material = MatLib.deck_plate()
+# Ladder-well hatch bounds (NE corner of the shaft) — slabs open only here.
+const HX0: float = 25.7
+const HX1: float = 27.0
+const HZ0: float = 15.8
+const HZ1: float = 17.2
+
+## One rung ladder inside the well: floor_y up to the hatch in the slab above.
+## Replaces the old crisscrossing ramp flights that clipped through everything.
+func _well_ladder(floor_y: float) -> void:
+	var l := Ladder.new()
+	l.height = RISE
+	l.display_name = "Ladder Well"
+	l.exit_forward = 1.3   # mantle lands west of the hatch, on solid slab
+	add_child(l)
+	# Freestanding mid-hatch so the climber's capsule clears the slab opening
+	# (climb position = base + face_dir * 0.45 must stay inside the hatch rect).
+	l.position = Vector3(25.95, floor_y, 16.5)
+	l.rotation.y = deg_to_rad(-90)
+	var rail_mat := MatLib.flat(Interactable.COLOR_TAKEABLE)
+	var rung_mat := MatLib.flat(Color(0.75, 0.65, 0.15))
+	for side in [-0.24, 0.24]:
+		var rail := MeshInstance3D.new()
+		var rm := BoxMesh.new()
+		rm.size = Vector3(0.09, RISE, 0.09)
+		rm.material = rail_mat
+		rail.mesh = rm
+		l.add_child(rail)
+		rail.position = Vector3(side, RISE * 0.5, 0)
+	var rungs: int = maxi(2, int(RISE / 0.32))
+	for i in range(rungs):
+		var rung := MeshInstance3D.new()
+		var gm := BoxMesh.new()
+		gm.size = Vector3(0.56, 0.05, 0.05)
+		gm.material = rung_mat
+		rung.mesh = gm
+		l.add_child(rung)
+		rung.position = Vector3(0, (i + 0.5) * (RISE / rungs), 0)
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(0.7, RISE, 0.35)
+	shape.shape = box
+	l.add_child(shape)
+	shape.position = Vector3(0, RISE * 0.5, 0)
+	# Hatch guards on the floor ABOVE: full rail on the south edge, west edge gets
+	# two stubs with a gate aligned to the ladder — you step up to the rim, aim at
+	# the rungs, and E takes you. Nothing seals the hatch off.
 	var top: float = floor_y + RISE
-	_ramp(Vector3(SX0 + 0.5, floor_y + 0.13, 14.1), Vector3(SX1 - 0.4, floor_y + RISE * 0.5 + 0.05, 14.1), 1.3, mat)
-	_box(Vector3(SX1 - 0.7, floor_y + RISE * 0.5 - 0.1, 15.7), Vector3(1.4, 0.22, 3.4), mat)  # mid landing
-	_ramp(Vector3(SX1 - 0.4, floor_y + RISE * 0.5 + 0.18, 16.9), Vector3(SX0 + 0.5, top + 0.13, 16.9), 1.3, mat)
-	# Next-floor landing strips inside the shaft (slabs above have a hole here).
-	_box(Vector3((SX0 + SX1) * 0.5, top - 0.12, 14.2), Vector3(SX1 - SX0, 0.24, 2.4), mat)   # south strip (door side)
-	_box(Vector3(SX0 + 0.8, top - 0.12, 16.4), Vector3(1.6, 0.24, 2.2), mat)                  # west arrival pad
+	_box(Vector3((HX0 + HX1) * 0.5, top + 0.5, HZ0 - 0.05), Vector3(HX1 - HX0, 1.0, 0.08), MatLib.rust_steel())
+	_box(Vector3(HX0 - 0.05, top + 0.5, 15.95), Vector3(0.08, 1.0, 0.3), MatLib.rust_steel())
+	_box(Vector3(HX0 - 0.05, top + 0.5, 17.05), Vector3(0.08, 1.0, 0.3), MatLib.rust_steel())
+	# Hazard paint on the slab at the gate.
+	_dbox(Vector3(HX0 - 0.35, top + 0.02, 16.5), Vector3(0.5, 0.02, 1.0), MatLib.flat(Color(0.8, 0.7, 0.1)))
 
 ## Shaft walls for one storey with a doorway. door_side: "south" or "west".
 ## Doors sit at the WEST end of their wall, clear of the up-flight ramp that
@@ -311,19 +356,21 @@ func _shaft_walls(y: float, h: float, door_side: String, door_t: float = 0.1) ->
 	_wall(Vector3(SX0, y, SZ0), Vector3(SX0, y, SZ1), h, mat, door_t if door_side == "west" else -1.0)
 	_wall(Vector3(SX1, y, SZ0), Vector3(SX1, y, SZ1), h, mat)
 
-## Floor slab covering x0..x1, z0..z1 with a rectangular hole over the stair shaft.
+## Floor slab covering x0..x1, z0..z1, solid everywhere except the ladder-well
+## hatch (HX0..HX1, HZ0..HZ1). The shaft now has a real floor on every deck —
+## a small landing room — instead of a full-shaft void full of ramps.
 func _slab_with_shaft_hole(y_center: float, x0: float, x1: float, z0: float, z1: float, mat: Material) -> void:
-	# West of shaft.
-	_box(Vector3((x0 + SX0) * 0.5, y_center, (z0 + z1) * 0.5), Vector3(SX0 - x0, 0.3, z1 - z0), mat)
-	# East of shaft.
-	if x1 > SX1:
-		_box(Vector3((SX1 + x1) * 0.5, y_center, (z0 + z1) * 0.5), Vector3(x1 - SX1, 0.3, z1 - z0), mat)
-	# South of shaft (between shaft and z0).
-	if SZ0 > z0:
-		_box(Vector3((SX0 + SX1) * 0.5, y_center, (z0 + SZ0) * 0.5), Vector3(SX1 - SX0, 0.3, SZ0 - z0), mat)
-	# North sliver.
-	if z1 > SZ1:
-		_box(Vector3((SX0 + SX1) * 0.5, y_center, (SZ1 + z1) * 0.5), Vector3(SX1 - SX0, 0.3, z1 - SZ1), mat)
+	# West of the hatch.
+	_box(Vector3((x0 + HX0) * 0.5, y_center, (z0 + z1) * 0.5), Vector3(HX0 - x0, 0.3, z1 - z0), mat)
+	# East of the hatch.
+	if x1 > HX1:
+		_box(Vector3((HX1 + x1) * 0.5, y_center, (z0 + z1) * 0.5), Vector3(x1 - HX1, 0.3, z1 - z0), mat)
+	# South strip beside the hatch.
+	if HZ0 > z0:
+		_box(Vector3((HX0 + HX1) * 0.5, y_center, (z0 + HZ0) * 0.5), Vector3(HX1 - HX0, 0.3, HZ0 - z0), mat)
+	# North sliver beside the hatch.
+	if z1 > HZ1:
+		_box(Vector3((HX0 + HX1) * 0.5, y_center, (HZ1 + z1) * 0.5), Vector3(HX1 - HX0, 0.3, z1 - HZ1), mat)
 
 # ============================================================ Deck B — quarters
 
@@ -361,7 +408,7 @@ func _deck_b() -> void:
 	_wall(Vector3(23, y, 17.5), Vector3(23, y, 18), WH, wmat)   # sliver by shaft
 	# Stairwell shaft + first flight.
 	_shaft_walls(y, WH, "south")
-	_stair_flight(y)
+	_well_ladder(y)
 	_label("DECK B — QUARTERS", Vector3(25, y + 2.55, 12.8), 180, 40, Color(0.9, 0.85, 0.6))
 
 	# ---- south cabins B-01..B-05 ----
@@ -507,7 +554,7 @@ func _deck_c() -> void:
 	_wall(Vector3(13, y, 14), Vector3(13, y, 18), WH, wmat)
 	_wall(Vector3(23, y, 17.5), Vector3(23, y, 18), WH, wmat)
 	_shaft_walls(y, WH, "south")
-	_stair_flight(y)
+	_well_ladder(y)
 	_label("DECK C — CONTROL", Vector3(25, y + 2.55, 12.8), 180, 40, Color(0.9, 0.85, 0.6))
 
 	# Room floors — control level: rubber underfoot, medical white in the bay.
@@ -602,7 +649,7 @@ func _deck_d() -> void:
 	_wall(Vector3(15.5, y, 15), Vector3(15.5, y, 18), WH, wmat)
 	_wall(Vector3(23, y, 8), Vector3(23, y, 13), WH, wmat, 0.5)      # laundry -> east vestibule
 	_shaft_walls(y, WH, "west", 0.22)
-	_stair_flight(y)
+	_well_ladder(y)
 	_label("PLATFORM →", Vector3(24.5, y + 1.9, 10.5), 0, 26, Color(0.9, 0.85, 0.6))
 	_label("DECK D — WORKS", Vector3(23.2, y + 2.55, 14.0), -90, 38, Color(0.9, 0.85, 0.6))
 
@@ -641,8 +688,8 @@ func _deck_d() -> void:
 	var bench := CraftBench.new()
 	add_child(bench)
 	bench.position = Vector3(19, y, 17.0)
-	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3))
-	_dbox(Vector3(19, y + 0.97, 17.0), Vector3(1.7, 0.06, 0.8), MatLib.wood())
+	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true)
+	_dbox(Vector3(19, y + 0.93, 17.0), Vector3(1.7, 0.06, 0.8), MatLib.wood())
 	_dbox(Vector3(19, y + 1.9, 17.83), Vector3(2.4, 1.2, 0.05), MatLib.flat(Color(0.75, 0.72, 0.6)))
 	var tool_colors := [Color(0.7, 0.3, 0.2), Color(0.3, 0.4, 0.6), Color(0.5, 0.5, 0.5), Color(0.7, 0.6, 0.2)]
 	for i in range(4):
