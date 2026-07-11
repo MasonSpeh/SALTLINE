@@ -205,10 +205,11 @@ func _build_structure() -> void:
 	var legs := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 	for leg_pos in legs:
 		# Top ends below the deck slab — coplanar faces z-fight through the floors above.
-		_box(leg_pos + Vector3(0, 6.6, 0), Vector3(6, 20.8, 6), MatLib.rust_steel())
+		# Gravity-base look: smooth aged concrete, like the Troll A caissons.
+		_box(leg_pos + Vector3(0, 6.6, 0), Vector3(6, 20.8, 6), MatLib.concrete())
 	# Pontoons riding just above the bigger v2 swell (crests reach ~0.9).
-	_box(Vector3(0, -1.05, -12), Vector3(56, 4, 8), MatLib.dark_metal())
-	_box(Vector3(0, -1.05, 12), Vector3(56, 4, 8), MatLib.dark_metal())
+	_box(Vector3(0, -1.05, -12), Vector3(56, 4, 8), MatLib.concrete_floor())
+	_box(Vector3(0, -1.05, 12), Vector3(56, 4, 8), MatLib.concrete_floor())
 
 # ---------- Z1: Wet Deck ----------
 
@@ -217,7 +218,7 @@ func _build_wet_deck() -> void:
 	_box(Vector3(19, WET_Y - 0.25, -10), Vector3(22, 0.5, 24), MatLib.deck_plate())
 
 	# Flooded pump room (knee-deep water, cold zone).
-	var pr_mat: Material = MatLib.rust_steel()
+	var pr_mat: Material = MatLib.concrete()
 	_wall(Vector3(10, WET_Y, -14), Vector3(18, WET_Y, -14), WALL_H, pr_mat, 0.5)
 	_wall(Vector3(10, WET_Y, -6), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
 	_wall(Vector3(10, WET_Y, -14), Vector3(10, WET_Y, -6), WALL_H, pr_mat)
@@ -238,7 +239,7 @@ func _build_wet_deck() -> void:
 	_crate(["canned_food", "flare"], "Sealed Crate", Vector3(16.5, WET_Y + 0.01, -8))
 
 	# Loot room on the south edge.
-	var lr_mat: Material = MatLib.painted_steel()
+	var lr_mat: Material = MatLib.concrete()
 	_wall(Vector3(10, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat, 0.5)
 	_wall(Vector3(10, WET_Y, -22), Vector3(16, WET_Y, -22), WALL_H, lr_mat)
 	_wall(Vector3(10, WET_Y, -22), Vector3(10, WET_Y, -16), WALL_H, lr_mat)
@@ -256,7 +257,7 @@ func _build_wet_deck() -> void:
 # ---------- Z2: The Stairs ----------
 
 func _build_stair_tower() -> void:
-	var mat: Material = MatLib.painted_steel()
+	var mat: Material = MatLib.concrete()
 	var top_h: float = DECK_Y - WET_Y + 2.8   # walls rise past the deck lip
 	# Tower shell x 22..30, z -6..2. Entrance at south (from wet deck), exit at top west.
 	_wall(Vector3(22, WET_Y, -6), Vector3(30, WET_Y, -6), top_h, mat, 0.2)
@@ -286,12 +287,12 @@ func _build_stair_tower() -> void:
 	_box(Vector3(23, 18.0, -2), Vector3(2.4, 0.3, 7.6), MatLib.deck_plate())
 
 	# Machinery room (y=6) off landing 1 — holds the cable spool.
-	_room_north(Vector3(24, 6.0, 2), Vector3(30, 6.0, 10), MatLib.rust_steel(), 0.75)
+	_room_north(Vector3(24, 6.0, 2), Vector3(30, 6.0, 10), MatLib.concrete(), 0.75)
 	_box(Vector3(27, 6.0 + 0.5, 6), Vector3(2.2, 1.0, 1.2), MatLib.dark_metal()) # dead machinery
 	_takeable("cable_spool", "Cable Spool", Vector3(27, 7.01, 6), Vector3(0.5, 0.5, 0.5))
 
 	# Breaker Room 4-A (y=10) off landing 2 — the power puzzle centerpiece.
-	_room_north(Vector3(22, 10.0, 2), Vector3(28, 10.0, 10), MatLib.painted_steel(), 0.25)
+	_room_north(Vector3(22, 10.0, 2), Vector3(28, 10.0, 10), MatLib.concrete(), 0.25)
 	var breaker := BreakerPanel.new()
 	breaker.display_name = "Master Breaker 4-A"
 	breaker.circuit_id = "topside_floodlights"
@@ -365,7 +366,7 @@ func _build_topside() -> void:
 	_box(Vector3(8, DECK_Y + 0.4, -14), Vector3(2.4, 0.8, 1.2), MatLib.wood()) # pallet stack
 
 func _build_bunkhouse() -> void:
-	var mat: Material = MatLib.interior_wall()
+	var mat: Material = MatLib.concrete()
 	var y: float = DECK_Y
 	# Block shell x -28..-8, z 4..18; corridor z 10..12; entrance east at corridor.
 	_wall(Vector3(-28, y, 4), Vector3(-8, y, 4), WALL_H, mat)
@@ -401,7 +402,7 @@ func _build_bunkhouse() -> void:
 	_readable("crew_letter_2", "Note in a Locker", Vector3(-17.6, y + 1.3, 14.7), Vector3(0.28, 0.35, 0.05))
 
 func _build_galley() -> void:
-	var mat: Material = MatLib.interior_wall()
+	var mat: Material = MatLib.concrete()
 	var y: float = DECK_Y
 	_wall(Vector3(-2, y, 8), Vector3(14, y, 8), WALL_H, mat, 0.5)   # south door
 	_wall(Vector3(-2, y, 18), Vector3(14, y, 18), WALL_H, mat)
@@ -431,7 +432,7 @@ func _build_galley() -> void:
 	_readable("coffee_note", "Napkin Under a Cup", Vector3(8.6, y + 0.52, 11.3), Vector3(0.25, 0.03, 0.25))
 
 func _build_rec_room() -> void:
-	var mat: Material = MatLib.interior_wall()
+	var mat: Material = MatLib.concrete()
 	var y: float = DECK_Y
 	_wall(Vector3(18, y, 8), Vector3(28, y, 8), WALL_H, mat)
 	_wall(Vector3(18, y, 18), Vector3(28, y, 18), WALL_H, mat)
@@ -452,7 +453,7 @@ func _build_rec_room() -> void:
 	_readable("quiet_rig_note", "Tally Book Page", Vector3(27.7, y + 0.9, 14.2), Vector3(0.3, 0.4, 0.06))
 
 func _build_machine_shop() -> void:
-	var mat: Material = MatLib.painted_steel()
+	var mat: Material = MatLib.concrete()
 	var y: float = DECK_Y
 	# Locked for v0.1 — visible through the window, teasing the future.
 	_wall(Vector3(-28, y, -18), Vector3(-14, y, -18), WALL_H, mat)
@@ -601,9 +602,10 @@ func _build_access() -> void:
 	# Wet Deck -> pump room roof (small vantage, stashed crate).
 	_ladder(Vector3(18.25, WET_Y, -8), 3.5, -90.0, "Roof Ladder", 1.0)
 	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.13, -8.5))
-	# Topside -> galley roof (antenna array, vent fan, the best sunset seat).
-	_ladder(Vector3(14.25, DECK_Y, 15), 3.55, -90.0, "Galley Roof Ladder", 1.0)
-	# Topside -> bunkhouse roof (vent fans, and the long view west).
+	# Topside -> C-deck west terrace, up the stack's west face (the galley roof it
+	# used to serve is enclosed by Deck B now).
+	_ladder(Vector3(-2.55, DECK_Y, 14), 7.1, 90.0, "Terrace Ladder", 1.0)
+	# Topside -> bunkhouse roof (vent fans, antenna array, and the long view west).
 	_ladder(Vector3(-7.75, DECK_Y, 15.5), 3.55, 90.0, "Bunkhouse Roof Ladder", 1.0)
 	_readable("roof_mark", "Chalk Tally", Vector3(-18, DECK_Y + WALL_H + 0.4, 8), Vector3(0.4, 0.05, 0.3))
 
@@ -782,10 +784,10 @@ func _build_env_objects() -> void:
 	# 5. Antenna array with the blinking beacon, on the galley roof.
 	var antenna := EnvObjects.AntennaArray.new()
 	add_child(antenna)
-	antenna.global_position = Vector3(10, DECK_Y + WALL_H + 0.15, 12)
-	# 6. Vent fans — bunkhouse and galley roofs; they spin up when the grid comes on.
+	antenna.global_position = Vector3(-16, DECK_Y + WALL_H + 0.15, 8)   # bunkhouse roof (open sky)
+	# 6. Vent fans on the bunkhouse roof (the galley roof is enclosed by Deck B now).
 	for p in [Vector3(-24, DECK_Y + WALL_H + 0.15, 8), Vector3(-14, DECK_Y + WALL_H + 0.15, 14),
-			Vector3(3, DECK_Y + WALL_H + 0.15, 15)]:
+			Vector3(-20, DECK_Y + WALL_H + 0.15, 14)]:
 		var fan := EnvObjects.VentFan.new()
 		add_child(fan)
 		fan.global_position = p
