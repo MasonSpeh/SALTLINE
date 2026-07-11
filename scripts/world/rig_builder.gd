@@ -41,6 +41,7 @@ func _ready() -> void:
 	_build_access()
 	_decorate_interiors()
 	_build_env_objects()
+	_industrial_dressing()
 	# The accommodation stack: Decks B/C/D + roof + comms mast above the topside rooms.
 	# Preloaded by path — the global class cache may not know the new file yet.
 	add_child(preload("res://scripts/world/rig_superstructure.gd").new())
@@ -882,3 +883,85 @@ func _add_wall_details() -> void:
 	_box(Vector3(15, WET_Y + 2.2, -5.86), Vector3(0.4, 0.25, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
 	_box(Vector3(24.8, 11.6, 9.86), Vector3(0.5, 0.3, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
 	_box(Vector3(21.86, DECK_Y + 2.2, 0.5), Vector3(0.03, 0.15, 0.8), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
+
+# ---------- Industrial dressing: beams, pipes, wiring ----------
+
+## Straight structural member between two points (decoration — MeshInstance, no collision).
+func _beam(a: Vector3, b: Vector3, thickness: float, mat: Material) -> void:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(thickness, a.distance_to(b), thickness)
+	bm.material = mat
+	mi.mesh = bm
+	add_child(mi)
+	mi.global_position = (a + b) * 0.5
+	var d: Vector3 = (b - a).normalized()
+	var up := Vector3(0, 0, 1) if absf(d.y) > 0.99 else Vector3.UP
+	mi.look_at(mi.global_position + d, up)
+	mi.rotate_object_local(Vector3.RIGHT, -PI / 2)
+
+## Straight cable / pipe between two points (decoration — MeshInstance, no collision).
+func _wire(a: Vector3, b: Vector3, radius: float, mat: Material) -> void:
+	var mi := MeshInstance3D.new()
+	var cm := CylinderMesh.new()
+	cm.top_radius = radius
+	cm.bottom_radius = radius
+	cm.height = a.distance_to(b)
+	cm.material = mat
+	mi.mesh = cm
+	add_child(mi)
+	mi.global_position = (a + b) * 0.5
+	var d: Vector3 = (b - a).normalized()
+	var up := Vector3(0, 0, 1) if absf(d.y) > 0.99 else Vector3.UP
+	mi.look_at(mi.global_position + d, up)
+	mi.rotate_object_local(Vector3.RIGHT, -PI / 2)
+
+## The steel skeleton pass: girders under the deck, X-braces between the legs,
+## riser pipes, cable runs between the floodlight poles, ceiling beams indoors.
+func _industrial_dressing() -> void:
+	var steel: Material = MatLib.rust_steel()
+	var dark: Material = MatLib.dark_metal()
+	var pipe_mat: Material = MatLib.rusty_metal()
+	# Under-deck girders carrying the topside plate (seen from the wet deck / sea).
+	for gz in [-18.0, -6.0, 6.0, 18.0]:
+		_beam(Vector3(-29, DECK_Y - 0.85, gz), Vector3(29, DECK_Y - 0.85, gz), 0.5, steel)
+	for gx in [-24.0, -12.0, 0.0, 12.0]:
+		_beam(Vector3(gx, DECK_Y - 1.15, -19), Vector3(gx, DECK_Y - 1.15, 19), 0.4, steel)
+	# Rim girder around the topside deck edge.
+	_beam(Vector3(-30, DECK_Y - 0.5, -19.9), Vector3(30, DECK_Y - 0.5, -19.9), 0.7, dark)
+	_beam(Vector3(-30, DECK_Y - 0.5, 19.9), Vector3(30, DECK_Y - 0.5, 19.9), 0.7, dark)
+	_beam(Vector3(-29.9, DECK_Y - 0.5, -19), Vector3(-29.9, DECK_Y - 0.5, 19), 0.7, dark)
+	_beam(Vector3(29.9, DECK_Y - 0.5, -19), Vector3(29.9, DECK_Y - 0.5, 19), 0.7, dark)
+	# X-braces between the concrete legs, both long faces — the truss the sea sees.
+	for bz in [-12.0, 12.0]:
+		_beam(Vector3(-19, 1.6, bz), Vector3(19, 13.6, bz), 0.42, steel)
+		_beam(Vector3(19, 1.6, bz), Vector3(-19, 13.6, bz), 0.42, steel)
+	# Riser pipes up the east leg faces, elbowing sideways under the deck.
+	for rz in [-10.4, 10.4]:
+		_wire(Vector3(25.3, 0.5, rz), Vector3(25.3, DECK_Y - 1.2, rz), 0.14, pipe_mat)
+		_wire(Vector3(25.3, DECK_Y - 1.2, rz), Vector3(20.0, DECK_Y - 1.2, rz), 0.11, pipe_mat)
+	# Wet-deck pipe rack along the pump room south face (overhead, out of head reach).
+	for px in [11.0, 14.5, 17.5]:
+		_box(Vector3(px, WET_Y + 1.45, -14.6), Vector3(0.12, 2.9, 0.12), dark, self, false)
+	_wire(Vector3(10.5, WET_Y + 2.65, -14.6), Vector3(18.0, WET_Y + 2.65, -14.6), 0.1, pipe_mat)
+	_wire(Vector3(10.5, WET_Y + 2.4, -14.6), Vector3(18.0, WET_Y + 2.4, -14.6), 0.07, pipe_mat)
+	# Power story in copper and rubber: a cable drop climbs the stair tower's west
+	# face from the wet deck to the breaker floor, then wiring hops pole to pole.
+	_wire(Vector3(21.85, WET_Y + 0.4, 1.4), Vector3(21.85, 19.4, 1.4), 0.05, dark)
+	_box(Vector3(21.82, 6.4, 1.4), Vector3(0.14, 0.5, 0.35), dark, self, false)   # junction boxes
+	_box(Vector3(21.82, 10.4, 1.4), Vector3(0.14, 0.5, 0.35), dark, self, false)
+	_wire(Vector3(21.9, 19.4, 1.4), Vector3(14, DECK_Y + 3.5, 7), 0.025, dark)
+	_wire(Vector3(-14, DECK_Y + 3.5, -8), Vector3(14, DECK_Y + 3.5, -8), 0.022, dark)
+	_wire(Vector3(-14, DECK_Y + 3.5, 7), Vector3(14, DECK_Y + 3.5, 7), 0.022, dark)
+	_wire(Vector3(-14, DECK_Y + 3.5, -8), Vector3(-14, DECK_Y + 3.5, 7), 0.022, dark)
+	_wire(Vector3(14, DECK_Y + 3.5, -8), Vector3(14, DECK_Y + 3.5, 7), 0.022, dark)
+	_wire(Vector3(13.8, DECK_Y + 3.5, 7), Vector3(11.5, DECK_Y + 1.1, 7.8), 0.025, dark)  # feed to the heater wall
+	# Ceiling beams inside the Deck A rooms — the rooms wear their structure.
+	for bz in [10.5, 15.5]:
+		_beam(Vector3(-1.8, DECK_Y + 2.95, bz), Vector3(13.8, DECK_Y + 2.95, bz), 0.26, dark)   # galley
+		_beam(Vector3(18.2, DECK_Y + 2.95, bz), Vector3(27.8, DECK_Y + 2.95, bz), 0.26, dark)   # rec room
+	for bz in [7.0, 15.0]:
+		_beam(Vector3(-27.8, DECK_Y + 2.95, bz), Vector3(-8.2, DECK_Y + 2.95, bz), 0.26, dark)  # bunkhouse
+	# Vertical conduit drops where the overhead lines meet the room walls.
+	for dp in [Vector3(-1.85, DECK_Y + 1.5, 10.5), Vector3(17.9, DECK_Y + 1.5, 15.5)]:
+		_box(dp, Vector3(0.09, 3.0, 0.09), dark, self, false)

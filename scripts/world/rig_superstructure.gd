@@ -128,15 +128,19 @@ func _rail_z(z0: float, z1: float, y: float, x: float) -> void:
 	for i in range(n + 1):
 		_dbox(Vector3(x, y + 0.28, z0 + (z1 - z0) * i / n), Vector3(0.06, 0.56, 0.06), mat)
 
-## Wall sign. yaw_deg: 0 faces +Z, 180 faces -Z, 90 faces +X, -90 faces -X.
+## Wall sign — reads as PAINTED block lettering, not a lit sign: shaded so it takes
+## scene light like the concrete it's stenciled on, slightly weathered alpha.
+## yaw_deg: 0 faces +Z, 180 faces -Z, 90 faces +X, -90 faces -X.
 func _label(text: String, pos: Vector3, yaw_deg: float, font_size: int = 48,
 		color: Color = Color(0.85, 0.87, 0.84)) -> void:
 	var l := Label3D.new()
 	l.text = text
 	l.font_size = font_size
 	l.pixel_size = 0.01
-	l.modulate = color
+	l.modulate = Color(color.r, color.g, color.b, minf(color.a, 0.92))
 	l.outline_size = 0
+	l.shaded = true
+	l.double_sided = false   # paint has no mirrored back face
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
