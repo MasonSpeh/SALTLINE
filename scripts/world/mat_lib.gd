@@ -62,12 +62,58 @@ static func dark_metal() -> StandardMaterial3D:
 static func wood() -> StandardMaterial3D:
 	return _surface("wood", Color(0.56, 0.43, 0.28), Color(0.35, 0.26, 0.16), 0.9, 606, 0.09)
 
+## Bespoke fine-grain builder: the shared _surface blotch scale reads as mud on
+## large planes. keys must be unique per material.
+static func _fine(key: String, base: Color, roughness: float, seed_val: int,
+		grain_freq: float, patch_freq: float, metallic: float = 0.0) -> StandardMaterial3D:
+	if _cache.has(key):
+		return _cache[key]
+	var m := StandardMaterial3D.new()
+	m.albedo_color = base
+	m.albedo_texture = _noise_tex(seed_val, grain_freq, 0.9, 5)          # tight, low-contrast grain
+	m.detail_enabled = true
+	m.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	m.detail_albedo = _noise_tex(seed_val + 7, patch_freq, 0.88, 3)      # broad, faint patching
+	m.roughness = roughness
+	m.roughness_texture = _noise_tex(seed_val + 13, grain_freq * 1.6, 0.55)
+	m.metallic = metallic
+	m.uv1_triplanar = true
+	m.uv1_scale = Vector3(1.0, 1.0, 1.0)
+	m.uv2_triplanar = true
+	m.uv2_scale = Vector3(0.18, 0.18, 0.18)
+	_cache[key] = m
+	return m
+
 static func concrete() -> StandardMaterial3D:
-	## Smoothed, aged concrete — the accommodation block's interior skin.
-	return _surface("concrete", Color(0.62, 0.61, 0.58), Color(0.45, 0.44, 0.42), 0.92, 808, 0.045)
+	## Smoothed, aged concrete — fine grain, faint large patching, never blotchy.
+	return _fine("concrete", Color(0.66, 0.65, 0.62), 0.93, 808, 0.4, 0.05)
 
 static func concrete_floor() -> StandardMaterial3D:
-	return _surface("concrete_floor", Color(0.5, 0.5, 0.48), Color(0.35, 0.35, 0.33), 0.95, 909, 0.07)
+	return _fine("concrete_floor", Color(0.52, 0.52, 0.5), 0.95, 909, 0.5, 0.06)
+
+static func checker_plate() -> StandardMaterial3D:
+	## Anti-slip steel decking: dark, semi-metallic, tight tread-like grain.
+	return _fine("checker", Color(0.3, 0.31, 0.34), 0.55, 1010, 1.4, 0.12, 0.55)
+
+static func galvanized() -> StandardMaterial3D:
+	return _fine("galv", Color(0.6, 0.63, 0.65), 0.5, 1111, 0.9, 0.08, 0.4)
+
+static func dirty_white_panel() -> StandardMaterial3D:
+	## Crew-space wall panelling: once-white, salt-grimed.
+	return _fine("panel", Color(0.76, 0.75, 0.71), 0.68, 1212, 0.3, 0.045)
+
+static func kitchen_tile() -> StandardMaterial3D:
+	return _fine("tile", Color(0.78, 0.8, 0.78), 0.35, 1313, 1.8, 0.1)
+
+static func rubber_floor() -> StandardMaterial3D:
+	return _fine("rubber", Color(0.17, 0.18, 0.19), 0.96, 1414, 1.2, 0.09)
+
+static func lino_floor() -> StandardMaterial3D:
+	## Warm worn linoleum for cabins and crew spaces.
+	return _fine("lino", Color(0.5, 0.43, 0.35), 0.82, 1515, 0.8, 0.07)
+
+static func medical_white() -> StandardMaterial3D:
+	return _fine("medical", Color(0.84, 0.86, 0.85), 0.4, 1616, 1.0, 0.08)
 
 static func sphl_orange() -> StandardMaterial3D:
 	return _surface("sphl", Color(0.88, 0.44, 0.12), Color(0.6, 0.28, 0.07), 0.55, 707, 0.07)

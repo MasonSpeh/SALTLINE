@@ -329,10 +329,16 @@ func _slab_with_shaft_hole(y_center: float, x0: float, x1: float, z0: float, z1:
 
 func _deck_b() -> void:
 	var wmat: Material = MatLib.concrete()
+	var pmat: Material = MatLib.dirty_white_panel()   # crew-space dividers
 	var fmat: Material = MatLib.concrete_floor()
 	var y: float = B_Y
 	# Full slab (stairs start ON this floor, so no shaft hole here).
 	_box(Vector3(13, y - 0.15, 12), Vector3(30.5, 0.3, 12.5), fmat)
+	# Room floors — quarters get worn lino, the wash room gets tile.
+	_dbox(Vector3(13, y + 0.035, 8.5), Vector3(29.5, 0.03, 4.5), MatLib.lino_floor())
+	_dbox(Vector3(12.5, y + 0.035, 12), Vector3(28.5, 0.03, 1.6), MatLib.lino_floor())
+	_dbox(Vector3(2, y + 0.035, 15.5), Vector3(7.5, 0.03, 4.5), MatLib.kitchen_tile())
+	_dbox(Vector3(10, y + 0.035, 15.5), Vector3(7.5, 0.03, 4.5), MatLib.rubber_floor())
 	# Perimeter.
 	_wall(Vector3(-2, y, 6), Vector3(28, y, 6), WH, wmat, 0.07)          # south, door near x 0 (balcony)
 	_wall(Vector3(-2, y, 18), Vector3(28, y, 18), WH, wmat)
@@ -341,17 +347,17 @@ func _deck_b() -> void:
 	# Corridor walls (z 11 and z 13) with a door per room.
 	var south_x := [-2.0, 3.0, 8.0, 13.0, 18.0, 23.0]
 	for i in range(5):
-		_wall(Vector3(south_x[i], y, 11), Vector3(south_x[i + 1], y, 11), WH, wmat, 0.5)
-	_wall(Vector3(23, y, 11), Vector3(28, y, 11), WH, wmat, 0.5)          # linen store door
+		_wall(Vector3(south_x[i], y, 11), Vector3(south_x[i + 1], y, 11), WH, pmat, 0.5)
+	_wall(Vector3(23, y, 11), Vector3(28, y, 11), WH, pmat, 0.5)          # linen store door
 	var north_x := [-2.0, 6.0, 14.0, 19.0, 23.0]
 	for i in range(4):
-		_wall(Vector3(north_x[i], y, 13), Vector3(north_x[i + 1], y, 13), WH, wmat, 0.5)
+		_wall(Vector3(north_x[i], y, 13), Vector3(north_x[i + 1], y, 13), WH, pmat, 0.5)
 	# Cabin dividers south (z 6..11) and east room (linen store x 23..28, z 6..11).
 	for dx in [3.0, 8.0, 13.0, 18.0, 23.0]:
-		_wall(Vector3(dx, y, 6), Vector3(dx, y, 11), WH, wmat)
+		_wall(Vector3(dx, y, 6), Vector3(dx, y, 11), WH, pmat)
 	# North dividers (z 13..18).
 	for dx in [6.0, 14.0, 19.0]:
-		_wall(Vector3(dx, y, 13), Vector3(dx, y, 18), WH, wmat)
+		_wall(Vector3(dx, y, 13), Vector3(dx, y, 18), WH, pmat)
 	_wall(Vector3(23, y, 17.5), Vector3(23, y, 18), WH, wmat)   # sliver by shaft
 	# Stairwell shaft + first flight.
 	_shaft_walls(y, WH, "south")
@@ -504,6 +510,10 @@ func _deck_c() -> void:
 	_stair_flight(y)
 	_label("DECK C — CONTROL", Vector3(25, y + 2.55, 12.8), 180, 40, Color(0.9, 0.85, 0.6))
 
+	# Room floors — control level: rubber underfoot, medical white in the bay.
+	_dbox(Vector3(8, y + 0.035, 9), Vector3(7.5, 0.03, 5.5), MatLib.rubber_floor())
+	_dbox(Vector3(20.5, y + 0.035, 9), Vector3(4.5, 0.03, 5.5), MatLib.medical_white())
+	_dbox(Vector3(8.5, y + 0.035, 16), Vector3(8.5, 0.03, 3.5), MatLib.rubber_floor())
 	# Control room (x 4..12, z 6..12): console desks, dead monitors, switch wall.
 	for i in range(3):
 		_desk(Vector3(5.8 + i * 2.2, y, 7.4), PI)
@@ -596,6 +606,9 @@ func _deck_d() -> void:
 	_label("PLATFORM →", Vector3(24.5, y + 1.9, 10.5), 0, 26, Color(0.9, 0.85, 0.6))
 	_label("DECK D — WORKS", Vector3(23.2, y + 2.55, 14.0), -90, 38, Color(0.9, 0.85, 0.6))
 
+	# Room floors — works level: rubber in the gym, tile in the laundry.
+	_dbox(Vector3(11.5, y + 0.035, 10.5), Vector3(7.0, 0.03, 4.5), MatLib.rubber_floor())
+	_dbox(Vector3(19, y + 0.035, 10.5), Vector3(7.0, 0.03, 4.5), MatLib.kitchen_tile())
 	# Gym (x 8..15.5, z 8..13): weight bench, bar + plates, mat.
 	_box(Vector3(10.5, y + 0.3, 10.0), Vector3(0.6, 0.6, 1.6), MatLib.flat(Color(0.3, 0.3, 0.34)))
 	var bar := _dcyl(Vector3(10.5, y + 1.0, 9.4), 0.03, 2.0, MatLib.dark_metal())

@@ -215,8 +215,8 @@ func _build_structure() -> void:
 # ---------- Z1: Wet Deck ----------
 
 func _build_wet_deck() -> void:
-	# Platform slung at the waterline, including under the stair tower footprint.
-	_box(Vector3(19, WET_Y - 0.25, -10), Vector3(22, 0.5, 24), MatLib.deck_plate())
+	# Platform slung at the waterline — anti-slip checker plate, not bare deck.
+	_box(Vector3(19, WET_Y - 0.25, -10), Vector3(22, 0.5, 24), MatLib.checker_plate())
 
 	# Flooded pump room (knee-deep water, cold zone).
 	var pr_mat: Material = MatLib.concrete()
@@ -353,7 +353,9 @@ func _build_topside() -> void:
 	_box(Vector3(0, DECK_Y + 0.55, -19.8), Vector3(52, 0.12, 0.12), rail_mat)
 	_box(Vector3(0, DECK_Y + 0.55, 19.8), Vector3(52, 0.12, 0.12), rail_mat)
 	_box(Vector3(-29.8, DECK_Y + 0.55, 0), Vector3(0.12, 0.12, 34), rail_mat)
-	_box(Vector3(29.8, DECK_Y + 0.55, 10.5), Vector3(0.12, 0.12, 17), rail_mat)
+	# East rail splits around the bridge exit at z 14.
+	_box(Vector3(29.8, DECK_Y + 0.55, 7.3), Vector3(0.12, 0.12, 10.6), rail_mat)
+	_box(Vector3(29.8, DECK_Y + 0.55, 17.2), Vector3(0.12, 0.12, 3.6), rail_mat)
 
 	_build_bunkhouse()
 	_build_galley()
@@ -375,6 +377,7 @@ func _build_bunkhouse() -> void:
 	_wall(Vector3(-28, y, 4), Vector3(-28, y, 18), WALL_H, mat)
 	_wall(Vector3(-8, y, 4), Vector3(-8, y, 18), WALL_H, mat, 0.5) # east entrance into corridor
 	_box(Vector3(-18, y + WALL_H, 11), Vector3(20.5, 0.25, 14.5), mat)
+	_box(Vector3(-18, y + 0.035, 11), Vector3(19.5, 0.03, 13.5), MatLib.lino_floor(), self, false)
 	# Cabin dividers: south row (z 4..10), north row (z 12..18), corridor between.
 	var xs := [-28.0, -21.33, -14.66, -8.0]
 	for i in range(3):
@@ -410,6 +413,7 @@ func _build_galley() -> void:
 	_wall(Vector3(-2, y, 8), Vector3(-2, y, 18), WALL_H, mat)
 	_wall(Vector3(14, y, 8), Vector3(14, y, 18), WALL_H, mat)
 	_box(Vector3(6, y + WALL_H, 13), Vector3(16.5, 0.25, 10.5), mat)
+	_box(Vector3(6, y + 0.035, 13), Vector3(15.5, 0.03, 9.5), MatLib.kitchen_tile(), self, false)
 	# Counter along the north wall with food.
 	_box(Vector3(6, y + 0.5, 17), Vector3(10, 1.0, 1.2), MatLib.painted_steel())
 	_takeable("canned_food", "Canned Food", Vector3(3, y + 1.01, 17), Vector3(0.25, 0.3, 0.25))
@@ -440,6 +444,7 @@ func _build_rec_room() -> void:
 	_wall(Vector3(18, y, 8), Vector3(18, y, 18), WALL_H, mat, 0.3)  # west door
 	_wall(Vector3(28, y, 8), Vector3(28, y, 18), WALL_H, mat)
 	_box(Vector3(23, y + WALL_H, 13), Vector3(10.5, 0.25, 10.5), mat)
+	_box(Vector3(23, y + 0.035, 13), Vector3(9.5, 0.03, 9.5), MatLib.rubber_floor(), self, false)
 	# Dartboard, dead TV, couch.
 	var dart := CSGCylinder3D.new()
 	dart.radius = 0.3
@@ -822,13 +827,18 @@ func _build_imposters() -> void:
 		var gap_dir: Vector3 = (p - prev)
 		var stub_len: float = gap_dir.length() * frac
 		var u: Vector3 = gap_dir.normalized()
-		var stub_a := CSGBox3D.new()
-		stub_a.size = Vector3(stub_len, 1.5, 2.5)
-		stub_a.material = mat
-		stub_a.use_collision = false
-		add_child(stub_a)
-		stub_a.position = prev + u * (stub_len * 0.5) + Vector3(0, 15, 0)
-		stub_a.rotation.y = -atan2(u.z, u.x)
+		if i == 0:
+			# The near span is REAL: walkable off the deck edge, torn off over the sea.
+			# (It used to be a collisionless 155m scenery slab the player fell through.)
+			_build_broken_bridge(u)
+		else:
+			var stub_a := CSGBox3D.new()
+			stub_a.size = Vector3(stub_len, 1.5, 2.5)
+			stub_a.material = mat
+			stub_a.use_collision = false
+			add_child(stub_a)
+			stub_a.position = prev + u * (stub_len * 0.5) + Vector3(0, 15, 0)
+			stub_a.rotation.y = -atan2(u.z, u.x)
 		var stub_b := CSGBox3D.new()
 		stub_b.size = Vector3(stub_len, 1.5, 2.5)
 		stub_b.material = mat
@@ -965,3 +975,63 @@ func _industrial_dressing() -> void:
 	# Vertical conduit drops where the overhead lines meet the room walls.
 	for dp in [Vector3(-1.85, DECK_Y + 1.5, 10.5), Vector3(17.9, DECK_Y + 1.5, 15.5)]:
 		_box(dp, Vector3(0.09, 3.0, 0.09), dark, self, false)
+
+## Painted block lettering on a surface (shaded, single-sided — reads as stencil paint).
+func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 32,
+		color: Color = Color(0.82, 0.83, 0.8)) -> void:
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = font_size
+	l.pixel_size = 0.01
+	l.modulate = Color(color.r, color.g, color.b, 0.92)
+	l.outline_size = 0
+	l.shaded = true
+	l.double_sided = false
+	add_child(l)
+	l.position = pos
+	l.rotation.y = deg_to_rad(yaw_deg)
+
+## The failed span toward SALTLINE-2: five solid sections off the deck's east edge,
+## railed, then torn steel and a long drop. A vista, a warning, and a promise.
+func _build_broken_bridge(u: Vector3) -> void:
+	var yaw: float = -atan2(u.z, u.x)
+	var perp := Vector3(-u.z, 0, u.x)
+	var start := Vector3(29.9, DECK_Y, 14.0)
+	var deck_mat: Material = MatLib.checker_plate()
+	var steel: Material = MatLib.rust_steel()
+	var sections: int = 5
+	for i in range(sections):
+		var mid: Vector3 = start + u * ((i + 0.5) * 6.0)
+		var sec := _box(mid + Vector3(0, -0.15, 0), Vector3(6.15, 0.3, 2.4), deck_mat)
+		sec.rotation.y = yaw
+		# Rails both sides — the last section's rails are torn away.
+		if i < sections - 1:
+			for side in [-1.05, 1.05]:
+				var r := _box(mid + perp * side + Vector3(0, 0.55, 0), Vector3(6.15, 0.1, 0.08), steel)
+				r.rotation.y = yaw
+				var post := _box(mid + perp * side + Vector3(0, 0.28, 0), Vector3(0.07, 0.56, 0.07), steel, self, false)
+				post.rotation.y = yaw
+		# Under-truss chords.
+		var chord := _box(mid + Vector3(0, -0.65, 0), Vector3(6.15, 0.25, 0.25), steel, self, false)
+		chord.rotation.y = yaw
+	# Torn end: jagged plate fingers dropping off, one bent rail.
+	var edge: Vector3 = start + u * (sections * 6.0)
+	for spec in [[0.9, -0.35, 0.25], [-0.2, -0.6, 0.45], [-0.9, -0.9, 0.7]]:
+		var finger := _box(edge + perp * spec[0] + u * 0.7 + Vector3(0, spec[1], 0),
+			Vector3(1.6, 0.22, 0.6), deck_mat, self, false)
+		finger.rotation.y = yaw
+		finger.rotation.z = spec[2]
+	var bent := _box(edge + perp * 1.05 + Vector3(0, 0.1, 0), Vector3(2.0, 0.09, 0.08), steel, self, false)
+	bent.rotation.y = yaw
+	bent.rotation.z = -0.9
+	# Hazard barricade two sections before the drop, with painted warning.
+	var bar_pos: Vector3 = start + u * 21.0
+	var bar := _box(bar_pos + Vector3(0, 0.95, 0), Vector3(0.14, 0.14, 2.3), MatLib.flat(Color(0.85, 0.72, 0.1)))
+	bar.rotation.y = yaw
+	for side in [-0.8, 0.8]:
+		var leg := _box(bar_pos + perp * side + Vector3(0, 0.45, 0), Vector3(0.1, 0.9, 0.1), MatLib.dark_metal(), self, false)
+		leg.rotation.y = yaw
+	_plabel("SPAN OUT — SALTLINE-2", bar_pos + Vector3(0, 1.45, 0) - u * 0.12,
+		rad_to_deg(yaw) - 90.0, 26, Color(0.9, 0.75, 0.2))   # faces back toward the rig
+	# Hazard paint where the bridge leaves the deck.
+	_box(Vector3(29.2, DECK_Y + 0.02, 14.0), Vector3(1.6, 0.02, 2.4), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
