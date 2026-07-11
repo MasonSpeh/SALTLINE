@@ -45,6 +45,9 @@ func _ready() -> void:
 	# The accommodation stack: Decks B/C/D + roof + comms mast above the topside rooms.
 	# Preloaded by path — the global class cache may not know the new file yet.
 	add_child(preload("res://scripts/world/rig_superstructure.gd").new())
+	# Exterior silhouette: derrick, flare boom, pipe deck, containers, davits,
+	# west observation platform, external stair to the Stack.
+	add_child(preload("res://scripts/world/rig_exterior.gd").new())
 
 ## Daylight spill for interiors (greybox stand-in for door/window light shafts).
 ## Grouped so SunController scales them with the sun — interiors go dark at night.
@@ -352,7 +355,9 @@ func _build_topside() -> void:
 	var rail_mat: Material = MatLib.rust_steel()
 	_box(Vector3(0, DECK_Y + 0.55, -19.8), Vector3(52, 0.12, 0.12), rail_mat)
 	_box(Vector3(0, DECK_Y + 0.55, 19.8), Vector3(52, 0.12, 0.12), rail_mat)
-	_box(Vector3(-29.8, DECK_Y + 0.55, 0), Vector3(0.12, 0.12, 34), rail_mat)
+	# West rail splits around the observation-platform ramp at z -11.
+	_box(Vector3(-29.8, DECK_Y + 0.55, -14.6), Vector3(0.12, 0.12, 4.8), rail_mat)
+	_box(Vector3(-29.8, DECK_Y + 0.55, 3.6), Vector3(0.12, 0.12, 26.8), rail_mat)
 	# East rail splits around the bridge exit at z 14.
 	_box(Vector3(29.8, DECK_Y + 0.55, 7.3), Vector3(0.12, 0.12, 10.6), rail_mat)
 	_box(Vector3(29.8, DECK_Y + 0.55, 17.2), Vector3(0.12, 0.12, 3.6), rail_mat)
@@ -608,9 +613,7 @@ func _build_access() -> void:
 	# Wet Deck -> pump room roof (small vantage, stashed crate).
 	_ladder(Vector3(18.25, WET_Y, -8), 3.5, -90.0, "Roof Ladder", 1.0)
 	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.13, -8.5))
-	# Topside -> C-deck west terrace, up the stack's west face (the galley roof it
-	# used to serve is enclosed by Deck B now).
-	_ladder(Vector3(-2.55, DECK_Y, 14), 7.1, 90.0, "Terrace Ladder", 1.0)
+	# (C-deck terrace access is the external west stair — see RigExterior.)
 	# Topside -> bunkhouse roof (vent fans, antenna array, and the long view west).
 	_ladder(Vector3(-7.75, DECK_Y, 15.5), 3.55, 90.0, "Bunkhouse Roof Ladder", 1.0)
 	_readable("roof_mark", "Chalk Tally", Vector3(-18, DECK_Y + WALL_H + 0.4, 8), Vector3(0.4, 0.05, 0.3))

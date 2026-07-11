@@ -576,8 +576,8 @@ func _deck_c() -> void:
 	_extinguisher(Vector3(4.4, y, 12.6))
 	for lx in [7.0, 15.0, 21.0]:
 		_light(Vector3(lx, y + 2.9, 13.0), 0.5, 6.0)
-	# West terrace rails (the open slab strip x -2..4 and the south lip).
-	_rail_z(6, 18, y, -1.9)
+	# West terrace rails — gap at z 6..8.7 where the external stair lands.
+	_rail_z(8.7, 18, y, -1.9)
 	_rail_x(-2, 4, y, 6.1)
 	_rail_x(-2, 4, y, 17.9)
 
