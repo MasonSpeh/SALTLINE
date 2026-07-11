@@ -1,6 +1,8 @@
 class_name Ladder extends Interactable
 ## CLIMB verb: designated climb node (GDD A5 — mantle/climb only at ladders).
-## Player attaches to the ladder line and moves along it; exits at either end.
+## Hold-E climbing: the player latches on and rises while E is held, descends with
+## E+S, and lets go (gravity) when E is released. Mantles at the top, exits at the
+## bottom; grabbing from the top edge holds first so a descent can start safely.
 
 @export var height: float = 4.0        ## climbable rise from base (local y=0) upward
 @export var exit_forward: float = 0.6  ## how far to push the player off at the top

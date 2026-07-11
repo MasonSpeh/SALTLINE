@@ -47,5 +47,29 @@
  "roof_mark": {
   "title": "CHALK TALLY — BUNKHOUSE ROOF",
   "body": "Someone came up here often. A wind-worn chalk tally on the roof plate, grouped in fives — thirty-one marks, then a gap, then four more drawn heavier, gouged in.\n\nBeside it, a chalk sketch: the horizon line, and above it a shape with wide flat wings. Underneath, three words, gone over twice:\n\nIT COMES BACK."
+ },
+ "shrine_note": {
+  "title": "KELP-WRAPPED NOTE — CABIN B-03",
+  "body": "They said burn it. I couldn't.\n\nIt's not rot. It's not algae. You hold a frond up at night and it holds light INSIDE it, steady as a pilot lamp. Nothing that means harm keeps a light like that.\n\nI've been leaving the porthole cracked. If the glow wants in, I want to know what it wants.\n\n— O."
+ },
+ "cabin_b05_scrawl": {
+  "title": "SCRAWL ON THE WALL — CABIN B-05",
+  "body": "Written in grease pencil, fast, the letters climbing the wall:\n\nCOUNTED 41 AT MUSTER. LAUNCHED WITH 40.\n\nWHO STAYED?"
+ },
+ "toolpusher_log": {
+  "title": "TOOLPUSHER'S LOG — FINAL PAGE",
+  "body": "0400 — String's quiet. Not the quiet of a good hole. The quiet of something listening back up it.\n\n0430 — Told Control we're shutting in. Nobody argued. Nobody EVER doesn't argue.\n\n0600 — Company man wants it in writing. Fine. IN WRITING: the sea lit up under leg four and every gauge on this deck read zero at the same second. Pressure doesn't do that. Water doesn't do that.\n\nLast entry."
+ },
+ "medbay_note": {
+  "title": "SICK-BAY LEDGER",
+  "body": "Day 11 — Deckhand, R.: says the light off the water 'stays behind his eyes' after night watch. No fever. Pupils fine. Prescribed sleep he won't take.\n\nDay 12 — Three more with the same words. THE SAME WORDS. Men who don't share a shift.\n\nDay 13 — I looked tonight. It does stay. It isn't harmful. That's not the same as safe.\n\n(The rest of the ledger is water-swollen and unreadable.)"
+ },
+ "comms_log": {
+  "title": "LAST TRANSMISSION LOG",
+  "body": "TX 2241 — SALTLINE-1 to STANCHION: evac complete less one (1). Repeat, one crew unaccounted. Sea state 4. Bloom state — no code for it. Visual: the water is AWAKE.\n\nRX 2244 — STANCHION: say again last?\n\nTX 2247 — SALTLINE-1: ...\n\nTX 2251 — SALTLINE-1: disregard. Going dark. Keep the lamps lit for us.\n\n(Nothing further. The set's dial is still tuned.)"
+ },
+ "generator_tag": {
+  "title": "GENERATOR FAULT TAG",
+  "body": "OUT OF SERVICE — DO NOT CRANK\n\nFuel: contaminated (bio). Filters: fouled, green residue, GLOWS FAINT AT NIGHT.\n\nIf you need power, the topside floodlight circuit still takes a splice at Breaker 4-A. Cable's the hard part. Cable's always the hard part.\n\n— maintenance, last shift"
  }
 }

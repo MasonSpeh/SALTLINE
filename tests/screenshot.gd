@@ -61,6 +61,17 @@ func _ready() -> void:
 	await _shot(Vector3(-8, 19.4, -1), 250.0, -8.0, GameClock.Phase.NIGHT, "sl_night_lit")
 	await _shot(Vector3(2, 1.6, -12), 90.0, -2.0, GameClock.Phase.NIGHT, "sl_pontoon_night")
 	await _shot(Vector3(-5, 19.8, 19), 180.0, -30.0, GameClock.Phase.NIGHT, "sl_bloom_sea")
+
+	# Accommodation stack: exterior massing, corridors, rooms, roof + mast.
+	await _shot(Vector3(44, 23.0, -14), 130.0, 8.0, GameClock.Phase.DUSK, "sl_stack_wide", 0.55)
+	await _shot(Vector3(4, 19.7, -2), 190.0, 14.0, GameClock.Phase.DAY, "sl_stack_ramp")
+	await _shot(Vector3(25.5, 23.2, 12), 90.0, -4.0, GameClock.Phase.DAY, "sl_deckB_corridor")
+	await _shot(Vector3(9.3, 23.2, 7.2), 220.0, -10.0, GameClock.Phase.NIGHT, "sl_cabin_shrine")
+	await _shot(Vector3(10, 26.7, 10.3), 53.0, -8.0, GameClock.Phase.DAY, "sl_control_room")
+	await _shot(Vector3(7.5, 26.7, 15.2), 220.0, -6.0, GameClock.Phase.DAY, "sl_comms_room")
+	await _shot(Vector3(19, 30.2, 15.7), 180.0, -8.0, GameClock.Phase.DAY, "sl_workshop")
+	await _shot(Vector3(10, 33.8, 9.5), 229.0, 18.0, GameClock.Phase.DUSK, "sl_roof_mast", 0.55)
+	await _shot(Vector3(33, 30.2, 12), 90.0, 2.0, GameClock.Phase.NIGHT, "sl_helipad_night")
 	get_tree().quit()
 
 func _ui_shot(panel: String, name_: String) -> void:

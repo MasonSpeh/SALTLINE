@@ -1,6 +1,7 @@
 class_name HUD extends CanvasLayer
-## The slice's entire 2D UI: context prompt, toast line, 4-slot hotbar, low-stat icons,
-## full-screen reading overlay, black fade layer, and the dawn end card. Built in code.
+## The slice's entire 2D UI: context prompt, toast line, 4-slot hotbar, survival
+## stat bars (LIFE/HUNGER/THIRST/WARMTH), crate exchange panel, full-screen
+## reading overlay, black fade layer, and the dawn end card. Built in code.
 
 var prompt_label: Label
 var prompt_chip: PanelContainer
@@ -9,8 +10,11 @@ var toast_label: Label
 var crosshair: Label
 var objective_label: Label
 var hotbar_slots: Array[PanelContainer] = []
-var hunger_icon: Label
-var warmth_icon: Label
+var life_bar: StatBar
+var hunger_bar: StatBar
+var thirst_bar: StatBar
+var warmth_bar: StatBar
+var sick_chip: PanelContainer
 var reading_panel: Panel
 var reading_title: Label
 var reading_body: RichTextLabel
@@ -28,9 +32,16 @@ var inv_grid: GridContainer
 var inv_info: Label
 var _inv_buttons: Array[Button] = []
 var bench_panel: BenchPanel
+var crate_panel: Panel
+var crate_title: Label
+var _crate_list: VBoxContainer
+var _pack_list: VBoxContainer
+var _crate: LootContainer = null
 
 var _toast_tween: Tween
 var reading_open: bool = false
+var _thirst_bound: bool = false   # PlayerState.thirst_changed connected?
+var _life_bound: bool = false     # PlayerState.life_changed connected?
 
 func _ready() -> void:
 	add_to_group("hud")
@@ -40,10 +51,42 @@ func _ready() -> void:
 	_build_panels()
 	PlayerState.inventory_changed.connect(_refresh_hotbar)
 	PlayerState.inventory_changed.connect(_refresh_inventory_panel)
-	PlayerState.hunger_changed.connect(func(v: float) -> void: hunger_icon.visible = v < 0.5)
-	PlayerState.warmth_changed.connect(func(v: float) -> void: warmth_icon.visible = v < 0.5)
+	PlayerState.inventory_changed.connect(_refresh_crate_panel)
+	PlayerState.hunger_changed.connect(func(v: float) -> void: hunger_bar.set_value(v))
+	PlayerState.warmth_changed.connect(func(v: float) -> void: warmth_bar.set_value(v))
+	# thirst/life are new PlayerState stats — bind defensively so the HUD works
+	# the moment the signals exist and never crashes if one is briefly absent.
+	if PlayerState.has_signal("thirst_changed"):
+		PlayerState.connect("thirst_changed", func(v: float) -> void: thirst_bar.set_value(v))
+		_thirst_bound = true
+	if PlayerState.has_signal("life_changed"):
+		PlayerState.connect("life_changed", func(v: float) -> void: life_bar.set_value(v))
+		_life_bound = true
 	Journal.entry_added.connect(func(_id: String, _t: String) -> void: _update_journal_badge())
 	_refresh_hotbar()
+	hunger_bar.set_value(PlayerState.hunger)
+	warmth_bar.set_value(PlayerState.warmth)
+	thirst_bar.set_value(_stat_value_or_full("thirst"))
+	life_bar.set_value(_stat_value_or_full("life"))
+
+func _process(_delta: float) -> void:
+	# SICK chip: sickness has no changed-signal, so poll it.
+	var sick: bool = PlayerState.sickness > 0.25
+	sick_chip.visible = sick
+	if sick:
+		sick_chip.modulate.a = 0.7 + 0.3 * sin(Time.get_ticks_msec() * 0.008)
+	# Until thirst/life signals exist, keep those bars honest by polling.
+	if not _thirst_bound:
+		thirst_bar.set_value(_stat_value_or_full("thirst"))
+	if not _life_bound:
+		life_bar.set_value(_stat_value_or_full("life"))
+
+## Defensive read for stats another system may not have added yet.
+func _stat_value_or_full(prop: String) -> float:
+	var v: Variant = PlayerState.get(prop)
+	if v is float:
+		return float(v)
+	return 1.0
 
 func _build() -> void:
 	var root := Control.new()
@@ -146,21 +189,43 @@ func _build() -> void:
 		bar.add_child(slot)
 		hotbar_slots.append(slot)
 
-	# Diegetic-ish stat icons: only visible below 50% (GDD 5.6).
+	# Survival bars: LIFE / HUNGER / THIRST / WARMTH, always visible, stacked just
+	# above the hotbar. The stack grows upward so the SICK chip never covers slots.
 	var stats := VBoxContainer.new()
-	stats.set_anchors_preset(Control.PRESET_BOTTOM_RIGHT)
-	stats.position = Vector2(-120, -90)
+	stats.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
+	stats.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	stats.position = Vector2(16, -72)
+	stats.add_theme_constant_override("separation", 4)
+	stats.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	root.add_child(stats)
-	hunger_icon = Label.new()
-	hunger_icon.text = "◆ HUNGRY"
-	hunger_icon.add_theme_color_override("font_color", Color(0.9, 0.7, 0.3))
-	hunger_icon.visible = false
-	stats.add_child(hunger_icon)
-	warmth_icon = Label.new()
-	warmth_icon.text = "◆ COLD"
-	warmth_icon.add_theme_color_override("font_color", Color(0.5, 0.75, 0.95))
-	warmth_icon.visible = false
-	stats.add_child(warmth_icon)
+	sick_chip = PanelContainer.new()
+	var sick_style := StyleBoxFlat.new()
+	sick_style.bg_color = Color(0.14, 0.28, 0.13, 0.8)
+	sick_style.set_corner_radius_all(4)
+	sick_style.border_color = Color(0.5, 0.8, 0.4, 0.5)
+	sick_style.set_border_width_all(1)
+	sick_style.content_margin_left = 8
+	sick_style.content_margin_right = 8
+	sick_style.content_margin_top = 2
+	sick_style.content_margin_bottom = 2
+	sick_chip.add_theme_stylebox_override("panel", sick_style)
+	sick_chip.size_flags_horizontal = Control.SIZE_SHRINK_BEGIN
+	sick_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	sick_chip.visible = false
+	var sick_lbl := Label.new()
+	sick_lbl.text = "SICK"
+	sick_lbl.add_theme_font_size_override("font_size", 11)
+	sick_lbl.add_theme_color_override("font_color", Color(0.72, 0.95, 0.6))
+	sick_chip.add_child(sick_lbl)
+	stats.add_child(sick_chip)
+	life_bar = StatBar.new("LIFE", Color(0.85, 0.3, 0.3))
+	stats.add_child(life_bar)
+	hunger_bar = StatBar.new("HUNGER", Color(0.9, 0.7, 0.3))
+	stats.add_child(hunger_bar)
+	thirst_bar = StatBar.new("THIRST", Color(0.4, 0.8, 0.85))
+	stats.add_child(thirst_bar)
+	warmth_bar = StatBar.new("WARMTH", Color(0.9, 0.55, 0.3))
+	stats.add_child(warmth_bar)
 
 	# Reading overlay (full-screen text; stand-in for in-world paper).
 	reading_panel = Panel.new()
@@ -340,7 +405,7 @@ func _make_panel(w: float, h: float) -> Panel:
 
 func _build_panels() -> void:
 	# HELP — controls and the shape of the day.
-	help_panel = _make_panel(560, 520)
+	help_panel = _make_panel(560, 580)
 	var help_text := RichTextLabel.new()
 	help_text.bbcode_enabled = true
 	help_text.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -356,15 +421,21 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]stay inside the floodlight wash[/b] → see the dawn.
 
 [b]Move[/b]           WASD · Shift sprint · Space jump · Ctrl crouch (slow, quiet, hard to spot)
-[b]Interact[/b]       E — one context verb (take / open / read / connect / operate / climb)
+[b]Interact[/b]       E — one context verb (take / open / read / connect / operate)
+[b]Climb[/b]          HOLD E on a ladder — E rides up, E+S rides down, release to let go
 [b]Carry[/b]          E grabs loose props · LMB throws · E/G sets down
-[b]Hotbar[/b]         1–4 eat / use
+[b]Hotbar[/b]         1–4 brings that item to hand · same number again eats or drinks it
 [b]Inventory[/b]      I — pack and hotbar, click items to move them
+[b]Crates[/b]         E opens an exchange panel — take what you need, stow what you don't
 [b]Journal[/b]        J — discoveries, item notes, craft hints
 [b]Hook[/b]           F — throw the rigging hook (craft it at the bench)
 [b]Craft[/b]          E at the rigging bench — lay parts on it, hold WORK / Space
 [b]Build[/b]          B — ghost preview · LMB place · R rotate · Tab next kit · B done
 [b]Pause[/b]          Esc — volume, mouse, invert-Y
+
+[b]Body[/b]
+· Watch [b]LIFE[/b] — starving or dehydration drains it; food and water bring it back.
+· Glow worms must be [b]seared at a bench[/b] before eating — raw ones make you sick.
 
 [b]Tips[/b]
 · The fire barrel on the wet deck is warmth that needs no power.
@@ -426,6 +497,43 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	inv_info.add_theme_color_override("font_color", Color(0.72, 0.76, 0.72))
 	ivbox.add_child(inv_info)
 
+	# CRATE — exchange with a storage crate: its contents left, your pack right.
+	crate_panel = _make_panel(560, 460)
+	var cbox := VBoxContainer.new()
+	cbox.set_anchors_preset(Control.PRESET_FULL_RECT)
+	cbox.offset_left = 18
+	cbox.offset_top = 12
+	cbox.offset_right = -18
+	cbox.offset_bottom = -12
+	cbox.add_theme_constant_override("separation", 10)
+	crate_panel.add_child(cbox)
+	var crow := HBoxContainer.new()
+	crow.add_theme_constant_override("separation", 8)
+	cbox.add_child(crow)
+	crate_title = Label.new()
+	crate_title.text = "CRATE"
+	crate_title.add_theme_font_size_override("font_size", 17)
+	crate_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	crow.add_child(crate_title)
+	var take_all := Button.new()
+	take_all.text = "TAKE ALL"
+	take_all.custom_minimum_size = Vector2(96, 30)
+	take_all.focus_mode = Control.FOCUS_NONE
+	take_all.pressed.connect(_crate_take_all)
+	crow.add_child(take_all)
+	var close_x := Button.new()
+	close_x.text = "✕"
+	close_x.custom_minimum_size = Vector2(30, 30)
+	close_x.focus_mode = Control.FOCUS_NONE
+	close_x.pressed.connect(func() -> void: toggle_panel("crate"))
+	crow.add_child(close_x)
+	var cols := HBoxContainer.new()
+	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	cols.add_theme_constant_override("separation", 14)
+	cbox.add_child(cols)
+	_crate_list = _crate_column(cols, "CRATE — click to take")
+	_pack_list = _crate_column(cols, "PACK — click to stow")
+
 	# BENCH — crafting surface, opened by the in-world rigging bench.
 	bench_panel = BenchPanel.new()
 	bench_panel.add_theme_stylebox_override("panel", _panel_style())
@@ -438,15 +546,20 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 
 func any_panel_open() -> bool:
 	return help_panel.visible or journal_panel.visible or inventory_panel.visible \
-		or bench_panel.visible
+		or bench_panel.visible or crate_panel.visible
 
 func open_bench(bench: Node3D) -> void:
 	bench_panel.bench = bench
 	toggle_panel("bench")
 
+## Called by a LootContainer's OPEN verb — crate ⇄ pack exchange view.
+func open_crate(container: LootContainer) -> void:
+	_crate = container
+	toggle_panel("crate")
+
 func toggle_panel(which: String) -> void:
 	var target: Panel = {"help": help_panel, "journal": journal_panel,
-		"inventory": inventory_panel, "bench": bench_panel}[which]
+		"inventory": inventory_panel, "bench": bench_panel, "crate": crate_panel}[which]
 	var was_open: bool = target.visible
 	if bench_panel.visible:
 		bench_panel.return_all()   # never eat laid parts on close
@@ -454,6 +567,7 @@ func toggle_panel(which: String) -> void:
 	journal_panel.visible = false
 	inventory_panel.visible = false
 	bench_panel.visible = false
+	crate_panel.visible = false
 	if not was_open:
 		target.visible = true
 		if which == "journal":
@@ -464,6 +578,10 @@ func toggle_panel(which: String) -> void:
 			_refresh_inventory_panel()
 		elif which == "bench":
 			bench_panel.refresh()
+		elif which == "crate":
+			_refresh_crate_panel()
+	if not crate_panel.visible:
+		_crate = null   # drop the reference the moment the exchange view closes
 	_sync_panel_mode()
 
 func _sync_panel_mode() -> void:
@@ -486,7 +604,10 @@ func _input(event: InputEvent) -> void:
 			return   # pause menu owns the screen
 		match event.keycode:
 			KEY_I:
-				toggle_panel("inventory")
+				if crate_panel.visible:
+					toggle_panel("crate")   # crate view already shows the pack
+				else:
+					toggle_panel("inventory")
 				get_viewport().set_input_as_handled()
 			KEY_J:
 				toggle_panel("journal")
@@ -494,11 +615,16 @@ func _input(event: InputEvent) -> void:
 			KEY_H:
 				toggle_panel("help")
 				get_viewport().set_input_as_handled()
+			KEY_E:
+				if crate_panel.visible:
+					toggle_panel("crate")
+					get_viewport().set_input_as_handled()
 			KEY_ESCAPE:
 				if any_panel_open():
 					var open: String = "help" if help_panel.visible else (
 						"journal" if journal_panel.visible else (
-						"inventory" if inventory_panel.visible else "bench"))
+						"inventory" if inventory_panel.visible else (
+						"crate" if crate_panel.visible else "bench")))
 					toggle_panel(open)
 					get_viewport().set_input_as_handled()
 
@@ -583,3 +709,158 @@ func _inv_slot_hovered(idx: int) -> void:
 	if jinfo.get("hint", "") != "":
 		line += "\n▸ %s" % jinfo["hint"]
 	inv_info.text = line
+
+# ============================ crate exchange ==================================
+
+## One side of the crate exchange: heading + scrollable button list.
+func _crate_column(parent: Control, heading: String) -> VBoxContainer:
+	var col := VBoxContainer.new()
+	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	col.add_theme_constant_override("separation", 6)
+	parent.add_child(col)
+	var head := Label.new()
+	head.text = heading
+	head.add_theme_font_size_override("font_size", 13)
+	head.add_theme_color_override("font_color", Color(0.65, 0.7, 0.68))
+	col.add_child(head)
+	var scroll := ScrollContainer.new()
+	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
+	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	col.add_child(scroll)
+	var list := VBoxContainer.new()
+	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	list.add_theme_constant_override("separation", 6)
+	scroll.add_child(list)
+	return list
+
+func _crate_item_button(item_id: String, on_press: Callable) -> Button:
+	var b := Button.new()
+	b.text = item_id.capitalize()
+	b.custom_minimum_size = Vector2(0, 34)
+	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	b.focus_mode = Control.FOCUS_NONE
+	b.pressed.connect(on_press)
+	return b
+
+func _crate_empty_line(text: String) -> Label:
+	var l := Label.new()
+	l.text = text
+	l.add_theme_font_size_override("font_size", 13)
+	l.add_theme_color_override("font_color", Color(0.5, 0.54, 0.52))
+	return l
+
+## Rebuild both columns from live state. Also connected to inventory_changed, so
+## eating from the hotbar (etc.) while the panel is open stays in sync.
+func _refresh_crate_panel() -> void:
+	if crate_panel == null or not crate_panel.visible:
+		return
+	if _crate == null or not is_instance_valid(_crate):
+		toggle_panel("crate")   # the crate got freed under us — close its view
+		return
+	crate_title.text = _crate.display_name.to_upper()
+	for c in _crate_list.get_children():
+		c.queue_free()
+	for c in _pack_list.get_children():
+		c.queue_free()
+	if _crate.items.is_empty():
+		_crate_list.add_child(_crate_empty_line("· empty ·"))
+	for it in _crate.items:
+		var id: String = str(it)
+		_crate_list.add_child(_crate_item_button(id, func() -> void: _crate_take(id)))
+	var pack: Array = []
+	for it in PlayerState.hotbar:
+		if it != null:
+			pack.append(it)
+	pack.append_array(PlayerState.inventory)
+	if pack.is_empty():
+		_pack_list.add_child(_crate_empty_line("· nothing to stow ·"))
+	for it in pack:
+		var pid: String = str(it)
+		_pack_list.add_child(_crate_item_button(pid, func() -> void: _crate_stow(pid)))
+
+func _crate_take(item_id: String) -> void:
+	if _crate == null or not is_instance_valid(_crate):
+		_refresh_crate_panel()
+		return
+	var idx: int = _crate.items.find(item_id)
+	if idx == -1:
+		return
+	if PlayerState.add_item(item_id):
+		_crate.items.remove_at(idx)
+	else:
+		toast("Pack is full.")
+	_refresh_crate_panel()
+
+func _crate_stow(item_id: String) -> void:
+	if _crate == null or not is_instance_valid(_crate):
+		_refresh_crate_panel()
+		return
+	if PlayerState.remove_item(item_id):
+		_crate.items.append(item_id)
+	_refresh_crate_panel()
+
+func _crate_take_all() -> void:
+	if _crate == null or not is_instance_valid(_crate):
+		_refresh_crate_panel()
+		return
+	while not _crate.items.is_empty():
+		if not PlayerState.add_item(_crate.items[0]):
+			toast("Pack is full.")
+			break
+		_crate.items.remove_at(0)
+	_refresh_crate_panel()
+
+# ============================ stat bar widget =================================
+
+class StatBar extends Panel:
+	## One always-visible survival bar: dark rounded trough, colored fill, tiny
+	## uppercase label inside. Pulses via _process when below PULSE_BELOW.
+
+	const BAR_W: float = 170.0
+	const BAR_H: float = 13.0
+	const PULSE_BELOW: float = 0.25
+
+	var value: float = 1.0
+	var _fill: Panel
+
+	func _init(label_text: String, fill_color: Color) -> void:
+		custom_minimum_size = Vector2(BAR_W, BAR_H)
+		mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var trough := StyleBoxFlat.new()
+		trough.bg_color = Color(0.04, 0.05, 0.06, 0.66)
+		trough.set_corner_radius_all(4)
+		trough.border_color = Color(0.55, 0.6, 0.62, 0.35)
+		trough.set_border_width_all(1)
+		add_theme_stylebox_override("panel", trough)
+		_fill = Panel.new()
+		_fill.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var fill_style := StyleBoxFlat.new()
+		fill_style.bg_color = fill_color
+		fill_style.set_corner_radius_all(3)
+		_fill.add_theme_stylebox_override("panel", fill_style)
+		add_child(_fill)
+		var lbl := Label.new()
+		lbl.text = label_text
+		lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+		lbl.offset_left = 6.0
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		lbl.add_theme_font_size_override("font_size", 11)
+		lbl.add_theme_color_override("font_color", Color(0.95, 0.96, 0.93, 0.92))
+		lbl.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.55))
+		lbl.add_theme_constant_override("outline_size", 3)
+		add_child(lbl)
+		set_value(1.0)
+
+	func set_value(v: float) -> void:
+		value = clampf(v, 0.0, 1.0)
+		_fill.position = Vector2(2.0, 2.0)
+		_fill.size = Vector2((BAR_W - 4.0) * value, BAR_H - 4.0)
+		_fill.visible = value > 0.015
+
+	func _process(_delta: float) -> void:
+		# Low-stat pulse — the bar itself asks for attention.
+		if value < PULSE_BELOW:
+			_fill.modulate.a = 0.55 + 0.45 * sin(Time.get_ticks_msec() * 0.006)
+		else:
+			_fill.modulate.a = 1.0

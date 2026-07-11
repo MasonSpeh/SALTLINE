@@ -39,5 +39,13 @@
 		"work_sec": 3.0,
 		"desc": "Scrap plate on a wood brace. Waist-high, storm-solid.",
 		"hint": "Plate the gyre coughs up still remembers being a wall."
+	},
+	"glow_worm_cooked": {
+		"name": "Seared Glow Worm",
+		"needs": { "glow_worm": 1 },
+		"makes": "glow_worm_cooked",
+		"work_sec": 2.0,
+		"desc": "A minute on hot steel and the light goes out of it. What's left is honest meat.",
+		"hint": "Raw ones bite back on the way down. Sear it first."
 	}
 }

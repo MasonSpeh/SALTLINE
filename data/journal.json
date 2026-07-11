@@ -48,6 +48,18 @@
   "body": "Dog-sized. Comes up from the waterline after dark, walking the decks like it owns them. It will not cross powered light — not afraid, more like… polite about it. In the dark it is not polite.",
   "hint": "Stay inside the floodlight wash after nightfall. Listen for the claw-ticks through the deck."
  },
+ "creature_glow_worm": {
+  "cat": "creature",
+  "title": "Glow Worms",
+  "body": "A knuckle of teal light in the dark corners — under the stair, against the leg bases. Never the same corners twice. It feels footsteps through the plate and sinks back into its den before I'm anywhere near. Went in low and slow tonight and got a hand around one. Mostly light and muscle.",
+  "hint": "Crouch to close the last few meters. Sear it at the bench before eating — raw ones bite back."
+ },
+ "creature_epic_whale": {
+  "cat": "creature",
+  "title": "The Four-Eyed",
+  "body": "It came over the rig higher than the mast — a body like a hull, too many fins all rowing out of time, four eyes burning teal down its back. Swimming the night air the way the sea swims. I didn't hide. It wasn't looking at me. I don't think I register at all.",
+  "hint": "Full dark, high up, rare. When the long groan comes and the crab isn't moving — look up."
+ },
  "item_canned_food": {
   "cat": "item",
   "title": "Canned Food",

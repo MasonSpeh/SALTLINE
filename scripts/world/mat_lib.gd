@@ -62,6 +62,13 @@ static func dark_metal() -> StandardMaterial3D:
 static func wood() -> StandardMaterial3D:
 	return _surface("wood", Color(0.56, 0.43, 0.28), Color(0.35, 0.26, 0.16), 0.9, 606, 0.09)
 
+static func concrete() -> StandardMaterial3D:
+	## Smoothed, aged concrete — the accommodation block's interior skin.
+	return _surface("concrete", Color(0.62, 0.61, 0.58), Color(0.45, 0.44, 0.42), 0.92, 808, 0.045)
+
+static func concrete_floor() -> StandardMaterial3D:
+	return _surface("concrete_floor", Color(0.5, 0.5, 0.48), Color(0.35, 0.35, 0.33), 0.95, 909, 0.07)
+
 static func sphl_orange() -> StandardMaterial3D:
 	return _surface("sphl", Color(0.88, 0.44, 0.12), Color(0.6, 0.28, 0.07), 0.55, 707, 0.07)
 

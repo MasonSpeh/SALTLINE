@@ -1,7 +1,8 @@
 extends CharacterBody3D
 ## First-person controller, deliberately unheroic (GDD A5): weighty and careful,
-## not shooter-floaty. No jump; climbing only at Ladder nodes. Falling in water is a
-## fade-out + Wet Deck respawn with a warmth penalty (the death-model stub).
+## not shooter-floaty. A short functional jump; climbing only at Ladder nodes —
+## hold E to ascend, E+S to descend. Falling in water is a fade-out + Wet Deck
+## respawn with a warmth penalty; running life dry blacks out the same way.
 
 const WALK_SPEED: float = 3.2
 const SPRINT_SPEED: float = 5.0
@@ -30,6 +31,13 @@ const STAMINA_DRAIN_PER_SEC: float = 0.2
 const STAMINA_REGEN_PER_SEC: float = 0.15
 const STAMINA_MIN_TO_SPRINT: float = 0.1
 
+# Held item: bottom-right of view, tilted slightly inward, never over the crosshair.
+const HAND_ITEM_POS: Vector3 = Vector3(0.28, -0.24, -0.5)
+const HAND_ITEM_MAX_DIM: float = 0.18   ## largest dimension of the normalized visual (m)
+const HAND_SWAY_AMPLITUDE: float = 0.008
+
+const CLIMB_TOP_GRACE: float = 0.3      ## grab-at-the-top zone where we hold, not mantle
+
 @export var invert_y: bool = false
 @export var mouse_sensitivity_scale: float = 1.0
 
@@ -54,7 +62,8 @@ var _crouch_t: float = 0.0         ## 0 = standing, 1 = fully crouched
 var _jump_buffer: float = 0.0      ## brief window after a jump press, so it still fires on landing
 var _jump_was_pressed: bool = false
 var _climbing: Ladder = null
-var _drowning: bool = false
+var _climb_from_top: bool = false  ## climb grabbed near the top — hold, don't insta-mantle
+var _drowning: bool = false        ## shared blackout guard: water respawn OR life-out respawn
 var _step_accum: float = 0.0
 
 const JUMP_BUFFER_TIME: float = 0.15
@@ -74,11 +83,14 @@ func _ready() -> void:
 	build = BuildMode.new()
 	add_child(build)
 	build.setup(self, camera)
-	# Create hand item holder (positioned in front of camera, to the right)
+	# Create hand item holder: low-right of the view, angled slightly inward.
 	_hand_item = Node3D.new()
 	camera.add_child(_hand_item)
-	_hand_item.position = Vector3(0.35, -0.3, -0.8)
+	_hand_item.position = HAND_ITEM_POS
+	_hand_item.rotation.y = -0.35
+	_hand_item.rotation.x = 0.15
 	PlayerState.inventory_changed.connect(_update_held_item)
+	PlayerState.player_died.connect(_on_player_died)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -101,22 +113,25 @@ func _unhandled_input(event: InputEvent) -> void:
 			return
 	if event is InputEventKey and event.pressed and not event.echo and not input_locked:
 		match event.keycode:
-			KEY_1:
-				PlayerState.selected_hotbar = 0
-				_update_held_item()
-			KEY_2:
-				PlayerState.selected_hotbar = 1
-				_update_held_item()
-			KEY_3:
-				PlayerState.selected_hotbar = 2
-				_update_held_item()
-			KEY_4:
-				PlayerState.selected_hotbar = 3
-				_update_held_item()
+			KEY_1: _hotbar_pressed(0)
+			KEY_2: _hotbar_pressed(1)
+			KEY_3: _hotbar_pressed(2)
+			KEY_4: _hotbar_pressed(3)
 			KEY_F: _throw_hook()
 			KEY_B:
 				if not ui_locked and not _climbing:
 					build.toggle()
+
+## Select-then-use: first press of a number selects the slot (item shows in hand),
+## pressing the SAME number again uses it. Selecting an empty slot clears the hand.
+func _hotbar_pressed(slot: int) -> void:
+	if ui_locked:
+		return
+	if PlayerState.selected_hotbar == slot and PlayerState.hotbar[slot] != null:
+		PlayerState.use_hotbar(slot)   # inventory_changed refreshes the hand visual
+	else:
+		PlayerState.selected_hotbar = slot
+	_update_held_item()
 
 func _throw_hook() -> void:
 	if hook_out or carried or _climbing or ui_locked or build.active \
@@ -198,28 +213,39 @@ func _update_footsteps(_delta: float) -> void:
 		var vol: float = -28.0 if crouching else -16.0
 		AudioDirector.play_one_shot("step", global_position + Vector3(0, -0.6, 0), vol)
 
+## Latch onto a ladder. Hold-E climbing: E alone rises, E+S (move_back) descends,
+## releasing E lets go at the current height. Grabbing from within CLIMB_TOP_GRACE of
+## the top arms a hold so the player can start a descent instead of insta-mantling.
 func start_climb(ladder: Ladder) -> void:
+	if _climbing == ladder:
+		return   # already on this ladder; don't re-latch mid-climb
 	_climbing = ladder
 	velocity = Vector3.ZERO
 	var base: Vector3 = ladder.bottom_point()
 	var y: float = clampf(global_position.y, base.y, ladder.top_point().y)
 	global_position = Vector3(base.x, y, base.z) + ladder.face_dir() * 0.45
+	_climb_from_top = y >= ladder.top_point().y - CLIMB_TOP_GRACE
 
 func _climb_process(_delta: float) -> void:
-	# Exit climbing if E is released or player input-locked (cutscene)
+	# Let go when E is released or the player is input-locked (cutscene) — gravity resumes.
 	if not Input.is_action_pressed("interact") or input_locked:
 		_climbing = null
 		return
 
-	var up_input: float = 0.0
-	if not input_locked:
-		up_input = Input.get_axis("move_back", "move_forward")
-	velocity = Vector3(0, up_input * CLIMB_SPEED, 0)
-	move_and_slide()
+	# Hold E = climb up automatically; add S (move_back) to climb down instead.
+	var up_input: float = -1.0 if Input.is_action_pressed("move_back") else 1.0
 	var ladder: Ladder = _climbing
 	var top_y: float = ladder.top_point().y
 	var bottom_y: float = ladder.bottom_point().y
-	if global_position.y >= top_y - 0.2 and up_input > 0.0:
+	# Grabbed near the top: hold there instead of mantling, until a descent clears it.
+	if _climb_from_top:
+		if global_position.y < top_y - CLIMB_TOP_GRACE - 0.05:
+			_climb_from_top = false
+		elif up_input > 0.0 and global_position.y >= top_y - 0.2:
+			up_input = 0.0
+	velocity = Vector3(0, up_input * CLIMB_SPEED, 0)
+	move_and_slide()
+	if global_position.y >= top_y - 0.2 and up_input > 0.0 and not _climb_from_top:
 		# Mantle off the top, onto the wall side.
 		global_position = ladder.top_point() - ladder.face_dir() * ladder.exit_forward + Vector3(0, 0.4, 0)
 		_climbing = null
@@ -250,6 +276,34 @@ func _respawn() -> void:
 		hud.fade_from_black(1.5)
 		hud.toast("The sea let you go. This time.")
 
+## Life hit zero: same blackout shape as drowning, sharing the _drowning guard so the
+## two fade/respawn flows can never run over each other.
+func _on_player_died() -> void:
+	if _drowning:
+		return
+	_drowning = true
+	input_locked = true
+	_climbing = null
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud:
+		var tw: Tween = hud.fade_to_black(1.2)
+		tw.tween_callback(_respawn_from_death)
+	else:
+		_respawn_from_death()
+
+func _respawn_from_death() -> void:
+	global_position = respawn_point
+	velocity = Vector3.ZERO
+	PlayerState.life = 0.5
+	PlayerState.hunger = 0.4
+	PlayerState.thirst = 0.4
+	_drowning = false
+	input_locked = false
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud:
+		hud.fade_from_black(1.5)
+		hud.toast("You blacked out. The rig gave you back.")
+
 func _update_stamina(delta: float, is_sprinting: bool) -> void:
 	if is_sprinting:
 		_stamina = maxf(0.0, _stamina - STAMINA_DRAIN_PER_SEC * delta)
@@ -261,10 +315,17 @@ func _update_head_bob(delta: float, is_moving: bool, is_sprinting: bool) -> void
 		var freq: float = HEAD_BOB_SPRINT_FREQ if is_sprinting else HEAD_BOB_WALK_FREQ
 		_head_bob_time += delta * freq * TAU
 		head.position.y = _camera_base_y + sin(_head_bob_time) * HEAD_BOB_AMPLITUDE
+		# Subtle counter-phase sway on the held item; drifts around HAND_ITEM_POS,
+		# far too small to ever reach the crosshair.
+		_hand_item.position = HAND_ITEM_POS + Vector3(
+			cos(_head_bob_time * 0.5) * HAND_SWAY_AMPLITUDE,
+			-sin(_head_bob_time) * HAND_SWAY_AMPLITUDE,
+			0.0)
 	else:
 		_head_bob_time = 0.0
 		# Settle to the current base briskly so crouching drops the eye line right away.
 		head.position.y = move_toward(head.position.y, _camera_base_y, delta * 4.0)
+		_hand_item.position = _hand_item.position.move_toward(HAND_ITEM_POS, delta * 0.1)
 
 func try_grab(prop: Node3D) -> void:
 	if carried:
@@ -292,18 +353,62 @@ func _throw_carried() -> void:
 		(prop as RigidBody3D).apply_central_impulse(forward * 6.5 + Vector3(0, 1.6, 0))
 		AudioDirector.play_one_shot("clang", prop.global_position, -12.0)
 
+## Rebuild the in-hand visual for the selected hotbar slot. ItemVisual meshes are
+## world-scale props with internal offsets, so we normalize at runtime: recenter on the
+## combined AABB and uniform-scale so the largest dimension is HAND_ITEM_MAX_DIM.
 func _update_held_item() -> void:
 	# Clear previous hand item
 	for child in _hand_item.get_children():
+		_hand_item.remove_child(child)
 		child.queue_free()
 	_held_item_id = ""
-	
-	# Show the selected hotbar item in hand
-	if PlayerState.selected_hotbar >= 0 and PlayerState.selected_hotbar < PlayerState.HOTBAR_SIZE:
-		var item_id: String = PlayerState.hotbar[PlayerState.selected_hotbar]
-		if item_id:
-			_held_item_id = item_id
-			var mesh: Node3D = ItemVisual.build(item_id)
-			if mesh:
-				_hand_item.add_child(mesh)
-				mesh.scale *= 0.6
+
+	# Show the selected hotbar item in hand; an empty/deselected slot leaves the hand bare.
+	if PlayerState.selected_hotbar < 0 or PlayerState.selected_hotbar >= PlayerState.HOTBAR_SIZE:
+		return
+	var item: Variant = PlayerState.hotbar[PlayerState.selected_hotbar]
+	if item == null or String(item).is_empty():
+		return
+	_held_item_id = String(item)
+	var visual: Node3D = ItemVisual.build(_held_item_id)
+	if visual == null:
+		return
+	var container := Node3D.new()
+	container.add_child(visual)
+	_hand_item.add_child(container)
+	_normalize_hand_visual(container, visual)
+
+## Recenter + rescale a freshly built ItemVisual so it reads as a small held prop.
+## Also kills shadow casting on every mesh — a hand item shadowing the world looks wrong.
+func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
+	var combined: AABB = AABB()
+	var found: bool = false
+	var stack: Array[Node] = [visual]
+	while not stack.is_empty():
+		var node: Node = stack.pop_back()
+		for c in node.get_children():
+			stack.append(c)
+		var mi := node as MeshInstance3D
+		if mi == null:
+			continue
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		if mi.mesh == null:
+			continue
+		var box: AABB = _transform_relative_to(mi, visual) * mi.mesh.get_aabb()
+		combined = box if not found else combined.merge(box)
+		found = true
+	if not found:
+		return
+	var largest: float = maxf(combined.size.x, maxf(combined.size.y, combined.size.z))
+	if largest > 0.0001:
+		container.scale = Vector3.ONE * (HAND_ITEM_MAX_DIM / largest)
+	visual.position = -combined.get_center()
+
+## Composed local transform of `node` relative to ancestor `root` (tree-independent).
+static func _transform_relative_to(node: Node3D, root: Node3D) -> Transform3D:
+	var t: Transform3D = Transform3D.IDENTITY
+	var n: Node3D = node
+	while n != null and n != root:
+		t = n.transform * t
+		n = n.get_parent() as Node3D
+	return t

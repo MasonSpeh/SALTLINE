@@ -41,6 +41,9 @@ func _ready() -> void:
 	_build_access()
 	_decorate_interiors()
 	_build_env_objects()
+	# The accommodation stack: Decks B/C/D + roof + comms mast above the topside rooms.
+	# Preloaded by path — the global class cache may not know the new file yet.
+	add_child(preload("res://scripts/world/rig_superstructure.gd").new())
 
 ## Daylight spill for interiors (greybox stand-in for door/window light shafts).
 ## Grouped so SunController scales them with the sun — interiors go dark at night.
@@ -148,6 +151,7 @@ func _takeable(item: String, name_: String, pos: Vector3, size: Vector3 = Vector
 	return t
 
 func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
+	## pos is FLOOR level — the crate rests on it, collision matching the visual.
 	var c := LootContainer.new()
 	var typed: Array[String] = []
 	for i in items:
@@ -156,7 +160,7 @@ func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
 	c.display_name = name_
 	add_child(c)
 	c.global_position = pos
-	c.build_box_visual(Vector3(1.1, 0.8, 0.8), Color(0.5, 0.45, 0.3))
+	c.build_box_visual(Vector3(1.1, 0.8, 0.8), Color(0.5, 0.45, 0.3), false, true)
 	return c
 
 func _ladder(pos: Vector3, height: float, facing_deg: float, name_: String = "Ladder", exit_fwd: float = 0.8) -> Ladder:
@@ -231,7 +235,7 @@ func _build_wet_deck() -> void:
 	cold.global_position = Vector3(14, WET_Y + 1.5, -10)
 	_box(Vector3(12, WET_Y + 0.9, -12), Vector3(1.5, 1.8, 1.5), MatLib.dark_metal()) # dead pump
 	_readable("pump_room_tag", "Lockout Tag", Vector3(12, WET_Y + 1.4, -11.1), Vector3(0.25, 0.3, 0.05))
-	_crate(["canned_food", "flare"], "Sealed Crate", Vector3(16.5, WET_Y + 0.4, -8))
+	_crate(["canned_food", "flare"], "Sealed Crate", Vector3(16.5, WET_Y + 0.01, -8))
 
 	# Loot room on the south edge.
 	var lr_mat: Material = MatLib.painted_steel()
@@ -240,7 +244,7 @@ func _build_wet_deck() -> void:
 	_wall(Vector3(10, WET_Y, -22), Vector3(10, WET_Y, -16), WALL_H, lr_mat)
 	_wall(Vector3(16, WET_Y, -22), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
 	_box(Vector3(13, WET_Y + WALL_H, -19), Vector3(6.5, 0.25, 6.5), lr_mat)
-	_crate(["canned_food", "canned_peaches"], "Storage Crate", Vector3(13, WET_Y + 0.4, -20))
+	_crate(["canned_food", "canned_peaches"], "Storage Crate", Vector3(13, WET_Y + 0.01, -20))
 
 	# Tide-line clutter.
 	for i in range(5):
@@ -284,7 +288,7 @@ func _build_stair_tower() -> void:
 	# Machinery room (y=6) off landing 1 — holds the cable spool.
 	_room_north(Vector3(24, 6.0, 2), Vector3(30, 6.0, 10), MatLib.rust_steel(), 0.75)
 	_box(Vector3(27, 6.0 + 0.5, 6), Vector3(2.2, 1.0, 1.2), MatLib.dark_metal()) # dead machinery
-	_takeable("cable_spool", "Cable Spool", Vector3(27, 7.25, 6), Vector3(0.5, 0.5, 0.5))
+	_takeable("cable_spool", "Cable Spool", Vector3(27, 7.01, 6), Vector3(0.5, 0.5, 0.5))
 
 	# Breaker Room 4-A (y=10) off landing 2 — the power puzzle centerpiece.
 	_room_north(Vector3(22, 10.0, 2), Vector3(28, 10.0, 10), MatLib.painted_steel(), 0.25)
@@ -406,10 +410,10 @@ func _build_galley() -> void:
 	_box(Vector3(6, y + WALL_H, 13), Vector3(16.5, 0.25, 10.5), mat)
 	# Counter along the north wall with food.
 	_box(Vector3(6, y + 0.5, 17), Vector3(10, 1.0, 1.2), MatLib.painted_steel())
-	_takeable("canned_food", "Canned Food", Vector3(3, y + 1.2, 17), Vector3(0.25, 0.3, 0.25))
-	_takeable("canned_food", "Canned Food", Vector3(5, y + 1.2, 17), Vector3(0.25, 0.3, 0.25))
-	_takeable("canned_peaches", "Canned Peaches", Vector3(8, y + 1.2, 17), Vector3(0.25, 0.3, 0.25))
-	_crate(["canned_food", "canned_food"], "Pantry Crate", Vector3(12.5, y + 0.4, 16.5))
+	_takeable("canned_food", "Canned Food", Vector3(3, y + 1.01, 17), Vector3(0.25, 0.3, 0.25))
+	_takeable("canned_food", "Canned Food", Vector3(5, y + 1.01, 17), Vector3(0.25, 0.3, 0.25))
+	_takeable("canned_peaches", "Canned Peaches", Vector3(8, y + 1.01, 17), Vector3(0.25, 0.3, 0.25))
+	_crate(["canned_food", "canned_food"], "Pantry Crate", Vector3(12.5, y + 0.01, 16.5))
 	_readable("rationing_memo", "Operations Memo", Vector3(0.5, y + 1.6, 17.8), Vector3(0.35, 0.45, 0.06))
 	# Tables with full coffee cups — the signature image.
 	var table_positions := [Vector3(2, y, 11), Vector3(8, y, 11), Vector3(2, y, 14.5), Vector3(8, y, 14.5)]
@@ -596,7 +600,7 @@ func _build_access() -> void:
 	_ladder(Vector3(7.8, 0.95, -12), 1.2, 90.0, "Pontoon Ladder", 0.9)
 	# Wet Deck -> pump room roof (small vantage, stashed crate).
 	_ladder(Vector3(18.25, WET_Y, -8), 3.5, -90.0, "Roof Ladder", 1.0)
-	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.55, -8.5))
+	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.13, -8.5))
 	# Topside -> galley roof (antenna array, vent fan, the best sunset seat).
 	_ladder(Vector3(14.25, DECK_Y, 15), 3.55, -90.0, "Galley Roof Ladder", 1.0)
 	# Topside -> bunkhouse roof (vent fans, and the long view west).
@@ -755,8 +759,8 @@ func _build_env_objects() -> void:
 	bench.global_position = Vector3(19.5, WET_Y, -19.5)
 	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3))
 	_box(Vector3(19.5, WET_Y + 0.97, -19.5), Vector3(1.7, 0.06, 0.8), MatLib.wood(), self, false)
-	_takeable("rope", "Rope Coil", Vector3(17.2, DECK_Y + 0.25, -15.8), Vector3(0.45, 0.3, 0.45))
-	_takeable("prybar", "Prybar", Vector3(12.8, WET_Y + 1.95, -12.0), Vector3(0.15, 0.12, 0.9))
+	_takeable("rope", "Rope Coil", Vector3(17.2, DECK_Y + 0.01, -15.8), Vector3(0.45, 0.3, 0.45))
+	_takeable("prybar", "Prybar", Vector3(12.8, WET_Y + 1.81, -12.0), Vector3(0.15, 0.12, 0.9))
 	# 1. Oil drums — loose physics props, wet deck and topside.
 	for p in [Vector3(23.5, WET_Y + 0.6, -15.5), Vector3(24.4, WET_Y + 0.6, -14.6),
 			Vector3(10.5, WET_Y + 0.6, -17.5), Vector3(6.5, DECK_Y + 0.6, -13.2),
@@ -832,56 +836,47 @@ func _build_imposters() -> void:
 		prev = p
 
 func _add_wall_details() -> void:
-	# Overhead conduit runs — electrical lines in corridor areas
-	var conduit_runs := [
-		# North corridor, topside
-		[Vector3(10, DECK_Y + WALL_H - 0.15, -5), Vector3(26, DECK_Y + WALL_H - 0.15, -5)],
-		# East wall, topside
-		[Vector3(29, DECK_Y + WALL_H - 0.15, -10), Vector3(29, DECK_Y + WALL_H - 0.15, 8)],
-		# Wet deck north
-		[Vector3(10, WET_Y + WALL_H - 0.15, -20), Vector3(28, WET_Y + WALL_H - 0.15, -20)],
-	]
-	for run in conduit_runs:
-		var start: Vector3 = run[0]
-		var end: Vector3 = run[1]
-		var dist: float = start.distance_to(end)
-		var mid: Vector3 = (start + end) * 0.5
-		var conduit := _cyl_nc(mid, 0.06, dist, MatLib.dark_metal())
-		var dir: Vector3 = (end - start).normalized()
-		conduit.rotation.z = atan2(dir.y, Vector2(dir.x, dir.z).length())
+	# Conduit runs hugging REAL wall faces. Cylinder axis is local Y: along X needs
+	# rotation.z = 90deg, along Z needs rotation.x = 90deg.
+	# Galley south exterior face (wall at z=8, face at z 7.875).
+	var c1 := _cyl_nc(Vector3(6, DECK_Y + 2.6, 7.8), 0.06, 14.0, MatLib.dark_metal())
+	c1.rotation.z = deg_to_rad(90)
+	# Rec room west exterior face (wall at x=18, face at x 17.875).
+	var c2 := _cyl_nc(Vector3(17.8, DECK_Y + 2.6, 13), 0.06, 8.0, MatLib.dark_metal())
+	c2.rotation.x = deg_to_rad(90)
+	# Pump room north exterior face (wall at z=-6, face at z -5.875).
+	var c3 := _cyl_nc(Vector3(14, WET_Y + 2.7, -5.82), 0.06, 7.0, MatLib.dark_metal())
+	c3.rotation.z = deg_to_rad(90)
+	# Junction drops at the conduit ends.
+	for dp in [Vector3(-0.9, DECK_Y + 1.6, 7.8), Vector3(12.9, DECK_Y + 1.6, 7.8)]:
+		_box(dp, Vector3(0.1, 2.0, 0.1), MatLib.dark_metal(), self, false)
 
-	# Pressure gauges and valve wheels on key walls
-	var gauges := [
-		Vector3(27.5, WET_Y + 2.0, -6.0),   # pump room wall
-		Vector3(11.8, WET_Y + 1.8, -20.5),  # north corridor
-		Vector3(24.5, DECK_Y + 2.0, 8.5),   # topside machinery
-	]
-	for gpos in gauges:
-		_cyl_nc(gpos, 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
+	# Pressure gauges flat against verified wall faces (flat face = cylinder axis
+	# pierces the wall: axis along Z -> rotation.x, axis along X -> rotation.z).
+	var g1 := _cyl_nc(Vector3(13, WET_Y + 1.9, -5.85), 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82)))
+	g1.rotation.x = deg_to_rad(90)   # pump room north face
+	var g2 := _cyl_nc(Vector3(21.85, DECK_Y + 1.7, -1.5), 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82)))
+	g2.rotation.z = deg_to_rad(90)   # stair tower west face
+	var g3 := _cyl_nc(Vector3(-13.85, DECK_Y + 1.9, -8.5), 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82)))
+	g3.rotation.z = deg_to_rad(90)   # machine shop east face
 
-	# Warning labels on hazardous areas — yellow + red stripe pattern
-	var warning_strips := [
-		Vector3(23, DECK_Y + 0.5, 9.1),     # electrical hazard strip
-		Vector3(30, WET_Y + 0.5, -6.0),     # pump room floor
-		Vector3(14, WET_Y + 0.5, -20.5),    # wet deck stairs
-	]
-	for wpos in warning_strips:
-		_box(wpos, Vector3(2.0, 0.02, 1.2), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
+	# Hazard strips painted on real floors: stair tower entrance + pump room door.
+	_box(Vector3(26, WET_Y + 0.02, -6.8), Vector3(2.2, 0.02, 1.0), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
+	_box(Vector3(14, WET_Y + 0.02, -14.7), Vector3(1.6, 0.02, 0.9), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
 
-	# Painted directional arrows on the floor (navigation hints)
-	var arrow_y: float = WET_Y + 0.08
-	_box(Vector3(16, arrow_y, -18), Vector3(0.6, 0.01, 0.3), MatLib.flat(Color(0.3, 0.6, 0.9)), self, false)  # blue arrow
-	_box(Vector3(20, arrow_y, -15), Vector3(0.3, 0.01, 0.6), MatLib.flat(Color(0.3, 0.6, 0.9)), self, false)
+	# Painted directional arrows on the wet deck (toward the stair tower).
+	_box(Vector3(16, WET_Y + 0.03, -18), Vector3(0.6, 0.01, 0.3), MatLib.flat(Color(0.3, 0.6, 0.9)), self, false)
+	_box(Vector3(20, WET_Y + 0.03, -15), Vector3(0.3, 0.01, 0.6), MatLib.flat(Color(0.3, 0.6, 0.9)), self, false)
 
-	# Safety grab rails — horizontal pipes on high-traffic walls
-	for rail_pos in [
-		Vector3(14.5, DECK_Y + 1.5, -4.8),
-		Vector3(28.5, DECK_Y + 1.5, 5),
-		Vector3(-18, DECK_Y + 1.5, 15),
-	]:
-		_cyl_nc(rail_pos, 0.04, 1.6, MatLib.painted_steel()).rotation.z = deg_to_rad(90)
+	# Grab rails running ALONG their walls (cylinder axis along the wall direction).
+	var r1 := _cyl_nc(Vector3(6, DECK_Y + 1.1, 7.82), 0.04, 3.0, MatLib.painted_steel())
+	r1.rotation.z = deg_to_rad(90)   # galley south face, along X
+	var r2 := _cyl_nc(Vector3(17.82, DECK_Y + 1.1, 12), 0.04, 3.0, MatLib.painted_steel())
+	r2.rotation.x = deg_to_rad(90)   # rec room west face, along Z
+	var r3 := _cyl_nc(Vector3(-18, DECK_Y + 1.1, 3.82), 0.04, 3.0, MatLib.painted_steel())
+	r3.rotation.z = deg_to_rad(90)   # bunkhouse south face, along X
 
-	# Maintenance labels — small plaques and decals
-	_box(Vector3(27.8, WET_Y + 2.4, -6), Vector3(0.4, 0.25, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)  # pump label
-	_box(Vector3(11.5, DECK_Y + 2.2, 9.5), Vector3(0.5, 0.3, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)  # breaker label
-	_box(Vector3(23.2, DECK_Y + 0.6, 9.2), Vector3(0.8, 0.15, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)  # electrical placard
+	# Maintenance plaques flush on wall faces (thin axis = wall normal).
+	_box(Vector3(15, WET_Y + 2.2, -5.86), Vector3(0.4, 0.25, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
+	_box(Vector3(24.8, 11.6, 9.86), Vector3(0.5, 0.3, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
+	_box(Vector3(21.86, DECK_Y + 2.2, 0.5), Vector3(0.03, 0.15, 0.8), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)

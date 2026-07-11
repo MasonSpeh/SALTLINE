@@ -1,9 +1,13 @@
 extends Node
-## Owns survival stats (hunger, warmth) + inventory/hotbar. Depletion rates come from
-## data/tuning.json (A1: no magic numbers). Consequences are soft — never a fail state.
+## Owns survival stats (hunger, thirst, warmth, life) + inventory/hotbar. Depletion rates
+## come from data/tuning.json (A1: no magic numbers). Consequences stay soft until life
+## bottoms out — then player_died fires and the controller runs a blackout respawn.
 
 signal hunger_changed(value: float)
+signal thirst_changed(value: float)
 signal warmth_changed(value: float)
+signal life_changed(value: float)
+signal player_died
 signal stat_low(stat_name: String)
 signal stat_recovered(stat_name: String)
 signal inventory_changed
@@ -13,8 +17,13 @@ const LOW_THRESHOLD: float = 0.5
 const HOTBAR_SIZE: int = 4
 const MAX_BACKPACK: int = 12   ## Minecraft-ish, but a day pack, not a warehouse
 
+const LIFE_DRAIN_PER_SEC: float = 0.02   ## while starving or parched
+const LIFE_REGEN_PER_SEC: float = 0.01   ## while fed, watered, and not too sick
+
 var hunger: float = 1.0 : set = set_hunger
+var thirst: float = 1.0 : set = set_thirst
 var warmth: float = 1.0 : set = set_warmth
+var life: float = 1.0 : set = set_life
 var hotbar: Array = [null, null, null, null]
 var inventory: Array = [] ## overflow list beyond the hotbar
 var selected_hotbar: int = -1  ## last hotbar slot pressed (#1-4)
@@ -27,12 +36,18 @@ var tuning: Dictionary = {}
 var items: Dictionary = {}
 
 var _hunger_was_low: bool = false
+var _thirst_was_low: bool = false
 var _warmth_was_low: bool = false
 var _depleting: bool = true
+var _died: bool = false   ## player_died fires once; reset when life climbs back above zero
 
 func _ready() -> void:
 	tuning = _load_json("res://data/tuning.json")
 	items = _load_json("res://data/items.json")
+	EventBus.creature_contact.connect(_on_creature_contact)
+
+func _on_creature_contact() -> void:
+	life -= 0.2
 
 func _load_json(path: String) -> Dictionary:
 	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
@@ -46,6 +61,7 @@ func _process(delta: float) -> void:
 	if not _depleting:
 		return
 	hunger -= tuning.get("hunger_per_sec", 0.00055) * delta
+	thirst -= tuning.get("thirst_per_sec", 0.0011) * delta
 	var w_rate: float = tuning.get("warmth_per_sec_neutral", 0.0)
 	if warmth_zone < 0:
 		w_rate = tuning.get("warmth_per_sec_cold", -0.004)
@@ -55,6 +71,11 @@ func _process(delta: float) -> void:
 		w_rate = tuning.get("warmth_per_sec_night", -0.0015)
 	warmth += w_rate * delta
 	sickness = maxf(0.0, sickness - delta * 0.15)  # recover from sickness over time
+	# Life: starving or parched wears you down; fed + watered + mostly-well heals you.
+	if hunger <= 0.0 or thirst <= 0.0:
+		life -= LIFE_DRAIN_PER_SEC * delta
+	elif hunger > 0.5 and thirst > 0.5 and sickness < 0.25:
+		life += LIFE_REGEN_PER_SEC * delta
 
 func set_depleting(v: bool) -> void:
 	_depleting = v
@@ -64,10 +85,25 @@ func set_hunger(value: float) -> void:
 	hunger_changed.emit(hunger)
 	_check_threshold("hunger", hunger, _hunger_was_low)
 
+func set_thirst(value: float) -> void:
+	thirst = clampf(value, 0.0, 1.0)
+	thirst_changed.emit(thirst)
+	_check_threshold("thirst", thirst, _thirst_was_low)
+
 func set_warmth(value: float) -> void:
 	warmth = clampf(value, 0.0, 1.0)
 	warmth_changed.emit(warmth)
 	_check_threshold("warmth", warmth, _warmth_was_low)
+
+func set_life(value: float) -> void:
+	life = clampf(value, 0.0, 1.0)
+	life_changed.emit(life)
+	if life <= 0.0:
+		if not _died:
+			_died = true
+			player_died.emit()
+	else:
+		_died = false   # revive (respawn restores life) re-arms the death signal
 
 func _check_threshold(stat_name: String, value: float, was_low: bool) -> void:
 	var is_low: bool = value < LOW_THRESHOLD
@@ -78,6 +114,8 @@ func _check_threshold(stat_name: String, value: float, was_low: bool) -> void:
 	match stat_name:
 		"hunger":
 			_hunger_was_low = is_low
+		"thirst":
+			_thirst_was_low = is_low
 		"warmth":
 			_warmth_was_low = is_low
 
@@ -85,6 +123,8 @@ func _check_threshold(stat_name: String, value: float, was_low: bool) -> void:
 func stamina_ceiling_multiplier() -> float:
 	var mult: float = 1.0
 	if hunger < LOW_THRESHOLD:
+		mult *= 0.75
+	if thirst < LOW_THRESHOLD:
 		mult *= 0.75
 	if warmth < LOW_THRESHOLD:
 		mult *= 0.75
@@ -149,14 +189,24 @@ func has_item(item_id: String) -> bool:
 	return hotbar.has(item_id) or inventory.has(item_id)
 
 ## USE the item in a hotbar slot (consumables only; tools are passive keys for verbs).
+## "eat" restores hunger, "drink" restores thirst; a def carrying BOTH hunger and
+## thirst fields applies both regardless of which verb it uses.
 func use_hotbar(slot: int) -> void:
 	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:
 		return
 	selected_hotbar = slot
 	var id: String = hotbar[slot]
 	var def: Dictionary = items.get(id, {})
-	if def.get("use", "") == "eat":
-		hunger += def.get("hunger", 0.35)
+	var use: String = def.get("use", "")
+	if use == "eat" or use == "drink":
+		if use == "eat":
+			hunger += def.get("hunger", 0.35)
+			if def.has("thirst"):
+				thirst += def.get("thirst", 0.0)
+		else:
+			thirst += def.get("thirst", 0.4)
+			if def.has("hunger"):
+				hunger += def.get("hunger", 0.0)
 		# Apply side effects (raw glow worm causes sickness)
 		if def.get("side_effect", "") == "sick":
 			sickness = 0.8
@@ -172,5 +222,7 @@ func use_hotbar(slot: int) -> void:
 			var msg: String = def.get("name", id)
 			if def.get("side_effect", "") == "sick":
 				hud.toast("%s tasted... wrong. Feeling queasy." % msg)
+			elif use == "drink":
+				hud.toast("Drank %s. Better." % msg)
 			else:
 				hud.toast("Ate %s. Better." % msg)

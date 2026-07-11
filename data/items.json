@@ -1,8 +1,8 @@
 {
-	"_schema": "item_id -> { name, use: eat|tool, hunger: restore amount }",
+	"_schema": "item_id -> { name, use: eat|drink|tool|build, hunger/thirst: restore amounts, side_effect }",
 	"canned_food": { "name": "Canned Food", "use": "eat", "hunger": 0.35 },
-	"canned_peaches": { "name": "Canned Peaches", "use": "eat", "hunger": 0.25 },
-	"water_ration": { "name": "Water Ration", "use": "eat", "hunger": 0.05 },
+	"canned_peaches": { "name": "Canned Peaches", "use": "eat", "hunger": 0.25, "thirst": 0.15 },
+	"water_ration": { "name": "Water Ration", "use": "drink", "thirst": 0.5 },
 	"cable_spool": { "name": "Cable Spool", "use": "tool" },
 	"prybar": { "name": "Prybar", "use": "tool" },
 	"flare": { "name": "Flare", "use": "tool" },
@@ -18,6 +18,6 @@
 	"leanto_kit": { "name": "Lean-To (kit)", "use": "build" },
 	"walkway_kit": { "name": "Plank Walkway (kit)", "use": "build" },
 	"barricade_kit": { "name": "Barricade (kit)", "use": "build" },
-	"glow_worm": { "name": "Glow Worm (raw)", "use": "eat", "hunger": 0.15, "side_effect": "sick" },
-	"glow_worm_cooked": { "name": "Cooked Glow Worm", "use": "eat", "hunger": 0.5, "side_effect": "none" }
+	"glow_worm": { "name": "Glow Worm", "use": "eat", "hunger": 0.15, "side_effect": "sick" },
+	"glow_worm_cooked": { "name": "Seared Glow Worm", "use": "eat", "hunger": 0.5 }
 }

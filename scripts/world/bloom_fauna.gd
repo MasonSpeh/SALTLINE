@@ -9,6 +9,8 @@ class_name BloomFauna extends Node3D
 ##   FiddlerShoal — day fish schooling under the wet deck lip
 ##   MantleRay    — huge slow glider that crosses over the rig at night
 ##   TideWorms    — dawn/dusk deck crawlers that retreat into their holes
+##   GlowWorms    — night den-dwellers in the dark corners; crouch close to grab one
+##   Epic4EyedWhale — four-eyed vastness that swims the night air, high and rare
 
 const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
@@ -33,11 +35,8 @@ func _ready() -> void:
 	add_child(FiddlerShoal.new())
 	add_child(MantleRay.new())
 	add_child(Epic4EyedWhale.new())  # night visitor from the deep
-	# Glow worms — rare creatures in dark corners, skittish and edible
-	for p in [Vector3(8.5, 3.2, -20.5), Vector3(-8.2, 2.8, 15.5), Vector3(25.5, 12.2, -12.0)]:
-		var gw := GlowWorm.new()
-		add_child(gw)
-		gw.global_position = p
+	# Glow worms — rare, edible; a den network wakes two dark corners per night.
+	add_child(GlowWormColony.new())
 	# Tide worms along the wet-deck tide line and out on the pontoon.
 	for p in [Vector3(24.5, 2.02, -17.5), Vector3(21.5, 2.02, -19.5), Vector3(26.5, 2.02, -13.0),
 			Vector3(2.0, 0.97, -12.0), Vector3(-6.0, 0.97, -11.0)]:
@@ -412,49 +411,164 @@ class TideWorm extends Node3D:
 
 
 # ------------------------------------------------- Glow Worm
-class GlowWorm extends Node3D:
+class GlowWorm extends Interactable:
+	## A skittish knuckle of Bloom light denned in a dark corner (GDD canon: light
+	## and life, never combat). Wakes only on nights its den is picked. It feels
+	## footsteps through the plate and sinks back into the den; crouch-walking
+	## shrinks its senses and slows the retreat — sneaking is how you catch one.
+	const TRIGGER_RADIUS: float = 4.5
+	const TRIGGER_RADIUS_CROUCHED: float = 1.8
+	const RETREAT_RATE: float = 1.25         # full hide in ~0.8s
+	const RETREAT_RATE_CROUCHED: float = 0.5  # slow enough to close in and grab
+	const EMERGE_RATE: float = 0.6
+	const CATCHABLE_PRESENCE: float = 0.6     # mostly-hidden worms can't be taken
+
 	var _t: float = 0.0
-	var _visible_presence: float = 0.0  ## 0 = hiding, 1 = visible
-	var _glow_body: MeshInstance3D
+	var _presence: float = 0.0      ## 0 = in the den, 1 = fully emerged
+	var _active_tonight: bool = false
+	var _respawn_sec: float = 0.0   ## after a grab, counts down through dark phases only
+	var _body: Node3D
 	var _glow_mat: StandardMaterial3D
+	var _col: CollisionShape3D
+
+	func _init() -> void:
+		display_name = "Glow Worm"
+		var v: Array[String] = ["GRAB"]
+		verbs = v
 
 	func _ready() -> void:
-		_glow_body = MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.15
-		sm.height = 0.3
-		_glow_mat = BloomFauna.glow_mat(BloomFauna.TEAL, 1.2)
-		sm.material = _glow_mat
-		_glow_body.mesh = sm
-		add_child(_glow_body)
-		# Small collision sphere for grabbing
-		var col := CollisionShape3D.new()
+		_t = global_position.x * 2.1 + global_position.z
+		# Den mouth — a dark disc flush with the plate.
+		var hole := MeshInstance3D.new()
+		var hm := CylinderMesh.new()
+		hm.top_radius = 0.16
+		hm.bottom_radius = 0.16
+		hm.height = 0.02
+		hm.material = BloomFauna.glow_mat(Color(0.04, 0.05, 0.06), 0.0)
+		hole.mesh = hm
+		add_child(hole)
+		# Body rises out of the den; scale.y is the hide/emerge axis.
+		_body = Node3D.new()
+		add_child(_body)
+		_glow_mat = BloomFauna.glow_mat(BloomFauna.TEAL, 0.0)
+		var dim_mat := BloomFauna.glow_mat(BloomFauna.DIM_TEAL, 0.15)
+		for i in range(4):
+			var seg := MeshInstance3D.new()
+			var sm := SphereMesh.new()
+			var r: float = 0.09 - i * 0.014
+			sm.radius = r
+			sm.height = r * 2.0
+			sm.material = _glow_mat if i >= 2 else dim_mat
+			seg.mesh = sm
+			_body.add_child(seg)
+			seg.position = Vector3(0, 0.08 + i * 0.13, 0)
+		# Small grab target for the interaction ray; disabled whenever hidden
+		# or in daylight so there is never an invisible blocker.
+		_col = CollisionShape3D.new()
 		var shape := SphereShape3D.new()
-		shape.radius = 0.2
-		col.shape = shape
-		add_child(col)
+		shape.radius = 0.25
+		_col.shape = shape
+		_col.disabled = true
+		add_child(_col)
+		_col.position = Vector3(0, 0.25, 0)
+
+	## Colony calls this at dusk: this den is (not) one of tonight's two.
+	func set_active(value: bool) -> void:
+		_active_tonight = value
+		_respawn_sec = 0.0
+
+	func _catchable() -> bool:
+		return _active_tonight and _respawn_sec <= 0.0 \
+			and BloomFauna.is_dark_phase() and _presence > CATCHABLE_PRESENCE
+
+	## Hidden worms show no prompt and take no ray hits.
+	func available_verbs() -> Array[String]:
+		if _catchable():
+			return verbs
+		var none: Array[String] = []
+		return none
+
+	func interact(verb: String, _player: Node3D) -> void:
+		if verb != "GRAB" or not _catchable():
+			return
+		if not PlayerState.add_item("glow_worm"):
+			return   # pack full — the worm lives another night
+		AudioDirector.play_one_shot("splash", global_position, -18.0)   # soft, wet
+		Journal.discover("creature_glow_worm")
+		_presence = 0.0
+		_col.disabled = true
+		_respawn_sec = randf_range(90.0, 150.0)   # den re-opens later in the night
+		super.interact(verb, _player)
 
 	func _process(delta: float) -> void:
 		_t += delta
-		# Visible only at night; fade in/out with time
-		var night: bool = BloomFauna.is_dark_phase()
-		var target_presence: float = 1.0 if night else 0.0
-		_visible_presence = move_toward(_visible_presence, target_presence, delta * 0.12)
-		_glow_mat.emission_energy_multiplier = _visible_presence * (0.8 + 0.6 * sin(_t * 2.0))
-		_glow_body.visible = _visible_presence > 0.1
-		if not _glow_body.visible:
-			return
-		Journal.discover_if_near(self, "creature_glow_worm", 8.0)
-		# Hide when player gets close (skittish behavior)
-		var player: Node3D = get_tree().get_first_node_in_group("player")
-		if player:
-			var dist: float = global_position.distance_to(player.global_position)
-			if dist < 2.5:
-				# Dart away from player
-				global_position += (global_position - player.global_position).normalized() * delta * 3.0
-			# Gentle bobbing motion when player not too close
-			if dist > 4.0:
-				global_position.y += sin(_t * 1.5) * delta * 0.3
+		var dark: bool = BloomFauna.is_dark_phase()
+		if _respawn_sec > 0.0 and dark:
+			_respawn_sec -= delta
+		var want_out: bool = _active_tonight and dark and _respawn_sec <= 0.0
+		var rate: float = EMERGE_RATE if want_out else RETREAT_RATE
+		if want_out:
+			var player: Node3D = get_tree().get_first_node_in_group("player")
+			if player:
+				var crouched: bool = player.crouching
+				var trigger: float = TRIGGER_RADIUS_CROUCHED if crouched else TRIGGER_RADIUS
+				if global_position.distance_to(player.global_position) < trigger:
+					want_out = false   # felt you through the plate
+					rate = RETREAT_RATE_CROUCHED if crouched else RETREAT_RATE
+		_presence = move_toward(_presence, 1.0 if want_out else 0.0, delta * rate)
+		_body.scale.y = maxf(_presence, 0.001)
+		_body.visible = _presence > 0.02
+		_body.rotation.x = sin(_t * 1.9) * 0.18 * _presence
+		_body.rotation.z = cos(_t * 1.4) * 0.18 * _presence
+		_glow_mat.emission_energy_multiplier = _presence * (1.1 + 0.5 * sin(_t * 2.3))
+		_col.disabled = not _catchable()
+		if _presence > 0.5:
+			Journal.discover_if_near(self, "creature_glow_worm", 7.0)
+
+# ------------------------------------------------- Glow Worm Colony
+class GlowWormColony extends Node3D:
+	## The den network. Eight dens in the rig's dark corners; each dusk exactly
+	## two wake, rolled fresh with our own RNG so the picks move night to night.
+	const DENS: Array[Vector3] = [
+		Vector3(27.4, 2.02, -4.6),    # under the first stair ramp, tower ground floor
+		Vector3(18.7, 2.02, -10.6),   # base of the SE leg where it punches the wet deck
+		Vector3(12.5, 2.02, -5.5),    # foot of the pump-room north wall, pipe shadow
+		Vector3(10.7, 2.02, -21.2),   # loot room, dark inner corner
+		Vector3(22.7, 2.02, -18.4),   # among the tide-line drums
+		Vector3(19.0, 2.02, -21.6),   # beside the SPHL gangplank, cradle shadow
+		Vector3(8.6, 18.02, -15.0),   # topside, shadow of the pallet stack
+		Vector3(-26.0, 18.02, -12.4), # machine shop, gap between the parts bins
+	]
+
+	var _worms: Array[GlowWorm] = []
+	var _rng := RandomNumberGenerator.new()
+	var _last_a: int = -1
+	var _last_b: int = -1
+
+	func _ready() -> void:
+		_rng.randomize()
+		for den in DENS:
+			var w := GlowWorm.new()
+			add_child(w)
+			w.global_position = den
+			_worms.append(w)
+		GameClock.dusk.connect(_pick_tonights_dens)
+		if BloomFauna.is_dark_phase():
+			_pick_tonights_dens()   # loaded into an ongoing night
+
+	func _pick_tonights_dens() -> void:
+		var a: int = _rng.randi_range(0, _worms.size() - 1)
+		var b: int = _rng.randi_range(0, _worms.size() - 2)
+		if b >= a:
+			b += 1   # distinct pair, uniform over all pairs
+		if (a == _last_a and b == _last_b) or (a == _last_b and b == _last_a):
+			a = (a + 1) % _worms.size()   # nudge off last night's exact pair
+			if a == b:
+				a = (a + 1) % _worms.size()
+		_last_a = a
+		_last_b = b
+		for i in range(_worms.size()):
+			_worms[i].set_active(i == a or i == b)
 
 # ------------------------------------------------- Epic 4-Eyed Whale
 class Epic4EyedWhale extends Node3D:

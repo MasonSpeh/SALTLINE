@@ -13,13 +13,26 @@ godot --path .
 
 ## Controls
 WASD move · mouse look · Shift sprint · **Space jump** · **Ctrl crouch** (half height,
-slower, quieter, harder for the crab to detect) · **E interact** (context verb, also
-grab/set down props) · LMB throw a carried prop · 1–4 use hotbar item · **I inventory** ·
-**J journal** · **H help** · **F throw the rigging hook** · Esc pause/settings
+slower, quieter, harder for creatures to detect) · **E interact** (context verb, also
+grab/set down props) · **hold E on a ladder to climb** (E alone climbs up, E+S climbs
+down, release to let go) · LMB throw a carried prop · **1–4 select an item to hand;
+same number again eats/drinks/uses it** · **I inventory** · **J journal** · **H help** ·
+**F throw the rigging hook** · Esc pause/settings
 
-**Crafting** — E at the wet-deck rigging bench: click parts from your pack to lay
-them on the bench; when they match a recipe, hold WORK (or Space) to hammer it real.
-Partial layouts show what the parts *want* to become and what's still missing.
+**Survival** — four bars, bottom-left: LIFE, HUNGER, THIRST, WARMTH. Eat for hunger,
+drink water rations for thirst; starving or dehydration drains life, creature contact
+hits it hard, fed + watered heals it back. Raw glow worms make you SICK — sneak up
+crouched to grab one at night, then sear it at a rigging bench. Crates open a two-way
+exchange panel (move items either direction, or TAKE ALL).
+
+**The stack** — the accommodation block above the topside deck: ramp up from the deck
+(follow QUARTERS ↑) to Deck B quarters, then the internal stairwell to Deck C control,
+Deck D works (second rigging bench in the workshop), and the roof mast deck.
+
+**Crafting** — E at the wet-deck rigging bench (or the Deck D workshop bench): click
+parts from your pack to lay them on the bench; when they match a recipe, hold WORK
+(or Space) to hammer it real. Partial layouts show what the parts *want* to become
+and what's still missing.
 
 **Building** — B with a crafted kit in your pack: ghost preview snapped to the deck
 grid · LMB place · R rotate · Tab/scroll cycle kits · B/Esc done. Bloom lamps make
