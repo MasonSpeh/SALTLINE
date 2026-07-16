@@ -38,9 +38,19 @@ and what's still missing.
 grid · LMB place · R rotate · Tab/scroll cycle kits · B/Esc done. Bloom lamps make
 real crab-safe light; lean-tos make warmth; walkways extend the rig itself.
 
+**Moving things** — look at almost any furniture, tool, decoration, or loose
+object and press **E** to grab it; carry it where you look (heavy items like
+tables and barrels drag low along the floor), **LMB** to throw, **E** to set it
+down. Bolted machinery and shelving stay put.
+
+**Weather** — violent squalls roll in every few minutes: driving rain, howling
+wind, lightning and thunder, a slate-dark sky. They rage a couple of minutes,
+then clear.
+
 Debug keys: F1 next phase · F2 toggle power · F3 infinite stats · F4/F5 teleport ·
-F6 toggle 20x time · **double-tap F fly mode** (noclip free-flight for testing —
-WASD + look to fly, Space up, Ctrl down, Shift boost; double-tap F again to land)
+F6 toggle 20x time · **F7 force a storm** · **double-tap F fly mode** (noclip
+free-flight for testing — WASD + look to fly, Space up, Ctrl down, Shift boost;
+double-tap F again to land)
 
 ## Verify
 ```sh
