@@ -22,6 +22,13 @@ func _ready() -> void:
 	_deck_b_cabins()
 	_deck_c_control()
 	_deck_d_works()
+	# Second pass — roughly doubles the density with the furniture/decor/plant
+	# library so every room reads densely inhabited, not just sketched.
+	_galley_more()
+	_bunkhouse_more()
+	_rec_room_more()
+	_machine_shop_more()
+	_stack_more()
 
 # ---- placement helpers ----
 
@@ -194,3 +201,91 @@ func _deck_d_works() -> void:
 	_pc("worn_metal_rack", Vector3(9.0, y, 14.0), 90)
 	_p("industrial_pipe_lamp", Vector3(19.0, y + 2.4, 16.5), 0)
 	_lamp(Vector3(19.0, y + 2.2, 16.5), Color(1.0, 0.85, 0.6), 0.5, 5.0)
+
+# ============================================================ second pass (2x)
+
+func _galley_more() -> void:
+	var y: float = DECK_Y
+	# Food and comfort on the mess tables — the meal that never got eaten.
+	_p("carrot_cake", Vector3(2.4, y + 0.52, 11.0), 0)
+	_p("croissant", Vector3(8.4, y + 0.52, 14.5), 40)
+	_p("bananas", Vector3(1.6, y + 0.52, 14.5), 0)
+	_p("brass_pot_01", Vector3(11.8, y + 1.05, 16.2), 0)     # on the stove
+	_p("brass_pan_01", Vector3(11.2, y + 1.05, 15.9), 30)
+	# Chairs actually pulled up to the tables.
+	for tp in [Vector3(2, y, 11), Vector3(8, y, 11), Vector3(2, y, 14.5), Vector3(8, y, 14.5)]:
+		_pc("WoodenChair_01", tp + Vector3(0, 0, -1.0), 0)
+		_pc("WoodenChair_01", tp + Vector3(0, 0, 1.0), 180)
+	# A potted plant by the door, a wall clock, a coffee thermos row.
+	_pc("ceramic_pot", Vector3(-1.4, y, 9.0), 0)
+	_p("calathea_orbifolia_01", Vector3(-1.4, y + 0.3, 9.0), 0)
+	_p("alarm_clock_01", Vector3(-1.55, y + 2.0, 13.5), 90)
+	_p("plastic_thermos", Vector3(6.0, y + 1.01, 17.0), -60)
+
+func _bunkhouse_more() -> void:
+	var y: float = DECK_Y
+	# A corner sitting nook: armchair, side table, lamp, a book left open.
+	_pc("ArmChair_01", Vector3(-25.0, y, 11.5), 60)
+	_pc("ClassicNightstand_01", Vector3(-23.6, y, 11.8), 0)
+	_p("book_encyclopedia_set_01", Vector3(-23.6, y + 0.6, 11.8), 0)
+	_p("Lantern_01", Vector3(-15.5, y + 0.78, 11.0), 0)
+	# Plants and pictures make the barracks a home.
+	_pc("fern_02", Vector3(-11.5, y, 8.5), 0)
+	_p("fancy_picture_frame_01", Vector3(-25.9, y + 1.7, 10.0), 90)
+	_p("fancy_picture_frame_02", Vector3(-9.15, y + 1.7, 13.0), -90)
+	# More personal effects at the bed heads.
+	var beds := [Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
+			Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5)]
+	var extra := ["ceramic_vase_01", "food_apple_01", "cassette_player",
+			"decorative_book_set_01", "binoculars", "brass_goblets"]
+	for i in range(beds.size()):
+		_p(extra[i], beds[i] + Vector3(0.55, 0.68, -0.8), i * 33.0)
+
+func _rec_room_more() -> void:
+	var y: float = DECK_Y
+	# The rec room earns its name: dartboard, chess mid-game, a real sofa.
+	_p("dartboard", Vector3(18.15, y + 1.8, 11.0), 90)
+	_p("chess_set", Vector3(23.0, y + 0.34, 12.5), 20)      # on the low table
+	_pc("Sofa_01", Vector3(20.5, y, 9.3), 0)
+	_pc("Ottoman_01", Vector3(22.0, y, 10.2), 0)
+	# A bronze Bloom-creature statue on the shelf — someone was already a believer.
+	_p("bronze_whale_statue", Vector3(19.4, y + 1.05, 17.5), -20)
+	_pc("fir_sapling", Vector3(26.6, y, 8.6), 0)
+	_p("classic_laptop", Vector3(24.8, y + 0.28, 10.5), 200)
+	_p("food_avocado_01", Vector3(23.5, y + 0.34, 12.9), 0)
+
+func _machine_shop_more() -> void:
+	var y: float = DECK_Y
+	# The rest of the tool wall: hand tools scattered on and around the bench.
+	_p("crowbar_01", Vector3(-20.6, y + 1.25, -12.4), 60)
+	_p("bolt_cutters_01", Vector3(-19.0, y + 1.25, -11.6), -40)
+	_p("cross_pein_hammer", Vector3(-20.0, y + 1.26, -11.5), 20)
+	_p("combination_wrench", Vector3(-19.4, y + 1.26, -12.6), 100)
+	_p("bench_vice_01", Vector3(-18.9, y + 1.2, -12.0), 0)
+	# More drums and a jerry can cluster; a shelf of tins.
+	_pc("Barrel_02", Vector3(-26.6, y, -17.2), 0)
+	_pc("metal_jerrycan", Vector3(-20.2, y, -16.2), -30)
+	_pc("steel_frame_shelves_02", Vector3(-26.6, y, -13.0), 90)
+	_p("oil_tin", Vector3(-26.4, y + 0.6, -13.0), 0)
+	_p("cleaner_tin_01", Vector3(-26.4, y + 1.2, -13.0), 0)
+	_p("can_rusted", Vector3(-26.4, y + 0.6, -13.5), 0)
+
+func _stack_more() -> void:
+	# Deck B cabins: plants and pictures.
+	var b: float = B_Y
+	_p("fancy_picture_frame_01", Vector3(0.5, b + 1.7, 6.2), 0)
+	_p("celandine_01", Vector3(6.9, b + 0.76, 7.6), 0)
+	_p("ceramic_vase_02", Vector3(18.0, b + 0.76, 17.4), 0)
+	_pc("chinese_stool", Vector3(15.5, b, 16.0), 0)
+	# Deck C control: a plant, a laptop, a chair, an alarm clock.
+	var c: float = C_Y
+	_pc("fern_02", Vector3(5.0, c, 16.5), 0)
+	_p("classic_laptop", Vector3(6.0, c + 0.76, 7.4), 180)
+	_p("alarm_clock_01", Vector3(20.6, c + 0.77, 16.4), 160)
+	_pc("bar_chair_round_01", Vector3(7.0, c, 8.4), 0)
+	# Deck D works: more tools + a bronze ray statue tucked on a shelf.
+	var d: float = D_Y
+	_p("adjustable_wrench", Vector3(22.2, d + 1.15, 17.2), 40)
+	_p("bronze_ray_statue", Vector3(22.2, d + 1.7, 16.6), 0)
+	_pc("Shelf_01", Vector3(9.0, d, 16.0), 90)
+	_p("brass_vase_01", Vector3(9.0, d + 1.0, 16.0), 0)
