@@ -47,14 +47,21 @@ down. Bolted machinery and shelving stay put.
 wind, lightning and thunder, a slate-dark sky. They rage a couple of minutes,
 then clear.
 
-**Fishing** — the rod is in the wet-deck storeroom. Select it on the hotbar,
-**LMB** casts to open water; when the float plunges, **LMB** strikes, then hold
-**LMB** to reel the lulls and release through the surges — top out the strain
-bar and the line parts. Species run by time of day; the deep night holds the
-strange ones. Craft a **Drop Net** at the bench (2 rope + driftwood), place it
-at a deck edge with **B**, LOWER it, come back later and HAUL. Sear raw catch
-at the **galley stove** (E · COOK), then eat the meal from the hotbar. Raw fish
-will make you sick.
+**Fishing** — the rod is in the wet-deck storeroom (read the **Angler's Notes**
+beside it: every species lists its hours, water, and weather). Select the rod,
+**LMB** casts to open water — the prompt reads the conditions for you; when the
+float plunges, **LMB** strikes, then hold **LMB** to reel the lulls and release
+through the surges. 20 species run by time of day, storm, worklight, and
+distance from the rig — some are net-only, one bites only in storms, one is
+never kept. Craft a **Drop Net** at the bench, place it at a deck edge, LOWER,
+come back and HAUL. Sear raw catch at the **galley stove** (E · COOK). **Keep
+it**: HANG fish on a marked drying line — raw rots in ~4 game hours, cooked
+cures to Dried Fish that keeps forever — or STOW it in the galley fridge.
+
+**The water** — you can swim now: WASD + look, Space up, Ctrl dives, cold
+drains warmth the whole time. The dock ladder brings you back up. It gets dark
+fast below, **Ultra Hammerheads patrol** (they mostly attack swimmers who get
+close), and past ~13m down the deep simply takes you.
 
 Debug keys: F1 next phase · F2 toggle power · F3 infinite stats · F4/F5 teleport ·
 F6 toggle 20x time · **F7 force a storm** · **double-tap F fly mode** (noclip

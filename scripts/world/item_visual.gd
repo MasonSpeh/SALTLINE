@@ -8,14 +8,42 @@ const FISH_TINT := {
 	"fish_herring": Color(0.7, 0.85, 0.85), "fish_slate_cod": Color(0.42, 0.45, 0.5),
 	"fish_mirrorjack": Color(0.85, 0.88, 0.92), "fish_chimefish": Color(0.75, 0.8, 0.6),
 	"fish_sable_hake": Color(0.25, 0.27, 0.32), "fish_barrel_grouper": Color(0.5, 0.38, 0.3),
-	"fish_ribbon_eel": Color(0.4, 0.6, 0.62),
+	"fish_ribbon_eel": Color(0.4, 0.6, 0.62), "fish_copper_sprat": Color(0.75, 0.5, 0.3),
+	"fish_silver_ladder": Color(0.8, 0.84, 0.9), "fish_ember_snapper": Color(0.8, 0.4, 0.25),
+	"fish_ghost_sole": Color(0.8, 0.82, 0.88), "fish_glasspike": Color(0.7, 0.8, 0.82),
+	"fish_lodestone_bream": Color(0.5, 0.52, 0.6), "fish_drum_croaker": Color(0.55, 0.45, 0.4),
+	"fish_miller_flounder": Color(0.55, 0.5, 0.42), "fish_fathom_halibut": Color(0.4, 0.42, 0.45),
+}
+const FISH_SIZE := {
+	"fish_barrel_grouper": 1.4, "fish_fathom_halibut": 1.6, "fish_copper_sprat": 0.6,
+	"fish_ribbon_eel": 1.2,
 }
 
 static func build(item_id: String) -> Node3D:
 	var root := Node3D.new()
+	match item_id:
+		"fish_stone_crab":
+			# Wide carapace, two heavy claws.
+			_box(root, Vector3(0.3, 0.1, 0.24), Color(0.6, 0.35, 0.25), Vector3(0, 0.08, 0))
+			_box(root, Vector3(0.1, 0.06, 0.14), Color(0.65, 0.4, 0.28), Vector3(-0.2, 0.07, 0.1))
+			_box(root, Vector3(0.1, 0.06, 0.14), Color(0.65, 0.4, 0.28), Vector3(0.2, 0.07, 0.1))
+			return root
+		"fish_inkwell_squid":
+			# Cone mantle + a skirt of tentacle stubs, faint teal glow.
+			var cone := _cyl(root, 0.001, 0.3, Color(0.45, 0.55, 0.6), Vector3(0, 0.24, 0))
+			(cone.mesh as CylinderMesh).bottom_radius = 0.09
+			for i in range(4):
+				_box(root, Vector3(0.03, 0.14, 0.03), Color(0.4, 0.5, 0.55),
+					Vector3(cos(i * TAU / 4) * 0.05, 0.05, sin(i * TAU / 4) * 0.05))
+			_box(root, Vector3(0.06, 0.06, 0.06), Color(0.2, 0.9, 0.85), Vector3(0, 0.3, 0), true, 0.8)
+			return root
+		"fish_gutter_prawn":
+			var seg := _box(root, Vector3(0.16, 0.05, 0.06), Color(0.75, 0.6, 0.55), Vector3(0, 0.05, 0))
+			seg.rotation.z = 0.3
+			_box(root, Vector3(0.1, 0.04, 0.05), Color(0.7, 0.55, 0.5), Vector3(0.1, 0.03, 0))
+			return root
 	if item_id.begins_with("fish_"):
-		_fish(root, FISH_TINT.get(item_id, Color(0.6, 0.65, 0.68)),
-			1.4 if item_id == "fish_barrel_grouper" else 1.0)
+		_fish(root, FISH_TINT.get(item_id, Color(0.6, 0.65, 0.68)), FISH_SIZE.get(item_id, 1.0))
 		return root
 	match item_id:
 		"canned_food":

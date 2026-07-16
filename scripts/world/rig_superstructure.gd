@@ -627,7 +627,7 @@ func _deck_b() -> void:
 		strut.rotation.z = 0.0
 	# Boarding stairs up to the quarters: deep-tread external companionway with
 	# rails both sides (was a slick ramp — the "QUARTERS ↑" glitch spot).
-	STAIRS.flight(self, Vector3(7.5, DECK_Y + 0.12, 3.0), Vector3(-3.5, y + 0.1, 3.0), 1.6, true, true)
+	STAIRS.flight(self, Vector3(7.5, DECK_Y, 3.0), Vector3(-3.5, y, 3.0), 1.6, true, true)
 	_label("QUARTERS ↑", Vector3(7.2, DECK_Y + 2.2, 3.6), 180, 34, Color(0.9, 0.85, 0.6))
 
 # ============================================================ Deck C — control
@@ -783,7 +783,7 @@ func _deck_d() -> void:
 	_light(Vector3(19, y + 2.85, 10.5), 0.45, 6.0)
 	# Storage (x 8..15.5, z 15..18): crate stacks and the hidden stash nook.
 	for i in range(4):
-		_box(Vector3(9.2 + (i % 2) * 1.3, y + 0.4 + (i / 2) * 0.8, 17.0), Vector3(1.1, 0.8, 0.9), MatLib.wood())
+		_box(Vector3(9.2 + (i % 2) * 1.3, y + 0.4 + floori(i / 2.0) * 0.8, 17.0), Vector3(1.1, 0.8, 0.9), MatLib.wood())
 	_crate(["driftwood", "scrap_metal"], "Parts Crate", Vector3(13.5, y + 0.01, 17.0))
 	# The nook: crouch behind the stack for the good stuff.
 	_crate(["sealed_tin", "water_ration", "flare"], "Stashed Footlocker", Vector3(8.9, y + 0.01, 15.6))
@@ -907,16 +907,16 @@ func _mast() -> void:
 			Vector3(r0 + r1, 0.07, 0.07), mat)
 		db2.rotation.z = -0.6
 	# Dishes bolted at height.
-	var mini := MeshInstance3D.new()
+	var dish_mi := MeshInstance3D.new()
 	var mm := SphereMesh.new()
 	mm.radius = 0.55
 	mm.height = 0.3
 	mm.is_hemisphere = true
 	mm.material = MatLib.painted_steel()
-	mini.mesh = mm
-	add_child(mini)
-	mini.position = base + Vector3(1.0, 9.0, 0)
-	mini.rotation.z = deg_to_rad(75)
+	dish_mi.mesh = mm
+	add_child(dish_mi)
+	dish_mi.position = base + Vector3(1.0, 9.0, 0)
+	dish_mi.rotation.z = deg_to_rad(75)
 	# Guy wires to the roof corners.
 	var top := base + Vector3(0, h, 0)
 	for anchor in [Vector3(9, ROOF_Y, 9), Vector3(27, ROOF_Y, 9), Vector3(9, ROOF_Y, 17.5)]:

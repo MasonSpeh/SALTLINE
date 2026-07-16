@@ -10,7 +10,6 @@ class_name MovableProp extends PhysProp
 
 var heavy: bool = false          ## drag along the floor instead of lifting
 var _was_held: bool = false
-var _rest_frozen: bool = true
 
 func _ready() -> void:
 	super._ready()

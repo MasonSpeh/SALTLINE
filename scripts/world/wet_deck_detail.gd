@@ -414,6 +414,18 @@ func _scatter_items() -> void:
 	# The fishing rod — propped in the storeroom where a rigger left it. The other
 	# half of the food economy, waiting behind the first door most players open.
 	_takeable("fishing_rod", "Fishing Rod", Vector3(11.0, y + 0.05, -17.2))
+	# The Angler's Notes beside it: every species, its hours, its water, its
+	# weather — generated from the same table the rod actually rolls against.
+	_readable("anglers_notes", "Angler's Notes", Vector3(11.7, y + 0.62, -16.6), Vector3(0.32, 0.4, 0.05))
+	# Drying lines: catch goes straight from the water to the wind. Two posts by
+	# the rigging bench, and the dock gets one in the lamp's throw.
+	for spec in [[Vector3(17.4, y + 1.85, -18.2), 2.6], [Vector3(19.6, y + 1.85, -21.95), 3.2]]:
+		var line: Interactable = preload("res://scripts/components/hang_line.gd").new()
+		line.length_m = spec[1]
+		add_child(line)
+		line.global_position = spec[0]
+	for px in [16.1, 18.7]:
+		_dbox(Vector3(px, y + 0.95, -18.2), Vector3(0.08, 1.9, 0.08), MatLib.rust_steel())
 	_takeable("life_ring", "Spare Lifebuoy", Vector3(16.4, y + 0.05, -21.2))
 	_takeable("tarp", "Folded Tarp", Vector3(23.2, y + 1.3, -21.0))
 	_takeable("scrap_metal", "Scrap Plate", Vector3(8.8, y + 0.05, -17.5))

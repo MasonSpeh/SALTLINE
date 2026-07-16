@@ -6,17 +6,13 @@ class_name DropNet extends Interactable
 
 enum NetState { UP_EMPTY, SOAKING, READY }
 
-const DROP_MAX: float = 18.0
+const DROP_MAX: float = 26.0   # reaches water from the topside deck (18m) with margin
 const SOAK_MIN_SEC: float = 70.0
 const SOAK_MAX_SEC: float = 115.0
 
-## Small-mesh catch table (the rod hunts the big ones; the net gathers).
-const CATCH := [
-	{"id": "fish_herring", "name": "Lantern Herring", "w_day": 6, "w_night": 5},
-	{"id": "fish_slate_cod", "name": "Slate Cod", "w_day": 3, "w_night": 1},
-	{"id": "fish_chimefish", "name": "Chimefish", "w_day": 1, "w_night": 1},
-	{"id": "fish_sable_hake", "name": "Sable Hake", "w_day": 1, "w_night": 5},
-]
+# The catch table lives in data/fish.json (net-flagged species: prawns, crabs,
+# flounder, the door-sized halibut) — shared with the rod, stove, and notes.
+const FISH := preload("res://scripts/world/fish_table.gd")
 
 var net: Node3D = null            ## assigned by the structure builder
 var rope_pivot: Node3D = null     ## hang line pivot; scale.y stretches with the drop
@@ -68,7 +64,9 @@ func _lower() -> void:
 	var from: Vector3 = net.global_position
 	var q := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -DROP_MAX, 0))
 	var hit: Dictionary = space.intersect_ray(q)
-	var floor_dist: float = DROP_MAX if hit.is_empty() else from.y - float(hit["position"].y) - 0.25
+	# The net's origin is its TOP ring; the basket hangs ~1.1m below it — stop
+	# high enough that the mesh rests ON a deck instead of buried through it.
+	var floor_dist: float = DROP_MAX if hit.is_empty() else from.y - float(hit["position"].y) - 1.35
 	var water_dist: float = maxf(from.y - 0.4, 0.5)   # sea level ~0
 	_drop_dist = minf(floor_dist, water_dist)
 	_wet = water_dist <= floor_dist + 0.01
@@ -77,7 +75,8 @@ func _lower() -> void:
 	tw.tween_property(net, "position:y", net.position.y - _drop_dist, 2.0) \
 		.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	if rope_pivot:
-		tw.parallel().tween_property(rope_pivot, "scale:y", (1.05 + _drop_dist) / 1.05, 2.0) \
+		# The pivot's child cylinder is height 1.0, so rope length == scale.y.
+		tw.parallel().tween_property(rope_pivot, "scale:y", 1.05 + _drop_dist, 2.0) \
 			.set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_OUT)
 	tw.chain().tween_callback(func() -> void: _busy = false)
 	AudioDirector.play_one_shot("clang", global_position, -18.0)
@@ -113,28 +112,20 @@ func _haul() -> void:
 		if hud:
 			hud.toast("Too soon — the mesh comes up empty. Let it soak.")
 		return
-	# 1-3 fish; the dark hours swim shallower into the mesh.
+	# 1-3 fish; the dark hours swim shallower into the mesh. Catches roll from
+	# fish.json under the conditions the net actually soaked through.
+	var ctx: Dictionary = FISH.context(self, net.global_position)
+	if _soaked_dark:
+		ctx["phase"] = "night"
 	var count: int = 1 + _rng.randi_range(0, 1) + (1 if _soaked_dark else 0)
 	if soaked < 1.0:
 		count = 1   # an early-but-decent soak still lands something
 	var names: Array[String] = []
 	for i in range(count):
-		var pick: Dictionary = _pick()
-		if PlayerState.add_item(pick["id"]):
+		var pick: Dictionary = FISH.roll("net", ctx, _rng)
+		if not pick.is_empty() and PlayerState.add_item(pick["id"]):
 			names.append(pick["name"])
 			Journal.discover(pick["id"])
 	Journal.discover("system_drop_net")
 	if hud:
 		hud.toast("Net comes up: %s" % ", ".join(names) if not names.is_empty() else "Net comes up empty this time.")
-
-func _pick() -> Dictionary:
-	var key: String = "w_night" if BloomFauna.is_dark_phase() else "w_day"
-	var total: int = 0
-	for c in CATCH:
-		total += c[key]
-	var roll: int = _rng.randi_range(1, maxi(total, 1))
-	for c in CATCH:
-		roll -= c[key]
-		if roll <= 0:
-			return c
-	return CATCH[0]

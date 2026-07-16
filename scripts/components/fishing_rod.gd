@@ -16,26 +16,9 @@ const CANCEL_DISTANCE: float = 6.0     # walk away and the line comes in
 const REEL_RATE: float = 0.14         # progress/sec while reeling
 const TENSION_DECAY: float = 0.8
 
-## Species: phase-weighted table. `fight` scales how long it takes to land,
-## `pull` how hard it fights (tension pressure and line taken while resting).
-const SPECIES := [
-	{"id": "fish_herring", "name": "Lantern Herring", "fight": 0.8, "pull": 0.65,
-		"w": {"day": 30, "dawn": 28, "dusk": 26, "night": 24}},
-	{"id": "fish_slate_cod", "name": "Slate Cod", "fight": 1.25, "pull": 0.9,
-		"w": {"day": 26, "dawn": 10, "dusk": 10, "night": 5}},
-	{"id": "fish_mirrorjack", "name": "Mirrorjack", "fight": 1.0, "pull": 1.35,
-		"w": {"day": 5, "dawn": 24, "dusk": 22, "night": 3}},
-	{"id": "fish_chimefish", "name": "Chimefish", "fight": 0.9, "pull": 0.8,
-		"w": {"day": 10, "dawn": 8, "dusk": 8, "night": 7}},
-	{"id": "fish_sable_hake", "name": "Sable Hake", "fight": 1.1, "pull": 1.0,
-		"w": {"day": 2, "dawn": 5, "dusk": 13, "night": 28}},
-	{"id": "fish_barrel_grouper", "name": "Barrel Grouper", "fight": 2.3, "pull": 1.7,
-		"w": {"day": 3, "dawn": 4, "dusk": 4, "night": 5}},
-	{"id": "fish_ribbon_eel", "name": "Ribbon Eel", "fight": 1.5, "pull": 1.4,
-		"w": {"day": 0, "dawn": 2, "dusk": 5, "night": 11}},
-	{"id": "the_looker", "name": "The Looker", "fight": 1.3, "pull": 1.1,
-		"w": {"day": 1, "dawn": 1, "dusk": 1, "night": 2}},
-]
+# Species, conditions, and weights all live in data/fish.json via FishTable —
+# the same table the drop net, the stove, and the Angler's Notes read.
+const FISH := preload("res://scripts/world/fish_table.gd")
 
 var _player: Node3D
 var _state: State = State.CASTING
@@ -97,16 +80,11 @@ func _ready() -> void:
 func _hand_pos() -> Vector3:
 	return _player.global_position + Vector3(0, 1.25, 0)
 
-func _phase_key() -> String:
-	match GameClock.current_phase:
-		GameClock.Phase.DAWN: return "dawn"
-		GameClock.Phase.DUSK: return "dusk"
-		GameClock.Phase.NIGHT: return "night"
-		_: return "day"
-
 func _schedule_bite() -> void:
-	# Dawn/dusk feed faster; a couple of teaser nibbles arrive first.
-	var mean: float = 9.0 if _phase_key() in ["dawn", "dusk"] else 14.0
+	# The water read drives the wait: storms are a frenzy, feeding hours are
+	# brisk, dead calm afternoons make you earn it. Nibbles lie first.
+	var ctx: Dictionary = FISH.context(self, global_position)
+	var mean: float = 12.0 * FISH.bite_pace(ctx)
 	_bite_timer = _rng.randf_range(mean * 0.45, mean * 1.5)
 	_nibbles = _rng.randi_range(0, 2)
 
@@ -114,8 +92,8 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(_player):
 		queue_free()
 		return
-	if _player.ui_locked or (_player.get("build") and _player.build.active):
-		_finish("")
+	if _player.ui_locked or _player.input_locked or (_player.get("build") and _player.build.active):
+		_finish("")   # panels, blackouts, and build mode all reel the line in
 		return
 	var t: float = Gyre.water_time()
 	match _state:
@@ -137,7 +115,8 @@ func _physics_process(delta: float) -> void:
 				global_position.y = water_y + 0.02
 				AudioDirector.play_one_shot("splash", global_position, -14.0)
 				_state = State.DRIFT
-				_prompt("Line's out — watch the float.")
+				# The water read: teach the variables by naming them every cast.
+				_prompt("Line's out — %s" % FISH.summary(FISH.context(self, global_position)))
 			elif global_position.distance_to(_hand_pos()) > MAX_RANGE:
 				_finish("")
 				return
@@ -178,18 +157,12 @@ func _ride_water(t: float, _delta: float) -> void:
 	global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 + 0.02 - _dip
 
 func _hook() -> void:
-	# Roll the species now — the fight character comes from what took the bait.
-	var key: String = _phase_key()
-	var total: int = 0
-	for s in SPECIES:
-		total += s["w"][key]
-	var roll: int = _rng.randi_range(1, maxi(total, 1))
-	_fish = SPECIES[0]
-	for s in SPECIES:
-		roll -= s["w"][key]
-		if roll <= 0:
-			_fish = s
-			break
+	# Roll the species now, from the live conditions at THIS float, THIS moment —
+	# the fight character comes from what took the bait.
+	_fish = FISH.roll("rod", FISH.context(self, global_position), _rng)
+	if _fish.is_empty():
+		_finish("Whatever it was, it's gone.")
+		return
 	_state = State.FIGHT
 	_tension = 0.3
 	_progress = 0.35
@@ -229,16 +202,34 @@ static func _bar(v: float) -> String:
 
 func _land() -> void:
 	AudioDirector.play_one_shot("splash", global_position, -6.0)
-	if _fish["id"] == "the_looker":
+	if _fish.get("release", false):
 		# Canon: it is never kept. The catch is the moment.
 		Journal.discover("fish_the_looker")
 		_finish("It surfaces — and looks back at you. Your hands open on their own.")
 		return
 	Journal.discover(_fish["id"])
 	if PlayerState.add_item(_fish["id"]):
+		_fly_catch_to_player()
 		_finish("Caught: %s" % _fish["name"])
 	else:
 		_finish("Pack's full — the %s slips back." % _fish["name"])
+
+## The visual payoff: the fish arcs out of the water into your hands, flashing
+## and flipping, then vanishes into the pack. Owned by the scene, so it plays
+## out even though the rod frees itself immediately after.
+func _fly_catch_to_player() -> void:
+	var fish_visual: Node3D = ItemVisual.build(_fish["id"])
+	get_tree().current_scene.add_child(fish_visual)
+	fish_visual.global_position = global_position
+	var dest: Vector3 = _player.global_position + Vector3(0, 1.1, 0)
+	var apex: Vector3 = (global_position + dest) * 0.5 + Vector3(0, 2.6, 0)
+	var tw: Tween = fish_visual.create_tween()
+	tw.tween_property(fish_visual, "global_position", apex, 0.28) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(fish_visual, "global_position", dest, 0.26) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	tw.parallel().tween_property(fish_visual, "rotation:x", TAU * 1.5, 0.26)
+	tw.tween_callback(fish_visual.queue_free)
 
 func _prompt(text: String) -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")

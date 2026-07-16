@@ -21,6 +21,11 @@ func _physics_process(_delta: float) -> void:
 		# Carrying, in a panel, or building — someone else owns the prompt.
 		_current = null
 		return
+	if player and player.get("fishing") != null and player.fishing != null:
+		# A cast is out — the rod owns the prompt and the mouse. No grabbing
+		# props mid-fight, no prompt chip fighting over the strike banner.
+		_current = null
+		return
 	var hit: Object = get_collider() if is_colliding() else null
 	var next: Node3D = null
 	if hit is Interactable and not (hit as Interactable).available_verbs().is_empty():
@@ -36,7 +41,8 @@ func _unhandled_input(event: InputEvent) -> void:
 	if not event.is_action_pressed("interact") or _current == null:
 		return
 	var player: Node3D = _player()
-	if player and (player.carried or player.ui_locked or (player.build and player.build.active)):
+	if player and (player.carried or player.ui_locked or (player.build and player.build.active)
+			or (player.get("fishing") != null and player.fishing != null)):
 		return
 	if _current is Interactable:
 		var v: Array[String] = (_current as Interactable).available_verbs()

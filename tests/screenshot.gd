@@ -27,6 +27,17 @@ func _ready() -> void:
 	await _shot(Vector3(24, 4.0, -22), 160.0, -6.0, GameClock.Phase.DAY, "sl_fauna_seal")
 	# Stair verification: tower flight from the wet deck, and the quarters stairs.
 	await _shot(Vector3(23.5, 3.4, -1.0), -45.0, 6.0, GameClock.Phase.DAY, "sl_stairs_tower")
+	# Below the wave line (fly mode keeps the drown-respawn out of the frame).
+	main.player._fly = true
+	main.player.set_collision_layer_value(1, false)
+	main.player.set_collision_mask_value(1, false)
+	# (shot pos is the player's FEET; the camera rides ~1.6m higher — keep deep.)
+	await _shot(Vector3(-17.0, -6.0, -8.0), 51.0, 8.0, GameClock.Phase.DAY, "sl_underwater_kelp")
+	await _shot(Vector3(0, -8.0, 0), 45.0, 12.0, GameClock.Phase.DAY, "sl_underwater_legs")
+	await _shot(Vector3(8, -3.4, -30), 180.0, 6.0, GameClock.Phase.DAY, "sl_underwater_school")
+	main.player._fly = false
+	main.player.set_collision_layer_value(1, true)
+	main.player.set_collision_mask_value(1, true)
 	# Fishing beats: the rod in the storeroom, the stove, a cast riding the swell.
 	await _shot(Vector3(12.8, 3.4, -18.6), 130.0, -18.0, GameClock.Phase.DAY, "sl_fishing_rod")
 	await _shot(Vector3(9.5, 19.6, 14.3), 220.0, -10.0, GameClock.Phase.DAY, "sl_galley_stove")

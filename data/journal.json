@@ -226,43 +226,43 @@
 		"cat": "creature",
 		"title": "Lantern Herring",
 		"body": "The shoal glows. You can net them at night by their own light — the sea's little mercy.",
-		"hint": "Common near the surface, any hour. The gateway catch."
+		"hint": "Bites: dawn/day/dusk/night · takes: rod+net · sears to Seared Fish"
 	},
 	"fish_slate_cod": {
 		"cat": "creature",
 		"title": "Slate Cod",
 		"body": "Heavy, slow, scales like roofing slate. It fought like a wet sandbag and I was still glad of it.",
-		"hint": "Bites best under a gray daytime sky."
+		"hint": "Bites: day · storms help · takes: rod+net · sears to Seared Fish"
 	},
 	"fish_mirrorjack": {
 		"cat": "creature",
 		"title": "Mirrorjack",
 		"body": "Chrome flanks — it threw the dawn light back at me so hard I nearly lost the rod.",
-		"hint": "A fast dawn and dusk feeder. Keep the line tight."
+		"hint": "Bites: dawn/dusk · open water — cast far · takes: rod · sears to Seared Fish"
 	},
 	"fish_chimefish": {
 		"cat": "creature",
 		"title": "Chimefish",
 		"body": "It rang against the rail when I lifted it clear. Rang. Like a struck glass.",
-		"hint": "Calm seas, patient hands. Worth more traded than eaten, someday."
+		"hint": "Bites: dawn/day/dusk/night · calm seas only · takes: rod+net · sears to Seared Fish"
 	},
 	"fish_sable_hake": {
 		"cat": "creature",
 		"title": "Sable Hake",
 		"body": "They rise to worklight after dark like moths with fins. The floodlit rail is a fishing spot now.",
-		"hint": "Night fishing under your own lights."
+		"hint": "Bites: night · close to the rig · drawn to worklight · takes: rod+net · sears to Seared Fish"
 	},
 	"fish_barrel_grouper": {
 		"cat": "creature",
 		"title": "Barrel Grouper",
 		"body": "Bloom-big. It feeds a week. My arms will remember this one.",
-		"hint": "Rare, deep, strongest fight in the water. Don't rush it."
+		"hint": "Bites: dawn/day/dusk/night · storms help · open water — cast far · takes: rod · sears to Prime Fillet"
 	},
 	"fish_ribbon_eel": {
 		"cat": "creature",
 		"title": "Ribbon Eel",
 		"body": "It came up crackling with faint charge, taste of a storm in the line. The Bloom keeps strange batteries.",
-		"hint": "Deep and dark hours only."
+		"hint": "Bites: night · open water — cast far · takes: rod · sears to Prime Fillet"
 	},
 	"fish_the_looker": {
 		"cat": "creature",
@@ -353,5 +353,173 @@
 		"title": "Ribbon Eel (raw)",
 		"body": "Still faintly crackling. Handle with respect.",
 		"hint": "Sears into a Prime Fillet."
+	},
+	"fish_copper_sprat": {
+		"cat": "creature",
+		"title": "Copper Sprat",
+		"body": "Bait-tier shoals that trail anything moving. The sea's small change.",
+		"hint": "Bites: dawn/day/dusk/night · takes: rod+net · sears to Seared Fish"
+	},
+	"item_fish_copper_sprat": {
+		"cat": "item",
+		"title": "Copper Sprat (raw)",
+		"body": "Bait-tier shoals that trail anything moving. The sea's small change.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_silver_ladder": {
+		"cat": "creature",
+		"title": "Silver Ladder",
+		"body": "Dawn columns over open water — the shoal stacks vertical, a shimmering pillar.",
+		"hint": "Bites: dawn · open water — cast far · takes: rod · sears to Seared Fish"
+	},
+	"item_fish_silver_ladder": {
+		"cat": "item",
+		"title": "Silver Ladder (raw)",
+		"body": "Dawn columns over open water — the shoal stacks vertical, a shimmering pillar.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_ember_snapper": {
+		"cat": "creature",
+		"title": "Ember Snapper",
+		"body": "Warm-bodied — crowds the rig's outfalls and warm steel. Fish the shadow of the deck.",
+		"hint": "Bites: day/dusk · close to the rig · takes: rod+net · sears to Seared Fish"
+	},
+	"item_fish_ember_snapper": {
+		"cat": "item",
+		"title": "Ember Snapper (raw)",
+		"body": "Warm-bodied — crowds the rig's outfalls and warm steel. Fish the shadow of the deck.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_ghost_sole": {
+		"cat": "creature",
+		"title": "Ghost Sole",
+		"body": "Near-invisible by day. Night water near a glow is where it shows itself.",
+		"hint": "Bites: night · close to the rig · drawn to worklight · takes: rod+net · sears to Seared Fish"
+	},
+	"item_fish_ghost_sole": {
+		"cat": "item",
+		"title": "Ghost Sole (raw)",
+		"body": "Near-invisible by day. Night water near a glow is where it shows itself.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_glasspike": {
+		"cat": "creature",
+		"title": "Glasspike",
+		"body": "Clear still nights, open water — a pike you see through, found by the grit in its gut.",
+		"hint": "Bites: night · calm seas only · open water — cast far · takes: rod · sears to Seared Fish"
+	},
+	"item_fish_glasspike": {
+		"cat": "item",
+		"title": "Glasspike (raw)",
+		"body": "Clear still nights, open water — a pike you see through, found by the grit in its gut.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_lodestone_bream": {
+		"cat": "creature",
+		"title": "Lodestone Bream",
+		"body": "Deep daylight water. Its magnetized bones spin a compass — catch enough, craft crude magnets, someday.",
+		"hint": "Bites: day · open water — cast far · takes: rod · sears to Seared Fish"
+	},
+	"item_fish_lodestone_bream": {
+		"cat": "item",
+		"title": "Lodestone Bream (raw)",
+		"body": "Deep daylight water. Its magnetized bones spin a compass — catch enough, craft crude magnets, someday.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_drum_croaker": {
+		"cat": "creature",
+		"title": "Drum Croaker",
+		"body": "Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes — then they bite like they mean it.",
+		"hint": "Bites: dawn/day/dusk/night · storms ONLY · takes: rod+net · sears to Seared Fish"
+	},
+	"item_fish_drum_croaker": {
+		"cat": "item",
+		"title": "Drum Croaker (raw)",
+		"body": "Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes — then they bite like they mean it.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_inkwell_squid": {
+		"cat": "creature",
+		"title": "Inkwell Squid",
+		"body": "Night jigging. Comes up backwards in a huff of luminous ink — the ink's worth keeping too, someday.",
+		"hint": "Bites: night · drawn to worklight · takes: rod+net · sears to Seared Fish"
+	},
+	"item_fish_inkwell_squid": {
+		"cat": "item",
+		"title": "Inkwell Squid (raw)",
+		"body": "Night jigging. Comes up backwards in a huff of luminous ink — the ink's worth keeping too, someday.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_stone_crab": {
+		"cat": "creature",
+		"title": "Stone Crab",
+		"body": "Walks into a soaked net, never onto a hook. Shell's ceramic-hard — keep the pieces, someday.",
+		"hint": "Bites: dusk/night · takes: net · sears to Seared Fish"
+	},
+	"item_fish_stone_crab": {
+		"cat": "item",
+		"title": "Stone Crab (raw)",
+		"body": "Walks into a soaked net, never onto a hook. Shell's ceramic-hard — keep the pieces, someday.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_gutter_prawn": {
+		"cat": "creature",
+		"title": "Gutter Prawn",
+		"body": "Net filler. A soak rarely comes up without a few — the pens will want them, someday.",
+		"hint": "Bites: dawn/day/dusk/night · takes: net · sears to Seared Fish"
+	},
+	"item_fish_gutter_prawn": {
+		"cat": "item",
+		"title": "Gutter Prawn (raw)",
+		"body": "Net filler. A soak rarely comes up without a few — the pens will want them, someday.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_miller_flounder": {
+		"cat": "creature",
+		"title": "Miller's Flounder",
+		"body": "Deck-plate camouflage, bottom habits. Nets working close to the legs find them by day.",
+		"hint": "Bites: day · close to the rig · takes: net · sears to Seared Fish"
+	},
+	"item_fish_miller_flounder": {
+		"cat": "item",
+		"title": "Miller's Flounder (raw)",
+		"body": "Deck-plate camouflage, bottom habits. Nets working close to the legs find them by day.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"fish_fathom_halibut": {
+		"cat": "creature",
+		"title": "Fathom Halibut",
+		"body": "Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Feeds a week.",
+		"hint": "Bites: night · takes: net · sears to Prime Fillet"
+	},
+	"item_fish_fathom_halibut": {
+		"cat": "item",
+		"title": "Fathom Halibut (raw)",
+		"body": "Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Feeds a week.",
+		"hint": "Sear it at the galley stove — raw bites back."
+	},
+	"creature_hammerhead": {
+		"cat": "creature",
+		"title": "Ultra Hammerhead",
+		"body": "It came off its patrol line the moment I went under — a hammer the width of a doorway swinging through the murk to look at me with both ends of its face. Sometimes it circles. Sometimes it doesn't. I don't get a vote.",
+		"hint": "They patrol below the swell and mostly attack swimmers who come close. The deck is yours; the water is theirs."
+	},
+	"system_preserving": {
+		"cat": "system",
+		"title": "Keeping the Catch",
+		"body": "Raw fish turns in about four hours on the line. The fridge holds it forever. Cooked fish hung up cures into dried fish that keeps — the rig's larder, strung in the wind.",
+		"hint": "HANG fish on a marked line, or STOW it in the galley fridge. Cooked + 4 hours hung = dried, keeps forever."
+	},
+	"item_dried_fish": {
+		"cat": "item",
+		"title": "Dried Fish",
+		"body": "Wind-cured on the line. Keeps forever, eats like a hot meal's memory.",
+		"hint": "Same nourishment as seared."
+	},
+	"item_fish_rotten": {
+		"cat": "item",
+		"title": "Rotten Fish",
+		"body": "Left too long on the line. The gulls won't even argue over it.",
+		"hint": "Eating this is a mistake you make once."
 	}
 }

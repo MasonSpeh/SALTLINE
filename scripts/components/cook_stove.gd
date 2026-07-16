@@ -3,15 +3,9 @@ class_name CookStove extends Interactable
 ## from the pack into a real meal: small fish become Seared Fish, the big deep
 ## species render a Prime Fillet. Eating stays on the hotbar like any food.
 
-const RAW_TO_COOKED := {
-	"fish_herring": "cooked_fish",
-	"fish_slate_cod": "cooked_fish",
-	"fish_mirrorjack": "cooked_fish",
-	"fish_chimefish": "cooked_fish",
-	"fish_sable_hake": "cooked_fish",
-	"fish_barrel_grouper": "cooked_fish_prime",
-	"fish_ribbon_eel": "cooked_fish_prime",
-}
+# What sears into what comes from data/fish.json (cooked_to) via FishTable —
+# the stove automatically knows every species the rod and net can land.
+const FISH := preload("res://scripts/world/fish_table.gd")
 
 func _init() -> void:
 	display_name = "Galley Stove"
@@ -28,7 +22,7 @@ func interact(verb: String, _player: Node3D) -> void:
 			hud.toast("Nothing raw to cook. The pan waits.")
 		return
 	PlayerState.remove_item(raw)
-	var cooked: String = RAW_TO_COOKED[raw]
+	var cooked: String = FISH.cooked_for(raw)
 	PlayerState.add_item(cooked)
 	AudioDirector.play_one_shot("hiss", global_position, -10.0)
 	Journal.discover("system_stove")
@@ -54,9 +48,9 @@ func _flare() -> void:
 
 func _first_raw() -> String:
 	for it in PlayerState.hotbar:
-		if it != null and RAW_TO_COOKED.has(String(it)):
+		if it != null and FISH.cooked_for(String(it)) != "":
 			return String(it)
 	for it in PlayerState.inventory:
-		if RAW_TO_COOKED.has(String(it)):
+		if FISH.cooked_for(String(it)) != "":
 			return String(it)
 	return ""

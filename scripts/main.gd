@@ -21,6 +21,12 @@ func _ready() -> void:
 	add_child(jelly)
 	add_child(BloomFauna.new())   # gulls, jellies, barnacles, eel, shoal, ray, worms
 	add_child(Gyre.new())         # the turning water south of the rig, and what it collects
+	# Below the wave line: kelp, marine snow, mooring chains, and the catchable
+	# species swimming their real depth bands (spawned from data/fish.json).
+	add_child(preload("res://scripts/world/underwater_world.gd").new())
+	# The patrol predators. They never bother what stays on deck.
+	for i in range(3):
+		add_child(preload("res://scripts/world/shark.gd").new(i))
 	player = load("res://scenes/Player.tscn").instantiate()
 	add_child(player)
 	player.global_position = rig.player_spawn
@@ -240,3 +246,39 @@ func _on_creature_contact() -> void:
 		_contact_handled = false
 		hud.fade_from_black(3.0)
 		hud.toast("You wake in the lifeboat. Something carried you back."))
+
+# ---------- below the wave line: camera environment swap ----------
+
+var _underwater_env: Environment = null
+var _was_under: bool = false
+
+## Swap the camera's own Environment when it dips below the swell — dense teal
+## fog, dim ambient, no sky — and duck the topside audio. Camera-level override
+## means SunController and the storms keep owning the surface environment.
+func _process(_delta: float) -> void:
+	if player == null:
+		return
+	var cam: Camera3D = player.get_node_or_null("Head/Camera3D")
+	if cam == null:
+		return
+	var wave_y: float = Gyre.wave_height(Vector2(cam.global_position.x, cam.global_position.z), Gyre.water_time()) * 0.85
+	var under: bool = cam.global_position.y < wave_y
+	if under and _underwater_env == null:
+		_underwater_env = Environment.new()
+		_underwater_env.background_mode = Environment.BG_COLOR
+		_underwater_env.background_color = Color(0.015, 0.075, 0.09)
+		_underwater_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+		_underwater_env.ambient_light_color = Color(0.12, 0.27, 0.29)
+		_underwater_env.ambient_light_energy = 0.7
+		_underwater_env.fog_enabled = true
+		_underwater_env.fog_light_color = Color(0.045, 0.16, 0.18)   # North Atlantic murk, not lagoon
+		_underwater_env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	if under:
+		# Deeper = darker and thicker; near the surface the world still glows.
+		var depth: float = maxf(wave_y - cam.global_position.y, 0.0)
+		_underwater_env.fog_density = lerpf(0.055, 0.17, clampf(depth / 14.0, 0.0, 1.0))
+		_underwater_env.ambient_light_energy = lerpf(0.8, 0.25, clampf(depth / 14.0, 0.0, 1.0))
+	if under != _was_under:
+		_was_under = under
+		cam.environment = _underwater_env if under else null
+		AudioDirector.set_underwater(under)

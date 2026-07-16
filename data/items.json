@@ -150,5 +150,89 @@
 		"use": "eat",
 		"hunger": 0.7,
 		"thirst": 0.1
+	},
+	"fish_copper_sprat": {
+		"name": "Copper Sprat",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_silver_ladder": {
+		"name": "Silver Ladder",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_ember_snapper": {
+		"name": "Ember Snapper",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_ghost_sole": {
+		"name": "Ghost Sole",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_glasspike": {
+		"name": "Glasspike",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_lodestone_bream": {
+		"name": "Lodestone Bream",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_drum_croaker": {
+		"name": "Drum Croaker",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_inkwell_squid": {
+		"name": "Inkwell Squid",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_stone_crab": {
+		"name": "Stone Crab",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_gutter_prawn": {
+		"name": "Gutter Prawn",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_miller_flounder": {
+		"name": "Miller's Flounder",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_fathom_halibut": {
+		"name": "Fathom Halibut",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"dried_fish": {
+		"name": "Dried Fish",
+		"use": "eat",
+		"hunger": 0.45,
+		"thirst": 0.05
+	},
+	"fish_rotten": {
+		"name": "Rotten Fish",
+		"use": "eat",
+		"hunger": 0.05,
+		"side_effect": "sick"
 	}
 }

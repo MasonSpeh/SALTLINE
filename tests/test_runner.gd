@@ -32,6 +32,16 @@ func _find_class(root: Node, frag: String) -> Node:
 			return n
 	return null
 
+func _find_ladder(root: Node, name_: String) -> Node:
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		if n is Ladder and n.display_name == name_:
+			return n
+	return null
+
 func _fish_total() -> int:
 	var n: int = 0
 	for id in ["fish_herring", "fish_slate_cod", "fish_chimefish", "fish_sable_hake"]:
@@ -251,9 +261,10 @@ func _run() -> void:
 	var rod2: Node3D = preload("res://scripts/components/fishing_rod.gd").new()
 	main.add_child(rod2)
 	rod2.setup(player, player.camera)
-	rod2._fish = {"id": "the_looker", "name": "The Looker", "fight": 1.3, "pull": 1.1}
+	var looker: Dictionary = preload("res://scripts/world/fish_table.gd").all()["the_looker"].duplicate()
+	looker["id"] = "the_looker"
+	rod2._fish = looker
 	rod2._state = rod2.State.FIGHT
-	var pack_before: int = PlayerState.hotbar.size() + PlayerState.inventory.size()
 	rod2._land()
 	_check(not PlayerState.has_item("the_looker"), "The Looker is released, never kept")
 
@@ -280,6 +291,7 @@ func _run() -> void:
 	await get_tree().physics_frame
 	var winch: Node = _find_class(net_rig, "drop_net")
 	_check(winch != null, "drop net structure carries its winch")
+	PlayerState.inventory.clear()   # make room — the haul needs pack space
 	if winch:
 		winch.interact("LOWER", player)
 		_check(winch._state == winch.NetState.SOAKING, "net lowers into a soak")
@@ -289,6 +301,126 @@ func _run() -> void:
 		var fish_before: int = _fish_total()
 		winch.interact("HAUL", player)
 		_check(_fish_total() > fish_before, "hauled net yields fish")
+
+	# Fish table integrity + the condition variables that gate the catch.
+	var FT := preload("res://scripts/world/fish_table.gd")
+	var table_ok: bool = true
+	var cooked_ok: bool = true
+	for fid in FT.all():
+		var fdef: Dictionary = FT.all()[fid]
+		if not fdef.get("release", false) and not PlayerState.items.has(fid):
+			table_ok = false
+		var ct: String = fdef.get("cooked_to", "")
+		if ct != "" and not PlayerState.items.has(ct):
+			cooked_ok = false
+	_check(table_ok, "every keepable fish.json species is a real item")
+	_check(cooked_ok, "every cooked_to target is a real item")
+	var calm_ctx := {"phase": "day", "storming": false, "lit": false, "open": true}
+	var storm_ctx := {"phase": "day", "storming": true, "lit": false, "open": true}
+	_check(FT.weight_for("fish_drum_croaker", "rod", calm_ctx) == 0.0, "drum croaker never bites in calm")
+	_check(FT.weight_for("fish_drum_croaker", "rod", storm_ctx) > 0.0, "drum croaker bites in storms")
+	_check(FT.weight_for("fish_chimefish", "rod", storm_ctx) == 0.0, "chimefish refuses storm seas")
+	_check(FT.weight_for("fish_fathom_halibut", "rod", calm_ctx) == 0.0, "halibut never takes a rod")
+	var night_ctx := {"phase": "night", "storming": false, "lit": false, "open": true}
+	_check(FT.weight_for("fish_fathom_halibut", "net", night_ctx) > 0.0, "halibut takes a night net")
+	var lit_ctx := {"phase": "night", "storming": false, "lit": true, "open": false}
+	_check(FT.weight_for("fish_sable_hake", "rod", lit_ctx) > FT.weight_for("fish_sable_hake", "rod", night_ctx),
+		"worklight doubles the hake draw")
+	_check(_find_class(main, "underwater_world") != null, "underwater world exists below the line")
+	# Angler's notes placed by the rod.
+	var notes_found: bool = false
+	var nstack: Array[Node] = [main]
+	while not nstack.is_empty():
+		var nn: Node = nstack.pop_back()
+		for nc in nn.get_children():
+			nstack.append(nc)
+		if nn is Readable and nn.readable_id == "anglers_notes":
+			notes_found = true
+			break
+	_check(notes_found, "Angler's Notes placed beside the rod")
+	# Underwater environment swap: force the camera below the swell.
+	player._fly = true
+	player.set_collision_layer_value(1, false)
+	player.set_collision_mask_value(1, false)
+	player.global_position = Vector3(0, -4.0, -34)
+	main._process(0.016)
+	var cam: Camera3D = player.get_node("Head/Camera3D")
+	_check(cam.environment != null, "camera goes underwater below the wave line")
+	player.global_position = Vector3(20, 6.0, -10)
+	main._process(0.016)
+	_check(cam.environment == null, "camera surfaces back to the world environment")
+	if player._fly:
+		player._toggle_fly()
+	player.global_position = Vector3(0, DECK_Y_TEST + 0.2, 12)
+
+	# Swimming: water is survivable now — buoyant, cold, and mortal at depth.
+	GameClock.force_phase(GameClock.Phase.DAY)
+	player.input_locked = false
+	player.global_position = Vector3(0, -1.5, -34)
+	player.velocity = Vector3.ZERO
+	player._check_water()
+	_check(player.swimming, "entering water starts swimming, not a respawn")
+	var warmth_before: float = PlayerState.warmth
+	player._swim_process(0.5)
+	_check(PlayerState.warmth < warmth_before, "cold water drains warmth")
+	_check(not player._drowning, "surface swimming does not black out")
+	player.global_position = Vector3(0, -16.0, -34)   # far past the deep-death line
+	player._swim_process(1.0)
+	player._swim_process(1.0)
+	_check(player._drowning or player.global_position.distance_to(player.respawn_point) < 3.0,
+		"the deep takes swimmers who go too far down")
+	await get_tree().create_timer(2.0).timeout   # let the fade/respawn resolve
+	player.input_locked = false
+	_check(_find_ladder(main, "Dock Ladder") != null, "dock ladder gives a way out of the sea")
+
+	# Ultra Hammerhead: a charge that connects takes a bite of life.
+	var shark: Node3D = preload("res://scripts/world/shark.gd").new(0)
+	main.add_child(shark)
+	player.global_position = Vector3(0, -1.5, -38)
+	player.swimming = true
+	shark.global_position = player.global_position + Vector3(1.0, 0, 0)
+	shark._state = shark.SState.CHARGE
+	var life_before: float = PlayerState.life
+	shark._process(0.05)
+	_check(PlayerState.life < life_before, "hammerhead charge that connects bites")
+	_check(shark._state == shark.SState.FLEE, "after the bite it breaks off (a test, not a meal)")
+	player.swimming = false
+	player.global_position = Vector3(0, DECK_Y_TEST + 0.2, 12)
+
+	# Preservation: raw rots on the line, cooked cures to dried; fridge is inert.
+	var line: Node = preload("res://scripts/components/hang_line.gd").new()
+	main.add_child(line)
+	line.global_position = Vector3(0, DECK_Y_TEST + 1.8, 12)
+	PlayerState.add_item("fish_herring")
+	line._hang()
+	_check(line._hung.size() == 1, "raw fish hangs on the line")
+	line._hung[0]["age_h"] = 4.1
+	line._process(0.016)
+	_check(line._hung[0]["id"] == "fish_rotten", "raw fish rots after 4 game hours hung")
+	PlayerState.add_item("cooked_fish")
+	line._hang()
+	line._hung[1]["age_h"] = 4.1
+	line._process(0.016)
+	_check(line._hung[1]["id"] == "dried_fish", "cooked fish cures to dried on the line")
+	line._take()
+	_check(PlayerState.has_item("dried_fish"), "taking from the line returns the cured fish")
+	var fridge: Node = preload("res://scripts/components/cold_store.gd").new()
+	main.add_child(fridge)
+	PlayerState.add_item("fish_herring")
+	fridge.interact("STOW", player)
+	_check(fridge._stored.size() == 1, "fridge stows fish")
+	fridge.interact("TAKE", player)
+	_check(PlayerState.has_item("fish_herring"), "fridge returns fish, forever fresh")
+
+	# Drop net reaches water from the topside deck now (DROP_MAX fix).
+	var top_net: Node3D = Structures.build("drop_net_kit", false)
+	main.add_child(top_net)
+	top_net.global_position = Vector3(26, DECK_Y_TEST + 0.15, -30)
+	await get_tree().physics_frame
+	var top_winch: Node = _find_class(top_net, "drop_net")
+	if top_winch:
+		top_winch.interact("LOWER", player)
+		_check(top_winch._wet, "topside drop net reaches the water")
 
 	# Save round-trip.
 	SaveManager.save_game()

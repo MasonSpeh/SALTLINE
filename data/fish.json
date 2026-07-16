@@ -1,0 +1,163 @@
+{
+	"_schema": "fish_id -> { name, rod, net, w:{dawn,day,dusk,night}, storm: ok|only|never|bonus, light: any|drawn, water: any|near|open, depth: surface|mid|deep, fight, pull, cooked_to, school:{count,size,tint:[r,g,b],active:phases}, note }. One source of truth: rod rolls, net rolls, stove map, visible schools, and the Angler's Notes readable are ALL generated from this table.",
+	"fish_copper_sprat": {
+		"name": "Copper Sprat", "rod": true, "net": true,
+		"w": {"dawn": 30, "day": 32, "dusk": 30, "night": 20},
+		"storm": "ok", "light": "any", "water": "any", "depth": "surface",
+		"fight": 0.5, "pull": 0.4, "cooked_to": "cooked_fish",
+		"school": {"count": 22, "size": 0.6, "tint": [0.75, 0.5, 0.3], "active": ["dawn", "day", "dusk", "night"]},
+		"note": "Bait-tier shoals that trail anything moving. The sea's small change."
+	},
+	"fish_herring": {
+		"name": "Lantern Herring", "rod": true, "net": true,
+		"w": {"dawn": 28, "day": 26, "dusk": 26, "night": 26},
+		"storm": "ok", "light": "any", "water": "any", "depth": "surface",
+		"fight": 0.8, "pull": 0.65, "cooked_to": "cooked_fish",
+		"school": {"count": 16, "size": 1.0, "tint": [0.7, 0.85, 0.85], "active": ["dawn", "day", "dusk", "night"]},
+		"note": "The gateway catch. At night the shoal glows its own position away."
+	},
+	"fish_slate_cod": {
+		"name": "Slate Cod", "rod": true, "net": true,
+		"w": {"dawn": 10, "day": 26, "dusk": 10, "night": 4},
+		"storm": "bonus", "light": "any", "water": "any", "depth": "mid",
+		"fight": 1.25, "pull": 0.9, "cooked_to": "cooked_fish",
+		"school": {"count": 6, "size": 1.3, "tint": [0.42, 0.45, 0.5], "active": ["day"]},
+		"note": "Loves a gray sky — bites double under storm cloud. Heavy, honest meat."
+	},
+	"fish_mirrorjack": {
+		"name": "Mirrorjack", "rod": true, "net": false,
+		"w": {"dawn": 26, "day": 4, "dusk": 22, "night": 2},
+		"storm": "ok", "light": "any", "water": "open", "depth": "surface",
+		"fight": 1.0, "pull": 1.35, "cooked_to": "cooked_fish",
+		"school": {"count": 8, "size": 1.1, "tint": [0.85, 0.88, 0.92], "active": ["dawn", "dusk"]},
+		"note": "A dawn and dusk feeder in open water — fast, chrome, furious on the line."
+	},
+	"fish_chimefish": {
+		"name": "Chimefish", "rod": true, "net": true,
+		"w": {"dawn": 8, "day": 10, "dusk": 8, "night": 6},
+		"storm": "never", "light": "any", "water": "any", "depth": "mid",
+		"fight": 0.9, "pull": 0.8, "cooked_to": "cooked_fish",
+		"school": {"count": 7, "size": 0.9, "tint": [0.75, 0.8, 0.6], "active": ["day", "dusk"]},
+		"note": "Calm seas only — they won't ring in weather. Worth more traded than eaten, someday."
+	},
+	"fish_silver_ladder": {
+		"name": "Silver Ladder", "rod": true, "net": false,
+		"w": {"dawn": 22, "day": 3, "dusk": 2, "night": 1},
+		"storm": "ok", "light": "any", "water": "open", "depth": "mid",
+		"fight": 1.0, "pull": 1.0, "cooked_to": "cooked_fish",
+		"school": {"count": 12, "size": 0.9, "tint": [0.8, 0.84, 0.9], "active": ["dawn"]},
+		"note": "Dawn columns over open water — the shoal stacks vertical, a shimmering pillar."
+	},
+	"fish_ember_snapper": {
+		"name": "Ember Snapper", "rod": true, "net": true,
+		"w": {"dawn": 6, "day": 14, "dusk": 14, "night": 4},
+		"storm": "ok", "light": "any", "water": "near", "depth": "mid",
+		"fight": 1.1, "pull": 1.0, "cooked_to": "cooked_fish",
+		"school": {"count": 6, "size": 1.1, "tint": [0.8, 0.4, 0.25], "active": ["day", "dusk"]},
+		"note": "Warm-bodied — crowds the rig's outfalls and warm steel. Fish the shadow of the deck."
+	},
+	"fish_sable_hake": {
+		"name": "Sable Hake", "rod": true, "net": true,
+		"w": {"dawn": 5, "day": 2, "dusk": 12, "night": 28},
+		"storm": "ok", "light": "drawn", "water": "near", "depth": "mid",
+		"fight": 1.1, "pull": 1.0, "cooked_to": "cooked_fish",
+		"school": {"count": 9, "size": 1.0, "tint": [0.25, 0.27, 0.32], "active": ["dusk", "night"]},
+		"note": "Rises to worklight after dark like moths with fins. Power the floodlights and fish the glow."
+	},
+	"fish_ghost_sole": {
+		"name": "Ghost Sole", "rod": true, "net": true,
+		"w": {"dawn": 2, "day": 0, "dusk": 4, "night": 14},
+		"storm": "ok", "light": "drawn", "water": "near", "depth": "mid",
+		"fight": 0.9, "pull": 0.7, "cooked_to": "cooked_fish",
+		"school": {"count": 5, "size": 0.9, "tint": [0.8, 0.82, 0.88], "active": ["night"]},
+		"note": "Near-invisible by day. Night water near a glow is where it shows itself."
+	},
+	"fish_glasspike": {
+		"name": "Glasspike", "rod": true, "net": false,
+		"w": {"dawn": 2, "day": 0, "dusk": 3, "night": 12},
+		"storm": "never", "light": "any", "water": "open", "depth": "surface",
+		"fight": 1.15, "pull": 1.2, "cooked_to": "cooked_fish",
+		"school": {"count": 6, "size": 1.2, "tint": [0.7, 0.8, 0.82], "active": ["night"]},
+		"note": "Clear still nights, open water — a pike you see through, found by the grit in its gut."
+	},
+	"fish_lodestone_bream": {
+		"name": "Lodestone Bream", "rod": true, "net": false,
+		"w": {"dawn": 6, "day": 16, "dusk": 6, "night": 2},
+		"storm": "ok", "light": "any", "water": "open", "depth": "deep",
+		"fight": 1.3, "pull": 1.1, "cooked_to": "cooked_fish",
+		"school": {"count": 5, "size": 1.2, "tint": [0.5, 0.52, 0.6], "active": ["day"]},
+		"note": "Deep daylight water. Its magnetized bones spin a compass — catch enough, craft crude magnets, someday."
+	},
+	"fish_drum_croaker": {
+		"name": "Drum Croaker", "rod": true, "net": true,
+		"w": {"dawn": 10, "day": 10, "dusk": 10, "night": 10},
+		"storm": "only", "light": "any", "water": "any", "depth": "mid",
+		"fight": 1.3, "pull": 1.15, "cooked_to": "cooked_fish",
+		"school": {"count": 8, "size": 1.2, "tint": [0.55, 0.45, 0.4], "active": []},
+		"note": "Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes — then they bite like they mean it."
+	},
+	"fish_inkwell_squid": {
+		"name": "Inkwell Squid", "rod": true, "net": true,
+		"w": {"dawn": 3, "day": 1, "dusk": 6, "night": 16},
+		"storm": "ok", "light": "drawn", "water": "any", "depth": "mid",
+		"fight": 1.2, "pull": 1.25, "cooked_to": "cooked_fish",
+		"school": {"count": 4, "size": 1.1, "tint": [0.45, 0.55, 0.6], "active": ["night"]},
+		"note": "Night jigging. Comes up backwards in a huff of luminous ink — the ink's worth keeping too, someday."
+	},
+	"fish_ribbon_eel": {
+		"name": "Ribbon Eel", "rod": true, "net": false,
+		"w": {"dawn": 2, "day": 0, "dusk": 5, "night": 12},
+		"storm": "ok", "light": "any", "water": "open", "depth": "deep",
+		"fight": 1.5, "pull": 1.4, "cooked_to": "cooked_fish_prime",
+		"school": {"count": 3, "size": 1.6, "tint": [0.4, 0.6, 0.62], "active": ["night"]},
+		"note": "Deep dark water only. Comes up faintly crackling — the Bloom keeps strange batteries."
+	},
+	"fish_barrel_grouper": {
+		"name": "Barrel Grouper", "rod": true, "net": false,
+		"w": {"dawn": 4, "day": 3, "dusk": 4, "night": 5},
+		"storm": "bonus", "light": "any", "water": "open", "depth": "deep",
+		"fight": 2.3, "pull": 1.7, "cooked_to": "cooked_fish_prime",
+		"school": {"count": 2, "size": 2.6, "tint": [0.5, 0.38, 0.3], "active": ["day", "night"]},
+		"note": "The hardest fight on the rod. Deep open water; a storm stirs them up off the bottom. Feeds you for days."
+	},
+	"fish_stone_crab": {
+		"name": "Stone Crab", "rod": false, "net": true,
+		"w": {"dawn": 8, "day": 6, "dusk": 10, "night": 14},
+		"storm": "ok", "light": "any", "water": "any", "depth": "deep",
+		"fight": 1.0, "pull": 0.8, "cooked_to": "cooked_fish",
+		"school": {"count": 0, "size": 0, "tint": [0.6, 0.35, 0.25], "active": []},
+		"note": "Walks into a soaked net, never onto a hook. Shell's ceramic-hard — keep the pieces, someday."
+	},
+	"fish_gutter_prawn": {
+		"name": "Gutter Prawn", "rod": false, "net": true,
+		"w": {"dawn": 20, "day": 16, "dusk": 20, "night": 24},
+		"storm": "ok", "light": "any", "water": "any", "depth": "mid",
+		"fight": 0.4, "pull": 0.3, "cooked_to": "cooked_fish",
+		"school": {"count": 0, "size": 0, "tint": [0.75, 0.6, 0.55], "active": []},
+		"note": "Net filler. A soak rarely comes up without a few — the pens will want them, someday."
+	},
+	"fish_miller_flounder": {
+		"name": "Miller's Flounder", "rod": false, "net": true,
+		"w": {"dawn": 8, "day": 14, "dusk": 8, "night": 4},
+		"storm": "ok", "light": "any", "water": "near", "depth": "deep",
+		"fight": 0.9, "pull": 0.7, "cooked_to": "cooked_fish",
+		"school": {"count": 0, "size": 0, "tint": [0.55, 0.5, 0.42], "active": []},
+		"note": "Deck-plate camouflage, bottom habits. Nets working close to the legs find them by day."
+	},
+	"fish_fathom_halibut": {
+		"name": "Fathom Halibut", "rod": false, "net": true,
+		"w": {"dawn": 1, "day": 0, "dusk": 2, "night": 5},
+		"storm": "ok", "light": "any", "water": "any", "depth": "deep",
+		"fight": 2.0, "pull": 1.5, "cooked_to": "cooked_fish_prime",
+		"school": {"count": 1, "size": 3.2, "tint": [0.4, 0.42, 0.45], "active": ["night"]},
+		"note": "Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Feeds a week."
+	},
+	"the_looker": {
+		"name": "The Looker", "rod": true, "net": false, "release": true,
+		"w": {"dawn": 1, "day": 1, "dusk": 1, "night": 2},
+		"storm": "ok", "light": "any", "water": "any", "depth": "deep",
+		"fight": 1.3, "pull": 1.1, "cooked_to": "",
+		"school": {"count": 0, "size": 0, "tint": [0.3, 0.5, 0.5], "active": []},
+		"note": "Any water, any hour, almost never. It is not kept. You'll understand at the rail."
+	}
+}

@@ -748,6 +748,9 @@ func _build_sphl_fittings() -> void:
 func _build_access() -> void:
 	# Wet Deck -> south pontoon (the under-rig walkway: barnacles, eel, jellies up close).
 	_ladder(Vector3(7.8, 0.95, -12), 1.2, 90.0, "Pontoon Ladder", 0.9)
+	# Sea -> dock: the swimmer's way back up. Starts below the swell at the boat
+	# landing so falling in is survivable by design (GDD §31 — ladders exist).
+	_ladder(Vector3(17.7, -1.4, -22.42), WET_Y + 1.6, 180.0, "Dock Ladder", 0.9)
 	# Wet Deck -> pump room roof (small vantage, stashed crate).
 	_ladder(Vector3(18.25, WET_Y, -8), 3.5, -90.0, "Roof Ladder", 1.0)
 	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.13, -8.5))
@@ -816,8 +819,11 @@ func _decorate_galley() -> void:
 	_cyl_nc(Vector3(11.2, y + 1.02, 15.9), 0.18, 0.03, MatLib.flat(Color(0.1, 0.1, 0.1)))
 	_cyl_nc(Vector3(11.8, y + 1.02, 16.5), 0.18, 0.03, MatLib.flat(Color(0.1, 0.1, 0.1)))
 	_cyl_nc(Vector3(11.2, y + 1.15, 15.9), 0.2, 0.24, MatLib.painted_steel())
-	# Fridge, door ajar.
-	_box(Vector3(-1.2, y + 0.95, 15.2), Vector3(0.9, 1.9, 0.9), MatLib.flat(Color(0.82, 0.84, 0.82)))
+	# Fridge, door ajar — and still cold inside: STOW fish, it keeps forever.
+	var fridge: Interactable = preload("res://scripts/components/cold_store.gd").new()
+	add_child(fridge)
+	fridge.global_position = Vector3(-1.2, y + 0.95, 15.2)
+	fridge.build_box_visual(Vector3(0.9, 1.9, 0.9), Color(0.82, 0.84, 0.82), false, true)
 	var fdoor := _box(Vector3(-0.7, y + 0.95, 15.85), Vector3(0.06, 1.85, 0.85), MatLib.flat(Color(0.78, 0.8, 0.78)), self, false)
 	fdoor.rotation.y = 0.5
 	# Wall shelves with canned rows.
@@ -825,8 +831,12 @@ func _decorate_galley() -> void:
 		_box(Vector3(-1.6, y + sy, 12.5), Vector3(0.35, 0.06, 3.2), MatLib.wood(), self, false)
 		for i in range(5):
 			_cyl_nc(Vector3(-1.6, y + sy + 0.12, 11.2 + i * 0.6), 0.09, 0.18, MatLib.flat(Color(0.6, 0.58, 0.5)))
-	# Pan rail over the counter.
+	# Pan rail over the counter — doubles as a drying line for the catch.
 	_cyl_nc(Vector3(9.5, y + 2.2, 17.4), 0.02, 3.0, MatLib.dark_metal()).rotation.z = deg_to_rad(90)
+	var galley_line: Interactable = preload("res://scripts/components/hang_line.gd").new()
+	galley_line.length_m = 2.8
+	add_child(galley_line)
+	galley_line.global_position = Vector3(9.5, y + 1.95, 17.4)
 	for i in range(3):
 		_cyl_nc(Vector3(8.3 + i * 1.1, y + 1.95, 17.4), 0.22, 0.04, MatLib.dark_metal())
 

@@ -43,6 +43,15 @@ const FLY_SPEED: float = 9.0
 const FLY_SPRINT_MULT: float = 3.5
 const DOUBLE_TAP_MS: int = 320
 
+# Swimming (GDD §31: competent, not heroic). Buoyant at the surface, dive with
+# crouch, and the deep is not negotiable — past DEEP_DEATH_M the dark takes you.
+const SWIM_SPEED: float = 2.3
+const SWIM_SPRINT_MULT: float = 1.5
+const FLOAT_DEPTH: float = 0.45        ## neutral float: this far under the swell, head above
+const SWIM_WARMTH_DRAIN: float = 0.016 ## the North Atlantic taxes you per second
+const DEEP_DEATH_M: float = 13.0
+const DEEP_GRACE_SEC: float = 1.6
+
 @export var invert_y: bool = false
 @export var mouse_sensitivity_scale: float = 1.0
 
@@ -73,6 +82,8 @@ var _drowning: bool = false        ## shared blackout guard: water respawn OR li
 var _step_accum: float = 0.0
 var _fly: bool = false             ## dev noclip fly mode (double-tap F)
 var _last_f_ms: int = -10000       ## for double-tap F detection
+var swimming: bool = false         ## in the water, buoyant, mortal
+var _deep_t: float = 0.0           ## seconds spent past the deep-death line
 
 const JUMP_BUFFER_TIME: float = 0.15
 
@@ -225,6 +236,9 @@ func _physics_process(delta: float) -> void:
 	if _climbing:
 		_climb_process(delta)
 		return
+	if swimming:
+		_swim_process(delta)
+		return
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
 
@@ -332,15 +346,71 @@ func _climb_process(_delta: float) -> void:
 	elif global_position.y <= bottom_y + 0.1 and up_input < 0.0:
 		_climbing = null
 
+## Entering the water no longer teleports you out — you swim (GDD §31). The sea
+## takes warmth constantly, ladders are the way back up, and the deep is death.
 func _check_water() -> void:
-	if _drowning or global_position.y > WATER_LEVEL:
+	if _drowning or _fly:
+		return
+	var wave_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), Gyre.water_time()) * 0.85
+	var now_swimming: bool = global_position.y < wave_y - 0.15
+	if now_swimming and not swimming:
+		AudioDirector.play_one_shot("splash", global_position, -4.0)
+		_climbing = null
+		if carried:
+			drop_carried()
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud:
+			hud.toast("Cold. Swim — find a ladder before the sea does the counting.")
+	swimming = now_swimming
+	if not swimming:
+		_deep_t = 0.0
+
+## Buoyant first-person swimming: look-direction drive, Space up, crouch dives,
+## drifting toward a neutral float just under the swell. Cold drains warmth the
+## whole time, and past DEEP_DEATH_M the dark below starts counting.
+func _swim_process(delta: float) -> void:
+	var wave_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), Gyre.water_time()) * 0.85
+	var input_dir: Vector2 = Vector2.ZERO
+	if not input_locked and not ui_locked:
+		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var speed: float = SWIM_SPEED * (SWIM_SPRINT_MULT if Input.is_action_pressed("sprint") else 1.0)
+	var move: Vector3 = head.global_transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)
+	if not input_locked and not ui_locked:
+		if Input.is_action_pressed("jump"):
+			move.y += 0.8
+		if Input.is_action_pressed("crouch"):
+			move.y -= 0.8
+	var target_vel: Vector3 = move.normalized() * speed if move.length() > 0.01 else Vector3.ZERO
+	# Buoyancy: with no vertical intent, ease back up toward the neutral float line.
+	var float_y: float = wave_y - FLOAT_DEPTH
+	if absf(move.y) < 0.05:
+		target_vel.y = clampf((float_y - global_position.y) * 1.6, -1.2, 1.6)
+	velocity = velocity.lerp(target_vel, delta * 5.0)
+	move_and_slide()
+	PlayerState.warmth -= SWIM_WARMTH_DRAIN * delta
+	_update_crouch(delta)   # keeps the capsule sane if crouch was held on entry
+	# The deep: light dies fast, and below the line something notices you.
+	var depth: float = wave_y - global_position.y
+	if depth > DEEP_DEATH_M:
+		_deep_t += delta
+		if _deep_t >= DEEP_GRACE_SEC:
+			_deep_death()
+			return
+	else:
+		_deep_t = maxf(_deep_t - delta * 2.0, 0.0)
+	_check_water()
+
+## Too deep, too long. No monster shown, no explanation given — canon.
+func _deep_death() -> void:
+	if _drowning:
 		return
 	_drowning = true
 	input_locked = true
+	swimming = false
+	AudioDirector.play_one_shot("groan", global_position, -2.0)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
-	AudioDirector.play_one_shot("splash", global_position)
 	if hud:
-		var tw: Tween = hud.fade_to_black(1.2)
+		var tw: Tween = hud.fade_to_black(0.9)
 		tw.tween_callback(_respawn)
 	else:
 		_respawn()
@@ -348,13 +418,16 @@ func _check_water() -> void:
 func _respawn() -> void:
 	global_position = respawn_point
 	velocity = Vector3.ZERO
+	swimming = false
+	_deep_t = 0.0
 	PlayerState.warmth -= 0.3
+	PlayerState.life = maxf(PlayerState.life, 0.3)   # the sea returns you breathing
 	_drowning = false
 	input_locked = false
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		hud.fade_from_black(1.5)
-		hud.toast("The sea let you go. This time.")
+		hud.toast("You don't remember surfacing. You're on the deck, soaked through.")
 
 ## Life hit zero: same blackout shape as drowning, sharing the _drowning guard so the
 ## two fade/respawn flows can never run over each other.
@@ -480,9 +553,21 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	if not found:
 		return
 	var largest: float = maxf(combined.size.x, maxf(combined.size.y, combined.size.z))
+	# Tools that should read at working size in hand override the pocket scale —
+	# the rod especially: you fish WITH it, it shouldn't look like a pencil.
+	var target: float = HAND_ITEM_MAX_DIM
+	match _held_item_id:
+		"fishing_rod":
+			target = 0.62
+		"prybar":
+			target = 0.4
 	if largest > 0.0001:
-		container.scale = Vector3.ONE * (HAND_ITEM_MAX_DIM / largest)
+		container.scale = Vector3.ONE * (target / largest)
 	visual.position = -combined.get_center()
+	if _held_item_id == "fishing_rod":
+		# Angle the rod out over the water like it's actually being fished.
+		container.rotation = Vector3(deg_to_rad(-24), deg_to_rad(-14), 0)
+		container.position += Vector3(0.05, -0.05, -0.1)
 
 ## Composed local transform of `node` relative to ancestor `root` (tree-independent).
 static func _transform_relative_to(node: Node3D, root: Node3D) -> Transform3D:

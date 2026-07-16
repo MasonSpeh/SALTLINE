@@ -99,9 +99,29 @@ func _update_hum() -> void:
 ## Storm intensity 0..1 — fades the rain bed up and howls the wind. Called by the
 ## StormSystem as a squall rolls in and out.
 func set_storm(intensity: float) -> void:
+	_storm_level = intensity
+	if _underwater:
+		return   # the surface can rage; down here it's all pressure and hush
 	_fade("rain", lerpf(-80.0, -4.0, intensity), 1.5)
 	var base_wind: float = -14.0 if GameClock.current_phase != GameClock.Phase.NIGHT else -10.0
 	_fade("wind", lerpf(base_wind, -2.0, intensity), 1.5)
+
+var _underwater: bool = false
+var _storm_level: float = 0.0
+
+## Below the wave line the topside world goes distant: wind and rain vanish, the
+## sea becomes a low pressure-hush all around.
+func set_underwater(under: bool) -> void:
+	_underwater = under
+	if under:
+		_fade("wind", -80.0, 0.6)
+		_fade("rain", -80.0, 0.6)
+		_fade("sea", -8.0, 0.6)    # the water itself, close and everywhere
+		_fade("hum", -80.0, 0.6)
+	else:
+		_fade("sea", -16.0, 0.8)
+		_update_hum()
+		set_storm(_storm_level)   # restore whatever the sky is doing
 
 func _fade(bed_name: String, target_db: float, duration: float = 2.5) -> void:
 	var p: AudioStreamPlayer = _beds.get(bed_name)
