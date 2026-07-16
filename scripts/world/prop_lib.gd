@@ -76,14 +76,52 @@ static func _scene(id: String) -> PackedScene:
 	_cache[id] = scene
 	return scene
 
+# Props that stay put no matter what — bolted-down machinery, mounted fixtures,
+# heavy shelving. Everything NOT in here is human-moveable by default.
+const FIXED := {
+	"portable_generator": true, "portable_welding_cart": true, "drawer_cabinet": true,
+	"tool_cart": true, "hand_truck": true, "industrial_storage_cart": true,
+	"worn_metal_rack": true, "steel_frame_shelves_01": true, "steel_frame_shelves_02": true,
+	"Shelf_01": true, "GothicCabinet_01": true, "chinese_cabinet": true, "ceiling_fan": true,
+	"Chandelier_01": true, "mounted_fluorescent_lights": true, "caged_hanging_light": true,
+	"industrial_wall_lamp": true, "industrial_pipe_lamp": true, "modular_pipes": true,
+	"modular_industrial_pipes_01": true, "power_box_01": true, "metal_office_desk": true,
+	"vintage_radio_transceiver": true, "SchoolDesk_01": true,
+}
+# Moveable but too big/heavy to lift — dragged along the floor instead.
+const HEAVY := {
+	"Sofa_01": true, "old_bed_frame": true, "vintage_day_bed": true, "ArmChair_01": true,
+	"dining_table": true, "WoodenTable_01": true, "WoodenTable_02": true, "WoodenTable_03": true,
+	"CoffeeTable_01": true, "chinese_tea_table": true, "Barrel_01": true, "Barrel_02": true,
+	"barrel_03": true, "barrel_stove": true, "propane_tank": true, "metal_trash_can": true,
+	"television_02": true, "small_lpg_tank": true, "metal_tool_chest": true,
+	"wooden_military_crate": true, "old_military_crate": true,
+}
+
+static func is_moveable(id: String) -> bool:
+	return not FIXED.has(id)
+
+static func _pretty(id: String) -> String:
+	var base: String = id
+	# Drop a trailing _01 style index, turn underscores into spaces, title-case.
+	base = base.trim_suffix("_01").trim_suffix("_02").trim_suffix("_03")
+	var words: PackedStringArray = base.replace("_", " ").split(" ", false)
+	var out: PackedStringArray = []
+	for w in words:
+		if w.length() > 0:
+			out.append(w[0].to_upper() + w.substr(1))
+	return " ".join(out)
+
 ## Spawn a prop under `parent` at global `pos`.
 ##  yaw_deg   — rotation about Y
 ##  scale_mul — multiply the auto-normalized size (1.0 = size hint)
 ##  collide   — wrap in a StaticBody3D with an auto AABB box collider
 ##  target_m  — override the longest-axis size in meters (else SIZE_HINT / 1.0)
+##  movable   — wrap in a grab/carry/drag MovableProp instead (overrides collide)
 ## Returns the spawned root Node3D (a fallback crate if the id is missing).
 static func spawn(id: String, parent: Node3D, pos: Vector3, yaw_deg: float = 0.0,
-		scale_mul: float = 1.0, collide: bool = false, target_m: float = -1.0) -> Node3D:
+		scale_mul: float = 1.0, collide: bool = false, target_m: float = -1.0,
+		movable: bool = false) -> Node3D:
 	var scene := _scene(id)
 	if scene == null:
 		return _fallback(id, parent, pos, yaw_deg)
@@ -94,9 +132,23 @@ static func spawn(id: String, parent: Node3D, pos: Vector3, yaw_deg: float = 0.0
 	var want: float = target_m if target_m > 0.0 else float(SIZE_HINT.get(id, 0.6))
 	var s: float = (want / longest) * scale_mul if longest > 0.0001 else scale_mul
 	inst.scale = Vector3(s, s, s)
-	inst.rotation.y = deg_to_rad(yaw_deg)
 	var holder: Node3D = inst
-	if collide:
+	if movable:
+		var mv := MovableProp.new()
+		mv.display_name = _pretty(id)
+		mv.heavy = HEAVY.has(id)
+		var vol: Vector3 = aabb.size * s
+		mv.mass = clampf(vol.x * vol.y * vol.z * 120.0, 0.5, 40.0)
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = vol
+		shape.shape = box
+		shape.position = (aabb.position + aabb.size * 0.5) * s
+		mv.add_child(shape)
+		mv.add_child(inst)   # model + collider stay local; the body carries the yaw
+		holder = mv
+	elif collide:
+		inst.rotation.y = deg_to_rad(yaw_deg)
 		var body := StaticBody3D.new()
 		var shape := CollisionShape3D.new()
 		var box := BoxShape3D.new()
@@ -106,8 +158,12 @@ static func spawn(id: String, parent: Node3D, pos: Vector3, yaw_deg: float = 0.0
 		body.add_child(shape)
 		body.add_child(inst)
 		holder = body
+	else:
+		inst.rotation.y = deg_to_rad(yaw_deg)
 	parent.add_child(holder)
 	holder.global_position = pos
+	if holder is MovableProp:
+		holder.rotation.y = deg_to_rad(yaw_deg)   # rotate the body; model + collider follow
 	return holder
 
 ## Convenience: scatter several ids near a point with slight jitter (deterministic

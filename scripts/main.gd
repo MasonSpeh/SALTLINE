@@ -6,6 +6,7 @@ var rig: RigBuilder
 var player: CharacterBody3D
 var hud: HUD
 var sun_ctl: SunController
+var storm: StormSystem
 var _countdown: float = 0.0   # retained for the screenshot harness; no longer ticks
 var _cold_open_active: bool = true
 var _ending: bool = false
@@ -134,6 +135,10 @@ func _build_environment() -> void:
 	sun_ctl = SunController.new()
 	add_child(sun_ctl)
 	sun_ctl.setup(sun, moon, env, star_mat)
+	# Violent squalls roll through now and then — rain, wind, lightning, thunder.
+	storm = StormSystem.new()
+	add_child(storm)
+	storm.setup(sun_ctl)
 
 func _build_ocean() -> void:
 	var shader: Shader = load("res://materials/ocean_water.gdshader")

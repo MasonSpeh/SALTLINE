@@ -7,6 +7,14 @@ var sun: DirectionalLight3D
 var moon: DirectionalLight3D
 var env: Environment
 var star_mat: ShaderMaterial
+var storm_intensity: float = 0.0   ## 0 clear .. 1 full storm; set by StormSystem
+var _last_f: float = 0.0
+
+## Storm darkening: kill the sun, crush the ambient toward slate, thicken the fog.
+## Re-runs the light tick so the change takes immediately.
+func set_storm(intensity: float) -> void:
+	storm_intensity = clampf(intensity, 0.0, 1.0)
+	_on_tick(_last_f)
 
 const SUN_WARM := Color(1.0, 0.55, 0.3)
 const SUN_WHITE := Color(1.0, 0.96, 0.9)
@@ -47,25 +55,31 @@ func _night_amount(phase: GameClock.Phase, f: float) -> float:
 func _on_tick(f: float) -> void:
 	if sun == null:
 		return
+	_last_f = f
 	var phase: GameClock.Phase = GameClock.current_phase
 	var elev: float = _elevation(phase, f)
 	var azimuth: float = lerpf(80.0, 280.0, _global_day_fraction(phase, f))
 	sun.rotation_degrees = Vector3(-elev, -azimuth, 0)
 	var sun_h: float = sin(deg_to_rad(elev))   # -1..1 height factor
-	sun.light_energy = clampf(sun_h * 1.7, 0.0, 1.3)
+	var storm: float = storm_intensity
+	sun.light_energy = clampf(sun_h * 1.7, 0.0, 1.3) * (1.0 - 0.9 * storm)
 	sun.light_color = SUN_WARM.lerp(SUN_WHITE, clampf(sun_h * 2.8, 0.0, 1.0))
 
 	var night: float = _night_amount(phase, f)
-	moon.light_energy = 0.28 * night
-	moon.visible = night > 0.01
+	moon.light_energy = 0.28 * night * (1.0 - 0.8 * storm)   # cloud cover swallows the moon
+	moon.visible = night > 0.01 and storm < 0.9
 	if star_mat:
-		star_mat.set_shader_parameter("night_amount", night)
+		star_mat.set_shader_parameter("night_amount", maxf(night, storm))   # stars gone under cloud
 
-	# Ambient floor keeps dark scenes readable — deep blue, never zero.
-	env.ambient_light_color = AMBIENT_DAY.lerp(AMBIENT_NIGHT, night)
-	env.ambient_light_energy = lerpf(clampf(sun.light_energy * 0.55, 0.22, 0.65), 0.16, night)
+	# Ambient floor keeps dark scenes readable — deep blue, never zero. A storm
+	# drags the whole palette toward cold slate and darkens it.
+	var amb: Color = AMBIENT_DAY.lerp(AMBIENT_NIGHT, night).lerp(Color(0.18, 0.2, 0.24), storm)
+	env.ambient_light_color = amb
+	env.ambient_light_energy = lerpf(lerpf(clampf(sun.light_energy * 0.55, 0.22, 0.65), 0.16, night), 0.14, storm)
 	env.fog_light_color = env.ambient_light_color.darkened(0.25)
-	env.volumetric_fog_albedo = Color(0.85, 0.88, 0.92).lerp(Color(0.5, 0.58, 0.7), night)
+	env.volumetric_fog_albedo = Color(0.85, 0.88, 0.92).lerp(Color(0.5, 0.58, 0.7), night).lerp(Color(0.4, 0.42, 0.46), storm)
+	env.volumetric_fog_density = lerpf(0.012, 0.05, storm)   # squall haze
+	env.fog_density = lerpf(0.0008, 0.004, storm)
 
 	# Interior daylight-spill lights track the sun; interiors go black at night (Rule 7)
 	# unless the player flips the switches they earned.

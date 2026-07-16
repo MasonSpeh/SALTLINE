@@ -177,6 +177,35 @@ func _run() -> void:
 	player._toggle_fly()
 	_check(not player._fly, "fly mode toggles off")
 
+	# Movable prop: a spawned chair-class prop can be grabbed, carried, and released.
+	var chair := PropLib.spawn("plastic_monobloc_chair_01", main, Vector3(2, DECK_Y_TEST + 0.2, 12),
+		0.0, 1.0, false, -1.0, true)
+	_check(chair is MovableProp, "moveable prop spawns as MovableProp")
+	if chair is MovableProp:
+		_check((chair as MovableProp).freeze, "moveable prop rests frozen until grabbed")
+		player.global_position = Vector3(2, DECK_Y_TEST + 0.2, 13.2)
+		player.try_grab(chair)
+		_check(player.carried == chair, "player grabs the moveable prop")
+		await get_tree().physics_frame
+		_check(not (chair as MovableProp).freeze, "grabbed prop wakes into physics")
+		player.drop_carried()
+		_check(player.carried == null, "player releases the moveable prop")
+	var lamp_fixed: bool = PropLib.FIXED.has("portable_generator") and not PropLib.is_moveable("portable_generator")
+	_check(lamp_fixed, "fixed heavy machinery stays non-moveable")
+
+	# Storm: force a squall and confirm rain + darkening engage, then clear.
+	if main.get("storm") != null:
+		main.storm.trigger_storm()
+		main.storm._intensity = 1.0
+		main.storm._phase = 2
+		main.storm._apply_intensity()
+		await get_tree().process_frame
+		_check(main.storm._rain.emitting, "storm rain emits at full intensity")
+		_check(main.sun_ctl.storm_intensity > 0.5, "storm darkens the sky via SunController")
+		main.storm._intensity = 0.0
+		main.storm._phase = 0
+		main.storm._apply_intensity()
+
 	# Save round-trip.
 	SaveManager.save_game()
 	PlayerState.hunger = 0.123

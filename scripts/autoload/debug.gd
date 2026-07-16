@@ -35,6 +35,11 @@ func _unhandled_key_input(event: InputEvent) -> void:
 		KEY_F6:
 			GameClock.time_scale = 20.0 if GameClock.time_scale == 1.0 else 1.0
 			print("DEBUG: time_scale = ", GameClock.time_scale)
+		KEY_F7:
+			var main: Node = get_tree().current_scene
+			if main and main.get("storm") != null:
+				main.storm.trigger_storm()
+				print("DEBUG: storm triggered")
 
 func _process(_delta: float) -> void:
 	if infinite_stats:

@@ -7,8 +7,10 @@ const BED_DEFS: Dictionary = {
 	"wind": "res://audio/wind_loop.wav",
 	"sea": "res://audio/sea_loop.wav",
 	"hum": "res://audio/hum_loop.wav",
+	"rain": "res://audio/rain_loop.wav",
 }
 const ONE_SHOTS: Dictionary = {
+	"thunder": "res://audio/thunder.wav",
 	"groan": "res://audio/groan.wav",
 	"gull": "res://audio/gull.wav",
 	"claw": "res://audio/claw.wav",
@@ -93,6 +95,13 @@ func _on_phase_changed(phase: GameClock.Phase) -> void:
 func _update_hum() -> void:
 	var any_power: bool = not PowerGrid.powered_ids().is_empty()
 	_fade("hum", -18.0 if any_power else -80.0)
+
+## Storm intensity 0..1 — fades the rain bed up and howls the wind. Called by the
+## StormSystem as a squall rolls in and out.
+func set_storm(intensity: float) -> void:
+	_fade("rain", lerpf(-80.0, -4.0, intensity), 1.5)
+	var base_wind: float = -14.0 if GameClock.current_phase != GameClock.Phase.NIGHT else -10.0
+	_fade("wind", lerpf(base_wind, -2.0, intensity), 1.5)
 
 func _fade(bed_name: String, target_db: float, duration: float = 2.5) -> void:
 	var p: AudioStreamPlayer = _beds.get(bed_name)

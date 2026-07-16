@@ -38,12 +38,17 @@ func _ready() -> void:
 	_stream()   # drain the queue across frames (runs as a coroutine)
 
 ## Instance the queued props a handful per frame so no single frame stalls.
+## Anything the library considers human-moveable is spawned as a grabbable
+## MovableProp (carry/drag/throw); genuinely fixed items keep their old collide
+## behavior. Small tabletop items and wall decorations become grabbable too.
 func _stream() -> void:
 	var i: int = 0
 	for item in _queue:
 		if not is_instance_valid(self):
 			return
-		PropLib.spawn(item[0], self, item[1], item[2], item[3], item[4])
+		var id: String = item[0]
+		var mov: bool = PropLib.is_moveable(id)
+		PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
 		i += 1
 		if i % PER_FRAME == 0:
 			await get_tree().process_frame

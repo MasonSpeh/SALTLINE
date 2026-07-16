@@ -89,6 +89,20 @@ func _ready() -> void:
 	await _shot(Vector3(24.0, 23.2, 15.0), 280.0, -2.0, GameClock.Phase.DAY, "sl_ladder_well")
 	await _shot(Vector3(14, 19.7, -4), 47.0, 24.0, GameClock.Phase.DUSK, "sl_derrick", 0.55)
 	await _shot(Vector3(-31.5, 19.0, -8.5), 24.0, 24.0, GameClock.Phase.DUSK, "sl_flare_west", 0.55)
+
+	# Storm: force a full squall, let the rain populate, shoot day + lightning.
+	if main.get("storm") != null:
+		main.storm._phase = 2   # RAGING
+		main.storm._timer = 999.0
+		main.storm._intensity = 1.0
+		main.storm._wind = Vector2(0.8, 0.3)
+		main.storm._apply_intensity()
+		GameClock.force_phase(GameClock.Phase.DAY)
+		main.player.global_position = Vector3(2, 19.7, -2)
+		await get_tree().create_timer(2.0).timeout
+		main.storm._flash_energy = 6.0   # a strike mid-shot
+		await _shot(Vector3(2, 19.7, -2), 200.0, -2.0, GameClock.Phase.DAY, "sl_storm_deck")
+		await _shot(Vector3(24, 4.0, -20), 150.0, 4.0, GameClock.Phase.DAY, "sl_storm_wetdeck")
 	get_tree().quit()
 
 func _ui_shot(panel: String, name_: String) -> void:

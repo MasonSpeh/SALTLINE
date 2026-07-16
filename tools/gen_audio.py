@@ -147,4 +147,26 @@ step = lowpass([random.uniform(-1, 1) * math.exp(-i / SR * 70) for i in range(n)
 step = [s * 0.8 + 0.35 * math.sin(2 * math.pi * 85 * i / SR) * math.exp(-i / SR * 55) for i, s in enumerate(step)]
 write_wav("step", env_fade(step, 0.03))
 
+# --- storm ---
+# thunder: a sharp broadband crack, then a long rolling low rumble that decays.
+n = int(SR * 4.2)
+crack = [random.uniform(-1, 1) * math.exp(-i / SR * 7.0) for i in range(n)]
+rumble = lowpass(noise(n), 0.006)
+thunder = []
+for i in range(n):
+    t = i / SR
+    body = rumble[i] * (0.35 + 0.65 * abs(math.sin(t * 1.15 + 0.6)))   # rolling waves
+    c = crack[i] if t < 0.22 else 0.0
+    thunder.append((c * 0.7 + body * 1.3) * math.exp(-t * 0.62) * 0.9)
+write_wav("thunder", env_fade(thunder, 0.02))
+
+# rain: a dense hiss bed (crude high-pass sparkle + low body), loopable.
+n = SR * 8
+rn = noise(n)
+hp = [rn[i] - (rn[i - 1] if i > 0 else 0.0) for i in range(n)]   # crude high-pass = patter
+body = lowpass(noise(n), 0.05)
+gust = lowpass(noise(n), 0.0006)
+rain = [(0.55 * hp[i] + 0.45 * body[i]) * (0.6 + 0.6 * abs(gust[i])) * 0.5 for i in range(n)]
+write_wav("rain_loop", env_fade(rain, 0.02))
+
 print("done")
