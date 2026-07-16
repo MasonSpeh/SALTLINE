@@ -202,10 +202,97 @@ func _extinguisher(pos: Vector3) -> void:
 	_dcyl(pos + Vector3(0, 0.26, 0), 0.09, 0.52, MatLib.flat(Color(0.75, 0.12, 0.08)))
 	_dbox(pos + Vector3(0, 0.56, 0), Vector3(0.05, 0.1, 0.05), MatLib.dark_metal())
 
-## Emissive window strip on an exterior face (non-collide).
-func _window_strip(pos: Vector3, w: float, along_x: bool) -> void:
-	var size := Vector3(w, 0.55, 0.06) if along_x else Vector3(0.06, 0.55, w)
-	_dbox(pos, size, MatLib.flat(Color(0.65, 0.85, 0.82), true, 0.7))
+# Window module: shared across all decks so openings stack into vertical columns.
+const WIN_SILL: float = 0.95     # opening bottom above floor
+const WIN_H: float = 1.45        # opening height
+const WIN_W: float = 1.6         # opening width
+const WIN_GRID: float = 4.0      # module spacing; centers land on multiples
+
+## A real framed window sitting IN a wall opening: painted-steel frame, a cross
+## mullion, and glass that glows warm when the deck is lit / reads cold-dark when
+## not. Built identically on both wall faces so it lines up inside and out.
+## along_x: wall runs along X at fixed z (pos.z is the wall centreline).
+func _window(pos: Vector3, along_x: bool, lit: bool) -> void:
+	var glass_mat: Material = MatLib.flat(Color(0.95, 0.82, 0.55), true, 0.9) if lit \
+		else MatLib.flat(Color(0.1, 0.15, 0.19))
+	var frame: Material = MatLib.painted_steel()
+	var t: float = WT + 0.06
+	if along_x:
+		_dbox(pos, Vector3(WIN_W - 0.1, WIN_H - 0.1, WT - 0.02), glass_mat)          # pane
+		_dbox(pos, Vector3(0.09, WIN_H + 0.14, t), frame)                             # centre mullion (vert)
+		_dbox(pos, Vector3(WIN_W + 0.14, 0.09, t), frame)                            # centre mullion (horiz)
+		_dbox(pos + Vector3(0, WIN_H * 0.5 + 0.04, 0), Vector3(WIN_W + 0.2, 0.12, t), frame)  # head
+		_dbox(pos + Vector3(0, -WIN_H * 0.5 - 0.04, 0), Vector3(WIN_W + 0.2, 0.14, t), frame)  # sill
+		_dbox(pos + Vector3(WIN_W * 0.5 + 0.05, 0, 0), Vector3(0.12, WIN_H + 0.2, t), frame)   # jambs
+		_dbox(pos + Vector3(-WIN_W * 0.5 - 0.05, 0, 0), Vector3(0.12, WIN_H + 0.2, t), frame)
+	else:
+		_dbox(pos, Vector3(WT - 0.02, WIN_H - 0.1, WIN_W - 0.1), glass_mat)
+		_dbox(pos, Vector3(t, WIN_H + 0.14, 0.09), frame)
+		_dbox(pos, Vector3(t, 0.09, WIN_W + 0.14), frame)
+		_dbox(pos + Vector3(0, WIN_H * 0.5 + 0.04, 0), Vector3(t, 0.12, WIN_W + 0.2), frame)
+		_dbox(pos + Vector3(0, -WIN_H * 0.5 - 0.04, 0), Vector3(t, 0.14, WIN_W + 0.2), frame)
+		_dbox(pos + Vector3(0, 0, WIN_W * 0.5 + 0.05), Vector3(t, WIN_H + 0.2, 0.12), frame)
+		_dbox(pos + Vector3(0, 0, -WIN_W * 0.5 - 0.05), Vector3(t, WIN_H + 0.2, 0.12), frame)
+	if lit:
+		var spill := OmniLight3D.new()
+		spill.light_energy = 0.5
+		spill.omni_range = 3.2
+		spill.light_color = Color(1.0, 0.82, 0.5)
+		spill.shadow_enabled = false
+		add_child(spill)
+		spill.position = pos + (Vector3(0, 0, 0.6 * signf(-pos.z + 12.0)) if along_x else Vector3(0.6 * signf(-pos.x + 13.0), 0, 0))
+
+## An exterior wall run (along X at fixed z) with real window openings on the
+## shared grid: solid sill band below, lintel band above, piers between windows,
+## and a framed glass unit in every opening. door_x (NAN = none) leaves a
+## full-height gap for a doorway. Windows land on WIN_GRID multiples inside the
+## span so B/C/D stack vertically.
+func _ext_win_wall_x(x0: float, x1: float, z: float, floor_y: float, mat: Material,
+		lit: bool, door_x: float = NAN) -> void:
+	var centers: Array[float] = []
+	var g: float = ceil((x0 + 1.2) / WIN_GRID) * WIN_GRID
+	while g <= x1 - 1.2:
+		if is_nan(door_x) or absf(g - door_x) > 1.8:
+			centers.append(g)
+		g += WIN_GRID
+	# Build occlusion spans: window openings + the door, sorted, to segment bands.
+	var gaps: Array = []
+	for c in centers:
+		gaps.append([c - WIN_W * 0.5, c + WIN_W * 0.5])
+	if not is_nan(door_x):
+		gaps.append([door_x - 0.75, door_x + 0.75])
+	gaps.sort_custom(func(a, b): return a[0] < b[0])
+	# Bottom (sill) and top (lintel) bands, segmented only by the door (windows
+	# sit above the sill band and below the lintel band, so those are continuous
+	# except where the door punches full height).
+	var bands := [
+		[floor_y + WIN_SILL * 0.5, WIN_SILL],                              # below sill
+		[floor_y + WIN_SILL + WIN_H + (WH - WIN_SILL - WIN_H) * 0.5, WH - WIN_SILL - WIN_H],  # lintel
+	]
+	for band in bands:
+		var cy: float = band[0]
+		var ch: float = band[1]
+		if ch <= 0.02:
+			continue
+		if is_nan(door_x):
+			_box(Vector3((x0 + x1) * 0.5, cy, z), Vector3(x1 - x0, ch, WT), mat)
+		else:
+			if door_x - 0.75 - x0 > 0.05:
+				_box(Vector3((x0 + door_x - 0.75) * 0.5, cy, z), Vector3(door_x - 0.75 - x0, ch, WT), mat)
+			if x1 - (door_x + 0.75) > 0.05:
+				_box(Vector3((door_x + 0.75 + x1) * 0.5, cy, z), Vector3(x1 - door_x - 0.75, ch, WT), mat)
+	# Piers filling the wall band between openings (sill..lintel height).
+	var pier_y: float = floor_y + WIN_SILL + WIN_H * 0.5
+	var cursor: float = x0
+	for gap in gaps:
+		if gap[0] - cursor > 0.05:
+			_box(Vector3((cursor + gap[0]) * 0.5, pier_y, z), Vector3(gap[0] - cursor, WIN_H, WT), mat)
+		cursor = maxf(cursor, gap[1])
+	if x1 - cursor > 0.05:
+		_box(Vector3((cursor + x1) * 0.5, pier_y, z), Vector3(x1 - cursor, WIN_H, WT), mat)
+	# The windows themselves.
+	for c in centers:
+		_window(Vector3(c, floor_y + WIN_SILL + WIN_H * 0.5, z), true, lit)
 
 func _porthole(pos: Vector3, along_x: bool) -> void:
 	var rim := MeshInstance3D.new()
@@ -394,8 +481,8 @@ func _deck_b() -> void:
 	_dbox(Vector3(2, y + 0.035, 15.5), Vector3(7.5, 0.03, 4.5), MatLib.kitchen_tile())
 	_dbox(Vector3(10, y + 0.035, 15.5), Vector3(7.5, 0.03, 4.5), MatLib.rubber_floor())
 	# Perimeter.
-	_wall(Vector3(-2, y, 6), Vector3(28, y, 6), WH, wmat, 0.07)          # south, door near x 0 (balcony)
-	_wall(Vector3(-2, y, 18), Vector3(28, y, 18), WH, wmat)
+	_ext_win_wall_x(-2, 28, 6, y, wmat, true, 0.1)                       # south, balcony door near x 0
+	_ext_win_wall_x(-2, 28, 18, y, wmat, true)                          # north
 	_wall(Vector3(-2, y, 6), Vector3(-2, y, 18), WH, wmat)
 	_wall(Vector3(28, y, 6), Vector3(28, y, 18), WH, wmat)
 	# Corridor walls (z 11 and z 13) with a door per room.
@@ -546,8 +633,8 @@ func _deck_c() -> void:
 	# open-air terrace/balcony; shaft gets a hole.
 	_slab_with_shaft_hole(y - 0.15, -2, 28, 6, 18, MatLib.concrete_floor())
 	# Perimeter (interior starts at x 4).
-	_wall(Vector3(4, y, 6), Vector3(28, y, 6), WH, wmat)
-	_wall(Vector3(4, y, 18), Vector3(28, y, 18), WH, wmat)
+	_ext_win_wall_x(4, 28, 6, y, wmat, true)                       # south
+	_ext_win_wall_x(4, 28, 18, y, wmat, true)                      # north
 	_wall(Vector3(4, y, 6), Vector3(4, y, 18), WH, wmat, 0.35)      # west door -> terrace at z ~10
 	_wall(Vector3(28, y, 6), Vector3(28, y, 18), WH, wmat)
 	# Corridor z 12..14.
@@ -648,8 +735,8 @@ func _deck_d() -> void:
 	# Slab covers the C footprint; strips west of x8 / south of z8 are open catwalk.
 	_slab_with_shaft_hole(y - 0.15, 4, 28, 6, 18, MatLib.concrete_floor())
 	# Perimeter (interior x 8..28, z 8..18). South door onto the catwalk strip.
-	_wall(Vector3(8, y, 8), Vector3(28, y, 8), WH, wmat, 0.15)
-	_wall(Vector3(8, y, 18), Vector3(28, y, 18), WH, wmat)
+	_ext_win_wall_x(8, 28, 8, y, wmat, true, 11.0)                  # south, catwalk door at x~11
+	_ext_win_wall_x(8, 28, 18, y, wmat, true)                      # north
 	_wall(Vector3(8, y, 8), Vector3(8, y, 18), WH, wmat)
 	_wall(Vector3(28, y, 8), Vector3(28, y, 18), WH, wmat, 0.3)     # east door -> helipad platform
 	# Two room bands around corridor z 13..15.
@@ -885,22 +972,11 @@ class Beacon extends Node3D:
 # ============================================================ exterior dressing
 
 func _exterior_dressing() -> void:
-	# Emissive window strips per deck — the behemoth reads alive from the sea.
-	for spec in [
-		[B_Y + 1.6, 6.0, -2.0, 28.0], [C_Y + 1.6, 6.0, 4.0, 28.0], [D_Y + 1.6, 8.0, 8.0, 28.0],
-	]:
-		var wy: float = spec[0]
-		var wz: float = spec[1]
-		var x0: float = spec[2]
-		var x1: float = spec[3]
-		var n: int = int((x1 - x0) / 4.0)
-		for i in range(n):
-			_window_strip(Vector3(x0 + 2.0 + i * 4.0, wy, wz - 0.16), 1.7, true)
-	# North face portholes on Deck B, window strips on C/D.
-	for i in range(6):
-		_porthole(Vector3(0.5 + i * 5.0, B_Y + 1.7, 18.16), false)
-	for i in range(5):
-		_window_strip(Vector3(6.5 + i * 4.4, C_Y + 1.6, 18.16), 1.7, true)
+	# South/north windows are now real framed openings in the perimeter walls
+	# (see _ext_win_wall_x in each deck) — they stack into vertical columns and
+	# glow from interior spill. Deck B's west gable wall keeps portholes.
+	_porthole(Vector3(-2.13, B_Y + 1.7, 9.0), false)
+	_porthole(Vector3(-2.13, B_Y + 1.7, 15.0), false)
 	# Big faded rig name on the Deck C south face.
 	_label("S A L T L I N E - 1", Vector3(16, C_Y + 2.3, 5.8), 180, 120, Color(0.75, 0.62, 0.4, 0.85))
 	# External pipe drops tying the stack into the old rig below.

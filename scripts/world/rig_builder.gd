@@ -903,6 +903,14 @@ func _build_env_objects() -> void:
 	bench.global_position = Vector3(19.5, WET_Y, -19.5)
 	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true)
 	_box(Vector3(19.5, WET_Y + 0.93, -19.5), Vector3(1.7, 0.06, 0.8), MatLib.wood(), self, false)
+	# The Rigger's Handbook — chained to the bench, lists every recipe and how the
+	# bench works. A lectern stand so it reads as a fixed shop reference, not loot.
+	_box(Vector3(20.55, WET_Y + 0.62, -19.5), Vector3(0.35, 0.06, 0.5), MatLib.dark_metal(), self, false).rotation.z = deg_to_rad(-18)
+	_box(Vector3(20.55, WET_Y + 0.3, -19.5), Vector3(0.06, 0.6, 0.06), MatLib.dark_metal(), self, false)
+	var handbook := _readable("rigger_handbook", "Rigger's Handbook",
+		Vector3(20.6, WET_Y + 0.72, -19.5), Vector3(0.32, 0.06, 0.42))
+	handbook.rotation.z = deg_to_rad(-18)
+	_plabel("RIGGING BENCH", Vector3(19.5, WET_Y + 1.5, -19.9), 180, 16, Color(0.85, 0.82, 0.7))
 	_takeable("rope", "Rope Coil", Vector3(17.2, DECK_Y + 0.01, -15.8), Vector3(0.45, 0.3, 0.45))
 	_takeable("prybar", "Prybar", Vector3(12.8, WET_Y + 1.81, -12.0), Vector3(0.15, 0.12, 0.9))
 	# 1. Oil drums — loose physics props, wet deck and topside.
