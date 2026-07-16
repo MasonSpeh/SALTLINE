@@ -13,6 +13,13 @@ func _ready() -> void:
 
 	await _shot(Vector3(24, 2.2, -18), -140.0, -5.0, GameClock.Phase.DAWN, "sl_wetdeck_sphl")
 	await _shot(Vector3(23.5, 3.2, -13.5), -125.0, -14.0, GameClock.Phase.DAY, "sl_props")
+	# Water-level overhaul vantages.
+	await _shot(Vector3(24.0, 3.8, -20.4), 60.0, -8.0, GameClock.Phase.DAY, "sl_sphl_profile")
+	await _shot(Vector3(24.5, 3.6, -19.5), 75.0, -6.0, GameClock.Phase.DAY, "sl_dock_landing")
+	await _shot(Vector3(14.0, 3.2, -23.4), 84.0, -10.0, GameClock.Phase.DAY, "sl_mooring")
+	await _shot(Vector3(8.6, 3.5, -3.5), 2.0, -8.0, GameClock.Phase.DAY, "sl_pipe_alley")
+	await _shot(Vector3(18, 3.2, -18), 40.0, 55.0, GameClock.Phase.DAY, "sl_girder_up")
+	await _shot(Vector3(15.5, 3.4, -5.2), 180.0, -12.0, GameClock.Phase.DAY, "sl_pump_skids")
 	await _shot(Vector3(-22, 19.2, -3), 235.0, -4.0, GameClock.Phase.DAY, "sl_topside_day")
 	await _shot(Vector3(3.5, 35.5, -18), 175.0, -18.0, GameClock.Phase.DAY, "sl_lookout")
 	await _shot(Vector3(26.5, 11.2, 4.5), 155.0, -5.0, GameClock.Phase.DAY, "sl_breaker_room")

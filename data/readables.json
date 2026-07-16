@@ -71,5 +71,13 @@
  "generator_tag": {
   "title": "GENERATOR FAULT TAG",
   "body": "OUT OF SERVICE — DO NOT CRANK\n\nFuel: contaminated (bio). Filters: fouled, green residue, GLOWS FAINT AT NIGHT.\n\nIf you need power, the topside floodlight circuit still takes a splice at Breaker 4-A. Cable's the hard part. Cable's always the hard part.\n\n— maintenance, last shift"
+ },
+ "mooring_log": {
+  "title": "MOORING WATCH LOG — STATION SW",
+  "body": "WINDLASS 4-SW — WATCH ENTRIES\n\nDay shift: chain wash-down complete, links 40-60 regreased. Tension nominal.\n\nNight shift: tension spiked 0300, eased by 0340. Swell from the SW. Logged, not reported.\n\nThe last entry is the 14th, 0250: 'Something on the chain. Went to look.'\n\nNothing after that. The grease gun is still clipped to the rail."
+ },
+ "fender_tag": {
+  "title": "INSPECTION TAG — BOAT LANDING",
+  "body": "FENDER PANEL 3 — QUARTERLY INSPECTION\n\nRubbing strips: 60% wear, replace next rotation. Tire fenders: serviceable.\n\nInspector's initials worn to a smudge of salt.\n\nStamped across the bottom in the company's blue ink: MERIDIAN DEEP ENERGY — SALTLINE PROJECT. The landing was due for service the week the ocean went quiet."
  }
 }

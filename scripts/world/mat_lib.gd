@@ -110,8 +110,9 @@ static func hazard_stripe() -> StandardMaterial3D:
 	return _pbr("hazard", "PaintedMetal016", Color.WHITE, 0.45, 1.0, 0.0, Color(0.75, 0.65, 0.15))
 
 static func sphl_orange() -> StandardMaterial3D:
-	## Rescue-orange over scratched paint: the pod that kept its passenger.
-	return _pbr("sphl", "PaintedMetal004", Color(1.0, 0.62, 0.3), 0.45, 1.0, 0.0, Color(0.88, 0.44, 0.12))
+	## International-orange GRP over brushed metal wear: the pod that kept its
+	## passenger. (Boosted tint over a gray base — the red paint set reads fire-red.)
+	return _pbr("sphl", "Metal032", Color(1.5, 0.55, 0.12), 0.45, 1.0, 0.0, Color(0.88, 0.44, 0.12))
 
 # ---------- mineral & organic ----------
 
@@ -121,6 +122,10 @@ static func concrete() -> StandardMaterial3D:
 static func concrete_floor() -> StandardMaterial3D:
 	return _pbr("concrete_floor", "Concrete012", Color.WHITE, 0.3, 1.0, 0.0, Color(0.52, 0.52, 0.5))
 
+static func tide_band() -> StandardMaterial3D:
+	## Algae-and-weed stain band where the swell breathes on the concrete.
+	return _pbr("tide_band", "Concrete012", Color(0.42, 0.5, 0.4), 0.45, 1.0, 0.0, Color(0.3, 0.36, 0.3))
+
 static func wood() -> StandardMaterial3D:
 	return _pbr("wood", "Planks037A", Color.WHITE, 0.4, 1.0, 0.0, Color(0.56, 0.43, 0.28))
 
@@ -129,8 +134,9 @@ static func weathered_wood() -> StandardMaterial3D:
 	return _pbr("weathered", "Planks037A", Color(0.78, 0.75, 0.7), 0.5, 1.0, 0.0, Color(0.35, 0.28, 0.22))
 
 static func canvas(tint: Color = Color.WHITE) -> StandardMaterial3D:
-	## Woven canvas — tarps, lean-tos, bunk fabric.
-	return _pbr("canvas_%s" % tint.to_html(), "Fabric062", tint, 0.7, 1.0, 0.0, Color(0.6, 0.58, 0.52))
+	## Woven canvas — tarps, lean-tos, bunk fabric. Tight uv so the weave reads
+	## as texture, not as a picnic-check pattern.
+	return _pbr("canvas_%s" % tint.to_html(), "Fabric062", tint, 1.5, 1.0, 0.0, Color(0.6, 0.58, 0.52))
 
 static func rope_mat() -> StandardMaterial3D:
 	return _pbr("rope", "Rope001", Color.WHITE, 1.2, 1.0, 0.0, Color(0.55, 0.48, 0.36), true)
