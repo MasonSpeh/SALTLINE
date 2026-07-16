@@ -47,6 +47,15 @@ down. Bolted machinery and shelving stay put.
 wind, lightning and thunder, a slate-dark sky. They rage a couple of minutes,
 then clear.
 
+**Fishing** — the rod is in the wet-deck storeroom. Select it on the hotbar,
+**LMB** casts to open water; when the float plunges, **LMB** strikes, then hold
+**LMB** to reel the lulls and release through the surges — top out the strain
+bar and the line parts. Species run by time of day; the deep night holds the
+strange ones. Craft a **Drop Net** at the bench (2 rope + driftwood), place it
+at a deck edge with **B**, LOWER it, come back later and HAUL. Sear raw catch
+at the **galley stove** (E · COOK), then eat the meal from the hotbar. Raw fish
+will make you sick.
+
 Debug keys: F1 next phase · F2 toggle power · F3 infinite stats · F4/F5 teleport ·
 F6 toggle 20x time · **F7 force a storm** · **double-tap F fly mode** (noclip
 free-flight for testing — WASD + look to fly, Space up, Ctrl down, Shift boost;

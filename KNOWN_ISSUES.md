@@ -1,5 +1,9 @@
 # Known Issues
 
+- **Un-crouching has no headroom check** — standing up under low geometry can
+  grow the capsule into it (review finding; pre-existing). Add an upward
+  shape-cast gate in `_update_crouch` when a crawl-space area exists.
+
 - **Interior props stream in over ~1s after the scene loads.** Instancing ~200
   glTF props at once blocked the main thread for ~7s (froze the window on Play),
   so `interior_props.gd` now queues placements and instances a few per frame.

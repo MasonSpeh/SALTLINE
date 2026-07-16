@@ -27,6 +27,20 @@ func _ready() -> void:
 	await _shot(Vector3(24, 4.0, -22), 160.0, -6.0, GameClock.Phase.DAY, "sl_fauna_seal")
 	# Stair verification: tower flight from the wet deck, and the quarters stairs.
 	await _shot(Vector3(23.5, 3.4, -1.0), -45.0, 6.0, GameClock.Phase.DAY, "sl_stairs_tower")
+	# Fishing beats: the rod in the storeroom, the stove, a cast riding the swell.
+	await _shot(Vector3(12.8, 3.4, -18.6), 130.0, -18.0, GameClock.Phase.DAY, "sl_fishing_rod")
+	await _shot(Vector3(9.5, 19.6, 14.3), 220.0, -10.0, GameClock.Phase.DAY, "sl_galley_stove")
+	if main.player.fishing == null:
+		main.player.global_position = Vector3(27.0, 2.2, -20.0)   # east of the pod, open sea south
+		main.player.rotation.y = deg_to_rad(0)
+		main.player.get_node("Head").rotation.x = deg_to_rad(-10)
+		PlayerState.add_item("fishing_rod")
+		PlayerState.selected_hotbar = PlayerState.hotbar.find("fishing_rod")
+		main.player._start_fishing()
+		await get_tree().create_timer(1.6).timeout
+		var img2: Image = get_viewport().get_texture().get_image()
+		img2.save_png("/tmp/sl_fishing_cast.png")
+		print("saved /tmp/sl_fishing_cast.png")
 	await _shot(Vector3(28.5, 7.2, -1.5), 40.0, -18.0, GameClock.Phase.DAY, "sl_stairs_tower_up")
 	await _shot(Vector3(19, 4.5, -6), 200.0, -16.0, GameClock.Phase.NIGHT, "sl_fauna_snails")
 	await _shot(Vector3(-22, 19.2, -3), 235.0, -4.0, GameClock.Phase.DAY, "sl_topside_day")

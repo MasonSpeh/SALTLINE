@@ -57,6 +57,7 @@ var input_locked: bool = false     ## cold open / cutscenes: look allowed, movem
 var respawn_point: Vector3 = Vector3.ZERO
 var carried: Node3D = null         ## currently held physics object
 var hook_out: bool = false         ## throwing hook is in flight / reeling
+var fishing: Node3D = null         ## a cast is out (FishingRod owns the line)
 var ui_locked: bool = false        ## a HUD panel (inventory/journal/help/bench) is open
 var build: BuildMode = null        ## build mode controller (B)
 var crouching: bool = false        ## held crouch — half height, slower, harder to detect
@@ -108,6 +109,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			pitch_delta = -pitch_delta
 		head.rotate_x(pitch_delta)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-85.0), deg_to_rad(85.0))
+	# Rod selected + LMB = cast. (While a cast is out, the FishingRod handles LMB.)
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and event.pressed and not input_locked and not ui_locked and fishing == null \
+			and carried == null and not _climbing and not hook_out \
+			and not (build and build.active) and _selected_item_id() == "fishing_rod":
+		_start_fishing()
+		get_viewport().set_input_as_handled()
+		return
 	# Carrying a prop: left-click throws, E or G sets it down.
 	if carried and not input_locked:
 		if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT and event.pressed:
@@ -180,8 +189,24 @@ func _fly_process(delta: float) -> void:
 		global_position += move.normalized() * speed * delta
 	velocity = Vector3.ZERO
 
+func _selected_item_id() -> String:
+	var slot: int = PlayerState.selected_hotbar
+	if slot < 0 or slot >= PlayerState.HOTBAR_SIZE or PlayerState.hotbar[slot] == null:
+		return ""
+	return String(PlayerState.hotbar[slot])
+
+func _start_fishing() -> void:
+	# Preloaded by path — the global class cache may not know the new file yet.
+	var rod: Node3D = preload("res://scripts/components/fishing_rod.gd").new()
+	get_tree().current_scene.add_child(rod)
+	rod.setup(self, camera)
+	fishing = rod
+
+func fishing_done() -> void:
+	fishing = null
+
 func _throw_hook() -> void:
-	if hook_out or carried or _climbing or ui_locked or build.active \
+	if hook_out or carried or _climbing or ui_locked or build.active or fishing \
 			or not PlayerState.has_item("throwing_hook"):
 		return
 	hook_out = true

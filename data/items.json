@@ -1,23 +1,154 @@
 {
 	"_schema": "item_id -> { name, use: eat|drink|tool|build, hunger/thirst: restore amounts, side_effect }",
-	"canned_food": { "name": "Canned Food", "use": "eat", "hunger": 0.35 },
-	"canned_peaches": { "name": "Canned Peaches", "use": "eat", "hunger": 0.25, "thirst": 0.15 },
-	"water_ration": { "name": "Water Ration", "use": "drink", "thirst": 0.5 },
-	"cable_spool": { "name": "Cable Spool", "use": "tool" },
-	"prybar": { "name": "Prybar", "use": "tool" },
-	"flare": { "name": "Flare", "use": "tool" },
-	"life_ring": { "name": "Life Ring", "use": "tool" },
-	"rope": { "name": "Rope Coil", "use": "tool" },
-	"throwing_hook": { "name": "Throwing Hook", "use": "tool" },
-	"driftwood": { "name": "Driftwood Plank", "use": "tool" },
-	"scrap_metal": { "name": "Scrap Metal", "use": "tool" },
-	"tarp": { "name": "Canvas Tarp", "use": "tool" },
-	"sealed_tin": { "name": "Sealed Tin", "use": "eat", "hunger": 0.3 },
-	"kelp_bundle": { "name": "Kelp Bundle", "use": "eat", "hunger": 0.12 },
-	"bloom_lamp_kit": { "name": "Bloom Lamp (kit)", "use": "build" },
-	"leanto_kit": { "name": "Lean-To (kit)", "use": "build" },
-	"walkway_kit": { "name": "Plank Walkway (kit)", "use": "build" },
-	"barricade_kit": { "name": "Barricade (kit)", "use": "build" },
-	"glow_worm": { "name": "Glow Worm", "use": "eat", "hunger": 0.15, "side_effect": "sick" },
-	"glow_worm_cooked": { "name": "Seared Glow Worm", "use": "eat", "hunger": 0.5 }
+	"canned_food": {
+		"name": "Canned Food",
+		"use": "eat",
+		"hunger": 0.35
+	},
+	"canned_peaches": {
+		"name": "Canned Peaches",
+		"use": "eat",
+		"hunger": 0.25,
+		"thirst": 0.15
+	},
+	"water_ration": {
+		"name": "Water Ration",
+		"use": "drink",
+		"thirst": 0.5
+	},
+	"cable_spool": {
+		"name": "Cable Spool",
+		"use": "tool"
+	},
+	"prybar": {
+		"name": "Prybar",
+		"use": "tool"
+	},
+	"flare": {
+		"name": "Flare",
+		"use": "tool"
+	},
+	"life_ring": {
+		"name": "Life Ring",
+		"use": "tool"
+	},
+	"rope": {
+		"name": "Rope Coil",
+		"use": "tool"
+	},
+	"throwing_hook": {
+		"name": "Throwing Hook",
+		"use": "tool"
+	},
+	"driftwood": {
+		"name": "Driftwood Plank",
+		"use": "tool"
+	},
+	"scrap_metal": {
+		"name": "Scrap Metal",
+		"use": "tool"
+	},
+	"tarp": {
+		"name": "Canvas Tarp",
+		"use": "tool"
+	},
+	"sealed_tin": {
+		"name": "Sealed Tin",
+		"use": "eat",
+		"hunger": 0.3
+	},
+	"kelp_bundle": {
+		"name": "Kelp Bundle",
+		"use": "eat",
+		"hunger": 0.12
+	},
+	"bloom_lamp_kit": {
+		"name": "Bloom Lamp (kit)",
+		"use": "build"
+	},
+	"leanto_kit": {
+		"name": "Lean-To (kit)",
+		"use": "build"
+	},
+	"walkway_kit": {
+		"name": "Plank Walkway (kit)",
+		"use": "build"
+	},
+	"barricade_kit": {
+		"name": "Barricade (kit)",
+		"use": "build"
+	},
+	"glow_worm": {
+		"name": "Glow Worm",
+		"use": "eat",
+		"hunger": 0.15,
+		"side_effect": "sick"
+	},
+	"glow_worm_cooked": {
+		"name": "Seared Glow Worm",
+		"use": "eat",
+		"hunger": 0.5
+	},
+	"fishing_rod": {
+		"name": "Fishing Rod",
+		"use": "tool"
+	},
+	"drop_net_kit": {
+		"name": "Drop Net",
+		"use": "build"
+	},
+	"fish_herring": {
+		"name": "Lantern Herring",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_slate_cod": {
+		"name": "Slate Cod",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_mirrorjack": {
+		"name": "Mirrorjack",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_chimefish": {
+		"name": "Chimefish",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_sable_hake": {
+		"name": "Sable Hake",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_barrel_grouper": {
+		"name": "Barrel Grouper",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"fish_ribbon_eel": {
+		"name": "Ribbon Eel",
+		"use": "eat",
+		"hunger": 0.08,
+		"side_effect": "sick"
+	},
+	"cooked_fish": {
+		"name": "Seared Fish",
+		"use": "eat",
+		"hunger": 0.45,
+		"thirst": 0.05
+	},
+	"cooked_fish_prime": {
+		"name": "Prime Fillet",
+		"use": "eat",
+		"hunger": 0.7,
+		"thirst": 0.1
+	}
 }

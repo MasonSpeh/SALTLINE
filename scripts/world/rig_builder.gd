@@ -804,8 +804,15 @@ func _decorate_bunkhouse() -> void:
 
 func _decorate_galley() -> void:
 	var y: float = DECK_Y
-	# Stove with two burners and one pot still on the heat that never came.
-	_box(Vector3(11.5, y + 0.5, 16.2), Vector3(1.3, 1.0, 1.2), MatLib.dark_metal())
+	# The stove: a working propane range now — COOK sears raw catch into meals.
+	# Preloaded by path — the global class cache may not know the new file yet.
+	var stove: Interactable = preload("res://scripts/components/cook_stove.gd").new()
+	add_child(stove)
+	stove.global_position = Vector3(11.5, y + 0.5, 16.2)
+	stove.build_box_visual(Vector3(1.3, 1.0, 1.2), Color(0.16, 0.17, 0.19), false, true)
+	# Its bottle: pressure that survived the Flash.
+	_cyl_nc(Vector3(12.5, y + 0.45, 17.1), 0.17, 0.9, MatLib.galvanized())
+	_plabel("LPG", Vector3(12.5, y + 0.55, 16.92), 180, 10, Color(0.8, 0.3, 0.2))
 	_cyl_nc(Vector3(11.2, y + 1.02, 15.9), 0.18, 0.03, MatLib.flat(Color(0.1, 0.1, 0.1)))
 	_cyl_nc(Vector3(11.8, y + 1.02, 16.5), 0.18, 0.03, MatLib.flat(Color(0.1, 0.1, 0.1)))
 	_cyl_nc(Vector3(11.2, y + 1.15, 15.9), 0.2, 0.24, MatLib.painted_steel())

@@ -5,13 +5,15 @@ class_name Structures extends RefCounted
 ## honors, lean-tos make WarmthZones the cold respects.
 
 const BLOOM_CIRCUIT := "bloom_lamps"   ## always-on: bio-light needs no breaker
+const DROP_NET := preload("res://scripts/components/drop_net.gd")   # by path: class cache lags new files
 
-const KIT_ORDER := ["bloom_lamp_kit", "leanto_kit", "walkway_kit", "barricade_kit"]
+const KIT_ORDER := ["bloom_lamp_kit", "leanto_kit", "walkway_kit", "barricade_kit", "drop_net_kit"]
 
 static func display_name(kit: String) -> String:
 	return {
 		"bloom_lamp_kit": "Bloom Lamp", "leanto_kit": "Lean-To",
 		"walkway_kit": "Plank Walkway", "barricade_kit": "Barricade",
+		"drop_net_kit": "Drop Net",
 	}.get(kit, kit)
 
 static func build(kit: String, ghost: bool = false) -> Node3D:
@@ -24,6 +26,8 @@ static func build(kit: String, ghost: bool = false) -> Node3D:
 			return walkway(ghost)
 		"barricade_kit":
 			return barricade(ghost)
+		"drop_net_kit":
+			return drop_net(ghost)
 	return Node3D.new()
 
 static func _mat(color: Color, ghost: bool, emissive: float = 0.0) -> StandardMaterial3D:
@@ -133,6 +137,53 @@ static func walkway(ghost: bool) -> Node3D:
 	_part(root, Vector3(0, 0.17, 0.42), Vector3(2.2, 0.05, 0.1), _mat(Color(0.4, 0.32, 0.22), ghost), false)
 	if not ghost:
 		root.add_to_group("built_structures")   # ghosts are previews, not real structures
+	return root
+
+## Winch frame + weighted mesh: LOWER off a deck edge, soak, HAUL fish back up.
+## The DropNet interactable is the winch pedestal; the net hangs from the boom.
+static func drop_net(ghost: bool) -> Node3D:
+	var root := Node3D.new()
+	var steel := _mat(Color(0.45, 0.32, 0.22), ghost)
+	var cord := _mat(Color(0.68, 0.62, 0.46), ghost)
+	# A-frame posts + outward boom.
+	_part(root, Vector3(-0.5, 1.1, 0), Vector3(0.12, 2.2, 0.12), steel, not ghost)
+	_part(root, Vector3(0.5, 1.1, 0), Vector3(0.12, 2.2, 0.12), steel, not ghost)
+	_part(root, Vector3(0, 2.2, 0.7), Vector3(0.14, 0.14, 2.4), steel, false)
+	# The net: an open mesh basket hung out at the boom tip.
+	var net := Node3D.new()
+	root.add_child(net)
+	net.position = Vector3(0, 1.15, 1.85)
+	for ring_y in [0.0, -0.55, -1.05]:
+		_part(net, Vector3(0, ring_y, 0), Vector3(1.1, 0.04, 1.1), cord, false)
+	for cx in [-0.55, 0.55]:
+		for cz in [-0.55, 0.55]:
+			_part(net, Vector3(cx, -0.5, cz), Vector3(0.035, 1.1, 0.035), cord, false)
+	for wx in [-0.4, 0.4]:
+		_part(net, Vector3(wx, -1.12, 0), Vector3(0.12, 0.1, 0.12), steel, false)   # weights
+	# Hang line from the boom tip (stretches with the drop).
+	var rope_pivot := Node3D.new()
+	root.add_child(rope_pivot)
+	rope_pivot.position = Vector3(0, 2.2, 1.85)
+	var rope := MeshInstance3D.new()
+	var rm := CylinderMesh.new()
+	rm.top_radius = 0.025
+	rm.bottom_radius = 0.025
+	rm.height = 1.0
+	rm.material = cord
+	rope.mesh = rm
+	rope_pivot.add_child(rope)
+	rope.position.y = -0.5
+	rope_pivot.scale.y = 1.05
+	if ghost:
+		return root
+	# The winch pedestal is the thing you operate.
+	var winch: Interactable = DROP_NET.new()
+	root.add_child(winch)
+	winch.position = Vector3(0, 0.45, -0.55)
+	winch.build_box_visual(Vector3(0.6, 0.9, 0.55), Interactable.COLOR_OPERABLE, false, true)
+	winch.net = net
+	winch.rope_pivot = rope_pivot
+	root.add_to_group("built_structures")
 	return root
 
 ## Waist-high scrap wall.

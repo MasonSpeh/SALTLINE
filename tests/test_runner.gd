@@ -9,6 +9,35 @@ const DECK_Y_TEST: float = 18.0
 func _count_structures(main: Node) -> int:
 	return main.get_tree().get_nodes_in_group("built_structures").size()
 
+## Find a Takeable anywhere in the tree by item id.
+func _find_takeable(root: Node, id: String) -> Node:
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		if n is Takeable and n.item_id == id:
+			return n
+	return null
+
+## Find a node whose script path contains `frag` (new classes: cache-safe lookup).
+func _find_class(root: Node, frag: String) -> Node:
+	var stack: Array[Node] = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		var s: Script = n.get_script()
+		if s != null and String(s.resource_path).contains(frag):
+			return n
+	return null
+
+func _fish_total() -> int:
+	var n: int = 0
+	for id in ["fish_herring", "fish_slate_cod", "fish_chimefish", "fish_sable_hake"]:
+		n += _item_count(id)
+	return n
+
 func _item_count(id: String) -> int:
 	var n: int = 0
 	for it in PlayerState.hotbar:
@@ -205,6 +234,61 @@ func _run() -> void:
 		main.storm._intensity = 0.0
 		main.storm._phase = 0
 		main.storm._apply_intensity()
+
+	# Fishing: the rod is placed in the world, a landed fight yields a fish,
+	# the stove sears it, and the seared meal actually feeds you.
+	_check(_find_takeable(main, "fishing_rod") != null, "fishing rod placed in a storage room")
+	var rod: Node3D = preload("res://scripts/components/fishing_rod.gd").new()
+	main.add_child(rod)
+	rod.setup(player, player.camera)
+	rod._fish = {"id": "fish_herring", "name": "Lantern Herring", "fight": 0.8, "pull": 0.65}
+	rod._state = rod.State.FIGHT
+	var herring_before: int = _item_count("fish_herring")
+	rod._land()
+	_check(_item_count("fish_herring") > herring_before, "landed fight puts the fish in the pack")
+	_check(player.fishing == null or not is_instance_valid(rod), "rod cleans up after landing")
+	# The Looker is never kept — canon.
+	var rod2: Node3D = preload("res://scripts/components/fishing_rod.gd").new()
+	main.add_child(rod2)
+	rod2.setup(player, player.camera)
+	rod2._fish = {"id": "the_looker", "name": "The Looker", "fight": 1.3, "pull": 1.1}
+	rod2._state = rod2.State.FIGHT
+	var pack_before: int = PlayerState.hotbar.size() + PlayerState.inventory.size()
+	rod2._land()
+	_check(not PlayerState.has_item("the_looker"), "The Looker is released, never kept")
+
+	# Stove: sear the herring, then eat the meal.
+	var stove: Node = _find_class(main, "cook_stove")
+	_check(stove != null, "galley stove exists")
+	if stove:
+		var cooked_before: int = _item_count("cooked_fish")
+		stove.interact("COOK", player)
+		_check(_item_count("cooked_fish") > cooked_before, "stove sears raw fish into a meal")
+		_check(_item_count("fish_herring") == herring_before, "searing consumes the raw fish")
+		PlayerState.hunger = 0.2
+		var cslot: int = PlayerState.hotbar.find("cooked_fish")
+		if cslot == -1:
+			PlayerState.add_item("cooked_fish")
+			cslot = PlayerState.hotbar.find("cooked_fish")
+		PlayerState.use_hotbar(cslot)
+		_check(PlayerState.hunger > 0.5, "eating seared fish restores hunger")
+
+	# Drop net: build, lower, force-mature, haul — fish arrive.
+	var net_rig: Node3D = Structures.build("drop_net_kit", false)
+	main.add_child(net_rig)
+	net_rig.global_position = Vector3(19.5, 2.0, -21.8)   # dock edge, water below
+	await get_tree().physics_frame
+	var winch: Node = _find_class(net_rig, "drop_net")
+	_check(winch != null, "drop net structure carries its winch")
+	if winch:
+		winch.interact("LOWER", player)
+		_check(winch._state == winch.NetState.SOAKING, "net lowers into a soak")
+		winch._state = winch.NetState.READY
+		winch._wet = true
+		winch._soaked_dark = true
+		var fish_before: int = _fish_total()
+		winch.interact("HAUL", player)
+		_check(_fish_total() > fish_before, "hauled net yields fish")
 
 	# Save round-trip.
 	SaveManager.save_game()

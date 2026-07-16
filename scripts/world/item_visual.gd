@@ -3,8 +3,20 @@ class_name ItemVisual extends RefCounted
 ## Returns a Node3D you parent to a Takeable (or anything). Shapes echo the gyre-debris
 ## silhouettes for consistency: cans are cylinders, rope is a coil, planks are planks.
 
+## Species tints for the raw-fish family — one silhouette, per-fish colors.
+const FISH_TINT := {
+	"fish_herring": Color(0.7, 0.85, 0.85), "fish_slate_cod": Color(0.42, 0.45, 0.5),
+	"fish_mirrorjack": Color(0.85, 0.88, 0.92), "fish_chimefish": Color(0.75, 0.8, 0.6),
+	"fish_sable_hake": Color(0.25, 0.27, 0.32), "fish_barrel_grouper": Color(0.5, 0.38, 0.3),
+	"fish_ribbon_eel": Color(0.4, 0.6, 0.62),
+}
+
 static func build(item_id: String) -> Node3D:
 	var root := Node3D.new()
+	if item_id.begins_with("fish_"):
+		_fish(root, FISH_TINT.get(item_id, Color(0.6, 0.65, 0.68)),
+			1.4 if item_id == "fish_barrel_grouper" else 1.0)
+		return root
 	match item_id:
 		"canned_food":
 			_can(root, Color(0.7, 0.72, 0.75), Color(0.6, 0.3, 0.2))
@@ -69,12 +81,58 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.5, 0.32, 0.12), Color(0.4, 0.36, 0.34), Vector3(0, 0.18, 0))
 			_box(root, Vector3(0.08, 0.36, 0.08), Color(0.45, 0.35, 0.22), Vector3(-0.18, 0.18, 0))
 			_box(root, Vector3(0.08, 0.36, 0.08), Color(0.45, 0.35, 0.22), Vector3(0.18, 0.18, 0))
+		"fishing_rod":
+			# Long tapering rod, cork grip, a small reel drum under the seat.
+			var shaft := _box(root, Vector3(0.035, 1.5, 0.035), Color(0.45, 0.33, 0.2), Vector3(0, 0.55, 0))
+			shaft.rotation.z = deg_to_rad(14)
+			_box(root, Vector3(0.06, 0.3, 0.06), Color(0.65, 0.52, 0.35), Vector3(-0.14, 0.12, 0))
+			var reel := _cyl(root, 0.07, 0.06, Color(0.25, 0.27, 0.3), Vector3(-0.1, 0.26, 0.05))
+			reel.rotation.x = deg_to_rad(90)
+		"cooked_fish":
+			_box(root, Vector3(0.3, 0.06, 0.16), Color(0.62, 0.45, 0.26), Vector3(0, 0.05, 0))
+			_box(root, Vector3(0.24, 0.02, 0.12), Color(0.35, 0.22, 0.12), Vector3(0, 0.09, 0))
+		"cooked_fish_prime":
+			_box(root, Vector3(0.42, 0.08, 0.2), Color(0.68, 0.48, 0.28), Vector3(0, 0.06, 0))
+			_box(root, Vector3(0.34, 0.02, 0.15), Color(0.4, 0.24, 0.12), Vector3(0, 0.11, 0))
+		"drop_net_kit":
+			# A folded mesh bundle with two weights showing.
+			_box(root, Vector3(0.4, 0.2, 0.32), Color(0.68, 0.62, 0.46), Vector3(0, 0.12, 0))
+			_box(root, Vector3(0.1, 0.08, 0.1), Color(0.3, 0.31, 0.34), Vector3(-0.12, 0.26, 0.05))
+			_box(root, Vector3(0.1, 0.08, 0.1), Color(0.3, 0.31, 0.34), Vector3(0.1, 0.26, -0.06))
 		"glow_worm", "glow_worm_cooked":
 			# Glowing sphere for raw/cooked worm (slightly different glow in hand)
 			_box(root, Vector3(0.25, 0.25, 0.25), Color(0.2, 0.9, 0.85), Vector3(0, 0.125, 0), true, 1.0)
 		_:
 			_box(root, Vector3(0.28, 0.3, 0.28), Interactable.COLOR_TAKEABLE, Vector3(0, 0.15, 0))
 	return root
+
+## One fish silhouette: tapered capsule body, prism tail, a dot of eye.
+static func _fish(root: Node3D, tint: Color, size_mul: float = 1.0) -> void:
+	var body := MeshInstance3D.new()
+	var bm := CapsuleMesh.new()
+	bm.radius = 0.06 * size_mul
+	bm.height = 0.4 * size_mul
+	bm.material = MatLib.flat(tint)
+	body.mesh = bm
+	body.rotation.z = deg_to_rad(90)
+	root.add_child(body)
+	body.position = Vector3(0, 0.08 * size_mul, 0)
+	var tail := MeshInstance3D.new()
+	var tm := PrismMesh.new()
+	tm.size = Vector3(0.14, 0.02, 0.12) * size_mul
+	tm.material = MatLib.flat(tint.darkened(0.25))
+	tail.mesh = tm
+	tail.rotation.z = deg_to_rad(90)
+	root.add_child(tail)
+	tail.position = Vector3(0.24 * size_mul, 0.08 * size_mul, 0)
+	var eye := MeshInstance3D.new()
+	var em := SphereMesh.new()
+	em.radius = 0.015 * size_mul
+	em.height = 0.03 * size_mul
+	em.material = MatLib.flat(Color(0.05, 0.05, 0.06))
+	eye.mesh = em
+	root.add_child(eye)
+	eye.position = Vector3(-0.15 * size_mul, 0.1 * size_mul, 0.045 * size_mul)
 
 # ---- primitives ----
 

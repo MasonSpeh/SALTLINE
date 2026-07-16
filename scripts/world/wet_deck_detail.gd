@@ -411,6 +411,9 @@ func _tide_bands() -> void:
 func _scatter_items() -> void:
 	var y: float = WET_Y
 	_takeable("driftwood", "Driftwood", Vector3(26.8, y + 0.05, -21.4))
+	# The fishing rod — propped in the storeroom where a rigger left it. The other
+	# half of the food economy, waiting behind the first door most players open.
+	_takeable("fishing_rod", "Fishing Rod", Vector3(11.0, y + 0.05, -17.2))
 	_takeable("life_ring", "Spare Lifebuoy", Vector3(16.4, y + 0.05, -21.2))
 	_takeable("tarp", "Folded Tarp", Vector3(23.2, y + 1.3, -21.0))
 	_takeable("scrap_metal", "Scrap Plate", Vector3(8.8, y + 0.05, -17.5))

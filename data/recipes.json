@@ -2,7 +2,10 @@
 	"_schema": "recipe_id -> { name, needs: {item: count}, makes, work_sec, desc, hint }. Bench crafting: lay parts, work them.",
 	"throwing_hook": {
 		"name": "Throwing Hook",
-		"needs": { "rope": 1, "prybar": 1 },
+		"needs": {
+			"rope": 1,
+			"prybar": 1
+		},
 		"makes": "throwing_hook",
 		"work_sec": 2.5,
 		"desc": "A heaving line with teeth. Takes back what the gyre holds.",
@@ -10,7 +13,10 @@
 	},
 	"bloom_lamp_kit": {
 		"name": "Bloom Lamp",
-		"needs": { "kelp_bundle": 2, "scrap_metal": 1 },
+		"needs": {
+			"kelp_bundle": 2,
+			"scrap_metal": 1
+		},
 		"makes": "bloom_lamp_kit",
 		"work_sec": 3.0,
 		"desc": "Bloom-kelp sealed in a scrap housing. Cold teal light, no power needed — and what walks at night honors it.",
@@ -18,7 +24,10 @@
 	},
 	"leanto_kit": {
 		"name": "Lean-To",
-		"needs": { "tarp": 1, "driftwood": 2 },
+		"needs": {
+			"tarp": 1,
+			"driftwood": 2
+		},
 		"makes": "leanto_kit",
 		"work_sec": 3.0,
 		"desc": "Canvas over a driftwood frame. A pocket of warmth anywhere on the rig.",
@@ -26,7 +35,9 @@
 	},
 	"walkway_kit": {
 		"name": "Plank Walkway",
-		"needs": { "driftwood": 2 },
+		"needs": {
+			"driftwood": 2
+		},
 		"makes": "walkway_kit",
 		"work_sec": 2.0,
 		"desc": "A lashed plank section. Bridges a gap, extends a deck.",
@@ -34,7 +45,10 @@
 	},
 	"barricade_kit": {
 		"name": "Barricade",
-		"needs": { "driftwood": 1, "scrap_metal": 2 },
+		"needs": {
+			"driftwood": 1,
+			"scrap_metal": 2
+		},
 		"makes": "barricade_kit",
 		"work_sec": 3.0,
 		"desc": "Scrap plate on a wood brace. Waist-high, storm-solid.",
@@ -42,10 +56,23 @@
 	},
 	"glow_worm_cooked": {
 		"name": "Seared Glow Worm",
-		"needs": { "glow_worm": 1 },
+		"needs": {
+			"glow_worm": 1
+		},
 		"makes": "glow_worm_cooked",
 		"work_sec": 2.0,
 		"desc": "A minute on hot steel and the light goes out of it. What's left is honest meat.",
 		"hint": "Raw ones bite back on the way down. Sear it first."
+	},
+	"drop_net_kit": {
+		"name": "Drop Net",
+		"needs": {
+			"rope": 2,
+			"driftwood": 1
+		},
+		"makes": "drop_net_kit",
+		"work_sec": 3.0,
+		"desc": "A weighted mesh on a winch line. Lower it off an edge, let the sea walk in, haul.",
+		"hint": "Set it before dusk — the night shift swims shallower."
 	}
 }
