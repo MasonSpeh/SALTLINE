@@ -42,6 +42,8 @@ func _ready() -> void:
 	_decorate_interiors()
 	_build_env_objects()
 	_industrial_dressing()
+	_arrival_dressing()
+	_density_a()
 	# The accommodation stack: Decks B/C/D + roof + comms mast above the topside rooms.
 	# Preloaded by path — the global class cache may not know the new file yet.
 	add_child(preload("res://scripts/world/rig_superstructure.gd").new())
@@ -404,9 +406,9 @@ func _build_bunkhouse() -> void:
 		var p: Vector3 = bed_positions[i]
 		_box(p + Vector3(0, 0.3, 0), Vector3(1.0, 0.6, 2.1), MatLib.wood())
 		if i % 2 == 0:
-			_box(p + Vector3(0, 0.66, 0.2), Vector3(0.95, 0.12, 1.6), MatLib.flat(Color(0.75, 0.78, 0.8))) # made
+			_box(p + Vector3(0, 0.66, 0.2), Vector3(0.95, 0.12, 1.6), MatLib.canvas(Color(0.75, 0.78, 0.8))) # made
 		else:
-			var blanket := _box(p + Vector3(0.2, 0.72, 0.4), Vector3(0.8, 0.18, 0.9), MatLib.flat(Color(0.55, 0.58, 0.62)))
+			var blanket := _box(p + Vector3(0.2, 0.72, 0.4), Vector3(0.8, 0.18, 0.9), MatLib.canvas(Color(0.55, 0.58, 0.62)))
 			blanket.rotation.y = 0.4 # unmade
 		# Lockers
 		_box(p + Vector3(1.2, 0.9, -0.8), Vector3(0.5, 1.8, 0.5), MatLib.painted_steel())
@@ -422,8 +424,8 @@ func _build_galley() -> void:
 	_wall(Vector3(14, y, 8), Vector3(14, y, 18), WALL_H, mat)
 	_box(Vector3(6, y + WALL_H, 13), Vector3(16.5, 0.25, 10.5), mat)
 	_box(Vector3(6, y + 0.035, 13), Vector3(15.5, 0.03, 9.5), MatLib.kitchen_tile(), self, false)
-	# Counter along the north wall with food.
-	_box(Vector3(6, y + 0.5, 17), Vector3(10, 1.0, 1.2), MatLib.painted_steel())
+	# Counter along the north wall with food — brushed galley steel, not weather-peel.
+	_box(Vector3(6, y + 0.5, 17), Vector3(10, 1.0, 1.2), MatLib.galvanized())
 	_takeable("canned_food", "Canned Food", Vector3(3, y + 1.01, 17), Vector3(0.25, 0.3, 0.25))
 	_takeable("canned_food", "Canned Food", Vector3(5, y + 1.01, 17), Vector3(0.25, 0.3, 0.25))
 	_takeable("canned_peaches", "Canned Peaches", Vector3(8, y + 1.01, 17), Vector3(0.25, 0.3, 0.25))
@@ -463,7 +465,7 @@ func _build_rec_room() -> void:
 	dart.position = Vector3(27.8, y + 1.7, 13)
 	dart.rotation.z = deg_to_rad(90)
 	_box(Vector3(20, y + 1.0, 17.2), Vector3(1.4, 0.9, 0.4), MatLib.dark_metal()) # dead TV
-	_box(Vector3(23, y + 0.35, 9.2), Vector3(2.4, 0.7, 1.0), MatLib.flat(Color(0.35, 0.3, 0.28))) # couch
+	_box(Vector3(23, y + 0.35, 9.2), Vector3(2.4, 0.7, 1.0), MatLib.canvas(Color(0.45, 0.38, 0.34))) # couch
 	_readable("quiet_rig_note", "Tally Book Page", Vector3(27.7, y + 0.9, 14.2), Vector3(0.3, 0.4, 0.06))
 
 func _build_machine_shop() -> void:
@@ -1042,3 +1044,109 @@ func _build_broken_bridge(u: Vector3) -> void:
 		rad_to_deg(yaw) - 90.0, 26, Color(0.9, 0.75, 0.2))   # faces back toward the rig
 	# Hazard paint where the bridge leaves the deck.
 	_box(Vector3(29.2, DECK_Y + 0.02, 14.0), Vector3(1.6, 0.02, 2.4), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
+
+# ---------- Phase 3: the arrival ----------
+
+## You step out of the SPHL at the waterline and the rig should feel impossibly
+## large: draft marks climbing the caisson, the rig's name high on the deck rim
+## overhead, a warm battery lamp over the dock, chained bollards at the edge.
+func _arrival_dressing() -> void:
+	var dark: Material = MatLib.dark_metal()
+	# Dock apron under the gangplank — checker plate, seated flush.
+	_box(Vector3(19.5, WET_Y + 0.015, -21.4), Vector3(4.6, 0.03, 1.4), MatLib.checker_plate(), self, false)
+	# Bollards with a slack chain, either side of the gangplank.
+	for bx in [17.4, 21.6]:
+		_cyl(Vector3(bx, WET_Y + 0.28, -21.7), 0.15, 0.55, MatLib.flat(Color(0.75, 0.65, 0.15)))
+	_wire(Vector3(17.4, WET_Y + 0.6, -21.7), Vector3(19.5, WET_Y + 0.42, -21.7), 0.03, dark)
+	_wire(Vector3(19.5, WET_Y + 0.42, -21.7), Vector3(21.6, WET_Y + 0.6, -21.7), 0.03, dark)
+	# Tire fenders hung on the dock edge.
+	for fx in [18.2, 20.8]:
+		var tire := MeshInstance3D.new()
+		var tm := TorusMesh.new()
+		tm.inner_radius = 0.15
+		tm.outer_radius = 0.31
+		tm.material = MatLib.flat(Color(0.1, 0.1, 0.11))
+		tire.mesh = tm
+		add_child(tire)
+		tire.position = Vector3(fx, WET_Y + 0.1, -22.05)
+		tire.rotation.x = deg_to_rad(90)
+	# Draft marks climbing the SE caisson's south face — the scale ruler.
+	for i in range(7):
+		var m: int = 2 + i * 2
+		_plabel("— %d m" % m, Vector3(20.2, 0.4 + m, -15.1), 180, 24, Color(0.9, 0.85, 0.6))
+	_plabel("SALTLINE-1 · CAISSON SE-3", Vector3(22, 13.2, -15.12), 180, 42, Color(0.7, 0.6, 0.42))
+	# The rig's name on the deck rim girder, read from the dock looking straight up.
+	_plabel("S A L T L I N E - 1", Vector3(17, 17.55, -20.3), 180, 110, Color(0.72, 0.6, 0.4))
+	# Warm battery lamp on a gooseneck over the dock — the SPHL keeps its own light.
+	_box(Vector3(22.4, WET_Y + 1.7, -22.2), Vector3(0.14, 3.4, 0.14), dark)
+	_box(Vector3(21.4, WET_Y + 3.38, -22.2), Vector3(2.0, 0.1, 0.1), dark, self, false)
+	_box(Vector3(20.5, WET_Y + 3.2, -22.2), Vector3(0.4, 0.25, 0.4), MatLib.flat(Color(0.95, 0.85, 0.6), true, 1.2), self, false)
+	var lamp := OmniLight3D.new()
+	lamp.light_energy = 0.9
+	lamp.omni_range = 9.0
+	lamp.light_color = Color(1.0, 0.85, 0.62)
+	add_child(lamp)
+	lamp.position = Vector3(20.5, WET_Y + 3.0, -22.2)
+	# Mooring chain heaped at the caisson's foot.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 3131
+	for i in range(3):
+		var link := MeshInstance3D.new()
+		var lm := TorusMesh.new()
+		lm.inner_radius = 0.22
+		lm.outer_radius = 0.42
+		lm.material = MatLib.rusty_metal()
+		link.mesh = lm
+		add_child(link)
+		link.position = Vector3(19.6 + rng.randf_range(-0.4, 0.4), WET_Y + 0.06 + i * 0.1, -14.0 + rng.randf_range(-0.4, 0.4))
+		link.rotation.y = rng.randf() * TAU
+		link.rotation.x = deg_to_rad(90) + rng.randf_range(-0.2, 0.2)
+	# Painted walk lane from the dock toward the stair tower.
+	for i in range(4):
+		_box(Vector3(21.0 + i * 2.0, WET_Y + 0.02, -19.5 + i * 0.9), Vector3(1.0, 0.01, 0.3),
+			MatLib.flat(Color(0.75, 0.65, 0.15)), self, false)
+
+## Deck A + wet deck density: stools, pots, footlockers, hose reels — the
+## second half of "double the interior detail".
+func _density_a() -> void:
+	var y: float = DECK_Y
+	# Galley: stools at every table, pot stack, menu board, bread crate.
+	for tp in [Vector3(2, y, 11), Vector3(8, y, 11), Vector3(2, y, 14.5), Vector3(8, y, 14.5)]:
+		for side in [-1.2, 1.2]:
+			_box(tp + Vector3(side, 0.24, 0), Vector3(0.4, 0.48, 0.4), MatLib.flat(Color(0.32, 0.34, 0.38)), self, false)
+	for i in range(3):
+		_cyl_nc(Vector3(10.6, y + 1.06 + i * 0.14, 16.6), 0.16 - i * 0.03, 0.13, MatLib.galvanized())
+	_box(Vector3(-1.86, y + 1.9, 12.5), Vector3(0.05, 0.8, 1.2), MatLib.flat(Color(0.2, 0.24, 0.22)), self, false)
+	_plabel("GALLEY — LAST MENU: STEW", Vector3(-1.82, y + 1.9, 12.5), 90, 16, Color(0.85, 0.85, 0.78))
+	_box(Vector3(0.6, y + 0.2, 16.6), Vector3(0.8, 0.4, 0.55), MatLib.wood(), self, false)
+	# Rec room: second couch, low magazine table, pennant string.
+	_box(Vector3(26.8, y + 0.35, 10.5), Vector3(1.0, 0.7, 2.2), MatLib.flat(Color(0.3, 0.34, 0.3)))
+	_box(Vector3(24.8, y + 0.22, 10.5), Vector3(0.9, 0.06, 0.7), MatLib.wood(), self, false)
+	for i in range(5):
+		var pn := _box(Vector3(19.5 + i * 1.6, y + 2.7, 12.9), Vector3(0.22, 0.3, 0.02),
+			MatLib.flat([Color(0.7, 0.3, 0.2), Color(0.25, 0.4, 0.6), Color(0.75, 0.65, 0.2)][i % 3]), self, false)
+		pn.rotation.z = 0.1 - (i % 2) * 0.2
+	# Bunkhouse: footlockers, towel hooks, a dead space heater.
+	for p in [Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
+			Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5)]:
+		_box(p + Vector3(0, 0.2, 1.45), Vector3(0.8, 0.4, 0.45), MatLib.flat(Color(0.35, 0.32, 0.26)))
+	for hx in [-24.0, -16.0]:
+		_box(Vector3(hx, y + 1.5, 17.83), Vector3(0.35, 0.55, 0.05), MatLib.flat(Color(0.75, 0.72, 0.68)), self, false)
+	_box(Vector3(-9.0, y + 0.4, 5.0), Vector3(0.7, 0.8, 0.4), MatLib.flat(Color(0.6, 0.3, 0.16)))
+	# Pump room: hose reel drum, spare wheels, toolbox on the dead pump.
+	_cyl_nc(Vector3(16.8, WET_Y + 0.7, -7.0), 0.5, 0.4, MatLib.flat(Color(0.62, 0.14, 0.1))).rotation.z = deg_to_rad(90)
+	for wz in [-8.2, -9.0]:
+		var ww := CSGTorus3D.new()
+		ww.inner_radius = 0.1
+		ww.outer_radius = 0.2
+		ww.material = MatLib.flat(Color(0.62, 0.14, 0.1))
+		ww.use_collision = false
+		add_child(ww)
+		ww.position = Vector3(10.4, WET_Y + 0.2, wz)
+	_box(Vector3(11.6, WET_Y + 1.92, -12.6), Vector3(0.5, 0.24, 0.3), MatLib.flat(Color(0.7, 0.45, 0.15)), self, false)
+	# Loot room: shelf rack with mixed boxes.
+	for sy in [0.6, 1.3]:
+		_box(Vector3(10.4, WET_Y + sy, -19.0), Vector3(0.45, 0.06, 2.6), MatLib.wood(), self, false)
+		for i in range(3):
+			_box(Vector3(10.4, WET_Y + sy + 0.16, -19.8 + i * 0.8), Vector3(0.35, 0.28, 0.5),
+				MatLib.flat([Color(0.5, 0.42, 0.3), Color(0.4, 0.45, 0.5)][i % 2]), self, false)

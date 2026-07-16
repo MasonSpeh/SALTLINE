@@ -217,8 +217,8 @@ func _update_footsteps(_delta: float) -> void:
 ## releasing E lets go at the current height. Grabbing from within CLIMB_TOP_GRACE of
 ## the top arms a hold so the player can start a descent instead of insta-mantling.
 func start_climb(ladder: Ladder) -> void:
-	if _climbing == ladder:
-		return   # already on this ladder; don't re-latch mid-climb
+	if _climbing != null:
+		return   # already climbing — never re-latch or switch ladders mid-climb
 	_climbing = ladder
 	velocity = Vector3.ZERO
 	var base: Vector3 = ladder.bottom_point()
@@ -235,6 +235,11 @@ func _climb_process(_delta: float) -> void:
 	# Hold E = climb up automatically; add S (move_back) to climb down instead.
 	var up_input: float = -1.0 if Input.is_action_pressed("move_back") else 1.0
 	var ladder: Ladder = _climbing
+	# Space bails out of any climb — the universal unstick: hop off the rungs.
+	if Input.is_action_just_pressed("jump"):
+		_climbing = null
+		velocity = ladder.face_dir() * 2.0 + Vector3(0, 1.5, 0)
+		return
 	var top_y: float = ladder.top_point().y
 	var bottom_y: float = ladder.bottom_point().y
 	# Grabbed near the top: hold there instead of mantling, until a descent clears it.

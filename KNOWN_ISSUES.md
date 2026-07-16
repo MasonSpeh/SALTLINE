@@ -1,5 +1,9 @@
 # Known Issues
 
+- **Single-material boxes texture all faces alike** — e.g. the topside deck slab
+  shows treadplate on its underside too (world-triplanar applies everywhere).
+  Split top/side materials on the big slabs in the art polish pass.
+
 - **Built structures and journal don't persist** — SaveManager saves stats/inventory/
   power, not placed structures or journal discoveries. Wire into save_game() for v0.2.
 - **Build placement has no overlap check** — you can place structures intersecting

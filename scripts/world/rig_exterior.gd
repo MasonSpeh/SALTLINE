@@ -77,9 +77,13 @@ func _ramp(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
 	b.global_position = (from + to) * 0.5
 	b.look_at(to, Vector3.UP)
 
+## Offshore rail grammar: top rail + mid rail + kick plate at the deck. The mid
+## rail and toe board are what make a catwalk read as regulation rig, not fence.
 func _rail_x(x0: float, x1: float, y: float, z: float) -> void:
 	var mat: Material = MatLib.rust_steel()
 	_box(Vector3((x0 + x1) * 0.5, y + 0.55, z), Vector3(x1 - x0, 0.1, 0.1), mat)
+	_dbox(Vector3((x0 + x1) * 0.5, y + 0.3, z), Vector3(x1 - x0, 0.06, 0.06), mat)
+	_dbox(Vector3((x0 + x1) * 0.5, y + 0.07, z), Vector3(x1 - x0, 0.14, 0.03), mat)
 	var n: int = maxi(2, int((x1 - x0) / 2.2))
 	for i in range(n + 1):
 		_dbox(Vector3(x0 + (x1 - x0) * i / n, y + 0.28, z), Vector3(0.06, 0.56, 0.06), mat)
@@ -87,6 +91,8 @@ func _rail_x(x0: float, x1: float, y: float, z: float) -> void:
 func _rail_z(z0: float, z1: float, y: float, x: float) -> void:
 	var mat: Material = MatLib.rust_steel()
 	_box(Vector3(x, y + 0.55, (z0 + z1) * 0.5), Vector3(0.1, 0.1, z1 - z0), mat)
+	_dbox(Vector3(x, y + 0.3, (z0 + z1) * 0.5), Vector3(0.06, 0.06, z1 - z0), mat)
+	_dbox(Vector3(x, y + 0.07, (z0 + z1) * 0.5), Vector3(0.03, 0.14, z1 - z0), mat)
 	var n: int = maxi(2, int((z1 - z0) / 2.2))
 	for i in range(n + 1):
 		_dbox(Vector3(x, y + 0.28, z0 + (z1 - z0) * i / n), Vector3(0.06, 0.56, 0.06), mat)
@@ -198,18 +204,20 @@ func _containers() -> void:
 		var pos: Vector3 = s[0]
 		var yaw: float = s[1]
 		var col: Color = s[2]
-		var hull := _box(Vector3(pos.x, DECK_Y + pos.y + 1.3, pos.z), Vector3(2.44, 2.6, 6.0), MatLib.flat(col))
+		# Real corrugated container skin — tint boosted since it multiplies a mid-gray albedo.
+		var skin := MatLib.container(Color(col.r * 1.7, col.g * 1.7, col.b * 1.7))
+		var hull := _box(Vector3(pos.x, DECK_Y + pos.y + 1.3, pos.z), Vector3(2.44, 2.6, 6.0), skin)
 		hull.rotation.y = yaw
-		# Corrugation hint: two recessed strips per long side.
+		# Door-end frame strips keep the boxes reading as containers, not crates.
 		for side in [-1.24, 1.24]:
 			for sy in [0.6, 1.9]:
 				var strip := _dbox(Vector3(pos.x + side, DECK_Y + pos.y + sy, pos.z), Vector3(0.04, 0.18, 5.8),
-					MatLib.flat(col.darkened(0.25)))
+					MatLib.container(Color(col.r * 1.2, col.g * 1.2, col.b * 1.2)))
 				strip.rotation.y = yaw
 		_plabel(s[3], Vector3(pos.x - 1.26, DECK_Y + pos.y + 2.2, pos.z), -90, 22, Color(0.88, 0.88, 0.82))
 	# One container stands open with a stash inside — reward for looking.
 	var open_pos := Vector3(23.5, DECK_Y, -13.15)
-	var door := _box(open_pos + Vector3(-0.9, 1.3, -0.05), Vector3(0.06, 2.5, 1.15), MatLib.flat(Color(0.3, 0.4, 0.48)), false)
+	var door := _box(open_pos + Vector3(-0.9, 1.3, -0.05), Vector3(0.06, 2.5, 1.15), MatLib.container(Color(0.51, 0.68, 0.82)), false)
 	door.rotation.y = 1.25
 	var stash := LootContainer.new()
 	var items: Array[String] = ["rope", "sealed_tin", "flare"]

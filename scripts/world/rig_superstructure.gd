@@ -32,6 +32,7 @@ func _ready() -> void:
 	_mast()
 	_exterior_dressing()
 	_deck_a_signage()
+	_density_pass()
 
 # ============================================================ helpers
 
@@ -115,9 +116,13 @@ func _ramp(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
 	b.global_position = (from + to) * 0.5
 	b.look_at(to, Vector3.UP)
 
+## Offshore rail grammar: top rail + mid rail + kick plate at the deck. The mid
+## rail and toe board are what make a catwalk read as regulation rig, not fence.
 func _rail_x(x0: float, x1: float, y: float, z: float) -> void:
 	var mat: Material = MatLib.rust_steel()
 	_box(Vector3((x0 + x1) * 0.5, y + 0.55, z), Vector3(x1 - x0, 0.1, 0.1), mat)
+	_dbox(Vector3((x0 + x1) * 0.5, y + 0.3, z), Vector3(x1 - x0, 0.06, 0.06), mat)
+	_dbox(Vector3((x0 + x1) * 0.5, y + 0.07, z), Vector3(x1 - x0, 0.14, 0.03), mat)
 	var n: int = maxi(2, int((x1 - x0) / 2.2))
 	for i in range(n + 1):
 		_dbox(Vector3(x0 + (x1 - x0) * i / n, y + 0.28, z), Vector3(0.06, 0.56, 0.06), mat)
@@ -125,6 +130,8 @@ func _rail_x(x0: float, x1: float, y: float, z: float) -> void:
 func _rail_z(z0: float, z1: float, y: float, x: float) -> void:
 	var mat: Material = MatLib.rust_steel()
 	_box(Vector3(x, y + 0.55, (z0 + z1) * 0.5), Vector3(0.1, 0.1, z1 - z0), mat)
+	_dbox(Vector3(x, y + 0.3, (z0 + z1) * 0.5), Vector3(0.06, 0.06, z1 - z0), mat)
+	_dbox(Vector3(x, y + 0.07, (z0 + z1) * 0.5), Vector3(0.03, 0.14, z1 - z0), mat)
 	var n: int = maxi(2, int((z1 - z0) / 2.2))
 	for i in range(n + 1):
 		_dbox(Vector3(x, y + 0.28, z0 + (z1 - z0) * i / n), Vector3(0.06, 0.56, 0.06), mat)
@@ -256,10 +263,10 @@ func _crate(items: Array, name_: String, pos: Vector3) -> void:
 func _bunk(pos: Vector3, messy: bool) -> void:
 	_box(pos + Vector3(0, 0.65, 0), Vector3(0.95, 1.3, 2.05), MatLib.painted_steel())  # frame hull
 	for lv in [0.72, 1.38]:
-		_dbox(pos + Vector3(0, lv, 0), Vector3(0.9, 0.12, 1.95), MatLib.flat(Color(0.72, 0.75, 0.77)))
-		_dbox(pos + Vector3(0, lv + 0.08, -0.75), Vector3(0.5, 0.08, 0.3), MatLib.flat(Color(0.88, 0.88, 0.84)))
+		_dbox(pos + Vector3(0, lv, 0), Vector3(0.9, 0.12, 1.95), MatLib.canvas(Color(0.72, 0.75, 0.77)))
+		_dbox(pos + Vector3(0, lv + 0.08, -0.75), Vector3(0.5, 0.08, 0.3), MatLib.canvas(Color(0.88, 0.88, 0.84)))
 	if messy:
-		var bl := _dbox(pos + Vector3(0.18, 0.84, 0.35), Vector3(0.7, 0.14, 0.8), MatLib.flat(Color(0.5, 0.54, 0.58)))
+		var bl := _dbox(pos + Vector3(0.18, 0.84, 0.35), Vector3(0.7, 0.14, 0.8), MatLib.canvas(Color(0.5, 0.54, 0.58)))
 		bl.rotation.y = 0.45
 
 func _locker(pos: Vector3, open: bool = false) -> void:
@@ -347,14 +354,14 @@ func _well_ladder(floor_y: float) -> void:
 	_dbox(Vector3(HX0 - 0.35, top + 0.02, 16.5), Vector3(0.5, 0.02, 1.0), MatLib.flat(Color(0.8, 0.7, 0.1)))
 
 ## Shaft walls for one storey with a doorway. door_side: "south" or "west".
-## Doors sit at the WEST end of their wall, clear of the up-flight ramp that
-## starts at x 23.5 — a mid-wall door would open into the ramp's flank.
-func _shaft_walls(y: float, h: float, door_side: String, door_t: float = 0.1) -> void:
+## z0 lets a deck pull the south wall back so it never pinches a corridor
+## (C-deck: wall at z 14 aligns with the corridor's north edge).
+func _shaft_walls(y: float, h: float, door_side: String, door_t: float = 0.1, z0: float = SZ0) -> void:
 	var mat: Material = MatLib.concrete()
-	_wall(Vector3(SX0, y, SZ0), Vector3(SX1, y, SZ0), h, mat, door_t if door_side == "south" else -1.0)
+	_wall(Vector3(SX0, y, z0), Vector3(SX1, y, z0), h, mat, door_t if door_side == "south" else -1.0)
 	_wall(Vector3(SX0, y, SZ1), Vector3(SX1, y, SZ1), h, mat)
-	_wall(Vector3(SX0, y, SZ0), Vector3(SX0, y, SZ1), h, mat, door_t if door_side == "west" else -1.0)
-	_wall(Vector3(SX1, y, SZ0), Vector3(SX1, y, SZ1), h, mat)
+	_wall(Vector3(SX0, y, z0), Vector3(SX0, y, SZ1), h, mat, door_t if door_side == "west" else -1.0)
+	_wall(Vector3(SX1, y, z0), Vector3(SX1, y, SZ1), h, mat)
 
 ## Floor slab covering x0..x1, z0..z1, solid everywhere except the ladder-well
 ## hatch (HX0..HX1, HZ0..HZ1). The shaft now has a real floor on every deck —
@@ -509,9 +516,10 @@ func _deck_b() -> void:
 	_valve(Vector3(18, y + 2.9, 12.15), true)
 	_dbox(Vector3(12, y + 2.95, 11.7), Vector3(22, 0.06, 0.3), MatLib.dark_metal())   # cable tray
 	_extinguisher(Vector3(-1.6, y, 11.6))
-	_dbox(Vector3(4.5, y + 2.0, 11.16), Vector3(0.9, 0.65, 0.05), MatLib.flat(Color(0.72, 0.66, 0.5)))
+	# Noticeboard shifted clear of the B-02 door reveal.
+	_dbox(Vector3(3.7, y + 2.0, 11.16), Vector3(0.9, 0.65, 0.05), MatLib.flat(Color(0.72, 0.66, 0.5)))
 	for i in range(4):
-		var pin := _dbox(Vector3(4.2 + (i % 2) * 0.4, y + 2.05 - (i / 2) * 0.28, 11.13),
+		var pin := _dbox(Vector3(3.4 + (i % 2) * 0.4, y + 2.05 - (i / 2) * 0.28, 11.13),
 			Vector3(0.16, 0.2, 0.01), MatLib.flat(Color(0.9, 0.9, 0.8) if i % 2 == 0 else Color(0.85, 0.8, 0.55)))
 		pin.rotation.z = 0.1 - (i % 3) * 0.09
 	for lx in [2.0, 10.0, 18.0, 25.0]:
@@ -553,9 +561,11 @@ func _deck_c() -> void:
 		_wall(Vector3(dx, y, 6), Vector3(dx, y, 12), WH, wmat)
 	_wall(Vector3(13, y, 14), Vector3(13, y, 18), WH, wmat)
 	_wall(Vector3(23, y, 17.5), Vector3(23, y, 18), WH, wmat)
-	_shaft_walls(y, WH, "south")
+	# Shaft south wall pulled back to z 14 so the corridor keeps full width
+	# past the ladder well (it pinched to 0.75m — unpassable).
+	_shaft_walls(y, WH, "south", 0.1, 14.0)
 	_well_ladder(y)
-	_label("DECK C — CONTROL", Vector3(25, y + 2.55, 12.8), 180, 40, Color(0.9, 0.85, 0.6))
+	_label("DECK C — CONTROL", Vector3(25, y + 2.55, 13.86), 180, 40, Color(0.9, 0.85, 0.6))
 
 	# Room floors — control level: rubber underfoot, medical white in the bay.
 	_dbox(Vector3(8, y + 0.035, 9), Vector3(7.5, 0.03, 5.5), MatLib.rubber_floor())
@@ -565,11 +575,13 @@ func _deck_c() -> void:
 	for i in range(3):
 		_desk(Vector3(5.8 + i * 2.2, y, 7.4), PI)
 		_monitor(Vector3(5.8 + i * 2.2, y + 1.15, 6.9), 0.0)
-	_dbox(Vector3(4.16, y + 1.7, 9.0), Vector3(0.06, 1.6, 2.6), MatLib.dark_metal())
+	# Switch wall shifted south — it used to span across the terrace doorway gap
+	# (a prop with no wall behind it, visually blocking the door).
+	_dbox(Vector3(4.16, y + 1.7, 7.9), Vector3(0.06, 1.6, 2.4), MatLib.dark_metal())
 	for i in range(12):
-		_dbox(Vector3(4.22, y + 1.2 + (i % 4) * 0.35, 8.0 + (i / 4) * 0.9),
+		_dbox(Vector3(4.22, y + 1.2 + (i % 4) * 0.35, 7.1 + (i / 4) * 0.9),
 			Vector3(0.05, 0.12, 0.2), MatLib.flat(Color(0.7, 0.2, 0.15) if i % 3 == 0 else Color(0.6, 0.62, 0.6)))
-	_label("HIGH VOLTAGE", Vector3(4.24, y + 2.6, 9.0), 90, 26, Color(0.95, 0.75, 0.2))
+	_label("HIGH VOLTAGE", Vector3(4.24, y + 2.6, 7.9), 90, 26, Color(0.95, 0.75, 0.2))
 	_label("CONTROL", Vector3(9.5, y + 2.35, 12.16), 0, 28)
 	_readable("toolpusher_log", "Toolpusher's Log", Vector3(8.0, y + 0.85, 7.4), Vector3(0.3, 0.05, 0.4))
 	_light(Vector3(8, y + 2.85, 9), 0.5, 7.0)
@@ -914,3 +926,104 @@ func _deck_a_signage() -> void:
 	_label("MUSTER STATION →", Vector3(9, DECK_Y + 1.9, 7.84), 180, 28, Color(0.95, 0.75, 0.2))
 	_label("RIGGING BENCH — WET DECK ↓", Vector3(21.9, DECK_Y + 2.5, -0.9), 90, 24, Color(0.9, 0.85, 0.6))
 	_label("B-DECK QUARTERS ↑", Vector3(0, DECK_Y + 2.6, 2.55), 0, 30, Color(0.9, 0.85, 0.6))
+
+# ============================================================ density pass
+
+## Doubles the lived-in clutter, room by room. Everything wall-flush or
+## floor-seated, kept clear of every doorway reveal.
+func _density_pass() -> void:
+	var y: float = B_Y
+	# --- Cabins: mugs, under-bunk boxes, wall hooks with slickers, bedside rugs.
+	var cabin_x := [0.5, 5.5, 10.5, 15.5, 20.5]
+	for i in range(5):
+		var cx: float = cabin_x[i]
+		_dcyl(Vector3(cx + 1.3, y + 0.86, 6.95), 0.05, 0.09, MatLib.flat(Color(0.9, 0.9, 0.86)))
+		_dbox(Vector3(cx - 0.9, y + 0.14, 8.3), Vector3(0.55, 0.28, 0.4), MatLib.flat(Color(0.35, 0.3, 0.24)))
+		_dbox(Vector3(cx - 1.3, y + 0.02, 7.4), Vector3(0.7, 0.015, 1.1), MatLib.flat(Color(0.42, 0.3, 0.24)))
+		var hook_col := Color(0.85, 0.55, 0.15) if i % 2 == 0 else Color(0.3, 0.4, 0.5)
+		_dbox(Vector3(cx - 2.1, y + 1.5, 6.2), Vector3(0.4, 0.75, 0.1), MatLib.flat(hook_col))
+	# Corridor scuff strip + a second pipe + junction boxes.
+	_dbox(Vector3(12.5, y + 0.045, 12), Vector3(28, 0.01, 0.5), MatLib.flat(Color(0.4, 0.4, 0.4)))
+	_pipe(Vector3(-1, y + 2.5, 12.35), Vector3(27, y + 2.5, 12.35), 0.04)
+	for jx in [3.0, 13.0, 21.0]:
+		_dbox(Vector3(jx, y + 2.3, 11.16), Vector3(0.3, 0.4, 0.12), MatLib.dark_metal())
+	# Lounge: card table with stools and scattered hands.
+	_table(Vector3(8.2, y, 14.6), Vector2(1.1, 1.1))
+	for a in range(4):
+		_dbox(Vector3(8.2 + cos(a * PI / 2) * 0.9, y + 0.22, 14.6 + sin(a * PI / 2) * 0.9),
+			Vector3(0.38, 0.44, 0.38), MatLib.flat(Color(0.3, 0.32, 0.35)))
+	var crng := RandomNumberGenerator.new()
+	crng.seed = 909
+	for c in range(6):
+		var card := _dbox(Vector3(8.2 + crng.randf_range(-0.4, 0.4), y + 0.52, 14.6 + crng.randf_range(-0.4, 0.4)),
+			Vector3(0.11, 0.004, 0.16), MatLib.flat(Color(0.92, 0.92, 0.88)))
+		card.rotation.y = crng.randf() * TAU
+	# Wash room: towel hooks, a bucket, duckboards.
+	for tx in [4.6, 5.3]:
+		_dbox(Vector3(tx, y + 1.4, 17.83), Vector3(0.3, 0.5, 0.05), MatLib.flat(Color(0.8, 0.82, 0.8)))
+	_dcyl(Vector3(-1.2, y + 0.15, 16.6), 0.16, 0.3, MatLib.galvanized())
+	_dbox(Vector3(0.5, y + 0.02, 14.4), Vector3(1.6, 0.03, 0.8), MatLib.wood())
+
+	# --- Deck C additions.
+	y = C_Y
+	# Control: wall charts, binder shelf, coffee ring desk clutter.
+	_dbox(Vector3(7.0, y + 1.9, 6.2), Vector3(1.4, 0.9, 0.04), MatLib.flat(Color(0.6, 0.66, 0.62)))
+	_dbox(Vector3(10.4, y + 1.9, 6.2), Vector3(0.9, 0.9, 0.04), MatLib.flat(Color(0.68, 0.62, 0.5)))
+	_dbox(Vector3(11.6, y + 1.2, 8.5), Vector3(0.35, 0.06, 1.8), MatLib.wood())
+	for b in range(5):
+		_dbox(Vector3(11.6, y + 1.38, 7.9 + b * 0.28), Vector3(0.28, 0.3, 0.08),
+			MatLib.flat([Color(0.5, 0.3, 0.25), Color(0.3, 0.4, 0.55), Color(0.45, 0.45, 0.4)][b % 3]))
+	_dcyl(Vector3(6.3, y + 0.86, 7.3), 0.05, 0.09, MatLib.flat(Color(0.88, 0.88, 0.84)))
+	# Med bay: cot, IV stand, supply shelf.
+	_box(Vector3(19.0, y + 0.3, 10.8), Vector3(0.85, 0.6, 1.9), MatLib.flat(Color(0.75, 0.78, 0.76)))
+	_dcyl(Vector3(19.9, y + 1.0, 11.4), 0.03, 2.0, MatLib.galvanized())
+	_dbox(Vector3(19.9, y + 2.05, 11.4), Vector3(0.3, 0.1, 0.06), MatLib.flat(Color(0.85, 0.86, 0.84)))
+	for sy in [1.1, 1.7]:
+		_dbox(Vector3(21.8, y + sy, 11.6), Vector3(1.6, 0.05, 0.35), MatLib.flat(Color(0.85, 0.87, 0.85)))
+	# Comms: headset, clipboard, tape reels on the rack.
+	_dcyl(Vector3(6.9, y + 0.9, 16.4), 0.09, 0.06, MatLib.dark_metal())
+	_dbox(Vector3(5.4, y + 0.88, 17.2), Vector3(0.26, 0.02, 0.36), MatLib.flat(Color(0.8, 0.76, 0.62)))
+	for r in range(2):
+		_dcyl(Vector3(9.15, y + 1.5 + r * 0.4, 17.5), 0.14, 0.05, MatLib.flat(Color(0.25, 0.26, 0.3))).rotation.x = PI / 2
+	# Corridor: second extinguisher + pipe valve + floor arrows.
+	_extinguisher(Vector3(26.6, y, 12.6))
+	_valve(Vector3(16, y + 2.9, 12.8), true)
+	_dbox(Vector3(12, y + 0.045, 13), Vector3(0.6, 0.01, 0.3), MatLib.flat(Color(0.3, 0.6, 0.9)))
+
+	# --- Deck D additions.
+	y = D_Y
+	# Gym: kettlebells, second bench, wall mirror.
+	for k in range(3):
+		var kb := MeshInstance3D.new()
+		var km := SphereMesh.new()
+		km.radius = 0.11 + k * 0.03
+		km.height = km.radius * 2
+		km.material = MatLib.dark_metal()
+		kb.mesh = km
+		add_child(kb)
+		kb.position = Vector3(9.2 + k * 0.5, y + km.radius, 12.3)
+	_box(Vector3(13.8, y + 0.3, 9.2), Vector3(0.6, 0.6, 1.6), MatLib.flat(Color(0.3, 0.3, 0.34)))
+	_dbox(Vector3(8.16, y + 1.6, 10.5), Vector3(0.04, 1.3, 2.2), MatLib.flat(Color(0.62, 0.72, 0.78)))
+	# Laundry: baskets, detergent row, folding table.
+	for bx in [16.2, 17.4]:
+		_dcyl(Vector3(bx, y + 0.22, 11.9), 0.26, 0.44, MatLib.flat(Color(0.55, 0.58, 0.6)))
+	for d in range(4):
+		_dbox(Vector3(20.8 + d * 0.35, y + 1.13, 8.6), Vector3(0.22, 0.34, 0.14),
+			MatLib.flat([Color(0.85, 0.5, 0.2), Color(0.3, 0.55, 0.75)][d % 2]))
+	_dbox(Vector3(20.8, y + 1.09, 8.6), Vector3(2.0, 0.06, 0.5), MatLib.wood())
+	_table(Vector3(21.5, y, 11.5), Vector2(1.6, 0.8))
+	# Storage: barrel, rope coils, tarp-covered stack.
+	_cyl(Vector3(14.6, y + 0.5, 16.8), 0.42, 1.0, MatLib.rust_steel())
+	var coil := MeshInstance3D.new()
+	var cm := TorusMesh.new()
+	cm.inner_radius = 0.14
+	cm.outer_radius = 0.3
+	cm.material = MatLib.flat(Color(0.72, 0.65, 0.48))
+	coil.mesh = cm
+	add_child(coil)
+	coil.position = Vector3(10.6, y + 0.08, 15.7)
+	_box(Vector3(12.6, y + 0.5, 16.9), Vector3(1.5, 1.0, 1.1), MatLib.flat(Color(0.55, 0.6, 0.55)))
+	# Landing rooms: cable tray + drip bucket, per deck.
+	for ly in [B_Y, C_Y, D_Y]:
+		_dbox(Vector3(25, ly + 2.9, 15.0), Vector3(3.4, 0.06, 0.25), MatLib.dark_metal())
+		_dcyl(Vector3(24.0, ly + 0.14, 16.9), 0.14, 0.28, MatLib.galvanized())

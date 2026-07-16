@@ -91,6 +91,10 @@ func _build_environment() -> void:
 	env.ssao_enabled = true
 	env.ssao_radius = 2.0
 	env.ssao_intensity = 1.5
+	# Screen-space indirect light: the spill omnis and emissive windows bounce a
+	# little, which grounds the PBR texture set indoors without real GI cost.
+	env.ssil_enabled = true
+	env.ssil_intensity = 0.9
 	env.fog_enabled = true
 	env.fog_density = 0.0008
 	env.volumetric_fog_enabled = true

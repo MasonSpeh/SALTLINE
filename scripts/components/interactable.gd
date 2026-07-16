@@ -25,9 +25,7 @@ func interact(verb: String, _player: Node3D) -> void:
 	interacted.emit(verb)
 
 ## Attach a simple colored box mesh + collider — components are greybox by canon.
-## base_origin: put the node origin at the box's BASE, so a floor-level position
-## yields a box resting on the floor with collision matching the visible shape.
-func build_box_visual(size: Vector3, color: Color, emissive: bool = false, base_origin: bool = false) -> MeshInstance3D:
+func build_box_visual(size: Vector3, color: Color, emissive: bool = false, cast_shadow: bool = false) -> MeshInstance3D:
 	var mesh := BoxMesh.new()
 	mesh.size = size
 	var mat := StandardMaterial3D.new()
@@ -40,13 +38,11 @@ func build_box_visual(size: Vector3, color: Color, emissive: bool = false, base_
 	mesh.material = mat
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON if cast_shadow else GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(mi)
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
 	box.size = size
 	shape.shape = box
 	add_child(shape)
-	if base_origin:
-		mi.position.y = size.y * 0.5
-		shape.position.y = size.y * 0.5
 	return mi

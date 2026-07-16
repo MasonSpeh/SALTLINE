@@ -16,8 +16,9 @@ func _ready() -> void:
 	await _shot(Vector3(-22, 19.2, -3), 235.0, -4.0, GameClock.Phase.DAY, "sl_topside_day")
 	await _shot(Vector3(3.5, 35.5, -18), 175.0, -18.0, GameClock.Phase.DAY, "sl_lookout")
 	await _shot(Vector3(26.5, 11.2, 4.5), 155.0, -5.0, GameClock.Phase.DAY, "sl_breaker_room")
-	await _shot(Vector3(28, 19.6, -18), 90.0, 4.0, GameClock.Phase.DUSK, "sl_dusk_sea", 0.55)
-	await _shot(Vector3(28, 19.6, -18), 270.0, 4.0, GameClock.Phase.DUSK, "sl_dusk_sea_w", 0.55)
+	# Moved south of the Phase-2 container stack that now owns the old vantage.
+	await _shot(Vector3(28, 21.0, -20.5), 90.0, 2.0, GameClock.Phase.DUSK, "sl_dusk_sea", 0.55)
+	await _shot(Vector3(28, 21.0, -20.5), 270.0, 2.0, GameClock.Phase.DUSK, "sl_dusk_sea_w", 0.55)
 	await _shot(Vector3(20, 3.4, -12), -95.0, -10.0, GameClock.Phase.DAY, "sl_waves_close")
 	await _shot(Vector3(2, 19.9, -19), 3.0, -16.0, GameClock.Phase.DAY, "sl_gyre")
 	# UI panels: seed some discoveries, then help/journal/inventory.
