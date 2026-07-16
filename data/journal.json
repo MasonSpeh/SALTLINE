@@ -203,5 +203,23 @@
   "title": "Building",
   "body": "I raised something on this rig with my own hands. It wasn't here yesterday; it's here now. The rig doesn't mind. I think the rig has been waiting for someone to keep making things.",
   "hint": "Craft kits at the bench → B for build mode → LMB places, R rotates, Tab cycles kits."
+ },
+ "creature_seal": {
+  "cat": "creature",
+  "title": "Harbor Seal",
+  "body": "One hauled out on the wet deck this morning and watched me the whole time I worked. No fear in it at all — the Bloom took that from all of them. When I looked back, it looked back. Twelve years ago they'd have bolted. Now I think it was deciding about me.",
+  "hint": "They herd fish toward a still net. Earn one's trust and you never fish alone."
+ },
+ "creature_lamp_snail": {
+  "cat": "creature",
+  "title": "Lamp Snails",
+  "body": "Lean over the rail on a dark night and the legs are wearing constellations — shells the size of a wheelbarrow, each spotted with cold light, drifting slow circles at the waterline. The whole rig stands in its own quiet galaxy after sundown.",
+  "hint": "On an outgoing tide some strand on the leg bracing. A gentle harvest takes the glow-mucus and leaves the animal."
+ },
+ "creature_corvid_gull": {
+  "cat": "creature",
+  "title": "Corvid-Gull",
+  "body": "This one didn't wheel off with the others. It sat the rail and tipped its head, tracking me with one bright eye — measuring. They steal anything loose and bright, and they remember faces. I get the feeling the trade could go both ways, if I'm patient.",
+  "hint": "Leave something shiny where one perches. Their taste is inscrutable, but they pay."
  }
 }

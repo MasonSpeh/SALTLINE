@@ -22,6 +22,10 @@ func _ready() -> void:
 	await _shot(Vector3(15.5, 3.4, -5.2), 180.0, -12.0, GameClock.Phase.DAY, "sl_pump_skids")
 	await _shot(Vector3(-23.5, 19.7, -13.5), 210.0, -8.0, GameClock.Phase.DAY, "sl_machine_shop")
 	await _shot(Vector3(21.5, 3.4, -18.0), 200.0, -10.0, GameClock.Phase.DAY, "sl_bench_props")
+	# Fauna: seal patrol + perched corvid (day), lamp-snail constellations (night).
+	await get_tree().create_timer(2.0).timeout   # let the seal reach a nice spot
+	await _shot(Vector3(24, 4.0, -22), 160.0, -6.0, GameClock.Phase.DAY, "sl_fauna_seal")
+	await _shot(Vector3(19, 4.5, -6), 200.0, -16.0, GameClock.Phase.NIGHT, "sl_fauna_snails")
 	await _shot(Vector3(-22, 19.2, -3), 235.0, -4.0, GameClock.Phase.DAY, "sl_topside_day")
 	await _shot(Vector3(3.5, 35.5, -18), 175.0, -18.0, GameClock.Phase.DAY, "sl_lookout")
 	await _shot(Vector3(26.5, 11.2, 4.5), 155.0, -5.0, GameClock.Phase.DAY, "sl_breaker_room")

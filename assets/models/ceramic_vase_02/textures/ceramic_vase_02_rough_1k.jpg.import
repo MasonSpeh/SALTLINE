@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bhgxnv1djcilo"
-path="res://.godot/imported/ceramic_vase_02_diff_1k.jpg-0f1cd8e0417977cc52e386a23e7d9c47.ctex"
+uid="uid://bvcqxcy0ohwdo"
+path="res://.godot/imported/ceramic_vase_02_rough_1k.jpg-74e43bb14431cbbdd000f6b6b82ff6e3.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/models/ceramic_vase_02/textures/ceramic_vase_02_diff_1k.jpg"
-dest_files=["res://.godot/imported/ceramic_vase_02_diff_1k.jpg-0f1cd8e0417977cc52e386a23e7d9c47.ctex"]
+source_file="res://assets/models/ceramic_vase_02/textures/ceramic_vase_02_rough_1k.jpg"
+dest_files=["res://.godot/imported/ceramic_vase_02_rough_1k.jpg-74e43bb14431cbbdd000f6b6b82ff6e3.ctex"]
 
 [params]
 

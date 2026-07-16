@@ -2,16 +2,16 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://bhgxnv1djcilo"
-path="res://.godot/imported/ceramic_vase_02_diff_1k.jpg-0f1cd8e0417977cc52e386a23e7d9c47.ctex"
+uid="uid://bhn1tpvf7t1wv"
+path="res://.godot/imported/anthurium_botany_01_diff_1k.jpg-c3450572c7a4104fff7ac3dcc4f7a3a1.ctex"
 metadata={
 "vram_texture": false
 }
 
 [deps]
 
-source_file="res://assets/models/ceramic_vase_02/textures/ceramic_vase_02_diff_1k.jpg"
-dest_files=["res://.godot/imported/ceramic_vase_02_diff_1k.jpg-0f1cd8e0417977cc52e386a23e7d9c47.ctex"]
+source_file="res://assets/models/anthurium_botany_01/textures/anthurium_botany_01_diff_1k.jpg"
+dest_files=["res://.godot/imported/anthurium_botany_01_diff_1k.jpg-c3450572c7a4104fff7ac3dcc4f7a3a1.ctex"]
 
 [params]
 

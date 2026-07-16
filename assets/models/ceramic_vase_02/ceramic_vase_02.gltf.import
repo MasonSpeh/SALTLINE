@@ -3,12 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://bdh8n430sekiv"
-valid=false
+uid="uid://c28qdh4xvq1rh"
+path="res://.godot/imported/ceramic_vase_02.gltf-4ec5da9580ea6642d7f9f7a6e79fcda5.scn"
 
 [deps]
 
 source_file="res://assets/models/ceramic_vase_02/ceramic_vase_02.gltf"
+dest_files=["res://.godot/imported/ceramic_vase_02.gltf-4ec5da9580ea6642d7f9f7a6e79fcda5.scn"]
 
 [params]
 
