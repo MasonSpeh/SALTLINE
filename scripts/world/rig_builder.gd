@@ -47,6 +47,8 @@ func _ready() -> void:
 	# Water-level overhaul: boat landing, mooring station, pipe gallery, pump
 	# skids, girder ceiling, salvage scatter. Preloaded by path (class cache).
 	add_child(preload("res://scripts/world/wet_deck_detail.gd").new())
+	# Lived-in dressing: glTF furniture/tools/effects stocked through every room.
+	add_child(preload("res://scripts/world/interior_props.gd").new())
 	# The accommodation stack: Decks B/C/D + roof + comms mast above the topside rooms.
 	# Preloaded by path — the global class cache may not know the new file yet.
 	add_child(preload("res://scripts/world/rig_superstructure.gd").new())
