@@ -43,8 +43,9 @@ func _find_ladder(root: Node, name_: String) -> Node:
 	return null
 
 func _fish_total() -> int:
+	# Count every species the table can land — the net rolls from all of them.
 	var n: int = 0
-	for id in ["fish_herring", "fish_slate_cod", "fish_chimefish", "fish_sable_hake"]:
+	for id in preload("res://scripts/world/fish_table.gd").all():
 		n += _item_count(id)
 	return n
 
@@ -421,6 +422,47 @@ func _run() -> void:
 	if top_winch:
 		top_winch.interact("LOWER", player)
 		_check(top_winch._wet, "topside drop net reaches the water")
+
+	# Corvid theft: the thief carries a loose deck item to the nest cache.
+	var corvid: Node3D = null
+	var nest_node: Node = null
+	var cstack: Array[Node] = [main]
+	while not cstack.is_empty():
+		var cn: Node = cstack.pop_back()
+		for cc in cn.get_children():
+			cstack.append(cc)
+		if cn.get("thief") != null and cn.thief:
+			corvid = cn
+		if cn.is_in_group("gull_nest"):
+			nest_node = cn
+	_check(corvid != null, "a thief corvid exists")
+	_check(nest_node != null, "the gull nest cache exists")
+	if corvid and nest_node:
+		var bait := Takeable.new()
+		bait.item_id = "rope"
+		bait.display_name = "Rope Coil"
+		main.add_child(bait)
+		bait.global_position = Vector3(5, DECK_Y_TEST + 0.2, 0)
+		await get_tree().process_frame
+		corvid._target = bait
+		corvid._steal_phase = 1
+		corvid.global_position = bait.global_position
+		corvid._theft(0.1)   # grab
+		_check(corvid._steal_phase == 2 and corvid._loot_id == "rope", "corvid grabs loose loot")
+		corvid.global_position = nest_node.global_position + Vector3(0, 0.6, 0)
+		corvid._theft(0.1)   # deposit
+		_check(nest_node.items.has("rope"), "stolen loot lands in the nest cache")
+	# Crab anatomy: the night threat has its eight legs and its lamp.
+	GameClock.force_phase(GameClock.Phase.NIGHT)
+	await get_tree().process_frame
+	var crab2: LamplightCrab = null
+	for c2 in main.get_children():
+		if c2 is LamplightCrab:
+			crab2 = c2
+	if crab2:
+		_check(crab2._legs.size() == 8, "crab walks on eight articulated legs")
+		_check(crab2._lamp_mat != null, "the lamp lure organ exists")
+	GameClock.force_phase(GameClock.Phase.DAY)
 
 	# Save round-trip.
 	SaveManager.save_game()

@@ -25,6 +25,20 @@ func _ready() -> void:
 	# Fauna: seal patrol + perched corvid (day), lamp-snail constellations (night).
 	await get_tree().create_timer(2.0).timeout   # let the seal reach a nice spot
 	await _shot(Vector3(24, 4.0, -22), 160.0, -6.0, GameClock.Phase.DAY, "sl_fauna_seal")
+	# The crab, lamp lit, mid-hunt — the night's face.
+	GameClock.force_phase(GameClock.Phase.NIGHT)
+	await get_tree().create_timer(0.5).timeout
+	var crab := preload("res://scripts/world/crab.gd").new()
+	main.add_child(crab)
+	crab.global_position = Vector3(23.0, 2.0, -18.0)   # open walk lane, clear sightline
+	crab.state = crab.State.PURSUE
+	crab.pursue_speed = 0.0      # hold the menace pose — no contact blackout mid-shot
+	crab.contact_radius = 0.0
+	main.player.global_position = Vector3(26.0, 2.2, -18.0)
+	await get_tree().create_timer(1.0).timeout
+	await _shot(Vector3(26.0, 3.0, -18.0), 90.0, -22.0, GameClock.Phase.NIGHT, "sl_crab_lamp")
+	crab.queue_free()
+	await _shot(Vector3(2, 3.6, -20), 0.0, -10.0, GameClock.Phase.NIGHT, "sl_jelly_night")
 	# Stair verification: tower flight from the wet deck, and the quarters stairs.
 	await _shot(Vector3(23.5, 3.4, -1.0), -45.0, 6.0, GameClock.Phase.DAY, "sl_stairs_tower")
 	# Below the wave line (fly mode keeps the drown-respawn out of the frame).

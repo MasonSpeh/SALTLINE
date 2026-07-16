@@ -46,9 +46,28 @@ func _ready() -> void:
 			Vector3(19, 0, 12), Vector3(-22, 0, -9), Vector3(22, 0, 9)]
 	for i in range(snail_legs.size()):
 		add_child(LampSnail.new(i, snail_legs[i] + Vector3(0, 0.3, 0)))
-	# Corvid-Gulls perched on rails, watching (§26).
-	for perch in [Vector3(24.9, 2.75, -16.0), Vector3(-8.6, 18.75, 6.4), Vector3(27.6, 18.75, 4.0)]:
-		var cg := CorvidGull.new(perch)
+	# Corvid-Gulls perched on rails, watching (§26) — and one of them steals.
+	# Loose deck items vanish to a findable nest on the bunkhouse roof (F10/M14):
+	# theft becomes a treasure hunt, and the nest occasionally overpays.
+	var nest := LootContainer.new()
+	var nest_items: Array[String] = ["sealed_tin"]
+	nest.items = nest_items
+	nest.display_name = "Gull Nest"
+	add_child(nest)
+	nest.add_to_group("gull_nest")
+	nest.global_position = Vector3(-20, 21.25, 12)
+	nest.build_box_visual(Vector3(0.7, 0.25, 0.7), Color(0.45, 0.38, 0.26), false, true)
+	var twigs := CSGTorus3D.new()
+	twigs.inner_radius = 0.22
+	twigs.outer_radius = 0.42
+	twigs.material = MatLib.weathered_wood()
+	twigs.use_collision = false
+	add_child(twigs)
+	twigs.global_position = Vector3(-20, 21.42, 12)
+	var perches := [Vector3(24.9, 2.75, -16.0), Vector3(-8.6, 18.75, 6.4), Vector3(27.6, 18.75, 4.0)]
+	for i in range(perches.size()):
+		var cg := CorvidGull.new(perches[i])
+		cg.thief = i == 1   # the bunkhouse-rail bird works the topside deck
 		add_child(cg)
 	# Glow worms — rare, edible; a den network wakes two dark corners per night.
 	add_child(GlowWormColony.new())
@@ -171,9 +190,13 @@ class Gull extends Node3D:
 		global_position = next
 		if vel.length_squared() > 0.0001:
 			look_at(next + vel, Vector3.UP)
-		var flap: float = sin(_t * 9.0) * 0.55
+		# Real bird flight: bank into the circle, and alternate flap bursts with
+		# stiff-winged glides — gulls work the wind, they don't row through it.
+		var gliding: bool = sin(_t * 0.31 + _idx * 1.3) > 0.15
+		var flap: float = (0.1 if gliding else 0.6) * sin(_t * 9.0) + (0.12 if gliding else 0.0)
 		_wing_l.rotation.z = flap
 		_wing_r.rotation.z = -flap
+		rotation.z = lerp_angle(rotation.z, -0.35 * signf(_speed), delta * 2.0)   # bank
 
 # ---------------------------------------------------------- JellyDrifter
 class JellyDrifter extends Node3D:
@@ -186,29 +209,46 @@ class JellyDrifter extends Node3D:
 		_idx = idx
 		_t = idx * 2.3
 
+	var _bell: Node3D
+	var _core_mat: StandardMaterial3D
+	var _tentacles: Array = []   # arrays of segment pivots, whip-lagged
+
 	func _ready() -> void:
-		_mat = BloomFauna.glow_mat(BloomFauna.TEAL, 0.0, 0.55)
-		var bell := MeshInstance3D.new()
-		var sm := SphereMesh.new()
-		sm.radius = 0.42
-		sm.height = 0.5
-		sm.material = _mat
-		bell.mesh = sm
-		add_child(bell)
-		for i in range(3):
-			var tent := MeshInstance3D.new()
-			var tm := BoxMesh.new()
-			tm.size = Vector3(0.03, 0.7, 0.03)
-			tm.material = _mat
-			tent.mesh = tm
-			add_child(tent)
-			tent.position = Vector3(cos(i * 2.1) * 0.18, -0.5, sin(i * 2.1) * 0.18)
+		var kit := preload("res://scripts/world/creature_kit.gd")
+		_mat = BloomFauna.glow_mat(BloomFauna.TEAL, 0.0, 0.4)
+		# The bell: translucent dome over a skirt rim, with a bright organ core —
+		# the classic moonjelly read, Bloom-lit from inside.
+		_bell = Node3D.new()
+		add_child(_bell)
+		kit.ball(_bell, Vector3.ZERO, 0.42, _mat, Vector3(1.0, 0.62, 1.0))
+		kit.ball(_bell, Vector3(0, -0.1, 0), 0.4, _mat, Vector3(1.06, 0.3, 1.06))   # skirt
+		_core_mat = kit.glow_spot(_bell, Vector3(0, 0.02, 0), 0.16, BloomFauna.TEAL, 0.0)
+		for i in range(4):   # the four-leaf organ ring
+			var a: float = i * PI * 0.5
+			kit.glow_spot(_bell, Vector3(cos(a) * 0.12, 0.08, sin(a) * 0.12), 0.06, BloomFauna.PEARL, 0.0)
+		# Eight trailing tentacles: 3 chained segments each, lagging the drift.
+		for i in range(8):
+			var a: float = i * TAU / 8.0
+			var root := Node3D.new()
+			_bell.add_child(root)
+			root.position = Vector3(cos(a) * 0.3, -0.18, sin(a) * 0.3)
+			var chain: Array = [root]
+			var holder: Node3D = root
+			for s in range(3):
+				var seg := Node3D.new()
+				holder.add_child(seg)
+				seg.position = Vector3(0, -0.26, 0)
+				kit.ball(seg, Vector3(0, -0.12, 0), 0.028 - s * 0.007, _mat, Vector3(0.8, 4.6, 0.8))
+				chain.append(seg)
+				holder = seg
+			_tentacles.append(chain)
 
 	func _process(delta: float) -> void:
 		_presence = move_toward(_presence, 1.0 if BloomFauna.is_dark_phase() else 0.0, delta * 0.1)
 		visible = _presence > 0.02
-		_mat.emission_energy_multiplier = _presence * (1.3 + 0.5 * sin(_t * 1.1))
-		_mat.albedo_color.a = _presence * 0.55
+		_mat.emission_energy_multiplier = _presence * (1.0 + 0.4 * sin(_t * 1.1))
+		_mat.albedo_color.a = _presence * 0.42
+		_core_mat.emission_energy_multiplier = _presence * (1.8 + 1.4 * maxf(sin(_t * 2.2 + _idx), 0.0))
 		if not visible:
 			return
 		_t += delta
@@ -216,7 +256,14 @@ class JellyDrifter extends Node3D:
 		var angle: float = _idx * 0.9 + _t * 0.045
 		var radius: float = 15.0 + _idx * 3.2 + sin(_t * 0.2 + _idx) * 2.0
 		global_position = Vector3(cos(angle) * radius, 0.35 + sin(_t * 0.8 + _idx) * 0.25, sin(angle) * radius)
-		scale.y = 1.0 + sin(_t * 2.2 + _idx) * 0.12   # bell contraction
+		# The pulse: the bell squeezes, the body surges up a beat later.
+		var squeeze: float = sin(_t * 2.2 + _idx)
+		_bell.scale = Vector3(1.0 - squeeze * 0.08, 1.0 + squeeze * 0.16, 1.0 - squeeze * 0.08)
+		# Tentacles whip-lag behind the pulse, each segment a phase later.
+		for chain in _tentacles:
+			for s in range(1, chain.size()):
+				(chain[s] as Node3D).rotation.x = sin(_t * 2.2 + _idx - s * 0.7) * 0.14
+				(chain[s] as Node3D).rotation.z = cos(_t * 1.7 + _idx - s * 0.55) * 0.14
 
 # -------------------------------------------------------- BarnacleCluster
 class BarnacleCluster extends Node3D:
@@ -355,43 +402,47 @@ class MantleRay extends Node3D:
 	var _to: Vector3
 	var _progress: float = 0.0
 	var _cooldown: float = 25.0    # first pass comes fairly soon into the night
-	var _wing_l: MeshInstance3D
-	var _wing_r: MeshInstance3D
+
+	var _wing_sections: Array = []   # [{pivot, side, idx}] — the traveling wave
 
 	func _ready() -> void:
 		visible = false
-		var dark := BloomFauna.glow_mat(Color(0.1, 0.14, 0.16), 0.0)
-		var body := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(2.2, 0.5, 7.0)
-		bm.material = dark
-		body.mesh = bm
-		add_child(body)
-		_wing_l = _wing(-1, dark)
-		_wing_r = _wing(1, dark)
+		var kit := preload("res://scripts/world/creature_kit.gd")
+		var hide := kit.mat(Color(0.1, 0.14, 0.16), 0.6)
+		var belly := kit.mat(Color(0.55, 0.62, 0.62), 0.65)
+		# Body: a smooth diamond mass with a pale underside and cephalic fins.
+		kit.ball(self, Vector3.ZERO, 1.2, hide, Vector3(1.1, 0.32, 2.6))
+		kit.ball(self, Vector3(0, -0.14, 0.2), 1.05, belly, Vector3(0.95, 0.18, 2.2))
+		for side in [-1.0, 1.0]:
+			kit.fin(self, Vector3(side * 0.5, -0.05, -2.9), Vector3(0.35, 0.15, 1.0), hide,
+				Vector3(0, 0, -20 * side))
+		# Tail filament.
+		kit.ball(self, Vector3(0, 0.05, 3.6), 0.5, hide, Vector3(0.12, 0.08, 2.2))
+		# Wings: three chained sections per side — flapped with a phase offset so
+		# the whole span undulates like fabric instead of hinging like a door.
+		for side in [-1.0, 1.0]:
+			var holder: Node3D = self
+			var attach := Vector3(side * 0.9, 0, 0)
+			for s in range(3):
+				var pivot := Node3D.new()
+				holder.add_child(pivot)
+				pivot.position = attach
+				var mi := MeshInstance3D.new()
+				var wm := BoxMesh.new()
+				wm.size = Vector3(1.6, 0.14 - s * 0.03, 4.6 - s * 1.2)
+				wm.material = hide
+				mi.mesh = wm
+				pivot.add_child(mi)
+				mi.position = Vector3(side * 0.8, 0, 0)
+				_wing_sections.append({"pivot": pivot, "side": side, "idx": s})
+				holder = pivot
+				attach = Vector3(side * 1.6, 0, 0)
 		# Bloom speckles under the wings — the give-away glow overhead.
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 7717
 		for i in range(14):
-			var dot := MeshInstance3D.new()
-			var dm := SphereMesh.new()
-			dm.radius = 0.09
-			dm.height = 0.18
-			dm.material = BloomFauna.glow_mat(BloomFauna.TEAL, 2.2)
-			dot.mesh = dm
-			add_child(dot)
-			dot.position = Vector3(rng.randf_range(-4.5, 4.5), -0.3, rng.randf_range(-2.8, 2.8))
-
-	func _wing(side: int, mat: Material) -> MeshInstance3D:
-		var w := MeshInstance3D.new()
-		var wm := PrismMesh.new()
-		wm.size = Vector3(5.0, 0.25, 5.5)
-		wm.material = mat
-		w.mesh = wm
-		add_child(w)
-		w.position = Vector3(side * 3.4, 0, 0)
-		w.rotation.z = deg_to_rad(90.0 * side)
-		return w
+			kit.glow_spot(self, Vector3(rng.randf_range(-3.2, 3.2), -0.28, rng.randf_range(-2.6, 2.6)),
+				0.09, BloomFauna.TEAL, 2.2)
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -412,9 +463,10 @@ class MantleRay extends Node3D:
 		Journal.discover_if_near(self, "creature_mantle_ray", 90.0)   # dips lowest right over the deck
 		global_position = pos
 		look_at(pos + (_to - _from).normalized(), Vector3.UP)
-		var flap: float = sin(_t * 1.1) * 0.18
-		_wing_l.rotation.x = flap
-		_wing_r.rotation.x = -flap
+		# The undulation: each wing section a phase behind the last — a wave
+		# traveling out along the span, the way a real mantle swims.
+		for w in _wing_sections:
+			(w["pivot"] as Node3D).rotation.z = w["side"] * sin(_t * 1.3 - w["idx"] * 0.85) * 0.24
 
 	func _begin_pass() -> void:
 		_flying = true
@@ -643,65 +695,87 @@ class Epic4EyedWhale extends Node3D:
 	var _to: Vector3
 	var _progress: float = 0.0
 	var _cooldown: float = 40.0
-	var _body_mesh: MeshInstance3D
 	var _eye_mats: Array[StandardMaterial3D] = []
-	var _fin_mats: Array[StandardMaterial3D] = []
+
+	var _spine: Array = []
+	var _fin_pivots: Array = []
+	var _blink: Array = []   # per-eye blink phase offsets
 
 	func _ready() -> void:
 		visible = false
-		_body_mesh = MeshInstance3D.new()
-		var bm := SphereMesh.new()
-		bm.radius = 4.5
-		bm.height = 9.0
-		var hull_mat := BloomFauna.glow_mat(Color(0.08, 0.25, 0.24), 0.35)
-		bm.material = hull_mat
-		_body_mesh.mesh = bm
-		add_child(_body_mesh)
-
-		# Four glowing eyes — two sets on top, alien and epic
-		var eye_color := BloomFauna.TEAL
+		var kit := preload("res://scripts/world/creature_kit.gd")
+		var hide := kit.mat(Color(0.08, 0.22, 0.21), 0.7, 0.25)
+		var pale := kit.mat(Color(0.3, 0.42, 0.4), 0.7, 0.1)
+		# The body: a tapered five-segment mass, nose to tailstock, that sways as
+		# one animal instead of drifting as one balloon. ~22m of whale.
+		var radii := [3.0, 3.6, 3.2, 2.2, 1.2]
+		var z: float = -8.0
+		for i in range(radii.size()):
+			var seg := Node3D.new()
+			add_child(seg)
+			seg.position = Vector3(0, 0, z)
+			kit.ball(seg, Vector3.ZERO, radii[i], hide, Vector3(0.85, 0.78, 1.15))
+			_spine.append(seg)
+			z += radii[i] * 1.35
+		# Pale jaw slab under the head, and a scatter of barnacle guests.
+		kit.ball(_spine[0], Vector3(0, -1.3, -0.6), 2.0, pale, Vector3(0.75, 0.4, 1.0))
+		var rng := RandomNumberGenerator.new()
+		rng.seed = 4114
+		for i in range(8):
+			kit.ball(_spine[rng.randi_range(0, 2)],
+				Vector3(rng.randf_range(-1.8, 1.8), rng.randf_range(1.4, 2.6), rng.randf_range(-1.5, 1.5)),
+				rng.randf_range(0.12, 0.24), kit.mat(Color(0.5, 0.52, 0.48), 0.9))
+		# The fluke, and two long rowing side fins.
+		kit.fin(_spine[4], Vector3(0, 0, 1.6), Vector3(4.6, 0.25, 2.2), hide, Vector3(0, 0, 90))
+		for side in [-1.0, 1.0]:
+			var f := kit.fin(_spine[1], Vector3(side * 2.8, -0.8, 0), Vector3(0.3, 1.2, 3.4), hide,
+				Vector3(0, 0, 70 * side))
+			_fin_pivots.append(f)
+		# The four eyes: two pairs high on the head, each a bright iris inside a
+		# soft halo. They blink in sequence, never together — the eerie part.
 		for i in range(4):
-			var eye := MeshInstance3D.new()
-			var em := SphereMesh.new()
-			em.radius = 0.35
-			em.height = 0.7
-			var eye_mat := BloomFauna.glow_mat(eye_color, 1.8)
+			var side: float = -1.0 if i < 2 else 1.0
+			var fwd: float = -1.6 + (i % 2) * 2.4
+			var pos := Vector3(side * 2.0, 2.2 + (i % 2) * 0.7, fwd)
+			var halo := BloomFauna.glow_mat(BloomFauna.TEAL, 0.6, 0.3)
+			var halo_ball := MeshInstance3D.new()
+			var hm := SphereMesh.new()
+			hm.radius = 0.62
+			hm.height = 1.24
+			hm.material = halo
+			halo_ball.mesh = hm
+			_spine[0].add_child(halo_ball)
+			halo_ball.position = pos
+			var eye_mat := BloomFauna.glow_mat(BloomFauna.TEAL, 1.8)
 			_eye_mats.append(eye_mat)
+			var em := SphereMesh.new()
+			em.radius = 0.34
+			em.height = 0.68
 			em.material = eye_mat
+			var eye := MeshInstance3D.new()
 			eye.mesh = em
-			add_child(eye)
-			var side: float = -2.0 if i < 2 else 2.0
-			var forward: float = -3.0 + (i % 2) * 4.0
-			eye.position = Vector3(side, 3.2 + (i % 2) * 0.8, forward)
-
-		# Six wild fins
-		for i in range(6):
-			var fin := MeshInstance3D.new()
-			var fm := PrismMesh.new()
-			fm.size = Vector3(1.2, 2.8, 3.2)
-			var fin_mat := BloomFauna.glow_mat(Color(0.15, 0.35, 0.33), 0.5)
-			_fin_mats.append(fin_mat)
-			fm.material = fin_mat
-			fin.mesh = fm
-			add_child(fin)
-			var y: float = 4.8 if i < 3 else -4.8
-			var z: float = -1.5 + (i % 3) * 1.5
-			fin.position = Vector3(0, y, z)
-			fin.rotation.x = deg_to_rad(45) * (-1 if i < 3 else 1)
-			fin.scale = Vector3(0.6, 1.0, 1.0)
+			_spine[0].add_child(eye)
+			eye.position = pos
+			_blink.append(rng.randf_range(0.0, 20.0))
 
 	func _process(delta: float) -> void:
 		_t += delta
 		_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.08)
 		visible = _presence > 0.02
 
-		for mat in _eye_mats:
-			mat.emission_energy_multiplier = _presence * (1.5 + 0.8 * sin(_t * 0.8))
-		for mat in _fin_mats:
-			mat.emission_energy_multiplier = _presence * (0.4 + 0.3 * sin(_t * 1.2))
+		# Eyes blink one at a time, on long uneven clocks — never all four dark.
+		for i in range(_eye_mats.size()):
+			var blink: float = clampf(sin(_t * 0.45 + _blink[i]) * 14.0 - 12.6, 0.0, 1.0)
+			_eye_mats[i].emission_energy_multiplier = _presence * (1.5 + 0.8 * sin(_t * 0.8 + i)) * (1.0 - blink)
 
 		if not visible:
 			return
+		# Body sway: each segment trails the one ahead; fins row slow and out of
+		# phase — twenty meters of animal moving like weather.
+		for i in range(_spine.size()):
+			(_spine[i] as Node3D).position.x = sin(_t * 0.7 - i * 0.55) * (0.25 + i * 0.22)
+		for i in range(_fin_pivots.size()):
+			(_fin_pivots[i] as Node3D).rotation.x = sin(_t * 0.5 + i * PI) * 0.3
 
 		if not _flying:
 			if GameClock.current_phase == GameClock.Phase.NIGHT:
@@ -723,14 +797,6 @@ class Epic4EyedWhale extends Node3D:
 		global_position = pos
 		look_at(pos + (_to - _from).normalized(), Vector3.UP)
 
-		for i in range(get_child_count()):
-			var ch = get_child(i)
-			if ch is MeshInstance3D and ch != _body_mesh:
-				if i < 5:
-					continue
-				var fin_idx: int = i - 5
-				ch.rotation.z = sin(_t * (1.5 + fin_idx * 0.4)) * (0.6 + fin_idx * 0.15)
-
 	func _begin_pass() -> void:
 		_flying = true
 		visible = true
@@ -750,6 +816,10 @@ class HarborSeal extends Node3D:
 	var _t: float = 0.0
 	var _head: Node3D
 	var _mat: StandardMaterial3D
+	var _flippers: Array = []
+	var _hauled: bool = false            ## day rest on the dock corner
+	var _haul_timer: float = 0.0
+	const HAUL_SPOT := Vector3(25.8, 2.25, -20.6)   # tide-line corner of the wet deck
 
 	func _ready() -> void:
 		_t = randf() * 10.0
@@ -795,16 +865,32 @@ class HarborSeal extends Node3D:
 			eye.mesh = es
 			eye.position = Vector3(sx, 0.05, -0.2)
 			_head.add_child(eye)
-		# Fore flippers + tail flippers.
+		# Fore flippers on pivots (they row), whisker quills, tail flippers.
 		for side in [-1, 1]:
-			var fl := MeshInstance3D.new()
+			var fl := Node3D.new()
+			add_child(fl)
+			fl.position = Vector3(side * 0.42, -0.1, -0.2)
+			var mi := MeshInstance3D.new()
 			var fm := PrismMesh.new()
 			fm.size = Vector3(0.16, 0.05, 0.6)
 			fm.material = _mat
-			fl.mesh = fm
-			fl.position = Vector3(side * 0.42, -0.1, -0.2)
-			fl.rotation.y = deg_to_rad(-25 * side)
-			add_child(fl)
+			mi.mesh = fm
+			fl.add_child(mi)
+			mi.position = Vector3(side * 0.1, 0, -0.15)
+			mi.rotation.y = deg_to_rad(-25 * side)
+			_flippers.append(fl)
+		for side in [-1, 1]:
+			for w in range(3):
+				var whisker := MeshInstance3D.new()
+				var wm := CylinderMesh.new()
+				wm.top_radius = 0.004
+				wm.bottom_radius = 0.004
+				wm.height = 0.22
+				wm.material = BloomFauna.glow_mat(Color(0.85, 0.85, 0.8), 0.0)
+				whisker.mesh = wm
+				_head.add_child(whisker)
+				whisker.position = Vector3(side * 0.12, -0.08, -0.32)
+				whisker.rotation_degrees = Vector3(0, 0, side * (55 + w * 18))
 		var tail := MeshInstance3D.new()
 		var tm := PrismMesh.new()
 		tm.size = Vector3(0.7, 0.05, 0.4)
@@ -815,6 +901,27 @@ class HarborSeal extends Node3D:
 
 	func _process(delta: float) -> void:
 		_t += delta
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		# Haul-out: by day it sometimes lugs itself onto the tide-line corner and
+		# just... lies there, watching you work. The rig has a resident now.
+		_haul_timer -= delta
+		if _haul_timer <= 0.0:
+			var day: bool = GameClock.current_phase == GameClock.Phase.DAY
+			_hauled = day and randf() < 0.55 and _idx_zero()
+			_haul_timer = randf_range(35.0, 70.0)
+		if _hauled:
+			global_position = global_position.lerp(HAUL_SPOT, delta * 1.5)
+			rotation.z = lerp_angle(rotation.z, 0.0, delta * 2.0)
+			rotation.x = lerp_angle(rotation.x, -0.12, delta * 2.0)   # chest-up rest pose
+			for f in _flippers:
+				(f as Node3D).rotation.x = lerp_angle((f as Node3D).rotation.x, 0.0, delta * 3.0)
+			if player:
+				Journal.discover_if_near(self, "creature_seal", 18.0)
+				var to_pl: Vector3 = player.global_position - _head.global_position
+				var flat_pl := Vector3(to_pl.x, 0, to_pl.z)
+				if flat_pl.length_squared() > 0.01:
+					_head.rotation.y = lerp_angle(_head.rotation.y, atan2(flat_pl.x, flat_pl.z) - rotation.y, delta * 2.0)
+			return
 		# A long looping patrol south of the rig, near the surface.
 		var ang: float = _t * 0.16
 		var r: float = 20.0 + sin(_t * 0.1) * 6.0
@@ -825,8 +932,11 @@ class HarborSeal extends Node3D:
 		global_position = pos
 		if vel.length_squared() > 0.0001:
 			look_at(pos + vel, Vector3.UP)
+		rotation.x += clampf(vel.y * 2.0, -0.4, 0.4)   # pitch into the porpoise arc
+		# Fore flippers row on the dive beat.
+		for i in range(_flippers.size()):
+			(_flippers[i] as Node3D).rotation.x = sin(_t * 2.4 + i * PI) * 0.5
 		# Curiosity: if the player is close and on the deck, the head turns to them.
-		var player: Node3D = get_tree().get_first_node_in_group("player")
 		if player and player.global_position.distance_to(global_position) < 18.0:
 			Journal.discover_if_near(self, "creature_seal", 18.0)
 			var to_p: Vector3 = player.global_position - _head.global_position
@@ -835,6 +945,10 @@ class HarborSeal extends Node3D:
 				_head.rotation.y = lerp_angle(_head.rotation.y, atan2(flat.x, flat.z) - rotation.y, delta * 2.0)
 		# Body roll as it swims.
 		rotation.z = sin(_t * 1.2) * 0.15
+
+	## Only the first seal hauls out — one resident, one patroller.
+	func _idx_zero() -> bool:
+		return get_index() % 2 == 0
 
 # ------------------------------------------------- Lamp Snail constellation
 class LampSnail extends Node3D:
@@ -907,10 +1021,20 @@ class LampSnail extends Node3D:
 # ------------------------------------------------- Corvid-Gull (perched)
 class CorvidGull extends Node3D:
 	## A Bloom-intelligent gull (Codex §26) perched on a rail, watching. Tilts its
-	## head to track the player — the first hint that the birds here are thinking.
+	## head to track the player — and one of them STEALS: loose takeables on the
+	## topside deck get carried, visibly, to the nest on the bunkhouse roof.
+	## Story-critical tools are beneath its interest (and our mercy).
+	const NEVER_STEAL := ["cable_spool", "fishing_rod", "throwing_hook", "prybar"]
+
+	var thief: bool = false
 	var _t: float
 	var _head: Node3D
 	var _perch: Vector3
+	var _steal_timer: float = 70.0
+	var _steal_phase: int = 0          ## 0 idle · 1 to target · 2 to nest · 3 home
+	var _target: Node3D = null
+	var _loot_id: String = ""
+	var _carry: Node3D = null
 
 	func _init(perch: Vector3) -> void:
 		_perch = perch
@@ -972,9 +1096,13 @@ class CorvidGull extends Node3D:
 		_t += delta
 		var day: bool = GameClock.current_phase == GameClock.Phase.DAY \
 			or GameClock.current_phase == GameClock.Phase.DAWN
-		visible = day
-		if not day:
+		visible = day or _steal_phase != 0
+		if not visible:
 			return
+		if thief and day:
+			_theft(delta)
+			if _steal_phase != 0:
+				return   # mid-heist: flying overrides perching
 		var player: Node3D = get_tree().get_first_node_in_group("player")
 		if player and player.global_position.distance_to(global_position) < 20.0:
 			Journal.discover_if_near(self, "creature_corvid_gull", 20.0)
@@ -988,3 +1116,77 @@ class CorvidGull extends Node3D:
 			_head.rotation.z = move_toward(_head.rotation.z, 0.0, delta)
 		# Occasional preen bob.
 		_head.position.y = 0.28 + maxf(sin(_t * 0.5) - 0.7, 0.0) * 0.3
+
+	## The heist loop: pick a loose topside takeable, swoop, carry it — in view,
+	## dangling — to the nest, and glide home like nothing happened.
+	func _theft(delta: float) -> void:
+		match _steal_phase:
+			0:
+				_steal_timer -= delta
+				if _steal_timer <= 0.0:
+					_steal_timer = randf_range(90.0, 160.0)
+					_target = _find_loot()
+					if _target:
+						_steal_phase = 1
+			1:
+				if not is_instance_valid(_target):
+					_steal_phase = 3
+					return
+				if _fly_to(_target.global_position + Vector3(0, 0.3, 0), delta, 6.0):
+					_loot_id = _target.item_id
+					_target.queue_free()
+					_carry = ItemVisual.build(_loot_id)
+					add_child(_carry)
+					_carry.position = Vector3(0, -0.35, 0)
+					_carry.scale = Vector3(0.7, 0.7, 0.7)
+					var player: Node3D = get_tree().get_first_node_in_group("player")
+					var hud: Node = get_tree().get_first_node_in_group("hud")
+					if hud and player and player.global_position.distance_to(global_position) < 28.0:
+						hud.toast("A gull just made off with something. It flew toward the bunkhouse roof.")
+					_steal_phase = 2
+			2:
+				var nests: Array = get_tree().get_nodes_in_group("gull_nest")
+				var nest: Node = nests.front() if not nests.is_empty() else null
+				var nest_pos: Vector3 = nest.global_position if nest else _perch
+				if _fly_to(nest_pos + Vector3(0, 0.6, 0), delta, 5.0):
+					if nest and _loot_id != "":
+						nest.items.append(_loot_id)
+					if _carry:
+						_carry.queue_free()
+						_carry = null
+					_loot_id = ""
+					_steal_phase = 3
+			3:
+				if _fly_to(_perch, delta, 5.0):
+					_steal_phase = 0
+
+	func _fly_to(dest: Vector3, delta: float, speed: float) -> bool:
+		var to: Vector3 = dest - global_position
+		if to.length() < 0.35:
+			return true
+		# Arc a little upward mid-flight so it reads as flight, not sliding.
+		var step: Vector3 = to.limit_length(speed * delta)
+		step.y += minf(to.length() * 0.02, 0.05)
+		global_position += step
+		var flat := Vector3(to.x, 0, to.z)
+		if flat.length_squared() > 0.01:
+			rotation.y = lerp_angle(rotation.y, atan2(flat.x, flat.z), delta * 4.0)
+		return false
+
+	## Loose loot = takeables sitting on the open topside deck, nothing story-critical.
+	func _find_loot() -> Node3D:
+		var best: Node3D = null
+		var best_d: float = 26.0
+		var stack: Array[Node] = [get_tree().current_scene]
+		while not stack.is_empty():
+			var n: Node = stack.pop_back()
+			for c in n.get_children():
+				stack.append(c)
+			if n is Takeable and not NEVER_STEAL.has(n.item_id):
+				var p: Vector3 = (n as Node3D).global_position
+				if p.y > 17.9 and p.y < 19.6 and absf(p.x) < 30.0 and absf(p.z) < 22.0:
+					var d: float = p.distance_to(global_position)
+					if d < best_d:
+						best_d = d
+						best = n
+		return best

@@ -26,6 +26,7 @@ var _cooldown: float = 0.0
 var _judged: bool = false           ## one roll per approach
 var _circle_t: float = 0.0
 var _flee_target: Vector3
+var _tail: Node3D
 var _rng := RandomNumberGenerator.new()
 
 func _init(idx: int = 0) -> void:
@@ -77,7 +78,8 @@ func _ready() -> void:
 		eye.mesh = em
 		eye.position = Vector3(sx, 0, -2.5)
 		add_child(eye)
-	# Dorsal fin + tail.
+	# Dorsal fin, second dorsal, pectorals, gill slits, and a heterocercal tail
+	# on its own pivot — the long upper lobe that writes the silhouette.
 	var fin := MeshInstance3D.new()
 	var fm := PrismMesh.new()
 	fm.size = Vector3(0.16, 1.0, 1.1)
@@ -85,14 +87,51 @@ func _ready() -> void:
 	fin.mesh = fm
 	fin.position = Vector3(0, 0.85, 0.2)
 	add_child(fin)
-	var tail := MeshInstance3D.new()
+	var fin2 := MeshInstance3D.new()
+	var f2m := PrismMesh.new()
+	f2m.size = Vector3(0.1, 0.4, 0.5)
+	f2m.material = hide_mat
+	fin2.mesh = f2m
+	fin2.position = Vector3(0, 0.6, 1.7)
+	add_child(fin2)
+	for side in [-1.0, 1.0]:
+		var pec := MeshInstance3D.new()
+		var pm := PrismMesh.new()
+		pm.size = Vector3(0.1, 0.5, 1.3)
+		pm.material = hide_mat
+		pec.mesh = pm
+		pec.position = Vector3(side * 0.65, -0.25, -0.9)
+		pec.rotation_degrees = Vector3(0, 0, 105 * side)
+		add_child(pec)
+		# Five gill slits ahead of each pectoral.
+		for g in range(5):
+			var slit := MeshInstance3D.new()
+			var sm2 := BoxMesh.new()
+			sm2.size = Vector3(0.015, 0.3, 0.06)
+			sm2.material = StandardMaterial3D.new()
+			(sm2.material as StandardMaterial3D).albedo_color = Color(0.12, 0.14, 0.16)
+			slit.mesh = sm2
+			slit.position = Vector3(side * 0.52, 0.0, -1.5 + g * 0.13)
+			add_child(slit)
+	_tail = Node3D.new()
+	add_child(_tail)
+	_tail.position = Vector3(0, 0.1, 2.5)
+	var upper := MeshInstance3D.new()
 	var tm := PrismMesh.new()
-	tm.size = Vector3(0.14, 1.6, 1.0)
+	tm.size = Vector3(0.14, 1.7, 1.0)
 	tm.material = hide_mat
-	tail.mesh = tm
-	tail.position = Vector3(0, 0.25, 2.8)
-	tail.rotation.x = deg_to_rad(14)
-	add_child(tail)
+	upper.mesh = tm
+	upper.position = Vector3(0, 0.5, 0.4)
+	upper.rotation.x = deg_to_rad(24)
+	_tail.add_child(upper)
+	var lower := MeshInstance3D.new()
+	var lm := PrismMesh.new()
+	lm.size = Vector3(0.12, 0.6, 0.5)
+	lm.material = hide_mat
+	lower.mesh = lm
+	lower.position = Vector3(0, -0.3, 0.3)
+	lower.rotation.x = deg_to_rad(155)
+	_tail.add_child(lower)
 	global_position = _center + Vector3(_radius, _depth, 0)
 
 func _player() -> Node3D:
@@ -101,6 +140,11 @@ func _player() -> Node3D:
 func _process(delta: float) -> void:
 	_t += delta
 	_cooldown = maxf(_cooldown - delta, 0.0)
+	# The tail works harder the harder it swims; the body wiggles a beat ahead.
+	if _tail:
+		var effort: float = 2.2 if _state == SState.CHARGE else 1.0
+		_tail.rotation.y = sin(_t * 3.2 * effort) * 0.35
+		rotation.y += sin(_t * 3.2 * effort + PI * 0.5) * 0.006 * effort
 	var player: Node3D = _player()
 	var swimmer: bool = player != null and player.get("swimming") and player.swimming
 	match _state:
