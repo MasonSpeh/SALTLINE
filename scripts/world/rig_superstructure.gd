@@ -8,6 +8,8 @@ class_name RigSuperstructure extends Node3D
 ## external west stair to the C terrace, and a LADDER WELL in the old shaft
 ## (x 23..27, z 13..17.5) linking B -> C -> D -> roof hut through slab hatches.
 
+const STAIRS := preload("res://scripts/world/stair_kit.gd")   # by path: class cache lags new files
+
 const DECK_Y: float = 18.0
 const B_Y: float = 21.6
 const C_Y: float = 25.1
@@ -623,7 +625,9 @@ func _deck_b() -> void:
 	for sx in [-5.0, 5.0]:
 		var strut := _box(Vector3(sx, DECK_Y + 1.7, 4.3), Vector3(0.28, 3.4, 0.28), MatLib.rust_steel())
 		strut.rotation.z = 0.0
-	_ramp(Vector3(7.5, DECK_Y + 0.12, 3.0), Vector3(-3.5, y + 0.1, 3.0), 1.6, MatLib.deck_plate())
+	# Boarding stairs up to the quarters: deep-tread external companionway with
+	# rails both sides (was a slick ramp — the "QUARTERS ↑" glitch spot).
+	STAIRS.flight(self, Vector3(7.5, DECK_Y + 0.12, 3.0), Vector3(-3.5, y + 0.1, 3.0), 1.6, true, true)
 	_label("QUARTERS ↑", Vector3(7.2, DECK_Y + 2.2, 3.6), 180, 34, Color(0.9, 0.85, 0.6))
 
 # ============================================================ Deck C — control

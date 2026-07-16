@@ -25,6 +25,9 @@ func _ready() -> void:
 	# Fauna: seal patrol + perched corvid (day), lamp-snail constellations (night).
 	await get_tree().create_timer(2.0).timeout   # let the seal reach a nice spot
 	await _shot(Vector3(24, 4.0, -22), 160.0, -6.0, GameClock.Phase.DAY, "sl_fauna_seal")
+	# Stair verification: tower flight from the wet deck, and the quarters stairs.
+	await _shot(Vector3(23.5, 3.4, -1.0), -45.0, 6.0, GameClock.Phase.DAY, "sl_stairs_tower")
+	await _shot(Vector3(28.5, 7.2, -1.5), 40.0, -18.0, GameClock.Phase.DAY, "sl_stairs_tower_up")
 	await _shot(Vector3(19, 4.5, -6), 200.0, -16.0, GameClock.Phase.NIGHT, "sl_fauna_snails")
 	await _shot(Vector3(-22, 19.2, -3), 235.0, -4.0, GameClock.Phase.DAY, "sl_topside_day")
 	await _shot(Vector3(3.5, 35.5, -18), 175.0, -18.0, GameClock.Phase.DAY, "sl_lookout")

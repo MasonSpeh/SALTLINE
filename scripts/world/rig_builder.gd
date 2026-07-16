@@ -3,6 +3,8 @@ class_name RigBuilder extends Node3D
 ## Z4 Topside, Z5 High Iron, plus the SPHL, distant imposters, and all interactables.
 ## Positions are the level design — edit here, not in scattered scenes.
 
+const STAIRS := preload("res://scripts/world/stair_kit.gd")   # by path: class cache lags new files
+
 const DECK_Y: float = 18.0        # Topside floor
 const WET_Y: float = 2.0          # Wet Deck floor
 const WALL_H: float = 3.2
@@ -289,11 +291,12 @@ func _build_stair_tower() -> void:
 	hole.queue_free()
 	_doorway_west_top(mat)
 
-	# Switchback ramps: 4 runs of 4m rise.
-	_ramp(Vector3(23, WET_Y + 0.15, -4.5), Vector3(29, 6.15, -4.5), 2.0, MatLib.deck_plate())
-	_ramp(Vector3(29, 6.15, 0.5), Vector3(23, 10.15, 0.5), 2.0, MatLib.deck_plate())
-	_ramp(Vector3(23, 10.15, -4.5), Vector3(29, 14.15, -4.5), 2.0, MatLib.deck_plate())
-	_ramp(Vector3(29, 14.15, 0.5), Vector3(23, 18.15, 0.5), 2.0, MatLib.deck_plate())
+	# Switchback stairs: 4 real flights (checker treads on steel stringers over a
+	# smooth hidden ramp collider), landings between. ~34°, riser ≈ 0.19.
+	STAIRS.flight(self, Vector3(23, WET_Y, -4.5), Vector3(29, 6.15, -4.5), 2.0)
+	STAIRS.flight(self, Vector3(29, 6.15, 0.5), Vector3(23, 10.15, 0.5), 2.0)
+	STAIRS.flight(self, Vector3(23, 10.15, -4.5), Vector3(29, 14.15, -4.5), 2.0)
+	STAIRS.flight(self, Vector3(29, 14.15, 0.5), Vector3(23, 18.15, 0.5), 2.0)
 	# Landings.
 	_box(Vector3(29, 6.0, -2), Vector3(2.4, 0.3, 7.6), MatLib.deck_plate())
 	_box(Vector3(23, 10.0, -2), Vector3(2.4, 0.3, 7.6), MatLib.deck_plate())

@@ -6,6 +6,8 @@ class_name RigExterior extends Node3D
 ## observation platform hangs off the west edge, and an external switchback
 ## stair climbs the Stack's west face to the C-deck terrace.
 
+const STAIRS := preload("res://scripts/world/stair_kit.gd")   # by path: class cache lags new files
+
 const DECK_Y: float = 18.0
 const C_Y: float = 25.1
 
@@ -291,7 +293,7 @@ func _davits() -> void:
 ## place to watch the mantle ray cross.
 func _obs_platform() -> void:
 	_box(Vector3(-32, DECK_Y - 0.6, -11), Vector3(4.4, 0.3, 6.4), MatLib.checker_plate())
-	_ramp(Vector3(-29.9, DECK_Y + 0.05, -11), Vector3(-31.2, DECK_Y - 0.42, -11), 1.6, MatLib.checker_plate())
+	STAIRS.flight(self, Vector3(-29.9, DECK_Y + 0.05, -11), Vector3(-31.2, DECK_Y - 0.45, -11), 1.6)
 	_rail_z(-14.1, -7.9, DECK_Y - 0.6, -34.1)
 	_rail_x(-34.1, -29.9, DECK_Y - 0.6, -14.1)
 	_rail_x(-34.1, -29.9, DECK_Y - 0.6, -7.9)
@@ -308,19 +310,18 @@ func _obs_platform() -> void:
 func _west_stairs() -> void:
 	var tread: Material = MatLib.checker_plate()
 	var frame: Material = MatLib.rust_steel()
-	# Flight 1: south -> north along the wall at x -3.2.
-	_ramp(Vector3(-3.2, DECK_Y + 0.1, 8.4), Vector3(-3.2, 21.65, 13.5), 1.4, tread)
+	# Flight 1: south -> north along the wall at x -3.2 (rail on the outer/west side,
+	# which is climb-LEFT going north; the stack wall guards the east side).
+	STAIRS.flight(self, Vector3(-3.2, DECK_Y + 0.1, 8.4), Vector3(-3.2, 21.65, 13.5), 1.4, true, false)
 	# Mid landing.
 	_box(Vector3(-4.1, 21.55, 14.4), Vector3(3.2, 0.25, 1.7), tread)
-	# Flight 2: north -> south at x -5.
-	_ramp(Vector3(-5.0, 21.75, 13.5), Vector3(-5.0, 25.15, 8.4), 1.4, tread)
+	# Flight 2: north -> south at x -5 (west is climb-RIGHT going south).
+	STAIRS.flight(self, Vector3(-5.0, 21.75, 13.5), Vector3(-5.0, 25.15, 8.4), 1.4, false, true)
 	# Top landing bridging into the C-deck terrace edge.
 	_box(Vector3(-3.9, 24.95, 7.6), Vector3(3.6, 0.3, 1.6), tread)
 	# Support legs down to the deck.
 	for p in [Vector3(-4.1, 0, 14.4), Vector3(-5.0, 0, 8.6), Vector3(-3.9, 0, 7.6)]:
 		_box(Vector3(p.x, (DECK_Y + 24.8) * 0.5, p.z), Vector3(0.22, 24.8 - DECK_Y, 0.22), frame)
-	# Rails on the outer sides.
-	_rail_z(8.4, 13.5, 19.9, -3.95)    # flight 1 outer, mid-height approximation
-	_rail_z(8.4, 13.5, 23.5, -5.75)    # flight 2 outer
-	_rail_x(-5.8, -2.4, 21.55, 15.25)  # mid landing north edge
+	# Mid-landing edge rail (the flights carry their own rails now).
+	_rail_x(-5.8, -2.4, 21.55, 15.25)
 	_plabel("STAIR W — DECKS B/C", Vector3(-2.4, DECK_Y + 2.2, 7.9), 90, 24, Color(0.9, 0.85, 0.6))
