@@ -1,5 +1,10 @@
 # Known Issues
 
+- **Interior props stream in over ~1s after the scene loads.** Instancing ~200
+  glTF props at once blocked the main thread for ~7s (froze the window on Play),
+  so `interior_props.gd` now queues placements and instances a few per frame.
+  Furniture/decor visibly settles in during the first second — intentional.
+
 - **Single-material boxes texture all faces alike** — e.g. the topside deck slab
   shows treadplate on its underside too (world-triplanar applies everywhere).
   Split top/side materials on the big slabs in the art polish pass.

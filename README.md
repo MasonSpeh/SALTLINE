@@ -39,7 +39,8 @@ grid · LMB place · R rotate · Tab/scroll cycle kits · B/Esc done. Bloom lamp
 real crab-safe light; lean-tos make warmth; walkways extend the rig itself.
 
 Debug keys: F1 next phase · F2 toggle power · F3 infinite stats · F4/F5 teleport ·
-F6 toggle 20x time
+F6 toggle 20x time · **double-tap F fly mode** (noclip free-flight for testing —
+WASD + look to fly, Space up, Ctrl down, Shift boost; double-tap F again to land)
 
 ## Verify
 ```sh

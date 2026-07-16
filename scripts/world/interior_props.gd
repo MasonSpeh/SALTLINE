@@ -11,9 +11,15 @@ const B_Y: float = 21.6
 const C_Y: float = 25.1
 const D_Y: float = 28.6
 
+## Instancing ~200 glTF props all at once blocks the main thread for several
+## seconds — long enough to freeze the window during the scene change into the
+## game (the "Play freezes" bug). So the room functions only QUEUE placements
+## (cheap), and _stream() instances them a few per frame after the scene is up.
+## The rig comes up instantly and props settle in over ~1-2s.
+var _queue: Array = []
+const PER_FRAME: int = 5
+
 func _ready() -> void:
-	# Guard: if the model library never imported, PropLib.spawn falls back to
-	# labelled crates — still safe, just less pretty.
 	_wet_deck()
 	_galley()
 	_bunkhouse()
@@ -29,15 +35,28 @@ func _ready() -> void:
 	_rec_room_more()
 	_machine_shop_more()
 	_stack_more()
+	_stream()   # drain the queue across frames (runs as a coroutine)
+
+## Instance the queued props a handful per frame so no single frame stalls.
+func _stream() -> void:
+	var i: int = 0
+	for item in _queue:
+		if not is_instance_valid(self):
+			return
+		PropLib.spawn(item[0], self, item[1], item[2], item[3], item[4])
+		i += 1
+		if i % PER_FRAME == 0:
+			await get_tree().process_frame
+	_queue.clear()
 
 # ---- placement helpers ----
 
-func _p(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> Node3D:
-	return PropLib.spawn(id, self, pos, yaw, sm, false)
+func _p(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
+	_queue.append([id, pos, yaw, sm, false])
 
-func _pc(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> Node3D:
+func _pc(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 	## Colliding variant for big floor furniture the player should bump.
-	return PropLib.spawn(id, self, pos, yaw, sm, true)
+	_queue.append([id, pos, yaw, sm, true])
 
 ## A small warm point light (jar lamp / worklight glow) — sparingly, for mood.
 func _lamp(pos: Vector3, color: Color = Color(1.0, 0.82, 0.5), energy: float = 0.6, rng: float = 4.0) -> void:
