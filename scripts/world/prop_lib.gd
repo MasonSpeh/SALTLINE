@@ -40,6 +40,24 @@ const SIZE_HINT := {
 	"television_02": 0.6, "power_box_01": 0.6, "portable_generator": 0.9,
 	"modular_industrial_pipes_01": 2.0, "modular_pipes": 2.0,
 	"wooden_ladder": 2.5, "ladder_sectioned_01": 3.0, "old_tyre": 0.7,
+	# --- wave 2/3 furniture & decor ---
+	"ArmChair_01": 0.95, "Sofa_01": 2.0, "WoodenChair_01": 0.9, "GreenChair_01": 0.9,
+	"Ottoman_01": 0.7, "chinese_stool": 0.5, "bar_chair_round_01": 0.9, "dining_chair_02": 0.9,
+	"Rockingchair_01": 1.0, "CoffeeTable_01": 1.1, "WoodenTable_01": 1.4, "WoodenTable_02": 1.4,
+	"WoodenTable_03": 1.4, "chinese_tea_table": 1.2, "SchoolDesk_01": 1.1, "Shelf_01": 1.0,
+	"GothicCabinet_01": 1.8, "ClassicNightstand_01": 0.6, "chinese_cabinet": 1.6,
+	"anthurium_botany_01": 0.5, "calathea_orbifolia_01": 0.6, "fern_02": 0.5, "celandine_01": 0.3,
+	"ceramic_pot": 0.4, "fir_sapling": 0.9, "brass_pan_01": 0.35, "brass_pot_01": 0.3,
+	"brass_pot_02": 0.3, "ceramic_vase_01": 0.35, "ceramic_vase_02": 0.35, "ceramic_vase_03": 0.35,
+	"brass_goblets": 0.15, "brass_vase_01": 0.4, "carrot_cake": 0.25, "croissant": 0.15,
+	"bananas": 0.2, "food_apple_01": 0.1, "food_avocado_01": 0.12,
+	"fancy_picture_frame_01": 0.5, "fancy_picture_frame_02": 0.5, "alarm_clock_01": 0.15,
+	"decorative_book_set_01": 0.3, "book_encyclopedia_set_01": 0.35, "chess_set": 0.45,
+	"dartboard": 0.5, "adjustable_wrench": 0.3, "bolt_cutters_01": 0.6, "crowbar_01": 0.7,
+	"cross_pein_hammer": 0.35, "bench_vice_01": 0.35, "combination_wrench": 0.3,
+	"cassette_player": 0.3, "classic_laptop": 0.35, "Camera_01": 0.15, "binoculars": 0.2,
+	"bronze_whale_statue": 0.6, "bronze_shark_statue": 0.6, "bronze_ray_statue": 0.5,
+	"Chandelier_01": 0.7, "ceiling_fan": 1.0, "clipboard": 0.3, "screwdriver": 0.25, "dustpan": 0.35,
 }
 
 static func has(id: String) -> bool:

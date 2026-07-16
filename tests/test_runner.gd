@@ -4,6 +4,20 @@ extends Node
 ##   godot --headless res://tests/TestRunner.tscn
 
 var failures: int = 0
+const DECK_Y_TEST: float = 18.0
+
+func _count_structures(main: Node) -> int:
+	return main.get_tree().get_nodes_in_group("built_structures").size()
+
+func _item_count(id: String) -> int:
+	var n: int = 0
+	for it in PlayerState.hotbar:
+		if it == id:
+			n += 1
+	for it in PlayerState.inventory:
+		if it == id:
+			n += 1
+	return n
 
 func _check(cond: bool, label: String) -> void:
 	if cond:
@@ -111,6 +125,57 @@ func _run() -> void:
 	_check(GameClock.day_count > start_day, "contact skips to dawn")
 	_check(GameClock.current_phase == GameClock.Phase.DAWN, "phase is dawn after contact")
 	_check(main._ending, "end sequence armed at final dawn")
+
+	# Build mode: B toggles, ghost rides aim, place consumes the kit into a structure.
+	GameClock.force_phase(GameClock.Phase.DAY)
+	player.global_position = Vector3(0, DECK_Y_TEST + 0.2, 12)
+	player.input_locked = false
+	PlayerState.add_item("walkway_kit")
+	player.build.toggle()
+	_check(player.build.active, "build mode toggles on with a kit")
+	_check(player.build._ghost != null, "build ghost spawns")
+	# Force a valid placement and lay it down.
+	player.build._valid = true
+	player.build._place_pos = Vector3(0, DECK_Y_TEST, 12)
+	var built_before: int = _count_structures(main)
+	var placed: bool = player.build.place()
+	_check(placed, "build place() succeeds on valid spot")
+	_check(not PlayerState.has_item("walkway_kit"), "placing consumes the kit")
+	await get_tree().process_frame
+	_check(_count_structures(main) > built_before, "a real structure spawned")
+	if player.build.active:
+		player.build.exit()
+
+	# Throwing hook: a caught debris is added to inventory when the hook lands.
+	PlayerState.add_item("throwing_hook")
+	var hook := ThrowingHook.new()
+	main.add_child(hook)
+	hook.setup(player, player.camera)
+	player.hook_out = true
+	var debris := Gyre.FloatingDebris.new()
+	debris.item_id = "driftwood"
+	debris.display_name = "Driftwood Plank"
+	main.add_child(debris)
+	debris.global_position = hook.global_position   # inside CATCH_RADIUS
+	await get_tree().physics_frame
+	hook._try_catch()
+	_check(not hook._caught.is_empty(), "hook snags nearby floating debris")
+	var wood_before: int = _item_count("driftwood")
+	hook._land()
+	_check(_item_count("driftwood") > wood_before, "landed hook hauls the catch into inventory")
+	_check(not player.hook_out, "hook_out clears after the hook returns")
+
+	# Dev fly mode: double-tap F toggles noclip flight off gravity.
+	player._toggle_fly()
+	_check(player._fly, "fly mode toggles on")
+	var fly_start: Vector3 = player.global_position
+	Input.action_press("move_forward")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	Input.action_release("move_forward")
+	_check(player.global_position.distance_to(fly_start) > 0.01, "fly mode moves the player")
+	player._toggle_fly()
+	_check(not player._fly, "fly mode toggles off")
 
 	# Save round-trip.
 	SaveManager.save_game()

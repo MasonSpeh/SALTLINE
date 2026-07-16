@@ -84,7 +84,8 @@ static func bloom_lamp(ghost: bool) -> Node3D:
 		(root as LightZone).add_light(light)
 		light.position = Vector3(0, 1.65, 0)
 		PowerGrid.power_circuit(BLOOM_CIRCUIT)   # bio-light: lit the moment it exists
-	root.add_to_group("built_structures")
+	if not ghost:
+		root.add_to_group("built_structures")   # ghosts are previews, not real structures
 	return root
 
 ## Tarp roof over a driftwood frame; the real one carries a WarmthZone.
@@ -119,7 +120,8 @@ static func lean_to(ghost: bool) -> Node3D:
 		heat.setup(Vector3(2.4, 2.2, 2.6))
 		root.add_child(heat)
 		heat.position = Vector3(0, 1.0, 0)
-	root.add_to_group("built_structures")
+	if not ghost:
+		root.add_to_group("built_structures")   # ghosts are previews, not real structures
 	return root
 
 ## A lashed plank section: walkable, bridges gaps.
@@ -129,7 +131,8 @@ static func walkway(ghost: bool) -> Node3D:
 	_part(root, Vector3(0, 0.08, 0), Vector3(2.2, 0.14, 1.0), wood, not ghost)
 	_part(root, Vector3(0, 0.17, -0.42), Vector3(2.2, 0.05, 0.1), _mat(Color(0.4, 0.32, 0.22), ghost), false)
 	_part(root, Vector3(0, 0.17, 0.42), Vector3(2.2, 0.05, 0.1), _mat(Color(0.4, 0.32, 0.22), ghost), false)
-	root.add_to_group("built_structures")
+	if not ghost:
+		root.add_to_group("built_structures")   # ghosts are previews, not real structures
 	return root
 
 ## Waist-high scrap wall.
@@ -140,5 +143,6 @@ static func barricade(ghost: bool) -> Node3D:
 	_part(root, Vector3(0, 0.55, 0), Vector3(1.7, 1.1, 0.12), plate, not ghost)
 	_part(root, Vector3(-0.7, 0.4, 0.25), Vector3(0.1, 0.8, 0.6), wood, not ghost)
 	_part(root, Vector3(0.7, 0.4, 0.25), Vector3(0.1, 0.8, 0.6), wood, not ghost)
-	root.add_to_group("built_structures")
+	if not ghost:
+		root.add_to_group("built_structures")   # ghosts are previews, not real structures
 	return root
