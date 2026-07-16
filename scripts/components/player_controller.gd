@@ -38,6 +38,11 @@ const HAND_SWAY_AMPLITUDE: float = 0.008
 
 const CLIMB_TOP_GRACE: float = 0.3      ## grab-at-the-top zone where we hold, not mantle
 
+# Dev fly mode (testing only): double-tap F to toggle noclip free-flight.
+const FLY_SPEED: float = 9.0
+const FLY_SPRINT_MULT: float = 3.5
+const DOUBLE_TAP_MS: int = 320
+
 @export var invert_y: bool = false
 @export var mouse_sensitivity_scale: float = 1.0
 
@@ -65,6 +70,8 @@ var _climbing: Ladder = null
 var _climb_from_top: bool = false  ## climb grabbed near the top — hold, don't insta-mantle
 var _drowning: bool = false        ## shared blackout guard: water respawn OR life-out respawn
 var _step_accum: float = 0.0
+var _fly: bool = false             ## dev noclip fly mode (double-tap F)
+var _last_f_ms: int = -10000       ## for double-tap F detection
 
 const JUMP_BUFFER_TIME: float = 0.15
 
@@ -117,7 +124,7 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_2: _hotbar_pressed(1)
 			KEY_3: _hotbar_pressed(2)
 			KEY_4: _hotbar_pressed(3)
-			KEY_F: _throw_hook()
+			KEY_F: _f_pressed()
 			KEY_B:
 				if not ui_locked and not _climbing:
 					build.toggle()
@@ -133,6 +140,46 @@ func _hotbar_pressed(slot: int) -> void:
 		PlayerState.selected_hotbar = slot
 	_update_held_item()
 
+## F is a double-purpose key: a single press throws the rigging hook (gameplay),
+## a quick double-tap toggles dev fly mode (testing). The stray single-tap hook
+## on the way into a double-tap is harmless — it needs a hook item and reels back.
+func _f_pressed() -> void:
+	var now: int = Time.get_ticks_msec()
+	if now - _last_f_ms <= DOUBLE_TAP_MS:
+		_last_f_ms = -10000
+		_toggle_fly()
+		return
+	_last_f_ms = now
+	_throw_hook()
+
+func _toggle_fly() -> void:
+	_fly = not _fly
+	velocity = Vector3.ZERO
+	_climbing = null
+	# Ignore the world while flying so noclip can pass through structure.
+	set_collision_layer_value(1, not _fly)
+	set_collision_mask_value(1, not _fly)
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud:
+		hud.toast("FLY MODE %s  ·  Space up / Ctrl down / Shift boost" % ("ON" if _fly else "OFF"))
+
+## Free 6-axis noclip flight for testing. Look direction drives horizontal thrust
+## (pitch-aware), Space/Ctrl handle vertical, Shift boosts. Moves the transform
+## directly so it passes through geometry.
+func _fly_process(delta: float) -> void:
+	var speed: float = FLY_SPEED * (FLY_SPRINT_MULT if Input.is_action_pressed("sprint") else 1.0)
+	var input_dir: Vector2 = Vector2.ZERO
+	if not ui_locked:
+		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	var move: Vector3 = head.global_transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)
+	if Input.is_action_pressed("jump"):
+		move.y += 1.0
+	if Input.is_action_pressed("crouch"):
+		move.y -= 1.0
+	if move.length() > 0.001:
+		global_position += move.normalized() * speed * delta
+	velocity = Vector3.ZERO
+
 func _throw_hook() -> void:
 	if hook_out or carried or _climbing or ui_locked or build.active \
 			or not PlayerState.has_item("throwing_hook"):
@@ -147,6 +194,9 @@ func hook_returned() -> void:
 	hook_out = false
 
 func _physics_process(delta: float) -> void:
+	if _fly:
+		_fly_process(delta)
+		return
 	if _climbing:
 		_climb_process(delta)
 		return

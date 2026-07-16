@@ -146,7 +146,9 @@ func _label(text: String, pos: Vector3, yaw_deg: float, font_size: int = 48,
 	# Scaled down — oversized paint bled across panel joints and door reveals.
 	l.font_size = maxi(12, int(font_size * 0.72))
 	l.pixel_size = 0.01
-	l.modulate = Color(color.r, color.g, color.b, minf(color.a, 0.92))
+	var _wear: float = clampf((color.r + color.g + color.b) / 3.0, 0.0, 1.0)   # black stencil paint
+	var _k: float = lerpf(0.06, 0.17, _wear)
+	l.modulate = Color(_k, _k, _k * 1.08, minf(color.a, 0.9))
 	l.outline_size = 0
 	l.shaded = true
 	l.double_sided = false   # paint has no mirrored back face

@@ -1130,13 +1130,23 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 32,
 	# Scaled down — oversized paint bled across panel joints and door reveals.
 	l.font_size = maxi(12, int(font_size * 0.75))
 	l.pixel_size = 0.01
-	l.modulate = Color(color.r, color.g, color.b, 0.92)
+	# Black stencil paint. The source color only sets how faded the paint reads
+	# (paler args = older, more weathered lettering lifting toward charcoal).
+	l.modulate = _paint_black(color)
 	l.outline_size = 0
 	l.shaded = true
 	l.double_sided = false
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
+
+## Weathered black stencil paint. Brighter/more-saturated source colors read as
+## slightly more faded (lifted toward charcoal); pale args stay near-black. Alpha
+## carries through as paint coverage.
+static func _paint_black(src: Color) -> Color:
+	var wear: float = clampf((src.r + src.g + src.b) / 3.0, 0.0, 1.0)
+	var k: float = lerpf(0.06, 0.17, wear)
+	return Color(k, k, k * 1.08, minf(src.a, 0.9))
 
 ## The failed span toward SALTLINE-2: five solid sections off the deck's east edge,
 ## railed, then torn steel and a long drop. A vista, a warning, and a promise.
