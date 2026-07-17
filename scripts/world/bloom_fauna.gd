@@ -552,6 +552,9 @@ class MantleRay extends Node3D:
 		var pos: Vector3 = _from.lerp(_to, _progress)
 		pos.y += sin(_progress * PI) * -6.0
 		Journal.discover_if_near(self, "creature_mantle_ray", 90.0)   # dips lowest right over the deck
+		# Reading the roof tally AND seeing the Mantle yourself closes the loop: "The Count".
+		if Journal.discovered.has("creature_mantle_ray") and Journal.read_logs.has("roof_mark"):
+			Journal.discover("codex_the_count")
 		global_position = pos
 		look_at(pos + (_to - _from).normalized(), Vector3.UP)
 		# The undulation: each wing section a phase behind the last — a wave

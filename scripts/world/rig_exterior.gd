@@ -19,6 +19,18 @@ func _ready() -> void:
 	_davits()
 	_obs_platform()
 	_west_stairs()
+	# Place-Codex beacons: the derrick floor and the empty davits file a journal entry
+	# the first time the player stands near them (same pattern as the fire barrel).
+	_beacon("place_derrick", Vector3(2.0, DECK_Y + 1.0, -15.0), 7.0)
+	_beacon("place_davits", Vector3(-10.5, DECK_Y + 1.1, -18.8), 6.0)
+
+## Drop an invisible proximity beacon that discovers a place-Codex entry once near.
+func _beacon(codex_id: String, pos: Vector3, radius: float) -> void:
+	var b: Node3D = preload("res://scripts/world/landmark_beacon.gd").new()
+	b.set("codex_id", codex_id)
+	b.set("radius", radius)
+	add_child(b)
+	b.global_position = pos
 
 # ---------------------------------------------------------------- helpers
 

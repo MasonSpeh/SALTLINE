@@ -10,6 +10,16 @@ var discovered: Dictionary = {}    ## id -> true, in discovery order (insertion-
 var read_logs: Array[String] = []  ## readable ids, re-readable from the journal
 var unseen_count: int = 0          ## badge counter, cleared when the journal opens
 
+## Reading is progression: finishing a whole thread of scattered notes unlocks a
+## synthesis Codex entry that says what the pieces MEAN. The 22 notes stop being
+## trivia and become an understood story. Each key is a Codex id in journal.json;
+## its value is the set of readable ids that must all be read.
+const NOTE_SETS := {
+	"codex_what_osk_chose": ["osk_watch_slate", "coffee_note", "shrine_note", "osk_last_note"],
+	"codex_down_the_line": ["rationing_memo", "quiet_rig_note", "lookout_note", "breaker_log"],
+	"codex_the_flash": ["toolpusher_log", "comms_log", "medbay_note"],
+}
+
 func _ready() -> void:
 	var f: FileAccess = FileAccess.open("res://data/journal.json", FileAccess.READ)
 	if f:
@@ -38,6 +48,26 @@ func discover_log(readable_id: String, title: String) -> void:
 	read_logs.append(readable_id)
 	unseen_count += 1
 	entry_added.emit("log_" + readable_id, title)
+	_check_note_sets()
+
+## When the last note of a thread is read, its synthesis Codex entry unlocks.
+func _check_note_sets() -> void:
+	for syn in NOTE_SETS:
+		if discovered.has(syn):
+			continue
+		var complete: bool = true
+		for need in NOTE_SETS[syn]:
+			if not read_logs.has(need):
+				complete = false
+				break
+		if complete:
+			var hud: Node = get_tree().get_first_node_in_group("hud")
+			if hud:
+				hud.toast("The pieces line up.")
+			discover(syn)
+			# Reading the corporate thread also fixes the far platform on the map.
+			if syn == "codex_down_the_line":
+				discover("place_quiet_rig")
 
 ## Static-ish helper for creatures/places: discover when the player first gets close.
 func discover_if_near(node: Node3D, id: String, radius: float) -> bool:

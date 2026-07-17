@@ -698,6 +698,9 @@ func _deck_c() -> void:
 	_light(Vector3(8, y + 2.85, 9), 0.5, 7.0)
 	# Office (x 12..18): desk, chair, filing cabinets, wall map.
 	_desk(Vector3(14.5, y, 7.5), PI * 0.5)
+	# The company man's sealed directive on his desk — the reveal ceiling: Platform 7's
+	# "yield" was the product, and the line crews were the feed.
+	_readable("company_man_memo", "Sealed Directive", Vector3(14.5, y + 0.85, 7.5), Vector3(0.3, 0.05, 0.4))
 	for i in range(2):
 		_box(Vector3(17.3, y + 0.65, 7.0 + i * 0.9), Vector3(0.5, 1.3, 0.6), MatLib.painted_steel())
 	_dbox(Vector3(14.0, y + 1.8, 6.2), Vector3(1.6, 1.0, 0.04), MatLib.flat(Color(0.55, 0.62, 0.58)))  # wall map on the pier, clear of window x16

@@ -348,6 +348,8 @@ func _build_stair_tower() -> void:
 	breaker.global_position = Vector3(23, 11.4, 9.5)
 	breaker.build_box_visual(Vector3(1.0, 1.4, 0.3), Interactable.COLOR_OPERABLE)
 	_readable("breaker_log", "Maintenance Log", Vector3(24.6, 11.2, 9.55), Vector3(0.35, 0.45, 0.06))
+	# E.V.'s last note pinned to the panel — the reward for restoring power, and "made polite".
+	_readable("ev_last_splice", "Note on the Panel", Vector3(23.4, 11.5, 9.5), Vector3(0.28, 0.34, 0.03))
 	# The burned cable gap, on the room's east wall run.
 	var cable := CableSegment.new()
 	cable.display_name = "Burned Cable Gap"
@@ -454,6 +456,8 @@ func _build_bunkhouse() -> void:
 		# Lockers
 		_box(p + Vector3(1.2, 0.9, -0.8), Vector3(0.5, 1.8, 0.5), MatLib.painted_steel())
 	_readable("crew_letter_1", "Unsent Letter", Vector3(-18.8, y + 0.75, 7.3), Vector3(0.3, 0.05, 0.4))
+	# Henrik's photo, taped inside the bunk frame — the boys, the small fish, "three weeks".
+	_readable("henrik_photo", "Photograph", Vector3(-18.4, y + 0.9, 6.5), Vector3(0.2, 0.24, 0.02))
 	_readable("crew_letter_2", "Note in a Locker", Vector3(-17.6, y + 1.3, 14.7), Vector3(0.28, 0.35, 0.05))
 
 func _build_galley() -> void:
@@ -538,6 +542,9 @@ func _build_machine_shop() -> void:
 	door.global_position = Vector3(-14, y, -14.5)
 	door.build_box_visual(Vector3(0.12, 2.2, 1.15), MatLib.flat(Color(0.4, 0.42, 0.4)).albedo_color)
 	_readable("machine_shop_sign", "Posted Notice", Vector3(-13.85, y + 1.5, -10.6), Vector3(0.05, 0.4, 0.3))
+	# The raft plans, posted on the shop's outer face below the sealed notice — the escape
+	# that the sea would never allow (readable from the accessible side, clear of the pane).
+	_readable("raft_plan", "Drafting-Table Sketch", Vector3(-13.85, y + 1.15, -13.5), Vector3(0.05, 0.4, 0.32))
 	# Interior tease, visible through the pane: drafting table + half-built raft planks.
 	_box(Vector3(-20, y + 0.55, -12), Vector3(2.0, 1.1, 1.2), MatLib.wood())
 	_box(Vector3(-24, y + 0.3, -9), Vector3(2.6, 0.2, 1.6), MatLib.wood())
@@ -598,6 +605,8 @@ func _build_high_iron() -> void:
 		_box(r[0], r[1], mat)
 	_ladder(Vector3(-0.35, DECK_Y, -14), 16.0, 90.0, "Mast Ladder", 1.2)
 	_readable("lookout_note", "Weathered Notebook", Vector3(3.4, DECK_Y + 16.5, -14), Vector3(0.3, 0.06, 0.4))
+	# Osk's watch slate, propped on the drill floor by the finger rack — the night he first saw it.
+	_readable("osk_watch_slate", "Night Watch Slate", Vector3(5.8, DECK_Y + 0.62, -15.0), Vector3(0.34, 0.28, 0.04))
 
 # ---------- The SPHL ----------
 
@@ -701,6 +710,8 @@ func _build_sphl() -> void:
 	countdown_label.rotation.y = deg_to_rad(-90)
 	_readable("sphl_manual", "Survival Manual", Vector3(15.3, fy + 1.4, cz + 0.9), Vector3(0.3, 0.4, 0.05))
 	_readable("pressure_log", "Pressure Log", Vector3(15.15, fy + 1.4, cz - 0.9), Vector3(0.3, 0.4, 0.05))
+	# The laminated saturation card on the bench — why the pod, why the six days, who put you in it.
+	_readable("sat_dive_log", "Saturation Log", Vector3(16.9, fy + 0.63, cz + 0.9), Vector3(0.3, 0.03, 0.4))
 	_takeable("water_ration", "Water Ration", Vector3(15.6, fy + 0.05, cz - 0.6), Vector3(0.2, 0.25, 0.2))
 	# Bench seats down each side of the little chamber — where she rode it out.
 	for s in [-1.0, 1.0]:
@@ -769,6 +780,8 @@ func _build_access() -> void:
 	# Topside -> bunkhouse roof (vent fans, antenna array, and the long view west).
 	_ladder(Vector3(-7.75, DECK_Y, 15.5), 3.55, 90.0, "Bunkhouse Roof Ladder", 1.0)
 	_readable("roof_mark", "Chalk Tally", Vector3(-18, DECK_Y + WALL_H + 0.4, 8), Vector3(0.4, 0.05, 0.3))
+	# Osk's last note, folded under a shell beside his tally — the payoff of his trail.
+	_readable("osk_last_note", "Folded Note", Vector3(-17.3, DECK_Y + WALL_H + 0.42, 8.5), Vector3(0.26, 0.05, 0.32))
 
 # ---------- Interior decoration (GDD room dressing) ----------
 
@@ -864,6 +877,8 @@ func _decorate_rec_room() -> void:
 	# Rug, low table, and a card game nobody finished.
 	_box(Vector3(23, y + 0.02, 12.5), Vector3(3.4, 0.03, 2.4), MatLib.flat(Color(0.4, 0.2, 0.18)), self, false)
 	_box(Vector3(23, y + 0.28, 12.5), Vector3(1.5, 0.08, 0.95), MatLib.wood())
+	# Werner & Kristjan's frozen chess game — a score card tucked under the white king.
+	_readable("chess_note", "Score Card", Vector3(22.4, y + 0.35, 12.2), Vector3(0.12, 0.02, 0.16))
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 4242
 	for i in range(7):

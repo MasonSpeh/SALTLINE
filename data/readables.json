@@ -1,91 +1,127 @@
 {
- "_schema": "readable_id -> { title, body }. Slice story carriers (GDD 5.3). Drafts by build AI from GDD canon - flag for designer pass.",
- "sphl_manual": {
-  "title": "SPHL OPERATIONS MANUAL — PAGE 12",
-  "body": "SELF-PROPELLED HYPERBARIC LIFEBOAT — OCCUPANT NOTICE\n\nThis vessel is a pressure chamber. If you are reading this, the automated decompression schedule is ACTIVE. Do not attempt to open the hatch before the surface-pressure indicator reads zero. Explosive decompression at depth-saturation is not survivable.\n\nThe schedule cannot be shortened. The schedule cannot be paused. Your body is being returned to the surface world at the only speed it will tolerate.\n\nRemain calm. Ration water. The sea will hold you until the machine is done.\n\n— Meridian Deep Energy, Marine Safety Division"
- },
- "pressure_log": {
-  "title": "AUTOMATED PRESSURE LOG",
-  "body": "DECOMPRESSION SCHEDULE — DAY 6 OF 6\n\nDAY 1 — 09.2 BAR. OCCUPANT UNRESPONSIVE. VITALS STABLE.\nDAY 2 — 07.4 BAR. OCCUPANT UNRESPONSIVE. VITALS STABLE.\nDAY 3 — 05.1 BAR. OCCUPANT INTERMITTENTLY CONSCIOUS. SEDATION MAINTAINED PER PROTOCOL.\nDAY 4 — 03.3 BAR. HULL CONTACT EVENT. DRIFT ANCHOR DEPLOYED.\nDAY 5 — 01.9 BAR. OCCUPANT RESTLESS. SPOKE. NO CREW RESPONSE LOGGED.\nDAY 6 — 01.0 BAR. SURFACE PRESSURE IMMINENT.\n\nNOTE: NO RESPONSE FROM FIELD TRAFFIC CONTROL ON ANY CHANNEL. DAYS 1 THROUGH 6."
- },
- "crew_letter_1": {
-  "title": "UNSENT LETTER — BUNKHOUSE CABIN 2",
-  "body": "Marta —\n\nThree more weeks and I'm done, I mean it this time. The money's good but something's gone strange out here. They cut the food order again and nobody will say why. Whole pallets of tinned stuff going out on the supply boat instead of in.\n\nDon't tell your mother I said this, but the water's wrong lately. Osk saw something off the derrick at night watch, wouldn't say what, and he doesn't spook.\n\nKiss the boys. Three weeks.\n\n— Henrik"
- },
- "crew_letter_2": {
-  "title": "NOTE TAPED INSIDE A LOCKER — CABIN 5",
-  "body": "To whoever gets this bunk after me:\n\nThe heater rattles unless you wedge a coin in the grate. Third rung on the aft ladder is loose. Cook does real eggs on Sundays if you're early.\n\nAnd do yourself a favor — don't ask about the rig at the end of the line. Not because you'll get in trouble. Because nobody knows anything, and watching them realize it ruins card night.\n\n— G."
- },
- "rationing_memo": {
-  "title": "OPERATIONS MEMO — GALLEY COPY, GREASE-STAINED",
-  "body": "FROM: MERIDIAN DEEP ENERGY, LOGISTICS\nTO: ALL SALTLINE GALLEY STATIONS\nRE: PROVISIONING ADJUSTMENT — EFFECTIVE IMMEDIATELY\n\nStanding food resupply is reduced 40% for the remainder of the quarter. Galley staff will implement portion scheduling per the attached table.\n\nThis adjustment is logistical in nature. Crews with questions should direct them to their section leads, who have been instructed not to answer them.\n\nNOTE IN PEN, UNDERLINED TWICE: 'reduced for WHAT. we are 900 miles from anywhere. where does 40% of our food GO'"
- },
- "quiet_rig_note": {
-  "title": "TALLY BOOK PAGE — REC ROOM, UNDER THE DARTBOARD",
-  "body": "Werner swears the crew on the end rig signed papers thick as a fist. Says his cousin worked the supply run — they offload at night, nobody on deck, crane does it all.\n\nKristjan asked the company man straight out at the safety brief: what's it called, the end platform. Man smiled and said 'that's a processing terminus.' Processing what? Smiled again.\n\nWe've started calling it the Quiet Rig. Feels wrong to even write it down.\n\nAnyway. Darts Thursday. Werner owes me a bottle."
- },
- "breaker_log": {
-  "title": "MAINTENANCE LOG — BREAKER ROOM 4-A",
-  "body": "ELECTRICAL MAINTENANCE — RUNNING LOG\n\n04TH — Topside floodlight circuit tripping under load. Suspect corroded feed line in the stairwell corridor run. Flagged for splice.\n\n09TH — Splice postponed. Cable stock requisition DENIED, all spool inventory redirected 'down the line.' Down the line. Everything goes down the line now.\n\n11TH — Found scorch marks on the corridor run. Arc fault. Killed the whole circuit at the master rather than risk a fire. Topside's dark until we get spool stock.\n\nIf you need the deck lights: splice the corridor gap FIRST, then close the master here. In that order, unless you enjoy arc flash.\n\n— E.V., chief electrician"
- },
- "machine_shop_sign": {
-  "title": "NOTICE — MACHINE SHOP WINDOW",
-  "body": "MACHINE SHOP SEALED BY ORDER OF OIM\n\nHot-work permits suspended pending investigation of unauthorized fabrication activity.\n\nBeneath the notice, scratched into the paint:\n\n'they know about the raft'"
- },
- "lookout_note": {
-  "title": "WEATHERED NOTEBOOK — LOOKOUT POINT",
-  "body": "Best view on the whole line, and nobody comes up here but me and the gulls.\n\nYou can see all seven from the mast on a clear day. Ours, then the line of them, smaller and smaller, all the way out to the end one. The bridges look like stitches. Like somebody sewed the sea shut.\n\nFunny thing I noticed and can't stop noticing: the bridges get worse the farther out you look. Every big storm they patch ours first. Like the far end doesn't matter.\n\nOr like they know something's going to happen to it anyway."
- },
- "pump_room_tag": {
-  "title": "LAMINATED TAG — FLOODED PUMP ROOM",
-  "body": "PUMP ROOM 1-C — LOCKOUT/TAGOUT\n\nDO NOT RESTART. Bilge pumps offline for impeller service.\n\nDated the 11th. The month is smeared.\n\nThe tag is attached to a valve wheel below the waterline now. Whoever meant to come back to this never did."
- },
- "coffee_note": {
-  "title": "NAPKIN UNDER A FULL COFFEE CUP — GALLEY",
-  "body": "In pencil, casual handwriting:\n\n'Osk — night shift owes you for covering. Coffee's fresh, made a whole pot at 0330. Drink it while it's hot.\n\nBack in five.'\n\nThe cup is full. The pot is full.\n\nEverything here is exactly five minutes before something."
- },
- "roof_mark": {
-  "title": "CHALK TALLY — BUNKHOUSE ROOF",
-  "body": "Someone came up here often. A wind-worn chalk tally on the roof plate, grouped in fives — thirty-one marks, then a gap, then four more drawn heavier, gouged in.\n\nBeside it, a chalk sketch: the horizon line, and above it a shape with wide flat wings. Underneath, three words, gone over twice:\n\nIT COMES BACK."
- },
- "shrine_note": {
-  "title": "KELP-WRAPPED NOTE — CABIN B-03",
-  "body": "They said burn it. I couldn't.\n\nIt's not rot. It's not algae. You hold a frond up at night and it holds light INSIDE it, steady as a pilot lamp. Nothing that means harm keeps a light like that.\n\nI've been leaving the porthole cracked. If the glow wants in, I want to know what it wants.\n\n— O."
- },
- "cabin_b05_scrawl": {
-  "title": "SCRAWL ON THE WALL — CABIN B-05",
-  "body": "Written in grease pencil, fast, the letters climbing the wall:\n\nCOUNTED 41 AT MUSTER. LAUNCHED WITH 40.\n\nWHO STAYED?"
- },
- "toolpusher_log": {
-  "title": "TOOLPUSHER'S LOG — FINAL PAGE",
-  "body": "0400 — String's quiet. Not the quiet of a good hole. The quiet of something listening back up it.\n\n0430 — Told Control we're shutting in. Nobody argued. Nobody EVER doesn't argue.\n\n0600 — Company man wants it in writing. Fine. IN WRITING: the sea lit up under leg four and every gauge on this deck read zero at the same second. Pressure doesn't do that. Water doesn't do that.\n\nLast entry."
- },
- "medbay_note": {
-  "title": "SICK-BAY LEDGER",
-  "body": "Day 11 — Deckhand, R.: says the light off the water 'stays behind his eyes' after night watch. No fever. Pupils fine. Prescribed sleep he won't take.\n\nDay 12 — Three more with the same words. THE SAME WORDS. Men who don't share a shift.\n\nDay 13 — I looked tonight. It does stay. It isn't harmful. That's not the same as safe.\n\n(The rest of the ledger is water-swollen and unreadable.)"
- },
- "comms_log": {
-  "title": "LAST TRANSMISSION LOG",
-  "body": "TX 2241 — SALTLINE-1 to STANCHION: evac complete less one (1). Repeat, one crew unaccounted. Sea state 4. Bloom state — no code for it. Visual: the water is AWAKE.\n\nRX 2244 — STANCHION: say again last?\n\nTX 2247 — SALTLINE-1: ...\n\nTX 2251 — SALTLINE-1: disregard. Going dark. Keep the lamps lit for us.\n\n(Nothing further. The set's dial is still tuned.)"
- },
- "generator_tag": {
-  "title": "GENERATOR FAULT TAG",
-  "body": "OUT OF SERVICE — DO NOT CRANK\n\nFuel: contaminated (bio). Filters: fouled, green residue, GLOWS FAINT AT NIGHT.\n\nIf you need power, the topside floodlight circuit still takes a splice at Breaker 4-A. Cable's the hard part. Cable's always the hard part.\n\n— maintenance, last shift"
- },
- "mooring_log": {
-  "title": "MOORING WATCH LOG — STATION SW",
-  "body": "WINDLASS 4-SW — WATCH ENTRIES\n\nDay shift: chain wash-down complete, links 40-60 regreased. Tension nominal.\n\nNight shift: tension spiked 0300, eased by 0340. Swell from the SW. Logged, not reported.\n\nThe last entry is the 14th, 0250: 'Something on the chain. Went to look.'\n\nNothing after that. The grease gun is still clipped to the rail."
- },
- "fender_tag": {
-  "title": "INSPECTION TAG — BOAT LANDING",
-  "body": "FENDER PANEL 3 — QUARTERLY INSPECTION\n\nRubbing strips: 60% wear, replace next rotation. Tire fenders: serviceable.\n\nInspector's initials worn to a smudge of salt.\n\nStamped across the bottom in the company's blue ink: MERIDIAN DEEP ENERGY — SALTLINE PROJECT. The landing was due for service the week the ocean went quiet."
- },
- "rigger_handbook": {
-  "title": "RIGGER'S HANDBOOK",
-  "body": "RIGGER'S HANDBOOK — SHOP COPY\nChained to the bench. Grease-thumbed, corners soft.\n\nHOW THE BENCH WORKS\nPress E at the bench to open it. Lay parts from your pack onto\nthe top — the bench shows what they want to become and what's\nstill missing. When a recipe is complete, hold WORK (or Space)\nto hammer it real. Partial layouts are safe; take parts back\nanytime. Some things must be seared here too, not just built.\n\n————————————————————————————————\nRECIPES\n\n■ THROWING HOOK\n   Needs: 1× Rope Coil + 1× Prybar\n   Work: ~2s at the bench\n   A heaving line with teeth. Takes back what the gyre holds.\n   — Rope from the crane deck; prybar from the pump room.\n\n■ PLANK WALKWAY\n   Needs: 2× Driftwood Plank\n   Work: ~2s at the bench\n   A lashed plank section. Bridges a gap, extends a deck.\n   — Two sound planks make a path where there wasn't one.\n\n■ LEAN-TO\n   Needs: 1× Canvas Tarp + 2× Driftwood Plank\n   Work: ~3s at the bench\n   Canvas over a driftwood frame. A pocket of warmth anywhere on the rig.\n   — The sea gives back wood and canvas. Make a roof of them.\n\n■ BARRICADE\n   Needs: 1× Driftwood Plank + 2× Scrap Metal\n   Work: ~3s at the bench\n   Scrap plate on a wood brace. Waist-high, storm-solid.\n   — Plate the gyre coughs up still remembers being a wall.\n\n■ BLOOM LAMP\n   Needs: 2× Kelp Bundle + 1× Scrap Metal\n   Work: ~3s at the bench\n   Bloom-kelp sealed in a scrap housing. Cold teal light, no power needed — and what walks at night honors it.\n   — Kelp glows for weeks in a sealed housing. The crew knew.\n\n■ DROP NET\n   Needs: 2× Rope Coil + 1× Driftwood Plank\n   Work: ~3s at the bench\n   A weighted mesh on a winch line. Lower it off an edge, let the sea walk in, haul.\n   — Set it before dusk — the night shift swims shallower.\n\n■ SEARED GLOW WORM\n   Needs: 1× Glow Worm\n   Work: ~2s at the bench\n   A minute on hot steel and the light goes out of it. What's left is honest meat.\n   — Raw ones bite back on the way down. Sear it first.\n\n————————————————————————————————\nFISHING (a later hand, in pencil)\nRod's in the storeroom. Cast to open water [LMB], strike when\nthe float plunges, then reel the lulls and rest the surges —\nif the strain bar tops out, the line parts. The drop net does\nthe patient version: build it AT A DECK EDGE, lower, walk away,\nhaul. Raw catch sears on the galley stove upstairs. Eat cooked.\n\nA last note, pencilled in the margin:\n\"The gyre keeps giving it back. Rope, plank, plate, canvas.\n Whatever you lose to the water washes up by the third dawn.\n Build like the sea's on your side. It is.\""
- },
- "anglers_notes": {
-  "title": "ANGLER'S NOTES",
-  "body": "ANGLER'S NOTES — WET DECK COPY\nA rigger's log of what the water gives, and when. Kept honest.\n\nREAD THE WATER: every cast tells you the conditions — the hour,\nrig shadow or open water, storm or calm, worklight on the swell.\nMatch the fish to the water and the water stops being luck.\n\n■ COPPER SPRAT   (rod+net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: any · Depth: surface\n   Bait-tier shoals that trail anything moving. The sea's small change.\n\n■ LANTERN HERRING   (rod+net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: any · Depth: surface\n   The gateway catch. At night the shoal glows its own position away.\n\n■ SLATE COD   (rod+net)\n   When: day · Water: anywhere · Weather: storms help · Depth: mid\n   Loves a gray sky — bites double under storm cloud. Heavy, honest meat.\n\n■ LODESTONE BREAM   (rod)\n   When: day · Water: open water · Weather: any · Depth: deep\n   Deep daylight water. Its magnetized bones spin a compass — catch enough, craft crude magnets, someday.\n\n■ EMBER SNAPPER   (rod+net)\n   When: day/dusk · Water: rig shadow · Weather: any · Depth: mid\n   Warm-bodied — crowds the rig's outfalls and warm steel. Fish the shadow of the deck.\n\n■ CHIMEFISH   (rod+net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: calm only · Depth: mid\n   Calm seas only — they won't ring in weather. Worth more traded than eaten, someday.\n\n■ DRUM CROAKER   (rod+net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: STORMS ONLY · Depth: mid\n   Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes — then they bite like they mean it.\n\n■ MIRRORJACK   (rod)\n   When: dawn/dusk · Water: open water · Weather: any · Depth: surface\n   A dawn and dusk feeder in open water — fast, chrome, furious on the line.\n\n■ SILVER LADDER   (rod)\n   When: dawn · Water: open water · Weather: any · Depth: mid\n   Dawn columns over open water — the shoal stacks vertical, a shimmering pillar.\n\n■ BARREL GROUPER   (rod)\n   When: dawn/day/dusk/night · Water: open water · Weather: storms help · Depth: deep\n   Sears to a PRIME FILLET.\n   The hardest fight on the rod. Deep open water; a storm stirs them up off the bottom. Feeds you for days.\n\n■ SABLE HAKE   (rod+net)\n   When: night · Water: rig shadow · Weather: any · Depth: mid\n   Drawn to worklight — power the floodlights, fish the glow.\n   Rises to worklight after dark like moths with fins. Power the floodlights and fish the glow.\n\n■ INKWELL SQUID   (rod+net)\n   When: night · Water: anywhere · Weather: any · Depth: mid\n   Drawn to worklight — power the floodlights, fish the glow.\n   Night jigging. Comes up backwards in a huff of luminous ink — the ink's worth keeping too, someday.\n\n■ THE LOOKER   (rod)\n   When: night · Water: anywhere · Weather: any · Depth: deep\n   Never kept. You'll understand at the rail.\n   Any water, any hour, almost never. It is not kept. You'll understand at the rail.\n\n■ GHOST SOLE   (rod+net)\n   When: night · Water: rig shadow · Weather: any · Depth: mid\n   Drawn to worklight — power the floodlights, fish the glow.\n   Near-invisible by day. Night water near a glow is where it shows itself.\n\n■ GLASSPIKE   (rod)\n   When: night · Water: open water · Weather: calm only · Depth: surface\n   Clear still nights, open water — a pike you see through, found by the grit in its gut.\n\n■ RIBBON EEL   (rod)\n   When: night · Water: open water · Weather: any · Depth: deep\n   Sears to a PRIME FILLET.\n   Deep dark water only. Comes up faintly crackling — the Bloom keeps strange batteries.\n\n■ GUTTER PRAWN   (net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: any · Depth: mid\n   Net filler. A soak rarely comes up without a few — the pens will want them, someday.\n\n■ MILLER'S FLOUNDER   (net)\n   When: day · Water: rig shadow · Weather: any · Depth: deep\n   Deck-plate camouflage, bottom habits. Nets working close to the legs find them by day.\n\n■ STONE CRAB   (net)\n   When: dusk/night · Water: anywhere · Weather: any · Depth: deep\n   Walks into a soaked net, never onto a hook. Shell's ceramic-hard — keep the pieces, someday.\n\n■ FATHOM HALIBUT   (net)\n   When: night · Water: anywhere · Weather: any · Depth: deep\n   Sears to a PRIME FILLET.\n   Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Feeds a week.\n\n————————————————————————————————\nMargins, later hand: \"The net gathers, the rod hunts. The stove\nmakes it a meal. Raw will turn on you — a minute on hot steel won't.\"\n\nKEEPING IT: raw turns in ~4 hours. HANG it on a marked line (raw\n→ rotten, cooked → DRIED, keeps forever) or STOW it in the galley\nfridge (always fresh). The sea below the swell is swimmable now —\ncold, patrolled, and past ~13m down, not yours. Dock ladder's the\nway back up."
- }
+  "_schema": "readable_id -> { title, body }. Slice story carriers (GDD 5.3). Drafts by build AI from GDD canon - flag for designer pass.",
+  "sphl_manual": {
+    "title": "SPHL OPERATIONS MANUAL — PAGE 12",
+    "body": "SELF-PROPELLED HYPERBARIC LIFEBOAT — OCCUPANT NOTICE\n\nThis vessel is a pressure chamber. If you are reading this, the automated decompression schedule is ACTIVE. Do not attempt to open the hatch before the surface-pressure indicator reads zero. Explosive decompression at depth-saturation is not survivable.\n\nThe schedule cannot be shortened. The schedule cannot be paused. Your body is being returned to the surface world at the only speed it will tolerate.\n\nRemain calm. Ration water. The sea will hold you until the machine is done.\n\n— Meridian Deep Energy, Marine Safety Division"
+  },
+  "pressure_log": {
+    "title": "AUTOMATED PRESSURE LOG",
+    "body": "DECOMPRESSION SCHEDULE — DAY 6 OF 6\n\nDAY 1 — 09.2 BAR. OCCUPANT UNRESPONSIVE. VITALS STABLE.\nDAY 2 — 07.4 BAR. OCCUPANT UNRESPONSIVE. VITALS STABLE.\nDAY 3 — 05.1 BAR. OCCUPANT INTERMITTENTLY CONSCIOUS. SEDATION MAINTAINED PER PROTOCOL.\nDAY 4 — 03.3 BAR. HULL CONTACT EVENT. DRIFT ANCHOR DEPLOYED.\nDAY 5 — 01.9 BAR. OCCUPANT RESTLESS. SPOKE. NO CREW RESPONSE LOGGED.\nDAY 6 — 01.0 BAR. SURFACE PRESSURE IMMINENT.\n\nNOTE: NO RESPONSE FROM FIELD TRAFFIC CONTROL ON ANY CHANNEL. DAYS 1 THROUGH 6."
+  },
+  "crew_letter_1": {
+    "title": "UNSENT LETTER — BUNKHOUSE CABIN 2",
+    "body": "Marta —\n\nThree more weeks and I'm done, I mean it this time. The money's good but something's gone strange out here. They cut the food order again and nobody will say why. Whole pallets of tinned stuff going out on the supply boat instead of in.\n\nDon't tell your mother I said this, but the water's wrong lately. Osk saw something off the derrick at night watch, wouldn't say what, and he doesn't spook.\n\nKiss the boys. Three weeks.\n\n— Henrik"
+  },
+  "crew_letter_2": {
+    "title": "NOTE TAPED INSIDE A LOCKER — CABIN 5",
+    "body": "To whoever gets this bunk after me:\n\nThe heater rattles unless you wedge a coin in the grate. Third rung on the aft ladder is loose. Cook does real eggs on Sundays if you're early.\n\nAnd do yourself a favor — don't ask about the rig at the end of the line. Not because you'll get in trouble. Because nobody knows anything, and watching them realize it ruins card night.\n\n— G."
+  },
+  "rationing_memo": {
+    "title": "OPERATIONS MEMO — GALLEY COPY, GREASE-STAINED",
+    "body": "FROM: MERIDIAN DEEP ENERGY, LOGISTICS\nTO: ALL SALTLINE GALLEY STATIONS\nRE: PROVISIONING ADJUSTMENT — EFFECTIVE IMMEDIATELY\n\nStanding food resupply is reduced 40% for the remainder of the quarter. Galley staff will implement portion scheduling per the attached table.\n\nThis adjustment is logistical in nature. Crews with questions should direct them to their section leads, who have been instructed not to answer them.\n\nNOTE IN PEN, UNDERLINED TWICE: 'reduced for WHAT. we are 900 miles from anywhere. where does 40% of our food GO'"
+  },
+  "quiet_rig_note": {
+    "title": "TALLY BOOK PAGE — REC ROOM, UNDER THE DARTBOARD",
+    "body": "Werner swears the crew on the end rig signed papers thick as a fist. Says his cousin worked the supply run — they offload at night, nobody on deck, crane does it all.\n\nKristjan asked the company man straight out at the safety brief: what's it called, the end platform. Man smiled and said 'that's a processing terminus.' Processing what? Smiled again.\n\nWe've started calling it the Quiet Rig. Feels wrong to even write it down.\n\nAnyway. Darts Thursday. Werner owes me a bottle."
+  },
+  "breaker_log": {
+    "title": "MAINTENANCE LOG — BREAKER ROOM 4-A",
+    "body": "ELECTRICAL MAINTENANCE — RUNNING LOG\n\n04TH — Topside floodlight circuit tripping under load. Suspect corroded feed line in the stairwell corridor run. Flagged for splice.\n\n09TH — Splice postponed. Cable stock requisition DENIED, all spool inventory redirected 'down the line.' Down the line. Everything goes down the line now.\n\n11TH — Found scorch marks on the corridor run. Arc fault. Killed the whole circuit at the master rather than risk a fire. Topside's dark until we get spool stock.\n\nIf you need the deck lights: splice the corridor gap FIRST, then close the master here. In that order, unless you enjoy arc flash.\n\n— E.V., chief electrician"
+  },
+  "machine_shop_sign": {
+    "title": "NOTICE — MACHINE SHOP WINDOW",
+    "body": "MACHINE SHOP SEALED BY ORDER OF OIM\n\nHot-work permits suspended pending investigation of unauthorized fabrication activity.\n\nBeneath the notice, scratched into the paint:\n\n'they know about the raft'"
+  },
+  "lookout_note": {
+    "title": "WEATHERED NOTEBOOK — LOOKOUT POINT",
+    "body": "Best view on the whole line, and nobody comes up here but me and the gulls.\n\nYou can see all seven from the mast on a clear day. Ours, then the line of them, smaller and smaller, all the way out to the end one. The bridges look like stitches. Like somebody sewed the sea shut.\n\nFunny thing I noticed and can't stop noticing: the bridges get worse the farther out you look. Every big storm they patch ours first. Like the far end doesn't matter.\n\nOr like they know something's going to happen to it anyway."
+  },
+  "pump_room_tag": {
+    "title": "LAMINATED TAG — FLOODED PUMP ROOM",
+    "body": "PUMP ROOM 1-C — LOCKOUT/TAGOUT\n\nDO NOT RESTART. Bilge pumps offline for impeller service.\n\nDated the 11th. The month is smeared.\n\nThe tag is attached to a valve wheel below the waterline now. Whoever meant to come back to this never did."
+  },
+  "coffee_note": {
+    "title": "NAPKIN UNDER A FULL COFFEE CUP — GALLEY",
+    "body": "In pencil, casual handwriting:\n\n'Osk — night shift owes you for covering. Coffee's fresh, made a whole pot at 0330. Drink it while it's hot.\n\nBack in five.'\n\nThe cup is full. The pot is full.\n\nEverything here is exactly five minutes before something."
+  },
+  "roof_mark": {
+    "title": "CHALK TALLY — BUNKHOUSE ROOF",
+    "body": "Someone came up here often. A wind-worn chalk tally on the roof plate, grouped in fives — thirty-one marks, then a gap, then four more drawn heavier, gouged in.\n\nBeside it, a chalk sketch: the horizon line, and above it a shape with wide flat wings. Underneath, three words, gone over twice:\n\nIT COMES BACK."
+  },
+  "shrine_note": {
+    "title": "KELP-WRAPPED NOTE — CABIN B-03",
+    "body": "They said burn it. I couldn't.\n\nIt's not rot. It's not algae. You hold a frond up at night and it holds light INSIDE it, steady as a pilot lamp. Nothing that means harm keeps a light like that.\n\nI've been leaving the porthole cracked. If the glow wants in, I want to know what it wants.\n\n— O."
+  },
+  "cabin_b05_scrawl": {
+    "title": "SCRAWL ON THE WALL — CABIN B-05",
+    "body": "Written in grease pencil, fast, the letters climbing the wall:\n\nCOUNTED 41 AT MUSTER. LAUNCHED WITH 40.\n\nWHO STAYED?"
+  },
+  "toolpusher_log": {
+    "title": "TOOLPUSHER'S LOG — FINAL PAGE",
+    "body": "0400 — String's quiet. Not the quiet of a good hole. The quiet of something listening back up it.\n\n0430 — Told Control we're shutting in. Nobody argued. Nobody EVER doesn't argue.\n\n0600 — Company man wants it in writing. Fine. IN WRITING: the sea lit up under leg four and every gauge on this deck read zero at the same second. Pressure doesn't do that. Water doesn't do that.\n\nLast entry."
+  },
+  "medbay_note": {
+    "title": "SICK-BAY LEDGER",
+    "body": "Day 11 — Deckhand, R.: says the light off the water 'stays behind his eyes' after night watch. No fever. Pupils fine. Prescribed sleep he won't take.\n\nDay 12 — Three more with the same words. THE SAME WORDS. Men who don't share a shift.\n\nDay 13 — I looked tonight. It does stay. It isn't harmful. That's not the same as safe.\n\n(The rest of the ledger is water-swollen and unreadable.)"
+  },
+  "comms_log": {
+    "title": "LAST TRANSMISSION LOG",
+    "body": "TX 2241 — SALTLINE-1 to STANCHION: evac complete less one (1). Repeat, one crew unaccounted. Sea state 4. Bloom state — no code for it. Visual: the water is AWAKE.\n\nRX 2244 — STANCHION: say again last?\n\nTX 2247 — SALTLINE-1: ...\n\nTX 2251 — SALTLINE-1: disregard. Going dark. Keep the lamps lit for us.\n\n(Nothing further. The set's dial is still tuned.)"
+  },
+  "generator_tag": {
+    "title": "GENERATOR FAULT TAG",
+    "body": "OUT OF SERVICE — DO NOT CRANK\n\nFuel: contaminated (bio). Filters: fouled, green residue, GLOWS FAINT AT NIGHT.\n\nIf you need power, the topside floodlight circuit still takes a splice at Breaker 4-A. Cable's the hard part. Cable's always the hard part.\n\n— maintenance, last shift"
+  },
+  "mooring_log": {
+    "title": "MOORING WATCH LOG — STATION SW",
+    "body": "WINDLASS 4-SW — WATCH ENTRIES\n\nDay shift: chain wash-down complete, links 40-60 regreased. Tension nominal.\n\nNight shift: tension spiked 0300, eased by 0340. Swell from the SW. Logged, not reported.\n\nThe last entry is the 14th, 0250: 'Something on the chain. Went to look.'\n\nNothing after that. The grease gun is still clipped to the rail."
+  },
+  "fender_tag": {
+    "title": "INSPECTION TAG — BOAT LANDING",
+    "body": "FENDER PANEL 3 — QUARTERLY INSPECTION\n\nRubbing strips: 60% wear, replace next rotation. Tire fenders: serviceable.\n\nInspector's initials worn to a smudge of salt.\n\nStamped across the bottom in the company's blue ink: MERIDIAN DEEP ENERGY — SALTLINE PROJECT. The landing was due for service the week the ocean went quiet."
+  },
+  "rigger_handbook": {
+    "title": "RIGGER'S HANDBOOK",
+    "body": "RIGGER'S HANDBOOK — SHOP COPY\nChained to the bench. Grease-thumbed, corners soft.\n\nHOW THE BENCH WORKS\nPress E at the bench to open it. Lay parts from your pack onto\nthe top — the bench shows what they want to become and what's\nstill missing. When a recipe is complete, hold WORK (or Space)\nto hammer it real. Partial layouts are safe; take parts back\nanytime. Some things must be seared here too, not just built.\n\n————————————————————————————————\nRECIPES\n\n■ THROWING HOOK\n   Needs: 1× Rope Coil + 1× Prybar\n   Work: ~2s at the bench\n   A heaving line with teeth. Takes back what the gyre holds.\n   — Rope from the crane deck; prybar from the pump room.\n\n■ PLANK WALKWAY\n   Needs: 2× Driftwood Plank\n   Work: ~2s at the bench\n   A lashed plank section. Bridges a gap, extends a deck.\n   — Two sound planks make a path where there wasn't one.\n\n■ LEAN-TO\n   Needs: 1× Canvas Tarp + 2× Driftwood Plank\n   Work: ~3s at the bench\n   Canvas over a driftwood frame. A pocket of warmth anywhere on the rig.\n   — The sea gives back wood and canvas. Make a roof of them.\n\n■ BARRICADE\n   Needs: 1× Driftwood Plank + 2× Scrap Metal\n   Work: ~3s at the bench\n   Scrap plate on a wood brace. Waist-high, storm-solid.\n   — Plate the gyre coughs up still remembers being a wall.\n\n■ BLOOM LAMP\n   Needs: 2× Kelp Bundle + 1× Scrap Metal\n   Work: ~3s at the bench\n   Bloom-kelp sealed in a scrap housing. Cold teal light, no power needed — and what walks at night honors it.\n   — Kelp glows for weeks in a sealed housing. The crew knew.\n\n■ DROP NET\n   Needs: 2× Rope Coil + 1× Driftwood Plank\n   Work: ~3s at the bench\n   A weighted mesh on a winch line. Lower it off an edge, let the sea walk in, haul.\n   — Set it before dusk — the night shift swims shallower.\n\n■ SEARED GLOW WORM\n   Needs: 1× Glow Worm\n   Work: ~2s at the bench\n   A minute on hot steel and the light goes out of it. What's left is honest meat.\n   — Raw ones bite back on the way down. Sear it first.\n\n————————————————————————————————\nFISHING (a later hand, in pencil)\nRod's in the storeroom. Cast to open water [LMB], strike when\nthe float plunges, then reel the lulls and rest the surges —\nif the strain bar tops out, the line parts. The drop net does\nthe patient version: build it AT A DECK EDGE, lower, walk away,\nhaul. Raw catch sears on the galley stove upstairs. Eat cooked.\n\nA last note, pencilled in the margin:\n\"The gyre keeps giving it back. Rope, plank, plate, canvas.\n Whatever you lose to the water washes up by the third dawn.\n Build like the sea's on your side. It is.\""
+  },
+  "anglers_notes": {
+    "title": "ANGLER'S NOTES",
+    "body": "ANGLER'S NOTES — WET DECK COPY\nA rigger's log of what the water gives, and when. Kept honest.\n\nREAD THE WATER: every cast tells you the conditions — the hour,\nrig shadow or open water, storm or calm, worklight on the swell.\nMatch the fish to the water and the water stops being luck.\n\n■ COPPER SPRAT   (rod+net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: any · Depth: surface\n   Bait-tier shoals that trail anything moving. The sea's small change.\n\n■ LANTERN HERRING   (rod+net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: any · Depth: surface\n   The gateway catch. At night the shoal glows its own position away.\n\n■ SLATE COD   (rod+net)\n   When: day · Water: anywhere · Weather: storms help · Depth: mid\n   Loves a gray sky — bites double under storm cloud. Heavy, honest meat.\n\n■ LODESTONE BREAM   (rod)\n   When: day · Water: open water · Weather: any · Depth: deep\n   Deep daylight water. Its magnetized bones spin a compass — catch enough, craft crude magnets, someday.\n\n■ EMBER SNAPPER   (rod+net)\n   When: day/dusk · Water: rig shadow · Weather: any · Depth: mid\n   Warm-bodied — crowds the rig's outfalls and warm steel. Fish the shadow of the deck.\n\n■ CHIMEFISH   (rod+net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: calm only · Depth: mid\n   Calm seas only — they won't ring in weather. Worth more traded than eaten, someday.\n\n■ DRUM CROAKER   (rod+net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: STORMS ONLY · Depth: mid\n   Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes — then they bite like they mean it.\n\n■ MIRRORJACK   (rod)\n   When: dawn/dusk · Water: open water · Weather: any · Depth: surface\n   A dawn and dusk feeder in open water — fast, chrome, furious on the line.\n\n■ SILVER LADDER   (rod)\n   When: dawn · Water: open water · Weather: any · Depth: mid\n   Dawn columns over open water — the shoal stacks vertical, a shimmering pillar.\n\n■ BARREL GROUPER   (rod)\n   When: dawn/day/dusk/night · Water: open water · Weather: storms help · Depth: deep\n   Sears to a PRIME FILLET.\n   The hardest fight on the rod. Deep open water; a storm stirs them up off the bottom. Feeds you for days.\n\n■ SABLE HAKE   (rod+net)\n   When: night · Water: rig shadow · Weather: any · Depth: mid\n   Drawn to worklight — power the floodlights, fish the glow.\n   Rises to worklight after dark like moths with fins. Power the floodlights and fish the glow.\n\n■ INKWELL SQUID   (rod+net)\n   When: night · Water: anywhere · Weather: any · Depth: mid\n   Drawn to worklight — power the floodlights, fish the glow.\n   Night jigging. Comes up backwards in a huff of luminous ink — the ink's worth keeping too, someday.\n\n■ THE LOOKER   (rod)\n   When: night · Water: anywhere · Weather: any · Depth: deep\n   Never kept. You'll understand at the rail.\n   Any water, any hour, almost never. It is not kept. You'll understand at the rail.\n\n■ GHOST SOLE   (rod+net)\n   When: night · Water: rig shadow · Weather: any · Depth: mid\n   Drawn to worklight — power the floodlights, fish the glow.\n   Near-invisible by day. Night water near a glow is where it shows itself.\n\n■ GLASSPIKE   (rod)\n   When: night · Water: open water · Weather: calm only · Depth: surface\n   Clear still nights, open water — a pike you see through, found by the grit in its gut.\n\n■ RIBBON EEL   (rod)\n   When: night · Water: open water · Weather: any · Depth: deep\n   Sears to a PRIME FILLET.\n   Deep dark water only. Comes up faintly crackling — the Bloom keeps strange batteries.\n\n■ GUTTER PRAWN   (net)\n   When: dawn/day/dusk/night · Water: anywhere · Weather: any · Depth: mid\n   Net filler. A soak rarely comes up without a few — the pens will want them, someday.\n\n■ MILLER'S FLOUNDER   (net)\n   When: day · Water: rig shadow · Weather: any · Depth: deep\n   Deck-plate camouflage, bottom habits. Nets working close to the legs find them by day.\n\n■ STONE CRAB   (net)\n   When: dusk/night · Water: anywhere · Weather: any · Depth: deep\n   Walks into a soaked net, never onto a hook. Shell's ceramic-hard — keep the pieces, someday.\n\n■ FATHOM HALIBUT   (net)\n   When: night · Water: anywhere · Weather: any · Depth: deep\n   Sears to a PRIME FILLET.\n   Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Feeds a week.\n\n————————————————————————————————\nMargins, later hand: \"The net gathers, the rod hunts. The stove\nmakes it a meal. Raw will turn on you — a minute on hot steel won't.\"\n\nKEEPING IT: raw turns in ~4 hours. HANG it on a marked line (raw\n→ rotten, cooked → DRIED, keeps forever) or STOW it in the galley\nfridge (always fresh). The sea below the swell is swimmable now —\ncold, patrolled, and past ~13m down, not yours. Dock ladder's the\nway back up."
+  },
+  "osk_watch_slate": {
+    "title": "Night Watch Slate",
+    "body": "Grease pencil on a scratched watch slate, half wiped for the next shift.\n\n0210 — quiet. 0245 — quiet. 0310 —\n\nit isn't in the water. the water is IN it. i put the lamp on it and it didn't run and it didn't come, it just — turned, the way you turn when someone says your name.\n\nHenrik thinks I spook. I don't spook. I've watched this sea eleven years. This is the first time it's ever watched back.\n\n— O."
+  },
+  "osk_last_note": {
+    "title": "Folded Note, Weighted With a Shell",
+    "body": "Whoever finds this: don't wait for me at the boats. I'm not going.\n\nIt isn't sickness and it isn't fear. R. had the words wrong in the sick-bay — it doesn't stay behind your eyes. It stays in front. Once you've seen the sea lit from the inside you can't want the dark back.\n\nThey'll say I stayed. I didn't stay. I'm going the other way down the line, toward the light, while the rest of you row toward the shore that turned its back on us.\n\nKeep the lamps lit. Not for me. For whoever the machine spits back up.\n\n— Osk"
+  },
+  "sat_dive_log": {
+    "title": "Saturation Log — Laminated Card",
+    "body": "BELL RUN 14 — SAT DAY 09 OF 16\nDiver at storage depth. DO NOT DECOMPRESS OUTSIDE SCHEDULE.\n\nIn pen, fast, not the same hand as the printed log:\n\n'muster called. we can't bring the bell up in time — you'd die on the way. putting you in the pod. it'll bring you up slow and safe, six days, no matter what happens up here. i'm sorry. i'm so sorry. we'll leave a lamp on.\n— don't be angry we left. be alive.'"
+  },
+  "chess_note": {
+    "title": "Score Card Under a Chess Piece",
+    "body": "Werner is up 3 games to 2. The board is mid-game, white to move, a scrap of card under the white king in Kristjan's blocky print:\n\n'W — if I don't make it back for this, mate finishes in four moves and you know it. Don't you dare reset the board. Some of us are coming back to win properly.\n— K.'\n\nWhite never moved."
+  },
+  "raft_plan": {
+    "title": "Drafting-Table Sketch",
+    "body": "Through the shop glass: a raft, drawn careful and to scale, hull numbers worked out twice. Oil drums for float, deck plate for a keel, a mast stepped from a derrick pipe. Provisions list in the corner — that's where the missing 40% of the food went, a can at a time, into a locker under the bench.\n\nAcross the whole sheet, later, in a shaking hand:\n'won't matter. the sea turns everything back. Osk was right. there's no west anymore. there's only down the line.'\n\nThe raft is three planks from finished. It will always be three planks from finished."
+  },
+  "henrik_photo": {
+    "title": "Photograph Taped Inside a Bunk",
+    "body": "Two boys on a stony beach, squinting into a grey sun, holding up a fish too small to keep. On the back, a woman's round handwriting:\n\n'They caught it themselves. Told everyone at school their dad's a deep-sea man. Come home and be one on land for a while. — M.'\n\nHenrik made the boats. The photo didn't. He'll have gone over the rail counting the days he had left — three weeks, he kept writing. Three weeks."
+  },
+  "company_man_memo": {
+    "title": "Sealed Directive — Eyes Only",
+    "body": "MERIDIAN DEEP ENERGY — PROJECT SALTLINE\nRE: TERMINUS YIELD — CONTAINMENT POSTURE\n\nThe bioluminescent yield at Platform 7 exceeds projection by an order of magnitude and is no longer responding to the inhibitor feed. Recommend we cease characterizing it as a contaminant. It is the product. It was always the product.\n\nDo NOT advise the line crews. Panic reduces output. Maintain the provisioning schedule; the yield feeds on the organic input and we require it to keep feeding.\n\nHandwritten across the seal, pressed hard enough to tear:\n'we were the feed. all of us. 900 miles out so no one would hear the line go quiet.'"
+  },
+  "ev_last_splice": {
+    "title": "Note Pinned to the Breaker Panel",
+    "body": "If you're reading this, you found the splice notes and you got the topside lights up. Good. That means the rig's got someone in it again.\n\nI couldn't get us cable. They took every spool down the line. So I'm leaving you what I couldn't finish and one piece of advice a chief owes a stranger: the crab won't cross a lamp. Not because it's scared. Because it was made polite. Somebody down the line built it that way, and I don't like to think about who, or why they needed a thing that big kept polite.\n\nKeep the lamps lit. It's the whole job now.\n\n— E.V."
+  },
+  "bottle_note": {
+    "title": "Note in a Bottle",
+    "body": "Salt-swollen, corked with candle wax. The current brought it in against the dock the way the current brings everything.\n\n— no header, just a hand —\n\nif you're reading this you're on one of the rigs and you're alive and that already makes you rare. we launched from Rig 6 and the sea won't let the boats go west. it turns us. every boat. back toward the line.\n\nmaybe that's cruelty. maybe it's the only kindness left — it doesn't want us to drown out there alone. we're rowing back. tell whoever's on 4 to keep a lamp in the window.\n\nwe'll be a few days. everything out here is a few days."
+  }
 }

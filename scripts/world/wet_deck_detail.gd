@@ -224,6 +224,9 @@ func _mooring_station() -> void:
 			link.rotation.x = deg_to_rad(55)   # chain tips over the fairlead and hangs
 	# The watch log, and the grease gun its last entry never came back to.
 	_readable("mooring_log", "Mooring Watch Log", Vector3(10.95, y + 0.95, -23.8), Vector3(0.3, 0.35, 0.05))
+	# A message-in-a-bottle the gyre washed against the dock — survivors from Rig 6, the
+	# sea turning every boat back down the line. The world is bigger than this rig.
+	_readable("bottle_note", "Note in a Bottle", Vector3(13.6, y + 0.14, -23.7), Vector3(0.1, 0.26, 0.1))
 	var gun := _dcyl(Vector3(11.6, y + 0.56, -24.85), 0.04, 0.35, MatLib.red_paint())
 	gun.rotation.z = deg_to_rad(90)
 	# Snap-back warning where the platform meets the deck.
