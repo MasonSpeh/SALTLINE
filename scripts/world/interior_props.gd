@@ -18,6 +18,7 @@ const D_Y: float = 28.6
 ## The rig comes up instantly and props settle in over ~1-2s.
 var _queue: Array = []
 const PER_FRAME: int = 5
+const SNAP := preload("res://scripts/world/surface_snap.gd")
 
 func _ready() -> void:
 	_wet_deck()
@@ -35,6 +36,14 @@ func _ready() -> void:
 	_rec_room_more()
 	_machine_shop_more()
 	_stack_more()
+	# Third pass — small scattered PERSONAL / HOUSEHOLD clutter (wave-4 assets), placed
+	# onto real surfaces with _ps (snaps down so nothing floats). Queued LAST so every
+	# supporting desk/shelf exists before an item tries to land on it.
+	_scatter_wetdeck()
+	_scatter_decka()
+	_scatter_deckb()
+	_scatter_deckc()
+	_scatter_deckd()
 	_stream()   # drain the queue across frames (runs as a coroutine)
 
 ## Instance the queued props a handful per frame so no single frame stalls.
@@ -48,7 +57,13 @@ func _stream() -> void:
 			return
 		var id: String = item[0]
 		var mov: bool = PropLib.is_moveable(id)
-		PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
+		var node: Node3D = PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
+		# Snap-flagged scatter adheres to whatever surface is beneath it — the proven
+		# fix for hand-typed heights that leave a mug hovering a centimetre off a desk.
+		# Bounded to 0.5m so a non-colliding decorative shelf leaves a tiny float, never
+		# a fall to the floor below (items are placed ~0.1-0.2m above their surface).
+		if node != null and item.size() > 5 and item[5]:
+			SNAP.attach(node, 0, 0.5)
 		i += 1
 		if i % PER_FRAME == 0:
 			await get_tree().process_frame
@@ -62,6 +77,12 @@ func _p(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 func _pc(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 	## Colliding variant for big floor furniture the player should bump.
 	_queue.append([id, pos, yaw, sm, true])
+
+func _ps(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
+	## Place-and-snap: small scattered clutter. Give an approximate pos ~0.1-0.2m
+	## ABOVE the target surface (desk/shelf/floor); it drops onto whatever's below,
+	## so it never floats even if the surface height is a guess. Non-colliding.
+	_queue.append([id, pos, yaw, sm, false, true])
 
 ## A small warm point light (jar lamp / worklight glow) — sparingly, for mood.
 func _lamp(pos: Vector3, color: Color = Color(1.0, 0.82, 0.5), energy: float = 0.6, rng: float = 4.0) -> void:
@@ -314,3 +335,156 @@ func _stack_more() -> void:
 	_p("bronze_ray_statue", Vector3(22.2, d + 1.7, 16.6), 0)
 	_pc("Shelf_01", Vector3(9.0, d, 16.0), 90)
 	_p("brass_vase_01", Vector3(9.0, d + 1.0, 16.0), 0)
+
+# ============================================================ scatter (wave 4)
+# Small personal/household items on real surfaces. _ps = place-and-snap (drops onto
+# the surface below); _p = exact. Matched to each room's use; kept off windows,
+# doorways, and the SPHL exit corridor.
+
+func _scatter_wetdeck() -> void:
+	var w: float = WET_Y
+	# Rigging bench west third (25,-17.5, top ~2.96) — a working deck bench.
+	_ps("garden_gloves_01", Vector3(24.0, w + 1.1, -17.5), 20)
+	_ps("fishermans_hat", Vector3(24.3, w + 1.1, -17.1), -30)
+	_ps("can_rusted", Vector3(24.6, w + 1.1, -17.9), 0)
+	_ps("oil_tin", Vector3(23.7, w + 1.1, -17.8), 40)
+	# Pump-room dead-pump top (12,-12, ~3.8) beside the toolbox, and the dry SW corner.
+	_ps("russian_food_cans_01", Vector3(12.3, w + 2.0, -12.3), 15)
+	_ps("plastic_thermos", Vector3(11.7, w + 2.0, -11.8), -20)
+	_ps("plastic_container", Vector3(10.8, w + 0.15, -12.8), 0)
+	# Loot-room shelves (10.4,-19, ~2.6/3.3) — a stores room.
+	_ps("russian_food_cans_01", Vector3(10.4, w + 0.75, -18.3), 10)
+	_ps("pot_enamel_01", Vector3(10.4, w + 0.75, -19.6), -15)
+	_ps("can_rusted", Vector3(10.4, w + 1.45, -18.2), 0)
+	_ps("wicker_basket_01", Vector3(14.6, w + 0.15, -20.6), 30)
+	# SPHL interior — the survivor's few things on the aft benches (all west of x18).
+	_ps("modified_thermos", Vector3(16.6, w + 0.75, -24.9), 10)
+	_ps("round_spectacles", Vector3(16.0, w + 0.72, -23.1), -20)
+	_ps("Camera_01", Vector3(15.8, w + 0.75, -23.2), 40)
+	_ps("wooden_bowl_02", Vector3(17.1, w + 0.72, -24.9), 0)
+	# Stair-tower machinery room (y6) beside the spool + NW corner.
+	_ps("oil_tin", Vector3(27.4, 6.0 + 1.15, 6.2), 20)
+	_ps("garden_gloves_01", Vector3(25.0, 6.0 + 0.15, 8.6), -10)
+	# Breaker Room 4-A (y10) — utilitarian floor corners.
+	_p("clipboard", Vector3(26.6, 10.0 + 0.02, 3.2), 30)
+	_ps("can_rusted", Vector3(27.0, 10.0 + 0.15, 8.8), 0)
+
+func _scatter_decka() -> void:
+	var y: float = DECK_Y
+	# Bunkhouse: a second personal item on each locker top (locker at bedx+1.2, bedz-0.8, ~19.8).
+	var beds := [Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
+			Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5)]
+	var kit := ["cigarette_pack", "vintage_lighter", "cassette_player", "round_spectacles", "postcard_set_01", "cigarette_case"]
+	for i in range(beds.size()):
+		var p: Vector3 = beds[i]
+		_ps(kit[i], p + Vector3(1.2, 2.0, -0.8), i * 37.0)
+	# Shared table (-18.5,11, ~18.78) + nightstand (-23.6,11.8) + a book by the armchair.
+	_ps("brass_candleholders", Vector3(-18.5, y + 0.95, 11.0), 0)
+	_ps("wooden_bowl_01", Vector3(-18.1, y + 0.95, 11.3), 20)
+	_ps("standing_picture_frame_01", Vector3(-23.6, y + 0.8, 11.8), 10)
+	_ps("book_encyclopedia_set_01", Vector3(-25.0, y + 0.7, 11.5), -15)   # on the armchair arm
+	# Galley: dishware + food on counter (z17, ~19.0) and tables; a kettle on the counter.
+	_ps("vintage_electric_kettle", Vector3(6.5, y + 1.1, 17.0), 0)
+	_ps("carved_wooden_plate", Vector3(7.6, y + 1.1, 17.1), 15)
+	_ps("tea_set_01", Vector3(9.0, y + 1.1, 17.0), -10)
+	_ps("wooden_cutting_board", Vector3(4.5, y + 1.1, 17.1), 0)
+	_ps("hamburger_buns", Vector3(3.2, y + 1.1, 17.0), 20)
+	_ps("lemon", Vector3(2.4, y + 1.1, 17.2), 0)
+	_ps("wine_bottles_01", Vector3(10.2, y + 1.1, 16.9), 0)
+	_ps("metal_jug", Vector3(2.0, y + 0.6, 11.0), 30)        # table (2,11)
+	_ps("wooden_bowl_01", Vector3(8.0, y + 0.6, 11.0), 0)     # table (8,11)
+	_ps("carved_wooden_plate", Vector3(2.0, y + 0.6, 14.5), -20)
+	_ps("strawberry_chocolate_cake", Vector3(8.0, y + 0.6, 14.5), 0)
+	_ps("brass_pot_01", Vector3(-1.6, y + 2.3, 12.0), 0)     # top wall shelf
+	_ps("pot_enamel_01", Vector3(-1.6, y + 2.3, 13.2), 0)
+	# Rec room: toys + clutter (low table 23,12.5 ~18.32; TV stand 26.6,12.5; magazine tbl 24.8,10.5; shelf top 25.5,17.6 ~20.0).
+	_ps("mantel_clock_01", Vector3(25.5, y + 2.1, 17.6), 180)
+	_ps("brass_candleholders", Vector3(24.8, y + 2.1, 17.6), 0)
+	_ps("gaming_console", Vector3(26.6, y + 0.9, 12.5), -90)
+	_ps("gamepad", Vector3(26.2, y + 0.9, 12.9), 20)
+	_ps("sungka_board", Vector3(23.0, y + 0.44, 12.9), 0)    # on the low table
+	_ps("baseball_01", Vector3(22.6, y + 0.44, 12.2), 0)
+	_ps("vintage_video_camera", Vector3(24.8, y + 0.4, 10.5), 30)  # magazine table
+	_ps("wooden_candlestick", Vector3(20.5, y + 0.9, 9.3), 0)      # by the sofa
+
+func _scatter_deckb() -> void:
+	var y: float = B_Y
+	# Cabins B-01..B-05 — intimate desk/locker clutter (desks 1.8,6.9 & 6.9,8.0 ~22.36; lockers ~23.4).
+	_ps("round_spectacles", Vector3(1.8, y + 0.85, 6.9), 20)
+	_ps("cigarette_case", Vector3(2.1, y + 0.85, 7.1), -30)
+	_ps("seadogs_compass", Vector3(6.9, y + 0.85, 8.0), 0)
+	_ps("postcard_set_01", Vector3(6.6, y + 0.85, 7.8), 15)
+	_ps("standing_picture_frame_01", Vector3(7.3, y + 1.9, 6.9), 180)   # locker top
+	_ps("vintage_oil_lamp", Vector3(2.4, y + 1.9, 10.2), 0)            # locker top (B-01 corridor side)
+	_ps("brass_vase_02", Vector3(11.9, y + 0.3, 10.3), 0)             # kelp-shrine table (B-03)
+	# Linen store (shelves x27.6, z6.9..9.9) — extra pillows + a spray bottle.
+	_ps("throw_pillows_01", Vector3(27.6, y + 1.0, 9.9), 0)
+	_ps("all_purpose_cleaner", Vector3(27.6, y + 1.7, 9.6), 20)
+	# Wash room: toiletries on the counter ENDS (x-0.5, x3.5 — clear of window centres 0,4), a duck.
+	_ps("multi_cleaner_bottle", Vector3(3.5, y + 1.0, 17.3), 0)
+	_ps("medical_tape", Vector3(-0.5, y + 1.0, 17.3), 20)
+	_ps("rubber_duck_toy", Vector3(-0.3, y + 1.0, 17.5), -40)
+	_p("plunger", Vector3(4.6, y + 0.02, 17.6), 0)
+	# Crew lounge: cards/snacks on the card table (8.2,14.6 ~22.06) + a projector, a bottle.
+	_ps("filmstrip_projector_8mm", Vector3(12.5, y + 1.0, 14.6), 90)
+	_ps("wooden_bowl_02", Vector3(8.2, y + 0.5, 14.6), 0)
+	_ps("wine_bottles_01", Vector3(8.6, y + 0.5, 14.9), 15)
+	_ps("throw_pillows_01", Vector3(7.6, y + 0.6, 14.2), 0)          # on the sofa
+	# B-06 desk (18,17.1 ~22.36) + Muster locker top (21,16.8).
+	_ps("standing_picture_frame_01", Vector3(18.3, y + 0.85, 17.1), 160)
+	_ps("cigarette_pack", Vector3(17.7, y + 0.85, 17.3), 0)
+	_ps("Megaphone_01", Vector3(21.0, y + 0.85, 16.8), -20)
+
+func _scatter_deckc() -> void:
+	var y: float = C_Y
+	# Control room desks (5.8/8.0/10.2, 7.4 ~25.86) — the x8 desk stays clear-ish (window x8 on z6 wall, 1.4m off — fine).
+	_ps("stationery_supplies", Vector3(5.8, y + 0.8, 7.4), 0)
+	_ps("modified_thermos", Vector3(6.2, y + 0.8, 7.6), 20)
+	_ps("vintage_stapler", Vector3(10.2, y + 0.8, 7.4), -15)
+	_ps("round_spectacles", Vector3(9.9, y + 0.8, 7.6), 0)
+	# Rig office desk (14.5,7.5 ~25.9) — a lamp, a clock, ledgers.
+	_ps("desk_lamp_arm_01", Vector3(14.2, y + 0.8, 7.5), 30)
+	_ps("wall_clock", Vector3(14.7, y + 0.8, 7.7), 0)
+	_ps("stationery_supplies", Vector3(14.8, y + 0.8, 7.3), -20)
+	_ps("modified_thermos", Vector3(17.3, y + 1.4, 7.0), 0)        # filing-cabinet top
+	# Med bay exam bench (20.5,8.0 ~26.0) + supply shelves (21.8,11.6).
+	_ps("medical_tape", Vector3(20.5, y + 1.0, 8.0), 0)
+	_ps("multi_cleaner_bottle", Vector3(20.9, y + 1.0, 8.2), 20)
+	_ps("wall_clock", Vector3(21.8, y + 1.85, 11.6), 90)
+	# East dry store shelves (27.5,9.0 ~25.7/26.5) — line them with stores.
+	_ps("russian_food_cans_01", Vector3(27.5, y + 0.7, 8.4), 0)
+	_ps("pot_enamel_01", Vector3(27.5, y + 0.7, 9.6), 0)
+	_ps("CheeseBox_01", Vector3(27.5, y + 1.5, 8.6), 0)
+	_ps("jug_01", Vector3(27.5, y + 1.5, 9.5), 0)
+	# Comms desk (6.0,16.8 ~25.9) — a mic, a log, a mug, cigarettes.
+	_ps("Megaphone_01", Vector3(6.0, y + 0.8, 16.8), 180)
+	_ps("cigarette_pack", Vector3(5.5, y + 0.8, 16.5), 20)
+	_ps("magnifying_glass_01", Vector3(6.5, y + 0.8, 17.1), -30)
+	# Mud logging instrument racks (14.5/17.5/20.5, 17.4 ~26.9) + office desk (20,16.4).
+	_ps("stationery_supplies", Vector3(20.0, y + 0.8, 16.4), 0)
+	_ps("magnifying_glass_01", Vector3(17.5, y + 1.85, 17.4), 40)
+
+func _scatter_deckd() -> void:
+	var y: float = D_Y
+	# Gym benches (10.5,10.0 & 13.8,9.2 ~29.2) + floor.
+	_ps("garden_gloves_01", Vector3(10.5, y + 0.75, 10.0), 20)
+	_ps("plastic_bottle_gallon", Vector3(13.8, y + 0.75, 9.2), 0)
+	_ps("baseball_bat", Vector3(14.6, y + 0.1, 8.7), 70)
+	# Laundry: folding table (21.5,11.5 ~29.06) + washer tops (17/18.5/20, 8.8).
+	_ps("throw_pillows_01", Vector3(21.5, y + 0.55, 11.5), 0)       # folded coveralls stand-in
+	_ps("bleach_bottle", Vector3(17.0, y + 0.6, 8.8), 0)
+	_ps("multi_cleaner_bottle", Vector3(20.0, y + 0.6, 8.8), 20)
+	_p("plastic_broom", Vector3(15.9, y + 0.02, 12.6), 10)
+	# Storage/stash nook: crate tops (9.2..10.5,17.0 ~29.4/30.2) + the crouch nook secret (8.9,15.6).
+	_ps("vintage_oil_lamp", Vector3(9.8, y + 0.9, 17.0), 0)
+	_ps("wicker_basket_02", Vector3(10.2, y + 1.7, 17.0), 30)
+	_ps("standing_picture_frame_01", Vector3(8.9, y + 0.1, 15.6), 20)   # personal item in the secret nook
+	# Workshop bench (19,17.0 ~29.53), west span — scattered tools; shelf ends.
+	_ps("flathead_screwdriver", Vector3(17.6, y + 1.0, 17.0), 40)
+	_ps("pliers", Vector3(18.1, y + 1.0, 17.2), -30)
+	_ps("measuring_tape_01", Vector3(18.4, y + 1.0, 16.8), 0)
+	_ps("lubricant_spray", Vector3(17.9, y + 1.0, 17.3), 10)
+	_ps("spray_paint_bottles", Vector3(22.4, y + 1.3, 16.9), 0)      # shelf
+	# Roof / mast deck — minimal, weather-tough, near the centre.
+	_ps("metal_detector", Vector3(11.0, y + 0.9, 15.2), 40)          # forgotten on the generator hull
+	_ps("watering_can_metal_01", Vector3(26.8, y + 0.1, 9.0), 0)     # NE corner inside the rails
