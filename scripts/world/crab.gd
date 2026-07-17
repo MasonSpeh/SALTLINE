@@ -18,6 +18,8 @@ var patrol_speed: float = 1.6
 var pursue_speed: float = 3.8
 var detect_radius: float = 6.0
 var contact_radius: float = 1.2
+var hp: float = 3.0             ## melee hits it can take before it quits the night
+var _recoil: float = 0.0        ## stagger timer after a weapon strike
 var _contact_fired: bool = false
 var _claw_timer: Timer
 
@@ -41,6 +43,38 @@ func _ready() -> void:
 	_claw_timer = AudioDirector.attach_loop("claw", self, 0.5)
 	GameClock.dawn.connect(_on_dawn)
 	_last_pos = global_position
+	add_to_group("hittable")   # craftable melee weapons can drive it off
+
+## Struck by a weapon (player_controller._melee_attack). Each hit staggers it and
+## breaks off a pursuit; enough damage and it gives up the night and slides off
+## the deck. Its lamp flares hurt-red on the blow.
+func repel(from_pos: Vector3, damage: float) -> void:
+	if state == State.GONE or state == State.RETREAT:
+		return
+	hp -= damage
+	_recoil = 0.4
+	# Knock it back a step, away from the strike.
+	var away: Vector3 = global_position - from_pos
+	away.y = 0.0
+	if away.length() > 0.05:
+		global_position += away.normalized() * 0.55
+		look_at(global_position - away, Vector3.UP)   # face the threat as it backs off
+	if _lamp_mat:
+		_lamp_mat.emission = Color(1.0, 0.15, 0.1)
+		_lamp_mat.emission_energy_multiplier = 4.0
+	AudioDirector.play_one_shot("clang", global_position, -6.0)
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hp <= 0.0:
+		state = State.RETREAT
+		_wp_index = 0
+		if hud and hud.has_method("toast"):
+			hud.toast("It breaks and drops off the deck. Gone — for tonight.")
+	else:
+		# Staggered: drop the hunt and think twice before closing again.
+		_resume_state = State.PATROL_TOP
+		state = State.PURSUE   # keeps facing you, but the recoil holds it off this beat
+		if hud and hud.has_method("toast"):
+			hud.toast("You beat it back. It recoils, lamp flaring red.")
 
 ## Dog-sized shore crab, Bloom-grown: broad chitin carapace, eight articulated
 ## legs, heavy pincers, stalked eyes — and the lamp, a lure organ on its back
@@ -144,6 +178,13 @@ func _animate(delta: float) -> void:
 
 func _process(delta: float) -> void:
 	_animate(delta)
+	# Staggered by a weapon strike: hold this beat, then shake it off.
+	if _recoil > 0.0:
+		_recoil -= delta
+		if _recoil <= 0.0 and _lamp_mat and state != State.GONE:
+			_lamp_mat.emission = Color(0.25, 0.95, 0.88)   # lamp back to its cold lure teal
+		if state != State.RETREAT and state != State.GONE:
+			return
 	Journal.discover_if_near(self, "creature_lamplight_crab", 20.0)
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	match state:

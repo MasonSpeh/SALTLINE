@@ -60,6 +60,7 @@ const DEEP_GRACE_SEC: float = 1.6
 @onready var _col: CollisionShape3D = $CollisionShape3D
 
 var _hand_item: Node3D = null  ## visual item mesh held in right hand
+var _attack_cd: float = 0.0    ## melee swing cooldown
 var _held_item_id: String = ""
 
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
@@ -126,6 +127,14 @@ func _unhandled_input(event: InputEvent) -> void:
 			and carried == null and not _climbing and not hook_out \
 			and not (build and build.active) and _selected_item_id() == "fishing_rod":
 		_start_fishing()
+		get_viewport().set_input_as_handled()
+		return
+	# A melee weapon selected + LMB = swing at whatever's in reach ahead.
+	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
+			and event.pressed and not input_locked and not ui_locked and fishing == null \
+			and carried == null and not _climbing and not hook_out \
+			and not (build and build.active) and _is_weapon(_selected_item_id()):
+		_melee_attack()
 		get_viewport().set_input_as_handled()
 		return
 	# Carrying a prop: left-click throws, E or G sets it down.
@@ -206,6 +215,53 @@ func _selected_item_id() -> String:
 		return ""
 	return String(PlayerState.hotbar[slot])
 
+## True when the in-hand item defines melee stats (a crafted weapon).
+func _is_weapon(id: String) -> bool:
+	return id != "" and PlayerState.items.get(id, {}).has("melee_damage")
+
+## Swing the held weapon: a quick arc of the hand item, a whistle of air, and a
+## hit on the nearest creature ahead within reach. Crabs and other fauna that
+## implement repel() get driven off; the spear's longer reach keeps claws away.
+func _melee_attack() -> void:
+	if _attack_cd > 0.0:
+		return
+	var id: String = _selected_item_id()
+	var data: Dictionary = PlayerState.items.get(id, {})
+	var reach: float = float(data.get("melee_reach", 2.0))
+	var dmg: float = float(data.get("melee_damage", 1.0))
+	_attack_cd = float(data.get("swing_sec", 0.5))
+	_swing_hand(_attack_cd)
+	AudioDirector.play_one_shot("hiss", global_position, -18.0)   # a whistle of air
+	# Closest hittable roughly in front, within reach. Distance is measured from the
+	# body (not the raised camera) so a ground-level crab isn't out of reach on height.
+	var origin: Vector3 = global_position
+	var forward: Vector3 = -camera.global_transform.basis.z
+	var best: Node3D = null
+	var best_d: float = reach + 0.01
+	for c in get_tree().get_nodes_in_group("hittable"):
+		if not (c is Node3D) or not c.has_method("repel"):
+			continue
+		var to: Vector3 = (c as Node3D).global_position - origin
+		var dist: float = to.length()
+		if dist > reach or dist < 0.05:
+			continue
+		if to.normalized().dot(forward) < 0.4:   # must be in the swing arc
+			continue
+		if dist < best_d:
+			best = c
+			best_d = dist
+	if best:
+		best.repel(global_position, dmg)
+
+## Arc the hand item down-and-across, then settle back — a melee swing.
+func _swing_hand(dur: float) -> void:
+	if _hand_item == null:
+		return
+	var rest: Vector3 = _hand_item.rotation
+	var tw: Tween = create_tween()
+	tw.tween_property(_hand_item, "rotation", rest + Vector3(deg_to_rad(-70), deg_to_rad(35), 0), dur * 0.35).set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_hand_item, "rotation", rest, dur * 0.65).set_trans(Tween.TRANS_SINE)
+
 func _start_fishing() -> void:
 	# Preloaded by path — the global class cache may not know the new file yet.
 	var rod: Node3D = preload("res://scripts/components/fishing_rod.gd").new()
@@ -230,6 +286,8 @@ func hook_returned() -> void:
 	hook_out = false
 
 func _physics_process(delta: float) -> void:
+	if _attack_cd > 0.0:
+		_attack_cd -= delta
 	if _fly:
 		_fly_process(delta)
 		return

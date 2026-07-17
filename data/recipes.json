@@ -1,78 +1,101 @@
 {
-	"_schema": "recipe_id -> { name, needs: {item: count}, makes, work_sec, desc, hint }. Bench crafting: lay parts, work them.",
-	"throwing_hook": {
-		"name": "Throwing Hook",
-		"needs": {
-			"rope": 1,
-			"prybar": 1
-		},
-		"makes": "throwing_hook",
-		"work_sec": 2.5,
-		"desc": "A heaving line with teeth. Takes back what the gyre holds.",
-		"hint": "Rope from the crane deck; prybar from the pump room."
-	},
-	"bloom_lamp_kit": {
-		"name": "Bloom Lamp",
-		"needs": {
-			"kelp_bundle": 2,
-			"scrap_metal": 1
-		},
-		"makes": "bloom_lamp_kit",
-		"work_sec": 3.0,
-		"desc": "Bloom-kelp sealed in a scrap housing. Cold teal light, no power needed — and what walks at night honors it.",
-		"hint": "Kelp glows for weeks in a sealed housing. The crew knew."
-	},
-	"leanto_kit": {
-		"name": "Lean-To",
-		"needs": {
-			"tarp": 1,
-			"driftwood": 2
-		},
-		"makes": "leanto_kit",
-		"work_sec": 3.0,
-		"desc": "Canvas over a driftwood frame. A pocket of warmth anywhere on the rig.",
-		"hint": "The sea gives back wood and canvas. Make a roof of them."
-	},
-	"walkway_kit": {
-		"name": "Plank Walkway",
-		"needs": {
-			"driftwood": 2
-		},
-		"makes": "walkway_kit",
-		"work_sec": 2.0,
-		"desc": "A lashed plank section. Bridges a gap, extends a deck.",
-		"hint": "Two sound planks make a path where there wasn't one."
-	},
-	"barricade_kit": {
-		"name": "Barricade",
-		"needs": {
-			"driftwood": 1,
-			"scrap_metal": 2
-		},
-		"makes": "barricade_kit",
-		"work_sec": 3.0,
-		"desc": "Scrap plate on a wood brace. Waist-high, storm-solid.",
-		"hint": "Plate the gyre coughs up still remembers being a wall."
-	},
-	"glow_worm_cooked": {
-		"name": "Seared Glow Worm",
-		"needs": {
-			"glow_worm": 1
-		},
-		"makes": "glow_worm_cooked",
-		"work_sec": 2.0,
-		"desc": "A minute on hot steel and the light goes out of it. What's left is honest meat.",
-		"hint": "Raw ones bite back on the way down. Sear it first."
-	},
-	"drop_net_kit": {
-		"name": "Drop Net",
-		"needs": {
-			"rope": 2,
-			"driftwood": 1
-		},
-		"makes": "drop_net_kit",
-		"work_sec": 3.0,
-		"desc": "A weighted mesh on a winch line. Lower it off an edge, let the sea walk in, haul.",
-		"hint": "Set it before dusk — the night shift swims shallower."
-	}
+  "_schema": "recipe_id -> { name, needs: {item: count}, makes, work_sec, desc, hint }. Bench crafting: lay parts, work them.",
+  "throwing_hook": {
+    "name": "Throwing Hook",
+    "needs": {
+      "rope": 1,
+      "prybar": 1
+    },
+    "makes": "throwing_hook",
+    "work_sec": 2.5,
+    "desc": "A heaving line with teeth. Takes back what the gyre holds.",
+    "hint": "Rope from the crane deck; prybar from the pump room."
+  },
+  "bloom_lamp_kit": {
+    "name": "Bloom Lamp",
+    "needs": {
+      "kelp_bundle": 2,
+      "scrap_metal": 1
+    },
+    "makes": "bloom_lamp_kit",
+    "work_sec": 3.0,
+    "desc": "Bloom-kelp sealed in a scrap housing. Cold teal light, no power needed \u2014 and what walks at night honors it.",
+    "hint": "Kelp glows for weeks in a sealed housing. The crew knew."
+  },
+  "leanto_kit": {
+    "name": "Lean-To",
+    "needs": {
+      "tarp": 1,
+      "driftwood": 2
+    },
+    "makes": "leanto_kit",
+    "work_sec": 3.0,
+    "desc": "Canvas over a driftwood frame. A pocket of warmth anywhere on the rig.",
+    "hint": "The sea gives back wood and canvas. Make a roof of them."
+  },
+  "walkway_kit": {
+    "name": "Plank Walkway",
+    "needs": {
+      "driftwood": 2
+    },
+    "makes": "walkway_kit",
+    "work_sec": 2.0,
+    "desc": "A lashed plank section. Bridges a gap, extends a deck.",
+    "hint": "Two sound planks make a path where there wasn't one."
+  },
+  "barricade_kit": {
+    "name": "Barricade",
+    "needs": {
+      "driftwood": 1,
+      "scrap_metal": 2
+    },
+    "makes": "barricade_kit",
+    "work_sec": 3.0,
+    "desc": "Scrap plate on a wood brace. Waist-high, storm-solid.",
+    "hint": "Plate the gyre coughs up still remembers being a wall."
+  },
+  "glow_worm_cooked": {
+    "name": "Seared Glow Worm",
+    "needs": {
+      "glow_worm": 1
+    },
+    "makes": "glow_worm_cooked",
+    "work_sec": 2.0,
+    "desc": "A minute on hot steel and the light goes out of it. What's left is honest meat.",
+    "hint": "Raw ones bite back on the way down. Sear it first."
+  },
+  "drop_net_kit": {
+    "name": "Drop Net",
+    "needs": {
+      "rope": 2,
+      "driftwood": 1
+    },
+    "makes": "drop_net_kit",
+    "work_sec": 3.0,
+    "desc": "A weighted mesh on a winch line. Lower it off an edge, let the sea walk in, haul.",
+    "hint": "Set it before dusk \u2014 the night shift swims shallower."
+  },
+  "crude_knife": {
+    "name": "Crude Knife",
+    "needs": {
+      "scrap_metal": 1,
+      "rope": 1
+    },
+    "makes": "crude_knife",
+    "work_sec": 3.0,
+    "desc": "A scrap shard ground to an edge and bound to a wrapped grip. Close, ugly work.",
+    "hint": "Scrap metal and a wrap of rope. The pump room has both."
+  },
+  "crude_spear": {
+    "name": "Crude Spear",
+    "needs": {
+      "scrap_metal": 1,
+      "driftwood": 1,
+      "rope": 1
+    },
+    "makes": "crude_spear",
+    "work_sec": 4.0,
+    "desc": "A shard lashed to a driftwood pole. Reach \u2014 put the point in them before a claw finds you.",
+    "hint": "A shard, a pole, and rope to lash it. Beats a claw at arm's length."
+  }
 }
