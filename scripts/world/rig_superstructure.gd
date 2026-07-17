@@ -359,6 +359,13 @@ func _bunk(pos: Vector3, messy: bool) -> void:
 	if messy:
 		var bl := _dbox(pos + Vector3(0.18, 0.84, 0.35), Vector3(0.7, 0.14, 0.8), MatLib.canvas(Color(0.5, 0.54, 0.58)))
 		bl.rotation.y = 0.45
+	# You can turn in here too — a collision-only Bed wrapping the frame so the
+	# interaction ray reads SLEEP at night (bedding is the mesh above).
+	var b: Interactable = preload("res://scripts/components/bed.gd").new()
+	b.set("build_bedding", false)
+	b.set("col_size", Vector3(1.05, 1.42, 2.15))
+	add_child(b)
+	b.global_position = pos + Vector3(0, 0.65, 0)
 
 func _locker(pos: Vector3, open: bool = false) -> void:
 	_box(pos + Vector3(0, 0.9, 0), Vector3(0.55, 1.8, 0.55), MatLib.painted_steel())

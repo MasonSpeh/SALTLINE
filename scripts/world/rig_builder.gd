@@ -146,6 +146,16 @@ func _ramp(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
 	b.global_position = (from + to) * 0.5
 	b.look_at((to + Vector3(0, 0, 0)), Vector3.UP)
 
+## A crew bunk you can SLEEP in (see bed.gd). Builds its own bedding; `made`
+## squares the blanket, otherwise it's thrown back. `yaw` points the head to a wall.
+func _bed(pos: Vector3, yaw: float, made: bool, blanket: Color) -> void:
+	var b: Interactable = preload("res://scripts/components/bed.gd").new()
+	b.set("made", made)
+	b.set("blanket_col", blanket)
+	add_child(b)
+	b.global_position = pos
+	b.rotation.y = deg_to_rad(yaw)
+
 func _readable(id: String, name_: String, pos: Vector3, size: Vector3 = Vector3(0.35, 0.45, 0.06)) -> Readable:
 	var r := Readable.new()
 	r.readable_id = id
@@ -430,19 +440,16 @@ func _build_bunkhouse() -> void:
 	for i in range(1, 3):
 		_wall(Vector3(xs[i], y, 4), Vector3(xs[i], y, 10), WALL_H, mat)
 		_wall(Vector3(xs[i], y, 12), Vector3(xs[i], y, 18), WALL_H, mat)
-	# Beds: made (neat) vs unmade (tossed) — the first clue, wordless.
-	var bed_positions := [
-		Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
-		Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5),
+	# Beds you can turn in on: made (neat) vs thrown-back (someone rose in a hurry).
+	# Heads to the wall — south row faces −Z, north row +Z. Each is a Bed you can SLEEP in.
+	var bed_specs := [
+		[Vector3(-25.5, y, 6.5), 0.0], [Vector3(-18.8, y, 6.5), 0.0], [Vector3(-12.0, y, 6.5), 0.0],
+		[Vector3(-25.5, y, 15.5), 180.0], [Vector3(-18.8, y, 15.5), 180.0], [Vector3(-12.0, y, 15.5), 180.0],
 	]
-	for i in range(bed_positions.size()):
-		var p: Vector3 = bed_positions[i]
-		_box(p + Vector3(0, 0.3, 0), Vector3(1.0, 0.6, 2.1), MatLib.wood())
-		if i % 2 == 0:
-			_box(p + Vector3(0, 0.66, 0.2), Vector3(0.95, 0.12, 1.6), MatLib.canvas(Color(0.75, 0.78, 0.8))) # made
-		else:
-			var blanket := _box(p + Vector3(0.2, 0.72, 0.4), Vector3(0.8, 0.18, 0.9), MatLib.canvas(Color(0.55, 0.58, 0.62)))
-			blanket.rotation.y = 0.4 # unmade
+	for i in range(bed_specs.size()):
+		var p: Vector3 = bed_specs[i][0]
+		var blanket_col: Color = Color(0.75, 0.78, 0.8) if i % 2 == 0 else Color(0.55, 0.58, 0.62)
+		_bed(p, bed_specs[i][1], i % 2 == 0, blanket_col)
 		# Lockers
 		_box(p + Vector3(1.2, 0.9, -0.8), Vector3(0.5, 1.8, 0.5), MatLib.painted_steel())
 	_readable("crew_letter_1", "Unsent Letter", Vector3(-18.8, y + 0.75, 7.3), Vector3(0.3, 0.05, 0.4))
@@ -792,8 +799,7 @@ func _decorate_bunkhouse() -> void:
 	]
 	for i in range(bed_positions.size()):
 		var p: Vector3 = bed_positions[i]
-		# Pillow at the head of every bed.
-		_box(p + Vector3(0, 0.68, -0.8), Vector3(0.55, 0.1, 0.35), MatLib.flat(Color(0.88, 0.88, 0.84)), self, false)
+		# The Bed builds its own pillow + blanket; here we add the lived-in extras.
 		if i % 2 == 1:
 			# Boots kicked off at the foot of the slept-in beds.
 			_box(p + Vector3(-0.35, 0.12, 1.3), Vector3(0.14, 0.24, 0.3), MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
@@ -801,12 +807,21 @@ func _decorate_bunkhouse() -> void:
 			# Locker door left hanging open.
 			var door := _box(p + Vector3(1.45, 0.9, -0.45), Vector3(0.04, 1.7, 0.45), MatLib.painted_steel(), self, false)
 			door.rotation.y = 0.7
+		else:
+			# A folded towel over the foot rail, a mug on the locker top.
+			_box(p + Vector3(0, 0.62, 0.95), Vector3(0.9, 0.06, 0.28), MatLib.canvas(Color(0.7, 0.62, 0.5)), self, false)
+			_cyl_nc(p + Vector3(1.2, 1.86, -0.8), 0.07, 0.11, MatLib.flat(Color(0.8, 0.78, 0.72)))
+		# A personal photo taped inside each locker, facing the bunk.
+		_box(p + Vector3(0.98, 1.35, -0.8), Vector3(0.02, 0.22, 0.3), MatLib.flat(Color(0.55, 0.6, 0.62)), self, false)
 	# Corridor light strip (dead — the grid is down; it stays a dark fixture).
 	_box(Vector3(-18, y + 3.0, 11), Vector3(16, 0.08, 0.3), MatLib.dark_metal(), self, false)
-	# A duffel someone packed and never took.
+	# A duffel someone packed and never took, a guitar propped in the corner.
 	_box(Vector3(-21.5, y + 0.2, 8.5), Vector3(0.5, 0.4, 0.95), MatLib.flat(Color(0.3, 0.35, 0.28)), self, false)
-	# Faded poster of somewhere green.
+	var guitar := _box(Vector3(-27.4, y + 0.55, 5.0), Vector3(0.34, 1.05, 0.11), MatLib.wood(), self, false)
+	guitar.rotation.z = 0.14
+	# Faded poster of somewhere green, and a wall calendar frozen on the last month.
 	_box(Vector3(-12.0, y + 1.8, 17.85), Vector3(0.7, 0.9, 0.03), MatLib.flat(Color(0.35, 0.5, 0.4)), self, false)
+	_box(Vector3(-22.0, y + 1.7, 17.85), Vector3(0.42, 0.55, 0.02), MatLib.flat(Color(0.86, 0.85, 0.8)), self, false)
 
 func _decorate_galley() -> void:
 	var y: float = DECK_Y
