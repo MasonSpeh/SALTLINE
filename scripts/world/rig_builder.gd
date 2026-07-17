@@ -127,6 +127,14 @@ func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float =
 		_box(cl + Vector3(0, 2.2 + lintel_h * 0.5, 0),
 			Vector3(door_w, lintel_h, WALL_T) if along_x else Vector3(WALL_T, lintel_h, door_w), mat)
 
+## Square corner columns that swallow the seam where two centred walls meet, so
+## corners read as one clean cast pilaster instead of a mitred notch. `corners`
+## are floor-level XZ points; the post rises `height` from `y`.
+func _corner_posts(corners: Array, y: float, height: float, mat: Material, post: float = 0.42) -> void:
+	for c in corners:
+		var p: Vector3 = c
+		_box(Vector3(p.x, y + height * 0.5, p.z), Vector3(post, height, post), mat)
+
 func _ramp(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
 	var dir: Vector3 = to - from
 	var len3d: float = dir.length()
@@ -239,6 +247,8 @@ func _build_wet_deck() -> void:
 	_wall(Vector3(10, WET_Y, -6), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
 	_wall(Vector3(10, WET_Y, -14), Vector3(10, WET_Y, -6), WALL_H, pr_mat)
 	_wall(Vector3(18, WET_Y, -14), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
+	_corner_posts([Vector3(10, 0, -14), Vector3(18, 0, -14), Vector3(10, 0, -6), Vector3(18, 0, -6)],
+		WET_Y, WALL_H, pr_mat)
 	_box(Vector3(14, WET_Y + WALL_H, -10), Vector3(8.5, 0.25, 8.5), pr_mat) # roof
 	var water := _box(Vector3(14, WET_Y + 0.27, -10), Vector3(7.6, 0.55, 7.6), null, self, false)
 	var wmat := StandardMaterial3D.new()
@@ -260,6 +270,8 @@ func _build_wet_deck() -> void:
 	_wall(Vector3(10, WET_Y, -22), Vector3(16, WET_Y, -22), WALL_H, lr_mat)
 	_wall(Vector3(10, WET_Y, -22), Vector3(10, WET_Y, -16), WALL_H, lr_mat)
 	_wall(Vector3(16, WET_Y, -22), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
+	_corner_posts([Vector3(10, 0, -16), Vector3(16, 0, -16), Vector3(10, 0, -22), Vector3(16, 0, -22)],
+		WET_Y, WALL_H, lr_mat)
 	_box(Vector3(13, WET_Y + WALL_H, -19), Vector3(6.5, 0.25, 6.5), lr_mat)
 	_crate(["canned_food", "canned_peaches"], "Storage Crate", Vector3(13, WET_Y + 0.01, -20))
 
@@ -280,6 +292,9 @@ func _build_stair_tower() -> void:
 	_wall(Vector3(22, WET_Y, 2), Vector3(30, WET_Y, 2), top_h, mat)
 	_wall(Vector3(30, WET_Y, -6), Vector3(30, WET_Y, 2), top_h, mat)
 	_wall(Vector3(22, WET_Y, -6), Vector3(22, WET_Y, 2), top_h, mat)
+	# Cast corner columns so the four walls meet as clean pilasters, not raw seams.
+	_corner_posts([Vector3(22, 0, -6), Vector3(30, 0, -6), Vector3(22, 0, 2), Vector3(30, 0, 2)],
+		WET_Y, top_h, mat, 0.5)
 	# Top exit doorway (west wall, deck level): carve with a subtraction-free trick —
 	# the west wall above deck is rebuilt as two segments around a gap.
 	# (Cheaper: punch a hole via a doorway wall piece at deck height.)
@@ -291,9 +306,14 @@ func _build_stair_tower() -> void:
 	hole.queue_free()
 	_doorway_west_top(mat)
 
+	# Entry landing: a full-depth pad between the south doorway (z=-6) and the foot
+	# of flight 1, so you step INTO the tower and onto flat deck before any stair —
+	# the flight no longer sits in the door mouth.
+	_box(Vector3(24.5, WET_Y - 0.1, -4.8), Vector3(6.6, 0.2, 2.6), MatLib.checker_plate())
 	# Switchback stairs: 4 real flights (checker treads on steel stringers over a
 	# smooth hidden ramp collider), landings between. ~34°, riser ≈ 0.19.
-	STAIRS.flight(self, Vector3(23, WET_Y, -4.5), Vector3(29, 6.15, -4.5), 2.0)
+	# Flight 1 starts at z=-3.0 (foot edge z=-4.0) leaving a ~2m landing at the door.
+	STAIRS.flight(self, Vector3(23, WET_Y, -3.0), Vector3(29, 6.15, -3.0), 2.0)
 	STAIRS.flight(self, Vector3(29, 6.15, 0.5), Vector3(23, 10.15, 0.5), 2.0)
 	STAIRS.flight(self, Vector3(23, 10.15, -4.5), Vector3(29, 14.15, -4.5), 2.0)
 	STAIRS.flight(self, Vector3(29, 14.15, 0.5), Vector3(23, 18.15, 0.5), 2.0)
@@ -344,6 +364,9 @@ func _room_north(a: Vector3, b: Vector3, mat: Material, door_t: float) -> void:
 	_wall(Vector3(a.x, y, b.z), Vector3(b.x, y, b.z), WALL_H, mat)
 	_wall(Vector3(a.x, y, a.z), Vector3(a.x, y, b.z), WALL_H, mat)
 	_wall(Vector3(b.x, y, a.z), Vector3(b.x, y, b.z), WALL_H, mat)
+	# Corner columns so adjoining walls meet as one clean edge, not a notched seam.
+	_corner_posts([Vector3(a.x, 0, a.z), Vector3(b.x, 0, a.z), Vector3(a.x, 0, b.z), Vector3(b.x, 0, b.z)],
+		y, WALL_H, mat)
 	_box(Vector3((a.x + b.x) * 0.5, y + WALL_H, (a.z + b.z) * 0.5), Vector3(b.x - a.x + 0.5, 0.25, b.z - a.z + 0.5), mat)
 
 # ---------- Z4: Topside ----------
@@ -394,6 +417,8 @@ func _build_bunkhouse() -> void:
 	_wall(Vector3(-28, y, 18), Vector3(-8, y, 18), WALL_H, mat)
 	_wall(Vector3(-28, y, 4), Vector3(-28, y, 18), WALL_H, mat)
 	_wall(Vector3(-8, y, 4), Vector3(-8, y, 18), WALL_H, mat, 0.5) # east entrance into corridor
+	_corner_posts([Vector3(-28, 0, 4), Vector3(-8, 0, 4), Vector3(-28, 0, 18), Vector3(-8, 0, 18)],
+		y, WALL_H, mat)
 	_box(Vector3(-18, y + WALL_H, 11), Vector3(20.5, 0.25, 14.5), mat)
 	_box(Vector3(-18, y + 0.035, 11), Vector3(19.5, 0.03, 13.5), MatLib.lino_floor(), self, false)
 	# Cabin dividers: south row (z 4..10), north row (z 12..18), corridor between.
@@ -430,6 +455,8 @@ func _build_galley() -> void:
 	_wall(Vector3(-2, y, 18), Vector3(14, y, 18), WALL_H, mat)
 	_wall(Vector3(-2, y, 8), Vector3(-2, y, 18), WALL_H, mat)
 	_wall(Vector3(14, y, 8), Vector3(14, y, 18), WALL_H, mat)
+	_corner_posts([Vector3(-2, 0, 8), Vector3(14, 0, 8), Vector3(-2, 0, 18), Vector3(14, 0, 18)],
+		y, WALL_H, mat)
 	_box(Vector3(6, y + WALL_H, 13), Vector3(16.5, 0.25, 10.5), mat)
 	_box(Vector3(6, y + 0.035, 13), Vector3(15.5, 0.03, 9.5), MatLib.kitchen_tile(), self, false)
 	# Counter along the north wall with food — brushed galley steel, not weather-peel.
@@ -461,6 +488,8 @@ func _build_rec_room() -> void:
 	_wall(Vector3(18, y, 18), Vector3(28, y, 18), WALL_H, mat)
 	_wall(Vector3(18, y, 8), Vector3(18, y, 18), WALL_H, mat, 0.3)  # west door
 	_wall(Vector3(28, y, 8), Vector3(28, y, 18), WALL_H, mat)
+	_corner_posts([Vector3(18, 0, 8), Vector3(28, 0, 8), Vector3(18, 0, 18), Vector3(28, 0, 18)],
+		y, WALL_H, mat)
 	_box(Vector3(23, y + WALL_H, 13), Vector3(10.5, 0.25, 10.5), mat)
 	_box(Vector3(23, y + 0.035, 13), Vector3(9.5, 0.03, 9.5), MatLib.rubber_floor(), self, false)
 	# Dartboard, dead TV, couch.
@@ -622,9 +651,13 @@ func _build_sphl() -> void:
 	_col_wall(Vector3(cx, fy + 1.1, iz_s), Vector3(ix1 - ix0, 2.4, 0.2))          # south wall
 	_col_wall(Vector3(ix0, fy + 1.1, cz), Vector3(0.2, 2.4, iz_n - iz_s))         # west wall
 	_col_wall(Vector3(ix1, fy + 1.1, cz), Vector3(0.2, 2.4, iz_n - iz_s))         # east wall
-	# North wall = two piers flanking a 1.6m-wide hatch gap centred at x=20 (spawn/hatch).
-	_col_wall(Vector3((ix0 + 18.6) * 0.5, fy + 1.1, iz_n), Vector3(18.6 - ix0, 2.4, 0.2))
-	_col_wall(Vector3((21.4 + ix1) * 0.5, fy + 1.1, iz_n), Vector3(ix1 - 21.4, 2.4, 0.2))
+	# North wall = two piers flanking the hatch gap. The gap must sit INSIDE the
+	# interior span (ix0..ix1) and match the door panel (hinge x19.2, 1.6m wide ->
+	# covers 19.2..20.8), else a pier gets a negative width and fails to build.
+	var gap_w: float = 19.2   # west edge of the hatch gap
+	var gap_e: float = 20.8   # east edge of the hatch gap
+	_col_wall(Vector3((ix0 + gap_w) * 0.5, fy + 1.1, iz_n), Vector3(gap_w - ix0, 2.4, 0.2))
+	_col_wall(Vector3((gap_e + ix1) * 0.5, fy + 1.1, iz_n), Vector3(ix1 - gap_e, 2.4, 0.2))
 	# Lintel above the gap (visual only, head height clear).
 	_box(Vector3(20.0, fy + 2.1, iz_n), Vector3(2.9, 0.3, 0.22), grey, self, false)
 
