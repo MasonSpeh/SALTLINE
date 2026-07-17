@@ -99,25 +99,32 @@ func _build_environment() -> void:
 	env.ssao_enabled = true
 	env.ssao_radius = 2.0
 	env.ssao_intensity = 1.5
-	# Screen-space indirect light: the spill omnis and emissive windows bounce a
-	# little, which grounds the PBR texture set indoors without real GI cost.
-	env.ssil_enabled = true
-	env.ssil_intensity = 0.9
 	env.fog_enabled = true
 	env.fog_density = 0.0008
-	env.volumetric_fog_enabled = true
-	env.volumetric_fog_density = 0.012
-	env.volumetric_fog_length = 110.0
-	env.volumetric_fog_sky_affect = 0.05
 	env.ambient_light_energy = 1.0
+	# SSIL and volumetric fog are Forward+-only. The project ships on the
+	# Compatibility (OpenGL) renderer for broad Mac/GPU support — Forward+ greys
+	# out on some machines — so we only switch these on when Forward+ is actually
+	# active. Flip the renderer back to Forward+ in Project Settings and they
+	# return automatically. (RenderingDevice is null on the Compatibility path.)
+	if RenderingServer.get_rendering_device() != null:
+		env.ssil_enabled = true
+		env.ssil_intensity = 0.9
+		env.volumetric_fog_enabled = true
+		env.volumetric_fog_density = 0.012
+		env.volumetric_fog_length = 110.0
+		env.volumetric_fog_sky_affect = 0.05
 	var we := WorldEnvironment.new()
 	we.environment = env
-	# Auto-exposure: the eye adapts — dark scenes stay readable without lying about night.
-	var cam_attrs := CameraAttributesPractical.new()
-	cam_attrs.auto_exposure_enabled = true
-	cam_attrs.auto_exposure_scale = 0.3
-	cam_attrs.auto_exposure_speed = 0.4
-	we.camera_attributes = cam_attrs
+	# Auto-exposure: the eye adapts — dark scenes stay readable without lying about
+	# night. Forward+-only; the ambient floor (SunController) keeps night readable
+	# on Compatibility without it.
+	if RenderingServer.get_rendering_device() != null:
+		var cam_attrs := CameraAttributesPractical.new()
+		cam_attrs.auto_exposure_enabled = true
+		cam_attrs.auto_exposure_scale = 0.3
+		cam_attrs.auto_exposure_speed = 0.4
+		we.camera_attributes = cam_attrs
 	add_child(we)
 	var sun := DirectionalLight3D.new()   # must be first DirectionalLight: sky tracks it
 	sun.shadow_enabled = true
