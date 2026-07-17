@@ -114,6 +114,15 @@ static func sphl_orange() -> StandardMaterial3D:
 	## passenger. (Boosted tint over a gray base — the red paint set reads fire-red.)
 	return _pbr("sphl", "Metal032", Color(1.5, 0.55, 0.12), 0.45, 1.0, 0.0, Color(0.88, 0.44, 0.12))
 
+static func sphl_grey() -> StandardMaterial3D:
+	## Weathered grey survival-craft hull — salt-scoured painted steel, the honest
+	## look of a lifeboat that has ridden a lot of sea.
+	return _pbr("sphl_grey", "PaintedMetal013", Color(0.62, 0.66, 0.7), 0.32, 1.0, 0.05, Color(0.5, 0.54, 0.58))
+
+static func sphl_hi_vis() -> StandardMaterial3D:
+	## The one bright band a grey hull still needs by law — retro-orange accent.
+	return _pbr("sphl_hivis", "PaintedMetal004", Color(1.3, 0.6, 0.2), 0.4, 1.0, 0.0, Color(0.85, 0.42, 0.12))
+
 # ---------- mineral & organic ----------
 
 static func concrete() -> StandardMaterial3D:

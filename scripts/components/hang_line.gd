@@ -33,7 +33,7 @@ func _ready() -> void:
 	add_child(rope)
 	var col := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(length_m, 0.5, 0.4)
+	box.size = Vector3(length_m, 0.28, 0.3)
 	col.shape = box
 	add_child(col)
 	# A few empty hooks so the line reads as usable before anything hangs.

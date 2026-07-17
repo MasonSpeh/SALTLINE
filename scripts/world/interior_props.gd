@@ -77,21 +77,22 @@ func _lamp(pos: Vector3, color: Color = Color(1.0, 0.82, 0.5), energy: float = 0
 
 func _wet_deck() -> void:
 	var y: float = WET_Y
-	# Around the rigging bench (19.5, -19.5): a real toolbox and tool chest, oil cans.
-	_p("metal_toolbox", Vector3(19.5, y + 0.96, -19.5), -90)
-	_pc("metal_tool_chest", Vector3(21.3, y, -19.8), -90)
-	_p("small_oil_can_01", Vector3(18.7, y + 0.96, -19.3), 40)
-	_p("pipe_wrench", Vector3(19.9, y + 0.97, -19.6), 200)
+	# Around the rigging bench (now at 16.2, -18, off the SPHL exit): toolbox, tool
+	# chest, oil cans — all follow the bench so nothing floats or blocks the hatch.
+	_p("metal_toolbox", Vector3(25.0, y + 0.96, -17.5), -90)
+	_pc("metal_tool_chest", Vector3(26.7, y, -17.8), -90)
+	_p("small_oil_can_01", Vector3(24.2, y + 0.96, -17.3), 40)
+	_p("pipe_wrench", Vector3(25.4, y + 0.97, -17.6), 200)
 	# Jerry cans and a bucket by the storeroom wall.
 	_pc("metal_jerrycan", Vector3(11.6, y, -21.4), 25)
 	_pc("plastic_jerrycan", Vector3(12.2, y, -21.5), -40)
 	_p("wooden_bucket_01", Vector3(12.9, y, -21.3), 0)
 	# A caged worklight glowing over the bench — the one warm point down here.
-	_p("caged_hanging_light", Vector3(19.5, y + 2.4, -19.5))
-	_lamp(Vector3(19.5, y + 2.2, -19.5), Color(1.0, 0.8, 0.55), 0.7, 5.0)
+	_p("caged_hanging_light", Vector3(25.0, y + 2.4, -17.5))
+	_lamp(Vector3(25.0, y + 2.2, -17.5), Color(1.0, 0.8, 0.55), 0.7, 5.0)
 	# Fire extinguisher bracketed by the stair door; a stack of ration tins.
 	_p("korean_fire_extinguisher_01", Vector3(24.6, y + 0.55, -6.3), 180, 1.1)
-	_p("long_life_food", Vector3(16.6, y + 0.02, -20.4), 20)
+	_p("long_life_food", Vector3(24.2, y + 0.02, -16.9), 20)
 
 # ---- galley ----
 

@@ -127,48 +127,44 @@ func _boat_landing() -> void:
 	var y: float = WET_Y
 	var dark: Material = MatLib.dark_metal()
 	var yellow: Material = MatLib.flat(Color(0.75, 0.65, 0.15))
+	# The dock landing sits EAST of the SPHL (x 23–28) so the pod's hatch exit at
+	# x~20 is clear — the player steps off the gangplank onto open deck, and the
+	# fender frame / boarding ladder are a separate dock section beside the pod.
 	# Landing frame: two vertical tubes spanning the splash zone, rust below, paint above.
-	for fx in [16.6, 21.2]:
+	for fx in [23.5, 27.9]:
 		_dcyl(Vector3(fx, y - 1.5, -22.3), 0.2, 3.0, MatLib.rust_steel())
 		_dcyl(Vector3(fx, y + 1.5, -22.3), 0.2, 3.0, yellow)
-		# Angled standoff struts back to the deck edge.
 		var strut := _dbox(Vector3(fx, y + 0.5, -22.05), Vector3(0.12, 0.12, 0.7), dark)
 		strut.rotation.x = deg_to_rad(35)
 	# Horizontal tie tubes.
 	for ty in [0.7, 2.4]:
-		var tie := _dcyl(Vector3(18.9, y + ty, -22.34), 0.09, 4.6, dark)
+		var tie := _dcyl(Vector3(25.7, y + ty, -22.34), 0.09, 4.4, dark)
 		tie.rotation.z = deg_to_rad(90)
 	# Rubbing strips down the vessel face.
-	for i in range(5):
-		_dbox(Vector3(16.9 + i * 1.05, y + 0.9, -22.46), Vector3(0.18, 3.4, 0.09), MatLib.flat(Color(0.12, 0.12, 0.13)))
-	# Tidal ladder dropping into the swell (decorative — the pod gangplank is the path).
+	for i in range(4):
+		_dbox(Vector3(23.9 + i * 1.05, y + 0.9, -22.46), Vector3(0.18, 3.4, 0.09), MatLib.flat(Color(0.12, 0.12, 0.13)))
+	# Tidal ladder dropping into the swell — the swimmer's way back up (has collision).
 	for side in [-0.22, 0.22]:
-		_dbox(Vector3(17.7 + side, y - 0.4, -22.42), Vector3(0.05, 2.6, 0.12), MatLib.galvanized())
+		_dbox(Vector3(24.6 + side, y - 0.4, -22.42), Vector3(0.05, 2.6, 0.12), MatLib.galvanized())
 	for i in range(8):
-		var rung := _dcyl(Vector3(17.7, y - 1.55 + i * 0.31, -22.42), 0.022, 0.44, MatLib.galvanized())
+		var rung := _dcyl(Vector3(24.6, y - 1.55 + i * 0.31, -22.42), 0.022, 0.44, MatLib.galvanized())
 		rung.rotation.z = deg_to_rad(90)
-	# Lifebuoy on a bracket post — orange ring, four white patches, coiled line.
-	# (East of the storeroom's footprint — the deck west of x16 is interior here.)
-	_dbox(Vector3(16.9, y + 1.0, -21.85), Vector3(0.1, 2.0, 0.1), dark)
-	var ring := _dtorus(Vector3(16.9, y + 1.55, -21.75), 0.3, 0.44, MatLib.flat(Color(0.9, 0.4, 0.08)))
+	# Lifebuoy on a bracket post east of the landing.
+	_dbox(Vector3(28.4, y + 1.0, -21.85), Vector3(0.1, 2.0, 0.1), dark)
+	var ring := _dtorus(Vector3(28.4, y + 1.55, -21.75), 0.3, 0.44, MatLib.flat(Color(0.9, 0.4, 0.08)))
 	ring.rotation.x = deg_to_rad(90)
 	for q in range(4):
-		var patch := _dbox(Vector3(16.9 + 0.36 * cos(q * PI / 2 + PI / 4), y + 1.55 + 0.36 * sin(q * PI / 2 + PI / 4), -21.75),
+		var patch := _dbox(Vector3(28.4 + 0.36 * cos(q * PI / 2 + PI / 4), y + 1.55 + 0.36 * sin(q * PI / 2 + PI / 4), -21.75),
 			Vector3(0.14, 0.14, 0.09), MatLib.flat(Color(0.92, 0.92, 0.9)))
 		patch.rotation.z = q * PI / 2 + PI / 4
-	_plabel("LIFEBUOY", Vector3(16.9, y + 2.1, -21.79), 180, 14, Color(0.88, 0.88, 0.84))
+	_plabel("LIFEBUOY", Vector3(28.4, y + 2.1, -21.79), 180, 14, Color(0.88, 0.88, 0.84))
 	# Line-throwing set: the orange box every landing carries.
-	_dbox(Vector3(22.7, y + 0.16, -20.5), Vector3(0.5, 0.3, 0.3), MatLib.flat(Color(0.85, 0.45, 0.1)))
-	_plabel("LINE THROWER", Vector3(22.7, y + 0.2, -20.34), 180, 10, Color(0.92, 0.92, 0.88))
-	# Dock locker — first honest loot of the game, right where you step ashore.
-	_crate(["rope", "flare", "sealed_tin"], "Dock Locker", Vector3(16.9, y + 0.01, -20.7))
+	_dbox(Vector3(26.7, y + 0.16, -20.5), Vector3(0.5, 0.3, 0.3), MatLib.flat(Color(0.85, 0.45, 0.1)))
+	_plabel("LINE THROWER", Vector3(26.7, y + 0.2, -20.34), 180, 10, Color(0.92, 0.92, 0.88))
+	# Dock locker — first honest loot of the game, off to the side of the landing.
+	_crate(["rope", "flare", "sealed_tin"], "Dock Locker", Vector3(28.6, y + 0.01, -19.6))
 	# Inspection tag wired to the frame.
-	_readable("fender_tag", "Inspection Tag", Vector3(16.62, y + 1.15, -22.1), Vector3(0.22, 0.3, 0.05))
-	# Tarped crate stack by the lamp pole.
-	_dbox(Vector3(23.3, y + 0.4, -21.0), Vector3(1.3, 0.8, 1.1), MatLib.weathered_wood())
-	_dbox(Vector3(23.2, y + 0.95, -21.05), Vector3(1.1, 0.35, 0.95), MatLib.weathered_wood())
-	var tarp := _dbox(Vector3(23.25, y + 1.18, -21.0), Vector3(1.45, 0.16, 1.25), MatLib.canvas(Color(0.42, 0.44, 0.38)))
-	tarp.rotation.y = deg_to_rad(6)
+	_readable("fender_tag", "Inspection Tag", Vector3(23.55, y + 1.15, -22.1), Vector3(0.22, 0.3, 0.05))
 	# Two dead caged bulkhead lamps on the storeroom's south face.
 	for lx in [11.5, 14.5]:
 		_dbox(Vector3(lx, y + 3.3, -22.12), Vector3(0.22, 0.3, 0.14), dark)
@@ -417,15 +413,16 @@ func _scatter_items() -> void:
 	# The Angler's Notes beside it: every species, its hours, its water, its
 	# weather — generated from the same table the rod actually rolls against.
 	_readable("anglers_notes", "Angler's Notes", Vector3(11.7, y + 0.62, -16.6), Vector3(0.32, 0.4, 0.05))
-	# Drying lines: catch goes straight from the water to the wind. Two posts by
-	# the rigging bench, and the dock gets one in the lamp's throw.
-	for spec in [[Vector3(17.4, y + 1.85, -18.2), 2.6], [Vector3(19.6, y + 1.85, -21.95), 3.2]]:
+	# Drying lines: catch goes straight from the water to the wind. Strung by the
+	# rigging bench (west of the SPHL exit) and along the loot-room wall — clear of
+	# the pod's hatch corridor (x18.6–21.4, z-22.9→-21), and raised above head.
+	for spec in [[Vector3(13.0, y + 2.3, -18.2), 2.6], [Vector3(12.0, y + 2.3, -20.5), 3.0]]:
 		var line: Interactable = preload("res://scripts/components/hang_line.gd").new()
 		line.length_m = spec[1]
 		add_child(line)
 		line.global_position = spec[0]
-	for px in [16.1, 18.7]:
-		_dbox(Vector3(px, y + 0.95, -18.2), Vector3(0.08, 1.9, 0.08), MatLib.rust_steel())
+	for px in [11.6, 14.4]:
+		_dbox(Vector3(px, y + 1.15, -18.2), Vector3(0.08, 2.3, 0.08), MatLib.rust_steel())
 	_takeable("life_ring", "Spare Lifebuoy", Vector3(16.4, y + 0.05, -21.2))
 	_takeable("tarp", "Folded Tarp", Vector3(23.2, y + 1.3, -21.0))
 	_takeable("scrap_metal", "Scrap Plate", Vector3(8.8, y + 0.05, -17.5))
