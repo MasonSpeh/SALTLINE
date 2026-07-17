@@ -44,6 +44,7 @@ func _ready() -> void:
 	_decorate_interiors()
 	_build_env_objects()
 	_industrial_dressing()
+	_more_industry()   # triple the piping: valves, gauges, bolted flanges, cable trays, welds
 	_arrival_dressing()
 	_density_a()
 	# Water-level overhaul: boat landing, mooring station, pipe gallery, pump
@@ -1162,6 +1163,170 @@ func _industrial_dressing() -> void:
 	# Vertical conduit drops where the overhead lines meet the room walls.
 	for dp in [Vector3(-1.85, DECK_Y + 1.5, 10.5), Vector3(17.9, DECK_Y + 1.5, 15.5)]:
 		_box(dp, Vector3(0.09, 3.0, 0.09), dark, self, false)
+
+# ---------- Industrial density pass: triple the piping + valves/gauges/bolts/welds ----------
+
+## Orient a Y-axis primitive so its long axis runs along `axis` ("x"/"y"/"z").
+func _orient(mi: Node3D, axis: String) -> void:
+	if axis == "x":
+		mi.rotation.z = deg_to_rad(90)
+	elif axis == "z":
+		mi.rotation.x = deg_to_rad(90)
+
+## A ring of bolt heads around a flange face whose normal is `axis`.
+func _bolt_ring(pos: Vector3, radius: float, axis: String, count: int, mat: Material) -> void:
+	for i in range(count):
+		var a: float = TAU * float(i) / float(count)
+		var off: Vector3
+		if axis == "x":
+			off = Vector3(0, cos(a) * radius, sin(a) * radius)
+		elif axis == "z":
+			off = Vector3(cos(a) * radius, sin(a) * radius, 0)
+		else:
+			off = Vector3(cos(a) * radius, 0, sin(a) * radius)
+		var b := _cyl_nc(pos + off, 0.018, 0.05, mat)
+		_orient(b, axis)
+
+## A bolted pipe flange: a thin raised collar with a ring of bolts.
+func _flange(pos: Vector3, radius: float, axis: String, mat: Material) -> void:
+	var d := _cyl_nc(pos, radius, 0.06, mat)
+	_orient(d, axis)
+	_bolt_ring(pos, radius * 0.72, axis, 6, MatLib.dark_metal())
+
+## A hand-wheel gate valve straddling a pipe: bonnet body + red spoked wheel.
+func _valve_wheel(pos: Vector3, axis: String, mat: Material) -> void:
+	var body := _cyl_nc(pos, 0.08, 0.22, mat)
+	_orient(body, axis)
+	var stem_off: Vector3 = Vector3(0, 0.2, 0) if axis != "y" else Vector3(0.2, 0, 0)
+	_cyl_nc(pos + stem_off * 0.6, 0.02, 0.24, MatLib.galvanized()).rotation = _wheel_stem_rot(axis)
+	var wheel := MeshInstance3D.new()
+	var tm := TorusMesh.new(); tm.inner_radius = 0.1; tm.outer_radius = 0.17
+	tm.material = MatLib.flat(Color(0.62, 0.14, 0.1))
+	wheel.mesh = tm
+	add_child(wheel); wheel.position = pos + stem_off
+	# Wheel face across the stem; spokes.
+	if axis == "y":
+		wheel.rotation.z = deg_to_rad(90)
+	for s in range(3):
+		var spoke := _cyl_nc(pos + stem_off, 0.012, 0.3, MatLib.flat(Color(0.5, 0.12, 0.09)))
+		if axis == "y":
+			spoke.rotation.z = deg_to_rad(90)
+			spoke.rotate_object_local(Vector3.UP, deg_to_rad(60 * s))
+		else:
+			spoke.rotate(Vector3.FORWARD, deg_to_rad(60 * s))
+
+func _wheel_stem_rot(axis: String) -> Vector3:
+	if axis == "y":
+		return Vector3(0, 0, deg_to_rad(90))
+	return Vector3.ZERO
+
+## A round pressure gauge sitting on a wall/pipe, face normal along `axis`.
+func _gauge(pos: Vector3, axis: String) -> void:
+	var rim := _cyl_nc(pos, 0.1, 0.05, MatLib.dark_metal())
+	_orient(rim, axis)
+	var face_off: Vector3 = {"x": Vector3(0.03, 0, 0), "y": Vector3(0, 0.03, 0), "z": Vector3(0, 0, 0.03)}[axis]
+	var face := _cyl_nc(pos + face_off, 0.085, 0.02, MatLib.flat(Color(0.9, 0.9, 0.85)))
+	_orient(face, axis)
+	# Needle (thin dark bar across the face).
+	var needle := _box(pos + face_off * 1.2, Vector3(0.07, 0.012, 0.012), MatLib.flat(Color(0.1, 0.1, 0.1)), self, false)
+	needle.rotation.z = deg_to_rad(35)
+
+## A weld bead — a thin, slightly-glossy dark seam along a joint.
+func _weld(a: Vector3, b: Vector3) -> void:
+	_wire(a, b, 0.03, MatLib.flat(Color(0.22, 0.2, 0.19), true, 0.35))
+
+## A fitted pipe run: the pipe, a flange + bolt ring at each end, optional valve
+## and gauge partway along. `axis` is the run direction.
+func _pipe_fitted(a: Vector3, b: Vector3, radius: float, axis: String, mat: Material,
+		valve: bool = false, gauge: bool = false) -> void:
+	_wire(a, b, radius, mat)
+	_flange(a, radius * 1.5, axis, mat)
+	_flange(b, radius * 1.5, axis, mat)
+	if valve:
+		_valve_wheel(a.lerp(b, 0.5), axis, mat)
+	if gauge:
+		_gauge(a.lerp(b, 0.32), axis if axis != "y" else "x")
+
+## Everything the working rig would actually be strung with — run AFTER the
+## primary dressing so it reads as a plant, not a diagram. Triples the pipe count
+## and threads valves, gauges, bolted flanges, cable trays and weld seams
+## through the wet deck, the legs, the topside skids and the interior ceilings.
+func _more_industry() -> void:
+	var pipe: Material = MatLib.rusty_metal()
+	var steel: Material = MatLib.rust_steel()
+	var dark: Material = MatLib.dark_metal()
+	var galv: Material = MatLib.galvanized()
+
+	# --- Wet-deck pipe banks hugging the structure faces (spawn's first view) ---
+	# Pump room south face (z=-14.6), three stacked runs with valves + a gauge cluster.
+	for spec in [[2.05, 0.13, true], [2.35, 0.1, false], [2.62, 0.08, false]]:
+		_pipe_fitted(Vector3(10.2, WET_Y + spec[0], -14.55), Vector3(17.8, WET_Y + spec[0], -14.55),
+			spec[1], "x", pipe, spec[2], false)
+	_gauge(Vector3(12.5, WET_Y + 2.05, -14.4), "z")
+	_gauge(Vector3(13.0, WET_Y + 1.75, -14.4), "z")
+	# Pump room east face (x=18.1) — vertical risers dropping to the deck manifold.
+	for rz in [-12.5, -10.0, -7.5]:
+		_pipe_fitted(Vector3(18.15, WET_Y + 0.2, rz), Vector3(18.15, WET_Y + 2.7, rz), 0.09, "y", pipe, false, false)
+		_valve_wheel(Vector3(18.3, WET_Y + 1.3, rz), "y", pipe)
+	# A low deck manifold tying the pump-room risers together, gauges on the header.
+	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -13.0), Vector3(18.3, WET_Y + 0.3, -7.0), 0.11, "z", pipe, true, true)
+	# Loot room north face (z=-16.1) and stair tower west face (x=21.85).
+	for spec2 in [[1.4, 0.09], [1.75, 0.07]]:
+		_pipe_fitted(Vector3(10.3, WET_Y + spec2[0], -16.1), Vector3(15.7, WET_Y + spec2[0], -16.1), spec2[1], "x", pipe, false, false)
+	for spec3 in [[1.2, 0.1, true], [1.6, 0.08, false], [2.0, 0.06, false]]:
+		_pipe_fitted(Vector3(21.85, WET_Y + spec3[0], -5.6), Vector3(21.85, WET_Y + spec3[0], 1.6), spec3[1], "z", pipe, spec3[2], false)
+	_gauge(Vector3(21.7, WET_Y + 1.2, -3.0), "x")
+
+	# --- Under-deck: a riser + cable bundle up every leg, tied by a distribution ring ---
+	for leg in [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]:
+		var fx: float = leg.x - sign(leg.x) * 3.15   # inboard face of the caisson
+		var fz: float = leg.z - sign(leg.z) * 0.6
+		for i in range(3):
+			var ox: float = (i - 1) * 0.35
+			_wire(Vector3(fx + ox, 0.6, fz), Vector3(fx + ox, DECK_Y - 1.3, fz), 0.08, pipe)
+			if i == 1:
+				for vy in [4.0, 9.0, 14.0]:
+					_valve_wheel(Vector3(fx + ox - sign(leg.x) * 0.22, vy, fz), "y", pipe)
+		# Cable tray riding beside the risers.
+		_box(Vector3(fx, DECK_Y * 0.5, fz + 0.7), Vector3(0.5, DECK_Y - 2.0, 0.12), dark, self, false)
+		for cy in range(6):
+			_wire(Vector3(fx - 0.18, 2.0 + cy * 2.4, fz + 0.7), Vector3(fx + 0.18, 2.2 + cy * 2.4, fz + 0.7), 0.02, galv)
+		# Bolt rings where the riser passes each X-brace node.
+		for by in [1.6, 7.6, 13.6]:
+			_bolt_ring(Vector3(fx, by, fz), 0.22, "y", 8, dark)
+
+	# Distribution header under the deck linking the four risers (a big ring main).
+	for seg in [[Vector3(-18.85, DECK_Y - 1.5, -11.4), Vector3(18.85, DECK_Y - 1.5, -11.4), "x"],
+			[Vector3(-18.85, DECK_Y - 1.5, 11.4), Vector3(18.85, DECK_Y - 1.5, 11.4), "x"],
+			[Vector3(-18.85, DECK_Y - 1.5, -11.4), Vector3(-18.85, DECK_Y - 1.5, 11.4), "z"],
+			[Vector3(18.85, DECK_Y - 1.5, -11.4), Vector3(18.85, DECK_Y - 1.5, 11.4), "z"]]:
+		_pipe_fitted(seg[0], seg[1], 0.12, seg[2], pipe, false, false)
+	_valve_wheel(Vector3(0, DECK_Y - 1.5, -11.4), "x", pipe)
+	_valve_wheel(Vector3(0, DECK_Y - 1.5, 11.4), "x", pipe)
+
+	# --- Topside skid: a process manifold with a bank of gauges + valves ---
+	var sx: float = -4.0
+	_box(Vector3(sx, DECK_Y + 0.35, -14.0), Vector3(3.2, 0.7, 1.4), steel)
+	for i in range(4):
+		var px: float = sx - 1.2 + i * 0.8
+		_pipe_fitted(Vector3(px, DECK_Y + 0.7, -14.6), Vector3(px, DECK_Y + 2.4, -14.6), 0.06, "y", pipe, false, false)
+		_valve_wheel(Vector3(px, DECK_Y + 1.5, -14.4), "y", pipe)
+		_gauge(Vector3(px, DECK_Y + 2.2, -14.35), "z")
+	_pipe_fitted(Vector3(sx - 1.4, DECK_Y + 2.4, -14.6), Vector3(sx + 1.4, DECK_Y + 2.4, -14.6), 0.08, "x", pipe, true, false)
+
+	# --- Interior ceiling services: pipe + conduit runs with drops in each room ---
+	for run in [[Vector3(-27.5, DECK_Y + 2.7, 8.5), Vector3(-8.5, DECK_Y + 2.7, 8.5), "x"],   # bunkhouse
+			[Vector3(-1.5, DECK_Y + 2.7, 12.0), Vector3(13.5, DECK_Y + 2.7, 12.0), "x"],       # galley
+			[Vector3(18.5, DECK_Y + 2.7, 12.0), Vector3(27.5, DECK_Y + 2.7, 12.0), "x"]]:      # rec room
+		_pipe_fitted(run[0], run[1], 0.06, run[2], pipe, true, true)
+		_wire(run[0] + Vector3(0, 0.2, 0.25), run[1] + Vector3(0, 0.2, 0.25), 0.03, dark)  # conduit alongside
+
+	# --- Weld seams along the primary girders + leg-to-deck joints ---
+	for gz in [-18.0, -6.0, 6.0, 18.0]:
+		_weld(Vector3(-29, DECK_Y - 0.6, gz), Vector3(29, DECK_Y - 0.6, gz))
+	for leg2 in [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]:
+		_weld(leg2 + Vector3(-3.1, DECK_Y - 1.9, 0), leg2 + Vector3(3.1, DECK_Y - 1.9, 0))
+		_bolt_ring(leg2 + Vector3(0, DECK_Y - 1.9, 0), 3.0, "y", 12, dark)
 
 ## Painted block lettering on a surface (shaded, single-sided — reads as stencil paint).
 func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 32,
