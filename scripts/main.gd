@@ -7,6 +7,7 @@ var player: CharacterBody3D
 var hud: HUD
 var sun_ctl: SunController
 var storm: StormSystem
+@warning_ignore("unused_private_class_variable")
 var _countdown: float = 0.0   # retained for the screenshot harness; no longer ticks
 var _cold_open_active: bool = true
 var _ending: bool = false

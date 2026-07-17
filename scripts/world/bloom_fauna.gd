@@ -408,16 +408,16 @@ class MantleRay extends Node3D:
 	func _ready() -> void:
 		visible = false
 		var kit := preload("res://scripts/world/creature_kit.gd")
-		var hide := kit.mat(Color(0.1, 0.14, 0.16), 0.6)
+		var hide_mat := kit.mat(Color(0.1, 0.14, 0.16), 0.6)
 		var belly := kit.mat(Color(0.55, 0.62, 0.62), 0.65)
 		# Body: a smooth diamond mass with a pale underside and cephalic fins.
-		kit.ball(self, Vector3.ZERO, 1.2, hide, Vector3(1.1, 0.32, 2.6))
+		kit.ball(self, Vector3.ZERO, 1.2, hide_mat, Vector3(1.1, 0.32, 2.6))
 		kit.ball(self, Vector3(0, -0.14, 0.2), 1.05, belly, Vector3(0.95, 0.18, 2.2))
 		for side in [-1.0, 1.0]:
-			kit.fin(self, Vector3(side * 0.5, -0.05, -2.9), Vector3(0.35, 0.15, 1.0), hide,
+			kit.fin(self, Vector3(side * 0.5, -0.05, -2.9), Vector3(0.35, 0.15, 1.0), hide_mat,
 				Vector3(0, 0, -20 * side))
 		# Tail filament.
-		kit.ball(self, Vector3(0, 0.05, 3.6), 0.5, hide, Vector3(0.12, 0.08, 2.2))
+		kit.ball(self, Vector3(0, 0.05, 3.6), 0.5, hide_mat, Vector3(0.12, 0.08, 2.2))
 		# Wings: three chained sections per side — flapped with a phase offset so
 		# the whole span undulates like fabric instead of hinging like a door.
 		for side in [-1.0, 1.0]:
@@ -430,7 +430,7 @@ class MantleRay extends Node3D:
 				var mi := MeshInstance3D.new()
 				var wm := BoxMesh.new()
 				wm.size = Vector3(1.6, 0.14 - s * 0.03, 4.6 - s * 1.2)
-				wm.material = hide
+				wm.material = hide_mat
 				mi.mesh = wm
 				pivot.add_child(mi)
 				mi.position = Vector3(side * 0.8, 0, 0)
@@ -704,7 +704,7 @@ class Epic4EyedWhale extends Node3D:
 	func _ready() -> void:
 		visible = false
 		var kit := preload("res://scripts/world/creature_kit.gd")
-		var hide := kit.mat(Color(0.08, 0.22, 0.21), 0.7, 0.25)
+		var hide_mat := kit.mat(Color(0.08, 0.22, 0.21), 0.7, 0.25)
 		var pale := kit.mat(Color(0.3, 0.42, 0.4), 0.7, 0.1)
 		# The body: a tapered five-segment mass, nose to tailstock, that sways as
 		# one animal instead of drifting as one balloon. ~22m of whale.
@@ -714,7 +714,7 @@ class Epic4EyedWhale extends Node3D:
 			var seg := Node3D.new()
 			add_child(seg)
 			seg.position = Vector3(0, 0, z)
-			kit.ball(seg, Vector3.ZERO, radii[i], hide, Vector3(0.85, 0.78, 1.15))
+			kit.ball(seg, Vector3.ZERO, radii[i], hide_mat, Vector3(0.85, 0.78, 1.15))
 			_spine.append(seg)
 			z += radii[i] * 1.35
 		# Pale jaw slab under the head, and a scatter of barnacle guests.
@@ -726,9 +726,9 @@ class Epic4EyedWhale extends Node3D:
 				Vector3(rng.randf_range(-1.8, 1.8), rng.randf_range(1.4, 2.6), rng.randf_range(-1.5, 1.5)),
 				rng.randf_range(0.12, 0.24), kit.mat(Color(0.5, 0.52, 0.48), 0.9))
 		# The fluke, and two long rowing side fins.
-		kit.fin(_spine[4], Vector3(0, 0, 1.6), Vector3(4.6, 0.25, 2.2), hide, Vector3(0, 0, 90))
+		kit.fin(_spine[4], Vector3(0, 0, 1.6), Vector3(4.6, 0.25, 2.2), hide_mat, Vector3(0, 0, 90))
 		for side in [-1.0, 1.0]:
-			var f := kit.fin(_spine[1], Vector3(side * 2.8, -0.8, 0), Vector3(0.3, 1.2, 3.4), hide,
+			var f := kit.fin(_spine[1], Vector3(side * 2.8, -0.8, 0), Vector3(0.3, 1.2, 3.4), hide_mat,
 				Vector3(0, 0, 70 * side))
 			_fin_pivots.append(f)
 		# The four eyes: two pairs high on the head, each a bright iris inside a

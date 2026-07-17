@@ -672,7 +672,7 @@ func _deck_c() -> void:
 	# (a prop with no wall behind it, visually blocking the door).
 	_dbox(Vector3(4.16, y + 1.7, 7.9), Vector3(0.06, 1.6, 2.4), MatLib.dark_metal())
 	for i in range(12):
-		_dbox(Vector3(4.22, y + 1.2 + (i % 4) * 0.35, 7.1 + (i / 4) * 0.9),
+		_dbox(Vector3(4.22, y + 1.2 + (i % 4) * 0.35, 7.1 + floori(i / 4.0) * 0.9),
 			Vector3(0.05, 0.12, 0.2), MatLib.flat(Color(0.7, 0.2, 0.15) if i % 3 == 0 else Color(0.6, 0.62, 0.6)))
 	_label("HIGH VOLTAGE", Vector3(4.24, y + 2.6, 7.9), 90, 26, Color(0.95, 0.75, 0.2))
 	_label("CONTROL", Vector3(9.5, y + 2.35, 12.16), 0, 28)
