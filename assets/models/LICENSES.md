@@ -45,3 +45,10 @@ vintage_electric_kettle · paperwork: binder_notebook, office_notepads · electr
 vintage_radio_transceiver, boombox, retro_multimeter, television_02, power_box_01 ·
 machinery: portable_generator · pipes: modular_industrial_pipes_01, modular_pipes ·
 misc: old_tyre
+
+
+## Wave 4 — small household / personal / crew clutter (Poly Haven, CC0)
+
+Downloaded via api.polyhaven.com/files/<id> (gltf/1k). All CC0.
+
+tea_set_01, wooden_bowl_01, wooden_bowl_02, wooden_spoon, wooden_cutting_board, carved_wooden_plate, jug_01, metal_jug, pot_enamel_01, CheeseBox_01, wine_bottles_01, wicker_basket_01, wicker_basket_02, hamburger_buns, strawberry_chocolate_cake, lemon, yellow_onion, sweet_potato, food_pomegranate_01, food_ginger_01, all_purpose_cleaner, bleach_bottle, multi_cleaner_bottle, drain_cleaner, lubricant_spray, spray_paint_bottles, plastic_broom, plunger, rubber_duck_toy, plastic_bottle_gallon, plastic_container, watering_can_metal_01, cigarette_pack, cigarette_case, vintage_lighter, round_spectacles, fishermans_hat, rubber_boots, garden_gloves_01, postcard_set_01, magnifying_glass_01, seadogs_compass, stationery_supplies, vintage_stapler, gamepad, gaming_console, sungka_board, mousetrap, baseball_01, baseball_bat, vintage_video_camera, filmstrip_projector_8mm, metal_detector, Megaphone_01, mantel_clock_01, wall_clock, desk_lamp_arm_01, vintage_oil_lamp, wooden_candlestick, brass_candleholders, brass_vase_02, ceramic_vase_04, antique_ceramic_vase_01, hanging_picture_frame_01, standing_picture_frame_01, throw_pillows_01, marble_bust_01, concrete_cat_statue, flathead_screwdriver, pliers, measuring_tape_01, medical_tape

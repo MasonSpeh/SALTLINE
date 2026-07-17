@@ -58,6 +58,25 @@ const SIZE_HINT := {
 	"cassette_player": 0.3, "classic_laptop": 0.35, "Camera_01": 0.15, "binoculars": 0.2,
 	"bronze_whale_statue": 0.6, "bronze_shark_statue": 0.6, "bronze_ray_statue": 0.5,
 	"Chandelier_01": 0.7, "ceiling_fan": 1.0, "clipboard": 0.3, "screwdriver": 0.25, "dustpan": 0.35,
+	# --- wave 4: small household / personal / crew clutter (session 8) ---
+	"tea_set_01": 0.35, "wooden_bowl_01": 0.2, "wooden_bowl_02": 0.2, "wooden_spoon": 0.3,
+	"wooden_cutting_board": 0.4, "carved_wooden_plate": 0.25, "jug_01": 0.25, "metal_jug": 0.25,
+	"pot_enamel_01": 0.28, "CheeseBox_01": 0.2, "wine_bottles_01": 0.32, "wicker_basket_01": 0.4,
+	"wicker_basket_02": 0.35, "hamburger_buns": 0.12, "strawberry_chocolate_cake": 0.25, "lemon": 0.08,
+	"yellow_onion": 0.09, "sweet_potato": 0.15, "food_pomegranate_01": 0.1, "food_ginger_01": 0.12,
+	"all_purpose_cleaner": 0.28, "bleach_bottle": 0.3, "multi_cleaner_bottle": 0.28, "drain_cleaner": 0.25,
+	"lubricant_spray": 0.2, "spray_paint_bottles": 0.2, "plastic_broom": 1.3, "plunger": 0.45,
+	"rubber_duck_toy": 0.09, "plastic_bottle_gallon": 0.32, "plastic_container": 0.3, "watering_can_metal_01": 0.35,
+	"cigarette_pack": 0.09, "cigarette_case": 0.1, "vintage_lighter": 0.06, "round_spectacles": 0.14,
+	"fishermans_hat": 0.3, "rubber_boots": 0.35, "garden_gloves_01": 0.28, "postcard_set_01": 0.15,
+	"magnifying_glass_01": 0.15, "seadogs_compass": 0.08, "stationery_supplies": 0.2, "vintage_stapler": 0.15,
+	"gamepad": 0.16, "gaming_console": 0.35, "sungka_board": 0.6, "mousetrap": 0.1,
+	"baseball_01": 0.07, "baseball_bat": 0.85, "vintage_video_camera": 0.28, "filmstrip_projector_8mm": 0.3,
+	"metal_detector": 1.2, "Megaphone_01": 0.3, "mantel_clock_01": 0.3, "wall_clock": 0.3,
+	"desk_lamp_arm_01": 0.5, "vintage_oil_lamp": 0.3, "wooden_candlestick": 0.25, "brass_candleholders": 0.25,
+	"brass_vase_02": 0.3, "ceramic_vase_04": 0.3, "antique_ceramic_vase_01": 0.35, "hanging_picture_frame_01": 0.5,
+	"standing_picture_frame_01": 0.2, "throw_pillows_01": 0.5, "marble_bust_01": 0.5, "concrete_cat_statue": 0.3,
+	"flathead_screwdriver": 0.25, "pliers": 0.2, "measuring_tape_01": 0.08, "medical_tape": 0.07,
 }
 
 static func has(id: String) -> bool:
