@@ -268,12 +268,16 @@ class JellyDrifter extends Node3D:
 # -------------------------------------------------------- BarnacleCluster
 class BarnacleCluster extends Node3D:
 	var _mat: StandardMaterial3D
+	var _cirri_mat: StandardMaterial3D
 	var _t: float = 0.0
 	var _phase_offset: float
+	var _cirri: Array[Node3D] = []   # feeding-leg fans, one pivot per shell mouth
+	var _sweep: float = 0.0
 
 	func _ready() -> void:
 		_phase_offset = global_position.x * 0.7 + global_position.z * 0.3
 		_mat = BloomFauna.glow_mat(BloomFauna.DIM_TEAL, 0.05)
+		_cirri_mat = BloomFauna.glow_mat(Color(0.75, 0.9, 0.85), 0.4)
 		var rng := RandomNumberGenerator.new()
 		rng.seed = int(global_position.x * 17.0 + global_position.z * 31.0)
 		for i in range(rng.randi_range(6, 9)):
@@ -285,19 +289,49 @@ class BarnacleCluster extends Node3D:
 			cm.material = _mat
 			cone.mesh = cm
 			add_child(cone)
-			cone.position = Vector3(rng.randf_range(-0.5, 0.5), rng.randf_range(-0.4, 0.4), 0.05)
+			var mouth := Vector3(rng.randf_range(-0.5, 0.5), rng.randf_range(-0.4, 0.4), 0.05)
+			cone.position = mouth
 			cone.rotation.x = deg_to_rad(90)   # point out of the leg face
+			# Feeding cirri: a fan of fine curved legs that comb the water when the
+			# barnacle is feeding, folded back into the shell when it's not.
+			var pivot := Node3D.new()
+			add_child(pivot)
+			pivot.position = mouth + Vector3(0, 0, cm.height * 0.55)
+			var legs: int = rng.randi_range(4, 6)
+			for k in range(legs):
+				var leg := MeshInstance3D.new()
+				var lm := CylinderMesh.new()
+				lm.top_radius = 0.004
+				lm.bottom_radius = 0.011
+				lm.height = rng.randf_range(0.12, 0.19)
+				lm.material = _cirri_mat
+				leg.mesh = lm
+				pivot.add_child(leg)
+				var spread: float = (float(k) / float(legs - 1) - 0.5) * 1.4
+				leg.rotation = Vector3(deg_to_rad(90), spread, 0)
+				leg.position = Vector3(sin(spread) * 0.02, 0, lm.height * 0.5)
+			_cirri.append(pivot)
 
 	func _process(delta: float) -> void:
 		_t += delta
 		var target: float = 0.05
+		var feeding: bool = false
 		if GameClock.current_phase == GameClock.Phase.NIGHT:
 			Journal.discover_if_near(self, "creature_barnacle", 7.0)
 			target = 0.9 + 0.5 * sin(_t * 1.3 + _phase_offset)
+			feeding = true
 			var player: Node3D = get_tree().get_first_node_in_group("player")
 			if player and player.global_position.distance_to(global_position) < 4.5:
 				target = 0.03   # they feel you coming and go dark
+				feeding = false
 		_mat.emission_energy_multiplier = lerpf(_mat.emission_energy_multiplier, target, delta * 2.5)
+		# Cirri comb the water on a ~1.4Hz rake; snap shut when not feeding.
+		var rake: float = (0.55 + 0.45 * sin(_t * 4.2 + _phase_offset)) if feeding else 0.0
+		_sweep = lerpf(_sweep, rake, delta * 6.0)
+		_cirri_mat.emission_energy_multiplier = lerpf(_cirri_mat.emission_energy_multiplier, 0.4 if feeding else 0.0, delta * 3.0)
+		for pivot in _cirri:
+			pivot.scale = Vector3(1.0, 1.0, lerpf(0.12, 1.0, _sweep))
+			pivot.rotation.x = _sweep * 0.5
 
 # ------------------------------------------------------------- LampEel
 class LampEel extends Node3D:
@@ -307,6 +341,8 @@ class LampEel extends Node3D:
 	var _segs: Array[Node3D] = []
 	var _mats: Array[StandardMaterial3D] = []
 	var _presence: float = 0.0
+	var _jaw: Node3D
+	var _lure_mat: StandardMaterial3D
 
 	func _ready() -> void:
 		for i in range(SEGMENTS):
@@ -321,7 +357,54 @@ class LampEel extends Node3D:
 			seg.mesh = sm
 			add_child(seg)
 			seg.position = Vector3(-i * SPACING, 0, 0)
+			if i == 0:
+				_build_head(seg, m)
 			_segs.append(seg)
+
+	## A proper head on segment 0: a tapered snout over a hinged lower jaw, two
+	## eyes, and a lure barbel arcing off the brow with a glowing tip. Built facing
+	## -Z; the head is look_at()'d down its swim direction each frame.
+	func _build_head(head: MeshInstance3D, body_mat: StandardMaterial3D) -> void:
+		var snout := MeshInstance3D.new()
+		var snm := SphereMesh.new()
+		snm.radius = 0.19; snm.height = 0.38; snm.material = body_mat
+		snout.mesh = snm
+		snout.scale = Vector3(0.85, 0.7, 1.5)   # draw it forward into a muzzle
+		snout.position = Vector3(0, 0.02, -0.18)
+		head.add_child(snout)
+		_jaw = Node3D.new()
+		head.add_child(_jaw)
+		_jaw.position = Vector3(0, -0.11, -0.14)
+		var jaw := MeshInstance3D.new()
+		var jm := SphereMesh.new()
+		jm.radius = 0.15; jm.height = 0.16; jm.material = body_mat
+		jaw.mesh = jm
+		jaw.scale = Vector3(0.85, 0.45, 1.5)
+		jaw.position = Vector3(0, 0, -0.08)
+		_jaw.add_child(jaw)
+		var eye_mat := BloomFauna.glow_mat(Color(0.9, 0.95, 0.7), 1.2)
+		for sx in [-0.12, 0.12]:
+			var eye := MeshInstance3D.new()
+			var em := SphereMesh.new()
+			em.radius = 0.05; em.height = 0.1; em.material = eye_mat
+			eye.mesh = em
+			eye.position = Vector3(sx, 0.08, -0.16)
+			head.add_child(eye)
+		# The lure: a slim barbel arcing forward off the brow, tipped with a light.
+		var stalk := MeshInstance3D.new()
+		var stm := CapsuleMesh.new()
+		stm.radius = 0.012; stm.height = 0.42; stm.material = body_mat
+		stalk.mesh = stm
+		stalk.rotation.x = deg_to_rad(35)
+		stalk.position = Vector3(0, 0.24, -0.24)
+		head.add_child(stalk)
+		_lure_mat = BloomFauna.glow_mat(BloomFauna.TEAL, 3.0)
+		var bulb := MeshInstance3D.new()
+		var bm := SphereMesh.new()
+		bm.radius = 0.05; bm.height = 0.1; bm.material = _lure_mat
+		bulb.mesh = bm
+		bulb.position = Vector3(0, 0.42, -0.42)
+		head.add_child(bulb)
 
 	func _process(delta: float) -> void:
 		_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.15)
@@ -331,10 +414,18 @@ class LampEel extends Node3D:
 		if not visible:
 			return
 		_t += delta
+		if _lure_mat:
+			_lure_mat.emission_energy_multiplier = _presence * (2.4 + 0.9 * sin(_t * 1.8))
+		if _jaw:
+			_jaw.rotation.x = 0.14 + 0.12 * sin(_t * 0.9)   # slow gulp
 		Journal.discover_if_near(_segs[0], "creature_lamp_eel", 24.0)
 		# Figure-eights at the surface off the north edge, clear of the deck overhang.
 		var head := Vector3(sin(_t * 0.5) * 13.0, 0.12, 26.0 + sin(_t * 1.0) * 5.0)
-		_segs[0].global_position = _segs[0].global_position.lerp(head, delta * 4.0)
+		var from: Vector3 = _segs[0].global_position
+		_segs[0].global_position = from.lerp(head, delta * 4.0)
+		var dir: Vector3 = _segs[0].global_position - from
+		if dir.length() > 0.0005:
+			_segs[0].look_at(_segs[0].global_position + dir, Vector3.UP)
 		for i in range(1, SEGMENTS):
 			var prev: Vector3 = _segs[i - 1].global_position
 			var cur: Vector3 = _segs[i].global_position
@@ -959,6 +1050,8 @@ class LampSnail extends Node3D:
 	var _base: Vector3
 	var _spots: Array[StandardMaterial3D] = []
 	var _idx: int
+	var _stalks: Array[Node3D] = []   # the two optic tentacles, waving
+	var _eye_mat: StandardMaterial3D
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -985,6 +1078,31 @@ class LampSnail extends Node3D:
 		foot.rotation.x = deg_to_rad(90)
 		foot.position.y = -0.15
 		add_child(foot)
+		# Two optic tentacles reaching off the leading edge of the foot (+Z), each
+		# tipped with a small light-sensing eye bulb — the snail "reads" the dark.
+		_eye_mat = BloomFauna.glow_mat(BloomFauna.TEAL, 1.5)
+		for sx in [-0.11, 0.11]:
+			var pivot := Node3D.new()
+			add_child(pivot)
+			pivot.position = Vector3(sx, -0.02, 0.46)
+			var stalk := MeshInstance3D.new()
+			var stm := CapsuleMesh.new()
+			stm.radius = 0.022
+			stm.height = 0.32
+			stm.material = BloomFauna.glow_mat(Color(0.16, 0.2, 0.22), 0.0)
+			stalk.mesh = stm
+			stalk.rotation.x = deg_to_rad(58)   # angle up and forward
+			stalk.position = Vector3(0, 0.08, 0.09)
+			pivot.add_child(stalk)
+			var eye := MeshInstance3D.new()
+			var em := SphereMesh.new()
+			em.radius = 0.045
+			em.height = 0.09
+			em.material = _eye_mat
+			eye.mesh = em
+			eye.position = Vector3(0, 0.22, 0.24)   # at the stalk tip
+			pivot.add_child(eye)
+			_stalks.append(pivot)
 		# The constellation: glow spots scattered on the shell.
 		var rng := RandomNumberGenerator.new()
 		rng.seed = 400 + _idx
@@ -1013,6 +1131,13 @@ class LampSnail extends Node3D:
 		visible = night or global_position.y > 0.0
 		if night:
 			Journal.discover_if_near(self, "creature_lamp_snail", 12.0)
+		# Eye stalks sway on their own slow rhythm; the eye bulbs pick up the glow.
+		if _eye_mat:
+			_eye_mat.emission_energy_multiplier = lerpf(_eye_mat.emission_energy_multiplier, 1.5 if night else 0.0, delta * 2.0)
+		for i in range(_stalks.size()):
+			var s: Node3D = _stalks[i]
+			s.rotation.z = sin(_t * 0.6 + i * PI) * 0.22
+			s.rotation.y = sin(_t * 0.4 + i * 1.7) * 0.18
 		# A slow crawl circling the leg base, just under the surface.
 		var ang: float = _t * 0.05 + _idx
 		global_position = _base + Vector3(cos(ang) * 1.6, -0.4 + sin(_t * 0.4) * 0.15, sin(ang) * 1.6)

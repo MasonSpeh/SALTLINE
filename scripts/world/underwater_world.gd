@@ -169,26 +169,12 @@ func _spawn_schools() -> void:
 			mat.emission = Color(0.2, 0.9, 0.85)
 			mat.emission_energy_multiplier = 0.5
 		var size: float = float(school["size"])
+		var shape: String = String(school.get("shape", "slender"))
 		var members: Array = []
 		for i in range(int(school["count"])):
 			var f := Node3D.new()
 			root.add_child(f)
-			var body := MeshInstance3D.new()
-			var bm := CapsuleMesh.new()
-			bm.radius = 0.05 * size
-			bm.height = 0.34 * size
-			bm.material = mat
-			body.mesh = bm
-			body.rotation.x = deg_to_rad(90)
-			f.add_child(body)
-			var tail := MeshInstance3D.new()
-			var tm := PrismMesh.new()
-			tm.size = Vector3(0.12, 0.01, 0.1) * size
-			tm.material = mat
-			tail.mesh = tm
-			tail.position = Vector3(0, 0, 0.22 * size)
-			tail.rotation.x = deg_to_rad(90)
-			f.add_child(tail)
+			_build_fish(f, shape, size, mat)
 			members.append(f)
 		var band_y: float = DEPTH_BAND.get(def.get("depth", "mid"), -4.5)
 		_schools.append({
@@ -197,6 +183,90 @@ func _spawn_schools() -> void:
 			"center": Vector3(_rng.randf_range(-26, 26), band_y, _rng.randf_range(-30, 30)),
 			"t": _rng.randf_range(0, 100.0),
 		})
+
+## Build one fish's body under `f`. Convention: head faces -Z, tail at +Z (the
+## school code look_at()s -Z toward the swim target). Each `shape` reads as a
+## different silhouette in the water so a squid, a sole and a pike never blur
+## into "generic fish". `mat` is the species tint (shared per school).
+func _build_fish(f: Node3D, shape: String, size: float, mat: Material) -> void:
+	match shape:
+		"flat":            # flatfish: wide, paper-thin oval gliding horizontally
+			_ellipsoid(f, mat, Vector3.ZERO, Vector3(0.30, 0.04, 0.24) * size)
+			_tail(f, mat, size, 0.34 * size, 0.9, 0.5)
+			for sx in [-1.0, 1.0]:   # both eyes topside — the flatfish giveaway
+				_ellipsoid(f, _eye(), Vector3(sx * 0.05 * size, 0.045 * size, -0.13 * size), Vector3.ONE * 0.02 * size)
+		"eel":             # long ribbon, a dorsal frill running the body, tiny head
+			_capsuleZ(f, mat, Vector3(0, 0, 0.28 * size), 0.035 * size, 1.05 * size)
+			_dorsal(f, mat, Vector3(0, 0.05 * size, 0.28 * size), 0.11 * size, 1.0 * size)
+			_ellipsoid(f, _eye(), Vector3(0.03 * size, 0.02 * size, -0.26 * size), Vector3.ONE * 0.02 * size)
+		"pike":            # torpedo with a pointed snout — the ambush shape
+			_capsuleZ(f, mat, Vector3(0, 0, 0.06 * size), 0.045 * size, 0.46 * size)
+			var snout := _cone(mat)
+			var mi := MeshInstance3D.new(); mi.mesh = snout; f.add_child(mi)
+			mi.scale = Vector3(0.09, 0.22, 0.09) * size   # slim spike
+			mi.position = Vector3(0, 0, -0.3 * size)
+			mi.rotation.x = deg_to_rad(-90)               # point forward (-Z)
+			_tail(f, mat, size, 0.11 * size, 0.9, 0.34)
+		"squid":           # mantle + fin flaps + a bundle of trailing arms
+			var mantle := _cone(mat)
+			var mm := MeshInstance3D.new(); mm.mesh = mantle; f.add_child(mm)
+			mm.scale = Vector3(0.10, 0.42, 0.10) * size
+			mm.position = Vector3(0, 0, 0.18 * size)
+			mm.rotation.x = deg_to_rad(90)                # taper trails (+Z)
+			for sx2 in [-1.0, 1.0]:
+				_dorsalFlat(f, mat, Vector3(sx2 * 0.08 * size, 0, 0.28 * size), Vector3(0.16, 0.01, 0.12) * size)
+			for k in range(6):    # arms fanning off the head (-Z)
+				_capsuleZ(f, mat, Vector3((k - 2.5) * 0.014 * size, 0, -0.18 * size), 0.008 * size, 0.2 * size)
+			_ellipsoid(f, _eye(), Vector3(0.055 * size, 0, -0.02 * size), Vector3.ONE * 0.03 * size)
+		"barrel":          # fat rounded grouper, big head, stubby tail
+			_ellipsoid(f, mat, Vector3.ZERO, Vector3(0.16, 0.17, 0.23) * size)
+			_tail(f, mat, size, 0.11 * size, 0.9, 0.26)
+			_dorsal(f, mat, Vector3(0, 0.14 * size, 0.02 * size), 0.09 * size, 0.34 * size)
+		"deep":            # slab-sided bream/jack: tall, thin, forked tail
+			_ellipsoid(f, mat, Vector3.ZERO, Vector3(0.075, 0.24, 0.18) * size)
+			_tail(f, mat, size, 0.16 * size, 1.3, 0.26)
+			_dorsal(f, mat, Vector3(0, 0.22 * size, 0.0), 0.16 * size, 0.4 * size)
+		"fusiform":        # honest fish with a dorsal fin and a forked tail
+			_capsuleZ(f, mat, Vector3.ZERO, 0.055 * size, 0.3 * size, 1.3)
+			_tail(f, mat, size, 0.12 * size, 1.1, 0.21)
+			_dorsal(f, mat, Vector3(0, 0.085 * size, 0.0), 0.08 * size, 0.28 * size)
+		_:                 # "slender" — the schooling sprat/herring default
+			_capsuleZ(f, mat, Vector3.ZERO, 0.045 * size, 0.34 * size)
+			_tail(f, mat, size, 0.1 * size, 1.0, 0.22)
+
+# --- silhouette primitives (head -Z, tail +Z) ---
+func _capsuleZ(f: Node3D, mat: Material, pos: Vector3, r: float, h: float, y_scale: float = 1.0) -> void:
+	var mi := MeshInstance3D.new()
+	var c := CapsuleMesh.new(); c.radius = r; c.height = h; c.material = mat
+	mi.mesh = c; f.add_child(mi)
+	mi.position = pos; mi.rotation.x = deg_to_rad(90); mi.scale.y = y_scale   # long axis -> Z
+
+func _ellipsoid(f: Node3D, mat: Material, pos: Vector3, half: Vector3) -> void:
+	var mi := MeshInstance3D.new()
+	var s := SphereMesh.new(); s.radius = 1.0; s.height = 2.0; s.material = mat
+	mi.mesh = s; f.add_child(mi)
+	mi.position = pos; mi.scale = half
+
+func _tail(f: Node3D, mat: Material, size: float, w: float, h_mul: float, z: float) -> void:
+	var mi := MeshInstance3D.new()
+	var p := PrismMesh.new(); p.size = Vector3(w, 0.01 * size, 0.1 * size * h_mul); p.material = mat
+	mi.mesh = p; f.add_child(mi)
+	mi.position = Vector3(0, 0, z * size); mi.rotation.x = deg_to_rad(90)   # vertical caudal fin
+
+func _dorsal(f: Node3D, mat: Material, pos: Vector3, height: float, length: float) -> void:
+	var mi := MeshInstance3D.new()
+	var b := BoxMesh.new(); b.size = Vector3(0.015, height, length); b.material = mat
+	mi.mesh = b; f.add_child(mi); mi.position = pos
+
+func _dorsalFlat(f: Node3D, mat: Material, pos: Vector3, sz: Vector3) -> void:
+	var mi := MeshInstance3D.new()
+	var b := BoxMesh.new(); b.size = sz; b.material = mat
+	mi.mesh = b; f.add_child(mi); mi.position = pos
+
+func _cone(mat: Material) -> CylinderMesh:
+	var c := CylinderMesh.new(); c.top_radius = 0.0; c.bottom_radius = 1.0; c.height = 1.0; c.material = mat; return c
+func _eye() -> StandardMaterial3D:
+	var m := StandardMaterial3D.new(); m.albedo_color = Color(0.02, 0.02, 0.03); m.roughness = 0.3; return m
 
 func _process(delta: float) -> void:
 	_t += delta
