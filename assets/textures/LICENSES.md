@@ -36,3 +36,10 @@ Maps kept: `_Color` (albedo, sRGB) · `_NormalGL` (OpenGL-Y normal) · `_Roughne
 
 Adding more: `curl -L "https://ambientcg.com/get?file=<ID>_1K-JPG.zip"` — see
 https://ambientcg.com/api/v2/full_json?type=Material&q=<query> to search.
+
+
+## Decals (ambientCG, CC0) — surface detail stickers
+
+res://assets/textures/decals/. Leaking (rust/water streaks), RoadLines (deck markings), AsphaltDamage (scuffs). Used by MatLib.grime_mul / stain_material / decal_cutout on off-surface QuadMesh stickers (DetailDecal.sticker) — Godot Decal node is unavailable under gl_compatibility.
+
+Leaking013A, Leaking012C, Leaking017B, Leaking014A, Leaking016A, RoadLines019A, RoadLines021A, AsphaltDamageSet001

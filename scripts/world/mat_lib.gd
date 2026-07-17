@@ -16,6 +16,90 @@ static func _tex(folder: String, map: String) -> Texture2D:
 		return load(path)
 	return null
 
+const DECAL_ROOT := "res://assets/textures/decals/"
+
+static func _decal_tex(folder: String, map: String) -> Texture2D:
+	var path := "%s%s/%s_1K-PNG_%s.png" % [DECAL_ROOT, folder, folder, map]
+	return load(path) if ResourceLoader.exists(path) else null
+
+## Zero-mask grime / water / soot overlay for a "sticker" quad laid ~1.5cm off a
+## surface. The ambientCG Leaking Color map is near-white with dark drip streaks;
+## MUL blend makes white a no-op and dark streaks darken the wall behind — no alpha
+## channel needed. Decal projectors don't exist under gl_compatibility, so this is
+## the replacement. Falls back to a flat grey wash if the texture is missing.
+static func grime_mul(folder: String) -> StandardMaterial3D:
+	var key := "grime_%s" % folder
+	if _cache.has(key):
+		return _cache[key]
+	var m := StandardMaterial3D.new()
+	var tex := _decal_tex(folder, "Color")
+	if tex:
+		m.albedo_texture = tex
+	else:
+		m.albedo_color = Color(0.4, 0.4, 0.4)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	m.cull_mode = BaseMaterial3D.CULL_BACK
+	_cache[key] = m
+	return m
+
+## Tintable alpha-cutout stain: synthesizes opacity = (1 - luminance) from a Leaking
+## Color map (dark streak -> opaque, white field -> transparent) so a coloured rust
+## bleed is possible (grey water, orange rust). Runs once at 256px, then cached.
+static func stain_material(folder: String, tint: Color = Color(0.5, 0.3, 0.18),
+		strength: float = 0.85) -> StandardMaterial3D:
+	var key := "stain_%s_%s_%.2f" % [folder, tint.to_html(false), strength]
+	if _cache.has(key):
+		return _cache[key]
+	var src := _decal_tex(folder, "Color")
+	if src == null:
+		return grime_mul(folder)
+	var img: Image = src.get_image()
+	img.resize(256, 256, Image.INTERPOLATE_LANCZOS)
+	img.convert(Image.FORMAT_RGBA8)
+	for yy in img.get_height():
+		for xx in img.get_width():
+			var lum: float = img.get_pixel(xx, yy).get_luminance()
+			img.set_pixel(xx, yy, Color(tint.r, tint.g, tint.b, (1.0 - lum) * strength))
+	var m := StandardMaterial3D.new()
+	m.albedo_texture = ImageTexture.create_from_image(img)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	m.roughness = 1.0
+	_cache[key] = m
+	return m
+
+## True alpha-cutout decal (RoadLines markings, AsphaltDamage scuffs) — paint on a
+## transparent background. ambientCG ships a separate Opacity map; merge it into the
+## albedo alpha once (cached), then ALPHA_SCISSOR for crisp depth-writing edges.
+static func decal_cutout(folder: String, tint: Color = Color.WHITE) -> StandardMaterial3D:
+	var key := "decalc_%s_%s" % [folder, tint.to_html(false)]
+	if _cache.has(key):
+		return _cache[key]
+	var col := _decal_tex(folder, "Color")
+	if col == null:
+		return grime_mul(folder)
+	var m := StandardMaterial3D.new()
+	var op := _decal_tex(folder, "Opacity")
+	if op:
+		var ci: Image = col.get_image(); ci.resize(512, 512); ci.convert(Image.FORMAT_RGBA8)
+		var oi: Image = op.get_image(); oi.resize(512, 512); oi.convert(Image.FORMAT_RGBA8)
+		for yy in ci.get_height():
+			for xx in ci.get_width():
+				var c: Color = ci.get_pixel(xx, yy)
+				ci.set_pixel(xx, yy, Color(c.r, c.g, c.b, oi.get_pixel(xx, yy).r))
+		m.albedo_texture = ImageTexture.create_from_image(ci)
+	else:
+		m.albedo_texture = col   # alpha already in the Color map
+	m.albedo_color = tint
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA_SCISSOR
+	m.alpha_scissor_threshold = 0.4
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	m.roughness = 0.9
+	_cache[key] = m
+	return m
+
 ## Texture-backed weathered surface. tint multiplies albedo (keep it bright —
 ## heavy tints crush the maps). uv_scale: texture repeats per world meter.
 ## local=true switches to object-space triplanar for props that move (world

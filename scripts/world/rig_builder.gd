@@ -45,6 +45,7 @@ func _ready() -> void:
 	_build_env_objects()
 	_industrial_dressing()
 	_more_industry()   # triple the piping: valves, gauges, bolted flanges, cable trays, welds
+	_surface_grime()   # rust weeps + water washes on the concrete faces (sticker quads)
 	_arrival_dressing()
 	_density_a()
 	# Water-level overhaul: boat landing, mooring station, pipe gallery, pump
@@ -977,10 +978,11 @@ func _build_env_objects() -> void:
 			Vector3(10.5, WET_Y + 0.6, -17.5), Vector3(6.5, DECK_Y + 0.6, -13.2),
 			Vector3(-2.5, DECK_Y + 0.6, -17.2)]:
 		EnvObjects.oil_drum(self, p)
-	# 2. Life rings — one takeable by the SPHL, cosmetic ones on the topside rails.
-	EnvObjects.life_ring(self, Vector3(16.1, WET_Y + 1.4, -20.5), true)
-	EnvObjects.life_ring(self, Vector3(0, DECK_Y + 1.1, -19.75))
-	EnvObjects.life_ring(self, Vector3(-20, DECK_Y + 1.1, 19.75))
+	# 2. Life rings — mounted FLAT on real wall/rail faces, ring standing proud on a
+	# backboard, facing into the open (never edge-on or half-buried).
+	EnvObjects.life_ring(self, Vector3(12.0, WET_Y + 1.6, -14.12), 180.0, true)  # pump-room south wall, faces the approach
+	EnvObjects.life_ring(self, Vector3(0, DECK_Y + 1.1, -19.9), 0.0)             # south rim, faces inboard (+Z)
+	EnvObjects.life_ring(self, Vector3(-20, DECK_Y + 1.1, 19.9), 180.0)          # north rim, faces inboard (-Z)
 	# 3. Fire barrel — warmth you don't need the grid for, out on the wet deck.
 	var barrel := EnvObjects.FireBarrel.new()
 	add_child(barrel)
@@ -1178,6 +1180,39 @@ func _industrial_dressing() -> void:
 	# Vertical conduit drops where the overhead lines meet the room walls.
 	for dp in [Vector3(-1.85, DECK_Y + 1.5, 10.5), Vector3(17.9, DECK_Y + 1.5, 15.5)]:
 		_box(dp, Vector3(0.09, 3.0, 0.09), dark, self, false)
+
+# ---------- Fine surface detail: rust weeps + water washes (sticker quads) ----------
+
+const DECAL := preload("res://scripts/world/detail_decal.gd")
+
+## Localized grime the uniform weathering can't do: rust bleeds streaking down from
+## bolt lines and welds, water washes under the deck lip and window band. Sticker
+## quads laid just off the concrete faces (Godot's Decal node is dead under
+## gl_compatibility). Hand-placed at visible anchors, not sprayed.
+func _surface_grime() -> void:
+	var rust: Material = MatLib.stain_material("Leaking013A", Color(0.42, 0.24, 0.13), 0.8)
+	var rust2: Material = MatLib.stain_material("Leaking017B", Color(0.5, 0.3, 0.16), 0.7)
+	var wash: Material = MatLib.grime_mul("Leaking014A")
+	var wash2: Material = MatLib.grime_mul("Leaking012C")
+	var S := Vector3(0, 0, -1)   # face south (toward the wet deck / approach)
+	# Pump-room south face (z=-14). Kept off the doorway (x~13.3-14.7) and the life
+	# ring (x12): a weep on each solid pier, a grime wash on the east pier.
+	DECAL.sticker(self, rust, Vector3(11.0, WET_Y + 1.9, -13.86), S, Vector2(0.35, 1.3))
+	DECAL.sticker(self, rust2, Vector3(17.2, WET_Y + 1.7, -13.86), S, Vector2(0.28, 1.0))
+	DECAL.sticker(self, wash, Vector3(16.0, WET_Y + 1.3, -13.86), S, Vector2(1.5, 1.9))
+	# Stair-tower south face (z=-6) flanking the hatch-striped doorway.
+	DECAL.sticker(self, rust, Vector3(24.0, WET_Y + 2.1, -5.86), S, Vector2(0.32, 1.4))
+	DECAL.sticker(self, wash2, Vector3(28.0, WET_Y + 1.5, -5.86), S, Vector2(1.3, 2.0))
+	# Loot-room north face (z=-16) — a long weep down the corner.
+	DECAL.sticker(self, rust2, Vector3(10.4, WET_Y + 1.8, -16.14), Vector3(0, 0, 1), Vector2(0.3, 1.5))
+	# Caisson legs: rust bleeds off the deck connection down the inboard faces (very
+	# visible from the wet deck and the sea).
+	for leg in [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]:
+		var nx: float = -sign(leg.x)                 # inboard normal (toward centre)
+		var fx: float = leg.x + sign(leg.x) * -3.14  # inboard face
+		DECAL.sticker(self, rust, Vector3(fx, DECK_Y - 4.0, leg.z - 1.4), Vector3(nx, 0, 0), Vector2(0.4, 4.5))
+		DECAL.sticker(self, rust2, Vector3(fx, DECK_Y - 5.5, leg.z + 1.5), Vector3(nx, 0, 0), Vector2(0.3, 3.5))
+		DECAL.sticker(self, wash, Vector3(fx, 3.5, leg.z), Vector3(nx, 0, 0), Vector2(2.4, 2.6))
 
 # ---------- Industrial density pass: triple the piping + valves/gauges/bolts/welds ----------
 

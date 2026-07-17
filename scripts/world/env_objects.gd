@@ -37,7 +37,12 @@ static func oil_drum(parent: Node3D, pos: Vector3) -> PhysProp:
 	return drum
 
 ## 2. Life ring — pearl torus on a rail post; one variant is takeable.
-static func life_ring(parent: Node3D, pos: Vector3, takeable: bool = false) -> void:
+## A life ring mounted FLAT on a wall/rail: a backboard sits flush on the surface
+## at `pos`, the ring stands proud in front of it, and the whole thing faces along
+## `face_yaw` (degrees; 0 = faces +Z, 180 = faces -Z, 90 = faces +X). Placed on a
+## wall face with face_yaw pointing into the open, it never reads edge-on or
+## half-embedded. `pos` should be ON the wall face.
+static func life_ring(parent: Node3D, pos: Vector3, face_yaw: float = 0.0, takeable: bool = false) -> void:
 	var root: Node3D
 	if takeable:
 		var t := Takeable.new()
@@ -47,32 +52,56 @@ static func life_ring(parent: Node3D, pos: Vector3, takeable: bool = false) -> v
 		t.global_position = pos
 		var shape := CollisionShape3D.new()
 		var box := BoxShape3D.new()
-		box.size = Vector3(0.8, 0.8, 0.3)
+		box.size = Vector3(0.86, 0.86, 0.22)
 		shape.shape = box
+		shape.position = Vector3(0, 0, 0.1)
 		t.add_child(shape)
 		root = t
 	else:
 		root = Node3D.new()
 		parent.add_child(root)
 		root.global_position = pos
+	# `mount` carries the facing: everything is built facing +Z, then swung to face_yaw.
+	var mount := Node3D.new()
+	root.add_child(mount)
+	mount.rotation.y = deg_to_rad(face_yaw)
+	# Backboard flush on the wall, so the fixture reads mounted (and hides any seam).
+	var board := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(0.5, 0.5, 0.05)
+	bm.material = MatLib.painted_steel()
+	board.mesh = bm
+	mount.add_child(board)
+	board.position = Vector3(0, 0, 0.025)   # front face at z=+0.05, flush-proud
+	# The ring standing proud in front of the board — disc in XY, face along +Z.
 	var ring := MeshInstance3D.new()
 	var tm := TorusMesh.new()
 	tm.inner_radius = 0.22
 	tm.outer_radius = 0.38
 	tm.material = MatLib.flat(Color(0.9, 0.55, 0.2))
 	ring.mesh = tm
-	root.add_child(ring)
+	mount.add_child(ring)
 	ring.rotation.x = deg_to_rad(90)
-	# Rope loops (four pale arcs, faked with small boxes).
+	ring.position = Vector3(0, 0, 0.14)     # proud of the board
+	# Four pale rope lashings around the face.
 	for i in range(4):
 		var knot := MeshInstance3D.new()
 		var km := BoxMesh.new()
 		km.size = Vector3(0.1, 0.1, 0.06)
 		km.material = MatLib.flat(Color(0.85, 0.82, 0.7))
 		knot.mesh = km
-		root.add_child(knot)
+		mount.add_child(knot)
 		var a: float = i * TAU / 4.0 + 0.4
-		knot.position = Vector3(cos(a) * 0.38, sin(a) * 0.38, 0)
+		knot.position = Vector3(cos(a) * 0.38, sin(a) * 0.38, 0.14)
+	# Two mounting straps from the board across the ring (top + bottom).
+	for sy in [0.3, -0.3]:
+		var strap := MeshInstance3D.new()
+		var sm := BoxMesh.new()
+		sm.size = Vector3(0.12, 0.32, 0.03)
+		sm.material = MatLib.dark_metal()
+		strap.mesh = sm
+		mount.add_child(strap)
+		strap.position = Vector3(0, sy, 0.1)
 
 ## 3. Fire barrel — early warmth before the power puzzle; flickering light + heat zone.
 class FireBarrel extends Node3D:
