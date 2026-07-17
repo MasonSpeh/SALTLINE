@@ -298,7 +298,7 @@ func _machine_shop_more() -> void:
 func _stack_more() -> void:
 	# Deck B cabins: plants and pictures.
 	var b: float = B_Y
-	_p("fancy_picture_frame_01", Vector3(0.5, b + 1.7, 6.2), 0)
+	_p("fancy_picture_frame_01", Vector3(2.2, b + 1.7, 6.2), 0)   # on the pier by the balcony door, off the glass
 	_p("celandine_01", Vector3(6.9, b + 0.76, 7.6), 0)
 	_p("ceramic_vase_02", Vector3(18.0, b + 0.76, 17.4), 0)
 	_pc("chinese_stool", Vector3(15.5, b, 16.0), 0)

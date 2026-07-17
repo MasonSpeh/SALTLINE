@@ -567,17 +567,21 @@ func _deck_b() -> void:
 	# ---- north rooms ----
 	# Bathroom (x -2..6): sink counter, mirrors, shower stalls.
 	_box(Vector3(1.5, y + 0.45, 17.3), Vector3(4.5, 0.9, 0.85), MatLib.painted_steel())
+	# Basins + mirrors on the solid pier between the north windows (x0 & x4) so the
+	# glass over the counter stays clear.
 	for i in range(3):
-		_dcyl(Vector3(0.2 + i * 1.5, y + 0.95, 17.3), 0.18, 0.08, MatLib.flat(Color(0.9, 0.92, 0.92)))
-		_dbox(Vector3(0.2 + i * 1.5, y + 1.7, 17.83), Vector3(0.6, 0.7, 0.04),
+		_dcyl(Vector3(1.2 + i * 0.8, y + 0.95, 17.3), 0.18, 0.08, MatLib.flat(Color(0.9, 0.92, 0.92)))
+		_dbox(Vector3(1.2 + i * 0.8, y + 1.7, 17.83), Vector3(0.6, 0.7, 0.04),
 			MatLib.flat(Color(0.62, 0.72, 0.78)))
 	for i in range(2):
 		_wall(Vector3(-1.4 + i * 1.6, y, 13.6), Vector3(-1.4 + i * 1.6, y, 15.2), 2.2, MatLib.painted_steel())
 	_dbox(Vector3(-0.6, y + 2.2, 14.4), Vector3(1.7, 0.06, 1.7), MatLib.painted_steel())
 	_light(Vector3(2, y + 2.85, 15.5), 0.5, 6.0)
 	_label("WASH ROOM", Vector3(2.0, y + 2.35, 13.16), 180, 28)
-	# Lounge / movie room (x 6..14): screen wall, bench rows, projector.
-	_dbox(Vector3(10, y + 1.7, 17.8), Vector3(5.5, 2.2, 0.08), MatLib.flat(Color(0.9, 0.9, 0.86)))
+	# Lounge / movie room (x 6..14): screen sized to the solid pier between the
+	# north-wall windows (centres x8 & x12) so the glass stays clear.
+	_dbox(Vector3(10, y + 1.7, 17.85), Vector3(2.1, 1.5, 0.08), MatLib.flat(Color(0.9, 0.9, 0.86)))
+	_dbox(Vector3(10, y + 1.7, 17.9), Vector3(2.3, 1.7, 0.05), MatLib.dark_metal())  # screen frame
 	for rz in [14.2, 15.4]:
 		_box(Vector3(10, y + 0.25, rz), Vector3(5.0, 0.5, 0.55), MatLib.flat(Color(0.32, 0.28, 0.26)))
 	_dbox(Vector3(10, y + 1.1, 13.4), Vector3(0.5, 0.35, 0.6), MatLib.dark_metal())
@@ -665,9 +669,16 @@ func _deck_c() -> void:
 	_dbox(Vector3(20.5, y + 0.035, 9), Vector3(4.5, 0.03, 5.5), MatLib.medical_white())
 	_dbox(Vector3(8.5, y + 0.035, 16), Vector3(8.5, 0.03, 3.5), MatLib.rubber_floor())
 	# Control room (x 4..12, z 6..12): console desks, dead monitors, switch wall.
+	# The one window in this span is centred at x=8, so the middle console keeps its
+	# monitor DOWN on the desk (below the sill) — only the pier desks get a raised
+	# monitor on the glass-free wall.
 	for i in range(3):
-		_desk(Vector3(5.8 + i * 2.2, y, 7.4), PI)
-		_monitor(Vector3(5.8 + i * 2.2, y + 1.15, 6.9), 0.0)
+		var dx: float = 5.8 + i * 2.2
+		_desk(Vector3(dx, y, 7.4), PI)
+		if i == 1:
+			_dbox(Vector3(dx, y + 0.86, 7.5), Vector3(0.5, 0.06, 0.28), MatLib.flat(Color(0.1, 0.1, 0.12)))  # keyboard, below sill
+		else:
+			_monitor(Vector3(dx, y + 1.15, 6.9), 0.0)
 	# Switch wall shifted south — it used to span across the terrace doorway gap
 	# (a prop with no wall behind it, visually blocking the door).
 	_dbox(Vector3(4.16, y + 1.7, 7.9), Vector3(0.06, 1.6, 2.4), MatLib.dark_metal())
@@ -682,7 +693,7 @@ func _deck_c() -> void:
 	_desk(Vector3(14.5, y, 7.5), PI * 0.5)
 	for i in range(2):
 		_box(Vector3(17.3, y + 0.65, 7.0 + i * 0.9), Vector3(0.5, 1.3, 0.6), MatLib.painted_steel())
-	_dbox(Vector3(15.0, y + 1.8, 6.2), Vector3(1.6, 1.0, 0.04), MatLib.flat(Color(0.55, 0.62, 0.58)))
+	_dbox(Vector3(14.0, y + 1.8, 6.2), Vector3(1.6, 1.0, 0.04), MatLib.flat(Color(0.55, 0.62, 0.58)))  # wall map on the pier, clear of window x16
 	_label("RIG OFFICE", Vector3(15.5, y + 2.35, 12.16), 0, 28)
 	_light(Vector3(15, y + 2.85, 9), 0.5, 6.0)
 	# Med bay (x 18..23): exam bench, cabinets, red cross, water ration.
@@ -795,7 +806,7 @@ func _deck_d() -> void:
 	bench.position = Vector3(19, y, 17.0)
 	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true)
 	_dbox(Vector3(19, y + 0.93, 17.0), Vector3(1.7, 0.06, 0.8), MatLib.wood())
-	_dbox(Vector3(19, y + 1.9, 17.83), Vector3(2.4, 1.2, 0.05), MatLib.flat(Color(0.75, 0.72, 0.6)))
+	_dbox(Vector3(18.0, y + 1.9, 17.83), Vector3(2.3, 1.2, 0.05), MatLib.flat(Color(0.75, 0.72, 0.6)))  # board on the pier between windows x16 & x20
 	var tool_colors := [Color(0.7, 0.3, 0.2), Color(0.3, 0.4, 0.6), Color(0.5, 0.5, 0.5), Color(0.7, 0.6, 0.2)]
 	for i in range(4):
 		_dbox(Vector3(18.1 + i * 0.6, y + 1.9 + (0.2 if i % 2 == 0 else -0.15), 17.79),
@@ -1023,7 +1034,10 @@ func _density_pass() -> void:
 		_dbox(Vector3(cx - 0.9, y + 0.14, 8.3), Vector3(0.55, 0.28, 0.4), MatLib.flat(Color(0.35, 0.3, 0.24)))
 		_dbox(Vector3(cx - 1.3, y + 0.02, 7.4), Vector3(0.7, 0.015, 1.1), MatLib.flat(Color(0.42, 0.3, 0.24)))
 		var hook_col := Color(0.85, 0.55, 0.15) if i % 2 == 0 else Color(0.3, 0.4, 0.5)
-		_dbox(Vector3(cx - 2.1, y + 1.5, 6.2), Vector3(0.4, 0.75, 0.1), MatLib.flat(hook_col))
+		# Coat-hook board snapped to the solid pier by each cabin door — cabins sit on
+		# a 5m pitch, windows on 4m, so a fixed offset would land two boards on glass.
+		var hook_x: float = [-1.6, 2.8, 9.4, 13.4, 18.4][i]
+		_dbox(Vector3(hook_x, y + 1.5, 6.2), Vector3(0.4, 0.75, 0.1), MatLib.flat(hook_col))
 	# Corridor scuff strip + a second pipe + junction boxes.
 	_dbox(Vector3(12.5, y + 0.045, 12), Vector3(28, 0.01, 0.5), MatLib.flat(Color(0.4, 0.4, 0.4)))
 	_pipe(Vector3(-1, y + 2.5, 12.35), Vector3(27, y + 2.5, 12.35), 0.04)
@@ -1040,8 +1054,8 @@ func _density_pass() -> void:
 		var card := _dbox(Vector3(8.2 + crng.randf_range(-0.4, 0.4), y + 0.52, 14.6 + crng.randf_range(-0.4, 0.4)),
 			Vector3(0.11, 0.004, 0.16), MatLib.flat(Color(0.92, 0.92, 0.88)))
 		card.rotation.y = crng.randf() * TAU
-	# Wash room: towel hooks, a bucket, duckboards.
-	for tx in [4.6, 5.3]:
+	# Wash room: towel dispensers on the pier east of window x4, a bucket, duckboards.
+	for tx in [5.1, 5.6]:
 		_dbox(Vector3(tx, y + 1.4, 17.83), Vector3(0.3, 0.5, 0.05), MatLib.flat(Color(0.8, 0.82, 0.8)))
 	_dcyl(Vector3(-1.2, y + 0.15, 16.6), 0.16, 0.3, MatLib.galvanized())
 	_dbox(Vector3(0.5, y + 0.02, 14.4), Vector3(1.6, 0.03, 0.8), MatLib.wood())
@@ -1049,7 +1063,9 @@ func _density_pass() -> void:
 	# --- Deck C additions.
 	y = C_Y
 	# Control: wall charts, binder shelf, coffee ring desk clutter.
-	_dbox(Vector3(7.0, y + 1.9, 6.2), Vector3(1.4, 0.9, 0.04), MatLib.flat(Color(0.6, 0.66, 0.62)))
+	# Wall charts on the solid piers either side of the window at x8 — the big one
+	# on the wide west pier (x4..7.2), the small one on the pier east of the glass.
+	_dbox(Vector3(5.9, y + 1.9, 6.2), Vector3(1.4, 0.9, 0.04), MatLib.flat(Color(0.6, 0.66, 0.62)))
 	_dbox(Vector3(10.4, y + 1.9, 6.2), Vector3(0.9, 0.9, 0.04), MatLib.flat(Color(0.68, 0.62, 0.5)))
 	_dbox(Vector3(11.6, y + 1.2, 8.5), Vector3(0.35, 0.06, 1.8), MatLib.wood())
 	for b in range(5):
