@@ -15,6 +15,7 @@ class_name BloomFauna extends Node3D
 ##   LampSnail    — night constellations of glow-spots circling the leg bases (§54)
 ##   CorvidGull   — perched Bloom-intelligent gull that tracks the player (§26)
 
+const ANIMH := preload("res://scripts/world/creature_anim.gd")
 const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
 const PEARL := Color(0.88, 0.94, 0.92)
@@ -93,7 +94,35 @@ func _ready() -> void:
 		add_child(cg)
 	# Glow worms — rare, edible; a den network wakes two dark corners per night.
 	add_child(GlowWormColony.new())
-	# Tide worms along the wet-deck tide line and out on the pontoon.
+	# Deck gulls: down among your boots, strutting and pecking — and they FLUSH when
+	# you walk at them, which is the cheapest aliveness a deck can buy.
+	for home in [Vector3(24.0, 2.0, -15.5), Vector3(26.5, 2.0, -19.0),
+			Vector3(-3.0, 18.75, 3.5), Vector3(2.5, 18.75, 6.5)]:
+		add_child(DeckGull.new(home))
+	# Reef fish: mutated colour-shoals at diving depth off two legs — the reason to
+	# put your head under.
+	add_child(ReefFish.new(Vector3(19.0, 0.0, -12.0)))
+	add_child(ReefFish.new(Vector3(22.0, 0.0, 9.0)))
+	# The Bloom growing ON the rig: creeper-wrapped pipes in the splash zone, kelp
+	# stands below the waterline, anemone clumps under the barnacle faces. Each patch
+	# frees itself if its mesh hasn't been generated yet.
+	var flora: Array = [
+		["glow_creeper", Vector3(-19.0, 0.2, -11.6), 2.6, ANIMH.Mode.SWAY, 0.03, 0.25, 0.9],
+		["glow_creeper", Vector3(19.1, 0.4, 11.6), 2.2, ANIMH.Mode.SWAY, 0.03, 0.22, 0.9],
+		["glow_creeper", Vector3(24.7, 0.3, -12.3), 2.4, ANIMH.Mode.SWAY, 0.03, 0.28, 0.9],
+		["glow_kelp", Vector3(-20.6, -4.2, -13.4), 4.0, ANIMH.Mode.SWAY, 0.3, 0.18, 0.7],
+		["glow_kelp", Vector3(20.8, -4.2, 13.2), 3.6, ANIMH.Mode.SWAY, 0.28, 0.15, 0.7],
+		["glow_kelp", Vector3(23.5, -4.0, -9.8), 3.2, ANIMH.Mode.SWAY, 0.26, 0.2, 0.7],
+		["glow_kelp", Vector3(14.5, -4.2, -20.5), 3.8, ANIMH.Mode.SWAY, 0.3, 0.17, 0.7],
+		["bloom_anemone", Vector3(-19.2, -0.6, -11.8), 0.9, ANIMH.Mode.CIRRI, 0.03, 0.3, 1.1],
+		["bloom_anemone", Vector3(19.2, -0.5, 11.9), 0.8, ANIMH.Mode.CIRRI, 0.03, 0.33, 1.1],
+		["bloom_anemone", Vector3(25.0, -0.6, -11.7), 0.9, ANIMH.Mode.CIRRI, 0.03, 0.27, 1.1],
+	]
+	for f in flora:
+		var patch := FloraPatch.new(f[0], f[2], f[3], f[4], f[5], f[6])
+		add_child(patch)
+		patch.global_position = f[1]
+		# Tide worms along the wet-deck tide line and out on the pontoon.
 	for p in [Vector3(24.5, 2.02, -17.5), Vector3(21.5, 2.02, -19.5), Vector3(26.5, 2.02, -13.0),
 			Vector3(2.0, 0.97, -12.0), Vector3(-6.0, 0.97, -11.0)]:
 		var w := TideWorm.new()
@@ -420,6 +449,14 @@ class LampEel extends Node3D:
 			if i == 0:
 				_build_head(seg, m)
 			_segs.append(seg)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 4.5, ANIM.Mode.UNDULATE, 0.18, 1.6, GLOW)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			# The class swims by moving its SEGMENTS; the root stays parked. Ride the
+			# head segment (look_at'd down the travel every frame) and trail behind it.
+			var m: Node3D = gen["model"]
+			m.reparent(_segs[0], false)
+			m.position = Vector3(0, 0, 1.8)
 
 	## A proper head on segment 0: a tapered snout over a hinged lower jaw, two
 	## eyes, and a lure barbel arcing off the brow with a glowing tip. Built facing
@@ -467,10 +504,6 @@ class LampEel extends Node3D:
 		head.add_child(bulb)
 		# Generated mesh: the whole ribbon body waves; the lantern chain is its own light.
 		# (Meshy auto-rigs humanoids only, so the motion is CreatureAnim's vertex shader.)
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 4.5, ANIM.Mode.UNDULATE, 0.14, 1.6, GLOW)
-		if not gen.is_empty():
-			_gen_mats = gen["mats"]
-			ANIM.drive(_gen_mats, 1.6, 0.9)   # steady — no per-frame cost
 
 	func _process(delta: float) -> void:
 		_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.15)
@@ -1031,7 +1064,10 @@ class HarborSeal extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL_PATH := "res://assets/models/fauna/harbor_seal/harbor_seal.glb"
 	const GLOW := Color(0.35, 0.90, 0.85)
+	const FISH_IDS := ["fish_herring", "fish_slate_cod", "fish_mirrorjack", "fish_chimefish", "fish_sable_hake"]
 	var _gen_mats: Array = []
+	var _pet_bump: float = 0.0    ## seconds of happy-wiggle left after a pet
+	var _fed: bool = false        ## took a fish from your hand — bonded for the day
 	## A befriended-able fishing partner (Codex §29). Cruises the water south of
 	## the rig, porpoising up to breathe, and by day hauls out to bask on the wet
 	## deck edge. Curious, never afraid — it turns to watch a nearby player.
@@ -1125,7 +1161,11 @@ class HarborSeal extends Node3D:
 		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 1.8, ANIM.Mode.UNDULATE, 0.05, 1.0, GLOW)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
-			ANIM.drive(_gen_mats, 1.0, 0.22)   # steady — no per-frame cost
+			ANIM.drive(_gen_mats, 1.0, 0.22)   # re-driven per frame below
+		# Touchable when hauled out: pet it, or offer a fish (Codex §29 befriending).
+		var touch := FaunaTouch.new("Harbor Seal", 0.95, _touch_verbs, _touch_act)
+		add_child(touch)
+		touch.position = Vector3(0, 0.3, 0)
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -1137,8 +1177,13 @@ class HarborSeal extends Node3D:
 			var day: bool = GameClock.current_phase == GameClock.Phase.DAY
 			_hauled = day and randf() < 0.55 and _idx_zero()
 			_haul_timer = randf_range(35.0, 70.0)
-		# Hauled out it only breathes; in the water the body wave does the work.
-		ANIM.drive(_gen_mats, 0.35 if _hauled else 1.0, 0.22, 0.02 if _hauled else 0.05)
+		# Hauled out it only breathes; in the water the body wave does the work — a real
+		# amplitude, or the seal reads as a towed prop (the exact user complaint).
+		_pet_bump = maxf(_pet_bump - delta, 0.0)
+		var wiggle: float = 1.0 + _pet_bump * 2.2          # petting doubles the wriggle
+		var bond_glow: float = 0.65 if _fed else 0.3
+		ANIM.drive(_gen_mats, (0.4 if _hauled else 1.3) * wiggle, bond_glow + _pet_bump * 0.8,
+			(0.025 if _hauled else 0.11) * wiggle)
 		if _hauled:
 			global_position = global_position.lerp(HAUL_SPOT, delta * 1.5)
 			rotation.z = lerp_angle(rotation.z, 0.0, delta * 2.0)
@@ -1180,6 +1225,34 @@ class HarborSeal extends Node3D:
 	func _idx_zero() -> bool:
 		return get_index() % 2 == 0
 
+	func _touch_verbs() -> Array:
+		if not _hauled:
+			return []            # in the water it is out of reach — deck-side only
+		var v: Array = ["PET"]
+		for id in FISH_IDS:
+			if PlayerState.has_item(id):
+				v = ["FEED", "PET"]   # offering food takes precedence on the prompt
+				break
+		return v
+
+	func _touch_act(verb: String, _player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		Journal.discover("creature_seal")
+		if verb == "FEED":
+			for id in FISH_IDS:
+				if PlayerState.has_item(id):
+					PlayerState.remove_item(id)
+					_fed = true
+					_pet_bump = 3.0
+					AudioDirector.play_one_shot("splash", global_position, -8.0)
+					if hud and hud.has_method("toast"):
+						hud.toast("It takes the fish gently and looks at you a long moment. You have a fishing partner now.")
+					return
+		_pet_bump = 2.0
+		if hud and hud.has_method("toast"):
+			hud.toast("Wet fur, warm under. It leans into your hand." if not _fed
+				else "It rolls over. Entirely shameless.")
+
 # ------------------------------------------------- Lamp Snail constellation
 class LampSnail extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
@@ -1194,6 +1267,7 @@ class LampSnail extends Node3D:
 	var _idx: int
 	var _stalks: Array[Node3D] = []   # the two optic tentacles, waving
 	var _eye_mat: StandardMaterial3D
+	var _harvest_cd: float = 0.0      ## regrowth time after a mucus harvest
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -1261,16 +1335,38 @@ class LampSnail extends Node3D:
 			var v: float = rng.randf_range(0.1, 0.95)
 			spot.position = Vector3(cos(u) * 0.42 * sqrt(1.0 - v * v), v * 0.42, sin(u) * 0.42 * sqrt(1.0 - v * v))
 			add_child(spot)
+		# The journal's promised beat: a gentle harvest takes the glow-mucus, leaves the
+		# animal. Only at night, and the constellation needs time to re-charge.
+		var touch := FaunaTouch.new("Lamp Snail", 0.85,
+			func() -> Array:
+				var night: bool = GameClock.current_phase == GameClock.Phase.NIGHT
+				return ["HARVEST"] if night and _harvest_cd <= 0.0 else [],
+			_harvest)
+		add_child(touch)
 		# Generated mesh: a faint shell flex; the constellation does the real work.
 		# PEDAL: the foot ripples back-to-front, which is how a snail actually travels.
 		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.9, ANIM.Mode.PEDAL, 0.03, 0.55, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 
+	func _harvest(_verb: String, _player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if not PlayerState.add_item("glow_mucus"):
+			if hud and hud.has_method("toast"):
+				hud.toast("Hands full — the snail keeps its light tonight.")
+			return
+		_harvest_cd = 150.0
+		Journal.discover("creature_lamp_snail")
+		if hud and hud.has_method("toast"):
+			hud.toast("You wipe a palmful of cold light off the shell. The snail never slows down.")
+
 	func _process(delta: float) -> void:
 		_t += delta
+		_harvest_cd = maxf(_harvest_cd - delta, 0.0)
 		var night: bool = GameClock.current_phase == GameClock.Phase.NIGHT
 		var glow: float = 2.0 if night else 0.0
+		if _harvest_cd > 120.0:
+			glow *= 0.15   # freshly wiped — the constellation re-charges slowly
 		for i in range(_spots.size()):
 			# The constellation twinkles — each spot on its own slow beat.
 			_spots[i].emission_energy_multiplier = lerpf(_spots[i].emission_energy_multiplier,
@@ -1291,6 +1387,203 @@ class LampSnail extends Node3D:
 		var ang: float = _t * 0.05 + _idx
 		global_position = _base + Vector3(cos(ang) * 1.6, -0.4 + sin(_t * 0.4) * 0.15, sin(ang) * 1.6)
 		rotation.y = -ang
+
+# ------------------------------------------------------------ FaunaTouch
+class FaunaTouch extends Interactable:
+	## An invisible touch-target that rides a creature and proxies the interaction
+	## verbs to it. The species stay Node3D (their movement code owns the transform);
+	## this small StaticBody3D child is what the player's InteractionRay actually hits.
+	var verbs_fn: Callable   ## () -> Array[String] — live, state-dependent
+	var act_fn: Callable     ## (verb: String, player: Node3D) -> void
+
+	func _init(name_: String, radius: float, verbs_fn_: Callable, act_fn_: Callable) -> void:
+		display_name = name_
+		verbs_fn = verbs_fn_
+		act_fn = act_fn_
+		var cs := CollisionShape3D.new()
+		var sph := SphereShape3D.new()
+		sph.radius = radius
+		cs.shape = sph
+		add_child(cs)
+
+	func available_verbs() -> Array[String]:
+		var out: Array[String] = []
+		out.assign(verbs_fn.call())
+		return out
+
+	func interact(verb: String, player: Node3D) -> void:
+		act_fn.call(verb, player)
+		interacted.emit(verb)
+
+# -------------------------------------------------------------- DeckGull
+class DeckGull extends Node3D:
+	## A gull DOWN ON THE DECK, strutting between pecks — the ordinary life the rig
+	## still carries. Walks its little patch; feels you coming and FLUSHES: leaps,
+	## climbs away to nothing, and lands again somewhere else a minute later.
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/corvid_gull/corvid_gull.glb"
+	var _home: Vector3
+	var _target: Vector3
+	var _t: float = 0.0
+	var _peck: float = 0.0        ## countdown to next peck pause
+	var _flush_dir: Vector3
+	var _flushing: float = -1.0   ## <0 grounded; else seconds airborne
+	var _regen: float = 0.0       ## respawn countdown after flying off
+	var _gen_mats: Array = []
+	var _model: Node3D
+
+	func _init(home: Vector3) -> void:
+		_home = home
+		_target = home
+
+	func _ready() -> void:
+		var gen: Dictionary = ANIM.attach(self, MODEL_PATH, 0.5, ANIM.Mode.FLAP,
+			0.012, 0.6, Color(0.30, 0.85, 0.80), randf() * TAU)
+		if gen.is_empty():
+			queue_free()   # no mesh, no bird — walkers have no procedural fallback
+			return
+		_model = gen["model"]
+		_gen_mats = gen["mats"]
+		ANIM.drive(_gen_mats, 0.6, 0.15)
+		global_position = _home
+		_peck = randf_range(2.0, 5.0)
+
+	func _process(delta: float) -> void:
+		_t += delta
+		if _regen > 0.0:
+			_regen -= delta
+			if _regen <= 0.0:
+				# Lands again a few metres from home, grounded state reset.
+				global_position = _home + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
+				_flushing = -1.0
+				visible = true
+				ANIM.drive(_gen_mats, 0.6, 0.15, 0.012)
+			return
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		if _flushing >= 0.0:
+			# Airborne: climb away hard, wings at full beat, then gone until respawn.
+			_flushing += delta
+			global_position += _flush_dir * delta * 6.5 + Vector3(0, delta * 3.2, 0)
+			rotation.y = atan2(_flush_dir.x, _flush_dir.z) + PI
+			if _flushing > 3.0:
+				visible = false
+				_regen = randf_range(45.0, 90.0)
+			return
+		# Grounded. Player close = flush NOW — the classic deck-bird interaction.
+		if player and player.global_position.distance_to(global_position) < 3.2:
+			_flushing = 0.0
+			var away: Vector3 = global_position - player.global_position
+			away.y = 0.0
+			_flush_dir = away.normalized() if away.length() > 0.1 else Vector3(1, 0, 0)
+			ANIM.drive(_gen_mats, 3.2, 0.25, 0.07)   # wings open, full beat
+			AudioDirector.play_one_shot("gull", global_position, -8.0)
+			Journal.discover("creature_corvid_gull")
+			return
+		# Strut / peck loop.
+		_peck -= delta
+		if _peck <= 0.0:
+			_target = _home + Vector3(randf_range(-2.2, 2.2), 0, randf_range(-2.2, 2.2))
+			_peck = randf_range(2.5, 6.0)
+		var to: Vector3 = _target - global_position
+		to.y = 0.0
+		if to.length() > 0.15:
+			global_position += to.limit_length(delta * 0.55)
+			rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z) + PI, delta * 5.0)
+			if _model:
+				_model.rotation.z = sin(_t * 7.0) * 0.06   # the waddle
+		elif _model:
+			# Pecking: quick bow, twice, then upright — reads as feeding.
+			_model.rotation.x = maxf(sin(_t * 5.0), 0.0) * 0.5 * maxf(sin(_t * 0.7), 0.0)
+			_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 4.0)
+
+# -------------------------------------------------------------- ReefFish
+class ReefFish extends Node3D:
+	## A loose school of mutated reef fish at diving depth around a rig leg — colour
+	## variants of the one bait-fish mesh (tint + glow), each on its own wander orbit.
+	## The reason to duck your head under and look.
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/bait_fish/bait_fish.glb"
+	const VARIANTS := [
+		[Color(1.0, 1.0, 1.0), Color(0.25, 0.95, 0.88)],   # pearl / teal — the Bloom norm
+		[Color(0.85, 0.9, 1.2), Color(0.45, 0.65, 1.0)],   # blue-shifted
+		[Color(1.2, 0.95, 0.8), Color(1.0, 0.55, 0.18)],   # the rust snail's amber lineage
+	]
+	var _centre: Vector3
+	var _fish: Array = []   ## [{node, mats, r, h, spd, ph}]
+
+	func _init(centre: Vector3) -> void:
+		_centre = centre
+
+	func _ready() -> void:
+		for i in range(9):
+			var f := Node3D.new()
+			add_child(f)
+			var gen: Dictionary = ANIM.attach(f, MODEL_PATH, 0.3, ANIM.Mode.UNDULATE,
+				0.1, 2.4, VARIANTS[i % 3][1], float(i) * 0.7)
+			if gen.is_empty():
+				f.queue_free()
+				continue
+			for m in gen["mats"]:
+				(m as ShaderMaterial).set_shader_parameter("tint", VARIANTS[i % 3][0])
+			ANIM.drive(gen["mats"], 2.4, 0.5)
+			_fish.append({"node": f, "r": randf_range(1.2, 3.2), "h": randf_range(-4.2, -1.6),
+				"spd": randf_range(0.25, 0.55) * (1.0 if i % 2 == 0 else -1.0),
+				"ph": randf_range(0.0, TAU)})
+		if _fish.is_empty():
+			queue_free()
+
+	func _process(delta: float) -> void:
+		for f in _fish:
+			var a: float = Time.get_ticks_msec() * 0.001 * f["spd"] + f["ph"]
+			var pos: Vector3 = _centre + Vector3(cos(a) * f["r"], f["h"] + sin(a * 2.3) * 0.3, sin(a) * f["r"])
+			var node: Node3D = f["node"]
+			var vel: Vector3 = pos - node.global_position
+			node.global_position = pos
+			if vel.length_squared() > 0.00001:
+				node.look_at(pos + vel, Vector3.UP)
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		if player and player.get("swimming") and player.swimming 				and player.global_position.distance_to(_centre) < 8.0:
+			Journal.discover("creature_fiddler_shoal")
+
+# ------------------------------------------------------------ FloraPatch
+class FloraPatch extends Node3D:
+	## One placed piece of the Bloom growing on the rig: kelp, creeper-covered pipe,
+	## anemone clump. Static placement, alive through the SWAY/CIRRI shader. Frees
+	## itself when the mesh hasn't been generated yet — safe to spawn optimistically.
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	var _slug: String
+	var _size: float
+	var _mode: int
+	var _amp: float
+	var _rate: float
+	var _energy: float
+
+	func _init(slug: String, size: float, mode: int, amp: float, rate: float, energy: float) -> void:
+		_slug = slug
+		_size = size
+		_mode = mode
+		_amp = amp
+		_rate = rate
+		_energy = energy
+
+	func _ready() -> void:
+		var path := "res://assets/models/fauna/%s/%s.glb" % [_slug, _slug]
+		var gen: Dictionary = ANIM.attach(self, path, _size, _mode, _amp, _rate,
+			Color(0.25, 0.95, 0.88), randf() * TAU)
+		if gen.is_empty():
+			queue_free()
+			return
+		ANIM.drive(gen["mats"], _rate, _energy)
+		# Ground the mesh: flora pivots are wherever the generator left them, so drop
+		# the model until its lowest point sits at this patch's origin.
+		var model: Node3D = gen["model"]
+		var low: float = 0.0
+		var first := true
+		for mi in find_children("*", "MeshInstance3D", true, false):
+			var w: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+			low = w.position.y if first else minf(low, w.position.y)
+			first = false
+		model.position.y -= (low - global_position.y)
 
 # ------------------------------------------------------------ Rust Snail
 class RustSnail extends Node3D:
@@ -1500,6 +1793,24 @@ class AnchorLimpet extends Node3D:
 			0.02, 0.3, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
+		# The one way to move it: a prybar. The shell is the prize; the rig keeps the scar.
+		var touch := FaunaTouch.new("Anchor Limpet", 0.6,
+			func() -> Array:
+				return ["PRY"] if PlayerState.has_item("prybar") else [],
+			_pry)
+		add_child(touch)
+
+	func _pry(_verb: String, _player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if not PlayerState.add_item("limpet_shell"):
+			if hud and hud.has_method("toast"):
+				hud.toast("No room to carry the shell — it stays clamped.")
+			return
+		Journal.discover("creature_anchor_limpet")
+		AudioDirector.play_one_shot("clang", global_position, -4.0)
+		if hud and hud.has_method("toast"):
+			hud.toast("It fights the bar the whole way, then POPS free — an iron-hard dome in your hands.")
+		queue_free()
 
 	func _process(delta: float) -> void:
 		_t += delta

@@ -24,7 +24,20 @@ enum Mode {
 	PEDAL = 5,      ## muscular foot wave — the gastropods
 	CIRRI = 6,      ## feathery feeding sweep — barnacles
 	BREATHE = 7,    ## resting swell — limpet, denned glow worm
+	SWAY = 8,       ## anchored drift in the current — flora
 }
+
+## Authored-facing normalisation. VERIFIED via tests/FacingShot.tscn side views: every
+## directional Meshy model faces the VIEWER (+Z) — heads point screen-left from a +X
+## camera — while Godot's forward (and all the movement code's look_at) is -Z. So the
+## DEFAULT is: yaw the model node 180 and tell the shader the head is at the +Z end
+## (flow_flip 1). Radially symmetric models (jelly, barnacles, limpet, flora) don't
+## care. Add a slug here ONLY when a future model breaks the convention.
+const FACING_DEFAULT := {"yaw": 180.0, "axis": 0, "flip": 1.0}
+const FACING_OVERRIDES: Dictionary = {}
+
+static func facing_for(path: String) -> Dictionary:
+	return FACING_OVERRIDES.get(path.get_file().get_basename(), FACING_DEFAULT)
 
 ## Swap every surface on `model` to the motion shader, carrying the imported PBR maps
 ## across. Returns the ShaderMaterials so the caller can modulate them per frame.
@@ -104,7 +117,14 @@ static func attach(host: Node3D, path: String, target_m: float, mode: int,
 	if model == null:
 		return {}
 	host.add_child(model)
-	return {"model": model, "mats": apply(model, mode, amp, rate, glow, phase, opacity)}
+	var mats := apply(model, mode, amp, rate, glow, phase, opacity)
+	# Normalise authored facing so the species' look_at movement drives it head-first.
+	var fac := facing_for(path)
+	model.rotation.y = deg_to_rad(fac["yaw"])
+	for m in mats:
+		(m as ShaderMaterial).set_shader_parameter("flow_axis", fac["axis"])
+		(m as ShaderMaterial).set_shader_parameter("flow_flip", fac["flip"])
+	return {"model": model, "mats": mats}
 
 ## Attach the generated mesh and hide the procedural geometry it supersedes.
 ##

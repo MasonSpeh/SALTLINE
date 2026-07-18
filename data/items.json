@@ -248,5 +248,13 @@
     "melee_damage": 1.7,
     "melee_reach": 3.0,
     "swing_sec": 0.7
+  },
+  "glow_mucus": {
+    "name": "Glow Mucus",
+    "use": "tool"
+  },
+  "limpet_shell": {
+    "name": "Limpet Shell",
+    "use": "tool"
   }
 }

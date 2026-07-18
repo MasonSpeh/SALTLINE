@@ -41,9 +41,12 @@ BESTIARY: list[tuple[str, str]] = [
      "pose, " + STYLE),
 
     ("harbor_seal",
-     "an alien seal creature, sleek wet iridescent pearl-grey fur, faint glowing teal "
-     "spots across its back, large luminous curious eyes, whiskered face, streamlined "
-     "body with front and rear flippers, gentle expression, neutral resting pose, " + STYLE),
+     "a mutated alien seal creature, sleek iridescent pearl skin veined with branching "
+     "bioluminescent teal patterns, rosettes of small glowing spots down its back, four "
+     "large luminous eyes in two pairs, glowing whisker filaments, translucent webbed "
+     "oversized rear flippers with light shining through the membrane, a low fin ridge "
+     "down the spine, elegant and strange, streamlined full body, neutral straight "
+     "swimming pose, " + STYLE),
 
     ("mantle_ray",
      "a giant alien manta ray, enormous graceful triangular wings with glowing teal "
@@ -73,8 +76,17 @@ BESTIARY: list[tuple[str, str]] = [
      "faint pearl sheen, " + STYLE),
 
     ("bait_fish",
-     "a small slender silver baitfish, sardine-like, smooth iridescent pearl scales, "
-     "forked tail, faint teal lateral line, straight neutral swimming pose, " + STYLE),
+     "a small mutated alien baitfish, translucent pearl body with its glowing teal spine "
+     "and organs faintly visible inside, a lateral line of tiny bioluminescent lantern "
+     "dots, four small luminous eyes, long trailing filament fins like ribbons, "
+     "iridescent, straight neutral swimming pose, " + STYLE),
+
+    ("lamplight_crab",
+     "a mutated alien deep-sea crab, dark chitin carapace laced with glowing teal vein "
+     "patterns and translucent edges lit from inside, long jointed spiny legs, one "
+     "oversized luminous cracked pincer, a cluster of small glowing eyes, thin sensory "
+     "stalks tipped with light, barnacle growths on the shell, standing neutral pose "
+     "with legs spread, " + STYLE),
 
     ("tide_worm",
      "an alien segmented marine tube worm, ridged armoured segments, a crown of "
@@ -123,6 +135,28 @@ BESTIARY: list[tuple[str, str]] = [
      "against a steel plate, a thin ring of teal light glowing under the rim. It is ONLY "
      "a smooth cone shell: no legs, no limbs, no claws, no arms, no visible creature, "
      "no head, just the bare conical shell, " + STYLE),
+
+    # ---- Flora: the Bloom growing ON the rig ----
+    # NOTE the glow_creeper deliberately INVERTS the plinth trap: we WANT the pipe in the
+    # model, so the creeper arrives as a bolt-on set piece that reads as part of the rig.
+
+    ("glow_kelp",
+     "a cluster of tall alien kelp fronds growing upright, translucent teal-green blades "
+     "with glowing rib veins, small bioluminescent bulbs along the stems, gently curved "
+     "as if drifting in current, wet and luminous. Just the kelp plants alone: no rock, "
+     "no base, no plinth, no ground plane, nothing underneath, " + STYLE),
+
+    ("glow_creeper",
+     "a vertical section of rusted corroded steel pipe with glowing alien seaweed vines "
+     "creeping and wrapping around it, tendrils gripping the metal, small luminous teal "
+     "leaf-polyps and hanging light filaments, wet dripping bioluminescent growth "
+     "colonising the industrial pipe, " + STYLE),
+
+    ("bloom_anemone",
+     "a clump of alien sea anemones fused together, translucent fleshy trunks, crowns of "
+     "glowing teal and pearl tentacles swaying open, varied sizes crowded in one clump, "
+     "wet and luminous. Just the clump of anemones alone: no rock, no base, no plinth, "
+     "no ground plane, " + STYLE),
 ]
 
 

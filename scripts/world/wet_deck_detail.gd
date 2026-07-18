@@ -413,6 +413,10 @@ func _scatter_items() -> void:
 	# The fishing rod — propped in the storeroom where a rigger left it. The other
 	# half of the food economy, waiting behind the first door most players open.
 	_takeable("fishing_rod", "Fishing Rod", Vector3(11.0, y + 0.05, -17.2))
+	# A second rod and a prybar IN THE OPEN by the respawn point — the user test-drives
+	# fishing and prying this session, so the tools meet them at the door.
+	_takeable("fishing_rod", "Fishing Rod", Vector3(18.6, y + 0.05, -12.2))
+	_takeable("prybar", "Prybar", Vector3(21.4, y + 0.05, -11.6))
 	# The Angler's Notes beside it: every species, its hours, its water, its
 	# weather — generated from the same table the rod actually rolls against.
 	_readable("anglers_notes", "Angler's Notes", Vector3(11.7, y + 0.62, -16.6), Vector3(0.32, 0.4, 0.05))
