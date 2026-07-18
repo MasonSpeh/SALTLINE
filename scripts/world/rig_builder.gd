@@ -45,7 +45,11 @@ func _ready() -> void:
 	_build_env_objects()
 	_industrial_dressing()
 	_more_industry()   # triple the piping: valves, gauges, bolted flanges, cable trays, welds
-	_surface_grime()   # rust weeps + water washes on the concrete faces (sticker quads)
+	# _surface_grime() DISABLED: the custom decal-sticker materials (MUL blend + runtime
+	# ImageTextures + alpha-scissor transparency) grey the whole viewport on some macOS
+	# gl_compatibility drivers even though they render fine on others. Pure polish — off
+	# until the materials are reworked with only broadly-supported features.
+	# _surface_grime()
 	_arrival_dressing()
 	_density_a()
 	# Water-level overhaul: boat landing, mooring station, pipe gallery, pump

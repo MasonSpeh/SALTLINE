@@ -56,6 +56,8 @@ static func stain_material(folder: String, tint: Color = Color(0.5, 0.3, 0.18),
 	if src == null:
 		return grime_mul(folder)
 	var img: Image = src.get_image()
+	if img == null:   # VRAM-only compressed texture on some drivers — bail safely
+		return grime_mul(folder)
 	img.resize(256, 256, Image.INTERPOLATE_LANCZOS)
 	img.convert(Image.FORMAT_RGBA8)
 	for yy in img.get_height():
@@ -82,7 +84,7 @@ static func decal_cutout(folder: String, tint: Color = Color.WHITE) -> StandardM
 		return grime_mul(folder)
 	var m := StandardMaterial3D.new()
 	var op := _decal_tex(folder, "Opacity")
-	if op:
+	if op and col.get_image() != null and op.get_image() != null:
 		var ci: Image = col.get_image(); ci.resize(512, 512); ci.convert(Image.FORMAT_RGBA8)
 		var oi: Image = op.get_image(); oi.resize(512, 512); oi.convert(Image.FORMAT_RGBA8)
 		for yy in ci.get_height():
