@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d2brvwm5ah6id"
-path="res://.godot/imported/bait_fish_0.jpg-f3eaaaf3e38f4ade1c18c70650fb1a55.ctex"
+uid="uid://bxas2gb2enyxw"
+path="res://.godot/imported/harbor_seal_0.jpg-be9c63ab2d35df63b6c5b9014d0b410d.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "63602773e2008a1d990e1edb3728431d"
+"md5": "f06818fea5a40d27195946c99b616b7a"
 }
 
 [deps]
 
-source_file="res://assets/models/fauna/bait_fish/bait_fish_0.jpg"
-dest_files=["res://.godot/imported/bait_fish_0.jpg-f3eaaaf3e38f4ade1c18c70650fb1a55.ctex"]
+source_file="res://assets/models/fauna/harbor_seal/harbor_seal_0.jpg"
+dest_files=["res://.godot/imported/harbor_seal_0.jpg-be9c63ab2d35df63b6c5b9014d0b410d.ctex"]
 
 [params]
 

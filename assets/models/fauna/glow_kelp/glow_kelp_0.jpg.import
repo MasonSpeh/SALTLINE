@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d2brvwm5ah6id"
-path="res://.godot/imported/bait_fish_0.jpg-f3eaaaf3e38f4ade1c18c70650fb1a55.ctex"
+uid="uid://dysuhl2sho3iw"
+path="res://.godot/imported/glow_kelp_0.jpg-53114f8a44dd00ad13d322f491907f57.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "63602773e2008a1d990e1edb3728431d"
+"md5": "de26824b2af4002bff07b2f759691b17"
 }
 
 [deps]
 
-source_file="res://assets/models/fauna/bait_fish/bait_fish_0.jpg"
-dest_files=["res://.godot/imported/bait_fish_0.jpg-f3eaaaf3e38f4ade1c18c70650fb1a55.ctex"]
+source_file="res://assets/models/fauna/glow_kelp/glow_kelp_0.jpg"
+dest_files=["res://.godot/imported/glow_kelp_0.jpg-53114f8a44dd00ad13d322f491907f57.ctex"]
 
 [params]
 

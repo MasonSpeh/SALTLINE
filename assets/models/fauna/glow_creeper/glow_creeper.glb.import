@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://ddw8hkta41kal"
-path="res://.godot/imported/lamplight_crab.glb-08c4b5adc37e3741457c9eabdc45e76e.scn"
+uid="uid://nbmbs7qyyjwa"
+path="res://.godot/imported/glow_creeper.glb-a48ccce63bd111db24ff74f70847ed53.scn"
 
 [deps]
 
-source_file="res://assets/models/fauna/lamplight_crab/lamplight_crab.glb"
-dest_files=["res://.godot/imported/lamplight_crab.glb-08c4b5adc37e3741457c9eabdc45e76e.scn"]
+source_file="res://assets/models/fauna/glow_creeper/glow_creeper.glb"
+dest_files=["res://.godot/imported/glow_creeper.glb-a48ccce63bd111db24ff74f70847ed53.scn"]
 
 [params]
 

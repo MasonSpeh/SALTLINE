@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d2brvwm5ah6id"
-path="res://.godot/imported/bait_fish_0.jpg-f3eaaaf3e38f4ade1c18c70650fb1a55.ctex"
+uid="uid://c5ttluxppu4xa"
+path="res://.godot/imported/glow_creeper_0.jpg-57359f02549052cc253b8b959b18b280.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "63602773e2008a1d990e1edb3728431d"
+"md5": "5d0654a59febd93e9772358177fce482"
 }
 
 [deps]
 
-source_file="res://assets/models/fauna/bait_fish/bait_fish_0.jpg"
-dest_files=["res://.godot/imported/bait_fish_0.jpg-f3eaaaf3e38f4ade1c18c70650fb1a55.ctex"]
+source_file="res://assets/models/fauna/glow_creeper/glow_creeper_0.jpg"
+dest_files=["res://.godot/imported/glow_creeper_0.jpg-57359f02549052cc253b8b959b18b280.ctex"]
 
 [params]
 

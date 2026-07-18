@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://d2brvwm5ah6id"
-path="res://.godot/imported/bait_fish_0.jpg-f3eaaaf3e38f4ade1c18c70650fb1a55.ctex"
+uid="uid://cytmd7q7uwuoo"
+path="res://.godot/imported/bloom_anemone_0.jpg-8e09a1893f4f9bd4b0360bd88b389ec9.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "63602773e2008a1d990e1edb3728431d"
+"md5": "1ca09121ba43adbc04d71df2705e932d"
 }
 
 [deps]
 
-source_file="res://assets/models/fauna/bait_fish/bait_fish_0.jpg"
-dest_files=["res://.godot/imported/bait_fish_0.jpg-f3eaaaf3e38f4ade1c18c70650fb1a55.ctex"]
+source_file="res://assets/models/fauna/bloom_anemone/bloom_anemone_0.jpg"
+dest_files=["res://.godot/imported/bloom_anemone_0.jpg-8e09a1893f4f9bd4b0360bd88b389ec9.ctex"]
 
 [params]
 
