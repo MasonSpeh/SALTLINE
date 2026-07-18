@@ -303,43 +303,65 @@ func _build_wet_deck() -> void:
 
 # ---------- Z2: The Stairs ----------
 
+const STAIR_RISE: float = 4.0     # per-flight rise — keeps annex levels at y6 / y10 / y18
+const STAIR_RUN: float = 5.0      # per-flight horizontal run (x)
+const STAIR_WID: float = 1.8      # flight width (z)
+const STAIR_N: int = 9            # flights: y2 -> y38 (topside deck = flight 4 top = y18)
+const STAIR_XW: float = 23.5      # west foot/top x  (flights span XW..XE)
+const STAIR_XE: float = 28.5      # east foot/top x
+const STAIR_ZS: float = -2.9      # south lane — odd flights climb W->E
+const STAIR_ZN: float = -1.1      # north lane — even flights climb E->W
+const STAIR_PZ0: float = -4.0     # turn-platform south edge
+const STAIR_PZ1: float = 2.0      # turn-platform north edge (reaches the annex doors at z2)
+const OPS_Y: float = WET_Y + STAIR_N * STAIR_RISE   # 38.0 — the lookout floor
+
 func _build_stair_tower() -> void:
 	var mat: Material = MatLib.concrete()
-	# The shaft rises the whole way from the wet deck to the OPERATIONS LOOKOUT that
-	# now caps the tower — deck level (y18) is just a stop on the climb, with a door
-	# out to topside; the stair keeps going up to the glass room at OPS_Y.
-	const OPS_Y: float = 26.15                    # lookout floor (top surface)
-	var shell_h: float = OPS_Y - WET_Y            # concrete shaft up to the ops floor
-	# Tower shell x 22..30, z -6..2. Entrance at south (wet deck), a deck-level door
-	# out to topside on the west, then the stair climbing on up to the lookout.
+	var deck_mat: Material = MatLib.deck_plate()
+	# --- Parametric switchback climbing the full shaft to the OPERATIONS LOOKOUT. ---
+	# THE JOIN FIX: every flight tops out flush at the EDGE of its turn platform. Each
+	# platform lives in the wall-end POCKET the flight never occupies (x<XW to the west,
+	# x>XE to the east), so a flight's last tread meets flat plate at a clean seam instead
+	# of a slab cutting through the middle of the run. One flight = one story; repeats up.
+	var shell_h: float = OPS_Y - WET_Y
+	# Shell x22..30, z-6..2, rising to the ops floor. South wet-deck door; west deck door;
+	# north wall carries door gaps to the machinery (y6) + breaker (y10) annex rooms.
 	_wall(Vector3(22, WET_Y, -6), Vector3(30, WET_Y, -6), shell_h, mat, 0.2)   # south (wet-deck door)
-	_wall(Vector3(22, WET_Y, 2), Vector3(30, WET_Y, 2), shell_h, mat)          # north
+	_north_wall_with_room_doors(mat, shell_h)                                  # north (+2 room doors)
 	_wall(Vector3(30, WET_Y, -6), Vector3(30, WET_Y, 2), shell_h, mat)         # east
-	_west_wall_with_deck_door(mat, shell_h)                                     # west (deck door cut in)
-	# Cast corner columns so the four walls meet as clean pilasters, not raw seams.
+	_west_wall_with_deck_door(mat, shell_h)                                    # west (deck door cut in)
 	_corner_posts([Vector3(22, 0, -6), Vector3(30, 0, -6), Vector3(22, 0, 2), Vector3(30, 0, 2)],
 		WET_Y, shell_h, mat, 0.5)
 
-	# Entry landing: a full-depth pad between the south doorway (z=-6) and the foot
-	# of flight 1, so you step INTO the tower and onto flat deck before any stair —
-	# the flight no longer sits in the door mouth.
-	_box(Vector3(24.5, WET_Y - 0.1, -4.8), Vector3(6.6, 0.2, 2.6), MatLib.checker_plate())
-	# Switchback stairs: real flights (checker treads on steel stringers over a smooth
-	# hidden ramp collider), landings between. ~34°, riser ≈ 0.19. Flights 1–4 reach
-	# the topside deck (y18); flights 5–6 carry on up to the lookout (y26.15).
-	# Flight 1 starts at z=-3.0 (foot edge z=-4.0) leaving a ~2m landing at the door.
-	STAIRS.flight(self, Vector3(23, WET_Y, -3.0), Vector3(29, 6.15, -3.0), 2.0)
-	STAIRS.flight(self, Vector3(29, 6.15, 0.5), Vector3(23, 10.15, 0.5), 2.0)
-	STAIRS.flight(self, Vector3(23, 10.15, -4.5), Vector3(29, 14.15, -4.5), 2.0)
-	STAIRS.flight(self, Vector3(29, 14.15, 0.5), Vector3(23, 18.15, 0.5), 2.0)
-	STAIRS.flight(self, Vector3(23, 18.15, -4.5), Vector3(29, 22.15, -4.5), 2.0)
-	STAIRS.flight(self, Vector3(29, 22.15, 0.5), Vector3(23, OPS_Y, 0.5), 2.0)
-	# Landings (top surface flush with each flight's walk-off point).
-	_box(Vector3(29, 6.0, -2), Vector3(2.4, 0.3, 7.6), MatLib.deck_plate())
-	_box(Vector3(23, 10.0, -2), Vector3(2.4, 0.3, 7.6), MatLib.deck_plate())
-	_box(Vector3(29, 14.0, -2), Vector3(2.4, 0.3, 7.6), MatLib.deck_plate())
-	_box(Vector3(23, 18.0, -2), Vector3(2.4, 0.3, 7.6), MatLib.deck_plate())
-	_box(Vector3(29, 22.0, -2), Vector3(2.4, 0.3, 7.6), MatLib.deck_plate())
+	# Entry pad from the south wet-deck door to the foot of flight 1 (at XW, z_S).
+	_box(Vector3(23.0, WET_Y - 0.1, -4.6), Vector3(3.6, 0.2, 3.4), MatLib.checker_plate())
+
+	# Flights + their turn platforms, generated straight up.
+	for k in range(1, STAIR_N + 1):
+		var y0: float = WET_Y + (k - 1) * STAIR_RISE
+		var y1: float = WET_Y + k * STAIR_RISE
+		var odd: bool = (k % 2) == 1
+		var foot_x: float = STAIR_XW if odd else STAIR_XE
+		var top_x: float = STAIR_XE if odd else STAIR_XW
+		var lane_z: float = STAIR_ZS if odd else STAIR_ZN
+		STAIRS.flight(self, Vector3(foot_x, y0, lane_z), Vector3(top_x, y1, lane_z), STAIR_WID)
+		if k == STAIR_N:
+			break   # the top flight lands in the ops-room floor, built below
+		# Turn platform in the wall-end pocket the flight tops into (never under the run).
+		var px_s: float = (30.0 - STAIR_XE) if top_x == STAIR_XE else (STAIR_XW - 22.0)
+		var px_c: float = (STAIR_XE + 30.0) * 0.5 if top_x == STAIR_XE else (22.0 + STAIR_XW) * 0.5
+		_box(Vector3(px_c, y1 - 0.15, (STAIR_PZ0 + STAIR_PZ1) * 0.5),
+			Vector3(px_s, 0.3, STAIR_PZ1 - STAIR_PZ0), deck_mat)
+		# A guard rail along the platform's open (south) edge so the drop is fenced.
+		_box(Vector3(px_c, y1 + 0.55, STAIR_PZ0 + 0.06), Vector3(px_s, 0.9, 0.06), MatLib.rust_steel(), self, false)
+
+	# Exterior structure for the tall free-standing shaft above the deck: proud concrete
+	# bands wrap the four faces at two heights so it reads as a segmented tower, not a slab.
+	for band_y in [DECK_Y + 4.0, DECK_Y + 12.0]:
+		_box(Vector3(26, band_y, -6.07), Vector3(8.7, 0.5, 0.14), mat, self, false)   # south face
+		_box(Vector3(26, band_y, 2.07), Vector3(8.7, 0.5, 0.14), mat, self, false)    # north face
+		_box(Vector3(21.93, band_y, -2), Vector3(0.14, 0.5, 8.3), mat, self, false)   # west face
+		_box(Vector3(30.07, band_y, -2), Vector3(0.14, 0.5, 8.3), mat, self, false)   # east face
 
 	# Machinery room (y=6) off landing 1 — holds the cable spool.
 	_room_north(Vector3(24, 6.0, 2), Vector3(30, 6.0, 10), MatLib.concrete(), 0.75)
@@ -395,6 +417,30 @@ func _west_wall_with_deck_door(mat: Material, shell_h: float) -> void:
 	_box(Vector3(22, DECK_Y + 1.2, 1.5), Vector3(0.32, 2.5, 0.16), steel)
 	_box(Vector3(22, DECK_Y + 2.45, 0.5), Vector3(0.32, 0.2, 2.2), steel)
 
+## North shell wall (z=2, x22..30), solid except door gaps onto the machinery room
+## (y6, door at x28.5) and the breaker room (y10, door at x23.5). Without these the
+## annexes sat behind a solid wall — the breaker puzzle room was unreachable.
+func _north_wall_with_room_doors(mat: Material, shell_h: float) -> void:
+	var comb := CSGCombiner3D.new()
+	comb.use_collision = true
+	add_child(comb)
+	var wall := CSGBox3D.new()
+	wall.size = Vector3(8.0, shell_h, WALL_T)          # spans x22..30
+	wall.material = mat
+	comb.add_child(wall)
+	wall.position = Vector3(26, WET_Y + shell_h * 0.5, 2)
+	var steel: Material = MatLib.rust_steel()
+	for spec in [[28.5, 6.0], [23.5, 10.0]]:           # [door x, room floor y]
+		var d := CSGBox3D.new()
+		d.size = Vector3(1.6, 2.4, WALL_T + 0.8)
+		d.operation = CSGShape3D.OPERATION_SUBTRACTION
+		comb.add_child(d)
+		d.position = Vector3(spec[0], spec[1] + 1.2, 2)
+		# Steel jamb frame around the opening.
+		_box(Vector3(spec[0] - 0.85, spec[1] + 1.2, 2), Vector3(0.16, 2.5, 0.32), steel)
+		_box(Vector3(spec[0] + 0.85, spec[1] + 1.2, 2), Vector3(0.16, 2.5, 0.32), steel)
+		_box(Vector3(spec[0], spec[1] + 2.45, 2), Vector3(1.8, 0.2, 0.32), steel)
+
 ## OPERATIONS LOOKOUT — the glass-walled room capping the tower, with a 360° view of
 ## the rig, the ocean and the storm. Reached only by the internal stair, which emerges
 ## through a hole in this floor. Footprint x 20..32, z -8..4 (cantilevers past the
@@ -415,7 +461,8 @@ func _build_ops_room(fy: float) -> void:
 	var wt: float = 0.18
 	var wall_h: float = par_h + glass_h + hdr_h
 
-	# --- Floor slab, with a hole where flight 6 emerges (x 23..29.5, z -1.4..2.4).
+	# --- Floor slab, with a hole over the top flight's run (x22.7..28.7, z-4.2..-1.6);
+	# the final flight emerges at its EAST end (28.5, -2.9), so you step onto solid floor.
 	var fcomb := CSGCombiner3D.new()
 	fcomb.use_collision = true
 	add_child(fcomb)
@@ -425,10 +472,13 @@ func _build_ops_room(fy: float) -> void:
 	fcomb.add_child(slab)
 	slab.position = Vector3(cx, fy - 0.15, cz)
 	var hole := CSGBox3D.new()
-	hole.size = Vector3(6.5, 1.2, 3.8)
+	hole.size = Vector3(6.0, 1.2, 2.6)
 	hole.operation = CSGShape3D.OPERATION_SUBTRACTION
 	fcomb.add_child(hole)
-	hole.position = Vector3(26.25, fy - 0.15, 0.5)
+	hole.position = Vector3(25.7, fy - 0.15, -2.9)
+	# A guard rail around the open sides of the stairwell hole (leaves the east step-off clear).
+	_box(Vector3(25.4, fy + 0.55, -1.5), Vector3(5.4, 0.9, 0.06), steel, self, false)   # north lip
+	_box(Vector3(22.8, fy + 0.55, -2.9), Vector3(0.06, 0.9, 2.8), steel, self, false)   # west lip
 
 	# --- Walls: solid parapet, huge glass band, header beam; the same on all four sides.
 	for zc in [z0, z1]:               # south & north (run along x)
@@ -461,14 +511,15 @@ func _build_ops_room(fy: float) -> void:
 	beacon.global_position = Vector3(cx, roof_y + 2.7, cz)
 	_box(Vector3(cx, roof_y + 2.7, cz), Vector3(0.24, 0.24, 0.24), MatLib.flat(Color(1.0, 0.3, 0.24), true, 2.0))
 
-	# --- Interior: a working watch station. Kept clear of the stair hole (x23..29.5).
-	# Chart table (west of the hole).
-	_box(Vector3(22.6, fy + 0.86, -4.6), Vector3(1.9, 0.08, 1.2), MatLib.wood())
-	for lx in [21.8, 23.4]:
-		for lz in [-5.1, -4.1]:
+	# --- Interior: a working watch station. Kept clear of the stair hole (x22.7..28.7,
+	# z-4.2..-1.6); you emerge at the east end and step onto solid floor.
+	# Chart table against the WEST glass.
+	_box(Vector3(21.3, fy + 0.86, -1.2), Vector3(1.1, 0.08, 2.0), MatLib.wood())
+	for lx in [20.9, 21.7]:
+		for lz in [-2.0, -0.4]:
 			_box(Vector3(lx, fy + 0.43, lz), Vector3(0.08, 0.86, 0.08), steel)
-	_readable("ops_watch_log", "Watch Log", Vector3(22.6, fy + 0.92, -4.6), Vector3(0.3, 0.04, 0.4))
-	_takeable("water_ration", "Water Ration", Vector3(23.2, fy + 0.98, -5.0), Vector3(0.16, 0.24, 0.16))
+	_readable("ops_watch_log", "Watch Log", Vector3(21.3, fy + 0.92, -1.6), Vector3(0.3, 0.04, 0.4))
+	_takeable("water_ration", "Water Ration", Vector3(21.3, fy + 0.98, -0.4), Vector3(0.16, 0.24, 0.16))
 	# Control console along the north glass (z4), angled meter panel with lit dots.
 	_box(Vector3(27.5, fy + 0.5, 3.2), Vector3(4.6, 1.0, 0.7), MatLib.dark_metal())
 	var panel := _box(Vector3(27.5, fy + 1.15, 3.35), Vector3(4.4, 0.5, 0.1), MatLib.dark_metal())
