@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1h14s1pgr5yw"
-path="res://.godot/imported/utility_box_02_nor_gl_1k.jpg-aa90db6a35ae6c274b0c6c865b949445.ctex"
+path.s3tc="res://.godot/imported/utility_box_02_nor_gl_1k.jpg-aa90db6a35ae6c274b0c6c865b949445.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/utility_box_02/textures/utility_box_02_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/utility_box_02_nor_gl_1k.jpg-aa90db6a35ae6c274b0c6c865b949445.ctex"]
+dest_files=["res://.godot/imported/utility_box_02_nor_gl_1k.jpg-aa90db6a35ae6c274b0c6c865b949445.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dbev7dgw1sbb1"
-path="res://.godot/imported/barrel_03_arm_1k.jpg-ab8ec04e40dfbfa2d87cb1f76c65561d.ctex"
+path.s3tc="res://.godot/imported/barrel_03_arm_1k.jpg-ab8ec04e40dfbfa2d87cb1f76c65561d.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/barrel_03/textures/barrel_03_arm_1k.jpg"
-dest_files=["res://.godot/imported/barrel_03_arm_1k.jpg-ab8ec04e40dfbfa2d87cb1f76c65561d.ctex"]
+dest_files=["res://.godot/imported/barrel_03_arm_1k.jpg-ab8ec04e40dfbfa2d87cb1f76c65561d.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

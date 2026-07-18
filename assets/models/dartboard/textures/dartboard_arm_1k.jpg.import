@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://287w1br3mbu4"
-path="res://.godot/imported/dartboard_arm_1k.jpg-b90f73f8d991cc974a47699151926528.ctex"
+path.s3tc="res://.godot/imported/dartboard_arm_1k.jpg-b90f73f8d991cc974a47699151926528.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/dartboard/textures/dartboard_arm_1k.jpg"
-dest_files=["res://.godot/imported/dartboard_arm_1k.jpg-b90f73f8d991cc974a47699151926528.ctex"]
+dest_files=["res://.godot/imported/dartboard_arm_1k.jpg-b90f73f8d991cc974a47699151926528.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

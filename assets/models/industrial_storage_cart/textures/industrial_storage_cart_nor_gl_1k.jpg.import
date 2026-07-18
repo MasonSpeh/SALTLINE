@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bsdsleos518b5"
-path="res://.godot/imported/industrial_storage_cart_nor_gl_1k.jpg-90a23334647fad8f0cad57ccf544b2cb.ctex"
+path.s3tc="res://.godot/imported/industrial_storage_cart_nor_gl_1k.jpg-90a23334647fad8f0cad57ccf544b2cb.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/industrial_storage_cart/textures/industrial_storage_cart_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/industrial_storage_cart_nor_gl_1k.jpg-90a23334647fad8f0cad57ccf544b2cb.ctex"]
+dest_files=["res://.godot/imported/industrial_storage_cart_nor_gl_1k.jpg-90a23334647fad8f0cad57ccf544b2cb.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

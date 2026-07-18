@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1a76qc1x13hh"
-path="res://.godot/imported/fancy_picture_frame_02_diff_1k.jpg-1cab36cc86f07f45ff31da2e8c016c4d.ctex"
+path.s3tc="res://.godot/imported/fancy_picture_frame_02_diff_1k.jpg-1cab36cc86f07f45ff31da2e8c016c4d.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/fancy_picture_frame_02/textures/fancy_picture_frame_02_diff_1k.jpg"
-dest_files=["res://.godot/imported/fancy_picture_frame_02_diff_1k.jpg-1cab36cc86f07f45ff31da2e8c016c4d.ctex"]
+dest_files=["res://.godot/imported/fancy_picture_frame_02_diff_1k.jpg-1cab36cc86f07f45ff31da2e8c016c4d.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

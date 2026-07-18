@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmm2hcn48m4he"
-path="res://.godot/imported/old_tyre_arm_1k.jpg-5d5a4e25fea06ab03b8a62ebf347c5fa.ctex"
+path.s3tc="res://.godot/imported/old_tyre_arm_1k.jpg-5d5a4e25fea06ab03b8a62ebf347c5fa.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/old_tyre/textures/old_tyre_arm_1k.jpg"
-dest_files=["res://.godot/imported/old_tyre_arm_1k.jpg-5d5a4e25fea06ab03b8a62ebf347c5fa.ctex"]
+dest_files=["res://.godot/imported/old_tyre_arm_1k.jpg-5d5a4e25fea06ab03b8a62ebf347c5fa.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

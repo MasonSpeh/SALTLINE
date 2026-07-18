@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dk6wxbnut7ggh"
-path="res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.ctex"
+path.s3tc="res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bench_vice_01/textures/bench_vice_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.ctex"]
+dest_files=["res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

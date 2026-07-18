@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dooqmgahqbcpn"
-path="res://.godot/imported/boombox_speakers_diff_1k.jpg-476cd7f9f727edb2d1d6a8f32eb420a2.ctex"
+path.s3tc="res://.godot/imported/boombox_speakers_diff_1k.jpg-476cd7f9f727edb2d1d6a8f32eb420a2.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/boombox/textures/boombox_speakers_diff_1k.jpg"
-dest_files=["res://.godot/imported/boombox_speakers_diff_1k.jpg-476cd7f9f727edb2d1d6a8f32eb420a2.ctex"]
+dest_files=["res://.godot/imported/boombox_speakers_diff_1k.jpg-476cd7f9f727edb2d1d6a8f32eb420a2.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

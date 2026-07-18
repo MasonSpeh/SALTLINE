@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b1c8de73l3chr"
-path="res://.godot/imported/Lantern_01_brass_arm_1k.jpg-c54037ddc106bf81763ef14ce06528c1.ctex"
+path.s3tc="res://.godot/imported/Lantern_01_brass_arm_1k.jpg-c54037ddc106bf81763ef14ce06528c1.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Lantern_01/textures/Lantern_01_brass_arm_1k.jpg"
-dest_files=["res://.godot/imported/Lantern_01_brass_arm_1k.jpg-c54037ddc106bf81763ef14ce06528c1.ctex"]
+dest_files=["res://.godot/imported/Lantern_01_brass_arm_1k.jpg-c54037ddc106bf81763ef14ce06528c1.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ceu5jwmfn64lc"
-path="res://.godot/imported/modular_pipes_pvc_nor_gl_1k.jpg-6f50c859bd75a61c52143d8dd8fbd16c.ctex"
+path.s3tc="res://.godot/imported/modular_pipes_pvc_nor_gl_1k.jpg-6f50c859bd75a61c52143d8dd8fbd16c.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/modular_pipes/textures/modular_pipes_pvc_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/modular_pipes_pvc_nor_gl_1k.jpg-6f50c859bd75a61c52143d8dd8fbd16c.ctex"]
+dest_files=["res://.godot/imported/modular_pipes_pvc_nor_gl_1k.jpg-6f50c859bd75a61c52143d8dd8fbd16c.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

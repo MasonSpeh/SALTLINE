@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8a7k01nfphy8"
-path="res://.godot/imported/life_jacket_nor_gl_1k.jpg-0e7a6a58ca0718162ebbd2ea56c71324.ctex"
+path.s3tc="res://.godot/imported/life_jacket_nor_gl_1k.jpg-0e7a6a58ca0718162ebbd2ea56c71324.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/life_jacket/textures/life_jacket_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/life_jacket_nor_gl_1k.jpg-0e7a6a58ca0718162ebbd2ea56c71324.ctex"]
+dest_files=["res://.godot/imported/life_jacket_nor_gl_1k.jpg-0e7a6a58ca0718162ebbd2ea56c71324.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

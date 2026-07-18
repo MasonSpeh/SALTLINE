@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cncuwcdnhxe0q"
-path="res://.godot/imported/cleaner_tin_01_diff_1k.jpg-777524a909c57526d52b1d2299128cdb.ctex"
+path.s3tc="res://.godot/imported/cleaner_tin_01_diff_1k.jpg-777524a909c57526d52b1d2299128cdb.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cleaner_tin_01/textures/cleaner_tin_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/cleaner_tin_01_diff_1k.jpg-777524a909c57526d52b1d2299128cdb.ctex"]
+dest_files=["res://.godot/imported/cleaner_tin_01_diff_1k.jpg-777524a909c57526d52b1d2299128cdb.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

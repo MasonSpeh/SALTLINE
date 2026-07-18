@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://0a3riuscn2ei"
-path="res://.godot/imported/metal_tool_chest_nor_gl_1k.jpg-943c116a903f81a58eb998f293d4a0b3.ctex"
+path.s3tc="res://.godot/imported/metal_tool_chest_nor_gl_1k.jpg-943c116a903f81a58eb998f293d4a0b3.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_tool_chest/textures/metal_tool_chest_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/metal_tool_chest_nor_gl_1k.jpg-943c116a903f81a58eb998f293d4a0b3.ctex"]
+dest_files=["res://.godot/imported/metal_tool_chest_nor_gl_1k.jpg-943c116a903f81a58eb998f293d4a0b3.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

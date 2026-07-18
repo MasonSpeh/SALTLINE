@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://8j3iue67fwba"
-path="res://.godot/imported/WetFloorSign_01_nor_gl_1k.jpg-39ef14487e0fd9dc5decd94e678ac0df.ctex"
+path.s3tc="res://.godot/imported/WetFloorSign_01_nor_gl_1k.jpg-39ef14487e0fd9dc5decd94e678ac0df.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/WetFloorSign_01/textures/WetFloorSign_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/WetFloorSign_01_nor_gl_1k.jpg-39ef14487e0fd9dc5decd94e678ac0df.ctex"]
+dest_files=["res://.godot/imported/WetFloorSign_01_nor_gl_1k.jpg-39ef14487e0fd9dc5decd94e678ac0df.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

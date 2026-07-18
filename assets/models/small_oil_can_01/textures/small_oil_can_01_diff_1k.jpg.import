@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bantcu3uiaf81"
-path="res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.ctex"
+path.s3tc="res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/small_oil_can_01/textures/small_oil_can_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.ctex"]
+dest_files=["res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

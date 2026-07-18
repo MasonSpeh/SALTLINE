@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cplirxo8jcn0d"
-path="res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.ctex"
+path.s3tc="res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/small_lpg_tank/textures/small_lpg_tank_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.ctex"]
+dest_files=["res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

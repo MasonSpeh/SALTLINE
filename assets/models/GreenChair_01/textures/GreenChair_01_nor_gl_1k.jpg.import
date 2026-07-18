@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ilialaehlnen"
-path="res://.godot/imported/GreenChair_01_nor_gl_1k.jpg-7f3f96662f5ce91f24f1652fb2748dde.ctex"
+path.s3tc="res://.godot/imported/GreenChair_01_nor_gl_1k.jpg-7f3f96662f5ce91f24f1652fb2748dde.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/GreenChair_01/textures/GreenChair_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/GreenChair_01_nor_gl_1k.jpg-7f3f96662f5ce91f24f1652fb2748dde.ctex"]
+dest_files=["res://.godot/imported/GreenChair_01_nor_gl_1k.jpg-7f3f96662f5ce91f24f1652fb2748dde.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

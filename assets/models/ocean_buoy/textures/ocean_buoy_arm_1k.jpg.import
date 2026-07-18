@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ik0qw8tf3c66"
-path="res://.godot/imported/ocean_buoy_arm_1k.jpg-67c98879f5ca13056c4b9804f1b456d5.ctex"
+path.s3tc="res://.godot/imported/ocean_buoy_arm_1k.jpg-67c98879f5ca13056c4b9804f1b456d5.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ocean_buoy/textures/ocean_buoy_arm_1k.jpg"
-dest_files=["res://.godot/imported/ocean_buoy_arm_1k.jpg-67c98879f5ca13056c4b9804f1b456d5.ctex"]
+dest_files=["res://.godot/imported/ocean_buoy_arm_1k.jpg-67c98879f5ca13056c4b9804f1b456d5.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

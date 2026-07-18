@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://baroervn3l7tp"
-path="res://.godot/imported/binder_notebook_nor_gl_1k.jpg-74ca3cbfb1fc568034c3cd3f0b5343bc.ctex"
+path.s3tc="res://.godot/imported/binder_notebook_nor_gl_1k.jpg-74ca3cbfb1fc568034c3cd3f0b5343bc.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/binder_notebook/textures/binder_notebook_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/binder_notebook_nor_gl_1k.jpg-74ca3cbfb1fc568034c3cd3f0b5343bc.ctex"]
+dest_files=["res://.godot/imported/binder_notebook_nor_gl_1k.jpg-74ca3cbfb1fc568034c3cd3f0b5343bc.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

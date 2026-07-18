@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cipinvgibeuoc"
-path="res://.godot/imported/bench_vice_01_arm_1k.jpg-79545935a800a270d9a5dc2a395ff7e1.ctex"
+path.s3tc="res://.godot/imported/bench_vice_01_arm_1k.jpg-79545935a800a270d9a5dc2a395ff7e1.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bench_vice_01/textures/bench_vice_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/bench_vice_01_arm_1k.jpg-79545935a800a270d9a5dc2a395ff7e1.ctex"]
+dest_files=["res://.godot/imported/bench_vice_01_arm_1k.jpg-79545935a800a270d9a5dc2a395ff7e1.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

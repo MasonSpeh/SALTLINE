@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://8ld3blghkio5"
-path="res://.godot/imported/small_oil_can_01_arm_1k.jpg-d5b7e6133771d10062cb30c297c1366b.ctex"
+path.s3tc="res://.godot/imported/small_oil_can_01_arm_1k.jpg-d5b7e6133771d10062cb30c297c1366b.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/small_oil_can_01/textures/small_oil_can_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/small_oil_can_01_arm_1k.jpg-d5b7e6133771d10062cb30c297c1366b.ctex"]
+dest_files=["res://.godot/imported/small_oil_can_01_arm_1k.jpg-d5b7e6133771d10062cb30c297c1366b.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

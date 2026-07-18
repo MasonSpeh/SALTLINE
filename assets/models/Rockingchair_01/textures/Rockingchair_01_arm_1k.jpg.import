@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c7b7fl7smw0of"
-path="res://.godot/imported/Rockingchair_01_arm_1k.jpg-b2dd1986ab4c18aeac18d28a514b27cd.ctex"
+path.s3tc="res://.godot/imported/Rockingchair_01_arm_1k.jpg-b2dd1986ab4c18aeac18d28a514b27cd.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Rockingchair_01/textures/Rockingchair_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/Rockingchair_01_arm_1k.jpg-b2dd1986ab4c18aeac18d28a514b27cd.ctex"]
+dest_files=["res://.godot/imported/Rockingchair_01_arm_1k.jpg-b2dd1986ab4c18aeac18d28a514b27cd.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

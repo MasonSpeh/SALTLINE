@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cih3pgrw6j5oh"
-path="res://.godot/imported/cassette_player_body_nor_gl_1k.jpg-c1dcb0978f5cd1e80c72e0a3355f3ac1.ctex"
+path.s3tc="res://.godot/imported/cassette_player_body_nor_gl_1k.jpg-c1dcb0978f5cd1e80c72e0a3355f3ac1.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cassette_player/textures/cassette_player_body_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/cassette_player_body_nor_gl_1k.jpg-c1dcb0978f5cd1e80c72e0a3355f3ac1.ctex"]
+dest_files=["res://.godot/imported/cassette_player_body_nor_gl_1k.jpg-c1dcb0978f5cd1e80c72e0a3355f3ac1.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

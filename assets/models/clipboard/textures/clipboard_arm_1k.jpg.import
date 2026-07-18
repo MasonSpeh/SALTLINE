@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cwomi8r36k0dv"
-path="res://.godot/imported/clipboard_arm_1k.jpg-7e95b84d5021a4fa971cd3d0779ed59e.ctex"
+path.s3tc="res://.godot/imported/clipboard_arm_1k.jpg-7e95b84d5021a4fa971cd3d0779ed59e.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/clipboard/textures/clipboard_arm_1k.jpg"
-dest_files=["res://.godot/imported/clipboard_arm_1k.jpg-7e95b84d5021a4fa971cd3d0779ed59e.ctex"]
+dest_files=["res://.godot/imported/clipboard_arm_1k.jpg-7e95b84d5021a4fa971cd3d0779ed59e.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

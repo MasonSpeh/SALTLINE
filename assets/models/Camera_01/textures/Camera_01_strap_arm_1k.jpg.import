@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b87k34cxqlmv4"
-path="res://.godot/imported/Camera_01_strap_arm_1k.jpg-72e4ce3dc61cf3fc9a89d52dad1a9fba.ctex"
+path.s3tc="res://.godot/imported/Camera_01_strap_arm_1k.jpg-72e4ce3dc61cf3fc9a89d52dad1a9fba.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Camera_01/textures/Camera_01_strap_arm_1k.jpg"
-dest_files=["res://.godot/imported/Camera_01_strap_arm_1k.jpg-72e4ce3dc61cf3fc9a89d52dad1a9fba.ctex"]
+dest_files=["res://.godot/imported/Camera_01_strap_arm_1k.jpg-72e4ce3dc61cf3fc9a89d52dad1a9fba.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

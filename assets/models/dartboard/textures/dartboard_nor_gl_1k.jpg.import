@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://7gy5j6yu7q3e"
-path="res://.godot/imported/dartboard_nor_gl_1k.jpg-b58b6684890a31fd4c38acfb68ab7716.ctex"
+path.s3tc="res://.godot/imported/dartboard_nor_gl_1k.jpg-b58b6684890a31fd4c38acfb68ab7716.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/dartboard/textures/dartboard_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/dartboard_nor_gl_1k.jpg-b58b6684890a31fd4c38acfb68ab7716.ctex"]
+dest_files=["res://.godot/imported/dartboard_nor_gl_1k.jpg-b58b6684890a31fd4c38acfb68ab7716.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

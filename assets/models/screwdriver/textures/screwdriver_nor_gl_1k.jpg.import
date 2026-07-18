@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://8ift6x7vaucl"
-path="res://.godot/imported/screwdriver_nor_gl_1k.jpg-b25552635e0530ce0b300512df2be669.ctex"
+path.s3tc="res://.godot/imported/screwdriver_nor_gl_1k.jpg-b25552635e0530ce0b300512df2be669.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/screwdriver/textures/screwdriver_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/screwdriver_nor_gl_1k.jpg-b25552635e0530ce0b300512df2be669.ctex"]
+dest_files=["res://.godot/imported/screwdriver_nor_gl_1k.jpg-b25552635e0530ce0b300512df2be669.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

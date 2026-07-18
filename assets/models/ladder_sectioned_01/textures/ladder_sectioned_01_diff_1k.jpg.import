@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dcusynkkil7nn"
-path="res://.godot/imported/ladder_sectioned_01_diff_1k.jpg-b27cdbd1f7918ed9a5e8bd7ef1801107.ctex"
+path.s3tc="res://.godot/imported/ladder_sectioned_01_diff_1k.jpg-b27cdbd1f7918ed9a5e8bd7ef1801107.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ladder_sectioned_01/textures/ladder_sectioned_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/ladder_sectioned_01_diff_1k.jpg-b27cdbd1f7918ed9a5e8bd7ef1801107.ctex"]
+dest_files=["res://.godot/imported/ladder_sectioned_01_diff_1k.jpg-b27cdbd1f7918ed9a5e8bd7ef1801107.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://df4yuj2wgywe5"
-path="res://.godot/imported/classic_laptop_nor_gl_1k.jpg-aeb657528b67b414da69acedc264a974.ctex"
+path.s3tc="res://.godot/imported/classic_laptop_nor_gl_1k.jpg-aeb657528b67b414da69acedc264a974.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/classic_laptop/textures/classic_laptop_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/classic_laptop_nor_gl_1k.jpg-aeb657528b67b414da69acedc264a974.ctex"]
+dest_files=["res://.godot/imported/classic_laptop_nor_gl_1k.jpg-aeb657528b67b414da69acedc264a974.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

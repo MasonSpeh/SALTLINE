@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bt60v126ip4kc"
-path="res://.godot/imported/folding_wooden_stool_diff_1k.jpg-9243cccaa0892ea58acb062f28ed801b.ctex"
+path.s3tc="res://.godot/imported/folding_wooden_stool_diff_1k.jpg-9243cccaa0892ea58acb062f28ed801b.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/folding_wooden_stool/textures/folding_wooden_stool_diff_1k.jpg"
-dest_files=["res://.godot/imported/folding_wooden_stool_diff_1k.jpg-9243cccaa0892ea58acb062f28ed801b.ctex"]
+dest_files=["res://.godot/imported/folding_wooden_stool_diff_1k.jpg-9243cccaa0892ea58acb062f28ed801b.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

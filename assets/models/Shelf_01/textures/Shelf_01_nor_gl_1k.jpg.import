@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://g3ywmfp23lrs"
-path="res://.godot/imported/Shelf_01_nor_gl_1k.jpg-201f16b5cce02b3b3afa9fea208c83e8.ctex"
+path.s3tc="res://.godot/imported/Shelf_01_nor_gl_1k.jpg-201f16b5cce02b3b3afa9fea208c83e8.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Shelf_01/textures/Shelf_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/Shelf_01_nor_gl_1k.jpg-201f16b5cce02b3b3afa9fea208c83e8.ctex"]
+dest_files=["res://.godot/imported/Shelf_01_nor_gl_1k.jpg-201f16b5cce02b3b3afa9fea208c83e8.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

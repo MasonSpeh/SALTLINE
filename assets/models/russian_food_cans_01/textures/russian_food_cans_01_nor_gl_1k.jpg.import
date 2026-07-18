@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bnn44c1til8ab"
-path="res://.godot/imported/russian_food_cans_01_nor_gl_1k.jpg-cb921ea1ec877d61a1c925d2a5ff2efc.ctex"
+path.s3tc="res://.godot/imported/russian_food_cans_01_nor_gl_1k.jpg-cb921ea1ec877d61a1c925d2a5ff2efc.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/russian_food_cans_01/textures/russian_food_cans_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/russian_food_cans_01_nor_gl_1k.jpg-cb921ea1ec877d61a1c925d2a5ff2efc.ctex"]
+dest_files=["res://.godot/imported/russian_food_cans_01_nor_gl_1k.jpg-cb921ea1ec877d61a1c925d2a5ff2efc.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

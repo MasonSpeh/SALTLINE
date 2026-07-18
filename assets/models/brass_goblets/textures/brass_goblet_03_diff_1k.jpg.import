@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bua1qsxpl0hd7"
-path="res://.godot/imported/brass_goblet_03_diff_1k.jpg-67b8b8afd6e35b64b681d9e9bbcd826d.ctex"
+path.s3tc="res://.godot/imported/brass_goblet_03_diff_1k.jpg-67b8b8afd6e35b64b681d9e9bbcd826d.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/brass_goblets/textures/brass_goblet_03_diff_1k.jpg"
-dest_files=["res://.godot/imported/brass_goblet_03_diff_1k.jpg-67b8b8afd6e35b64b681d9e9bbcd826d.ctex"]
+dest_files=["res://.godot/imported/brass_goblet_03_diff_1k.jpg-67b8b8afd6e35b64b681d9e9bbcd826d.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

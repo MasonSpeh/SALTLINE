@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dc4ygskeeueka"
-path="res://.godot/imported/ceramic_vase_03_rough_1k.jpg-f6f5cef5a3695f63d8ec665581a63615.ctex"
+path.s3tc="res://.godot/imported/ceramic_vase_03_rough_1k.jpg-f6f5cef5a3695f63d8ec665581a63615.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ceramic_vase_03/textures/ceramic_vase_03_rough_1k.jpg"
-dest_files=["res://.godot/imported/ceramic_vase_03_rough_1k.jpg-f6f5cef5a3695f63d8ec665581a63615.ctex"]
+dest_files=["res://.godot/imported/ceramic_vase_03_rough_1k.jpg-f6f5cef5a3695f63d8ec665581a63615.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://5253hb3e40fv"
-path="res://.godot/imported/propane_tank_arm_1k.jpg-b1093b8d6b6a6f8edbb410c49885259c.ctex"
+path.s3tc="res://.godot/imported/propane_tank_arm_1k.jpg-b1093b8d6b6a6f8edbb410c49885259c.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/propane_tank/textures/propane_tank_arm_1k.jpg"
-dest_files=["res://.godot/imported/propane_tank_arm_1k.jpg-b1093b8d6b6a6f8edbb410c49885259c.ctex"]
+dest_files=["res://.godot/imported/propane_tank_arm_1k.jpg-b1093b8d6b6a6f8edbb410c49885259c.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

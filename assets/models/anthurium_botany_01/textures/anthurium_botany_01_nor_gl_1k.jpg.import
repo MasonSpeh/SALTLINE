@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bspfuf1hrkd87"
-path="res://.godot/imported/anthurium_botany_01_nor_gl_1k.jpg-23ec0fc77f85abe2fe3deea64a7402be.ctex"
+path.s3tc="res://.godot/imported/anthurium_botany_01_nor_gl_1k.jpg-23ec0fc77f85abe2fe3deea64a7402be.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/anthurium_botany_01/textures/anthurium_botany_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/anthurium_botany_01_nor_gl_1k.jpg-23ec0fc77f85abe2fe3deea64a7402be.ctex"]
+dest_files=["res://.godot/imported/anthurium_botany_01_nor_gl_1k.jpg-23ec0fc77f85abe2fe3deea64a7402be.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

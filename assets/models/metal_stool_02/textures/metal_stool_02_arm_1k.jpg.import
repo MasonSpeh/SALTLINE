@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bcp3o35vyayod"
-path="res://.godot/imported/metal_stool_02_arm_1k.jpg-6b5734d68d74f5d6c163e5635888b506.ctex"
+path.s3tc="res://.godot/imported/metal_stool_02_arm_1k.jpg-6b5734d68d74f5d6c163e5635888b506.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_stool_02/textures/metal_stool_02_arm_1k.jpg"
-dest_files=["res://.godot/imported/metal_stool_02_arm_1k.jpg-6b5734d68d74f5d6c163e5635888b506.ctex"]
+dest_files=["res://.godot/imported/metal_stool_02_arm_1k.jpg-6b5734d68d74f5d6c163e5635888b506.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

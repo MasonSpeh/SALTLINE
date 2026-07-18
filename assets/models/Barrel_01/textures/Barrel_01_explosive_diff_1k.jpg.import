@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://gbby2735e234"
-path="res://.godot/imported/Barrel_01_explosive_diff_1k.jpg-5c22c2afc05ff8ffae8a6e72a3b64e0c.ctex"
+path.s3tc="res://.godot/imported/Barrel_01_explosive_diff_1k.jpg-5c22c2afc05ff8ffae8a6e72a3b64e0c.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Barrel_01/textures/Barrel_01_explosive_diff_1k.jpg"
-dest_files=["res://.godot/imported/Barrel_01_explosive_diff_1k.jpg-5c22c2afc05ff8ffae8a6e72a3b64e0c.ctex"]
+dest_files=["res://.godot/imported/Barrel_01_explosive_diff_1k.jpg-5c22c2afc05ff8ffae8a6e72a3b64e0c.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

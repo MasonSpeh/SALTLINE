@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dnxgqgr0qaydn"
-path="res://.godot/imported/GreenChair_01_diff_1k.jpg-46326d1bd24a063e5b3f469e0204ff3f.ctex"
+path.s3tc="res://.godot/imported/GreenChair_01_diff_1k.jpg-46326d1bd24a063e5b3f469e0204ff3f.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/GreenChair_01/textures/GreenChair_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/GreenChair_01_diff_1k.jpg-46326d1bd24a063e5b3f469e0204ff3f.ctex"]
+dest_files=["res://.godot/imported/GreenChair_01_diff_1k.jpg-46326d1bd24a063e5b3f469e0204ff3f.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

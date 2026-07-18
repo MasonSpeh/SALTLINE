@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dt8u0kvjnnmre"
-path="res://.godot/imported/metal_jerrycan_green_nor_gl_1k.jpg-9c08c1ff4302624d3457a6387557172b.ctex"
+path.s3tc="res://.godot/imported/metal_jerrycan_green_nor_gl_1k.jpg-9c08c1ff4302624d3457a6387557172b.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_jerrycan_green/textures/metal_jerrycan_green_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/metal_jerrycan_green_nor_gl_1k.jpg-9c08c1ff4302624d3457a6387557172b.ctex"]
+dest_files=["res://.godot/imported/metal_jerrycan_green_nor_gl_1k.jpg-9c08c1ff4302624d3457a6387557172b.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

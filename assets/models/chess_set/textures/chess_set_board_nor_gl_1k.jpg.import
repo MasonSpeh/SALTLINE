@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bb42q40sju16l"
-path="res://.godot/imported/chess_set_board_nor_gl_1k.jpg-612d73813ea7f7991d92844454e028ef.ctex"
+path.s3tc="res://.godot/imported/chess_set_board_nor_gl_1k.jpg-612d73813ea7f7991d92844454e028ef.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/chess_set/textures/chess_set_board_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/chess_set_board_nor_gl_1k.jpg-612d73813ea7f7991d92844454e028ef.ctex"]
+dest_files=["res://.godot/imported/chess_set_board_nor_gl_1k.jpg-612d73813ea7f7991d92844454e028ef.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

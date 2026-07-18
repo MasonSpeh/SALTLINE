@@ -3,19 +3,20 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://2rk07ov01qhj"
-path="res://.godot/imported/chinese_cabinet_diff_1k.jpg-f1b24706adccc0506b785f0a621a2936.ctex"
+path.s3tc="res://.godot/imported/chinese_cabinet_diff_1k.jpg-f1b24706adccc0506b785f0a621a2936.s3tc.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/chinese_cabinet/textures/chinese_cabinet_diff_1k.jpg"
-dest_files=["res://.godot/imported/chinese_cabinet_diff_1k.jpg-f1b24706adccc0506b785f0a621a2936.ctex"]
+dest_files=["res://.godot/imported/chinese_cabinet_diff_1k.jpg-f1b24706adccc0506b785f0a621a2936.s3tc.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
