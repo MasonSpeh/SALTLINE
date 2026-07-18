@@ -16,6 +16,11 @@ const CHARGE_SPEED: float = 8.5
 const COOLDOWN_SEC_MIN: float = 12.0
 const COOLDOWN_SEC_MAX: float = 22.0
 
+const ANIM := preload("res://scripts/world/creature_anim.gd")
+const MODEL_PATH := "res://assets/models/fauna/ultra_hammerhead/ultra_hammerhead.glb"
+const GLOW := Color(0.30, 0.85, 0.95)
+var _mats: Array = []
+
 var _idx: int = 0
 var _t: float = 0.0
 var _state: SState = SState.PATROL
@@ -132,6 +137,12 @@ func _ready() -> void:
 	lower.position = Vector3(0, -0.3, 0.3)
 	lower.rotation.x = deg_to_rad(155)
 	_tail.add_child(lower)
+	# Swap in the generated hammerhead if it's been produced; the body wave comes from
+	# CreatureAnim's vertex shader (Meshy can't rig animals), driven below by swim effort.
+	var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 5.0, ANIM.Mode.UNDULATE,
+		0.09, 1.1, GLOW)
+	if not gen.is_empty():
+		_mats = gen["mats"]
 	global_position = _center + Vector3(_radius, _depth, 0)
 
 func _player() -> Node3D:
@@ -145,6 +156,8 @@ func _process(delta: float) -> void:
 		var effort: float = 2.2 if _state == SState.CHARGE else 1.0
 		_tail.rotation.y = sin(_t * 3.2 * effort) * 0.35
 		rotation.y += sin(_t * 3.2 * effort + PI * 0.5) * 0.006 * effort
+		# Generated mesh: body wave + cephalofoil ridge glow track the same effort.
+		ANIM.drive(_mats, 0.9 * effort, 0.5 if _state == SState.CHARGE else 0.22)
 	var player: Node3D = _player()
 	var swimmer: bool = player != null and player.get("swimming") and player.swimming
 	match _state:

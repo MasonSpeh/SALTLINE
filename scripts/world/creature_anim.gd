@@ -95,6 +95,26 @@ static func attach(host: Node3D, path: String, target_m: float, mode: int,
 	host.add_child(model)
 	return {"model": model, "mats": apply(model, mode, amp, rate, glow, phase)}
 
+## Attach the generated mesh and hide the procedural geometry it supersedes.
+##
+## The species build their primitive bodies inline (in _ready() or _build_body()) and
+## keep node handles into them — `_tail`, `_wings`, `_legs` — that their _process code
+## still poses. Rather than refactor every one of those classes, we let them build as
+## before, then swap what's VISIBLE. The hidden nodes cost nothing to draw and the
+## existing animation code keeps working untouched; if the generated asset is missing
+## this returns {} and the procedural body simply stays visible.
+## Call it as the LAST line of the species' body build.
+static func replace(host: Node3D, path: String, target_m: float, mode: int,
+		amp: float = 0.06, rate: float = 2.0, glow: Color = Color(0.25, 0.95, 0.88),
+		phase: float = 0.0) -> Dictionary:
+	var superseded: Array = _mesh_instances(host)
+	var gen := attach(host, path, target_m, mode, amp, rate, glow, phase)
+	if gen.is_empty():
+		return {}
+	for mi in superseded:
+		(mi as MeshInstance3D).visible = false
+	return gen
+
 static func _mesh_instances(n: Node) -> Array:
 	var out: Array = []
 	if n is MeshInstance3D:

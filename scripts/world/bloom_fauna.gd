@@ -200,6 +200,10 @@ class Gull extends Node3D:
 
 # ---------------------------------------------------------- JellyDrifter
 class JellyDrifter extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/jelly_drifter/jelly_drifter.glb"
+	const GLOW := Color(0.30, 0.90, 0.90)
+	var _gen_mats: Array = []
 	var _idx: int
 	var _t: float
 	var _mat: StandardMaterial3D
@@ -242,6 +246,12 @@ class JellyDrifter extends Node3D:
 				chain.append(seg)
 				holder = seg
 			_tentacles.append(chain)
+		# Generated mesh: the bell pulses — the way it actually swims.
+		# (Meshy auto-rigs humanoids only, so the motion is CreatureAnim's vertex shader.)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 1.1, ANIM.Mode.PULSE, 0.08, 0.6, GLOW)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 0.6, 0.8)   # steady — no per-frame cost
 
 	func _process(delta: float) -> void:
 		_presence = move_toward(_presence, 1.0 if BloomFauna.is_dark_phase() else 0.0, delta * 0.1)
@@ -335,6 +345,10 @@ class BarnacleCluster extends Node3D:
 
 # ------------------------------------------------------------- LampEel
 class LampEel extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/lamp_eel/lamp_eel.glb"
+	const GLOW := Color(0.25, 0.95, 0.88)
+	var _gen_mats: Array = []
 	const SEGMENTS: int = 9
 	const SPACING: float = 0.5
 	var _t: float = 0.0
@@ -405,6 +419,12 @@ class LampEel extends Node3D:
 		bulb.mesh = bm
 		bulb.position = Vector3(0, 0.42, -0.42)
 		head.add_child(bulb)
+		# Generated mesh: the whole ribbon body waves; the lantern chain is its own light.
+		# (Meshy auto-rigs humanoids only, so the motion is CreatureAnim's vertex shader.)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 4.5, ANIM.Mode.UNDULATE, 0.14, 1.6, GLOW)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 1.6, 0.9)   # steady — no per-frame cost
 
 	func _process(delta: float) -> void:
 		_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.15)
@@ -487,6 +507,10 @@ class FiddlerShoal extends Node3D:
 
 # ------------------------------------------------------------ MantleRay
 class MantleRay extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/mantle_ray/mantle_ray.glb"
+	const GLOW := Color(0.25, 0.95, 0.88)
+	var _gen_mats: Array = []
 	var _t: float = 0.0
 	var _flying: bool = false
 	var _from: Vector3
@@ -534,6 +558,12 @@ class MantleRay extends Node3D:
 		for i in range(14):
 			kit.glow_spot(self, Vector3(rng.randf_range(-3.2, 3.2), -0.28, rng.randf_range(-2.6, 2.6)),
 				0.09, BloomFauna.TEAL, 2.2)
+		# Generated mesh: the wings beat; edge patterns burn through the dark.
+		# (Meshy auto-rigs humanoids only, so the motion is CreatureAnim's vertex shader.)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 6.0, ANIM.Mode.WING, 0.14, 0.45, GLOW)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 0.45, 0.5)   # steady — no per-frame cost
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -782,6 +812,10 @@ class GlowWormColony extends Node3D:
 
 # ------------------------------------------------- Epic 4-Eyed Whale
 class Epic4EyedWhale extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/epic_four_eyed_whale/epic_four_eyed_whale.glb"
+	const GLOW := Color(0.30, 0.80, 0.95)
+	var _gen_mats: Array = []
 	var _t: float = 0.0
 	var _presence: float = 0.0
 	var _flying: bool = false
@@ -851,11 +885,19 @@ class Epic4EyedWhale extends Node3D:
 			_spine[0].add_child(eye)
 			eye.position = pos
 			_blink.append(rng.randf_range(0.0, 20.0))
+		# The generated four-eyed whale, if it exists: a slow body wave from the vertex
+		# shader (Meshy can't rig animals) and a glow that rises with its night presence.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 14.0, ANIM.Mode.UNDULATE,
+			0.22, 0.28, GLOW)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
 
 	func _process(delta: float) -> void:
 		_t += delta
 		_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.08)
 		visible = _presence > 0.02
+		# Generated mesh: the vein-glow swells as it fades in out of the dark.
+		ANIM.drive(_gen_mats, 0.28, _presence * 1.5)
 
 		# Eyes blink one at a time, on long uneven clocks — never all four dark.
 		for i in range(_eye_mats.size()):
@@ -904,6 +946,10 @@ class Epic4EyedWhale extends Node3D:
 
 # ------------------------------------------------- Harbor Seal (Bloom)
 class HarborSeal extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/harbor_seal/harbor_seal.glb"
+	const GLOW := Color(0.35, 0.90, 0.85)
+	var _gen_mats: Array = []
 	## A befriended-able fishing partner (Codex §29). Cruises the water south of
 	## the rig, porpoising up to breathe, and by day hauls out to bask on the wet
 	## deck edge. Curious, never afraid — it turns to watch a nearby player.
@@ -992,6 +1038,12 @@ class HarborSeal extends Node3D:
 		tail.mesh = tm
 		tail.position = Vector3(0, 0, 1.05)
 		add_child(tail)
+		# Generated mesh: a lazy body roll as it cruises and hauls out.
+		# (Meshy auto-rigs humanoids only, so the motion is CreatureAnim's vertex shader.)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 1.8, ANIM.Mode.UNDULATE, 0.05, 1.0, GLOW)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 1.0, 0.22)   # steady — no per-frame cost
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -1148,6 +1200,10 @@ class LampSnail extends Node3D:
 
 # ------------------------------------------------- Corvid-Gull (perched)
 class CorvidGull extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/corvid_gull/corvid_gull.glb"
+	const GLOW := Color(0.30, 0.85, 0.80)
+	var _gen_mats: Array = []
 	## A Bloom-intelligent gull (Codex §26) perched on a rail, watching. Tilts its
 	## head to track the player — and one of them STEALS: loose takeables on the
 	## topside deck get carried, visibly, to the nest on the bunkhouse roof.
@@ -1219,6 +1275,12 @@ class CorvidGull extends Node3D:
 			leg.mesh = lm
 			leg.position = Vector3(sx, -0.22, 0.02)
 			add_child(leg)
+		# Generated mesh: wing filaments twitch even while it's perched and watching.
+		# (Meshy auto-rigs humanoids only, so the motion is CreatureAnim's vertex shader.)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.55, ANIM.Mode.FLAP, 0.05, 1.0, GLOW)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 1.0, 0.2)   # steady — no per-frame cost
 
 	func _process(delta: float) -> void:
 		_t += delta
