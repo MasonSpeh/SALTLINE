@@ -123,5 +123,13 @@
   "bottle_note": {
     "title": "Note in a Bottle",
     "body": "Salt-swollen, corked with candle wax. The current brought it in against the dock the way the current brings everything.\n\n— no header, just a hand —\n\nif you're reading this you're on one of the rigs and you're alive and that already makes you rare. we launched from Rig 6 and the sea won't let the boats go west. it turns us. every boat. back toward the line.\n\nmaybe that's cruelty. maybe it's the only kindness left — it doesn't want us to drown out there alone. we're rowing back. tell whoever's on 4 to keep a lamp in the window.\n\nwe'll be a few days. everything out here is a few days."
+  },
+  "ops_watch_log": {
+    "title": "WATCH LOG — OPERATIONS LOOKOUT",
+    "body": "TOPSIDE WATCH — RUNNING ENTRIES\n\n0400 — Wind backing hard out of the NE. Sea state building. Barometer dropping faster than the old man's ever seen it. Logged a squall line on the west horizon, walking toward us.\n\n0620 — Supply boat overdue 31 hours. No horn, no lights, no answer on 16. From up here you can see the whole line and there is not one vessel moving on it. Seven rigs, and the only thing crossing the water between them is weather.\n\n1130 — Storm on us now. Can barely see the next platform through the rain. When the lightning cracks you get one white instant of all of them, strung out to the end, and then dark again.\n\nLast line, different pen, pressed deep:\n'watch is not for ships anymore. watch the WATER. it glows on the bad nights. it's closest on the bad nights.'"
+  },
+  "radio_log": {
+    "title": "RADIO SET — LAST TRAFFIC",
+    "body": "The set is still powered, dial lit, needle resting on the field guard channel. A spiral pad beside it logs the last transmissions anyone bothered to write down.\n\n'— to any SALTLINE station, this is 7, we have lost the inhibitor feed, repeat lost the feed, the yield is in the moon pool and it is not —'\n\n'— 6 to line, boats will not answer helm, the sea is turning us, does anyone copy, the sea is TURN—'\n\n'— control, control, this is 4 topside, who is receiving. anyone. we kept the lamps lit. we did everything the notes said. is there a west. please. is there still a west —'\n\nAfter that the pad is blank, but someone kept the set warm anyway. The guard channel hisses. Now and then, under the hiss, the storm answers for it."
   }
 }
