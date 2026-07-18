@@ -12,13 +12,13 @@ var _countdown: float = 0.0   # retained for the screenshot harness; no longer t
 var _cold_open_active: bool = true
 var _ending: bool = false
 var _contact_handled: bool = false
+var jelly := JellyGlow.new()
 
 func _ready() -> void:
 	_build_environment()
 	_build_ocean()
 	rig = RigBuilder.new()
 	add_child(rig)
-	var jelly := JellyGlow.new()
 	add_child(jelly)
 	add_child(BloomFauna.new())   # gulls, jellies, barnacles, eel, shoal, ray, worms
 	add_child(Gyre.new())         # the turning water south of the rig, and what it collects
