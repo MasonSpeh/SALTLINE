@@ -36,20 +36,25 @@ reference (text prompt + optional image)
 
 ## Step 1 — pick a generator
 
-Realistic animals must be **rigged and animated** (a static mesh that slides around is
-worse than the primitives). Prefer a service that outputs a skeleton + clips for
-**quadrupeds/non-humanoids** — Mixamo does NOT work here (humanoid only).
+> **VERIFIED THE HARD WAY: Meshy's auto-rig is HUMANOID-ONLY.** Its `/v1/rigging`
+> endpoint runs bipedal pose estimation and returns
+> `422 "Pose estimation failed, please provide a valid model"` for a crab, ray, whale or
+> eel — on both the preview and the refine task id. Do **not** plan on skeletal clips
+> from it for a bestiary. Mixamo is humanoid-only too. Assume **mesh generation only**
+> and animate on our side (Step 5) unless you have specifically confirmed otherwise.
 
-| Tool | Text→3D | Image→3D | Auto-rig animals | Anim clips | Output | Notes |
-|------|:---:|:---:|:---:|:---:|--------|-------|
-| **Meshy AI** (meshy.ai) | ✓ | ✓ | ✓ | ✓ walk/run/idle | GLB/FBX | Best API for text→mesh→rig→animate. Free monthly credits. **Default.** |
-| **Tripo3D** (tripo3d.ai) | ✓ | ✓ | ✓ | ✓ | GLB/FBX | Great mesh quality; rigging + retarget. Good alternative. |
-| **Rodin / Hyper3D** | ✓ | ✓ | partial | — | GLB | Highest-fidelity static meshes; rig elsewhere. |
-| **Anything World** | ✓ | — | ✓ (animal-specialised) | ✓ many | GLB | Purpose-built for animated animals; heavier setup. |
-| **TripoSR / Hunyuan3D (local)** | — | ✓ | — | — | OBJ/GLB | Free, offline fallback; **static only**, rig in Blender. See `references/local-fallback.md`. |
+| Tool | Text→3D | Image→3D | Auto-rig **animals** | Output | Notes |
+|------|:---:|:---:|:---:|--------|-------|
+| **Meshy AI** (meshy.ai) | ✓ | ✓ | ✗ humanoid only (confirmed 422) | GLB/FBX | Excellent meshes + PBR, solid API, free monthly credits. **Default for geometry.** |
+| **Tripo3D** (tripo3d.ai) | ✓ | ✓ | partial — worth testing | GLB/FBX | Great quality; its rigger is also character-leaning. |
+| **Rodin / Hyper3D** | ✓ | ✓ | ✗ | GLB | Highest-fidelity static meshes. |
+| **Anything World** | ✓ | — | ✓ animal-specialised | GLB | The one built for animated animals; heavier setup, separate account. |
+| **TripoSR / Hunyuan3D (local)** | — | ✓ | ✗ | OBJ/GLB | Free, offline; rig in Blender. See `references/local-fallback.md`. |
 
-Recommendation for this project: **Meshy** (scripted below), or its web UI if you prefer
-clicking. Both give a GLB with a `Skeleton3D` + named clips that Godot imports directly.
+Recommendation for this project: **Meshy for the mesh**, then animate with the vertex
+shader (Step 5). That combination is what shipped the whole bestiary — it looks alive,
+costs no bones, and never fights the movement code. Only reach for Anything World or a
+Blender rig when a species genuinely needs articulated limbs (a walking gait).
 
 ## Step 2 — set up the key (once)
 
@@ -102,7 +107,42 @@ with your clips (`walk`, `idle`, …). Import gotchas for animals:
 - **Animation loop**: mark `walk`/`idle` clips as looping in the import dock (or set
   `.loop = true` in code).
 
-## Step 5 — swap it into the creature (the actual integration)
+## Step 5 — animate it (no skeleton needed) and swap it in
+
+Since the services won't rig animals, the motion lives in a **vertex shader**:
+`materials/creature_swim.gdshader` + `scripts/world/creature_anim.gd`.
+
+```gdscript
+const ANIM := preload("res://scripts/world/creature_anim.gd")   # preload: class cache lags
+const MODEL_PATH := "res://assets/models/fauna/mantle_ray/mantle_ray.glb"
+const GLOW := Color(0.25, 0.95, 0.88)
+var _gen_mats: Array = []
+
+# LAST line of the species' body build — hides the primitives it supersedes:
+var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 6.0, ANIM.Mode.WING, 0.14, 0.45, GLOW)
+if not gen.is_empty():
+    _gen_mats = gen["mats"]
+    ANIM.drive(_gen_mats, 0.45, 0.5)      # steady look: set once, shader runs off TIME
+```
+
+Modes: `UNDULATE` (fish/eel/shark body wave), `WING` (ray), `PULSE` (jelly bell),
+`FLAP` (bird). Call `ANIM.drive(mats, rate, glow)` **per frame only** when the look should
+react to state (the crab's hunt strobe, the shark's charge, the whale's night presence) —
+otherwise set it once and pay nothing.
+
+`replace()` returns `{}` when the asset is missing, which is the signal to build the
+procedural body instead — a failed generation degrades to the old look, never a crash.
+
+### Gotchas that cost time here
+- **Preload by path**, not `class_name` — Godot's global class cache lags for new files.
+- **Name your var uniquely** (`_gen_mats`): a collision with an existing `_mats` reports
+  only `"same name as a previously declared variable"` with **no line number**, and
+  surfaces as an unrelated `"Could not resolve class X"`. Load the script directly
+  (`load("res://…gd")` in a scratch scene) to get the real message.
+- Frame verification shots on the model's **combined AABB centre** — glTF pivots are
+  rarely centred, so `look_at(Vector3.ZERO)` often misses the subject.
+
+## Step 5b — the older swap notes (still valid for rigged models)
 
 Edit the species script (start with `scripts/world/crab.gd`). Replace the body of
 `_build_body()` and repoint `_animate()`. **Keep everything else.** Pattern:
