@@ -9,3 +9,5 @@ data_*/
 
 # System/editor files
 .DS_Store
+
+__pycache__/
