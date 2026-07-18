@@ -36,8 +36,8 @@ func _ready() -> void:
 	_machine_shop_more()
 	_stack_more()
 	# Third pass — small scattered PERSONAL / HOUSEHOLD clutter (wave-4 assets), placed
-	# onto real surfaces with _ps (snaps down so nothing floats). Queued LAST so every
-	# supporting desk/shelf exists before an item tries to land on it.
+	# onto real surfaces with _ps (a fixed settle-drop rests them flush; see _ps).
+	# Queued LAST so every supporting desk/shelf exists before an item lands on it.
 	_scatter_wetdeck()
 	_scatter_decka()
 	_scatter_deckb()
@@ -71,11 +71,18 @@ func _pc(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 	## Colliding variant for big floor furniture the player should bump.
 	_queue.append([id, pos, yaw, sm, true])
 
+## Settle drop applied to every scattered clutter item. The wave-4 _ps coords were
+## authored with a ~0.10m hover for the old surface-snap to catch; snap is gone (it
+## didn't stick on the frozen MovableProp bodies these items become — hence the
+## floating). Prop pivots sit at the model base, so lowering the queued Y by this
+## much lands the dominant 0.10-hover flush, keeps the rest within ~0.06 of resting,
+## and never sinks a floor item below its deck.
+const _PS_SETTLE: float = 0.10
+
 func _ps(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
-	## Scattered clutter placed at EXACT coords (no snap — surface_snap doesn't stick
-	## on frozen MovableProp bodies, which read as floating). Give the real surface
-	## top for pos.y so the item rests on it, like the hand-placed _p items do.
-	_queue.append([id, pos, yaw, sm, false])
+	## Scattered clutter. Give pos.y as the authored surface-top + small hover; the
+	## _PS_SETTLE drop rests it on the surface, like the hand-placed _p items do.
+	_queue.append([id, pos - Vector3(0, _PS_SETTLE, 0), yaw, sm, false])
 
 ## A small warm point light (jar lamp / worklight glow) — sparingly, for mood.
 func _lamp(pos: Vector3, color: Color = Color(1.0, 0.82, 0.5), energy: float = 0.6, rng: float = 4.0) -> void:
@@ -330,9 +337,9 @@ func _stack_more() -> void:
 	_p("brass_vase_01", Vector3(9.0, d + 1.0, 16.0), 0)
 
 # ============================================================ scatter (wave 4)
-# Small personal/household items on real surfaces. _ps = place-and-snap (drops onto
-# the surface below); _p = exact. Matched to each room's use; kept off windows,
-# doorways, and the SPHL exit corridor.
+# Small personal/household items on real surfaces. _ps = authored surface-top + hover,
+# then a fixed settle-drop rests it flush; _p = exact. Matched to each room's use;
+# kept off windows, doorways, and the SPHL exit corridor.
 
 func _scatter_wetdeck() -> void:
 	var w: float = WET_Y

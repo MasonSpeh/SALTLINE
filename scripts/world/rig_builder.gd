@@ -291,9 +291,12 @@ func _build_wet_deck() -> void:
 	_box(Vector3(13, WET_Y + WALL_H, -19), Vector3(6.5, 0.25, 6.5), lr_mat)
 	_crate(["canned_food", "canned_peaches"], "Storage Crate", Vector3(13, WET_Y + 0.01, -20))
 
-	# Tide-line clutter.
-	for i in range(5):
-		_cyl(Vector3(22 + (i % 3) * 1.4, WET_Y + 0.5, -19 + (i * 1.1)), 0.45, 1.0, MatLib.rust_steel())
+	# Tide-line clutter — rusted drums along the SOUTH deck edge, clear of the rigging
+	# bench footprint (x24.2..26.1, z-17.15..-17.85) so nothing intersects the workbench.
+	for p in [Vector3(20.6, WET_Y + 0.5, -20.4), Vector3(22.1, WET_Y + 0.5, -21.2),
+			Vector3(27.2, WET_Y + 0.5, -21.3), Vector3(28.6, WET_Y + 0.5, -20.2),
+			Vector3(26.0, WET_Y + 0.5, -21.4)]:
+		_cyl(p, 0.45, 1.0, MatLib.rust_steel())
 
 	# Exterior ladder: Wet Deck -> Topside (the long, exposed alternative).
 	_ladder(Vector3(29.9, WET_Y, -16), DECK_Y - WET_Y, -90.0, "Leg Ladder", 1.2)
