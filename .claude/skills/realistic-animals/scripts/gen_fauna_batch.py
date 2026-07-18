@@ -64,6 +64,56 @@ BESTIARY: list[tuple[str, str]] = [
      "an alien jellyfish, translucent glowing teal bell with intricate luminous internal "
      "structure, long trailing glowing tentacles and frilled oral arms, drifting neutral "
      "pose bell upright, " + STYLE),
+
+    # ---- Wave 2: the small fauna that fill the rig ----
+
+    ("sea_gull",
+     "a realistic herring gull, clean white and pale grey plumage, black wingtips, "
+     "yellow beak, wings spread wide in a flat gliding pose, seabird, "
+     "faint pearl sheen, " + STYLE),
+
+    ("bait_fish",
+     "a small slender silver baitfish, sardine-like, smooth iridescent pearl scales, "
+     "forked tail, faint teal lateral line, straight neutral swimming pose, " + STYLE),
+
+    ("tide_worm",
+     "an alien segmented marine tube worm, ridged armoured segments, a crown of "
+     "feathery filter gills at the head, damp translucent skin with faint teal glow "
+     "between segments, stretched straight neutral pose, " + STYLE),
+
+    ("glow_worm",
+     "a plump glowing alien grub, translucent pearl skin with a bright teal "
+     "bioluminescent core visible inside its body, soft segmented form, small "
+     "simple head, curled resting neutral pose, " + STYLE),
+
+    ("barnacle_cluster",
+     "a tight cluster of alien acorn barnacles on a patch of corroded steel, chalky "
+     "ridged conical shells of varying size, feathery cirri extending from the open "
+     "ones, faint teal glow inside the apertures, encrusted and wet, " + STYLE),
+
+    # ---- The snails (SALTLINE canon Codex 54): four distinct gastropods ----
+
+    ("lamp_snail",
+     "a large alien sea snail, dark coiled spiral shell constellated with glowing teal "
+     "spots like stars, thick pale muscular foot, two long optic tentacles with "
+     "luminous tips, wet iridescent skin, neutral crawling pose, " + STYLE),
+
+    ("rust_snail",
+     "an alien sea snail with a heavily ridged corroded iron-oxide shell, rust-orange "
+     "and burnt umber banding, flaking metallic texture like it grew from the steel it "
+     "eats, dark grey rasping foot, warm amber glow deep in the shell whorls, two short "
+     "tentacles, neutral crawling pose, " + STYLE),
+
+    ("glass_snail",
+     "an alien sea snail with a completely transparent glass-like shell, glowing teal "
+     "internal organs and a spiral gut clearly visible through it, translucent pearl "
+     "foot, delicate ethereal deep-sea creature, two fine tentacles, neutral crawling "
+     "pose, " + STYLE),
+
+    ("anchor_limpet",
+     "a large armoured alien limpet, thick low conical ribbed shell like a riveted iron "
+     "cap, dark slate and verdigris, clamped down tight, encrusted rim, a thin ring of "
+     "teal bioluminescence glowing beneath the shell edge, neutral clamped pose, " + STYLE),
 ]
 
 

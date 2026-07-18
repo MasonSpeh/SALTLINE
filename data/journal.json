@@ -563,5 +563,23 @@
     "title": "Platform 7 — The Quiet Rig",
     "body": "Seven bridges east, or where they used to be. The end of the line. Where the food went, where the cable went, where the company grew the light and called it a terminus and hoped nobody down the line would count the pallets. I'll never stand on it. The sea took the bridges and won't give a boat leave to go west. Maybe that's the sea keeping me from it. Maybe it's the sea keeping it from me. Either way — thank you.",
     "hint": "Everything came from down the line. The Bloom most of all."
+  },
+  "creature_rust_snail": {
+    "cat": "creature",
+    "title": "Rust Snails",
+    "body": "Follow a bright scoured line in the corrosion far enough and there is an animal at the end of it. Shell the colour of what it eats — oxide orange, banded, flaking — and a warm amber light down in the whorls, the only heat on the whole platform. They rasp the steel. Slowly, patiently, they are taking the rig apart and wearing it.",
+    "hint": "Where the handrail has gone thin and clean, one has been working. The shell plate is rich in iron if you can get it off."
+  },
+  "creature_glass_snail": {
+    "cat": "creature",
+    "title": "Glass Snails",
+    "body": "Under the wet-deck lip, on the plate that never sees sun, there is nothing to see but a slow teal spiral turning in the dark. The shell is glass — truly glass — and the light is its gut, working. Come closer and it does not shrink. It burns brighter and turns the lit coil toward you, which is the Bloom all over: curiosity where you expected fear.",
+    "hint": "They brighten to a nearby lamp. Stand still and the whole underside of the deck lights up."
+  },
+  "creature_anchor_limpet": {
+    "cat": "creature",
+    "title": "Anchor Limpets",
+    "body": "A riveted iron cap welded into the splash zone, ringed underneath with a thin band of light. Walk toward one and it feels you through the plate long before you arrive — the shell settles, the ring goes out, and what is left is indistinguishable from the rig. The storm cannot move them. Neither can you.",
+    "hint": "The light only returns if you stop moving. Patience is the whole trick with these."
   }
 }

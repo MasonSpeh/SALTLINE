@@ -46,6 +46,28 @@ func _ready() -> void:
 			Vector3(19, 0, 12), Vector3(-22, 0, -9), Vector3(22, 0, 9)]
 	for i in range(snail_legs.size()):
 		add_child(LampSnail.new(i, snail_legs[i] + Vector3(0, 0.3, 0)))
+	# Rust snails grazing the STEEL itself (54b) -- each works a scoured track along a
+	# rail or a deck seam. Placed where the player already walks, so the amber glow and
+	# the cleaned metal behind them get noticed.
+	var graze_runs: Array = [
+		[Vector3(24.6, 2.06, -18.4), Vector3(24.6, 2.06, -12.6)],   # wet-deck rail
+		[Vector3(-8.4, 18.79, 6.2), Vector3(-2.6, 18.79, 6.2)],     # bunkhouse rail
+		[Vector3(27.4, 18.79, 1.6), Vector3(27.4, 18.79, 7.2)],     # topside east rail
+		[Vector3(3.0, 1.01, -12.4), Vector3(9.0, 1.01, -12.4)],     # pontoon seam
+	]
+	for i in range(graze_runs.size()):
+		add_child(RustSnail.new(i, graze_runs[i][0], graze_runs[i][1]))
+	# Glass snails on the submerged plate under the wet-deck lip (54c) -- lean over the
+	# rail and their gut-coils are the only thing visible down there.
+	for i in range(4):
+		add_child(GlassSnail.new(i, Vector3(20.0 - i * 2.4, -1.3, -14.0 + i * 1.1)))
+	# Anchor limpets welded into the splash zone (54d), near the barnacle faces.
+	var limpet_spots: Array[Vector3] = [Vector3(-19.0, 1.55, -11.4), Vector3(19.0, 1.7, 11.4),
+			Vector3(-21.6, 1.35, -9.6), Vector3(24.6, 1.5, -12.4), Vector3(22.2, 1.25, 9.6)]
+	for i in range(limpet_spots.size()):
+		var lim := AnchorLimpet.new(i)
+		add_child(lim)
+		lim.global_position = limpet_spots[i]
 	# Corvid-Gulls perched on rails, watching (§26) — and one of them steals.
 	# Loose deck items vanish to a findable nest on the bunkhouse roof (F10/M14):
 	# theft becomes a treasure hunt, and the nest occasionally overpays.
@@ -95,6 +117,9 @@ static func is_dark_phase() -> bool:
 
 # ---------------------------------------------------------------- Gull
 class Gull extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/sea_gull/sea_gull.glb"
+	var _gen_mats: Array = []
 	var _idx: int
 	var _t: float
 	var _center: Vector3
@@ -154,6 +179,11 @@ class Gull extends Node3D:
 		tail.rotation.x = deg_to_rad(180)
 		_wing_l = _wing(-1, pearl, grey)
 		_wing_r = _wing(1, pearl, grey)
+		# Generated mesh: wings beat as it circles the high iron.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.55, ANIM.Mode.FLAP, 0.06, 1.4, BloomFauna.PEARL)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 1.4, 0.12)
 
 	func _wing(side: int, pearl: Material, grey: Material) -> MeshInstance3D:
 		# Two-segment wing: inner arm + swept grey primary tips.
@@ -277,6 +307,9 @@ class JellyDrifter extends Node3D:
 
 # -------------------------------------------------------- BarnacleCluster
 class BarnacleCluster extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/barnacle_cluster/barnacle_cluster.glb"
+	var _gen_mats: Array = []
 	var _mat: StandardMaterial3D
 	var _cirri_mat: StandardMaterial3D
 	var _t: float = 0.0
@@ -321,6 +354,11 @@ class BarnacleCluster extends Node3D:
 				leg.rotation = Vector3(deg_to_rad(90), spread, 0)
 				leg.position = Vector3(sin(spread) * 0.02, 0, lm.height * 0.5)
 			_cirri.append(pivot)
+		# Generated mesh: the cirri stir; the cluster breathes.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.8, ANIM.Mode.PULSE, 0.01, 0.5, BloomFauna.TEAL)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 0.5, 0.5)
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -455,10 +493,13 @@ class LampEel extends Node3D:
 
 # ---------------------------------------------------------- FiddlerShoal
 class FiddlerShoal extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/bait_fish/bait_fish.glb"
 	const COUNT: int = 18
 	var _t: float = 0.0
 	var _fish: Array[Node3D] = []
 	var _mat: StandardMaterial3D
+	var _gen_mats: Array = []
 
 	func _ready() -> void:
 		_mat = BloomFauna.glow_mat(Color(0.7, 0.78, 0.8), 0.15)
@@ -482,6 +523,13 @@ class FiddlerShoal extends Node3D:
 			tail.position = Vector3(0, 0, 0.16)
 			tail.rotation.x = deg_to_rad(90)
 			f.add_child(tail)
+			# Generated mesh, per fish — the shoal is 18 individuals, so each gets its
+			# own copy (the mesh resource itself is shared by Godot, only nodes repeat).
+			# Each carries a different phase so the school doesn't beat in lockstep.
+			var gen: Dictionary = ANIM.replace(f, MODEL_PATH, 0.24, ANIM.Mode.UNDULATE,
+				0.13, 2.6, BloomFauna.PEARL, float(i) * 0.37)
+			if not gen.is_empty():
+				_gen_mats.append_array(gen["mats"])
 			_fish.append(f)
 
 	func _process(delta: float) -> void:
@@ -604,6 +652,9 @@ class MantleRay extends Node3D:
 
 # ------------------------------------------------------------- TideWorm
 class TideWorm extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/tide_worm/tide_worm.glb"
+	var _gen_mats: Array = []
 	var _t: float = 0.0
 	var _body: Node3D
 	var _emerge: float = 0.0
@@ -632,6 +683,11 @@ class TideWorm extends Node3D:
 			remove_child(seg)
 			_body.add_child(seg)
 			seg.position = Vector3(0, 0.06 + i * 0.11, 0)
+		# Generated mesh: the segments ripple as it works the tide line.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.32, ANIM.Mode.UNDULATE, 0.07, 1.1, BloomFauna.TEAL)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 1.1, 0.45)
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -652,6 +708,9 @@ class TideWorm extends Node3D:
 
 # ------------------------------------------------- Glow Worm
 class GlowWorm extends Interactable:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/glow_worm/glow_worm.glb"
+	var _gen_mats: Array = []
 	## A skittish knuckle of Bloom light denned in a dark corner (GDD canon: light
 	## and life, never combat). Wakes only on nights its den is picked. It feels
 	## footsteps through the plate and sinks back into the den; crouch-walking
@@ -713,6 +772,11 @@ class GlowWorm extends Interactable:
 		_col.position = Vector3(0, 0.25, 0)
 
 	## Colony calls this at dusk: this den is (not) one of tonight's two.
+		# Generated mesh: the lit core shifts inside the body.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.26, ANIM.Mode.UNDULATE, 0.06, 0.9, BloomFauna.TEAL)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 0.9, 1.6)
 	func set_active(value: bool) -> void:
 		_active_tonight = value
 		_respawn_sec = 0.0
@@ -1098,6 +1162,9 @@ class HarborSeal extends Node3D:
 
 # ------------------------------------------------- Lamp Snail constellation
 class LampSnail extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/lamp_snail/lamp_snail.glb"
+	var _gen_mats: Array = []
 	## Wheelbarrow-sized gastropods (Codex §54), shells constellated with
 	## bioluminescent spots. By night they drift the rig-leg bases; their glow is
 	## visible through the water — the "lean over the rail" wonder-beat.
@@ -1174,6 +1241,10 @@ class LampSnail extends Node3D:
 			var v: float = rng.randf_range(0.1, 0.95)
 			spot.position = Vector3(cos(u) * 0.42 * sqrt(1.0 - v * v), v * 0.42, sin(u) * 0.42 * sqrt(1.0 - v * v))
 			add_child(spot)
+		# Generated mesh: a faint shell flex; the constellation does the real work.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.9, ANIM.Mode.UNDULATE, 0.015, 0.5, BloomFauna.TEAL)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -1197,6 +1268,229 @@ class LampSnail extends Node3D:
 		var ang: float = _t * 0.05 + _idx
 		global_position = _base + Vector3(cos(ang) * 1.6, -0.4 + sin(_t * 0.4) * 0.15, sin(ang) * 1.6)
 		rotation.y = -ang
+
+# ------------------------------------------------------------ Rust Snail
+class RustSnail extends Node3D:
+	## The one that EATS THE RIG (Codex §54b). Where the lamp snails graze the legs for
+	## algae, these rasp the steel itself — you find them at the end of a scoured track
+	## in the corrosion, shell grown the colour of what they consume. Amber, not teal:
+	## a Bloom creature that took its palette from rust instead of light. They are the
+	## reason the handrails thin out, and they do not care that you are watching.
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/rust_snail/rust_snail.glb"
+	const AMBER := Color(1.0, 0.55, 0.18)
+	var _gen_mats: Array = []
+	var _t: float
+	var _from: Vector3
+	var _to: Vector3
+	var _idx: int
+	var _glow_mats: Array[StandardMaterial3D] = []
+
+	func _init(idx: int, from_p: Vector3, to_p: Vector3) -> void:
+		_idx = idx
+		_from = from_p
+		_to = to_p
+		_t = idx * 3.1
+
+	func _ready() -> void:
+		var shell := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.3
+		sm.height = 0.44
+		sm.is_hemisphere = true
+		var shell_mat := BloomFauna.glow_mat(Color(0.42, 0.22, 0.1), 0.0)
+		shell_mat.roughness = 0.95        # flaking oxide, not a wet shell
+		sm.material = shell_mat
+		shell.mesh = sm
+		add_child(shell)
+		var foot := MeshInstance3D.new()
+		var fm := CapsuleMesh.new()
+		fm.radius = 0.14
+		fm.height = 0.62
+		fm.material = BloomFauna.glow_mat(Color(0.16, 0.14, 0.13), 0.0)
+		foot.mesh = fm
+		foot.rotation.x = deg_to_rad(90)
+		foot.position.y = -0.1
+		add_child(foot)
+		# Heat-glow deep in the whorls — the only warm light on the whole rig.
+		for i in range(3):
+			var vent := MeshInstance3D.new()
+			var vm := SphereMesh.new()
+			vm.radius = 0.035
+			vm.height = 0.07
+			var m := BloomFauna.glow_mat(AMBER, 1.2)
+			_glow_mats.append(m)
+			vm.material = m
+			vent.mesh = vm
+			vent.position = Vector3(-0.12 + i * 0.12, 0.12 + i * 0.04, -0.1)
+			add_child(vent)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.62, ANIM.Mode.UNDULATE,
+			0.02, 0.7, AMBER)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+			ANIM.drive(_gen_mats, 0.7, 0.55)
+
+	func _process(delta: float) -> void:
+		_t += delta
+		# A grazing run: crawl the length of its patch, then turn and work back.
+		var span: float = 0.5 + 0.5 * sin(_t * 0.035)
+		global_position = _from.lerp(_to, span)
+		# Rasping — the shell rocks side to side as the radula works the steel.
+		rotation.y = atan2(_to.x - _from.x, _to.z - _from.z) + (0.0 if cos(_t * 0.035) > 0.0 else PI)
+		rotation.z = sin(_t * 2.4) * 0.06
+		var heat: float = 0.8 + 0.5 * sin(_t * 0.7 + _idx)
+		for i in range(_glow_mats.size()):
+			_glow_mats[i].emission_energy_multiplier = heat * (0.7 + 0.3 * sin(_t * 1.3 + i))
+		Journal.discover_if_near(self, "creature_rust_snail", 9.0)
+
+# ----------------------------------------------------------- Glass Snail
+class GlassSnail extends Node3D:
+	## Transparent-shelled gastropod on the submerged steel (Codex §54c). You can watch
+	## its gut work through the shell — a spiral of teal light with no animal visible
+	## around it. Bloom-curious per canon: come close and it does not flee, it BRIGHTENS,
+	## turning its lit coil toward you like it wants a look back.
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/glass_snail/glass_snail.glb"
+	var _gen_mats: Array = []
+	var _t: float
+	var _base: Vector3
+	var _idx: int
+	var _gut_mats: Array[StandardMaterial3D] = []
+	var _interest: float = 0.0
+
+	func _init(idx: int, base: Vector3) -> void:
+		_idx = idx
+		_base = base
+		_t = idx * 2.7
+
+	func _ready() -> void:
+		var shell := MeshInstance3D.new()
+		var sm := SphereMesh.new()
+		sm.radius = 0.26
+		sm.height = 0.4
+		sm.is_hemisphere = true
+		# Actually transparent — the point of the animal is seeing through it.
+		sm.material = BloomFauna.glow_mat(Color(0.75, 0.92, 0.95), 0.1, 0.22)
+		shell.mesh = sm
+		add_child(shell)
+		# The gut coil, lit, sitting INSIDE the shell where it can be seen.
+		for i in range(5):
+			var seg := MeshInstance3D.new()
+			var gm := SphereMesh.new()
+			gm.radius = 0.055 - i * 0.006
+			gm.height = 0.11 - i * 0.012
+			var m := BloomFauna.glow_mat(BloomFauna.TEAL, 2.2)
+			_gut_mats.append(m)
+			gm.material = m
+			seg.mesh = gm
+			var a: float = i * 1.15
+			var r: float = 0.15 - i * 0.022
+			seg.position = Vector3(cos(a) * r, 0.06 + i * 0.025, sin(a) * r)
+			add_child(seg)
+		var foot := MeshInstance3D.new()
+		var fm := CapsuleMesh.new()
+		fm.radius = 0.1
+		fm.height = 0.5
+		fm.material = BloomFauna.glow_mat(Color(0.8, 0.9, 0.9), 0.05, 0.5)
+		foot.mesh = fm
+		foot.rotation.x = deg_to_rad(90)
+		foot.position.y = -0.08
+		add_child(foot)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.5, ANIM.Mode.UNDULATE,
+			0.02, 0.6, BloomFauna.TEAL)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+
+	func _process(delta: float) -> void:
+		_t += delta
+		# Curiosity, not fear: the closer you are, the harder its gut burns.
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		var near: bool = player != null and player.global_position.distance_to(global_position) < 7.0
+		_interest = move_toward(_interest, 1.0 if near else 0.0, delta * 0.8)
+		for i in range(_gut_mats.size()):
+			var pulse: float = 0.6 + 0.4 * sin(_t * 1.1 - i * 0.7)   # peristalsis down the coil
+			_gut_mats[i].emission_energy_multiplier = pulse * lerpf(1.4, 4.0, _interest)
+		if _gen_mats.size() > 0:
+			ANIM.drive(_gen_mats, 0.6, lerpf(0.6, 2.2, _interest))
+		# A slow drift across the submerged plate, and it turns to face a visitor.
+		var ang: float = _t * 0.03 + _idx * 1.3
+		global_position = _base + Vector3(cos(ang) * 0.9, sin(_t * 0.25) * 0.1, sin(ang) * 0.9)
+		if near and player:
+			var to_p: Vector3 = player.global_position - global_position
+			rotation.y = lerp_angle(rotation.y, atan2(to_p.x, to_p.z), delta * 0.9)
+		else:
+			rotation.y = -ang
+		if near:
+			Journal.discover_if_near(self, "creature_glass_snail", 7.0)
+
+# --------------------------------------------------------- Anchor Limpet
+class AnchorLimpet extends Node3D:
+	## Armoured limpet welded to the splash zone (Codex §54d). It does not crawl and it
+	## does not run — it CLAMPS, and the ring of light under its rim goes out as it seals.
+	## The rig's own stubbornness rendered as an animal: the storm cannot move it and
+	## neither can you. Getting the glow back just means standing still long enough.
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/anchor_limpet/anchor_limpet.glb"
+	var _gen_mats: Array = []
+	var _t: float
+	var _idx: int
+	var _rim_mats: Array[StandardMaterial3D] = []
+	var _clamp: float = 0.0        ## 0 = open and lit, 1 = sealed to the plate
+	var _shell: Node3D
+
+	func _init(idx: int) -> void:
+		_idx = idx
+		_t = idx * 1.4
+
+	func _ready() -> void:
+		_shell = Node3D.new()
+		add_child(_shell)
+		var shell := MeshInstance3D.new()
+		var sm := CylinderMesh.new()
+		sm.top_radius = 0.06
+		sm.bottom_radius = 0.34
+		sm.height = 0.22
+		var shell_mat := BloomFauna.glow_mat(Color(0.2, 0.26, 0.25), 0.0)
+		shell_mat.roughness = 0.9
+		sm.material = shell_mat
+		shell.mesh = sm
+		_shell.add_child(shell)
+		# The rim light: a ring of small emitters under the shell edge.
+		for i in range(8):
+			var a: float = i * TAU / 8.0
+			var glim := MeshInstance3D.new()
+			var gm := SphereMesh.new()
+			gm.radius = 0.03
+			gm.height = 0.06
+			var m := BloomFauna.glow_mat(BloomFauna.TEAL, 1.8)
+			_rim_mats.append(m)
+			gm.material = m
+			glim.mesh = gm
+			glim.position = Vector3(cos(a) * 0.31, -0.1, sin(a) * 0.31)
+			add_child(glim)
+		var gen: Dictionary = ANIM.replace(_shell, MODEL_PATH, 0.6, ANIM.Mode.PULSE,
+			0.015, 0.35, BloomFauna.TEAL)
+		if not gen.is_empty():
+			_gen_mats = gen["mats"]
+
+	func _process(delta: float) -> void:
+		_t += delta
+		# Footsteps through the plate: it seals long before you can reach it.
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		var d: float = player.global_position.distance_to(global_position) if player else 99.0
+		var threatened: bool = d < 3.2
+		_clamp = move_toward(_clamp, 1.0 if threatened else 0.0, delta * (2.5 if threatened else 0.35))
+		# Sealing pulls the shell down onto the steel and puts the rim light out.
+		if _shell:
+			_shell.position.y = lerpf(0.0, -0.06, _clamp)
+			_shell.scale = Vector3(1.0, lerpf(1.0, 0.82, _clamp), 1.0)
+		var breath: float = 0.75 + 0.25 * sin(_t * 0.5 + _idx)
+		for i in range(_rim_mats.size()):
+			_rim_mats[i].emission_energy_multiplier = lerpf(breath * 1.8, 0.0, _clamp)
+		if _gen_mats.size() > 0:
+			ANIM.drive(_gen_mats, 0.35, lerpf(1.0, 0.0, _clamp))
+		if d < 6.0:
+			Journal.discover_if_near(self, "creature_anchor_limpet", 6.0)
 
 # ------------------------------------------------- Corvid-Gull (perched)
 class CorvidGull extends Node3D:
