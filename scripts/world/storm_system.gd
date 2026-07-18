@@ -7,6 +7,34 @@ class_name StormSystem extends Node3D
 
 enum StormPhase { CLEAR, RAMP_IN, RAGING, RAMP_OUT }
 
+const RainAudio := preload("res://scripts/world/rain_audio.gd")
+const RAIN_SHADER: String = "res://materials/rain_particles.gdshader"
+
+## Solid roofed volumes (world space) baked from the rig geometry: any rain drop
+## whose position lands inside one is scaled invisible by the particle shader, so
+## rooms stay dry while rain still falls past every window and open edge. Each row
+## is [min_x, min_y, min_z, max_x, max_y, max_z]. Box #4 (the wet-deck strip) is
+## roofed by the topside slab ~15 m up but OPEN on every side — as an AABB it
+## suppresses rain over the sheltered floor while leaving it visible past the lip.
+const COVER_BOXES: Array = [
+	[14.9, 2.0, -25.3, 21.1, 4.2, -22.9],   # SPHL pod interior
+	[10.0, 2.0, -14.0, 18.0, 5.2, -6.0],    # pump room (flooded)
+	[10.0, 2.0, -22.0, 16.0, 5.2, -16.0],   # loot / storage room
+	[8.0, 2.0, -20.0, 30.0, 17.0, 2.0],     # covered wet-deck strip (open-sided)
+	[22.0, 2.0, -6.0, 30.0, 38.0, 2.0],     # stair tower shaft
+	[24.0, 6.0, 2.0, 30.0, 9.2, 10.0],      # machinery room
+	[22.0, 10.0, 2.0, 28.0, 13.2, 10.0],    # breaker room 4-A
+	[20.0, 38.0, -8.0, 32.0, 41.0, 4.0],    # ops lookout
+	[-28.0, 18.0, 4.0, -8.0, 21.2, 18.0],   # bunkhouse
+	[-2.0, 18.0, 8.0, 14.0, 21.2, 18.0],    # galley
+	[18.0, 18.0, 8.0, 28.0, 21.2, 18.0],    # rec room
+	[-28.0, 18.0, -18.0, -14.0, 21.2, -6.0],# machine shop
+	[-2.0, 21.6, 6.0, 28.0, 24.8, 18.0],    # Deck B quarters
+	[4.0, 25.1, 6.0, 28.0, 28.3, 18.0],     # Deck C control
+	[8.0, 28.6, 8.0, 28.0, 31.8, 18.0],     # Deck D works
+	[23.0, 32.1, 13.0, 27.0, 34.8, 17.5],   # roof bulkhead hut
+]
+
 const RAMP_IN_SEC: float = 22.0
 const RAMP_OUT_SEC: float = 32.0
 const FIRST_DELAY_MIN: float = 70.0     # first squall comes fairly soon so it's seen
@@ -21,14 +49,19 @@ var _phase: StormPhase = StormPhase.CLEAR
 var _timer: float = 0.0
 var _intensity: float = 0.0
 var _rain: GPUParticles3D
-var _rain_mat: ParticleProcessMaterial
+var _rain_shader: ShaderMaterial
+var _rain_audio: Node
 var _flash: DirectionalLight3D
 var _flash_energy: float = 0.0
 var _lightning_cd: float = 0.0
 var _wind: Vector2 = Vector2(1, 0)
 var _rng := RandomNumberGenerator.new()
 var _audio_cd: float = 0.0
-var _sheltered: bool = false   ## true when a roof/slab is overhead — suppress the rain indoors
+## Shelter probe results. These no longer gate the rain VISUALS (the particle
+## shader's covered-volume AABBs do that, so rain is always visible outdoors and
+## through windows) — they only shape the rain AUDIO.
+var _roof_dist: float = 1.0e9   ## metres up to the nearest roof overhead (huge = open sky)
+var _cover_frac: float = 0.0    ## fraction of the upward probe cone that is roofed
 
 func setup(sun_controller: SunController) -> void:
 	sun_ctl = sun_controller
@@ -37,6 +70,8 @@ func _ready() -> void:
 	_rng.randomize()
 	_build_rain()
 	_build_flash()
+	_rain_audio = RainAudio.new()
+	add_child(_rain_audio)
 	_timer = _rng.randf_range(FIRST_DELAY_MIN, FIRST_DELAY_MAX)
 	_wind = Vector2(_rng.randf_range(-1, 1), _rng.randf_range(-1, 1)).normalized()
 
@@ -55,20 +90,20 @@ func is_storming() -> bool:
 func _build_rain() -> void:
 	_rain = GPUParticles3D.new()
 	_rain.amount = 5000
-	_rain.lifetime = 1.0
-	_rain.preprocess = 1.0
+	_rain.lifetime = 1.3
+	_rain.preprocess = 1.3
 	_rain.local_coords = false
 	_rain.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 80, 80))
 	_rain.emitting = false
-	_rain_mat = ParticleProcessMaterial.new()
-	_rain_mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	_rain_mat.emission_box_extents = Vector3(26, 0.5, 26)
-	_rain_mat.direction = Vector3(0, -1, 0)
-	_rain_mat.spread = 2.0
-	_rain_mat.gravity = Vector3(0, -42, 0)
-	_rain_mat.initial_velocity_min = 14.0
-	_rain_mat.initial_velocity_max = 18.0
-	_rain.process_material = _rain_mat
+	# A custom particles shader replaces ParticleProcessMaterial: it falls the drops
+	# and culls any that are inside a covered volume, so the rain can emit ALWAYS.
+	_rain_shader = ShaderMaterial.new()
+	_rain_shader.shader = load(RAIN_SHADER)
+	_rain_shader.set_shader_parameter("emit_extents", Vector3(26.0, 0.5, 26.0))
+	_rain_shader.set_shader_parameter("fall_speed", 36.0)
+	_rain_shader.set_shader_parameter("wind_drift", Vector3.ZERO)
+	_push_cover_boxes()
+	_rain.process_material = _rain_shader
 	# A thin bright streak, billboarded — reads as fast rain at any angle.
 	var streak := QuadMesh.new()
 	streak.size = Vector2(0.025, 0.55)
@@ -81,6 +116,24 @@ func _build_rain() -> void:
 	streak.material = smat
 	_rain.draw_pass_1 = streak
 	add_child(_rain)
+
+## Bake the roofed volumes into the shader's AABB uniform arrays (capacity 24).
+## The boxes are hand-measured approximations of the built geometry, so they get a
+## small outward margin sideways and downward to stop drops squeezing through at
+## wall edges. Deliberately NOT grown upward: raising a lid above its real roof
+## would blank out the rain visibly falling ONTO that roof from outside.
+const COVER_MARGIN: float = 0.35
+
+func _push_cover_boxes() -> void:
+	var mins := PackedVector3Array()
+	var maxs := PackedVector3Array()
+	var m: float = COVER_MARGIN
+	for b: Array in COVER_BOXES:
+		mins.append(Vector3(b[0] - m, b[1] - m, b[2] - m))
+		maxs.append(Vector3(b[3] + m, b[4], b[5] + m))
+	_rain_shader.set_shader_parameter("box_min", mins)
+	_rain_shader.set_shader_parameter("box_max", maxs)
+	_rain_shader.set_shader_parameter("box_count", mins.size())
 
 func _build_flash() -> void:
 	_flash = DirectionalLight3D.new()
@@ -99,21 +152,41 @@ func _process(delta: float) -> void:
 	_follow_player()
 	_update_lightning(delta)
 
-## GPU rain particles don't collide with geometry, so the emitter parked ~16m over
-## the player rains straight through deck/roof slabs into the rooms. Cast a ray up
-## from head height; any solid slab overhead (layer 1) means we're under cover.
+## Probe what's overhead — used ONLY to shape the rain audio now that the particle
+## shader handles visual shelter. A spread of upward rays (not a single one) so the
+## open lip of a roofed-but-open-sided space reads as partly open instead of fully
+## sheltered: cover_frac is how much of the cone is roofed, roof_dist how far up the
+## nearest slab is (close thin roof = patter, huge slab high above = muffled wash).
+const _PROBE_OFFSETS: Array[Vector3] = [
+	Vector3.ZERO,
+	Vector3(2.5, 0, 0), Vector3(-2.5, 0, 0),
+	Vector3(0, 0, 2.5), Vector3(0, 0, -2.5),
+]
+
 func _update_shelter() -> void:
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	if player == null:
-		_sheltered = false
+		_roof_dist = 1.0e9
+		_cover_frac = 0.0
 		return
 	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	var from: Vector3 = player.global_position + Vector3(0, 1.6, 0)
-	var query := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, 40.0, 0))
-	query.collision_mask = 1
+	var head: Vector3 = player.global_position + Vector3(0, 1.6, 0)
+	var exclude: Array[RID] = []
 	if player is CollisionObject3D:
-		query.exclude = [(player as CollisionObject3D).get_rid()]
-	_sheltered = not space.intersect_ray(query).is_empty()
+		exclude = [(player as CollisionObject3D).get_rid()]
+	var hits: int = 0
+	var nearest: float = 1.0e9
+	for off: Vector3 in _PROBE_OFFSETS:
+		var from: Vector3 = head + off
+		var query := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, 40.0, 0))
+		query.collision_mask = 1
+		query.exclude = exclude
+		var hit: Dictionary = space.intersect_ray(query)
+		if not hit.is_empty():
+			hits += 1
+			nearest = minf(nearest, (hit["position"] as Vector3).y - from.y)
+	_cover_frac = float(hits) / float(_PROBE_OFFSETS.size())
+	_roof_dist = nearest
 
 func _advance_schedule(delta: float) -> void:
 	_timer -= delta
@@ -144,17 +217,31 @@ func _advance_schedule(delta: float) -> void:
 
 func _apply_intensity() -> void:
 	var i: float = _intensity
-	_rain.emitting = i > 0.02 and not _sheltered
+	# Rain ALWAYS falls during a storm regardless of where the player is standing —
+	# the shader's covered-volume AABBs keep it out of rooms, so it stays visible
+	# through every window and across every open deck.
+	_rain.emitting = i > 0.02
 	_rain.amount_ratio = clampf(i, 0.0, 1.0)
 	# Slant the rain with the wind (stronger tilt at full storm).
-	_rain_mat.gravity = Vector3(_wind.x * 22.0 * i, -42.0, _wind.y * 22.0 * i)
+	_rain_shader.set_shader_parameter("wind_drift", Vector3(_wind.x, 0.0, _wind.y) * 11.0 * i)
 	if sun_ctl:
 		sun_ctl.set_storm(i)
+	_feed_rain_audio(i)
 	# Audio follows intensity, but re-fading every frame thrashes tweens — throttle.
 	_audio_cd -= get_process_delta_time()
 	if _audio_cd <= 0.0:
 		AudioDirector.set_storm(i)
 		_audio_cd = 0.4
+
+## Push the mix state to the rain beds every frame — rain_audio.gd does its own
+## smoothing, so this is cheap and stays glitch-free while the player walks in and
+## out of cover. Below the waterline the downpour drops away entirely.
+func _feed_rain_audio(i: float) -> void:
+	if _rain_audio == null:
+		return
+	var player: Node3D = get_tree().get_first_node_in_group("player")
+	var submerged: bool = player != null and player.global_position.y < 0.0
+	_rain_audio.set_state(i, _roof_dist, _cover_frac, submerged)
 
 func _follow_player() -> void:
 	var player: Node3D = get_tree().get_first_node_in_group("player")

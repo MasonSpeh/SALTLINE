@@ -77,6 +77,7 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
 	l.outline_size = 0
 	l.shaded = true
 	l.double_sided = false
+	l.billboard = BaseMaterial3D.BILLBOARD_DISABLED   # paint does not turn to face you
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
@@ -87,7 +88,7 @@ func _readable(id: String, name_: String, pos: Vector3, size: Vector3 = Vector3(
 	r.display_name = name_
 	add_child(r)
 	r.global_position = pos
-	r.build_box_visual(size, Interactable.COLOR_READABLE)
+	r.build_visual(size)
 	return r
 
 func _takeable(item: String, name_: String, pos: Vector3) -> Takeable:

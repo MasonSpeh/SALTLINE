@@ -168,7 +168,7 @@ func _readable(id: String, name_: String, pos: Vector3, size: Vector3 = Vector3(
 	r.display_name = name_
 	add_child(r)
 	r.global_position = pos
-	r.build_box_visual(size, Interactable.COLOR_READABLE)
+	r.build_visual(size)
 	return r
 
 func _takeable(item: String, name_: String, pos: Vector3, size: Vector3 = Vector3(0.3, 0.35, 0.3)) -> Takeable:
@@ -188,6 +188,93 @@ func _takeable(item: String, name_: String, pos: Vector3, size: Vector3 = Vector
 	# Adhere to whatever surface is actually below (shelf, counter, deck).
 	preload("res://scripts/world/surface_snap.gd").attach(t)
 	return t
+
+## A Takeable whose look is built here rather than by ItemVisual — for items whose
+## real shape carries the read (the shop's hand tools, the kedge anchor). Same
+## collider, adhesion and TAKE behaviour as _takeable(); only the visual differs.
+func _takeable_custom(item: String, name_: String, pos: Vector3, visual: Node3D,
+		yaw_deg: float = 0.0, reach: float = 0.34) -> Takeable:
+	var t := Takeable.new()
+	t.item_id = item
+	t.display_name = name_
+	add_child(t)
+	t.global_position = pos
+	t.rotation.y = deg_to_rad(yaw_deg)
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(reach, maxf(reach * 0.7, 0.25), reach)
+	col.shape = box
+	t.add_child(col)
+	col.position.y = box.size.y * 0.5
+	t.add_child(visual)
+	preload("res://scripts/world/surface_snap.gd").attach(t)
+	return t
+
+## Same, but wearing one of the real glTF shop tools. Falls back to the greybox
+## ItemVisual if the model is not on disk, so a missing asset never breaks a room.
+func _takeable_model(item: String, model: String, name_: String, pos: Vector3,
+		yaw_deg: float = 0.0) -> Takeable:
+	var t := _takeable_custom(item, name_, pos, Node3D.new(), 0.0)
+	if PropLib.has(model):
+		PropLib.spawn(model, t, pos, yaw_deg, 1.0, false, -1.0, false)
+	else:
+		t.add_child(ItemVisual.build(item))
+	return t
+
+# ---- hand-built item shapes (plain meshes: these ride on a Takeable, not CSG) ----
+
+func _vbox(root: Node3D, size: Vector3, mat: Material, pos: Vector3,
+		rot: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var m := BoxMesh.new()
+	m.size = size
+	m.material = mat
+	mi.mesh = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mi)
+	mi.position = pos
+	mi.rotation = rot
+	return mi
+
+func _vcyl(root: Node3D, radius: float, h: float, mat: Material, pos: Vector3,
+		rot: Vector3 = Vector3.ZERO) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var m := CylinderMesh.new()
+	m.top_radius = radius
+	m.bottom_radius = radius
+	m.height = h
+	m.material = mat
+	mi.mesh = m
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(mi)
+	mi.position = pos
+	mi.rotation = rot
+	return mi
+
+## A fitter's hand file — wooden handle, ferrule, tapered steel body. Lies flat.
+func _file_visual() -> Node3D:
+	var root := Node3D.new()
+	var steel: Material = MatLib.flat(Color(0.44, 0.45, 0.48))
+	var handle: Material = MatLib.flat(Color(0.42, 0.29, 0.17))
+	_vcyl(root, 0.017, 0.09, handle, Vector3(-0.135, 0.017, 0), Vector3(0, 0, deg_to_rad(90)))
+	_vcyl(root, 0.013, 0.015, MatLib.galvanized(), Vector3(-0.083, 0.017, 0),
+		Vector3(0, 0, deg_to_rad(90)))
+	_vbox(root, Vector3(0.14, 0.013, 0.026), steel, Vector3(0.0, 0.017, 0))
+	_vbox(root, Vector3(0.055, 0.009, 0.017), steel, Vector3(0.096, 0.016, 0))
+	return root
+
+## A hacksaw lying on its side — blade, frame back, two uprights, pistol grip.
+func _hacksaw_visual() -> Node3D:
+	var root := Node3D.new()
+	var steel: Material = MatLib.flat(Color(0.46, 0.47, 0.5))
+	var frame: Material = MatLib.flat(Color(0.3, 0.32, 0.35))
+	_vbox(root, Vector3(0.30, 0.007, 0.024), steel, Vector3(0, 0.009, 0))        # blade
+	_vbox(root, Vector3(0.30, 0.017, 0.019), frame, Vector3(0, 0.013, 0.078))    # frame back
+	for s in [-1.0, 1.0]:
+		_vbox(root, Vector3(0.017, 0.015, 0.078), frame, Vector3(s * 0.145, 0.012, 0.039))
+	_vbox(root, Vector3(0.075, 0.03, 0.036), MatLib.flat(Color(0.38, 0.26, 0.15)),
+		Vector3(-0.182, 0.017, 0.026))                                           # grip
+	return root
 
 func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
 	## pos is FLOOR level — the crate rests on it, collision matching the visual.
@@ -290,6 +377,12 @@ func _build_wet_deck() -> void:
 		WET_Y, WALL_H, lr_mat)
 	_box(Vector3(13, WET_Y + WALL_H, -19), Vector3(6.5, 0.25, 6.5), lr_mat)
 	_crate(["canned_food", "canned_peaches"], "Storage Crate", Vector3(13, WET_Y + 0.01, -20))
+	# Ship's stores: a small kedge stood in the SW angle, out of the walk line
+	# between the door and the crate. ItemVisual already carries a proper kedge
+	# (shank/ring/stock/flukes) and it stands upright, which is how one lives in a
+	# corner of the stores — so this uses the same shape you see when it is dropped.
+	_takeable("mini_anchor", "Kedge Anchor", Vector3(10.75, WET_Y + 0.05, -21.3),
+		Vector3(0.35, 0.5, 0.35)).rotation.y = deg_to_rad(25)
 
 	# Tide-line clutter — rusted drums along the SOUTH deck edge, clear of the rigging
 	# bench footprint (x24.2..26.1, z-17.15..-17.85) so nothing intersects the workbench.
@@ -589,6 +682,7 @@ func _build_topside() -> void:
 	_box(Vector3(29.8, DECK_Y + 0.55, 7.3), Vector3(0.12, 0.12, 10.6), rail_mat)
 	_box(Vector3(29.8, DECK_Y + 0.55, 17.2), Vector3(0.12, 0.12, 3.6), rail_mat)
 
+	_build_ladder_landing()
 	_build_bunkhouse()
 	_build_galley()
 	_build_rec_room()
@@ -599,6 +693,43 @@ func _build_topside() -> void:
 	for i in range(6):
 		_cyl(Vector3(-6 + i * 2.2, DECK_Y + 0.5, -16), 0.45, 1.0, MatLib.rust_steel())
 	_box(Vector3(8, DECK_Y + 0.4, -14), Vector3(2.4, 0.8, 1.2), MatLib.wood()) # pallet stack
+
+## A proper landing where the Leg Ladder tops out at (29.9, 18, -16). The east
+## perimeter rails skip z-16 entirely, so the ladder used to arrive at a bare,
+## unrailed stretch of deck rim — you mantled straight over an open edge with
+## nothing to hold and nothing underfoot outboard of you. This is a small grippy
+## plate lapped flush onto the deck edge and cantilevered out on two knee braces,
+## with a U of railing round the three seaward sides. The deck side (west) is left
+## open: that is the way on and off, straight through onto the topside plate.
+func _build_ladder_landing() -> void:
+	var y: float = DECK_Y
+	var lz: float = -16.0                       # the Leg Ladder's z
+	var rail: Material = MatLib.rust_steel()
+	# Anti-slip plate, top face coplanar with the deck at y18 so the join is flush.
+	_box(Vector3(30.6, y - 0.05, lz), Vector3(1.3, 0.1, 1.5), MatLib.checker_plate())
+	# Hazard paint along the outboard lip — same yellow as the deck hazard strips.
+	_box(Vector3(31.2, y + 0.005, lz), Vector3(0.1, 0.02, 1.5),
+		MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
+	# Knee braces: high at the plate's outboard lip, angling down and inboard to
+	# tuck under the deck edge — what actually holds a cantilevered landing up.
+	for bz in [lz - 0.6, lz + 0.6]:
+		var brace := _box(Vector3(30.55, y - 0.42, bz), Vector3(1.35, 0.09, 0.09), rail, self, false)
+		brace.rotation.z = deg_to_rad(29.0)
+	# Stanchions at the four corners; the deck-side pair frames the way through.
+	for c in [Vector2(31.2, lz - 0.65), Vector2(31.2, lz + 0.65),
+			Vector2(30.0, lz - 0.65), Vector2(30.0, lz + 0.65)]:
+		_box(Vector3(c.x, y + 0.5, c.y), Vector3(0.08, 1.0, 0.08), rail)
+	# Top and mid rail on the three seaward sides — solid, so they actually catch you.
+	for h in [[0.95, 0.07], [0.5, 0.05]]:
+		var ry: float = y + float(h[0])
+		var rt: float = float(h[1])
+		_box(Vector3(30.6, ry, lz - 0.65), Vector3(1.2, rt, rt), rail)
+		_box(Vector3(30.6, ry, lz + 0.65), Vector3(1.2, rt, rt), rail)
+		_box(Vector3(31.2, ry, lz), Vector3(rt, rt, 1.3), rail)
+	# Toe boards, so nothing kicked off the plate goes straight into the sea.
+	_box(Vector3(30.6, y + 0.09, lz - 0.7), Vector3(1.3, 0.18, 0.04), rail, self, false)
+	_box(Vector3(30.6, y + 0.09, lz + 0.7), Vector3(1.3, 0.18, 0.04), rail, self, false)
+	_box(Vector3(31.25, y + 0.09, lz), Vector3(0.04, 0.18, 1.5), rail, self, false)
 
 func _build_bunkhouse() -> void:
 	var mat: Material = MatLib.concrete()
@@ -682,15 +813,9 @@ func _build_rec_room() -> void:
 		y, WALL_H, mat)
 	_box(Vector3(23, y + WALL_H, 13), Vector3(10.5, 0.25, 10.5), mat)
 	_box(Vector3(23, y + 0.035, 13), Vector3(9.5, 0.03, 9.5), MatLib.rubber_floor(), self, false)
-	# Dartboard, dead TV, couch.
-	var dart := CSGCylinder3D.new()
-	dart.radius = 0.3
-	dart.height = 0.08
-	dart.material = MatLib.flat(Color(0.6, 0.25, 0.15))
-	dart.use_collision = false
-	add_child(dart)
-	dart.position = Vector3(27.8, y + 1.7, 13)
-	dart.rotation.z = deg_to_rad(90)
+	# Dead TV, couch. (The dartboard is the real glTF one, hung flush on the east
+	# bulkhead in interior_props — the flat CSG disc that used to sit here was a
+	# second, cruder board competing with it.)
 	_box(Vector3(20, y + 1.0, 17.2), Vector3(1.4, 0.9, 0.4), MatLib.dark_metal()) # dead TV
 	_box(Vector3(23, y + 0.35, 9.2), Vector3(2.4, 0.7, 1.0), MatLib.canvas(Color(0.45, 0.38, 0.34))) # couch
 	_readable("quiet_rig_note", "Tally Book Page", Vector3(27.7, y + 0.9, 14.2), Vector3(0.3, 0.4, 0.06))
@@ -875,13 +1000,37 @@ func _build_sphl() -> void:
 	red.light_color = Color(0.9, 0.15, 0.1); red.light_energy = 1.6; red.omni_range = 5.0
 	red.light_volumetric_fog_energy = 2.0
 	add_child(red); red.global_position = Vector3(16.5, fy + 1.9, cz)
+	# Pressure readout, on a real panel. This was a bare green Label3D hanging at
+	# the bulkhead: unshaded so it glowed, double_sided so the face you actually
+	# woke up looking at from the benches was its MIRRORED back, and yawed -90 so
+	# its front pointed into the wall. Now it is a bolted indicator board sunk
+	# flush on the forward bulkhead, reading east toward the benches, single-sided
+	# so it can never ghost through the steel.
+	var board_x: float = ix0 + 0.075                    # interior face of the west wall
+	_box(Vector3(board_x + 0.02, fy + 1.55, cz), Vector3(0.04, 0.30, 1.05),
+		MatLib.dark_metal(), self, false)               # placard plate
+	_box(Vector3(board_x + 0.045, fy + 1.55, cz), Vector3(0.012, 0.22, 0.92),
+		MatLib.flat(Color(0.06, 0.07, 0.07)), self, false)   # recessed readout face
+	for b in [Vector2(0.125, 0.49), Vector2(0.125, -0.49),
+			Vector2(-0.125, 0.49), Vector2(-0.125, -0.49)]:
+		_cyl_nc(Vector3(board_x + 0.045, fy + 1.55 + b.x, cz + b.y), 0.012, 0.02,
+			MatLib.galvanized()).rotation.z = deg_to_rad(90)   # bolt heads
 	countdown_label = Label3D.new()
 	countdown_label.text = "PRESSURE — EQUALIZED"
-	countdown_label.font_size = 40; countdown_label.pixel_size = 0.004
+	countdown_label.font_size = 40
+	countdown_label.pixel_size = 0.002
 	countdown_label.modulate = Color(0.3, 0.9, 0.4)
+	countdown_label.outline_size = 0
+	# Unshaded ON PURPOSE — this one is the pod's own lit readout rather than
+	# painted stencil, and the red pod lamp two metres off would otherwise crush a
+	# green panel to unreadable black. The board around it is what stops it
+	# reading as free-floating text.
+	countdown_label.shaded = false
+	countdown_label.double_sided = false
+	countdown_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	add_child(countdown_label)
-	countdown_label.global_position = Vector3(15.02, fy + 1.55, cz)
-	countdown_label.rotation.y = deg_to_rad(-90)
+	countdown_label.global_position = Vector3(board_x + 0.056, fy + 1.55, cz)
+	countdown_label.rotation.y = deg_to_rad(90)
 	# Bench seats down each side (clear of the x=20 walk line to the hatch).
 	for s in [-1.0, 1.0]:
 		_box(Vector3(17.1, fy + 0.35, cz + s * 0.95), Vector3(3.6, 0.35, 0.35), grey, self, false)
@@ -1063,12 +1212,31 @@ func _decorate_rec_room() -> void:
 		for i in range(6):
 			_box(Vector3(24.85 + i * 0.24, y + row + 0.25, 17.55), Vector3(0.16, 0.5, 0.24),
 				MatLib.flat(Color(0.25 + (i % 3) * 0.12, 0.22, 0.3 - (i % 2) * 0.08)), self, false)
-	# Wall clock, stopped at 2:47 — nobody wound it again.
-	_cyl_nc(Vector3(18.2, y + 2.3, 15), 0.28, 0.05, MatLib.flat(Color(0.9, 0.9, 0.86))).rotation.z = deg_to_rad(90)
-	var hand_h := _box(Vector3(18.26, y + 2.34, 15.04), Vector3(0.02, 0.12, 0.02), MatLib.flat(Color(0.1, 0.1, 0.1)), self, false)
-	hand_h.rotation.x = deg_to_rad(52)
-	var hand_m := _box(Vector3(18.26, y + 2.3, 14.92), Vector3(0.02, 0.2, 0.02), MatLib.flat(Color(0.1, 0.1, 0.1)), self, false)
-	hand_m.rotation.x = deg_to_rad(-64)
+	# Wall clock, stopped at 2:47 — nobody wound it again. A real cased clock hung
+	# on the rec room's west bulkhead: the steel rim sits hard on the wall face
+	# (x18.125) and the dial, ticks and hands stack forward off it, so it reads as
+	# mounted rather than floating a hand's width out in the room.
+	var clock_c := Vector3(18.125, y + 2.3, 15.0)
+	var clock_face := MatLib.flat(Color(0.9, 0.9, 0.86))
+	var clock_ink := MatLib.flat(Color(0.11, 0.11, 0.12))
+	_cyl_nc(clock_c + Vector3(0.028, 0, 0), 0.30, 0.055, MatLib.dark_metal()).rotation.z = deg_to_rad(90)
+	_cyl_nc(clock_c + Vector3(0.066, 0, 0), 0.26, 0.022, clock_face).rotation.z = deg_to_rad(90)
+	# Hour ticks round the dial.
+	for i in range(12):
+		var a: float = float(i) * TAU / 12.0
+		var tick := _box(clock_c + Vector3(0.079, cos(a) * 0.215, -sin(a) * 0.215),
+			Vector3(0.009, 0.032, 0.013), clock_ink, self, false)
+		tick.rotation.x = -a
+	# Hands stopped at 2:47 — hour just past 2, minute a shade before 10.
+	for hand in [[83.5, 0.15, 0.022], [282.0, 0.21, 0.016]]:
+		var th: float = deg_to_rad(float(hand[0]))
+		var length: float = float(hand[1])
+		var thick: float = float(hand[2])
+		var dir := Vector3(0.0, cos(th), -sin(th))
+		var hb := _box(clock_c + Vector3(0.086, 0, 0) + dir * (length * 0.5),
+			Vector3(thick, length, thick * 0.6), clock_ink, self, false)
+		hb.rotation.x = -th
+	_cyl_nc(clock_c + Vector3(0.092, 0, 0), 0.022, 0.02, clock_ink).rotation.z = deg_to_rad(90)
 
 func _decorate_machine_shop() -> void:
 	var y: float = DECK_Y
@@ -1078,8 +1246,33 @@ func _decorate_machine_shop() -> void:
 	for i in range(6):
 		_box(Vector3(-22.2 + i * 0.5, y + 1.9 + (0.25 if i % 2 == 0 else -0.2), -17.55),
 			Vector3(0.1, 0.4, 0.06), MatLib.flat(tool_colors[i]), self, false)
-	# Vise on the drafting table; parts bins along the wall.
-	_box(Vector3(-19.6, y + 1.2, -12), Vector3(0.35, 0.25, 0.3), MatLib.dark_metal(), self, false)
+	# The fitter's bench. The shop's hand tools were authored at y+1.25 with NOTHING
+	# under them — a tray of tools hanging in mid air. This is the bench they were
+	# always meant to be lying on: timber top at y18.95 (a real 0.95m working
+	# height), steel frame, a lower shelf. Tool positions now rest on it.
+	var bench_top: float = y + 0.95
+	_box(Vector3(-19.85, bench_top - 0.05, -12.05), Vector3(2.7, 0.1, 1.7), MatLib.weathered_wood())
+	_box(Vector3(-19.85, y + 0.28, -12.05), Vector3(2.5, 0.05, 1.5), MatLib.dark_metal())  # lower shelf
+	for lx in [-21.0, -18.7]:
+		for lz in [-12.75, -11.35]:
+			_box(Vector3(lx, y + 0.45, lz), Vector3(0.09, 0.9, 0.09), MatLib.dark_metal())
+	# Apron rails under the top, so the frame reads as welded rather than floating.
+	_box(Vector3(-19.85, y + 0.82, -12.85), Vector3(2.5, 0.07, 0.07), MatLib.dark_metal(), self, false)
+	_box(Vector3(-19.85, y + 0.82, -11.25), Vector3(2.5, 0.07, 0.07), MatLib.dark_metal(), self, false)
+
+	# Six hand tools you can actually pocket, left lying where the last shift put
+	# them. The glTF shop models carry the look; the item ids are the inventory.
+	_takeable_model("wrench", "pipe_wrench", "Pipe Wrench", Vector3(-19.2, bench_top, -12.3), 130)
+	_takeable_model("hammer_tool", "cross_pein_hammer", "Hammer", Vector3(-20.0, bench_top, -11.45), 20)
+	_takeable_model("spanner", "combination_wrench", "Spanner", Vector3(-19.45, bench_top, -12.62), 100)
+	_takeable_model("screwdriver", "screwdriver", "Screwdriver", Vector3(-20.45, bench_top, -12.05), 60)
+	# No file or hacksaw in the glTF library, and ItemVisual builds both standing
+	# on end (right for a dropped item, wrong for a bench) — so these two are laid
+	# down by hand to match the tools already lying around them.
+	_takeable_custom("hand_file", "Hand File", Vector3(-18.8, bench_top, -12.4), _file_visual(), -30, 0.3)
+	_takeable_custom("hacksaw", "Hacksaw", Vector3(-20.9, bench_top, -11.55), _hacksaw_visual(), 12, 0.38)
+
+	# Parts bins along the wall.
 	for i in range(3):
 		_box(Vector3(-26.5, y + 0.2, -14.5 + i * 1.4), Vector3(0.8, 0.4, 1.0),
 			MatLib.flat([Color(0.55, 0.25, 0.2), Color(0.25, 0.35, 0.5), Color(0.45, 0.45, 0.4)][i]))
@@ -1260,8 +1453,11 @@ func _add_wall_details() -> void:
 	# Grab rails running ALONG their walls (cylinder axis along the wall direction).
 	var r1 := _cyl_nc(Vector3(6, DECK_Y + 1.1, 7.82), 0.04, 3.0, MatLib.painted_steel())
 	r1.rotation.z = deg_to_rad(90)   # galley south face, along X
-	var r2 := _cyl_nc(Vector3(17.82, DECK_Y + 1.1, 12), 0.04, 3.0, MatLib.painted_steel())
-	r2.rotation.x = deg_to_rad(90)   # rec room west face, along Z
+	# Rec room west face, along Z. Shifted NORTH of the doorway: the door opening
+	# is z10.3–11.7, and centred on z12 this rail ran z10.5–13.5, barring the way
+	# in at waist height. Now z12.5–15.5 — a handhold beside the door, not across it.
+	var r2 := _cyl_nc(Vector3(17.82, DECK_Y + 1.1, 14.0), 0.04, 3.0, MatLib.painted_steel())
+	r2.rotation.x = deg_to_rad(90)
 	var r3 := _cyl_nc(Vector3(-18, DECK_Y + 1.1, 3.82), 0.04, 3.0, MatLib.painted_steel())
 	r3.rotation.z = deg_to_rad(90)   # bunkhouse south face, along X
 
@@ -1563,6 +1759,7 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 32,
 	l.outline_size = 0
 	l.shaded = true
 	l.double_sided = false
+	l.billboard = BaseMaterial3D.BILLBOARD_DISABLED   # paint does not turn to face you
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
@@ -1683,6 +1880,46 @@ func _arrival_dressing() -> void:
 
 ## Deck A + wet deck density: stools, pots, footlockers, hose reels — the
 ## second half of "double the interior detail".
+## Bunting strung across the rec room. The flags used to be five loose rectangles
+## floating at a fixed height with nothing holding them up — from the couch they read
+## as props stuck in mid-air. Now a real cord runs wall to wall with a catenary sag and
+## every pennant hangs FROM it: the cord curve is sampled once and both the cord
+## segments and the flag tops are placed on that same curve, so a flag physically
+## cannot drift off the line it is tied to. Someone strung this up for a birthday.
+func _pennant_string(y: float) -> void:
+	var z: float = 12.9
+	var x0: float = 18.15                # west wall interior face
+	var x1: float = 27.85                # east wall interior face
+	var y_end: float = y + 2.95          # eyelets just under the deckhead (y + 3.075)
+	var sag: float = 0.34
+	var cord_mat: Material = MatLib.flat(Color(0.42, 0.38, 0.32))
+	var cols: Array[Color] = [Color(0.7, 0.3, 0.2), Color(0.25, 0.4, 0.6), Color(0.75, 0.65, 0.2)]
+	var steps: int = 24
+	var pts: Array[Vector3] = []
+	for i in range(steps + 1):
+		var t: float = float(i) / float(steps)
+		pts.append(Vector3(lerpf(x0, x1, t), y_end - sag * 4.0 * t * (1.0 - t), z))
+	for i in range(steps):
+		var a: Vector3 = pts[i]
+		var b: Vector3 = pts[i + 1]
+		var seg := _box((a + b) * 0.5, Vector3(a.distance_to(b) + 0.006, 0.012, 0.012),
+			cord_mat, self, false)
+		seg.rotation.z = atan2(b.y - a.y, b.x - a.x)
+	for e in [pts[0], pts[steps]]:
+		_cyl_nc(e, 0.022, 0.06, MatLib.galvanized())   # eyelet screw into the steel
+	# Triangular flags, apex down, hinged at the cord: the polygon's origin IS the top
+	# edge midpoint, so the flutter rotation pivots there and the top stays tied on.
+	for i in range(9):
+		var t: float = (float(i) + 0.5) / 9.0
+		var tri := CSGPolygon3D.new()
+		tri.polygon = PackedVector2Array([Vector2(-0.11, 0.0), Vector2(0.11, 0.0), Vector2(0.0, -0.3)])
+		tri.depth = 0.012
+		tri.material = MatLib.flat(cols[i % 3])
+		tri.use_collision = false
+		add_child(tri)
+		tri.position = Vector3(lerpf(x0, x1, t), y_end - sag * 4.0 * t * (1.0 - t), z - tri.depth * 0.5)
+		tri.rotation.z = 0.09 - float(i % 2) * 0.18
+
 func _density_a() -> void:
 	var y: float = DECK_Y
 	# Galley: stools at every table, pot stack, menu board, bread crate.
@@ -1697,10 +1934,7 @@ func _density_a() -> void:
 	# Rec room: second couch, low magazine table, pennant string.
 	_box(Vector3(26.8, y + 0.35, 10.5), Vector3(1.0, 0.7, 2.2), MatLib.flat(Color(0.3, 0.34, 0.3)))
 	_box(Vector3(24.8, y + 0.22, 10.5), Vector3(0.9, 0.06, 0.7), MatLib.wood(), self, false)
-	for i in range(5):
-		var pn := _box(Vector3(19.5 + i * 1.6, y + 2.7, 12.9), Vector3(0.22, 0.3, 0.02),
-			MatLib.flat([Color(0.7, 0.3, 0.2), Color(0.25, 0.4, 0.6), Color(0.75, 0.65, 0.2)][i % 3]), self, false)
-		pn.rotation.z = 0.1 - (i % 2) * 0.2
+	_pennant_string(y)
 	# Bunkhouse: footlockers, towel hooks, a dead space heater.
 	for p in [Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
 			Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5)]:

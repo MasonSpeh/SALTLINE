@@ -238,14 +238,22 @@ func _run() -> void:
 		main.storm.trigger_storm()
 		main.storm._intensity = 1.0
 		main.storm._phase = 2
-		main.storm._sheltered = false                # open sky
+		main.storm._cover_frac = 0.0                 # open sky
 		main.storm._apply_intensity()
 		await get_tree().process_frame
 		_check(main.storm._rain.emitting, "storm rain emits at full intensity")
-		main.storm._sheltered = true                 # under a roof -> suppressed
+		# Rain no longer stops when the player is sheltered: it keeps falling and the
+		# particle shader scales drops inside roofed volumes to zero, so a squall is
+		# still visible through every window and across every open deck.
+		main.storm._cover_frac = 1.0                 # under a roof -> still emitting
+		main.storm._roof_dist = 3.0
 		main.storm._apply_intensity()
-		_check(not main.storm._rain.emitting, "storm rain suppressed under a roof")
-		main.storm._sheltered = false
+		_check(main.storm._rain.emitting, "storm rain keeps emitting under a roof")
+		var rain_mat: Material = main.storm._rain.process_material
+		_check(rain_mat is ShaderMaterial, "rain uses the covered-volume particle shader")
+		_check(int((rain_mat as ShaderMaterial).get_shader_parameter("box_count")) > 0,
+			"covered volumes baked into the rain shader")
+		main.storm._cover_frac = 0.0
 		main.storm._apply_intensity()
 		_check(main.sun_ctl.storm_intensity > 0.5, "storm darkens the sky via SunController")
 		main.storm._intensity = 0.0
@@ -279,15 +287,16 @@ func _run() -> void:
 	var stove: Node = _find_class(main, "cook_stove")
 	_check(stove != null, "galley stove exists")
 	if stove:
-		var cooked_before: int = _item_count("cooked_fish")
+		# Per-species cooking: a herring sears to its OWN meal, not a generic fillet.
+		var cooked_before: int = _item_count("cooked_fish_herring")
 		stove.interact("COOK", player)
-		_check(_item_count("cooked_fish") > cooked_before, "stove sears raw fish into a meal")
+		_check(_item_count("cooked_fish_herring") > cooked_before, "stove sears raw fish into its species meal")
 		_check(_item_count("fish_herring") == herring_before, "searing consumes the raw fish")
 		PlayerState.hunger = 0.2
-		var cslot: int = PlayerState.hotbar.find("cooked_fish")
+		var cslot: int = PlayerState.hotbar.find("cooked_fish_herring")
 		if cslot == -1:
-			PlayerState.add_item("cooked_fish")
-			cslot = PlayerState.hotbar.find("cooked_fish")
+			PlayerState.add_item("cooked_fish_herring")
+			cslot = PlayerState.hotbar.find("cooked_fish_herring")
 		PlayerState.use_hotbar(cslot)
 		_check(PlayerState.hunger > 0.5, "eating seared fish restores hunger")
 

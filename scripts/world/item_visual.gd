@@ -18,32 +18,24 @@ const FISH_SIZE := {
 	"fish_barrel_grouper": 1.4, "fish_fathom_halibut": 1.6, "fish_copper_sprat": 0.6,
 	"fish_ribbon_eel": 1.2,
 }
+## Real generated fish meshes (assets/models/fauna/<id>) when present; procedural
+## silhouette when not. Preloaded — the class cache lags for this new file.
+const FISH_MODEL := preload("res://scripts/world/fish_model_lib.gd")
 
 static func build(item_id: String) -> Node3D:
 	var root := Node3D.new()
-	match item_id:
-		"fish_stone_crab":
-			# Wide carapace, two heavy claws.
-			_box(root, Vector3(0.3, 0.1, 0.24), Color(0.6, 0.35, 0.25), Vector3(0, 0.08, 0))
-			_box(root, Vector3(0.1, 0.06, 0.14), Color(0.65, 0.4, 0.28), Vector3(-0.2, 0.07, 0.1))
-			_box(root, Vector3(0.1, 0.06, 0.14), Color(0.65, 0.4, 0.28), Vector3(0.2, 0.07, 0.1))
+	# Fish family — raw fish AND per-species cooked meals ("cooked_fish_herring").
+	# Try the real generated species mesh first (a caught fish reads as that fish),
+	# fall back to the procedural silhouette. Cooked ids darken to a seared char.
+	if _is_species_fish(item_id):
+		var cooked: bool = item_id.begins_with("cooked_")
+		var species: String = FISH_MODEL.species_of(item_id)
+		var size_mul: float = FISH_SIZE.get(species, 1.0)
+		var model: Node3D = FISH_MODEL.build(species, cooked, 0.42 * size_mul)
+		if model != null:
+			root.add_child(model)
 			return root
-		"fish_inkwell_squid":
-			# Cone mantle + a skirt of tentacle stubs, faint teal glow.
-			var cone := _cyl(root, 0.001, 0.3, Color(0.45, 0.55, 0.6), Vector3(0, 0.24, 0))
-			(cone.mesh as CylinderMesh).bottom_radius = 0.09
-			for i in range(4):
-				_box(root, Vector3(0.03, 0.14, 0.03), Color(0.4, 0.5, 0.55),
-					Vector3(cos(i * TAU / 4) * 0.05, 0.05, sin(i * TAU / 4) * 0.05))
-			_box(root, Vector3(0.06, 0.06, 0.06), Color(0.2, 0.9, 0.85), Vector3(0, 0.3, 0), true, 0.8)
-			return root
-		"fish_gutter_prawn":
-			var seg := _box(root, Vector3(0.16, 0.05, 0.06), Color(0.75, 0.6, 0.55), Vector3(0, 0.05, 0))
-			seg.rotation.z = 0.3
-			_box(root, Vector3(0.1, 0.04, 0.05), Color(0.7, 0.55, 0.5), Vector3(0.1, 0.03, 0))
-			return root
-	if item_id.begins_with("fish_"):
-		_fish(root, FISH_TINT.get(item_id, Color(0.6, 0.65, 0.68)), FISH_SIZE.get(item_id, 1.0))
+		_fish_body(root, species, cooked, size_mul)
 		return root
 	match item_id:
 		"canned_food":
@@ -101,6 +93,56 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.07, 0.09, 0.07), Color(0.72, 0.64, 0.46), Vector3(0.16, 1.05, 0))       # lashing
 			var head := _box(root, Vector3(0.03, 0.28, 0.1), Color(0.6, 0.62, 0.66), Vector3(0.2, 1.32, 0))
 			head.rotation.z = deg_to_rad(10)
+		"mini_anchor":
+			# Stock, ring, shank, two curved flukes — a fist-sized hook anchor.
+			_box(root, Vector3(0.05, 0.34, 0.05), Color(0.3, 0.31, 0.34), Vector3(0, 0.2, 0))          # shank
+			_torus(root, 0.02, 0.055, Color(0.32, 0.33, 0.36), Vector3(0, 0.4, 0))                     # ring
+			_box(root, Vector3(0.24, 0.04, 0.04), Color(0.32, 0.33, 0.36), Vector3(0, 0.33, 0))        # stock
+			var flu_l := _box(root, Vector3(0.03, 0.17, 0.05), Color(0.3, 0.31, 0.34), Vector3(-0.1, 0.08, 0))
+			flu_l.rotation.z = deg_to_rad(38)
+			var flu_r := _box(root, Vector3(0.03, 0.17, 0.05), Color(0.3, 0.31, 0.34), Vector3(0.1, 0.08, 0))
+			flu_r.rotation.z = deg_to_rad(-38)
+			_box(root, Vector3(0.09, 0.05, 0.05), Color(0.34, 0.35, 0.38), Vector3(-0.17, 0.04, 0))    # fluke tip
+			_box(root, Vector3(0.09, 0.05, 0.05), Color(0.34, 0.35, 0.38), Vector3(0.17, 0.04, 0))
+		"wrench":
+			# Steel bar with an open C-jaw at the head.
+			_box(root, Vector3(0.05, 0.5, 0.035), Color(0.55, 0.57, 0.6), Vector3(0, 0.25, 0))         # handle
+			_box(root, Vector3(0.16, 0.05, 0.035), Color(0.6, 0.62, 0.65), Vector3(0, 0.51, 0))        # jaw base
+			_box(root, Vector3(0.05, 0.1, 0.035), Color(0.6, 0.62, 0.65), Vector3(-0.075, 0.55, 0))    # jaw prong
+			_box(root, Vector3(0.05, 0.1, 0.035), Color(0.6, 0.62, 0.65), Vector3(0.075, 0.55, 0))
+		"spanner":
+			# Ring end at the top, box end at the foot.
+			_box(root, Vector3(0.045, 0.46, 0.03), Color(0.5, 0.52, 0.55), Vector3(0, 0.24, 0))        # handle
+			_torus(root, 0.03, 0.075, Color(0.55, 0.57, 0.6), Vector3(0, 0.48, 0))                     # ring end
+			_box(root, Vector3(0.12, 0.06, 0.03), Color(0.55, 0.57, 0.6), Vector3(0, 0.03, 0))         # box end
+		"screwdriver":
+			_cyl(root, 0.035, 0.22, Color(0.78, 0.45, 0.2), Vector3(0, 0.11, 0))                       # amber grip
+			_cyl(root, 0.012, 0.34, Color(0.6, 0.62, 0.66), Vector3(0, 0.39, 0))                       # shaft
+			_box(root, Vector3(0.03, 0.03, 0.008), Color(0.55, 0.57, 0.6), Vector3(0, 0.57, 0))        # flat tip
+		"hammer_tool":
+			_box(root, Vector3(0.04, 0.5, 0.05), Color(0.45, 0.32, 0.2), Vector3(0, 0.25, 0))          # wood handle
+			_box(root, Vector3(0.2, 0.07, 0.07), Color(0.3, 0.31, 0.34), Vector3(0, 0.52, 0))          # head
+			var claw := _box(root, Vector3(0.05, 0.1, 0.05), Color(0.28, 0.29, 0.32), Vector3(-0.11, 0.52, 0))
+			claw.rotation.z = deg_to_rad(22)                                                           # claw
+		"hand_file":
+			_box(root, Vector3(0.028, 0.4, 0.016), Color(0.5, 0.52, 0.55), Vector3(0, 0.3, 0))         # flat blade
+			_cyl(root, 0.032, 0.14, Color(0.5, 0.33, 0.2), Vector3(0, 0.08, 0))                        # wood tang handle
+		"hacksaw":
+			_box(root, Vector3(0.42, 0.04, 0.03), Color(0.3, 0.31, 0.34), Vector3(0, 0.34, 0))         # top frame bar
+			_box(root, Vector3(0.03, 0.18, 0.03), Color(0.3, 0.31, 0.34), Vector3(0.21, 0.25, 0))      # front upright
+			_box(root, Vector3(0.42, 0.015, 0.02), Color(0.72, 0.74, 0.77), Vector3(0, 0.18, 0))       # blade
+			var grip := _cyl(root, 0.035, 0.16, Color(0.4, 0.28, 0.18), Vector3(-0.21, 0.2, 0))        # pistol grip
+			grip.rotation.z = deg_to_rad(18)
+		"gull_meat":
+			# A plucked, dressed gull — pink raw flesh, two leg stubs.
+			_box(root, Vector3(0.22, 0.12, 0.14), Color(0.82, 0.55, 0.5), Vector3(0, 0.09, 0))
+			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.8, 0.72, 0.6), Vector3(-0.05, 0.02, 0.05))
+			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.8, 0.72, 0.6), Vector3(0.05, 0.02, 0.05))
+		"cooked_gull_meat":
+			# Roasted gull — browned skin, crisped legs.
+			_box(root, Vector3(0.22, 0.12, 0.14), Color(0.55, 0.35, 0.18), Vector3(0, 0.09, 0))
+			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.4, 0.26, 0.14), Vector3(-0.05, 0.02, 0.05))
+			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.4, 0.26, 0.14), Vector3(0.05, 0.02, 0.05))
 		"tarp":
 			_box(root, Vector3(0.5, 0.16, 0.4), Color(0.62, 0.66, 0.6), Vector3(0, 0.1, 0))
 			_box(root, Vector3(0.52, 0.06, 0.18), Color(0.55, 0.6, 0.55), Vector3(0, 0.2, 0))
@@ -146,6 +188,61 @@ static func build(item_id: String) -> Node3D:
 		_:
 			_box(root, Vector3(0.28, 0.3, 0.28), Interactable.COLOR_TAKEABLE, Vector3(0, 0.15, 0))
 	return root
+
+## True for raw fish ("fish_*") and per-species cooked meals ("cooked_fish_*"),
+## but NOT the legacy generic "cooked_fish"/"cooked_fish_prime" (their own fillet cases).
+static func _is_species_fish(id: String) -> bool:
+	if id == "cooked_fish_prime":
+		return false
+	return id.begins_with("fish_") or id.begins_with("cooked_fish_")
+
+## Procedural fallback body for a fish species when no generated mesh is present.
+## Crab / squid / prawn keep their distinctive shapes; everything else is the fish
+## silhouette. Cooked reddens/browns the flesh the way a hot pan actually would.
+static func _fish_body(root: Node3D, species: String, cooked: bool, size_mul: float) -> void:
+	match species:
+		"fish_stone_crab":
+			_crab_shape(root, cooked)
+			return
+		"fish_inkwell_squid":
+			_squid_shape(root, cooked)
+			return
+		"fish_gutter_prawn":
+			_prawn_shape(root, cooked)
+			return
+	var tint: Color = FISH_TINT.get(species, Color(0.6, 0.65, 0.68))
+	if cooked:
+		tint = _seared(tint)
+	_fish(root, tint, size_mul)
+
+## Crush a species colour to a seared char grey-brown.
+static func _seared(c: Color) -> Color:
+	return Color(c.r * 0.45, c.g * 0.34, c.b * 0.24)
+
+static func _crab_shape(root: Node3D, cooked: bool) -> void:
+	var sh: Color = Color(0.7, 0.28, 0.16) if cooked else Color(0.6, 0.35, 0.25)   # boiled shell reddens
+	var cl: Color = Color(0.74, 0.3, 0.18) if cooked else Color(0.65, 0.4, 0.28)
+	_box(root, Vector3(0.3, 0.1, 0.24), sh, Vector3(0, 0.08, 0))                    # carapace
+	_box(root, Vector3(0.1, 0.06, 0.14), cl, Vector3(-0.2, 0.07, 0.1))             # claws
+	_box(root, Vector3(0.1, 0.06, 0.14), cl, Vector3(0.2, 0.07, 0.1))
+
+static func _squid_shape(root: Node3D, cooked: bool) -> void:
+	var mantle: Color = Color(0.6, 0.5, 0.42) if cooked else Color(0.45, 0.55, 0.6)  # grilled squid browns
+	var tent: Color = Color(0.5, 0.4, 0.33) if cooked else Color(0.4, 0.5, 0.55)
+	var cone := _cyl(root, 0.001, 0.3, mantle, Vector3(0, 0.24, 0))
+	(cone.mesh as CylinderMesh).bottom_radius = 0.09
+	for i in range(4):
+		_box(root, Vector3(0.03, 0.14, 0.03), tent,
+			Vector3(cos(i * TAU / 4) * 0.05, 0.05, sin(i * TAU / 4) * 0.05))
+	if not cooked:
+		_box(root, Vector3(0.06, 0.06, 0.06), Color(0.2, 0.9, 0.85), Vector3(0, 0.3, 0), true, 0.8)  # bio-glow
+
+static func _prawn_shape(root: Node3D, cooked: bool) -> void:
+	var a: Color = Color(0.85, 0.4, 0.3) if cooked else Color(0.75, 0.6, 0.55)      # prawns pink up
+	var b: Color = Color(0.8, 0.35, 0.26) if cooked else Color(0.7, 0.55, 0.5)
+	var seg := _box(root, Vector3(0.16, 0.05, 0.06), a, Vector3(0, 0.05, 0))
+	seg.rotation.z = 0.3
+	_box(root, Vector3(0.1, 0.04, 0.05), b, Vector3(0.1, 0.03, 0))
 
 ## One fish silhouette: tapered capsule body, prism tail, a dot of eye.
 static func _fish(root: Node3D, tint: Color, size_mul: float = 1.0) -> void:

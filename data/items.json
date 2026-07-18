@@ -256,5 +256,227 @@
   "limpet_shell": {
     "name": "Limpet Shell",
     "use": "tool"
+  },
+  "cooked_fish_copper_sprat": {
+    "name": "Cooked Copper Sprat",
+    "use": "eat",
+    "hunger": 0.3,
+    "thirst": 0.05
+  },
+  "cooked_fish_herring": {
+    "name": "Cooked Lantern Herring",
+    "use": "eat",
+    "hunger": 0.45,
+    "thirst": 0.05
+  },
+  "cooked_fish_slate_cod": {
+    "name": "Cooked Slate Cod",
+    "use": "eat",
+    "hunger": 0.55,
+    "thirst": 0.05
+  },
+  "cooked_fish_mirrorjack": {
+    "name": "Cooked Mirrorjack",
+    "use": "eat",
+    "hunger": 0.48,
+    "thirst": 0.05
+  },
+  "cooked_fish_chimefish": {
+    "name": "Cooked Chimefish",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05
+  },
+  "cooked_fish_silver_ladder": {
+    "name": "Cooked Silver Ladder",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05
+  },
+  "cooked_fish_ember_snapper": {
+    "name": "Cooked Ember Snapper",
+    "use": "eat",
+    "hunger": 0.5,
+    "thirst": 0.05
+  },
+  "cooked_fish_sable_hake": {
+    "name": "Cooked Sable Hake",
+    "use": "eat",
+    "hunger": 0.46,
+    "thirst": 0.05
+  },
+  "cooked_fish_ghost_sole": {
+    "name": "Cooked Ghost Sole",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05
+  },
+  "cooked_fish_glasspike": {
+    "name": "Cooked Glasspike",
+    "use": "eat",
+    "hunger": 0.5,
+    "thirst": 0.05
+  },
+  "cooked_fish_lodestone_bream": {
+    "name": "Cooked Lodestone Bream",
+    "use": "eat",
+    "hunger": 0.5,
+    "thirst": 0.05
+  },
+  "cooked_fish_drum_croaker": {
+    "name": "Cooked Drum Croaker",
+    "use": "eat",
+    "hunger": 0.52,
+    "thirst": 0.05
+  },
+  "cooked_fish_inkwell_squid": {
+    "name": "Grilled Inkwell Squid",
+    "use": "eat",
+    "hunger": 0.48,
+    "thirst": 0.05
+  },
+  "cooked_fish_ribbon_eel": {
+    "name": "Cooked Ribbon Eel",
+    "use": "eat",
+    "hunger": 0.65,
+    "thirst": 0.1
+  },
+  "cooked_fish_barrel_grouper": {
+    "name": "Cooked Barrel Grouper",
+    "use": "eat",
+    "hunger": 0.85,
+    "thirst": 0.1
+  },
+  "cooked_fish_stone_crab": {
+    "name": "Boiled Stone Crab",
+    "use": "eat",
+    "hunger": 0.5,
+    "thirst": 0.05
+  },
+  "cooked_fish_gutter_prawn": {
+    "name": "Cooked Gutter Prawn",
+    "use": "eat",
+    "hunger": 0.32,
+    "thirst": 0.05
+  },
+  "cooked_fish_miller_flounder": {
+    "name": "Cooked Miller's Flounder",
+    "use": "eat",
+    "hunger": 0.46,
+    "thirst": 0.05
+  },
+  "cooked_fish_fathom_halibut": {
+    "name": "Cooked Fathom Halibut",
+    "use": "eat",
+    "hunger": 0.9,
+    "thirst": 0.1
+  },
+  "croissant": {
+    "name": "Stale Croissant",
+    "use": "eat",
+    "hunger": 0.15
+  },
+  "carrot_cake": {
+    "name": "Dry Carrot Cake",
+    "use": "eat",
+    "hunger": 0.22
+  },
+  "bananas": {
+    "name": "Spotted Bananas",
+    "use": "eat",
+    "hunger": 0.18,
+    "thirst": 0.03
+  },
+  "apple": {
+    "name": "Bruised Apple",
+    "use": "eat",
+    "hunger": 0.14,
+    "thirst": 0.06
+  },
+  "avocado": {
+    "name": "Soft Avocado",
+    "use": "eat",
+    "hunger": 0.16
+  },
+  "burger_buns": {
+    "name": "Stale Burger Buns",
+    "use": "eat",
+    "hunger": 0.16
+  },
+  "lemon": {
+    "name": "Lemon",
+    "use": "eat",
+    "hunger": 0.06,
+    "thirst": 0.06
+  },
+  "chocolate_cake": {
+    "name": "Someone's Birthday Cake",
+    "use": "eat",
+    "hunger": 0.28
+  },
+  "cheese_wedge": {
+    "name": "Wedge of Cheese",
+    "use": "eat",
+    "hunger": 0.24
+  },
+  "ration_tin": {
+    "name": "Ration Tin",
+    "use": "eat",
+    "hunger": 0.3
+  },
+  "long_life_ration": {
+    "name": "Long-Life Ration",
+    "use": "eat",
+    "hunger": 0.35
+  },
+  "wine_bottle": {
+    "name": "Bottle of Red",
+    "use": "drink",
+    "thirst": 0.35,
+    "hunger": 0.05
+  },
+  "water_jug": {
+    "name": "Gallon of Water",
+    "use": "drink",
+    "thirst": 0.4
+  },
+  "mini_anchor": {
+    "name": "Mini Anchor",
+    "use": "tool"
+  },
+  "wrench": {
+    "name": "Wrench",
+    "use": "tool"
+  },
+  "hammer_tool": {
+    "name": "Hammer",
+    "use": "tool"
+  },
+  "spanner": {
+    "name": "Spanner",
+    "use": "tool"
+  },
+  "screwdriver": {
+    "name": "Screwdriver",
+    "use": "tool"
+  },
+  "hand_file": {
+    "name": "Hand File",
+    "use": "tool"
+  },
+  "hacksaw": {
+    "name": "Hacksaw",
+    "use": "tool"
+  },
+  "gull_meat": {
+    "name": "Gull",
+    "use": "eat",
+    "hunger": 0.12,
+    "side_effect": "sick"
+  },
+  "cooked_gull_meat": {
+    "name": "Roast Gull",
+    "use": "eat",
+    "hunger": 0.55
   }
 }

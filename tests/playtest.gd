@@ -78,14 +78,14 @@ func _run() -> void:
 	var bp: BenchPanel = main.hud.bench_panel
 	_check(bp.visible, "bench opens its lay-parts panel")
 	PlayerState.add_item("rope")
-	PlayerState.add_item("prybar")
+	PlayerState.add_item("mini_anchor")
 	bp.refresh()
 	_check(bp.lay_item("rope"), "can lay a part on the bench")
 	_check(bp.current_match() == "" and bp.partial_matches().has("throwing_hook"),
 		"partial parts whisper what they want to become")
 	_check(bp._match_label.text.contains("still needs"), "bench lists the missing parts")
-	bp.lay_item("prybar")
-	_check(bp.current_match() == "throwing_hook", "rope + prybar match the hook recipe")
+	bp.lay_item("mini_anchor")
+	_check(bp.current_match() == "throwing_hook", "rope + mini anchor match the hook recipe")
 	_check(not bp._work_button.disabled, "work button arms on an exact match")
 	bp.test_hold = true
 	var work_wait: float = 0.0
@@ -94,7 +94,7 @@ func _run() -> void:
 		work_wait += 0.25
 	bp.test_hold = false
 	_check(PlayerState.has_item("throwing_hook"), "holding the work makes the hook")
-	_check(not PlayerState.has_item("rope") and not PlayerState.has_item("prybar"),
+	_check(not PlayerState.has_item("rope") and not PlayerState.has_item("mini_anchor"),
 		"crafting consumes the laid parts")
 	_check(bp.laid.is_empty(), "bench surface clears after the work")
 	# Panel closes politely and never eats parts.

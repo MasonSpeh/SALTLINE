@@ -1,11 +1,24 @@
 class_name CookStove extends Interactable
 ## The galley range — old propane bottle, honest heat. COOK sears one raw fish
-## from the pack into a real meal: small fish become Seared Fish, the big deep
-## species render a Prime Fillet. Eating stays on the hotbar like any food.
+## from the pack into that species' own meal: a Lantern Herring becomes a Cooked
+## Lantern Herring, a Barrel Grouper feeds you for days. Bigger fish feed you more.
+## Gull meat roasts here too. Eating stays on the hotbar like any food.
 
 # What sears into what comes from data/fish.json (cooked_to) via FishTable —
-# the stove automatically knows every species the rod and net can land.
+# the stove automatically knows every species the rod and net can land, and each
+# now sears to its OWN cooked meal ("Cooked Lantern Herring"), not a generic fillet.
 const FISH := preload("res://scripts/world/fish_table.gd")
+
+# Non-fish things the range also cooks — gull meat off the deck, and room to grow.
+const EXTRA_COOK := {
+	"gull_meat": "cooked_gull_meat",
+}
+
+## What a raw item cooks into ("" = not cookable). Fish come from the table; a few
+## non-fish foods (gull) are handled here without polluting the fish data.
+func _cooked_for(id: String) -> String:
+	var c: String = FISH.cooked_for(id)
+	return c if c != "" else String(EXTRA_COOK.get(id, ""))
 
 func _init() -> void:
 	display_name = "Galley Stove"
@@ -22,7 +35,7 @@ func interact(verb: String, _player: Node3D) -> void:
 			hud.toast("Nothing raw to cook. The pan waits.")
 		return
 	PlayerState.remove_item(raw)
-	var cooked: String = FISH.cooked_for(raw)
+	var cooked: String = _cooked_for(raw)
 	PlayerState.add_item(cooked)
 	AudioDirector.play_one_shot("hiss", global_position, -10.0)
 	Journal.discover("system_stove")
@@ -48,9 +61,9 @@ func _flare() -> void:
 
 func _first_raw() -> String:
 	for it in PlayerState.hotbar:
-		if it != null and FISH.cooked_for(String(it)) != "":
+		if it != null and _cooked_for(String(it)) != "":
 			return String(it)
 	for it in PlayerState.inventory:
-		if FISH.cooked_for(String(it)) != "":
+		if _cooked_for(String(it)) != "":
 			return String(it)
 	return ""

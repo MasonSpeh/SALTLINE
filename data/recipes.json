@@ -3,13 +3,13 @@
   "throwing_hook": {
     "name": "Throwing Hook",
     "needs": {
-      "rope": 1,
-      "prybar": 1
+      "mini_anchor": 1,
+      "rope": 1
     },
     "makes": "throwing_hook",
     "work_sec": 2.5,
-    "desc": "A heaving line with teeth. Takes back what the gyre holds.",
-    "hint": "Rope from the crane deck; prybar from the pump room."
+    "desc": "A mini anchor lashed to a heaving line. Takes back what the gyre holds.",
+    "hint": "A mini anchor from the machine shop; rope from the crane deck."
   },
   "bloom_lamp_kit": {
     "name": "Bloom Lamp",

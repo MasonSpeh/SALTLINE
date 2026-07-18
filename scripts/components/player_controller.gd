@@ -7,6 +7,7 @@ extends CharacterBody3D
 const WALK_SPEED: float = 3.2
 const SPRINT_SPEED: float = 5.0
 const CROUCH_SPEED: float = 1.5
+const PRONE_SPEED: float = 0.9          ## a slow belly-crawl along the plating
 const CLIMB_SPEED: float = 1.8
 const ACCELERATION: float = 8.0
 const GRAVITY: float = 9.8
@@ -17,14 +18,24 @@ const HEAD_BOB_SPRINT_FREQ: float = 2.6
 const HEAD_BOB_AMPLITUDE: float = 0.03
 const WATER_LEVEL: float = 0.4
 
-# Crouch: halves the standing capsule and drops the eye line. Held on the crouch key.
+# Postures: STAND (default), CROUCH (held on the crouch key), PRONE (Z toggle — lie
+# flat on the deck). Each is a capsule height, a collider y-offset, and an eye line.
+# Standing back up from a shorter posture is gated by a headroom check (_posture_fits).
+const POSTURE_STAND: int = 0
+const POSTURE_CROUCH: int = 1
+const POSTURE_PRONE: int = 2
+
 const STAND_HEIGHT: float = 1.8
 const CROUCH_HEIGHT: float = 0.9
+const PRONE_HEIGHT: float = 0.8         ## lowest capsule the 0.4 radius allows (2*radius)
 const STAND_COL_Y: float = 0.9
 const CROUCH_COL_Y: float = 0.45
+const PRONE_COL_Y: float = 0.4          ## capsule centered so it rests flat on the deck
 const STAND_HEAD_Y: float = 1.6
 const CROUCH_HEAD_Y: float = 0.85
-const CROUCH_LERP: float = 12.0
+const PRONE_HEAD_Y: float = 0.35        ## eye a hand's width off the plating, watching the sky
+const CROUCH_LERP: float = 12.0         ## crouch / rising blend — quick and responsive
+const PRONE_LERP: float = 5.5           ## easing DOWN onto the deck is slower, heavier, calm
 
 const STAMINA_MAX: float = 1.0
 const STAMINA_DRAIN_PER_SEC: float = 0.2
@@ -70,11 +81,12 @@ var hook_out: bool = false         ## throwing hook is in flight / reeling
 var fishing: Node3D = null         ## a cast is out (FishingRod owns the line)
 var ui_locked: bool = false        ## a HUD panel (inventory/journal/help/bench) is open
 var build: BuildMode = null        ## build mode controller (B)
-var crouching: bool = false        ## held crouch — half height, slower, harder to detect
+var crouching: bool = false        ## true while in the CROUCH posture (fauna read this)
+var _posture: int = POSTURE_STAND  ## resolved every frame from crouch key + _prone toggle
+var _prone: bool = false           ## Z toggle: lying flat on the deck (a comfort posture)
 var _stamina: float = STAMINA_MAX
 var _head_bob_time: float = 0.0
 var _camera_base_y: float
-var _crouch_t: float = 0.0         ## 0 = standing, 1 = fully crouched
 var _jump_buffer: float = 0.0      ## brief window after a jump press, so it still fires on landing
 var _jump_was_pressed: bool = false
 var _climbing: Ladder = null
@@ -88,15 +100,22 @@ var _deep_t: float = 0.0           ## seconds spent past the deep-death line
 
 const JUMP_BUFFER_TIME: float = 0.15
 
-## How detectable the player is to creatures right now (1.0 standing, 0.5 crouched).
-## The Lamplight Crab multiplies its detect radius by this.
+## How detectable the player is to creatures right now (1.0 standing, 0.5 crouched,
+## 0.3 flat on the deck). The Lamplight Crab multiplies its detect radius by this.
 func detection_factor() -> float:
-	return 0.5 if crouching else 1.0
+	match _posture:
+		POSTURE_PRONE:
+			return 0.3
+		POSTURE_CROUCH:
+			return 0.5
+		_:
+			return 1.0
 
 func _ready() -> void:
 	add_to_group("player")
 	camera.fov = 75.0
 	_camera_base_y = head.position.y
+	_ensure_posture_bindings()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	var ray := InteractionRay.new()
 	camera.add_child(ray)
@@ -111,6 +130,21 @@ func _ready() -> void:
 	_hand_item.rotation.x = 0.15
 	PlayerState.inventory_changed.connect(_update_held_item)
 	PlayerState.player_died.connect(_on_player_died)
+
+## Guarantee the posture actions exist even if project.godot lacks them. `crouch` is
+## defined in the project map (Ctrl); `prone` is registered here at runtime (Z) so we
+## never have to touch project.godot. Safe to call once — skips actions already present.
+func _ensure_posture_bindings() -> void:
+	if not InputMap.has_action("crouch"):
+		InputMap.add_action("crouch")
+		var ev_ctrl := InputEventKey.new()
+		ev_ctrl.physical_keycode = KEY_CTRL
+		InputMap.action_add_event("crouch", ev_ctrl)
+	if not InputMap.has_action("prone"):
+		InputMap.add_action("prone")
+		var ev_z := InputEventKey.new()
+		ev_z.physical_keycode = KEY_Z
+		InputMap.action_add_event("prone", ev_z)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if event is InputEventMouseMotion and Input.mouse_mode == Input.MOUSE_MODE_CAPTURED:
@@ -147,6 +181,12 @@ func _unhandled_input(event: InputEvent) -> void:
 			drop_carried()
 			get_viewport().set_input_as_handled()
 			return
+	# Prone toggle (Z): only on land, and never while a panel/cutscene owns input.
+	if event.is_action_pressed("prone") and not input_locked and not ui_locked \
+			and not (build and build.active) and not _climbing and not swimming and not _fly:
+		_toggle_prone()
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and not input_locked:
 		match event.keycode:
 			KEY_1: _hotbar_pressed(0)
@@ -300,28 +340,39 @@ func _physics_process(delta: float) -> void:
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
 
-	_update_crouch(delta)
+	_update_posture(delta)
 
 	var can_act: bool = not input_locked and not ui_locked and not (build and build.active)
 	# Jump: buffer the rising edge of the press (polled, so it survives frame timing),
 	# then fire on the next grounded frame. A press just before landing still counts.
 	var jump_pressed: bool = can_act and Input.is_action_pressed("jump")
 	if jump_pressed and not _jump_was_pressed:
-		_jump_buffer = JUMP_BUFFER_TIME
+		if _posture == POSTURE_PRONE:
+			_prone = false   # jump gets you up off the deck instead of leaping
+		else:
+			_jump_buffer = JUMP_BUFFER_TIME
 	_jump_was_pressed = jump_pressed
 	if _jump_buffer > 0.0:
 		_jump_buffer -= delta
-	if can_act and _jump_buffer > 0.0 and is_on_floor() and not crouching:
+	# Only a full stand can jump — crouched and prone are pinned to the deck.
+	if can_act and _jump_buffer > 0.0 and is_on_floor() and _posture == POSTURE_STAND:
 		velocity.y = JUMP_VELOCITY
 		_jump_buffer = 0.0
 
 	var input_dir: Vector2 = Vector2.ZERO
 	if not input_locked and not ui_locked:
 		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
-	# Crouch is slow and steady; sprint is disabled while crouched.
-	var wants_sprint: bool = Input.is_action_pressed("sprint") and _stamina > STAMINA_MIN_TO_SPRINT and not crouching
+	# Sprint only stands: crouch is a slow steady walk, prone is a crawl.
+	var wants_sprint: bool = Input.is_action_pressed("sprint") and _stamina > STAMINA_MIN_TO_SPRINT and _posture == POSTURE_STAND
 	var stamina_ceiling: float = PlayerState.stamina_ceiling_multiplier()
-	var base_speed: float = CROUCH_SPEED if crouching else (SPRINT_SPEED if wants_sprint else WALK_SPEED)
+	var base_speed: float
+	match _posture:
+		POSTURE_PRONE:
+			base_speed = PRONE_SPEED
+		POSTURE_CROUCH:
+			base_speed = CROUCH_SPEED
+		_:
+			base_speed = SPRINT_SPEED if wants_sprint else WALK_SPEED
 	var target_speed: float = base_speed * stamina_ceiling
 
 	var direction: Vector3 = (transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)).normalized()
@@ -336,28 +387,135 @@ func _physics_process(delta: float) -> void:
 	_update_footsteps(delta)
 	_check_water()
 
-## Held crouch: lerp the capsule height, collider offset, and eye line together so the
-## feet stay planted. Sets `crouching` for creature detection to read.
-func _update_crouch(delta: float) -> void:
-	crouching = Input.is_action_pressed("crouch") and not input_locked and not ui_locked \
-		and not (build and build.active)
-	_crouch_t = move_toward(_crouch_t, 1.0 if crouching else 0.0, CROUCH_LERP * delta)
+## Resolve the posture (crouch key + prone toggle), gate any RISE by a headroom check,
+## then ease the capsule height, collider offset, and eye line toward it in lockstep so
+## the feet stay planted. Writes `crouching` for creature detection to read.
+func _update_posture(delta: float) -> void:
+	var desired: int = _resolve_posture()
+	# Rising into a taller posture is refused under a low ceiling — hold where we are.
+	if _posture_rank(desired) > _posture_rank(_posture) and not _posture_fits(desired):
+		desired = _posture
+	_posture = desired
+	crouching = _posture == POSTURE_CROUCH
+
+	# Coming up is crisp; easing DOWN onto the deck is slower and calm.
+	var rate: float = PRONE_LERP if _posture == POSTURE_PRONE else CROUCH_LERP
+	var t: float = clampf(rate * delta, 0.0, 1.0)
 	var cap := _col.shape as CapsuleShape3D
 	if cap:
-		cap.height = lerpf(STAND_HEIGHT, CROUCH_HEIGHT, _crouch_t)
-	_col.position.y = lerpf(STAND_COL_Y, CROUCH_COL_Y, _crouch_t)
-	_camera_base_y = lerpf(STAND_HEAD_Y, CROUCH_HEAD_Y, _crouch_t)
+		cap.height = lerpf(cap.height, _posture_height(_posture), t)
+	_col.position.y = lerpf(_col.position.y, _posture_col_y(_posture), t)
+	_camera_base_y = lerpf(_camera_base_y, _posture_head_y(_posture), t)
+
+## What the player is asking for this frame. Held crouch beats the prone toggle and
+## clears it (tap crouch while prone → rise into a crouch). During a panel/cutscene the
+## crouch key is ignored — matching the old crouch — but a standing prone toggle persists,
+## so you can lie on the deck and still open the journal without popping upright.
+func _resolve_posture() -> int:
+	var can_key: bool = not input_locked and not ui_locked and not (build and build.active)
+	if can_key and Input.is_action_pressed("crouch"):
+		_prone = false
+		return POSTURE_CROUCH
+	if _prone:
+		return POSTURE_PRONE
+	return POSTURE_STAND
+
+## Tallest posture ranks highest, so a bigger rank means "standing up more".
+func _posture_rank(p: int) -> int:
+	match p:
+		POSTURE_PRONE:
+			return 0
+		POSTURE_CROUCH:
+			return 1
+		_:
+			return 2
+
+func _posture_height(p: int) -> float:
+	match p:
+		POSTURE_PRONE:
+			return PRONE_HEIGHT
+		POSTURE_CROUCH:
+			return CROUCH_HEIGHT
+		_:
+			return STAND_HEIGHT
+
+func _posture_col_y(p: int) -> float:
+	match p:
+		POSTURE_PRONE:
+			return PRONE_COL_Y
+		POSTURE_CROUCH:
+			return CROUCH_COL_Y
+		_:
+			return STAND_COL_Y
+
+func _posture_head_y(p: int) -> float:
+	match p:
+		POSTURE_PRONE:
+			return PRONE_HEAD_Y
+		POSTURE_CROUCH:
+			return CROUCH_HEAD_Y
+		_:
+			return STAND_HEAD_Y
+
+## How much the head bobs per posture — a belly-crawl barely rocks; a crouch is muted.
+func _posture_bob_scale() -> float:
+	match _posture:
+		POSTURE_PRONE:
+			return 0.25
+		POSTURE_CROUCH:
+			return 0.6
+		_:
+			return 1.0
+
+## True if a taller capsule would clear whatever's overhead. A slim sphere probe (radius
+## under the body radius, so side walls never trip it) is placed where the new head would
+## sit; if world geometry is already there, the rise is blocked and we stay low.
+func _posture_fits(target: int) -> bool:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return true
+	var top: float = _posture_col_y(target) + _posture_height(target) * 0.5
+	var probe := SphereShape3D.new()
+	probe.radius = 0.3
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = probe
+	params.collision_mask = 1   # world only — fauna drifting overhead don't pin you down
+	params.exclude = [get_rid()]
+	params.transform = Transform3D(Basis(), global_position + Vector3(0.0, top + 0.05, 0.0))
+	return world.direct_space_state.intersect_shape(params, 1).is_empty()
+
+## Z toggles lying flat on the deck. Dropping down is always allowed; getting up is a
+## normal rise, so the headroom gate in _update_posture can keep you down under an overhang
+## (crawl clear, or tap crouch to come up as far as the ceiling lets you).
+func _toggle_prone() -> void:
+	_prone = not _prone
+	if _prone:
+		AudioDirector.play_one_shot("hiss", global_position, -26.0)   # a slow exhale, settling
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud:
+			hud.toast("You lie back on the deck plating. The sky does its slow turning.")
 
 func _update_footsteps(_delta: float) -> void:
 	if not is_on_floor():
 		return
 	var horizontal: Vector3 = Vector3(velocity.x, 0, velocity.z)
 	_step_accum += horizontal.length() * _delta
-	# Crouched steps are longer-spaced and much quieter — the stealth payoff.
-	var stride: float = 3.6 if crouching else (2.6 if Input.is_action_pressed("sprint") else 2.1)
+	# Lower postures space their contacts out and go quiet — the stealth payoff.
+	# Prone is a near-silent drag of cloth on plating.
+	var stride: float
+	var vol: float
+	match _posture:
+		POSTURE_PRONE:
+			stride = 4.8
+			vol = -36.0
+		POSTURE_CROUCH:
+			stride = 3.6
+			vol = -28.0
+		_:
+			stride = 2.6 if Input.is_action_pressed("sprint") else 2.1
+			vol = -16.0
 	if _step_accum >= stride:
 		_step_accum = 0.0
-		var vol: float = -28.0 if crouching else -16.0
 		AudioDirector.play_one_shot("step", global_position + Vector3(0, -0.6, 0), vol)
 
 ## Latch onto a ladder. Hold-E climbing: E alone rises, E+S (move_back) descends,
@@ -367,6 +525,7 @@ func start_climb(ladder: Ladder) -> void:
 	if _climbing != null:
 		return   # already climbing — never re-latch or switch ladders mid-climb
 	_climbing = ladder
+	_prone = false   # you don't take a ladder lying down — stand before the rungs
 	velocity = Vector3.ZERO
 	# Climb free of world collision: the interior well's ladder box sits ~0.35m from
 	# the shaft wall and the 0.8m player capsule can't fit that gap — it jams and can't
@@ -428,6 +587,7 @@ func _check_water() -> void:
 	var now_swimming: bool = global_position.y < wave_y - 0.15
 	if now_swimming and not swimming:
 		AudioDirector.play_one_shot("splash", global_position, -4.0)
+		_prone = false   # you don't belly-crawl in the swell
 		if _climbing:
 			_leave_climb()   # fell off the ladder into the sea — re-arm world collision
 		if carried:
@@ -462,7 +622,7 @@ func _swim_process(delta: float) -> void:
 	velocity = velocity.lerp(target_vel, delta * 5.0)
 	move_and_slide()
 	PlayerState.warmth -= SWIM_WARMTH_DRAIN * delta
-	_update_crouch(delta)   # keeps the capsule sane if crouch was held on entry
+	_update_posture(delta)   # keeps the capsule sane if a posture was held on entry
 	# The deep: light dies fast, and below the line something notices you.
 	var depth: float = wave_y - global_position.y
 	if depth > DEEP_DEATH_M:
@@ -493,6 +653,7 @@ func _respawn() -> void:
 	global_position = respawn_point
 	velocity = Vector3.ZERO
 	swimming = false
+	_prone = false
 	_deep_t = 0.0
 	PlayerState.warmth -= 0.3
 	PlayerState.life = maxf(PlayerState.life, 0.3)   # the sea returns you breathing
@@ -522,6 +683,7 @@ func _on_player_died() -> void:
 func _respawn_from_death() -> void:
 	global_position = respawn_point
 	velocity = Vector3.ZERO
+	_prone = false
 	PlayerState.life = 0.5
 	PlayerState.hunger = 0.4
 	PlayerState.thirst = 0.4
@@ -542,7 +704,7 @@ func _update_head_bob(delta: float, is_moving: bool, is_sprinting: bool) -> void
 	if is_moving and is_on_floor():
 		var freq: float = HEAD_BOB_SPRINT_FREQ if is_sprinting else HEAD_BOB_WALK_FREQ
 		_head_bob_time += delta * freq * TAU
-		head.position.y = _camera_base_y + sin(_head_bob_time) * HEAD_BOB_AMPLITUDE
+		head.position.y = _camera_base_y + sin(_head_bob_time) * HEAD_BOB_AMPLITUDE * _posture_bob_scale()
 		# Subtle counter-phase sway on the held item; drifts around HAND_ITEM_POS,
 		# far too small to ever reach the crosshair.
 		_hand_item.position = HAND_ITEM_POS + Vector3(

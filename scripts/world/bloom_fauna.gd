@@ -50,10 +50,12 @@ func _ready() -> void:
 	# Rust snails grazing the STEEL itself (54b) -- each works a scoured track along a
 	# rail or a deck seam. Placed where the player already walks, so the amber glow and
 	# the cleaned metal behind them get noticed.
+	# Rust snails live in the splash zone (§54b: they eat the rig at the tide line) — never
+	# high topside. Every run sits within a couple of metres of the waterline (y=0).
 	var graze_runs: Array = [
 		[Vector3(24.6, 2.06, -18.4), Vector3(24.6, 2.06, -12.6)],   # wet-deck rail
-		[Vector3(-8.4, 18.79, 6.2), Vector3(-2.6, 18.79, 6.2)],     # bunkhouse rail
-		[Vector3(27.4, 18.79, 1.6), Vector3(27.4, 18.79, 7.2)],     # topside east rail
+		[Vector3(-19.0, 1.0, -13.4), Vector3(-19.0, 1.0, -10.6)],   # SW leg splash zone
+		[Vector3(13.0, 2.06, -18.2), Vector3(19.0, 2.06, -18.2)],   # wet-deck plate seam
 		[Vector3(3.0, 1.01, -12.4), Vector3(9.0, 1.01, -12.4)],     # pontoon seam
 	]
 	for i in range(graze_runs.size()):
@@ -143,6 +145,44 @@ static func glow_mat(color: Color, energy: float, alpha: float = 1.0) -> Standar
 static func is_dark_phase() -> bool:
 	return GameClock.current_phase == GameClock.Phase.NIGHT \
 		or GameClock.current_phase == GameClock.Phase.DUSK
+
+## Drop a just-attached generated model so its lowest point sits at the host's local
+## origin — the foot touches the surface instead of floating. Same trick FloraPatch
+## uses; scoped to the MODEL's meshes so the hidden procedural body is ignored.
+static func ground_model(host: Node3D, model: Node3D) -> void:
+	if model == null:
+		return
+	var meshes: Array = model.find_children("*", "MeshInstance3D", true, false)
+	if model is MeshInstance3D:
+		meshes.append(model)
+	var low: float = 0.0
+	var first := true
+	for mi in meshes:
+		var w: AABB = (mi as MeshInstance3D).global_transform * (mi as MeshInstance3D).get_aabb()
+		low = w.position.y if first else minf(low, w.position.y)
+		first = false
+	if first:
+		return   # no meshes to measure
+	model.position.y -= (low - host.global_position.y)
+
+## The gulls' flush test (Codex threat behaviour). Track the closest the player has ever
+## crept to `pos`; each time they close another ~1m inside `range_m`, roll `chance` to
+## bolt. Crouch-sneaking multiplies the odds by `crouch_factor` (0.0 = the roll is
+## skipped entirely). Returns [flush: bool, closest: float] — the caller stores closest.
+static func gull_flush_roll(player: Node3D, pos: Vector3, closest: float,
+		range_m: float, chance: float, crouch_factor: float) -> Array:
+	if player == null:
+		return [false, closest]
+	var d: float = player.global_position.distance_to(pos)
+	if d <= closest - 1.0:
+		closest = d   # advanced another metre closer than ever before
+		if d < range_m:
+			var odds: float = chance
+			if player.get("crouching") == true:
+				odds *= crouch_factor
+			if odds > 0.0 and randf() < odds:
+				return [true, closest]
+	return [false, closest]
 
 # ---------------------------------------------------------------- Gull
 class Gull extends Node3D:
@@ -539,8 +579,10 @@ class FiddlerShoal extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL_PATH := "res://assets/models/fauna/bait_fish/bait_fish.glb"
 	const COUNT: int = 18
+	const FISH_ID := "fish_herring"
 	var _t: float = 0.0
 	var _fish: Array[Node3D] = []
+	var _gone: Array[float] = []   ## per-fish respawn countdown after a grab (0 = present)
 	var _mat: StandardMaterial3D
 	var _gen_mats: Array = []
 
@@ -574,6 +616,39 @@ class FiddlerShoal extends Node3D:
 			if not gen.is_empty():
 				_gen_mats.append_array(gen["mats"])
 			_fish.append(f)
+			_gone.append(0.0)
+			# A swimming player can snatch an individual fish out of the school.
+			var idx := i
+			var touch := FaunaTouch.new("Bait Fish", 0.45,
+				func() -> Array: return _grab_verbs(idx),
+				func(v: String, pl: Node3D) -> void: _grab_fish(idx, pl))
+			f.add_child(touch)
+
+	## Only offered to a swimming player who has a hand on one fish (within ~1.2m).
+	func _grab_verbs(idx: int) -> Array:
+		if idx >= _fish.size() or _gone[idx] > 0.0 or not _fish[idx].visible:
+			return []
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		if player == null or player.get("swimming") != true:
+			return []
+		if player.global_position.distance_to(_fish[idx].global_position) > 1.2:
+			return []
+		return ["GRAB"]
+
+	func _grab_fish(idx: int, _player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if idx >= _fish.size() or _gone[idx] > 0.0 or not _fish[idx].visible:
+			return
+		if not PlayerState.add_item(FISH_ID):
+			if hud and hud.has_method("toast"):
+				hud.toast("Your hands are full — the fish darts off.")
+			return
+		_fish[idx].visible = false
+		_gone[idx] = randf_range(50.0, 110.0)   # this one rejoins the school later
+		Journal.discover("creature_fiddler_shoal")
+		AudioDirector.play_one_shot("splash", _fish[idx].global_position, -16.0)
+		if hud and hud.has_method("toast"):
+			hud.toast("You close your hand in the shoal and come up with a bait-fish.")
 
 	func _process(delta: float) -> void:
 		var active: bool = GameClock.current_phase != GameClock.Phase.NIGHT
@@ -590,6 +665,11 @@ class FiddlerShoal extends Node3D:
 		global_position = center
 		Journal.discover_if_near(self, "creature_fiddler_shoal", 13.0)
 		for i in range(COUNT):
+			# A grabbed fish keeps orbiting invisibly, then pops back into formation.
+			if _gone[i] > 0.0:
+				_gone[i] -= delta
+				if _gone[i] <= 0.0:
+					_fish[i].visible = true
 			var a: float = _t * 1.6 + i * (TAU / COUNT)
 			var r: float = 1.2 + sin(_t * 0.9 + i) * 0.5
 			var next := center + Vector3(cos(a) * r, sin(_t * 2.0 + i) * 0.1, sin(a) * r * 0.7)
@@ -1348,6 +1428,7 @@ class LampSnail extends Node3D:
 		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.9, ANIM.Mode.PEDAL, 0.03, 0.55, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
+			BloomFauna.ground_model(self, gen["model"])   # foot on the surface, not floating
 
 	func _harvest(_verb: String, _player: Node3D) -> void:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
@@ -1383,10 +1464,13 @@ class LampSnail extends Node3D:
 			var s: Node3D = _stalks[i]
 			s.rotation.z = sin(_t * 0.6 + i * PI) * 0.22
 			s.rotation.y = sin(_t * 0.4 + i * 1.7) * 0.18
-		# A slow crawl circling the leg base, just under the surface.
+		# A slow crawl circling the leg base, just under the surface. The foot stays at a
+		# fixed depth so it reads as crawling, not bobbing/floating.
 		var ang: float = _t * 0.05 + _idx
-		global_position = _base + Vector3(cos(ang) * 1.6, -0.4 + sin(_t * 0.4) * 0.15, sin(ang) * 1.6)
-		rotation.y = -ang
+		global_position = _base + Vector3(cos(ang) * 1.6, -0.4, sin(ang) * 1.6)
+		# Head-first: the model is yaw-normalised to -Z-forward, so +PI turns it to lead
+		# its travel instead of crawling backwards.
+		rotation.y = -ang + PI
 
 # ------------------------------------------------------------ FaunaTouch
 class FaunaTouch extends Interactable:
@@ -1431,6 +1515,9 @@ class DeckGull extends Node3D:
 	var _regen: float = 0.0       ## respawn countdown after flying off
 	var _gen_mats: Array = []
 	var _model: Node3D
+	var _closest: float = 1e9     ## closest the player has crept this landing (threat roll)
+	var _look_cd: float = 0.0     ## idle head-turn clock
+	var _look_yaw: float = 0.0
 
 	func _init(home: Vector3) -> void:
 		_home = home
@@ -1447,6 +1534,9 @@ class DeckGull extends Node3D:
 		ANIM.drive(_gen_mats, 0.6, 0.15)
 		global_position = _home
 		_peck = randf_range(2.0, 5.0)
+		# Grab it if you can reach it before it flushes — crouch-sneak to close the gap.
+		var touch := FaunaTouch.new("Deck Gull", 0.9, _grab_verbs, _grab_act)
+		add_child(touch)
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -1457,6 +1547,7 @@ class DeckGull extends Node3D:
 				global_position = _home + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
 				_flushing = -1.0
 				visible = true
+				_closest = 1e9   # a fresh bird lets the player re-earn the flush
 				ANIM.drive(_gen_mats, 0.6, 0.15, 0.012)
 			return
 		var player: Node3D = get_tree().get_first_node_in_group("player")
@@ -1469,16 +1560,16 @@ class DeckGull extends Node3D:
 				visible = false
 				_regen = randf_range(45.0, 90.0)
 			return
-		# Grounded. Player close = flush NOW — the classic deck-bird interaction.
-		if player and player.global_position.distance_to(global_position) < 3.2:
-			_flushing = 0.0
-			var away: Vector3 = global_position - player.global_position
-			away.y = 0.0
-			_flush_dir = away.normalized() if away.length() > 0.1 else Vector3(1, 0, 0)
-			ANIM.drive(_gen_mats, 3.2, 0.25, 0.07)   # wings open, full beat
-			AudioDirector.play_one_shot("gull", global_position, -8.0)
-			Journal.discover("creature_corvid_gull")
-			return
+		# Grounded threat: track the closest the player has crept and roll a flush at each
+		# ~1m they close inside 10m. Crouch-sneaking skips the rolls (crouch_factor 0.0) —
+		# that's the window to grab it. Non-crouched and right on top of it always flushes.
+		if player:
+			var res: Array = BloomFauna.gull_flush_roll(player, global_position, _closest, 10.0, 0.34, 0.0)
+			_closest = res[1]
+			var crouched: bool = player.get("crouching") == true
+			if res[0] or (not crouched and player.global_position.distance_to(global_position) < 1.5):
+				_flush(player)
+				return
 		# Strut / peck loop.
 		_peck -= delta
 		if _peck <= 0.0:
@@ -1495,6 +1586,47 @@ class DeckGull extends Node3D:
 			# Pecking: quick bow, twice, then upright — reads as feeding.
 			_model.rotation.x = maxf(sin(_t * 5.0), 0.0) * 0.5 * maxf(sin(_t * 0.7), 0.0)
 			_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 4.0)
+			# Idle head-turns: it glances around on its own organic clock.
+			_look_cd -= delta
+			if _look_cd <= 0.0:
+				_look_cd = randf_range(1.4, 4.2)
+				_look_yaw = rotation.y + randf_range(-1.3, 1.3)
+			rotation.y = lerp_angle(rotation.y, _look_yaw, delta * 2.5)
+
+	## Airborne flush: leap up and away from the player, then gone until it re-lands.
+	func _flush(player: Node3D) -> void:
+		_flushing = 0.0
+		var away: Vector3 = (global_position - player.global_position) if player else Vector3(1, 0, 0)
+		away.y = 0.0
+		_flush_dir = away.normalized() if away.length() > 0.1 else Vector3(1, 0, 0)
+		ANIM.drive(_gen_mats, 3.2, 0.25, 0.07)   # wings open, full beat
+		AudioDirector.play_one_shot("gull", global_position, -8.0)
+		Journal.discover("creature_corvid_gull")
+
+	## Grabbable only while grounded and within reach — sneak in before it bolts.
+	func _grab_verbs() -> Array:
+		if _flushing >= 0.0 or _regen > 0.0 or not visible:
+			return []
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		if player == null or player.global_position.distance_to(global_position) > 1.6:
+			return []
+		return ["GRAB"]
+
+	func _grab_act(_verb: String, _player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if _flushing >= 0.0 or _regen > 0.0 or not visible:
+			return
+		if not PlayerState.add_item("gull_meat"):
+			if hud and hud.has_method("toast"):
+				hud.toast("No room for it — the gull thrashes free.")
+			return
+		Journal.discover("creature_corvid_gull")
+		AudioDirector.play_one_shot("gull", global_position, -6.0)
+		visible = false
+		_flushing = -1.0
+		_regen = randf_range(60.0, 120.0)   # another gull drops onto the deck later
+		if hud and hud.has_method("toast"):
+			hud.toast("You get both hands round it before it can bolt. Gull meat for the pot.")
 
 # -------------------------------------------------------------- ReefFish
 class ReefFish extends Node3D:
@@ -1508,8 +1640,9 @@ class ReefFish extends Node3D:
 		[Color(0.85, 0.9, 1.2), Color(0.45, 0.65, 1.0)],   # blue-shifted
 		[Color(1.2, 0.95, 0.8), Color(1.0, 0.55, 0.18)],   # the rust snail's amber lineage
 	]
+	const FISH_ID := "fish_copper_sprat"
 	var _centre: Vector3
-	var _fish: Array = []   ## [{node, mats, r, h, spd, ph}]
+	var _fish: Array = []   ## [{node, mats, r, h, spd, ph, gone}]
 
 	func _init(centre: Vector3) -> void:
 		_centre = centre
@@ -1528,12 +1661,53 @@ class ReefFish extends Node3D:
 			ANIM.drive(gen["mats"], 2.4, 0.5)
 			_fish.append({"node": f, "r": randf_range(1.2, 3.2), "h": randf_range(-4.2, -1.6),
 				"spd": randf_range(0.25, 0.55) * (1.0 if i % 2 == 0 else -1.0),
-				"ph": randf_range(0.0, TAU)})
+				"ph": randf_range(0.0, TAU), "gone": 0.0})
+			# A swimming player can grab an individual fish out of the shoal.
+			var idx := _fish.size() - 1
+			var touch := FaunaTouch.new("Reef Fish", 0.45,
+				func() -> Array: return _grab_verbs(idx),
+				func(v: String, pl: Node3D) -> void: _grab_fish(idx, pl))
+			f.add_child(touch)
 		if _fish.is_empty():
 			queue_free()
 
+	func _grab_verbs(idx: int) -> Array:
+		if idx >= _fish.size():
+			return []
+		var fd: Dictionary = _fish[idx]
+		if fd["gone"] > 0.0 or not (fd["node"] as Node3D).visible:
+			return []
+		var player: Node3D = get_tree().get_first_node_in_group("player")
+		if player == null or player.get("swimming") != true:
+			return []
+		if player.global_position.distance_to((fd["node"] as Node3D).global_position) > 1.2:
+			return []
+		return ["GRAB"]
+
+	func _grab_fish(idx: int, _player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if idx >= _fish.size():
+			return
+		var fd: Dictionary = _fish[idx]
+		if fd["gone"] > 0.0 or not (fd["node"] as Node3D).visible:
+			return
+		if not PlayerState.add_item(FISH_ID):
+			if hud and hud.has_method("toast"):
+				hud.toast("Your hands are full — it slips away into the murk.")
+			return
+		fd["gone"] = randf_range(50.0, 110.0)   # rejoins the shoal later
+		(fd["node"] as Node3D).visible = false
+		Journal.discover("creature_fiddler_shoal")
+		AudioDirector.play_one_shot("splash", (fd["node"] as Node3D).global_position, -16.0)
+		if hud and hud.has_method("toast"):
+			hud.toast("A quick grab in the deep colour and you've got one.")
+
 	func _process(delta: float) -> void:
 		for f in _fish:
+			if f["gone"] > 0.0:
+				f["gone"] -= delta
+				if f["gone"] <= 0.0:
+					(f["node"] as Node3D).visible = true
 			var a: float = Time.get_ticks_msec() * 0.001 * f["spd"] + f["ph"]
 			var pos: Vector3 = _centre + Vector3(cos(a) * f["r"], f["h"] + sin(a * 2.3) * 0.3, sin(a) * f["r"])
 			var node: Node3D = f["node"]
@@ -1644,14 +1818,17 @@ class RustSnail extends Node3D:
 			0.028, 0.8, AMBER)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
+			BloomFauna.ground_model(self, gen["model"])   # foot flush to the rail/seam
 
 	func _process(delta: float) -> void:
 		_t += delta
 		# A grazing run: crawl the length of its patch, then turn and work back.
 		var span: float = 0.5 + 0.5 * sin(_t * 0.035)
 		global_position = _from.lerp(_to, span)
-		# Rasping — the shell rocks side to side as the radula works the steel.
-		rotation.y = atan2(_to.x - _from.x, _to.z - _from.z) + (0.0 if cos(_t * 0.035) > 0.0 else PI)
+		# Rasping — the shell rocks side to side as the radula works the steel. The +PI turns
+		# the yaw-normalised (-Z-forward) model head-first; the second term flips it on the
+		# return pass so it always leads its travel instead of crawling backwards.
+		rotation.y = atan2(_to.x - _from.x, _to.z - _from.z) + PI + (0.0 if cos(_t * 0.035) > 0.0 else PI)
 		rotation.z = sin(_t * 2.4) * 0.06
 		var heat: float = 0.8 + 0.5 * sin(_t * 0.7 + _idx)
 		for i in range(_glow_mats.size()):
@@ -1719,6 +1896,7 @@ class GlassSnail extends Node3D:
 			0.025, 0.6, BloomFauna.TEAL, 0.0, 0.35)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
+			BloomFauna.ground_model(self, gen["model"])   # foot on the submerged plate
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -1731,14 +1909,17 @@ class GlassSnail extends Node3D:
 			_gut_mats[i].emission_energy_multiplier = pulse * lerpf(1.4, 4.0, _interest)
 		if _gen_mats.size() > 0:
 			ANIM.drive(_gen_mats, 0.6, lerpf(0.6, 2.2, _interest))
-		# A slow drift across the submerged plate, and it turns to face a visitor.
+		# A slow drift across the submerged plate, and it turns to face a visitor. The foot
+		# sits at a fixed depth on the plate so it crawls rather than bobs/floats.
 		var ang: float = _t * 0.03 + _idx * 1.3
-		global_position = _base + Vector3(cos(ang) * 0.9, sin(_t * 0.25) * 0.1, sin(ang) * 0.9)
+		global_position = _base + Vector3(cos(ang) * 0.9, 0.0, sin(ang) * 0.9)
+		# Model is yaw-normalised to -Z-forward, so +PI turns its lit gut coil (the head end)
+		# toward the player / into its travel instead of presenting its tail.
 		if near and player:
 			var to_p: Vector3 = player.global_position - global_position
-			rotation.y = lerp_angle(rotation.y, atan2(to_p.x, to_p.z), delta * 0.9)
+			rotation.y = lerp_angle(rotation.y, atan2(to_p.x, to_p.z) + PI, delta * 0.9)
 		else:
-			rotation.y = -ang
+			rotation.y = -ang + PI
 		if near:
 			Journal.discover_if_near(self, "creature_glass_snail", 7.0)
 
@@ -1854,6 +2035,12 @@ class CorvidGull extends Node3D:
 	var _target: Node3D = null
 	var _loot_id: String = ""
 	var _carry: Node3D = null
+	var _closest: float = 1e9          ## closest the player has crept (threat roll)
+	var _fleeing: float = -1.0         ## <0 perched; else seconds airborne bolting off
+	var _flee_regen: float = 0.0       ## respawn countdown after fleeing
+	var _flee_dir: Vector3
+	var _look_cd: float = 0.0          ## idle head-turn clock
+	var _look_yaw: float = 0.0
 
 	func _init(perch: Vector3) -> void:
 		_perch = perch
@@ -1921,6 +2108,24 @@ class CorvidGull extends Node3D:
 		_t += delta
 		var day: bool = GameClock.current_phase == GameClock.Phase.DAY \
 			or GameClock.current_phase == GameClock.Phase.DAWN
+		# Flee (Codex threat behaviour): it bolts off the perch and returns later.
+		if _flee_regen > 0.0:
+			_flee_regen -= delta
+			if _flee_regen <= 0.0:
+				global_position = _perch   # settles back on its rail
+				_fleeing = -1.0
+				_closest = 1e9
+			else:
+				return
+		if _fleeing >= 0.0:
+			_fleeing += delta
+			global_position += _flee_dir * delta * 6.5 + Vector3(0, delta * 3.4, 0)
+			rotation.y = atan2(_flee_dir.x, _flee_dir.z) + PI
+			ANIM.drive(_gen_mats, 3.0, 0.2, 0.07)
+			if _fleeing > 3.0:
+				visible = false
+				_flee_regen = randf_range(30.0, 70.0)
+			return
 		visible = day or _steal_phase != 0
 		if not visible:
 			return
@@ -1932,18 +2137,49 @@ class CorvidGull extends Node3D:
 			if _steal_phase != 0:
 				return   # mid-heist: flying overrides perching
 		var player: Node3D = get_tree().get_first_node_in_group("player")
+		# Threat roll while perched: creep inside 10m and each ~1m closer may flush it.
+		# Crouch-sneaking cuts the odds (crouch_factor 0.3) rather than skipping them.
+		if day and player:
+			var res: Array = BloomFauna.gull_flush_roll(player, global_position, _closest, 10.0, 0.3, 0.3)
+			_closest = res[1]
+			if res[0]:
+				_begin_flee(player)
+				return
 		if player and player.global_position.distance_to(global_position) < 20.0:
 			Journal.discover_if_near(self, "creature_corvid_gull", 20.0)
 			var to_p: Vector3 = player.global_position - global_position
 			var flat := Vector3(to_p.x, 0, to_p.z)
 			if flat.length_squared() > 0.01:
-				rotation.y = lerp_angle(rotation.y, atan2(flat.x, flat.z), delta * 2.5)
+				# +PI: the model is yaw-normalised to -Z-forward, so this turns the head
+				# toward the player instead of pointing its tail at them.
+				rotation.y = lerp_angle(rotation.y, atan2(flat.x, flat.z) + PI, delta * 2.5)
 			# A curious head-tilt while it watches.
 			_head.rotation.z = sin(_t * 0.7) * 0.35
+			_head.rotation.y = lerp_angle(_head.rotation.y, 0.0, delta * 2.0)
 		else:
 			_head.rotation.z = move_toward(_head.rotation.z, 0.0, delta)
+			# Idle head-turns: it glances around the rail on its own organic clock.
+			_look_cd -= delta
+			if _look_cd <= 0.0:
+				_look_cd = randf_range(1.6, 4.8)
+				_look_yaw = randf_range(-1.1, 1.1)
+			_head.rotation.y = lerp_angle(_head.rotation.y, _look_yaw, delta * 2.0)
 		# Occasional preen bob.
 		_head.position.y = 0.28 + maxf(sin(_t * 0.5) - 0.7, 0.0) * 0.3
+
+	## Bolt off the perch away from the player; gone until it settles back later.
+	func _begin_flee(player: Node3D) -> void:
+		_fleeing = 0.0
+		var away: Vector3 = (global_position - player.global_position) if player else Vector3(1, 0, 0)
+		away.y = 0.0
+		_flee_dir = away.normalized() if away.length() > 0.1 else Vector3(1, 0, 0)
+		_steal_phase = 0   # a spooked thief drops the heist
+		if _carry:
+			_carry.queue_free()
+			_carry = null
+		ANIM.drive(_gen_mats, 3.0, 0.2, 0.07)
+		AudioDirector.play_one_shot("gull", global_position, -8.0)
+		Journal.discover("creature_corvid_gull")
 
 	## The heist loop: pick a loose topside takeable, swoop, carry it — in view,
 	## dangling — to the nest, and glide home like nothing happened.

@@ -214,13 +214,19 @@ func _on_night() -> void:
 	if _ending:
 		return
 	hud.set_objective("Something's out there. Stay in the light until dawn.")
-	var crab := LamplightCrab.new()
-	crab.z1_loop = rig.crab_z1_loop
-	crab.ascend_path = rig.crab_ascend_path
-	crab.z4_loop = rig.crab_z4_loop
-	crab.exit_point = rig.crab_exit_point
-	add_child(crab)
-	crab.global_position = rig.crab_spawn
+	# A pack of three, staggered so they don't stack or move in lockstep — each keeps the
+	# full one-crab drama (repellable, blackout on contact) via its own independent FSM.
+	var offsets := [Vector3.ZERO, Vector3(-2.4, 0, 1.6), Vector3(2.2, 0, -1.4)]
+	for i in range(3):
+		var crab := LamplightCrab.new()
+		crab.spawn_index = i
+		crab.patrol_offset = offsets[i]
+		crab.z1_loop = rig.crab_z1_loop
+		crab.ascend_path = rig.crab_ascend_path
+		crab.z4_loop = rig.crab_z4_loop
+		crab.exit_point = rig.crab_exit_point
+		add_child(crab)
+		crab.global_position = rig.crab_spawn + offsets[i]
 
 func _on_dawn() -> void:
 	if GameClock.day_count >= 1 and not _ending:

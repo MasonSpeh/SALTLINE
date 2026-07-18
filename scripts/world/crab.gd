@@ -11,6 +11,12 @@ var ascend_path: Array = []
 var z4_loop: Array = []
 var exit_point: Vector3
 
+## Multiple crabs share the same authored waypoints; these stagger them so a pack of
+## three doesn't stack or move in lockstep. spawn_index offsets the loop start and the
+## ascent timing; patrol_offset shifts the flat-patrol targets a metre or two sideways.
+var spawn_index: int = 0
+var patrol_offset: Vector3 = Vector3.ZERO
+
 var state: State = State.PATROL_Z1
 var _wp_index: int = 0
 var _resume_state: State = State.PATROL_Z1
@@ -45,6 +51,9 @@ func _ready() -> void:
 	GameClock.dawn.connect(_on_dawn)
 	_last_pos = global_position
 	add_to_group("hittable")   # craftable melee weapons can drive it off
+	# Stagger this crab's start along the wet-deck loop so a pack doesn't march in step.
+	if not z1_loop.is_empty():
+		_wp_index = spawn_index % z1_loop.size()
 
 ## Struck by a weapon (player_controller._melee_attack). Each hit staggers it and
 ## breaks off a pursuit; enough damage and it gives up the night and slides off
@@ -256,7 +265,8 @@ func _process(delta: float) -> void:
 	match state:
 		State.PATROL_Z1:
 			_follow_loop(z1_loop, delta)
-			if f > 0.35:
+			# Stagger the climb so the pack files onto the switchback one at a time.
+			if f > 0.35 + spawn_index * 0.06:
 				state = State.ASCEND
 				_wp_index = 0
 		State.ASCEND:
@@ -274,7 +284,9 @@ func _process(delta: float) -> void:
 func _follow_loop(loop: Array, delta: float) -> void:
 	if loop.is_empty():
 		return
-	var target: Vector3 = loop[_wp_index % loop.size()]
+	# patrol_offset spreads the flat wet-deck / topside loops so the pack fans out; the
+	# ascent path is left un-offset so nobody walks off the switchback.
+	var target: Vector3 = loop[_wp_index % loop.size()] + patrol_offset
 	if _step_toward(target, patrol_speed, delta):
 		_wp_index = (_wp_index + 1) % loop.size()
 

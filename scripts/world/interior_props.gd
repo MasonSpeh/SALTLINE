@@ -19,6 +19,18 @@ const D_Y: float = 28.6
 var _queue: Array = []
 const PER_FRAME: int = 5
 
+## Food/drink dressing that reads as real, found food: any of these prop ids, wherever
+## it's placed, becomes a Takeable carrying an items.json id, so a player can pick it up
+## and eat/drink it. Comfort matters — the galley should feel like people ate here.
+## (prop_id -> item_id; the item's name/nourishment live in data/items.json.)
+const FOOD_MAP := {
+	"croissant": "croissant", "carrot_cake": "carrot_cake", "bananas": "bananas",
+	"food_apple_01": "apple", "food_avocado_01": "avocado", "hamburger_buns": "burger_buns",
+	"lemon": "lemon", "strawberry_chocolate_cake": "chocolate_cake", "CheeseBox_01": "cheese_wedge",
+	"russian_food_cans_01": "ration_tin", "long_life_food": "long_life_ration",
+	"wine_bottles_01": "wine_bottle", "plastic_bottle_gallon": "water_jug",
+}
+
 func _ready() -> void:
 	_wet_deck()
 	_galley()
@@ -55,12 +67,36 @@ func _stream() -> void:
 		if not is_instance_valid(self):
 			return
 		var id: String = item[0]
-		var mov: bool = PropLib.is_moveable(id)
-		PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
+		if FOOD_MAP.has(id):
+			_make_food(id, FOOD_MAP[id], item[1], item[2], item[3])
+		else:
+			var mov: bool = PropLib.is_moveable(id)
+			PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
 		i += 1
 		if i % PER_FRAME == 0:
 			await get_tree().process_frame
 	_queue.clear()
+
+## A food/drink prop the player can pick up and eat. The real CC0 food model is the
+## world visual on a Takeable that hands its items.json id to the pack; a surface-snap
+## rests it flush on whatever counter, table, or shelf is under it (missing model ->
+## the labelled fallback crate, still takeable).
+func _make_food(prop_id: String, item_id: String, pos: Vector3, yaw: float, sm: float) -> void:
+	var t := Takeable.new()
+	t.item_id = item_id
+	t.display_name = String(PlayerState.items.get(item_id, {}).get("name", item_id))
+	add_child(t)
+	t.global_position = pos
+	t.rotation.y = deg_to_rad(yaw)
+	PropLib.spawn(prop_id, t, pos, 0.0, sm)   # the food model, parented as the visual
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	var sz: float = maxf(float(PropLib.SIZE_HINT.get(prop_id, 0.3)) * sm, 0.22)
+	box.size = Vector3(sz, sz, sz)
+	col.shape = box
+	col.position.y = sz * 0.5
+	t.add_child(col)
+	preload("res://scripts/world/surface_snap.gd").attach(t)
 
 # ---- placement helpers ----
 
@@ -186,9 +222,11 @@ func _machine_shop() -> void:
 	_pc("Barrel_01", Vector3(-20.5, y, -17.0), 0)
 	_pc("barrel_03", Vector3(-21.4, y, -16.6), 0)
 	_pc("metal_jerrycan_green", Vector3(-19.5, y, -16.6), 60)
-	_p("metal_toolbox", Vector3(-19.6, y + 1.25, -12.0), 0)
-	_p("pipe_wrench", Vector3(-19.2, y + 1.26, -12.3), 130)
-	_p("small_oil_can_01", Vector3(-20.2, y + 1.25, -11.7), 0)
+	# On the fitter's bench (rig_builder now builds it; top y+0.95). These used to
+	# be authored at y+1.25 with nothing underneath them. The pipe wrench that sat
+	# here is now the takeable "wrench" placed with the bench.
+	_p("metal_toolbox", Vector3(-19.75, y + 0.95, -11.8), 0)
+	_p("small_oil_can_01", Vector3(-20.2, y + 0.95, -11.75), 0)
 	# Modular pipes racked against the wall; a hand truck parked.
 	_pc("hand_truck", Vector3(-23.5, y, -11.4), 100)
 	_p("portable_searchlight", Vector3(-26.4, y + 0.9, -12.5), 40)
@@ -290,7 +328,10 @@ func _bunkhouse_more() -> void:
 func _rec_room_more() -> void:
 	var y: float = DECK_Y
 	# The rec room earns its name: dartboard, chess mid-game, a real sofa.
-	_p("dartboard", Vector3(18.15, y + 1.8, 11.0), 90)
+	# The board hangs on the EAST bulkhead (interior face x27.875), facing back
+	# across the room with a clear throwing lane. It used to sit at (18.15, 11.0)
+	# — dead centre of the west doorway, a dark disc floating in the only way in.
+	_p("dartboard", Vector3(27.82, y + 1.8, 15.5), -90)
 	_p("chess_set", Vector3(23.0, y + 0.34, 12.5), 20)      # on the low table
 	_pc("Sofa_01", Vector3(20.5, y, 9.3), 0)
 	_pc("Ottoman_01", Vector3(22.0, y, 10.2), 0)
@@ -302,12 +343,12 @@ func _rec_room_more() -> void:
 
 func _machine_shop_more() -> void:
 	var y: float = DECK_Y
-	# The rest of the tool wall: hand tools scattered on and around the bench.
-	_p("crowbar_01", Vector3(-20.6, y + 1.25, -12.4), 60)
-	_p("bolt_cutters_01", Vector3(-19.0, y + 1.25, -11.6), -40)
-	_p("cross_pein_hammer", Vector3(-20.0, y + 1.26, -11.5), 20)
-	_p("combination_wrench", Vector3(-19.4, y + 1.26, -12.6), 100)
-	_p("bench_vice_01", Vector3(-18.9, y + 1.2, -12.0), 0)
+	# The rest of the tool wall, resting on the fitter's bench top (y+0.95). The
+	# hammer and combination wrench that lay here are now the takeable
+	# "hammer_tool" and "spanner", placed with the bench in rig_builder.
+	_p("crowbar_01", Vector3(-20.55, y + 0.95, -12.55), 60)
+	_p("bolt_cutters_01", Vector3(-19.05, y + 0.95, -11.7), -40)
+	_p("bench_vice_01", Vector3(-18.9, y + 0.95, -12.0), 0)
 	# More drums and a jerry can cluster; a shelf of tins.
 	_pc("Barrel_02", Vector3(-26.6, y, -17.2), 0)
 	_pc("metal_jerrycan", Vector3(-20.2, y, -16.2), -30)
