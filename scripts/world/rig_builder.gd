@@ -542,10 +542,10 @@ func _build_machine_shop() -> void:
 	_box(Vector3(-21, y + WALL_H, -12), Vector3(14.5, 0.25, 12.5), mat)
 	var door := InteractDoor.new()
 	door.display_name = "Machine Shop"
-	door.locked = true
+	door.locked = false   # was locked+offset from its opening (looked blocked); now openable
 	add_child(door)
-	door.global_position = Vector3(-14, y, -14.5)
-	door.build_box_visual(Vector3(0.12, 2.2, 1.15), MatLib.flat(Color(0.4, 0.42, 0.4)).albedo_color)
+	door.global_position = Vector3(-14, y, -15.0)   # centred in the wall opening (z-15.7..-14.3)
+	door.build_box_visual(Vector3(0.12, 2.2, 1.3), MatLib.flat(Color(0.4, 0.42, 0.4)).albedo_color)
 	_readable("machine_shop_sign", "Posted Notice", Vector3(-13.85, y + 1.5, -10.6), Vector3(0.05, 0.4, 0.3))
 	# The raft plans, posted on the shop's outer face below the sealed notice — the escape
 	# that the sea would never allow (readable from the accessible side, clear of the pane).
@@ -616,114 +616,108 @@ func _build_high_iron() -> void:
 # ---------- The SPHL ----------
 
 func _build_sphl() -> void:
-	## The SPHL: a weathered grey survival craft, rounded TEMPSC hull. Built for a
-	## CLEAN EXIT — the exterior is visual-only (rounded capsules) and the interior
-	## has EXPLICIT box colliders forming a little room with the north (deck-facing)
-	## side left fully open at the hatch, so the player walks straight out. No CSG
-	## collision to snag on, no cage in the doorway.
+	# CLEAN REBUILD (was overlapping capsules/balls that z-fought). One CSG grey
+	# pressure-pod shell, visual-only, with a real hatch hole cut in the deck-facing
+	# side; inside it an OPAQUE box interior that carries the collision + the wake-up
+	# dressing. Player spawns on the interior floor and walks straight out the hatch.
 	var grey: Material = MatLib.sphl_grey()
 	var hivis: Material = MatLib.sphl_hi_vis()
-	var dark: Material = MatLib.dark_metal()
 	var cx: float = 18.0
 	var cz: float = -24.0
-	var fy: float = WET_Y            # interior floor level
+	var fy: float = WET_Y
+	var ix0: float = 14.9
+	var ix1: float = 21.1
+	var iz_s: float = -25.3
+	var iz_n: float = -22.9
+	var gap_w: float = 19.2
+	var gap_e: float = 20.8
+	var wall_cy: float = fy + 1.1
+	var wall_h: float = 2.2
+	var ceil_y: float = fy + 2.2
+	var hull_cy: float = fy + 1.6
 
-	# --- exterior VISUAL hull (no collision) ---
-	# Lower hull: a long rounded boat body, keel below the waterline line.
-	_capsule_x(Vector3(cx, fy + 0.55, cz), 1.45, 7.2, grey)
-	_capsule_x(Vector3(cx, fy + 0.1, cz), 0.9, 6.2, dark)                 # dark boot/keel
-	# Canopy: a rounded enclosed top, slightly narrower — the sealed shelter.
-	_capsule_x(Vector3(cx, fy + 1.75, cz), 1.35, 6.4, grey)
-	# Bow cap (west) and stern cap (east) — rounded ends.
-	KIT_BALL(Vector3(cx - 3.4, fy + 0.9, cz), 1.3, grey, Vector3(1.0, 1.0, 1.0))
-	KIT_BALL(Vector3(cx + 3.3, fy + 1.0, cz), 1.25, grey, Vector3(0.9, 1.0, 1.0))
-	# The mandatory hi-vis band around the canopy (grey hulls still need to be seen).
-	_capsule_x(Vector3(cx, fy + 2.5, cz), 0.55, 6.0, hivis)
-	# Coxswain dome + mating-trunk flange (the SPHL signature) on the crown.
-	_cyl_nc(Vector3(cx + 2.2, fy + 2.65, cz), 0.5, 0.5, grey)
-	_cyl_nc(Vector3(cx + 2.2, fy + 2.92, cz), 0.46, 0.16, MatLib.glass(Color(0.5, 0.6, 0.62)))
-	_cyl_nc(Vector3(cx - 1.6, fy + 2.7, cz), 0.42, 0.4, MatLib.galvanized())
-	var flange := CSGTorus3D.new()
-	flange.inner_radius = 0.38; flange.outer_radius = 0.54
-	flange.material = MatLib.rusty_metal(); flange.use_collision = false
-	add_child(flange); flange.position = Vector3(cx - 1.6, fy + 2.9, cz)
-	# Grab rails along the crown, keel skids, rubbing strake.
-	for s in [-0.5, 0.5]:
-		_box(Vector3(cx, fy + 2.72, cz + s), Vector3(5.4, 0.05, 0.05), MatLib.galvanized(), self, false)
-	for s in [-0.7, 0.7]:
-		_box(Vector3(cx, fy - 0.28, cz + s), Vector3(6.8, 0.13, 0.15), dark, self, false)
-	for s in [-1, 1]:
-		_box(Vector3(cx, fy + 1.15, cz + s * 1.5), Vector3(6.6, 0.12, 0.09), MatLib.flat(Color(0.1, 0.1, 0.11)), self, false)
-	# Reflective tape patches on the hi-vis band.
-	var tape: Material = MatLib.flat(Color(0.92, 0.94, 0.95), true, 0.25)
-	for i in range(8):
-		for s in [-1, 1]:
-			_box(Vector3(14.9 + i * 0.8, fy + 2.5, cz + s * 1.28), Vector3(0.28, 0.06, 0.02), tape, self, false)
-	# Stencils.
-	_plabel("SPHL — SALTLINE-0", Vector3(14.9, fy + 1.75, cz - 1.55), 0, 22, Color(0.15, 0.13, 0.12))
-	_plabel("HYPERBARIC LIFEBOAT · 24 PERS", Vector3(18.4, fy + 0.7, cz - 1.62), 0, 14, Color(0.15, 0.13, 0.12))
+	# --- exterior hull: ONE clean CSG shell (no collision, no z-fighting) ---
+	var hull := CSGCombiner3D.new()
+	hull.use_collision = false
+	add_child(hull)
+	hull.position = Vector3(cx, hull_cy, cz)
+	var body := CSGCylinder3D.new()
+	body.radius = 1.55
+	body.height = 6.0
+	body.material = grey
+	body.rotation.z = deg_to_rad(90)
+	hull.add_child(body)
+	for ex in [-3.0, 3.0]:
+		var cap := CSGSphere3D.new()
+		cap.radius = 1.55
+		cap.material = grey
+		hull.add_child(cap)
+		cap.position = Vector3(ex, 0, 0)
+	var band := CSGCylinder3D.new()
+	band.radius = 1.62
+	band.height = 0.5
+	band.material = hivis
+	band.rotation.z = deg_to_rad(90)
+	hull.add_child(band)
+	# Hatch opening cut in the deck (north/+Z) face, aligned with the interior gap.
+	var doorcut := CSGBox3D.new()
+	doorcut.operation = CSGShape3D.OPERATION_SUBTRACTION
+	doorcut.size = Vector3(gap_e - gap_w + 0.4, wall_h + 0.5, 2.4)
+	hull.add_child(doorcut)
+	doorcut.position = Vector3((gap_w + gap_e) * 0.5 - cx, wall_cy - hull_cy, (iz_n - cz) + 1.15)
 
-	# --- interior COLLISION room (this is what the player actually stands in) ---
-	# Floor, ceiling, and three walls. The NORTH wall (deck side, +z) is split to
-	# leave a wide clear hatch gap so the exit is never blocked.
-	var ix0: float = 14.9; var ix1: float = 21.1     # interior x span
-	var iz_s: float = -25.3; var iz_n: float = -22.9  # south / north interior faces
-	_box(Vector3(cx, fy - 0.05, cz), Vector3(ix1 - ix0, 0.1, iz_n - iz_s), MatLib.checker_plate())   # floor (collides)
-	_box(Vector3(cx, fy + 2.35, cz), Vector3(ix1 - ix0 + 0.3, 0.1, iz_n - iz_s + 0.3), grey, self, false)  # ceiling visual
-	_col_wall(Vector3(cx, fy + 1.1, iz_s), Vector3(ix1 - ix0, 2.4, 0.2))          # south wall
-	_col_wall(Vector3(ix0, fy + 1.1, cz), Vector3(0.2, 2.4, iz_n - iz_s))         # west wall
-	_col_wall(Vector3(ix1, fy + 1.1, cz), Vector3(0.2, 2.4, iz_n - iz_s))         # east wall
-	# North wall = two piers flanking the hatch gap. The gap must sit INSIDE the
-	# interior span (ix0..ix1) and match the door panel (hinge x19.2, 1.6m wide ->
-	# covers 19.2..20.8), else a pier gets a negative width and fails to build.
-	var gap_w: float = 19.2   # west edge of the hatch gap
-	var gap_e: float = 20.8   # east edge of the hatch gap
-	_col_wall(Vector3((ix0 + gap_w) * 0.5, fy + 1.1, iz_n), Vector3(gap_w - ix0, 2.4, 0.2))
-	_col_wall(Vector3((gap_e + ix1) * 0.5, fy + 1.1, iz_n), Vector3(ix1 - gap_e, 2.4, 0.2))
-	# Lintel above the gap (visual only, head height clear).
-	_box(Vector3(20.0, fy + 2.1, iz_n), Vector3(2.9, 0.3, 0.22), grey, self, false)
+	# Coxswain trunk + glass dome on the crown; two chocks the pod rests in.
+	_cyl_nc(Vector3(cx + 1.4, ceil_y + 1.0, cz), 0.46, 0.8, grey)
+	_cyl_nc(Vector3(cx + 1.4, ceil_y + 1.45, cz), 0.42, 0.12, MatLib.glass(Color(0.5, 0.6, 0.62)))
+	for cxx in [15.9, 20.1]:
+		_box(Vector3(cxx, fy + 0.05, cz), Vector3(1.0, 0.3, 2.6), MatLib.rust_steel(), self, false)
+	# Stencils on the flank, below the band, clear of the hatch.
+	_plabel("SPHL — SALTLINE-0", Vector3(15.4, fy + 1.4, cz - 1.6), 0, 20, Color(0.15, 0.13, 0.12))
 
-	# --- the hatch door (gameplay anchor) ---
-	# Hinged at the WEST jamb of the gap (x=19.2) so it swings clear to the west,
-	# never across the x=20 walk line.
+	# --- interior: an opaque grey box (collision + what you see from inside) ---
+	_box(Vector3(cx, fy - 0.05, cz), Vector3(ix1 - ix0, 0.1, iz_n - iz_s), MatLib.checker_plate())   # floor
+	_box(Vector3(cx, ceil_y, cz), Vector3(ix1 - ix0 + 0.2, 0.1, iz_n - iz_s + 0.2), grey, self, false)  # ceiling
+	_box(Vector3(cx, wall_cy, iz_s), Vector3(ix1 - ix0, wall_h, 0.15), grey)          # south wall
+	_box(Vector3(ix0, wall_cy, cz), Vector3(0.15, wall_h, iz_n - iz_s), grey)         # west wall
+	_box(Vector3(ix1, wall_cy, cz), Vector3(0.15, wall_h, iz_n - iz_s), grey)         # east wall
+	_box(Vector3((ix0 + gap_w) * 0.5, wall_cy, iz_n), Vector3(gap_w - ix0, wall_h, 0.15), grey)   # N pier W
+	_box(Vector3((gap_e + ix1) * 0.5, wall_cy, iz_n), Vector3(ix1 - gap_e, wall_h, 0.15), grey)   # N pier E
+	_box(Vector3((gap_w + gap_e) * 0.5, ceil_y - 0.25, iz_n), Vector3(gap_e - gap_w + 0.2, 0.4, 0.16), grey, self, false)  # lintel
+
+	# --- hatch door: hinged at the west jamb, swings clear of the x=20 walk line ---
 	sphl_hatch = InteractDoor.new()
 	sphl_hatch.display_name = "Hatch"
 	sphl_hatch.locked = false
 	add_child(sphl_hatch)
-	sphl_hatch.global_position = Vector3(19.2, fy + 0.15, iz_n)
-	sphl_hatch.build_box_visual(Vector3(1.6, 1.95, 0.12), MatLib.sphl_hi_vis().albedo_color)
+	sphl_hatch.global_position = Vector3(gap_w, fy + 0.15, iz_n)
+	sphl_hatch.build_box_visual(Vector3(gap_e - gap_w, 1.95, 0.12), MatLib.sphl_hi_vis().albedo_color)
 	for c in sphl_hatch.get_children():
 		if c is MeshInstance3D or c is CollisionShape3D:
-			c.position = Vector3(0.8, 1.0, 0)   # panel spans the gap; hinge at west edge
+			c.position = Vector3((gap_e - gap_w) * 0.5, 1.0, 0)
+	# Gangplank out to the wet deck.
+	_box(Vector3((gap_w + gap_e) * 0.5, fy - 0.05, iz_n + 0.85), Vector3(gap_e - gap_w + 0.6, 0.1, 1.9), MatLib.wood())
 
-	# Gangplank from the hatch gap out onto the wet deck (collides — a floor).
-	_box(Vector3(20.0, fy - 0.05, iz_n + 0.85), Vector3(2.2, 0.1, 1.9), MatLib.wood())
-
-	_build_sphl_fittings()
-
-	# Interior: red emergency light, the pressure readout, the wake-up readables.
+	# --- interior dressing: red light, pressure readout, wake-up readables on benches ---
 	var red := OmniLight3D.new()
 	red.light_color = Color(0.9, 0.15, 0.1); red.light_energy = 1.6; red.omni_range = 5.0
 	red.light_volumetric_fog_energy = 2.0
-	add_child(red); red.global_position = Vector3(16.5, fy + 2.0, cz)
+	add_child(red); red.global_position = Vector3(16.5, fy + 1.9, cz)
 	countdown_label = Label3D.new()
 	countdown_label.text = "PRESSURE — EQUALIZED"
 	countdown_label.font_size = 40; countdown_label.pixel_size = 0.004
 	countdown_label.modulate = Color(0.3, 0.9, 0.4)
 	add_child(countdown_label)
-	countdown_label.global_position = Vector3(15.05, fy + 1.6, cz)
+	countdown_label.global_position = Vector3(15.02, fy + 1.55, cz)
 	countdown_label.rotation.y = deg_to_rad(-90)
-	_readable("sphl_manual", "Survival Manual", Vector3(15.3, fy + 1.4, cz + 0.9), Vector3(0.3, 0.4, 0.05))
-	_readable("pressure_log", "Pressure Log", Vector3(15.15, fy + 1.4, cz - 0.9), Vector3(0.3, 0.4, 0.05))
-	# The laminated saturation card on the bench — why the pod, why the six days, who put you in it.
-	_readable("sat_dive_log", "Saturation Log", Vector3(16.9, fy + 0.63, cz + 0.9), Vector3(0.3, 0.03, 0.4))
-	_takeable("water_ration", "Water Ration", Vector3(15.6, fy + 0.05, cz - 0.6), Vector3(0.2, 0.25, 0.2))
-	# Bench seats down each side of the little chamber — where she rode it out.
+	# Bench seats down each side (clear of the x=20 walk line to the hatch).
 	for s in [-1.0, 1.0]:
-		_box(Vector3(17.5, fy + 0.4, cz + s * 0.9), Vector3(4.0, 0.4, 0.4), grey, self, false)
-	# Chock cradle under the hull.
-	for cxx in [15.6, 20.6]:
-		_box(Vector3(cxx, fy - 0.7, cz), Vector3(1.2, 1.0, 3.0), MatLib.rust_steel())
+		_box(Vector3(17.1, fy + 0.35, cz + s * 0.95), Vector3(3.6, 0.35, 0.35), grey, self, false)
+	_readable("sphl_manual", "Survival Manual", Vector3(15.15, fy + 1.35, cz + 0.9), Vector3(0.3, 0.4, 0.05))
+	_readable("pressure_log", "Pressure Log", Vector3(15.15, fy + 1.35, cz - 0.9), Vector3(0.3, 0.4, 0.05))
+	_readable("sat_dive_log", "Saturation Log", Vector3(17.1, fy + 0.58, cz + 0.95), Vector3(0.3, 0.03, 0.4))
+	_takeable("water_ration", "Water Ration", Vector3(16.3, fy + 0.58, cz - 0.95), Vector3(0.2, 0.25, 0.2))
+
+	_build_sphl_fittings()
 
 ## A visual-only rounded body along the X axis (a squashed capsule).
 func _capsule_x(pos: Vector3, radius: float, length: float, mat: Material) -> MeshInstance3D:
@@ -759,16 +753,16 @@ func _build_sphl_fittings() -> void:
 	var nozzle := CSGTorus3D.new()
 	nozzle.inner_radius = 0.22; nozzle.outer_radius = 0.4
 	nozzle.material = dark; nozzle.use_collision = false
-	add_child(nozzle); nozzle.position = Vector3(21.7, y + 0.15, -24); nozzle.rotation.z = deg_to_rad(90)
-	_cyl_nc(Vector3(21.7, y + 0.15, -24), 0.09, 0.3, MatLib.galvanized()).rotation.z = deg_to_rad(90)
+	add_child(nozzle); nozzle.position = Vector3(22.8, y + 0.35, -24); nozzle.rotation.z = deg_to_rad(90)
+	_cyl_nc(Vector3(22.8, y + 0.35, -24), 0.09, 0.3, MatLib.galvanized()).rotation.z = deg_to_rad(90)
 	for h in range(3):
 		var hoop := CSGTorus3D.new()
 		hoop.inner_radius = 0.42; hoop.outer_radius = 0.5
 		hoop.material = MatLib.rust_steel(); hoop.use_collision = false
-		add_child(hoop); hoop.position = Vector3(21.5 + h * 0.28, y + 0.15, -24); hoop.rotation.z = deg_to_rad(90)
-	# Mooring lines: bow and stern to the dock, well clear of the hatch line.
-	_wire(Vector3(14.6, y + 0.9, -25.4), Vector3(12.5, y + 0.5, -23.0), 0.025, MatLib.rope_mat())
-	_wire(Vector3(21.6, y + 0.9, -25.4), Vector3(23.5, y + 0.5, -23.0), 0.025, MatLib.rope_mat())
+		add_child(hoop); hoop.position = Vector3(22.6 + h * 0.22, y + 0.35, -24); hoop.rotation.z = deg_to_rad(90)
+	# Mooring lines: bow and stern to the dock, well clear of the hatch line and the hull.
+	_wire(Vector3(13.4, y + 1.1, -24.6), Vector3(11.8, y + 0.5, -22.8), 0.025, MatLib.rope_mat())
+	_wire(Vector3(22.6, y + 1.1, -24.6), Vector3(24.2, y + 0.5, -22.8), 0.025, MatLib.rope_mat())
 
 # ---------- Accessibility: every area reachable ----------
 

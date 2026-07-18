@@ -18,7 +18,6 @@ const D_Y: float = 28.6
 ## The rig comes up instantly and props settle in over ~1-2s.
 var _queue: Array = []
 const PER_FRAME: int = 5
-const SNAP := preload("res://scripts/world/surface_snap.gd")
 
 func _ready() -> void:
 	_wet_deck()
@@ -57,13 +56,7 @@ func _stream() -> void:
 			return
 		var id: String = item[0]
 		var mov: bool = PropLib.is_moveable(id)
-		var node: Node3D = PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
-		# Snap-flagged scatter adheres to whatever surface is beneath it — the proven
-		# fix for hand-typed heights that leave a mug hovering a centimetre off a desk.
-		# Bounded to 0.5m so a non-colliding decorative shelf leaves a tiny float, never
-		# a fall to the floor below (items are placed ~0.1-0.2m above their surface).
-		if node != null and item.size() > 5 and item[5]:
-			SNAP.attach(node, 0, 0.5)
+		PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
 		i += 1
 		if i % PER_FRAME == 0:
 			await get_tree().process_frame
@@ -79,10 +72,10 @@ func _pc(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 	_queue.append([id, pos, yaw, sm, true])
 
 func _ps(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
-	## Place-and-snap: small scattered clutter. Give an approximate pos ~0.1-0.2m
-	## ABOVE the target surface (desk/shelf/floor); it drops onto whatever's below,
-	## so it never floats even if the surface height is a guess. Non-colliding.
-	_queue.append([id, pos, yaw, sm, false, true])
+	## Scattered clutter placed at EXACT coords (no snap — surface_snap doesn't stick
+	## on frozen MovableProp bodies, which read as floating). Give the real surface
+	## top for pos.y so the item rests on it, like the hand-placed _p items do.
+	_queue.append([id, pos, yaw, sm, false])
 
 ## A small warm point light (jar lamp / worklight glow) — sparingly, for mood.
 func _lamp(pos: Vector3, color: Color = Color(1.0, 0.82, 0.5), energy: float = 0.6, rng: float = 4.0) -> void:

@@ -280,7 +280,8 @@ static func glass(tint: Color = Color.WHITE) -> StandardMaterial3D:
 	if _cache.has(key):
 		return _cache[key]
 	var m := StandardMaterial3D.new()
-	m.albedo_color = Color(tint.r, tint.g, tint.b, 0.15)
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA   # was set but never enabled -> rendered opaque
+	m.albedo_color = Color(tint.r, tint.g, tint.b, 0.2)
 	m.roughness = 0.05
 	m.metallic = 0.1
 	_cache[key] = m

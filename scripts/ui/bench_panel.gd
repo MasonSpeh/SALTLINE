@@ -193,8 +193,13 @@ func _set_working(on: bool) -> void:
 	if on and current_match() == "":
 		return
 	if on:
-		_work_recipe = current_match()
-		_work_elapsed = 0.0
+		# Only zero progress when the recipe actually CHANGES. A one-frame drop in
+		# `held` (cursor drifting off the HOLD button, a dropped frame) must RESUME
+		# the same work, not restart it — else a real hold never reaches work_sec.
+		var m: String = current_match()
+		if m != _work_recipe:
+			_work_recipe = m
+			_work_elapsed = 0.0
 	_working = on
 	if not on:
 		_work_bar.value = 0.0
@@ -202,6 +207,8 @@ func _set_working(on: bool) -> void:
 func _finish_work() -> void:
 	var recipe: Dictionary = recipes.get(_work_recipe, {})
 	_working = false
+	_work_recipe = ""     # so re-laying the same recipe next is a fresh craft, not stale resume
+	_work_elapsed = 0.0
 	_work_bar.value = 0.0
 	laid.clear()
 	var product: String = recipe.get("makes", "")

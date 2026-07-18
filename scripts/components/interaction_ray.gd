@@ -50,5 +50,11 @@ func _unhandled_input(event: InputEvent) -> void:
 			(_current as Interactable).interact(v[0], player)
 	elif _current is PhysProp and player:
 		player.try_grab(_current)
+	# Consume this interact press. Otherwise the SAME event propagates to
+	# player_controller._unhandled_input, whose "carrying: [E] sets down" branch
+	# fires on the prop we just grabbed (carried is now set) — grab + instant drop,
+	# so nothing appears to happen. While carrying, _physics_process forces _current
+	# null, so this never eats the intended set-down press.
+	get_viewport().set_input_as_handled()
 	# State may have changed; refresh prompt next frame.
 	_current = null

@@ -217,8 +217,10 @@ const WIN_GRID: float = 4.0      # module spacing; centers land on multiples
 ## not. Built identically on both wall faces so it lines up inside and out.
 ## along_x: wall runs along X at fixed z (pos.z is the wall centreline).
 func _window(pos: Vector3, along_x: bool, lit: bool) -> void:
-	var glass_mat: Material = MatLib.flat(Color(0.95, 0.82, 0.55), true, 0.9) if lit \
-		else MatLib.flat(Color(0.1, 0.15, 0.19))
+	# See-through glass (was an opaque flat pane — you couldn't look out). The warm
+	# lit read is carried by the OmniLight3D spill added below.
+	var glass_mat: Material = MatLib.glass(Color(0.95, 0.82, 0.55)) if lit \
+		else MatLib.glass(Color(0.42, 0.55, 0.6))
 	var frame: Material = MatLib.painted_steel()
 	var t: float = WT + 0.06
 	if along_x:
@@ -394,7 +396,7 @@ func _monitor(pos: Vector3, yaw: float) -> void:
 func _supports() -> void:
 	var mat: Material = MatLib.rust_steel()
 	for p in [Vector3(0, 0, 7.2), Vector3(8, 0, 7.2), Vector3(20, 0, 7.2),
-			Vector3(16, 0, 10.5), Vector3(16, 0, 16.5)]:
+			Vector3(16, 0, 8.6), Vector3(16, 0, 16.5)]:   # 10.5 -> 8.6: was blocking the rec-room west door (z11)
 		_box(Vector3(p.x, (DECK_Y + B_Y - 0.3) * 0.5, p.z),
 			Vector3(0.35, B_Y - 0.3 - DECK_Y, 0.35), mat)
 
@@ -1005,7 +1007,9 @@ func _exterior_dressing() -> void:
 	_porthole(Vector3(-2.13, B_Y + 1.7, 9.0), false)
 	_porthole(Vector3(-2.13, B_Y + 1.7, 15.0), false)
 	# Big faded rig name on the Deck C south face.
-	_label("S A L T L I N E - 1", Vector3(16, C_Y + 2.3, 5.8), 180, 120, Color(0.75, 0.62, 0.4, 0.85))
+	# On the solid SILL band below the Deck C windows (y C_Y+0.5, inside floor..floor+0.95),
+	# smaller so the glyphs clear the opening bottom — was centred over the glass.
+	_label("S A L T L I N E - 1", Vector3(16, C_Y + 0.5, 5.8), 180, 84, Color(0.75, 0.62, 0.4, 0.85))
 	# External pipe drops tying the stack into the old rig below.
 	_pipe(Vector3(-1.5, DECK_Y + 0.3, 6.6), Vector3(-1.5, B_Y + 2.8, 6.6), 0.12)
 	_pipe(Vector3(28.4, DECK_Y + 0.3, 10.0), Vector3(28.4, D_Y + 2.0, 10.0), 0.1)
@@ -1015,8 +1019,10 @@ func _exterior_dressing() -> void:
 	for spec in [[B_Y, -2.0], [C_Y, 4.0], [D_Y, 8.0]]:
 		var fy: float = spec[0]
 		var fx0: float = spec[1]
-		var brace := _dbox(Vector3((fx0 + 28.0) * 0.5, fy + 1.6, 5.75), Vector3(28.0 - fx0, 0.14, 0.1), MatLib.rust_steel())
-		brace.rotation.z = 0.035
+		# On the solid LINTEL band above the glass (y fy+2.8, band floor+2.4..floor+3.2),
+		# barely tilted so the long bar doesn't dip into the window tops — was crossing them.
+		var brace := _dbox(Vector3((fx0 + 28.0) * 0.5, fy + 2.8, 5.75), Vector3(28.0 - fx0, 0.14, 0.1), MatLib.rust_steel())
+		brace.rotation.z = 0.015
 	# Corner trim columns.
 	for cx in [-2.0, 28.0]:
 		_dbox(Vector3(cx, (B_Y + ROOF_Y) * 0.5, 6.0), Vector3(0.35, ROOF_Y - B_Y, 0.35), MatLib.rust_steel())

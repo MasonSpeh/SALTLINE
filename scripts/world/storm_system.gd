@@ -28,6 +28,7 @@ var _lightning_cd: float = 0.0
 var _wind: Vector2 = Vector2(1, 0)
 var _rng := RandomNumberGenerator.new()
 var _audio_cd: float = 0.0
+var _sheltered: bool = false   ## true when a roof/slab is overhead — suppress the rain indoors
 
 func setup(sun_controller: SunController) -> void:
 	sun_ctl = sun_controller
@@ -93,9 +94,26 @@ func _build_flash() -> void:
 
 func _process(delta: float) -> void:
 	_advance_schedule(delta)
+	_update_shelter()
 	_apply_intensity()
 	_follow_player()
 	_update_lightning(delta)
+
+## GPU rain particles don't collide with geometry, so the emitter parked ~16m over
+## the player rains straight through deck/roof slabs into the rooms. Cast a ray up
+## from head height; any solid slab overhead (layer 1) means we're under cover.
+func _update_shelter() -> void:
+	var player: Node3D = get_tree().get_first_node_in_group("player")
+	if player == null:
+		_sheltered = false
+		return
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var from: Vector3 = player.global_position + Vector3(0, 1.6, 0)
+	var query := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, 40.0, 0))
+	query.collision_mask = 1
+	if player is CollisionObject3D:
+		query.exclude = [(player as CollisionObject3D).get_rid()]
+	_sheltered = not space.intersect_ray(query).is_empty()
 
 func _advance_schedule(delta: float) -> void:
 	_timer -= delta
@@ -126,7 +144,7 @@ func _advance_schedule(delta: float) -> void:
 
 func _apply_intensity() -> void:
 	var i: float = _intensity
-	_rain.emitting = i > 0.02
+	_rain.emitting = i > 0.02 and not _sheltered
 	_rain.amount_ratio = clampf(i, 0.0, 1.0)
 	# Slant the rain with the wind (stronger tilt at full storm).
 	_rain_mat.gravity = Vector3(_wind.x * 22.0 * i, -42.0, _wind.y * 22.0 * i)

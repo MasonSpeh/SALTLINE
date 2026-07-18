@@ -12,6 +12,10 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	panel = CenterContainer.new()
 	panel.set_anchors_preset(Control.PRESET_FULL_RECT)
+	# This full-rect overlay (layer 15) must NOT swallow clicks meant for the HUD's
+	# top-right "?" help button beneath it (HUD is layer 10). Its children — the bg
+	# box, sliders, Resume/Quit — keep their own STOP filter, so they still click.
+	panel.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	panel.visible = false
 	add_child(panel)
 	var bg := PanelContainer.new()

@@ -238,9 +238,15 @@ func _run() -> void:
 		main.storm.trigger_storm()
 		main.storm._intensity = 1.0
 		main.storm._phase = 2
+		main.storm._sheltered = false                # open sky
 		main.storm._apply_intensity()
 		await get_tree().process_frame
 		_check(main.storm._rain.emitting, "storm rain emits at full intensity")
+		main.storm._sheltered = true                 # under a roof -> suppressed
+		main.storm._apply_intensity()
+		_check(not main.storm._rain.emitting, "storm rain suppressed under a roof")
+		main.storm._sheltered = false
+		main.storm._apply_intensity()
 		_check(main.sun_ctl.storm_intensity > 0.5, "storm darkens the sky via SunController")
 		main.storm._intensity = 0.0
 		main.storm._phase = 0

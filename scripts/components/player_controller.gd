@@ -368,15 +368,27 @@ func start_climb(ladder: Ladder) -> void:
 		return   # already climbing — never re-latch or switch ladders mid-climb
 	_climbing = ladder
 	velocity = Vector3.ZERO
+	# Climb free of world collision: the interior well's ladder box sits ~0.35m from
+	# the shaft wall and the 0.8m player capsule can't fit that gap — it jams and can't
+	# rise, descend, or dismount (the "stuck on the ladder" trap). _leave_climb() re-arms.
+	set_collision_layer_value(1, false)
+	set_collision_mask_value(1, false)
 	var base: Vector3 = ladder.bottom_point()
 	var y: float = clampf(global_position.y, base.y, ladder.top_point().y)
 	global_position = Vector3(base.x, y, base.z) + ladder.face_dir() * 0.45
 	_climb_from_top = y >= ladder.top_point().y - CLIMB_TOP_GRACE
 
+## Every climb exit routes here: re-arm the world collision start_climb() disabled
+## and drop the latch, so normal movement never resumes with collision ghosted off.
+func _leave_climb() -> void:
+	set_collision_layer_value(1, true)
+	set_collision_mask_value(1, true)
+	_climbing = null
+
 func _climb_process(_delta: float) -> void:
 	# Let go when E is released or the player is input-locked (cutscene) — gravity resumes.
 	if not Input.is_action_pressed("interact") or input_locked:
-		_climbing = null
+		_leave_climb()
 		return
 
 	# Hold E = climb up automatically; add S (move_back) to climb down instead.
@@ -384,7 +396,7 @@ func _climb_process(_delta: float) -> void:
 	var ladder: Ladder = _climbing
 	# Space bails out of any climb — the universal unstick: hop off the rungs.
 	if Input.is_action_just_pressed("jump"):
-		_climbing = null
+		_leave_climb()
 		velocity = ladder.face_dir() * 2.0 + Vector3(0, 1.5, 0)
 		return
 	var top_y: float = ladder.top_point().y
@@ -398,11 +410,14 @@ func _climb_process(_delta: float) -> void:
 	velocity = Vector3(0, up_input * CLIMB_SPEED, 0)
 	move_and_slide()
 	if global_position.y >= top_y - 0.2 and up_input > 0.0 and not _climb_from_top:
-		# Mantle off the top, onto the wall side.
+		# Mantle off the top, onto the open exit side (clear of the rungs and wall).
 		global_position = ladder.top_point() - ladder.face_dir() * ladder.exit_forward + Vector3(0, 0.4, 0)
-		_climbing = null
+		_leave_climb()
 	elif global_position.y <= bottom_y + 0.1 and up_input < 0.0:
-		_climbing = null
+		# Step off the bottom onto the open side so re-armed collision doesn't drop the
+		# capsule straight back into the pinch between the rungs and the shaft wall.
+		global_position = ladder.bottom_point() - ladder.face_dir() * ladder.exit_forward + Vector3(0, 0.1, 0)
+		_leave_climb()
 
 ## Entering the water no longer teleports you out — you swim (GDD §31). The sea
 ## takes warmth constantly, ladders are the way back up, and the deep is death.
@@ -413,7 +428,8 @@ func _check_water() -> void:
 	var now_swimming: bool = global_position.y < wave_y - 0.15
 	if now_swimming and not swimming:
 		AudioDirector.play_one_shot("splash", global_position, -4.0)
-		_climbing = null
+		if _climbing:
+			_leave_climb()   # fell off the ladder into the sea — re-arm world collision
 		if carried:
 			drop_carried()
 		var hud: Node = get_tree().get_first_node_in_group("hud")
@@ -494,7 +510,8 @@ func _on_player_died() -> void:
 		return
 	_drowning = true
 	input_locked = true
-	_climbing = null
+	if _climbing:
+		_leave_climb()   # dying mid-climb must re-arm the collision disabled on grab
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		var tw: Tween = hud.fade_to_black(1.2)
