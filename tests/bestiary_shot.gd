@@ -5,7 +5,7 @@ extends Node3D
 
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 
-# slug, target size (m), shader mode, amp, rate, glow
+# slug, target size (m), shader mode, amp, rate, glow energy, [glow colour], [opacity]
 const SUBJECTS := [
 	["lamplight_crab", 0.9, 0, 0.012, 1.2, 1.4],
 	["ultra_hammerhead", 5.0, 0, 0.09, 1.1, 0.5],
@@ -15,6 +15,17 @@ const SUBJECTS := [
 	["corvid_gull", 0.55, 3, 0.05, 1.0, 0.35],
 	["lamp_eel", 4.5, 0, 0.14, 1.6, 1.0],
 	["jelly_drifter", 1.1, 2, 0.08, 0.6, 1.0],
+	# Small fauna
+	["sea_gull", 0.55, 3, 0.06, 1.4, 0.12],
+	["bait_fish", 0.24, 0, 0.13, 2.6, 0.15],
+	["tide_worm", 0.32, 0, 0.07, 1.1, 0.45],
+	["glow_worm", 0.26, 0, 0.06, 0.9, 1.6],
+	["barnacle_cluster", 0.8, 2, 0.01, 0.5, 0.5],
+	# The four gastropods
+	["lamp_snail", 0.9, 0, 0.015, 0.5, 1.2],
+	["rust_snail", 0.62, 0, 0.02, 0.7, 0.55, Color(1.0, 0.55, 0.18)],  # amber, not teal
+	["glass_snail", 0.5, 0, 0.02, 0.6, 1.4, Color(0.25, 0.95, 0.88), 0.35],  # see-through shell
+	["anchor_limpet", 0.6, 2, 0.015, 0.35, 1.0],
 ]
 
 var _cam: Camera3D
@@ -61,8 +72,11 @@ func _shoot(spec: Array) -> void:
 	var path := "res://assets/models/fauna/%s/%s.glb" % [slug, slug]
 	var host := Node3D.new()
 	add_child(host)
-	var gen: Dictionary = ANIM.attach(host, path, size, spec[2], spec[3], spec[4],
-		Color(0.25, 0.95, 0.88))
+	# Most of the bestiary glows Bloom-teal; a species can override (the rust snail is amber).
+	var glow: Color = spec[6] if spec.size() > 6 else Color(0.25, 0.95, 0.88)
+	var opacity: float = spec[7] if spec.size() > 7 else 1.0
+	var gen: Dictionary = ANIM.attach(host, path, size, spec[2], spec[3], spec[4], glow,
+		0.0, opacity)
 	if gen.is_empty():
 		print("MISSING: ", slug)
 		host.queue_free()

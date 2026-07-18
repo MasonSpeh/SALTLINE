@@ -1,5 +1,5 @@
 shader_type spatial;
-render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
+render_mode cull_disabled, diffuse_burley, specular_schlick_ggx, depth_prepass_alpha;
 // Vertex-displacement creature motion for STATIC AI-generated meshes.
 //
 // Meshy (and most text-to-3D services) only auto-rig HUMANOIDS — they run bipedal pose
@@ -18,6 +18,8 @@ uniform sampler2D normal_tex : hint_normal;
 uniform bool use_normal = false;
 uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform float roughness_v : hint_range(0.0, 1.0) = 0.6;
+// 1.0 = solid (everyone). Below 1.0 turns the body see-through — see fragment().
+uniform float opacity : hint_range(0.0, 1.0) = 1.0;
 uniform float metallic_v : hint_range(0.0, 1.0) = 0.0;
 
 // --- motion ---------------------------------------------------------------------
@@ -73,8 +75,15 @@ void fragment() {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
 	}
 	// Fresnel rim: the Bloom reads as light coming off the edges of the animal.
+	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_power);
 	if (glow_energy > 0.001) {
-		float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_power);
 		EMISSION = glow_color.rgb * glow_energy * rim;
+	}
+	// Translucency (glass snail, jellies). The generators bake OPAQUE albedo no matter
+	// how hard the prompt asks for glass, so see-through has to happen here. Edges stay
+	// solid and the face thins out — which is how real glass reads, and it lets the lit
+	// organs inside the shell show through.
+	if (opacity < 0.999) {
+		ALPHA = mix(opacity, 1.0, rim);
 	}
 }

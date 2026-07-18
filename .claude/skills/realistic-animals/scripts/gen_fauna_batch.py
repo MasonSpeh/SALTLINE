@@ -86,10 +86,15 @@ BESTIARY: list[tuple[str, str]] = [
      "bioluminescent core visible inside its body, soft segmented form, small "
      "simple head, curled resting neutral pose, " + STYLE),
 
+    # NOTE: the first attempt said "on a patch of corroded steel" and Meshy rendered the
+    # patch as a round display PLINTH under the shells — which would look absurd stuck to
+    # a rig leg. Describe ONLY the organisms; the rig supplies the surface.
     ("barnacle_cluster",
-     "a tight cluster of alien acorn barnacles on a patch of corroded steel, chalky "
-     "ridged conical shells of varying size, feathery cirri extending from the open "
-     "ones, faint teal glow inside the apertures, encrusted and wet, " + STYLE),
+     "a tight clump of alien acorn barnacles fused directly to each other, chalky ridged "
+     "conical shells of varying size crowded together, feathery cirri extending from the "
+     "open ones, faint teal glow inside the apertures, encrusted and wet. Just the bare "
+     "clump of shells alone: no base, no plinth, no pedestal, no disc, no rock, no ground, "
+     "no display stand, nothing underneath them, " + STYLE),
 
     # ---- The snails (SALTLINE canon Codex 54): four distinct gastropods ----
 
@@ -105,15 +110,19 @@ BESTIARY: list[tuple[str, str]] = [
      "tentacles, neutral crawling pose, " + STYLE),
 
     ("glass_snail",
-     "an alien sea snail with a completely transparent glass-like shell, glowing teal "
-     "internal organs and a spiral gut clearly visible through it, translucent pearl "
-     "foot, delicate ethereal deep-sea creature, two fine tentacles, neutral crawling "
-     "pose, " + STYLE),
+     "a sea snail whose shell is made of clear colourless GLASS, completely transparent "
+     "and see-through like an empty crystal vessel, with a bright glowing teal spiral "
+     "organ clearly visible suspended INSIDE the hollow transparent shell, translucent "
+     "jelly-like body, x-ray look, backlit, two fine tentacles, neutral crawling pose, "
+     + STYLE),
 
     ("anchor_limpet",
-     "a large armoured alien limpet, thick low conical ribbed shell like a riveted iron "
-     "cap, dark slate and verdigris, clamped down tight, encrusted rim, a thin ring of "
-     "teal bioluminescence glowing beneath the shell edge, neutral clamped pose, " + STYLE),
+     "a single limpet shell, shaped like a smooth low cone or a coolie hat or a small "
+     "volcano, ribbed radial ridges running down from the peak to a wide circular rim, "
+     "dark slate and verdigris metal patina, encrusted edge, sitting flat and clamped "
+     "against a steel plate, a thin ring of teal light glowing under the rim. It is ONLY "
+     "a smooth cone shell: no legs, no limbs, no claws, no arms, no visible creature, "
+     "no head, just the bare conical shell, " + STYLE),
 ]
 
 

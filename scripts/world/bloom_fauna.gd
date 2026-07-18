@@ -1396,8 +1396,10 @@ class GlassSnail extends Node3D:
 		foot.rotation.x = deg_to_rad(90)
 		foot.position.y = -0.08
 		add_child(foot)
+		# 0.35 opacity: the shell goes see-through so the lit gut reads THROUGH it, which
+		# is the whole species. The generator will not produce real glass, so we do it here.
 		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.5, ANIM.Mode.UNDULATE,
-			0.02, 0.6, BloomFauna.TEAL)
+			0.02, 0.6, BloomFauna.TEAL, 0.0, 0.35)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 

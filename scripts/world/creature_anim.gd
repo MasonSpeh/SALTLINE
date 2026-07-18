@@ -20,7 +20,8 @@ enum Mode { UNDULATE = 0, WING = 1, PULSE = 2, FLAP = 3 }
 ## Swap every surface on `model` to the motion shader, carrying the imported PBR maps
 ## across. Returns the ShaderMaterials so the caller can modulate them per frame.
 static func apply(model: Node3D, mode: int, amp: float = 0.06, rate: float = 2.0,
-		glow: Color = Color(0.25, 0.95, 0.88), phase: float = 0.0) -> Array:
+		glow: Color = Color(0.25, 0.95, 0.88), phase: float = 0.0,
+		opacity: float = 1.0) -> Array:
 	var mats: Array = []
 	for mi in _mesh_instances(model):
 		var inst: MeshInstance3D = mi
@@ -45,6 +46,7 @@ static func apply(model: Node3D, mode: int, amp: float = 0.06, rate: float = 2.0
 			sm.set_shader_parameter("rate", rate)
 			sm.set_shader_parameter("phase", phase)
 			sm.set_shader_parameter("glow_color", glow)
+			sm.set_shader_parameter("opacity", opacity)
 			# Local-space bounds let the shader know head-from-tail without hardcoding scale.
 			sm.set_shader_parameter("bounds_min", aabb.position)
 			sm.set_shader_parameter("bounds_size", aabb.size)
@@ -88,12 +90,12 @@ static func load_model(path: String, target_m: float) -> Node3D:
 ##   if not gen.is_empty(): _model = gen["model"]; _mats = gen["mats"]; return
 static func attach(host: Node3D, path: String, target_m: float, mode: int,
 		amp: float = 0.06, rate: float = 2.0, glow: Color = Color(0.25, 0.95, 0.88),
-		phase: float = 0.0) -> Dictionary:
+		phase: float = 0.0, opacity: float = 1.0) -> Dictionary:
 	var model := load_model(path, target_m)
 	if model == null:
 		return {}
 	host.add_child(model)
-	return {"model": model, "mats": apply(model, mode, amp, rate, glow, phase)}
+	return {"model": model, "mats": apply(model, mode, amp, rate, glow, phase, opacity)}
 
 ## Attach the generated mesh and hide the procedural geometry it supersedes.
 ##
@@ -106,9 +108,9 @@ static func attach(host: Node3D, path: String, target_m: float, mode: int,
 ## Call it as the LAST line of the species' body build.
 static func replace(host: Node3D, path: String, target_m: float, mode: int,
 		amp: float = 0.06, rate: float = 2.0, glow: Color = Color(0.25, 0.95, 0.88),
-		phase: float = 0.0) -> Dictionary:
+		phase: float = 0.0, opacity: float = 1.0) -> Dictionary:
 	var superseded: Array = _mesh_instances(host)
-	var gen := attach(host, path, target_m, mode, amp, rate, glow, phase)
+	var gen := attach(host, path, target_m, mode, amp, rate, glow, phase, opacity)
 	if gen.is_empty():
 		return {}
 	for mi in superseded:
