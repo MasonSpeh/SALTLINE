@@ -88,8 +88,10 @@ var _mats: Array = []
 var _bob_t: float = 0.0
 
 func _build_body() -> void:
-	var gen: Dictionary = ANIM.attach(self, MODEL_PATH, 0.9, ANIM.Mode.UNDULATE,
-		0.012, 1.2, GLOW)
+	# SCUTTLE: the shader finds the legs geometrically and walks them in a metachronal
+	# wave. Amp is generous because the legs are what should move, not the shell.
+	var gen: Dictionary = ANIM.attach(self, MODEL_PATH, 0.9, ANIM.Mode.SCUTTLE,
+		0.045, 1.4, GLOW)
 	if gen.is_empty():
 		# No generated asset — fall back to the original procedural crab.
 		var chitin: Material = KIT.mat(Color(0.24, 0.19, 0.15), 0.5)
@@ -197,7 +199,11 @@ func _animate(delta: float) -> void:
 			_model.position.y = lerpf(_model.position.y, 0.0, delta * 3.0)
 			_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 2.0)
 		var rim: float = (0.5 + 0.5 * sin(_gait_t * (6.5 if hunt else 1.4)))
-		ANIM.drive(_mats, 1.0 + speed * 0.8, lerpf(0.5, 2.6, rim) * (1.6 if hunt else 1.0))
+		# The gait is driven by REAL ground speed, so it never moonwalks: standing still
+		# it settles to a slow idle shuffle, hunting it breaks into a scuttle.
+		var gait_hz: float = clampf(speed * 1.15, 0.35, 4.2)
+		ANIM.drive(_mats, gait_hz, lerpf(0.5, 2.6, rim) * (1.6 if hunt else 1.0),
+			lerpf(0.022, 0.055, clampf(speed * 0.5, 0.0, 1.0)))
 
 	# The lamp: resting heartbeat on patrol, quickening strobe on the hunt.
 	var hunting: bool = state == State.PURSUE

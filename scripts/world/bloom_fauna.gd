@@ -211,6 +211,8 @@ class Gull extends Node3D:
 		visible = _leave < 0.98
 		if not visible:
 			return
+		# Wingbeat tracks how hard this bird is actually flying.
+		ANIM.drive(_gen_mats, 1.1 + _speed * 0.5, 0.12)
 		_t += delta * _speed
 		Journal.discover_if_near(self, "creature_gull", 35.0)
 		var r: float = _radius + _leave * 220.0          # spiral out when leaving
@@ -289,6 +291,8 @@ class JellyDrifter extends Node3D:
 		_mat.emission_energy_multiplier = _presence * (1.0 + 0.4 * sin(_t * 1.1))
 		_mat.albedo_color.a = _presence * 0.42
 		_core_mat.emission_energy_multiplier = _presence * (1.8 + 1.4 * maxf(sin(_t * 2.2 + _idx), 0.0))
+		# The bell pulse fades up with the animal instead of thrashing an invisible jelly.
+		ANIM.drive(_gen_mats, 0.6 * _presence, _presence * 1.2, 0.08 * _presence)
 		if not visible:
 			return
 		_t += delta
@@ -355,7 +359,8 @@ class BarnacleCluster extends Node3D:
 				leg.position = Vector3(sin(spread) * 0.02, 0, lm.height * 0.5)
 			_cirri.append(pivot)
 		# Generated mesh: the cirri stir; the cluster breathes.
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.8, ANIM.Mode.PULSE, 0.01, 0.5, BloomFauna.TEAL)
+		# CIRRI: the feeding sweep — they rake the water and fold back.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.8, ANIM.Mode.CIRRI, 0.022, 0.55, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 			ANIM.drive(_gen_mats, 0.5, 0.5)
@@ -373,6 +378,9 @@ class BarnacleCluster extends Node3D:
 				target = 0.03   # they feel you coming and go dark
 				feeding = false
 		_mat.emission_energy_multiplier = lerpf(_mat.emission_energy_multiplier, target, delta * 2.5)
+		# The generated cluster rakes the water only while feeding — clammed shut, the
+		# sweep stops dead, which is the same tell as the light going out.
+		ANIM.drive(_gen_mats, 0.55 if feeding else 0.0, target * 0.6, 0.022 if feeding else 0.0)
 		# Cirri comb the water on a ~1.4Hz rake; snap shut when not feeding.
 		var rake: float = (0.55 + 0.45 * sin(_t * 4.2 + _phase_offset)) if feeding else 0.0
 		_sweep = lerpf(_sweep, rake, delta * 6.0)
@@ -482,6 +490,8 @@ class LampEel extends Node3D:
 		var from: Vector3 = _segs[0].global_position
 		_segs[0].global_position = from.lerp(head, delta * 4.0)
 		var dir: Vector3 = _segs[0].global_position - from
+		# Ribbon wave tracks real head speed — it never swims on the spot.
+		ANIM.drive(_gen_mats, clampf(dir.length() / maxf(delta, 0.0001) * 0.5, 0.6, 3.2), 0.9)
 		if dir.length() > 0.0005:
 			_segs[0].look_at(_segs[0].global_position + dir, Vector3.UP)
 		for i in range(1, SEGMENTS):
@@ -538,6 +548,8 @@ class FiddlerShoal extends Node3D:
 		if not active:
 			return
 		_t += delta
+		# Whole school beats together but each fish keeps its own phase offset.
+		ANIM.drive(_gen_mats, 2.6, 0.15)
 		# At dusk the shoal picks up a bloom-touched glint.
 		_mat.emission = BloomFauna.TEAL if GameClock.current_phase == GameClock.Phase.DUSK else Color(0.7, 0.78, 0.8)
 		_mat.emission_energy_multiplier = 0.7 if GameClock.current_phase == GameClock.Phase.DUSK else 0.15
@@ -621,6 +633,8 @@ class MantleRay extends Node3D:
 				if _cooldown <= 0.0:
 					_begin_pass()
 			return
+		# Wings beat only on the crossing — parked, the animal is not in the sky at all.
+		ANIM.drive(_gen_mats, 0.45, 0.5)
 		_progress += delta / 45.0    # one slow crossing takes 45s
 		if _progress >= 1.0:
 			_flying = false
@@ -703,6 +717,8 @@ class TideWorm extends Node3D:
 		_body.scale.y = maxf(_emerge, 0.001)
 		_body.visible = _emerge > 0.02
 		_body.rotation.x = sin(_t * 1.7) * 0.22 * _emerge
+		# Retracted worms don't ripple: the wave fades out with the animal.
+		ANIM.drive(_gen_mats, 1.1 * _emerge, 0.45 * _emerge, 0.07 * _emerge)
 		_body.rotation.z = cos(_t * 1.3) * 0.22 * _emerge
 
 
@@ -773,7 +789,7 @@ class GlowWorm extends Interactable:
 
 	## Colony calls this at dusk: this den is (not) one of tonight's two.
 		# Generated mesh: the lit core shifts inside the body.
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.26, ANIM.Mode.UNDULATE, 0.06, 0.9, BloomFauna.TEAL)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.26, ANIM.Mode.BREATHE, 0.05, 0.9, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 			ANIM.drive(_gen_mats, 0.9, 1.6)
@@ -825,6 +841,8 @@ class GlowWorm extends Interactable:
 		_body.rotation.x = sin(_t * 1.9) * 0.18 * _presence
 		_body.rotation.z = cos(_t * 1.4) * 0.18 * _presence
 		_glow_mat.emission_energy_multiplier = _presence * (1.1 + 0.5 * sin(_t * 2.3))
+		# Denned, it is perfectly still; the swell comes up with the animal.
+		ANIM.drive(_gen_mats, 0.9 * _presence, _presence * 1.6, 0.06 * _presence)
 		_col.disabled = not _catchable()
 		if _presence > 0.5:
 			Journal.discover_if_near(self, "creature_glow_worm", 7.0)
@@ -1119,6 +1137,8 @@ class HarborSeal extends Node3D:
 			var day: bool = GameClock.current_phase == GameClock.Phase.DAY
 			_hauled = day and randf() < 0.55 and _idx_zero()
 			_haul_timer = randf_range(35.0, 70.0)
+		# Hauled out it only breathes; in the water the body wave does the work.
+		ANIM.drive(_gen_mats, 0.35 if _hauled else 1.0, 0.22, 0.02 if _hauled else 0.05)
 		if _hauled:
 			global_position = global_position.lerp(HAUL_SPOT, delta * 1.5)
 			rotation.z = lerp_angle(rotation.z, 0.0, delta * 2.0)
@@ -1242,7 +1262,8 @@ class LampSnail extends Node3D:
 			spot.position = Vector3(cos(u) * 0.42 * sqrt(1.0 - v * v), v * 0.42, sin(u) * 0.42 * sqrt(1.0 - v * v))
 			add_child(spot)
 		# Generated mesh: a faint shell flex; the constellation does the real work.
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.9, ANIM.Mode.UNDULATE, 0.015, 0.5, BloomFauna.TEAL)
+		# PEDAL: the foot ripples back-to-front, which is how a snail actually travels.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.9, ANIM.Mode.PEDAL, 0.03, 0.55, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 
@@ -1255,6 +1276,8 @@ class LampSnail extends Node3D:
 			_spots[i].emission_energy_multiplier = lerpf(_spots[i].emission_energy_multiplier,
 				glow * (0.55 + 0.45 * sin(_t * 0.8 + i * 1.3)), delta * 1.5)
 		visible = night or global_position.y > 0.0
+		# The pedal wave runs only while it is out crawling.
+		ANIM.drive(_gen_mats, 0.55 if night else 0.0, glow * 0.35, 0.03 if night else 0.0)
 		if night:
 			Journal.discover_if_near(self, "creature_lamp_snail", 12.0)
 		# Eye stalks sway on their own slow rhythm; the eye bulbs pick up the glow.
@@ -1324,11 +1347,10 @@ class RustSnail extends Node3D:
 			vent.mesh = vm
 			vent.position = Vector3(-0.12 + i * 0.12, 0.12 + i * 0.04, -0.1)
 			add_child(vent)
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.62, ANIM.Mode.UNDULATE,
-			0.02, 0.7, AMBER)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.62, ANIM.Mode.PEDAL,
+			0.028, 0.8, AMBER)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
-			ANIM.drive(_gen_mats, 0.7, 0.55)
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -1341,6 +1363,8 @@ class RustSnail extends Node3D:
 		var heat: float = 0.8 + 0.5 * sin(_t * 0.7 + _idx)
 		for i in range(_glow_mats.size()):
 			_glow_mats[i].emission_energy_multiplier = heat * (0.7 + 0.3 * sin(_t * 1.3 + i))
+		# The foot wave keeps time with the rasping, and the shell heat breathes with it.
+		ANIM.drive(_gen_mats, 0.8, heat * 0.5)
 		Journal.discover_if_near(self, "creature_rust_snail", 9.0)
 
 # ----------------------------------------------------------- Glass Snail
@@ -1398,8 +1422,8 @@ class GlassSnail extends Node3D:
 		add_child(foot)
 		# 0.35 opacity: the shell goes see-through so the lit gut reads THROUGH it, which
 		# is the whole species. The generator will not produce real glass, so we do it here.
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.5, ANIM.Mode.UNDULATE,
-			0.02, 0.6, BloomFauna.TEAL, 0.0, 0.35)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.5, ANIM.Mode.PEDAL,
+			0.025, 0.6, BloomFauna.TEAL, 0.0, 0.35)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 
@@ -1470,8 +1494,10 @@ class AnchorLimpet extends Node3D:
 			glim.mesh = gm
 			glim.position = Vector3(cos(a) * 0.31, -0.1, sin(a) * 0.31)
 			add_child(glim)
-		var gen: Dictionary = ANIM.replace(_shell, MODEL_PATH, 0.6, ANIM.Mode.PULSE,
-			0.015, 0.35, BloomFauna.TEAL)
+		# BREATHE: a slow resting swell. It stops dead when the animal clamps, which is
+		# the tell — a limpet that has sealed is indistinguishable from the rig.
+		var gen: Dictionary = ANIM.replace(_shell, MODEL_PATH, 0.6, ANIM.Mode.BREATHE,
+			0.02, 0.3, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 
@@ -1490,7 +1516,9 @@ class AnchorLimpet extends Node3D:
 		for i in range(_rim_mats.size()):
 			_rim_mats[i].emission_energy_multiplier = lerpf(breath * 1.8, 0.0, _clamp)
 		if _gen_mats.size() > 0:
-			ANIM.drive(_gen_mats, 0.35, lerpf(1.0, 0.0, _clamp))
+			# Breathing slows to nothing as it seals; the rim light goes with it.
+			ANIM.drive(_gen_mats, lerpf(0.3, 0.0, _clamp), lerpf(1.0, 0.0, _clamp),
+				lerpf(0.02, 0.0, _clamp))
 		if d < 6.0:
 			Journal.discover_if_near(self, "creature_anchor_limpet", 6.0)
 
@@ -1585,6 +1613,9 @@ class CorvidGull extends Node3D:
 		visible = day or _steal_phase != 0
 		if not visible:
 			return
+		# Perched it only ruffles; mid-theft it is airborne and beating properly.
+		var airborne: bool = _steal_phase != 0
+		ANIM.drive(_gen_mats, 2.4 if airborne else 0.5, 0.2, 0.06 if airborne else 0.012)
 		if thief and day:
 			_theft(delta)
 			if _steal_phase != 0:

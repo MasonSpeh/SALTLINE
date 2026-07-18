@@ -15,7 +15,16 @@ class_name CreatureAnim extends RefCounted
 
 const SHADER := preload("res://materials/creature_swim.gdshader")
 
-enum Mode { UNDULATE = 0, WING = 1, PULSE = 2, FLAP = 3 }
+enum Mode {
+	UNDULATE = 0,   ## body wave, head to tail — fish, eel, shark, whale, seal, worm
+	WING = 1,       ## wings beat, amplitude to the tips — ray
+	PULSE = 2,      ## bell squash + skirt flare — jelly
+	FLAP = 3,       ## fast wingbeat — birds
+	SCUTTLE = 4,    ## legged metachronal gait — crab
+	PEDAL = 5,      ## muscular foot wave — the gastropods
+	CIRRI = 6,      ## feathery feeding sweep — barnacles
+	BREATHE = 7,    ## resting swell — limpet, denned glow worm
+}
 
 ## Swap every surface on `model` to the motion shader, carrying the imported PBR maps
 ## across. Returns the ShaderMaterials so the caller can modulate them per frame.
