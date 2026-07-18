@@ -466,7 +466,13 @@ func _run() -> void:
 		if c2 is LamplightCrab:
 			crab2 = c2
 	if crab2:
-		_check(crab2._legs.size() == 8, "crab walks on eight articulated legs")
+		# The crab now prefers the generated mesh (animated by CreatureAnim's vertex
+		# shader) and only falls back to the eight procedural legs when that asset is
+		# missing — so assert it has ONE of the two bodies, not specifically the legs.
+		_check(crab2._model != null or crab2._legs.size() == 8,
+			"crab has a body: generated mesh or eight articulated legs")
+		if crab2._model != null:
+			_check(not crab2._mats.is_empty(), "generated crab is driven by the motion shader")
 		_check(crab2._lamp_mat != null, "the lamp lure organ exists")
 	GameClock.force_phase(GameClock.Phase.DAY)
 
