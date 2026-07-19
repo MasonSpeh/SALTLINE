@@ -368,10 +368,14 @@ def step_grate(seed):
     rng = random.Random(seed)
     n = n_of(0.34)
     out = _impact_noise(n, rng, 0.62, 0.10, 55.0)
-    ring = _resonances(n, rng, [(1180.0, 0.34, 15.0), (2360.0, 0.22, 20.0),
-                                (3510.0, 0.12, 28.0), (168.0, 0.30, 34.0)])
+    # The ring used to be three tuned HIGH partials (1180/2360/3510 Hz) decaying slowly.
+    # A boot lands ON a bar and DAMPS it; leaving them to sing turned every footstep into
+    # pipes clanging together. Now: the hollow low mode carries it (there is only air
+    # under the bars), one short mid buzz for the metal, the high partials gone, and all
+    # of it damped several times faster and mixed well under the impact noise.
+    ring = _resonances(n, rng, [(168.0, 0.26, 52.0), (430.0, 0.10, 90.0)])
     for i in range(n):
-        out[i] = out[i] * 0.85 + ring[i]
+        out[i] = out[i] * 1.0 + ring[i] * 0.45
     return normalize(fade_edges(out, 0.003), 0.85)
 
 
@@ -381,9 +385,10 @@ def step_plate(seed):
     rng = random.Random(seed)
     n = n_of(0.24)
     out = _impact_noise(n, rng, 0.34, 0.05, 80.0)
-    ring = _resonances(n, rng, [(132.0, 0.55, 40.0), (318.0, 0.30, 46.0), (690.0, 0.14, 60.0)])
+    # Solid steel over structure barely rings — keep the body, kill the ping.
+    ring = _resonances(n, rng, [(132.0, 0.42, 62.0), (318.0, 0.18, 78.0)])
     for i in range(n):
-        out[i] = out[i] * 0.9 + ring[i]
+        out[i] = out[i] * 1.0 + ring[i] * 0.55
     return normalize(fade_edges(out, 0.003), 0.85)
 
 

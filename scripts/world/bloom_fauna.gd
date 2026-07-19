@@ -1511,7 +1511,7 @@ class LampSnail extends Node3D:
 		# Wanders the leg base instead of tracing a rigid circle through the concrete: it
 		# heads out, and when the caisson or a rail stops it, it turns and grazes on.
 		global_position = _base
-		_crawler = GroundCrawler.new(_base, 1.6, 0.13, 400 + _idx, 0.35, 0.2, _base.y)
+		_crawler = GroundCrawler.new(_base, 4.2, 0.13, 400 + _idx, 0.35, 0.2, _base.y)
 
 	func _harvest(_verb: String, _player: Node3D) -> void:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
@@ -2004,7 +2004,7 @@ class GlassSnail extends Node3D:
 		# Drifts the plate on a short leash so it stays on the steel, grounding every frame
 		# and turning back at the plate edge instead of hanging out over open water.
 		global_position = _base
-		_crawler = GroundCrawler.new(_base, 0.7, 0.08, 900 + _idx, 0.18, 0.12, _base.y)
+		_crawler = GroundCrawler.new(_base, 3.0, 0.08, 900 + _idx, 0.18, 0.12, _base.y)
 
 	func _process(delta: float) -> void:
 		_t += delta

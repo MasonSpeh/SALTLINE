@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://snail_path_probe"]
+[ext_resource type="Script" path="res://tests/snail_path_probe.gd" id="1"]
+[node name="SnailPathProbe" type="Node"]
+script = ExtResource("1")

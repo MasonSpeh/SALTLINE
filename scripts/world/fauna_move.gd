@@ -571,12 +571,27 @@ class SurfaceCrawler extends RefCounted:
 	func _free_step(host: Node3D, moved: float) -> void:
 		_leg -= moved
 		var off: Vector3 = Vector3(host.global_position.x - home.x, 0.0, host.global_position.z - home.z)
-		var strayed: bool = off.length() > leash
+		# ONLY a snail travelling OUTWARD has strayed. Testing distance alone re-fired the
+		# turn every frame it spent outside the leash — including while it was already on
+		# its way back — so it never got to leave the rim. That, plus aiming at the centre
+		# from the rim, is a textbook orbit, and it is why snails "just go in circles".
+		var outward: bool = off.dot(heading) > 0.0
+		var strayed: bool = off.length() > leash and outward
 		if not (strayed or _leg <= 0.0):
 			return
 		var new_head: Vector3 = heading
 		if strayed and off.length() > 0.01:
-			new_head = (-off).normalized().rotated(Vector3.UP, _rng.randf_range(-0.7, 0.7))
+			# Head ACROSS the patch, not back to its middle: aiming at home from the rim
+			# skims the boundary, while crossing it puts the animal somewhere genuinely
+			# new. Commit to a leg long enough to actually make the traverse.
+			new_head = (-off).normalized().rotated(Vector3.UP, _rng.randf_range(-0.45, 0.45))
+			new_head = new_head - up * new_head.dot(up)
+			if new_head.length() > 0.001:
+				heading = new_head.normalized()
+			_leg = off.length() + _rng.randf_range(leash * 0.8, leash * 1.5)
+			if _rng.randf() < 0.25:
+				_pause = _rng.randf_range(0.5, 1.6)
+			return
 		else:
 			new_head = heading.rotated(Vector3.UP, _rng.randf_range(1.2, TAU - 1.2))
 		new_head = new_head - up * new_head.dot(up)

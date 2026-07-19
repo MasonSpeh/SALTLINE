@@ -36,4 +36,10 @@ func interact(verb: String, player: Node3D) -> void:
 	add_child(mi)
 	if hud:
 		hud.toast("Cable spliced. The line is whole again.")
+		# Splicing the cable is only step one, and nothing used to say so — the player was
+		# left standing at a repaired gap with no idea the breaker still had to be thrown,
+		# or where it lives. Name the room and the panel.
+		if hud.has_method("set_objective"):
+			hud.set_objective("Feed line's whole. Throw Master Breaker 4-A "
+				+ "— breaker room, up the stair tower.")
 	AudioDirector.play_one_shot("breaker", global_position)

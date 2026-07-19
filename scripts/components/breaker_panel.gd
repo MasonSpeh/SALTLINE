@@ -28,4 +28,6 @@ func interact(verb: String, player: Node3D) -> void:
 	PowerGrid.power_circuit(circuit_id)
 	if hud:
 		hud.toast("Breaker closed. Somewhere above, something hums awake.")
+		if hud.has_method("set_objective"):
+			hud.set_objective("Floodlights are live. The lit deck is safe after dark.")
 	AudioDirector.play_one_shot("breaker", global_position)
