@@ -103,6 +103,95 @@ func _cyl(pos: Vector3, radius: float, height: float, mat: Material, parent: Nod
 	c.position = pos
 	return c
 
+## The single smooth guard a railing presents to the player: one full-height box from
+## just under the deck line to just over the top bar, with no posts, no gaps and no
+## lips to wedge a capsule against. Invisible — the rail's own steel is what you see.
+func _rail_slab(pos: Vector3, size: Vector3) -> void:
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	add_child(body)
+	body.position = pos
+
+## Build a stair flight with StairKit, then repair the two things in its COLLISION
+## that a 0.4m-radius player capsule cannot get past. StairKit is shared code we do
+## not own; every visual it builds is kept and only collision shapes are touched.
+##
+## 1. THE CURB — this is the tower's "lip you have to JUMP over". StairKit's flat top
+##    lip is a plate at full `rise` that begins 0.25m back along the run, where the
+##    sloped walking surface is still 0.25*tan(angle) lower. On these 4-in-5 flights
+##    that is a 0.17m square step across the top tread. A capsule of this radius can
+##    roll up about 0.117m before the contact normal tips past floor_max_angle and the
+##    step reads as a wall — so the climb stopped dead at every turn platform. Sliding
+##    the lip past the top of the ramp leaves the join flush to ~0.03m.
+## 2. THE RAIL. StairKit's handrail collides as one thin bar at chest height with open
+##    air beneath it, so a capsule's waist catches the bar while its feet slide under.
+##    We drop that collider and stand a single smooth slab inside the visual rail.
+func _stair_run(from: Vector3, to: Vector3, width: float,
+		rail_left: bool = false, rail_right: bool = false) -> void:
+	if to.y < from.y:
+		var swap: Vector3 = from
+		from = to
+		to = swap
+		var flip: bool = rail_left
+		rail_left = rail_right
+		rail_right = flip
+	var delta: Vector3 = to - from
+	var rise: float = delta.y
+	var run: float = Vector2(delta.x, delta.z).length()
+	STAIRS.flight(self, from, to, width, rail_left, rail_right)
+	if rise < 0.05 or run < 0.1:
+		return   # StairKit bailed out and built nothing; there is no root to patch
+	var root := get_child(get_child_count() - 1) as Node3D
+	if root == null:
+		return
+	var slope_len: float = sqrt(rise * rise + run * run)
+	var angle: float = atan2(rise, run)
+	# StairKit's ramp sits 0.05 low at the foot and is 0.06 thick, so its top surface
+	# OVERSHOOTS the landing height by a couple of centimetres at the top of the run.
+	# Two centimetres sounds harmless. It is not: a 0.4m-radius capsule climbing a
+	# 39-degree slope first touches the landing's leading corner from 0.36m back, where
+	# the ramp is a quarter of a metre lower, and that contact is ~51 degrees off
+	# vertical — past floor_max_angle, so CharacterBody3D calls it a wall and the climb
+	# stops dead one step short of the top. Dropping the ramp by exactly its overshoot
+	# makes the walking surface pass through the foot and the top corner, so run and
+	# landing meet flush and the corner is no longer something that has to be climbed.
+	var overshoot: float = -0.05 + 0.05 * sin(angle) + 0.06 * cos(angle)
+	for child in root.get_children():
+		var body := child as StaticBody3D
+		if body == null:
+			continue
+		var is_rail: bool = false
+		for c in body.get_children():
+			if c is MeshInstance3D:
+				is_rail = true   # a railed _vbox carries its mesh; the walk body does not
+		for c in body.get_children():
+			var cs := c as CollisionShape3D
+			if cs == null:
+				continue
+			if is_rail:
+				cs.disabled = true
+			elif absf(cs.rotation.x) > 0.001:
+				cs.position.y -= overshoot   # the sloped walking surface, set flush
+			elif cs.position.z > run * 0.5:
+				cs.position.z = run + 0.22   # the top lip, slid clear of the slope
+	for side in [[rail_left, -1.0], [rail_right, 1.0]]:
+		if not bool(side[0]):
+			continue
+		var guard := StaticBody3D.new()
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.08, 1.6, slope_len + 0.2)
+		shape.shape = box
+		guard.add_child(shape)
+		root.add_child(guard)
+		guard.position = Vector3(float(side[1]) * (width * 0.5 + 0.02),
+			rise * 0.5 + 0.5, run * 0.5)
+		guard.rotation.x = -angle
+
 ## Wall between floor points a->b (axis aligned), with optional doorway at door_t (0-1 along wall).
 func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float = -1.0) -> void:
 	var dir: Vector3 = b - a
@@ -447,7 +536,7 @@ func _build_stair_tower() -> void:
 		var foot_x: float = STAIR_XW if odd else STAIR_XE
 		var top_x: float = STAIR_XE if odd else STAIR_XW
 		var lane_z: float = STAIR_ZS if odd else STAIR_ZN
-		STAIRS.flight(self, Vector3(foot_x, y0, lane_z), Vector3(top_x, y1, lane_z), STAIR_WID)
+		_stair_run(Vector3(foot_x, y0, lane_z), Vector3(top_x, y1, lane_z), STAIR_WID)
 		if k == STAIR_N:
 			break   # the top flight lands in the ops-room floor, built below
 		# Turn platform in the wall-end pocket the flight tops into (never under the run).
@@ -456,7 +545,10 @@ func _build_stair_tower() -> void:
 		_box(Vector3(px_c, y1 - 0.15, (STAIR_PZ0 + STAIR_PZ1) * 0.5),
 			Vector3(px_s, 0.3, STAIR_PZ1 - STAIR_PZ0), deck_mat)
 		# A guard rail along the platform's open (south) edge so the drop is fenced.
+		# It is a VISUAL bar plus one smooth full-height slab: the bar alone left a
+		# 0.1m gap along the plate that a capsule's foot slides into and jams against.
 		_box(Vector3(px_c, y1 + 0.55, STAIR_PZ0 + 0.06), Vector3(px_s, 0.9, 0.06), MatLib.rust_steel(), self, false)
+		_rail_slab(Vector3(px_c, y1 + 0.5, STAIR_PZ0 + 0.06), Vector3(px_s, 1.2, 0.07))
 
 	# Exterior structure for the tall free-standing shaft above the deck: proud concrete
 	# bands wrap the four faces at two heights so it reads as a segmented tower, not a slab.
@@ -579,9 +671,14 @@ func _build_ops_room(fy: float) -> void:
 	hole.operation = CSGShape3D.OPERATION_SUBTRACTION
 	fcomb.add_child(hole)
 	hole.position = Vector3(25.7, fy - 0.15, -2.9)
-	# A guard rail around the open sides of the stairwell hole (leaves the east step-off clear).
+	# A guard rail around the open sides of the stairwell hole (leaves the east step-off
+	# clear). Visual bars plus one smooth full-height slab each — these fence a 36m drop
+	# and until now they had no collision at all, so you could walk straight off the lip
+	# into the shaft on arriving at the top of the climb.
 	_box(Vector3(25.4, fy + 0.55, -1.5), Vector3(5.4, 0.9, 0.06), steel, self, false)   # north lip
 	_box(Vector3(22.8, fy + 0.55, -2.9), Vector3(0.06, 0.9, 2.8), steel, self, false)   # west lip
+	_rail_slab(Vector3(25.4, fy + 0.5, -1.5), Vector3(5.4, 1.2, 0.07))
+	_rail_slab(Vector3(22.8, fy + 0.5, -2.9), Vector3(0.07, 1.2, 2.8))
 
 	# --- Walls: solid parapet, huge glass band, header beam; the same on all four sides.
 	for zc in [z0, z1]:               # south & north (run along x)
@@ -984,7 +1081,15 @@ func _build_sphl() -> void:
 
 	# --- interior: an opaque grey box (collision + what you see from inside) ---
 	_box(Vector3(cx, fy - 0.05, cz), Vector3(ix1 - ix0, 0.1, iz_n - iz_s), MatLib.checker_plate())   # floor
-	_box(Vector3(cx, ceil_y, cz), Vector3(ix1 - ix0 + 0.2, 0.1, iz_n - iz_s + 0.2), grey, self, false)  # ceiling
+	# The ceiling COLLIDES. The pod's outer shell is a CSG combiner with use_collision
+	# off (it would otherwise seal the hatch and trap you at spawn), so with a
+	# non-colliding ceiling too, every cover query cast upward from inside the pod
+	# went straight out through the hull and reported open sky — you sat in a sealed
+	# steel lifeboat listening to unsheltered rain. This plate is the pod's roof as
+	# far as shelter/cover logic is concerned. It sits at y ceil_y±0.05 (4.15–4.25),
+	# clear above both a standing 1.8m capsule and the 1.95m hatch opening, so the
+	# interior stays walkable and the hatch stays passable.
+	_box(Vector3(cx, ceil_y, cz), Vector3(ix1 - ix0 + 0.2, 0.1, iz_n - iz_s + 0.2), grey)  # ceiling
 	_box(Vector3(cx, wall_cy, iz_s), Vector3(ix1 - ix0, wall_h, 0.15), grey)          # south wall
 	_box(Vector3(ix0, wall_cy, cz), Vector3(0.15, wall_h, iz_n - iz_s), grey)         # west wall
 	_box(Vector3(ix1, wall_cy, cz), Vector3(0.15, wall_h, iz_n - iz_s), grey)         # east wall
@@ -1019,15 +1124,15 @@ func _build_sphl() -> void:
 	var board_x: float = ix0 + 0.075                    # interior face of the west wall
 	_box(Vector3(board_x + 0.02, fy + 1.55, cz), Vector3(0.04, 0.30, 1.05),
 		MatLib.dark_metal(), self, false)               # placard plate
-	# Recessed readout face, faintly self-lit. The glass of a powered instrument glows
-	# with its text; lighting the panel is what makes the (unshaded) green characters
-	# below read as an LCD behind glass rather than as luminous paint floating on a
-	# dark plate — the last "glowing free-space text" complaint against this sign.
+	# Recessed readout FACE, self-lit — this is what glows, and the only thing that
+	# does. A backlit instrument panel is a real object with a lamp behind glass;
+	# unshaded text hanging in front of it is not, so the emission lives here and the
+	# characters below are ordinary lit geometry sitting on the glass.
 	var readout := StandardMaterial3D.new()
 	readout.albedo_color = Color(0.05, 0.09, 0.07)
 	readout.emission_enabled = true
 	readout.emission = Color(0.12, 0.5, 0.22)
-	readout.emission_energy_multiplier = 0.35
+	readout.emission_energy_multiplier = 2.6
 	readout.roughness = 0.25
 	_box(Vector3(board_x + 0.045, fy + 1.55, cz), Vector3(0.012, 0.22, 0.92),
 		readout, self, false)   # recessed readout face
@@ -1035,17 +1140,28 @@ func _build_sphl() -> void:
 			Vector2(-0.125, 0.49), Vector2(-0.125, -0.49)]:
 		_cyl_nc(Vector3(board_x + 0.045, fy + 1.55 + b.x, cz + b.y), 0.012, 0.02,
 			MatLib.galvanized()).rotation.z = deg_to_rad(90)   # bolt heads
+	# The panel's own backlight: a short-range green lamp inside the recess. It is what
+	# makes the characters legible now that they are shaded, and it spills a little onto
+	# the surrounding bulkhead the way a real lit instrument does — the red pod lamp two
+	# metres off no longer crushes the readout to unreadable black.
+	var glow := OmniLight3D.new()
+	glow.light_color = Color(0.45, 1.0, 0.6)
+	glow.light_energy = 0.9
+	glow.omni_range = 1.3
+	glow.omni_attenuation = 2.0
+	add_child(glow)
+	glow.global_position = Vector3(board_x + 0.22, fy + 1.55, cz)
 	countdown_label = Label3D.new()
 	countdown_label.text = "PRESSURE — EQUALIZED"
 	countdown_label.font_size = 40
 	countdown_label.pixel_size = 0.002
 	countdown_label.modulate = Color(0.3, 0.9, 0.4)
 	countdown_label.outline_size = 0
-	# Unshaded ON PURPOSE — this one is the pod's own lit readout rather than
-	# painted stencil, and the red pod lamp two metres off would otherwise crush a
-	# green panel to unreadable black. The board around it is what stops it
-	# reading as free-floating text.
-	countdown_label.shaded = false
+	# SHADED, like every other Label3D in the game. This was the one exception — the
+	# only unshaded label on the rig — and being unshaded is exactly what made it read
+	# as free-floating glow text rather than as characters printed on the instrument
+	# glass. The emissive face behind it and the lamp above carry the "powered" read.
+	countdown_label.shaded = true
 	countdown_label.double_sided = false
 	countdown_label.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	add_child(countdown_label)
@@ -1354,7 +1470,10 @@ func _build_env_objects() -> void:
 	var handbook := _readable("rigger_handbook", "Rigger's Handbook",
 		Vector3(26.1, WET_Y + 0.72, -17.5), Vector3(0.32, 0.06, 0.42))
 	handbook.rotation.z = deg_to_rad(-18)
-	_plabel("RIGGING BENCH", Vector3(25.0, WET_Y + 1.5, -17.9), 180, 16, Color(0.85, 0.82, 0.7))
+	# Stencilled on the bench's own front apron. At y+1.5 it floated 0.6m above the
+	# bench top with nothing behind it — the bench is free-standing on the wet deck,
+	# so there is no bulkhead here for a sign to be mounted on.
+	_plabel("RIGGING BENCH", Vector3(25.0, WET_Y + 0.2, -17.86), 180, 16, Color(0.85, 0.82, 0.7))
 	_takeable("rope", "Rope Coil", Vector3(17.2, DECK_Y + 0.01, -15.8), Vector3(0.45, 0.3, 0.45))
 	_takeable("prybar", "Prybar", Vector3(12.8, WET_Y + 1.81, -12.0), Vector3(0.15, 0.12, 0.9))
 	# 1. Oil drums — loose physics props, wet deck and topside.

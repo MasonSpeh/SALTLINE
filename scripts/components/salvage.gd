@@ -45,6 +45,7 @@ var _regrow_left: float = 0.0
 var _model: Node3D = null          ## the visual we tilt / gut / darken
 var _hidden: Array = []            ## MeshInstance3D we stripped off, for regrow
 var _overlaid: Array = []          ## MeshInstance3D we sooted, for regrow
+var _added: Array = []             ## wound geometry we spawned, for regrow
 
 # ============================================================ interaction
 
@@ -139,9 +140,10 @@ func _finish() -> void:
 func _has_tool() -> bool:
 	return required_tools.is_empty() or _has_any(required_tools)
 
+## has_tool, not has_item: a honed knife opens everything a crude knife opened.
 func _has_any(tools: Array) -> bool:
 	for t in tools:
-		if PlayerState.has_item(String(t)):
+		if PlayerState.has_tool(String(t)):
 			return true
 	return false
 
@@ -158,7 +160,7 @@ func _free_slots() -> int:
 	for s in PlayerState.hotbar:
 		if s == null:
 			n += 1
-	n += maxi(0, PlayerState.MAX_BACKPACK - PlayerState.inventory.size())
+	n += maxi(0, PlayerState.backpack_capacity() - PlayerState.inventory.size())
 	return n
 
 func _item_name(item_id: String) -> String:
@@ -198,12 +200,24 @@ func _strip() -> void:
 			if mi:
 				mi.visible = false
 				_hidden.append(mi)
+	elif not meshes.is_empty():
+		# A large share of the CC0 library is one or two meshes. Hiding a part of a
+		# one-part prop would delete it, so those used to get soot and nothing else —
+		# and soot alone reads as a shader fault, not as something taken apart.
+		_improvise_wound(meshes[0])
 	# Soot the rest. An OVERLAY, not an override — glTF materials are shared across
 	# every duplicate of a prop, so touching them would darken the whole rig.
+	# LIT, not unshaded: at SHADING_MODE_UNSHADED this flattened the prop's lighting
+	# to a uniform dark film — the thing stopped responding to lamps and daylight and
+	# read as a rendering bug rather than as grime. Per-pixel keeps the form and the
+	# highlights, just dirtier, and the killed specular does the "gutted" work.
 	var soot := StandardMaterial3D.new()
-	soot.albedo_color = Color(0.04, 0.045, 0.05, 0.38)
+	soot.albedo_color = Color(0.05, 0.055, 0.06, 0.46)
 	soot.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	soot.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	soot.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+	soot.roughness = 0.96
+	soot.metallic = 0.0
+	soot.specular = 0.05
 	soot.cull_mode = BaseMaterial3D.CULL_BACK
 	for mi in meshes:
 		if not (mi as MeshInstance3D).visible:
@@ -217,6 +231,61 @@ func _strip() -> void:
 		_model.rotation.z += deg_to_rad(6.0 + fmod(absf(global_position.x) * 7.0, 8.0))
 		_model.rotation.x += deg_to_rad(fmod(absf(global_position.z) * 5.0, 6.0) - 3.0)
 
+## The wound for props too simple to lose a part: punch a dark cavity through one
+## face and leave torn edges standing off the rim. Built from primitives against the
+## mesh's own AABB, so it lands correctly on anything — a toolbox, a drum, a crate —
+## without knowing what the prop is. Tracked in _added so a renewable node can heal.
+func _improvise_wound(target: MeshInstance3D) -> void:
+	if target == null or not is_instance_valid(target) or target.mesh == null:
+		return
+	var parent: Node = target.get_parent()
+	if parent == null:
+		return
+	var box: AABB = target.mesh.get_aabb()
+	var s: Vector3 = box.size
+	if s.x < 0.001 or s.y < 0.001 or s.z < 0.001:
+		return
+	# Deterministic per-prop, so the same crate is not wounded differently each load.
+	var seed_f: float = absf(global_position.x) * 3.7 + absf(global_position.z) * 5.1
+	var face_x: bool = fmod(seed_f, 2.0) < 1.0
+	var dark := StandardMaterial3D.new()
+	dark.albedo_color = Color(0.02, 0.025, 0.03)
+	dark.roughness = 1.0
+	dark.metallic = 0.0
+	# The cavity: a box sunk through one face, deep enough to read as an opening.
+	var hole := MeshInstance3D.new()
+	var hm := BoxMesh.new()
+	var w: float = s.x * (0.30 if face_x else 0.44)
+	var h: float = s.y * 0.38
+	var d: float = s.z * (0.44 if face_x else 0.30)
+	hm.size = Vector3(w, h, d)
+	hm.material = dark
+	hole.mesh = hm
+	parent.add_child(hole)
+	hole.position = target.position + box.get_center() + (
+		Vector3(s.x * 0.30, -s.y * 0.10, 0.0) if face_x else Vector3(0.0, -s.y * 0.10, s.z * 0.30))
+	_added.append(hole)
+	# Torn edges: thin strips bent off the rim of the opening.
+	var metal := StandardMaterial3D.new()
+	metal.albedo_color = Color(0.28, 0.27, 0.25)
+	metal.roughness = 0.85
+	metal.metallic = 0.4
+	for i in range(3):
+		var strip := MeshInstance3D.new()
+		var sm := BoxMesh.new()
+		var long_side: float = maxf(s.y * 0.30, 0.04)
+		sm.size = Vector3(0.012, long_side, maxf(minf(s.x, s.z) * 0.16, 0.03))
+		sm.material = metal
+		strip.mesh = sm
+		parent.add_child(strip)
+		var t: float = float(i) - 1.0
+		strip.position = hole.position + (
+			Vector3(s.x * 0.14, h * 0.42, t * d * 0.36) if face_x
+			else Vector3(t * w * 0.36, h * 0.42, s.z * 0.14))
+		strip.rotation = Vector3(
+			deg_to_rad(12.0 + 9.0 * t), 0.0, deg_to_rad(-38.0 - 14.0 * t))
+		_added.append(strip)
+
 ## Renewable nodes only: the sea puts it back.
 func _restore() -> void:
 	spent = false
@@ -229,8 +298,12 @@ func _restore() -> void:
 	for mi in _overlaid:
 		if is_instance_valid(mi):
 			(mi as MeshInstance3D).material_overlay = null
+	for n in _added:
+		if is_instance_valid(n):
+			(n as Node).queue_free()
 	_hidden.clear()
 	_overlaid.clear()
+	_added.clear()
 
 # ============================================================ geometry helpers
 

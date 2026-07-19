@@ -120,23 +120,125 @@ func _ramp(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
 
 ## Offshore rail grammar: top rail + mid rail + kick plate at the deck. The mid
 ## rail and toe board are what make a catwalk read as regulation rig, not fence.
+##
+## COLLISION is deliberately NOT the visual rail. Every bar and post here is visual
+## only, and the guard the player actually touches is one smooth slab (see
+## _rail_slab). The rails used to collide as a single 0.1m bar at waist height with
+## open air above and below it: a 0.4m-radius capsule pressed into that gap wedges
+## between the bar and the deck edge and cannot be walked out of — the trap that
+## cost the owner a restart on the stair rails.
 func _rail_x(x0: float, x1: float, y: float, z: float) -> void:
 	var mat: Material = MatLib.rust_steel()
-	_box(Vector3((x0 + x1) * 0.5, y + 0.55, z), Vector3(x1 - x0, 0.1, 0.1), mat)
+	_dbox(Vector3((x0 + x1) * 0.5, y + 0.55, z), Vector3(x1 - x0, 0.1, 0.1), mat)
 	_dbox(Vector3((x0 + x1) * 0.5, y + 0.3, z), Vector3(x1 - x0, 0.06, 0.06), mat)
 	_dbox(Vector3((x0 + x1) * 0.5, y + 0.07, z), Vector3(x1 - x0, 0.14, 0.03), mat)
 	var n: int = maxi(2, int((x1 - x0) / 2.2))
 	for i in range(n + 1):
 		_dbox(Vector3(x0 + (x1 - x0) * i / n, y + 0.28, z), Vector3(0.06, 0.56, 0.06), mat)
+	_rail_slab(Vector3((x0 + x1) * 0.5, y + 0.53, z), Vector3(x1 - x0, 1.2, 0.07))
 
 func _rail_z(z0: float, z1: float, y: float, x: float) -> void:
 	var mat: Material = MatLib.rust_steel()
-	_box(Vector3(x, y + 0.55, (z0 + z1) * 0.5), Vector3(0.1, 0.1, z1 - z0), mat)
+	_dbox(Vector3(x, y + 0.55, (z0 + z1) * 0.5), Vector3(0.1, 0.1, z1 - z0), mat)
 	_dbox(Vector3(x, y + 0.3, (z0 + z1) * 0.5), Vector3(0.06, 0.06, z1 - z0), mat)
 	_dbox(Vector3(x, y + 0.07, (z0 + z1) * 0.5), Vector3(0.03, 0.14, z1 - z0), mat)
 	var n: int = maxi(2, int((z1 - z0) / 2.2))
 	for i in range(n + 1):
 		_dbox(Vector3(x, y + 0.28, z0 + (z1 - z0) * i / n), Vector3(0.06, 0.56, 0.06), mat)
+	_rail_slab(Vector3(x, y + 0.53, (z0 + z1) * 0.5), Vector3(0.07, 1.2, z1 - z0))
+
+## The single smooth guard a railing presents to the player: one full-height box from
+## just under the deck line to just over the top bar, with no posts, no gaps and no
+## lips to wedge a capsule against. Invisible — the rail's own steel is what you see.
+func _rail_slab(pos: Vector3, size: Vector3) -> void:
+	var body := StaticBody3D.new()
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = size
+	shape.shape = box
+	body.add_child(shape)
+	add_child(body)
+	body.position = pos
+
+## Build a stair flight with StairKit, then repair the two things in its COLLISION
+## that a 0.4m-radius player capsule cannot get past. StairKit is shared code we do
+## not own (see the hand-off note in the batch report); every visual it builds is
+## kept exactly as-is and only collision shapes are touched.
+##
+## 1. THE CURB. StairKit's flat top lip is a plate at full `rise` that begins 0.25m
+##    back along the run, where the sloped walking surface is still 0.25*tan(angle)
+##    lower. That leaves a square step across the top tread: 0.15m on the west stair,
+##    0.17m on the tower. A capsule of this radius can only roll up about 0.117m
+##    before the contact normal tips past floor_max_angle and the step reads as a
+##    wall — which is exactly why the last flight had "a lip you must JUMP over".
+##    Sliding the lip past the top of the ramp leaves the join flush to ~0.03m.
+## 2. THE RAIL. StairKit's handrail collides as one thin bar at chest height with
+##    open air beneath it, so a capsule's waist catches the bar while its feet slide
+##    under. We drop that collider and stand a single smooth slab just inside the
+##    visual rail instead.
+func _stair_run(from: Vector3, to: Vector3, width: float,
+		rail_left: bool = false, rail_right: bool = false) -> void:
+	if to.y < from.y:
+		var swap: Vector3 = from
+		from = to
+		to = swap
+		var flip: bool = rail_left
+		rail_left = rail_right
+		rail_right = flip
+	var delta: Vector3 = to - from
+	var rise: float = delta.y
+	var run: float = Vector2(delta.x, delta.z).length()
+	STAIRS.flight(self, from, to, width, rail_left, rail_right)
+	if rise < 0.05 or run < 0.1:
+		return   # StairKit bailed out and built nothing; there is no root to patch
+	var root := get_child(get_child_count() - 1) as Node3D
+	if root == null:
+		return
+	var slope_len: float = sqrt(rise * rise + run * run)
+	var angle: float = atan2(rise, run)
+	# StairKit's ramp sits 0.05 low at the foot and is 0.06 thick, so its top surface
+	# OVERSHOOTS the landing height by a couple of centimetres at the top of the run.
+	# Two centimetres sounds harmless. It is not: a 0.4m-radius capsule climbing a
+	# 39-degree slope first touches the landing's leading corner from 0.36m back, where
+	# the ramp is a quarter of a metre lower, and that contact is ~51 degrees off
+	# vertical — past floor_max_angle, so CharacterBody3D calls it a wall and the climb
+	# stops dead one step short of the top. Dropping the ramp by exactly its overshoot
+	# makes the walking surface pass through the foot and the top corner, so run and
+	# landing meet flush and the corner is no longer something that has to be climbed.
+	var overshoot: float = -0.05 + 0.05 * sin(angle) + 0.06 * cos(angle)
+	for child in root.get_children():
+		var body := child as StaticBody3D
+		if body == null:
+			continue
+		var is_rail: bool = false
+		for c in body.get_children():
+			if c is MeshInstance3D:
+				is_rail = true   # a railed _vbox carries its mesh; the walk body does not
+		for c in body.get_children():
+			var cs := c as CollisionShape3D
+			if cs == null:
+				continue
+			if is_rail:
+				cs.disabled = true
+			elif absf(cs.rotation.x) > 0.001:
+				cs.position.y -= overshoot   # the sloped walking surface, set flush
+			elif cs.position.z > run * 0.5:
+				cs.position.z = run + 0.22   # the top lip, slid clear of the slope
+	# One smooth guard slab per railed side, inset inside the visual rail and sunk
+	# below the treads so there is no foot gap running along the bottom of it.
+	for side in [[rail_left, -1.0], [rail_right, 1.0]]:
+		if not bool(side[0]):
+			continue
+		var guard := StaticBody3D.new()
+		var shape := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.08, 1.6, slope_len + 0.2)
+		shape.shape = box
+		guard.add_child(shape)
+		root.add_child(guard)
+		guard.position = Vector3(float(side[1]) * (width * 0.5 + 0.02),
+			rise * 0.5 + 0.5, run * 0.5)
+		guard.rotation.x = -angle
 
 ## Wall sign — reads as PAINTED block lettering, not a lit sign: shaded so it takes
 ## scene light like the concrete it's stenciled on, slightly weathered alpha.
@@ -591,7 +693,7 @@ func _deck_b() -> void:
 		_wall(Vector3(-1.4 + i * 1.6, y, 13.6), Vector3(-1.4 + i * 1.6, y, 15.2), 2.2, MatLib.painted_steel())
 	_dbox(Vector3(-0.6, y + 2.2, 14.4), Vector3(1.7, 0.06, 1.7), MatLib.painted_steel())
 	_light(Vector3(2, y + 2.85, 15.5), 0.5, 6.0)
-	_label("WASH ROOM", Vector3(2.0, y + 2.35, 13.16), 180, 28)
+	_label("WASH ROOM", Vector3(2.0, y + 2.35, 12.84), 180, 28)
 	# Lounge / movie room (x 6..14): screen sized to the solid pier between the
 	# north-wall windows (centres x8 & x12) so the glass stays clear.
 	_dbox(Vector3(10, y + 1.7, 17.85), Vector3(2.1, 1.5, 0.08), MatLib.flat(Color(0.9, 0.9, 0.86)))
@@ -601,13 +703,13 @@ func _deck_b() -> void:
 	_dbox(Vector3(10, y + 1.1, 13.4), Vector3(0.5, 0.35, 0.6), MatLib.dark_metal())
 	_dbox(Vector3(10, y + 0.5, 13.4), Vector3(0.3, 0.9, 0.3), MatLib.dark_metal())
 	_light(Vector3(10, y + 2.85, 15.5), 0.45, 6.5)
-	_label("CREW LOUNGE", Vector3(10, y + 2.35, 13.16), 180, 28)
+	_label("CREW LOUNGE", Vector3(10, y + 2.35, 12.84), 180, 28)
 	# Cabin B-06 (x 14..19) — the one that was slept in last.
 	_bunk(Vector3(15.1, y, 16.6), true)
 	_desk(Vector3(18.0, y, 17.1))
 	_takeable("water_ration", "Water Ration", Vector3(18.0, y + 0.81, 17.0))
 	_locker(Vector3(14.7, y, 13.8), true)
-	_label("B-06", Vector3(17.6, y + 2.35, 13.16), 180, 30)
+	_label("B-06", Vector3(17.6, y + 2.35, 12.84), 180, 30)
 	_light(Vector3(16.5, y + 2.85, 15.5), 0.5, 6.0)
 	# Muster locker (x 19..23): flares, grab bags, life ring on the wall.
 	_crate(["flare", "flare", "life_ring"], "Emergency Locker", Vector3(21, y + 0.01, 16.8))
@@ -615,7 +717,7 @@ func _deck_b() -> void:
 		_dbox(Vector3(19.6 + i * 1.1, y + 1.5, 17.8), Vector3(0.5, 0.65, 0.3),
 			MatLib.flat(Color(0.85, 0.45, 0.1)))
 	_extinguisher(Vector3(22.6, y, 13.6))
-	_label("MUSTER STORES", Vector3(21, y + 2.35, 13.16), 180, 28)
+	_label("MUSTER STORES", Vector3(21, y + 2.35, 12.84), 180, 28)
 	_light(Vector3(21, y + 2.85, 15.5), 0.45, 5.5)
 
 	# Corridor dressing: ceiling pipes, cable tray, extinguisher, clock, noticeboard.
@@ -639,14 +741,47 @@ func _deck_b() -> void:
 	_box(Vector3(0, y - 0.15, 4.15), Vector3(12, 0.3, 3.2), MatLib.deck_plate())
 	_rail_x(-6, 6, y, 2.65)
 	_rail_z(2.65, 5.75, y, -6.0)
-	_rail_z(2.65, 5.75, y, 6.0)
+	# East balcony rail stops short of the stair landing — z 2.6..4.2 is the step-off.
+	_rail_z(4.2, 5.75, y, 6.0)
 	for sx in [-5.0, 5.0]:
 		var strut := _box(Vector3(sx, DECK_Y + 1.7, 4.3), Vector3(0.28, 3.4, 0.28), MatLib.rust_steel())
 		strut.rotation.z = 0.0
-	# Boarding stairs up to the quarters: deep-tread external companionway with
-	# rails both sides (was a slick ramp — the "QUARTERS ↑" glitch spot).
-	STAIRS.flight(self, Vector3(7.5, DECK_Y, 3.0), Vector3(-3.5, y, 3.0), 1.6, true, true)
-	_label("QUARTERS ↑", Vector3(7.2, DECK_Y + 2.2, 3.6), 180, 34, Color(0.9, 0.85, 0.6))
+	_boarding_stairs(y)
+	# Painted on the landing's own south fascia — 0.3m of real deck-plate edge behind
+	# the glyphs, not the mid-air it used to occupy over the old run.
+	_label("QUARTERS ↑", Vector3(7.3, y - 0.15, 2.59), 180, 26, Color(0.9, 0.85, 0.6))
+
+## Companionway from the topside deck up to the Deck B balcony.
+##
+## It used to run from (7.5, 18) west to (-3.5, 21.6) at z 3.0 — straight in under the
+## balcony slab, which spans x -6..6 at y 21.3..21.6. There was no opening in that
+## slab, so the climb ended with a 1.8m-tall player driving his head into the
+## diamond-plate soffit at about x 3.0, treads meeting steel with nowhere to go.
+##
+## Cutting a stairwell out of the balcony was not the answer: the run passes under it
+## for its whole length, so clearing 2m of headroom would have meant deleting nearly
+## all of a 3.2m-deep balcony. Instead the flight is re-routed EAST to top out at the
+## balcony's edge on its own landing, in open air the whole way up. The run is also
+## stretched (7.2m for 3.6m of rise, ~27°) so the top tread meets the landing flush.
+func _boarding_stairs(y: float) -> void:
+	var tread: Material = MatLib.deck_plate()
+	# Landing at the balcony's east edge, top face flush with the balcony deck at y.
+	_box(Vector3(7.3, y - 0.15, 3.4), Vector3(2.6, 0.3, 1.6), tread)
+	_rail_x(6.0, 8.6, y, 2.6)
+	_rail_x(6.0, 8.6, y, 4.2)
+	# Landing legs down to the topside deck.
+	for lp in [Vector3(6.2, 0, 2.7), Vector3(6.2, 0, 4.1), Vector3(8.4, 0, 2.7), Vector3(8.4, 0, 4.1)]:
+		_box(Vector3(lp.x, (DECK_Y + y - 0.3) * 0.5, lp.z),
+			Vector3(0.16, y - 0.3 - DECK_Y, 0.16), MatLib.rust_steel())
+	# The flight itself: foot on the open deck at x 15.8, topping out on the landing.
+	_stair_run(Vector3(15.8, DECK_Y, 3.4), Vector3(8.6, y, 3.4), 1.6, true, true)
+	# Sign plate bolted to the flight's south stringer, where there is real steel
+	# behind the lettering (the old placard hung on the stringer of the old route).
+	_dbox(Vector3(12.4, DECK_Y + 1.95, 2.54), Vector3(2.2, 0.34, 0.05), MatLib.painted_steel())
+	for sx in [11.45, 13.35]:
+		for sy in [DECK_Y + 1.83, DECK_Y + 2.07]:
+			_dbox(Vector3(sx, sy, 2.51), Vector3(0.04, 0.04, 0.03), MatLib.galvanized())
+	_label("B-DECK QUARTERS ↑", Vector3(12.4, DECK_Y + 1.95, 2.51), 180, 26, Color(0.9, 0.85, 0.6))
 
 # ============================================================ Deck C — control
 
@@ -783,8 +918,11 @@ func _deck_d() -> void:
 	_wall(Vector3(23, y, 8), Vector3(23, y, 13), WH, wmat, 0.5)      # laundry -> east vestibule
 	_shaft_walls(y, WH, "west", 0.22)
 	_well_ladder(y)
-	_label("PLATFORM →", Vector3(24.5, y + 1.9, 10.5), 0, 26, Color(0.9, 0.85, 0.6))
-	_label("DECK D — WORKS", Vector3(23.2, y + 2.55, 14.0), -90, 38, Color(0.9, 0.85, 0.6))
+	# Both of these used to hang in mid-air in the east vestibule and at the open east
+	# end of the corridor. Put on real wall: the platform arrow beside the x=23 door
+	# (clear of its reveal at z 10.5), the deck name on the corridor's south wall.
+	_label("PLATFORM →", Vector3(23.16, y + 1.9, 11.8), 90, 24, Color(0.9, 0.85, 0.6))
+	_label("DECK D — WORKS", Vector3(9.5, y + 2.55, 13.16), 0, 26, Color(0.9, 0.85, 0.6))
 
 	# Room floors — works level: rubber in the gym, tile in the laundry.
 	_dbox(Vector3(11.5, y + 0.035, 10.5), Vector3(7.0, 0.03, 4.5), MatLib.rubber_floor())
@@ -815,7 +953,7 @@ func _deck_d() -> void:
 	_crate(["driftwood", "scrap_metal"], "Parts Crate", Vector3(13.5, y + 0.01, 17.0))
 	# The nook: crouch behind the stack for the good stuff.
 	_crate(["sealed_tin", "water_ration", "flare"], "Stashed Footlocker", Vector3(8.9, y + 0.01, 15.6))
-	_label("STORES", Vector3(11.5, y + 2.35, 15.16), 180, 28)
+	_label("STORES", Vector3(11.5, y + 2.35, 14.84), 180, 28)
 	_light(Vector3(11.5, y + 2.85, 16.5), 0.4, 5.5)
 	# Workshop (x 15.5..23, z 15..18): SECOND CRAFT BENCH + pegboard.
 	var bench := CraftBench.new()
@@ -829,7 +967,7 @@ func _deck_d() -> void:
 		_dbox(Vector3(18.1 + i * 0.6, y + 1.9 + (0.2 if i % 2 == 0 else -0.15), 17.79),
 			Vector3(0.1, 0.38, 0.05), MatLib.flat(tool_colors[i]))
 	_takeable("prybar", "Spare Prybar", Vector3(21.8, y + 0.01, 16.2))
-	_label("WORKSHOP — RIGGING BENCH", Vector3(19, y + 2.35, 15.16), 180, 26, Color(0.9, 0.85, 0.6))
+	_label("WORKSHOP — RIGGING BENCH", Vector3(19, y + 2.35, 14.84), 180, 26, Color(0.9, 0.85, 0.6))
 	_light(Vector3(19, y + 2.85, 16.5), 0.5, 6.0)
 	# Corridor dressing.
 	_pipe(Vector3(8.5, y + 2.9, 14.0), Vector3(23, y + 2.9, 14.0), 0.07)
@@ -1039,14 +1177,11 @@ func _deck_a_signage() -> void:
 	_label("REC ROOM", Vector3(17.84, DECK_Y + 2.4, 10.5), -90, 30)
 	_label("MUSTER STATION →", Vector3(9, DECK_Y + 1.9, 7.84), 180, 28, Color(0.95, 0.75, 0.2))
 	_label("RIGGING BENCH — WET DECK ↓", Vector3(21.9, DECK_Y + 2.5, -0.9), 90, 24, Color(0.9, 0.85, 0.6))
-	# Bolted to the stair stringer, not hanging in the flight. At (0, DECK_Y+2.6, 2.55)
-	# this was mid-air between open treads — the stair up to B deck is external steel
-	# with no wall anywhere near it, so the letters read through the steelwork.
-	_dbox(Vector3(2.06, DECK_Y + 1.45, 2.55), Vector3(0.06, 0.3, 2.2), MatLib.painted_steel())
-	for sz in [1.55, 3.55]:
-		for sy in [DECK_Y + 1.34, DECK_Y + 1.56]:
-			_dbox(Vector3(2.09, sy, sz), Vector3(0.03, 0.04, 0.04), MatLib.galvanized())
-	_label("B-DECK QUARTERS ↑", Vector3(2.1, DECK_Y + 1.45, 2.55), 90, 30, Color(0.9, 0.85, 0.6))
+	# The B-deck placard used to be bolted to the boarding stair's stringer here, at
+	# x 2.06. That stair has been re-routed east (it climbed into the balcony soffit
+	# on this line — see _boarding_stairs), so the plate and its lettering moved with
+	# it onto the new stringer at x 12.4. Nothing is left standing here on purpose:
+	# a sign board with no stair behind it is the floating-label bug in another form.
 
 # ============================================================ density pass
 

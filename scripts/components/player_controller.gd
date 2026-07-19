@@ -111,6 +111,13 @@ func detection_factor() -> float:
 		_:
 			return 1.0
 
+## Storm lantern: bloom-mucus behind glass. Warm-but-green, close, and steady —
+## it should read as YOUR light against the teal, not as another bloom organ.
+const LANTERN_COLOR: Color = Color(1.0, 0.86, 0.62)
+const LANTERN_RANGE: float = 9.0
+const LANTERN_ENERGY: float = 1.5
+var _lantern_light: OmniLight3D = null
+
 func _ready() -> void:
 	add_to_group("player")
 	camera.fov = 75.0
@@ -128,8 +135,21 @@ func _ready() -> void:
 	_hand_item.position = HAND_ITEM_POS
 	_hand_item.rotation.y = -0.35
 	_hand_item.rotation.x = 0.15
+	# The storm lantern is worn light, not a held tool: carrying one lights the deck
+	# around you and keeps doing it in a squall. Without this the recipe promised
+	# "Wind can't touch it, rain can't touch it. It just burns." and then burned
+	# nothing — the item existed only as a world visual.
+	_lantern_light = OmniLight3D.new()
+	_lantern_light.light_color = LANTERN_COLOR
+	_lantern_light.light_energy = 0.0
+	_lantern_light.omni_range = LANTERN_RANGE
+	_lantern_light.shadow_enabled = false   # gl_compatibility: keep the omni cheap
+	add_child(_lantern_light)
+	_lantern_light.position = Vector3(0, 1.1, 0)
 	PlayerState.inventory_changed.connect(_update_held_item)
+	PlayerState.inventory_changed.connect(_update_lantern)
 	PlayerState.player_died.connect(_on_player_died)
+	_update_lantern()
 
 ## Guarantee the posture actions exist even if project.godot lacks them. `crouch` is
 ## defined in the project map (Ctrl); `prone` is registered here at runtime (Z) so we
@@ -495,28 +515,40 @@ func _toggle_prone() -> void:
 		if hud:
 			hud.toast("You lie back on the deck plating. The sky does its slow turning.")
 
+## Carrying the lantern lights you. Eased rather than snapped so picking it up or
+## stowing it reads as a lamp being lifted, not as a switch being thrown.
+func _update_lantern() -> void:
+	if _lantern_light == null or not is_instance_valid(_lantern_light):
+		return
+	var want: float = LANTERN_ENERGY if PlayerState.has_item("storm_lantern") else 0.0
+	if is_equal_approx(_lantern_light.light_energy, want):
+		return
+	var tw: Tween = create_tween()
+	tw.tween_property(_lantern_light, "light_energy", want, 0.6)
+
 func _update_footsteps(_delta: float) -> void:
 	if not is_on_floor():
 		return
 	var horizontal: Vector3 = Vector3(velocity.x, 0, velocity.z)
 	_step_accum += horizontal.length() * _delta
-	# Lower postures space their contacts out and go quiet — the stealth payoff.
-	# Prone is a near-silent drag of cloth on plating.
+	# Lower postures space their contacts out — the stealth payoff. Prone is a
+	# near-silent drag of cloth on plating. Ambience owns the LEVEL of each step
+	# (it reads posture too); this only owns the cadence.
 	var stride: float
-	var vol: float
 	match _posture:
 		POSTURE_PRONE:
 			stride = 4.8
-			vol = -36.0
 		POSTURE_CROUCH:
 			stride = 3.6
-			vol = -28.0
 		_:
 			stride = 2.6 if Input.is_action_pressed("sprint") else 2.1
-			vol = -16.0
 	if _step_accum >= stride:
+		# The accumulator reset IS the footstep event — Ambience triggers off it and
+		# plays the surface-correct sample (grate / plate / concrete / wood / water /
+		# wet). The generic "step" one-shot that used to fire here layered one fixed
+		# transient under all twelve of those, so wood and grate shared an attack and
+		# the material distinction the samples exist for was flattened away.
 		_step_accum = 0.0
-		AudioDirector.play_one_shot("step", global_position + Vector3(0, -0.6, 0), vol)
 
 ## Latch onto a ladder. Hold-E climbing: E alone rises, E+S (move_back) descends,
 ## releasing E lets go at the current height. Grabbing from within CLIMB_TOP_GRACE of

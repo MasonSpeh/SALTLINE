@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://stair_walk_probe"]
+[ext_resource type="Script" path="res://tests/stair_walk_probe.gd" id="1"]
+[node name="StairWalkProbe" type="Node"]
+script = ExtResource("1")

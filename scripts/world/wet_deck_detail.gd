@@ -107,7 +107,10 @@ func _takeable(item: String, name_: String, pos: Vector3) -> Takeable:
 	t.add_child(col)
 	col.position.y = 0.2
 	t.add_child(ItemVisual.build(item))
-	preload("res://scripts/world/surface_snap.gd").attach(t)
+	# Rested by the visual-geometry settle pass (see support_index.gd), not by a physics
+	# raycast: half this deck's dressing is non-colliding, so a ray reports the plating
+	# under a bench rather than the bench.
+	t.add_to_group("settle_me")
 	return t
 
 func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
@@ -120,7 +123,7 @@ func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
 	add_child(c)
 	c.global_position = pos
 	c.build_box_visual(Vector3(1.1, 0.8, 0.8), Color(0.5, 0.45, 0.3), false, true)
-	preload("res://scripts/world/surface_snap.gd").attach(c)
+	c.add_to_group("settle_me")
 	return c
 
 # ---------------------------------------------------------------- boat landing

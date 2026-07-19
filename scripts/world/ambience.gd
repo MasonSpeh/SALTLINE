@@ -31,11 +31,14 @@ const SMOOTH: float = 3.2         ## per-frame dB lerp rate; tweens click, this 
 ## name -> [path, peak_db]. Peaks assume AudioDirector's legacy static wind/sea/hum
 ## beds are still running underneath (see HAND-OFF note at the bottom of this file).
 const BED_DEFS: Dictionary = {
-	"wind_open": ["res://audio/wind_open.wav", -9.0],
-	"wind_howl": ["res://audio/wind_howl.wav", -12.0],
-	"sea_swell": ["res://audio/sea_swell.wav", -9.0],
-	"hull_groan": ["res://audio/hull_groan.wav", -15.0],
-	"interior_hum": ["res://audio/interior_hum.wav", -24.0],
+	# Peaks raised ~3 dB now that AudioDirector's flat wind/sea/hum beds are handed
+	# over (AudioDirector.AMBIENCE_OWNED) — these no longer sit alongside a second,
+	# situation-blind mix, so shelter genuinely silences the wind instead of halving it.
+	"wind_open": ["res://audio/wind_open.wav", -6.0],
+	"wind_howl": ["res://audio/wind_howl.wav", -9.0],
+	"sea_swell": ["res://audio/sea_swell.wav", -6.0],
+	"hull_groan": ["res://audio/hull_groan.wav", -12.0],
+	"interior_hum": ["res://audio/interior_hum.wav", -21.0],
 }
 
 ## Upward shelter probe, same idea as StormSystem's but our own cone so we never
@@ -560,11 +563,40 @@ func _make_particles(proc: ParticleProcessMaterial, tint: Color, size: float,
 	mat.albedo_color = tint
 	mat.vertex_color_use_as_albedo = true
 	mat.disable_receive_shadows = true
+	# WITHOUT THIS the quad is a flat opaque square. The process material's colour
+	# ramp fades alpha over the particle's LIFETIME, not across its surface, so every
+	# droplet stayed a hard-edged 35cm box with crisp corners for its whole life —
+	# unmissable against the sea. The radial falloff is what makes it a droplet.
+	mat.albedo_texture = _soft_dot()
 	quad.material = mat
 	p.draw_pass_1 = quad
 	p.emitting = false
 	add_child(p)
 	return p
+
+
+## Soft round particle sprite, built once and shared. A radial alpha falloff costs
+## nothing under gl_compatibility and is the whole difference between "spray" and
+## "squares". Slightly hot in the middle so a droplet still has a glint.
+static var _dot_tex: GradientTexture2D = null
+
+static func _soft_dot() -> GradientTexture2D:
+	if _dot_tex != null:
+		return _dot_tex
+	var g := Gradient.new()
+	g.set_color(0, Color(1, 1, 1, 1))
+	g.set_color(1, Color(1, 1, 1, 0))
+	g.add_point(0.42, Color(1, 1, 1, 0.72))
+	g.add_point(0.78, Color(1, 1, 1, 0.10))
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.width = 64
+	t.height = 64
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(1.0, 0.5)
+	_dot_tex = t
+	return _dot_tex
 
 
 ## Spray thrown off the swell against the legs: a wide flat band at the waterline,
@@ -713,9 +745,13 @@ func _animate_sway() -> void:
 		return
 	var strength: float = (0.10 + 0.90 * _storm) * (0.35 + 0.65 * clampf(_height / 18.0, 0.0, 1.0))
 	for entry: Dictionary in _sway:
-		var n3: Node3D = entry["node"]
-		if not is_instance_valid(n3):
+		# Validity BEFORE the typed local: assigning a freed instance to a `Node3D`
+		# throws on the assignment itself, so the guard below it never gets to run.
+		# Dismantling one swaying structure used to spew this every frame until the
+		# next _rescan_sway.
+		if not is_instance_valid(entry["node"]):
 			continue
+		var n3: Node3D = entry["node"]
 		var ph: float = entry["phase"]
 		var amp: float = entry["amp"] * strength
 		var swing: float = (sin(_sway_t * 1.35 + ph) * 0.75
@@ -760,18 +796,13 @@ func _search_storm(node: Node, depth: int) -> Node:
 
 # ------------------------------------------------------------------- HAND-OFFS
 #
-# 1. AudioDirector still runs its legacy static beds (wind_loop / sea_loop / hum_loop,
-#    22 kHz placeholders at -14 / -16 / -18 dB). The five beds above are the
-#    situation-aware replacement and their peaks are set to sit ALONGSIDE those.
-#    Whoever owns audio_director.gd should fade those three to -80 and let this node
-#    carry the ambience; then raise the peaks in BED_DEFS by roughly 3 dB.
+# 1. DONE. AudioDirector's legacy wind/sea/hum beds are handed over — see
+#    AudioDirector.AMBIENCE_OWNED, which pins them to -80 dB at the _fade chokepoint.
+#    BED_DEFS peaks above were raised ~3 dB to take over the level. AudioDirector
+#    still owns "rain"; do not claim it here without moving rain_audio.gd too.
 #
-# 2. player_controller.gd:519 still fires the generic "step" one-shot. That is
-#    deliberate and harmless: it now lands on the SAME frame as our material sample
-#    (we trigger off its accumulator reset), so it reads as the transient in front of
-#    our body/tail. If the movement owner would rather have the material steps alone,
-#    deleting that one line is safe — nothing here depends on it making sound, only on
-#    `_step_accum` resetting.
+# 2. DONE. player_controller.gd no longer fires the generic "step" one-shot. It still
+#    resets `_step_accum`, which is the only thing we actually trigger off.
 #
 # 3. StormSystem has no public `intensity()` / `wind_vector()`. We read `_intensity`
 #    and `_wind` defensively and fall back to is_storming(). Public getters would be

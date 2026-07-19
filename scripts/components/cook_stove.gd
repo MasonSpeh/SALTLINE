@@ -37,11 +37,12 @@ func interact(verb: String, _player: Node3D) -> void:
 	var cooked: String = _cooked_for(raw)
 	PlayerState.remove_item(raw)
 	# Put the raw fish back if the meal has nowhere to go. Without this check a cook
-	# with a full pack silently destroyed the catch and handed back nothing.
+	# with a full pack silently destroyed the catch and handed back nothing. The re-add
+	# always fits — we freed a slot one line above — so the catch cannot fall through.
 	if not PlayerState.add_item(cooked):
 		PlayerState.add_item(raw)
 		if hud:
-			hud.toast("No room in the pack. The pan waits.")
+			hud.toast("No room for the cooked fish — it stays on the grill.")
 		return
 	AudioDirector.play_one_shot("hiss", global_position, -10.0)
 	Journal.discover("system_stove")

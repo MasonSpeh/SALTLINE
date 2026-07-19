@@ -491,3 +491,59 @@ func _run() -> void:
 	var ok: bool = SaveManager.load_game()
 	_check(ok, "save file loads")
 	_check(absf(PlayerState.hunger - 0.123) > 0.01, "load restores saved hunger")
+
+	# --- comfort + camp persistence -----------------------------------------
+	# These were dead code for a whole batch: comfort_payload()/apply_comfort_payload()
+	# existed and were correct, but nothing called them, so a night's rest and the
+	# one-time camp acknowledgement reset on every load. Guard the wiring, not the maths.
+	PlayerState.rest = 0.42
+	PlayerState.comfort = 0.66
+	PlayerState.camp_found = true
+	PlayerState.thirst = 0.31
+	SaveManager.save_game()
+	PlayerState.rest = 1.0
+	PlayerState.comfort = 0.0
+	PlayerState.camp_found = false
+	PlayerState.thirst = 1.0
+	_check(SaveManager.load_game(), "save reloads after a comfort write")
+	_check(absf(PlayerState.rest - 0.42) < 0.02, "load restores rest")
+	_check(absf(PlayerState.comfort - 0.66) < 0.02, "load restores comfort")
+	_check(PlayerState.camp_found, "load restores camp_found (the camp line stays one-time)")
+	_check(absf(PlayerState.thirst - 0.31) < 0.02, "load restores thirst")
+
+	# --- built structures survive a reload -----------------------------------
+	# "Build personal areas" is the stated goal; a camp that evaporates on load is
+	# not a camp. Structures serialise as kit id + transform and rebuild via
+	# Structures.build, so this asserts the round-trip, not the geometry.
+	for leftover in get_tree().get_nodes_in_group("built_structures"):
+		leftover.free()
+	var kit_a: Node3D = Structures.build("brazier_kit", false)
+	get_tree().current_scene.add_child(kit_a)
+	kit_a.global_position = Vector3(11.0, 19.0, -4.0)
+	var kit_b: Node3D = Structures.build("chair_kit", false)
+	get_tree().current_scene.add_child(kit_b)
+	kit_b.global_position = Vector3(12.5, 19.0, -4.0)
+	await get_tree().process_frame
+	SaveManager.save_game()
+	for s in get_tree().get_nodes_in_group("built_structures"):
+		s.free()
+	_check(get_tree().get_nodes_in_group("built_structures").is_empty(),
+		"the camp is torn down before the reload")
+	_check(SaveManager.load_game(), "save reloads with structures in it")
+	await get_tree().process_frame
+	var back: Array = get_tree().get_nodes_in_group("built_structures")
+	_check(back.size() == 2, "both placed structures come back (got %d)" % back.size())
+	var kits: Array = []
+	var placed_ok: bool = false
+	for s in back:
+		kits.append(String((s as Node3D).get_meta("kit", "")))
+		if String((s as Node3D).get_meta("kit", "")) == "brazier_kit":
+			placed_ok = (s as Node3D).global_position.distance_to(Vector3(11.0, 19.0, -4.0)) < 0.05
+	_check(kits.has("brazier_kit") and kits.has("chair_kit"),
+		"they come back as the right kits")
+	_check(placed_ok, "they come back where they were put")
+	# Loading twice must not double the camp.
+	_check(SaveManager.load_game(), "save reloads a second time")
+	await get_tree().process_frame
+	_check(get_tree().get_nodes_in_group("built_structures").size() == 2,
+		"a second load does not duplicate the camp")

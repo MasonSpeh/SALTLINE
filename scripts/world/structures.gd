@@ -182,29 +182,28 @@ static func bloom_lamp(ghost: bool) -> Node3D:
 static func lean_to(ghost: bool) -> Node3D:
 	var root := Node3D.new()
 	var wood := _mat(Color(0.5, 0.4, 0.28), ghost)
-	var canvas := _mat(Color(0.65, 0.68, 0.62), ghost)
 	_part(root, Vector3(-0.9, 0.85, -0.9), Vector3(0.12, 1.7, 0.12), wood, not ghost)
 	_part(root, Vector3(0.9, 0.85, -0.9), Vector3(0.12, 1.7, 0.12), wood, not ghost)
 	_part(root, Vector3(-0.9, 0.5, 0.9), Vector3(0.12, 1.0, 0.12), wood, not ghost)
 	_part(root, Vector3(0.9, 0.5, 0.9), Vector3(0.12, 1.0, 0.12), wood, not ghost)
-	var roof := MeshInstance3D.new()
-	var rm := BoxMesh.new()
-	rm.size = Vector3(2.1, 0.06, 2.3)
-	rm.material = canvas
-	roof.mesh = rm
-	root.add_child(roof)
-	roof.position = Vector3(0, 1.35, 0)
-	roof.rotation.x = deg_to_rad(-19)
+	# The roof is a TARP, not a plank. This kit predates StructureLib and kept a flat
+	# 6cm BoxMesh in a washed-out grey, which from anywhere on the deck read as a pane
+	# of glass balanced on four sticks — for the one structure you are meant to sleep
+	# under. A sagging canvas panel in the real canvas material fixes it in one line.
+	var roof_pos := Vector3(0, 1.35, 0)
+	# +19, not -19: the tall posts are at z -0.9 and the short pair at z +0.9, so the
+	# roof must be HIGH at the back. The old sign pitched it the wrong way — invisible
+	# while the roof was a symmetrical flat slab, obvious the moment it became a tarp
+	# lashed to a ridge pole.
+	var roof_rot := Vector3(deg_to_rad(19), 0, 0)
+	var roof_size := Vector2(2.1, 2.3)
+	SL.canvas_panel(root, roof_pos, roof_size, SL.mat("canvas", ghost), roof_rot, not ghost)
+	# A ridge pole along the high edge, which is what a tarp is actually lashed to.
+	SL.cyl(root, Vector3(0, 1.72, -0.9), 0.045, 2.0, wood, false, Vector3(0, 0, deg_to_rad(90)))
+	var lash: Material = SL.mat("rope", ghost)
+	for sx in [-0.9, 0.9]:
+		SL.line(root, Vector3(sx, 1.74, -0.86), Vector3(sx, 1.60, -0.94), lash, 0.012)
 	if not ghost:
-		var rbody := StaticBody3D.new()
-		var rshape := CollisionShape3D.new()
-		var rbox := BoxShape3D.new()
-		rbox.size = rm.size
-		rshape.shape = rbox
-		rbody.add_child(rshape)
-		root.add_child(rbody)
-		rbody.position = roof.position
-		rbody.rotation = roof.rotation
 		var heat := WarmthZone.new()
 		heat.mode = 1
 		heat.setup(Vector3(2.4, 2.2, 2.6))
@@ -290,21 +289,34 @@ static func bedroll(ghost: bool) -> Node3D:
 	var dark: Material = SL.mat("canvas_dark", ghost)
 	var wool: Material = SL.mat("wool", ghost)
 	var rope: Material = SL.mat("rope", ghost)
-	# Ground tarp, then the padded roll on top of it.
-	SL.box(root, Vector3(0, 0.015, 0), Vector3(1.16, 0.03, 2.26), dark)
-	SL.box(root, Vector3(0, 0.07, 0), Vector3(0.96, 0.10, 2.04), canvas)
-	SL.box(root, Vector3(0, 0.12, -0.1), Vector3(0.90, 0.04, 1.7), dark)   # the sleeping face, worn darker
-	# The wool blanket, thrown back the way you left it — the one warm colour here.
-	SL.box(root, Vector3(0, 0.17, 0.30), Vector3(0.94, 0.10, 0.94), wool)
-	SL.box(root, Vector3(0, 0.24, 0.62), Vector3(0.92, 0.06, 0.34), wool)   # turned-back cuff
-	SL.box(root, Vector3(0, 0.26, 0.44), Vector3(0.88, 0.03, 0.26), canvas)
+	# NOTHING SOFT HERE IS A BOX. This was a stack of hard-edged slabs that read as a
+	# closed hardcover book on a pallet — the worst thing in a batch named after it.
+	# Ground sheet: FLAT, not sagging. Canvas lying on deck plating has nothing to
+	# droop into (a canvas_panel here sinks its sag straight through the floor); the
+	# sag belongs to fabric that is stretched between two points.
+	SL.box(root, Vector3(0, 0.012, 0), Vector3(1.20, 0.024, 2.34), dark)
+	# The mattress: one rounded form, the length of a person.
+	SL.bedding(root, Vector3(0, 0.10, -0.12), Vector3(0.92, 0.18, 1.96), canvas, Vector3.ZERO, 0.4)
+	# The sleeping face, worn darker where you actually lie.
+	SL.bedding(root, Vector3(0, 0.16, -0.20), Vector3(0.74, 0.06, 1.46), dark, Vector3.ZERO, 0.2)
+	# The wool blanket: three folds lying ACROSS the bed at slightly different heights
+	# and angles. One lump would read as a plate; folds read as something thrown back.
+	for i in range(3):
+		var fi: float = float(i)
+		SL.bedding(root, Vector3(0.02 - 0.015 * fi, 0.20 + 0.014 * fi, 0.18 + 0.17 * fi),
+			Vector3(0.34 - 0.02 * fi, 0.15 - 0.012 * fi, 0.90 - 0.03 * fi), wool,
+			Vector3(deg_to_rad(-4.0 + 3.0 * fi), deg_to_rad(90.0 + 2.5 * fi), 0),
+			0.6 + 0.2 * fi)
+	# The turned-back corner of the top sheet, caught under the blanket.
+	SL.bedding(root, Vector3(0.05, 0.26, 0.72), Vector3(0.20, 0.05, 0.74), canvas,
+		Vector3(deg_to_rad(-10.0), deg_to_rad(86.0), 0), 0.3)
 	# Pillow: a rolled jacket, not a hotel cushion.
-	SL.cyl(root, Vector3(0, 0.19, -0.78), 0.14, 0.52, canvas, false, Vector3(0, 0, deg_to_rad(90)))
-	SL.box(root, Vector3(0, 0.24, -0.86), Vector3(0.46, 0.08, 0.22), canvas)
-	# The spare bedding still rolled at the foot.
-	SL.cyl(root, Vector3(0, 0.18, 1.02), 0.17, 0.94, dark, false, Vector3(0, 0, deg_to_rad(90)))
-	SL.line(root, Vector3(-0.30, 0.18, 0.88), Vector3(-0.30, 0.18, 1.16), rope, 0.014)
-	SL.line(root, Vector3(0.30, 0.18, 0.88), Vector3(0.30, 0.18, 1.16), rope, 0.014)
+	SL.bedding(root, Vector3(0, 0.21, -0.82), Vector3(0.30, 0.20, 0.52), canvas,
+		Vector3(0, deg_to_rad(94.0), 0), 0.7)
+	# The spare bedding still rolled at the foot, lashed with two turns of line.
+	SL.cyl(root, Vector3(0, 0.15, 1.06), 0.13, 0.86, dark, false, Vector3(0, 0, deg_to_rad(90)))
+	SL.line(root, Vector3(-0.27, 0.15, 0.94), Vector3(-0.27, 0.15, 1.18), rope, 0.014)
+	SL.line(root, Vector3(0.27, 0.15, 0.94), Vector3(0.27, 0.15, 1.18), rope, 0.014)
 	if not ghost:
 		var heat := WarmthZone.new()
 		heat.mode = 1
@@ -402,7 +414,12 @@ static func rain_catcher(ghost: bool) -> Node3D:
 	SL.ring(root, 0.90, 0.355, 0.05, dark)
 	SL.ring(root, 0.16, 0.355, 0.05, dark)
 	if not ghost:
-		SL.cyl(root, Vector3(0, 0.74, 0), 0.30, 0.03, SL.mat("water", false, 0.25))
+		# NAMED: RainButt._find_water matches on the name to raise and lower the level.
+		# StructureLib's primitives leave Godot's "@MeshInstance3D@37" auto-names, which
+		# match nothing — an unnamed disc here is a water line frozen forever.
+		var water: MeshInstance3D = SL.cyl(root, Vector3(0, 0.74, 0), 0.30, 0.03,
+			SL.mat("water", false, 0.25))
+		water.name = "WaterLevel"
 		SL.comfort_marker(root, "water", "rain_catcher_kit", Vector3(0, 0.50, 0), Vector3(0.68, 0.90, 0.68))
 	return root
 
@@ -582,11 +599,30 @@ static func planter(ghost: bool) -> Node3D:
 		f.phase = float(i) * 1.3
 		f.axis = Vector3(0.6, 0, 0.4).normalized()
 		root.add_child(f)
+		# NAMED: Planter._collect_blades matches on the name to scale growth. The
+		# FLUTTER is the blade, not the box inside it — scaling here lifts the frond
+		# and its glowing tip together, from the soil line, as one plant.
+		f.name = "Blade%d" % i
 		f.position = spots[i]
 		var h: float = 0.34 + 0.10 * float(i % 3)
-		SL.box(f, Vector3(0, h * 0.5, 0), Vector3(0.05, h, 0.02), blade, false,
-			Vector3(0, deg_to_rad(24.0 * float(i)), deg_to_rad(6.0 - 3.0 * float(i % 3))))
-		SL.box(f, Vector3(0, h + 0.03, 0), Vector3(0.045, 0.08, 0.02), frond)
+		var yaw: float = deg_to_rad(24.0 * float(i))
+		var lean: float = deg_to_rad(6.0 - 3.0 * float(i % 3))
+		# A kelp blade is not a rectangular prism. Three tapering segments that curl a
+		# little more the higher they get: wide and upright at the holdfast, narrow and
+		# leaning at the tip. Same triangle count, reads as a plant instead of a peg.
+		var segs: int = 3
+		var y: float = 0.0
+		for s in range(segs):
+			var t: float = float(s) / float(segs)
+			var seg_h: float = h / float(segs)
+			var w: float = lerpf(0.055, 0.022, t)
+			SL.box(f, Vector3(sin(t * 1.6) * 0.02, y + seg_h * 0.5, 0),
+				Vector3(w, seg_h * 1.06, 0.014), blade, false,
+				Vector3(0, yaw, lean * (1.0 + t * 2.2)))
+			y += seg_h
+		# The glowing tip: small, tapered, and the only saturated thing on the plant.
+		SL.cyl(f, Vector3(sin(1.6) * 0.02, y + 0.035, 0), 0.016, 0.075, frond,
+			false, Vector3(0, yaw, lean * 3.2), 0.002)
 	if not ghost:
 		var glow := OmniLight3D.new()
 		glow.light_color = Color(0.35, 0.95, 0.88)

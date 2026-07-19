@@ -68,8 +68,17 @@ func _ready() -> void:
 		add_child(RustSnail.new(i, graze_runs[i][0], graze_runs[i][1]))
 	# Glass snails on the submerged plate under the wet-deck lip (54c) -- lean over the
 	# rail and their gut-coils are the only thing visible down there.
-	for i in range(4):
-		add_child(GlassSnail.new(i, Vector3(20.0 - i * 2.4, -1.3, -14.0 + i * 1.1)))
+	# The plate is real geometry: top face y -1.30, spanning x 10.5..22.5, z -21.5..-18.5.
+	# The old bases (x 20.0-2.4i, z -14.0+1.1i) had the right DEPTH but sat out over open
+	# water north of it, so three of the four hung in mid-water with nothing beneath them
+	# and the fourth was riding a passing animal's touch sphere. These sit on the plate
+	# with ~0.4 m of margin left over for the 0.9 m drift orbit.
+	var glass_beds: Array[Vector3] = [
+		Vector3(13.0, -1.3, -20.2), Vector3(15.4, -1.3, -19.8),
+		Vector3(17.8, -1.3, -20.2), Vector3(20.2, -1.3, -19.8),
+	]
+	for i in range(glass_beds.size()):
+		add_child(GlassSnail.new(i, glass_beds[i]))
 	# Anchor limpets welded into the splash zone (54d), near the barnacle faces.
 	var limpet_spots: Array[Vector3] = [Vector3(-19.0, 1.55, -11.4), Vector3(19.0, 1.7, 11.4),
 			Vector3(-21.6, 1.35, -9.6), Vector3(24.6, 1.5, -12.4), Vector3(22.2, 1.25, 9.6)]
@@ -171,24 +180,42 @@ static func ground_model(host: Node3D, model: Node3D) -> void:
 		return   # no meshes to measure
 	model.position.y -= (low - host.global_position.y)
 
+## Every fauna collision body in the world, gathered once for a crawler's ground ray.
+## A creature must be ruled out as GROUND, and not just its own body: FaunaTouch is a
+## StaticBody3D, so a passing fish or seal reads to the ray as solid footing. Measured:
+## a glass snail was crawling on another animal's 0.45 m touch sphere at y -3.45, two
+## metres under the plate it belongs on, and the grounding probe scored that as a pass.
+## Call once and cache — the fauna set is built in one pass in _ready(), so the list
+## never needs rebuilding, and walking it per-frame per-snail would not be cheap.
+static func fauna_bodies(host: Node3D) -> Array[RID]:
+	var out: Array[RID] = []
+	var root: Node = host
+	while root != null:
+		var s: Script = root.get_script()
+		if s != null and String(s.resource_path).ends_with("bloom_fauna.gd"):
+			break
+		root = root.get_parent()
+	if root == null:
+		root = host   # not parented under the fauna root — at least skip ourselves
+	for b in root.find_children("*", "CollisionObject3D", true, false):
+		out.append((b as CollisionObject3D).get_rid())
+	return out
+
 ## The y of the world surface under `p`, so a crawler rides what is actually there
 ## instead of a hard-coded depth. Snails were authored with fixed y offsets measured
 ## against geometry that has since moved: the lamp ring sat 1.05 m INSIDE the pontoon
 ## and every grounded snail floated ~6 cm proud of its plating. The ray starts above
-## `p` so it still finds the top face when the creature has drifted inside something,
-## and it skips the creature's own bodies (FaunaTouch is a StaticBody3D and would
-## otherwise be the first thing hit). Returns `fallback` when nothing is underneath.
+## `p` so it still finds the top face when the creature has drifted inside something.
+## Pass `skip` (from fauna_bodies) so live animals are never mistaken for footing.
+## Returns `fallback` when nothing is underneath.
 static func surface_y(host: Node3D, p: Vector3, fallback: float, up: float = 1.2,
-		down: float = 2.5) -> float:
+		down: float = 2.5, skip: Array[RID] = []) -> float:
 	var world: World3D = host.get_world_3d()
 	if world == null:
 		return fallback
 	var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, up, 0), p - Vector3(0, down, 0))
 	q.collide_with_areas = false
-	var skip: Array[RID] = []
-	for b in host.find_children("*", "CollisionObject3D", true, false):
-		skip.append((b as CollisionObject3D).get_rid())
-	q.exclude = skip
+	q.exclude = skip if not skip.is_empty() else fauna_bodies(host)
 	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
 	return hit["position"].y if not hit.is_empty() else fallback
 
@@ -607,6 +634,7 @@ class FiddlerShoal extends Node3D:
 	const MODEL_PATH := "res://assets/models/fauna/bait_fish/bait_fish.glb"
 	const COUNT: int = 18
 	const FISH_ID := "fish_herring"
+	const REACH: float = 1.4   ## how close a hand has to be to close on a fish
 	var _t: float = 0.0
 	var _fish: Array[Node3D] = []
 	var _gone: Array[float] = []   ## per-fish respawn countdown after a grab (0 = present)
@@ -644,21 +672,28 @@ class FiddlerShoal extends Node3D:
 				_gen_mats.append_array(gen["mats"])
 			_fish.append(f)
 			_gone.append(0.0)
-			# A swimming player can snatch an individual fish out of the school.
+			# Swimming or kneeling at the waterline, you can snatch one out of the school.
+			# 0.45 was too fine a target to put a crosshair on from the deck edge — these
+			# are 24 cm fish on their own orbits, and the grab has to be winnable.
 			var idx := i
-			var touch := FaunaTouch.new("Bait Fish", 0.45,
+			var touch := FaunaTouch.new("Bait Fish", 0.6,
 				func() -> Array: return _grab_verbs(idx),
 				func(v: String, pl: Node3D) -> void: _grab_fish(idx, pl))
 			f.add_child(touch)
 
-	## Only offered to a swimming player who has a hand on one fish (within ~1.2m).
+	## Offered to anyone with a hand actually on a fish — in the water OR kneeling at the
+	## waterline. Gating on `swimming` meant the shoal passing a hand's breadth under the
+	## wet-deck lip could not be touched unless you got in with it, which is the opposite
+	## of the beat: the school runs shallow, and reaching down for one is the whole point.
+	## Distance is the honest gate — the shoal swims at y -0.15, so from the pontoon top
+	## (0.95) you have to be crouched at the very edge to be inside REACH.
 	func _grab_verbs(idx: int) -> Array:
 		if idx >= _fish.size() or _gone[idx] > 0.0 or not _fish[idx].visible:
 			return []
 		var player: Node3D = get_tree().get_first_node_in_group("player")
-		if player == null or player.get("swimming") != true:
+		if player == null:
 			return []
-		if player.global_position.distance_to(_fish[idx].global_position) > 1.2:
+		if player.global_position.distance_to(_fish[idx].global_position) > REACH:
 			return []
 		return ["GRAB"]
 
@@ -1375,6 +1410,8 @@ class LampSnail extends Node3D:
 	var _stalks: Array[Node3D] = []   # the two optic tentacles, waving
 	var _eye_mat: StandardMaterial3D
 	var _harvest_cd: float = 0.0      ## regrowth time after a mucus harvest
+	var _skip: Array[RID] = []        ## fauna bodies the ground ray must ignore
+	var _skip_built: bool = false
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -1494,9 +1531,12 @@ class LampSnail extends Node3D:
 		# A slow crawl circling the leg base, riding the pontoon top. The old fixed
 		# -0.4 offset put the whole ring 1.05 m inside the pontoon slab, so six
 		# glowing snails were sealed in concrete and never visible at all.
+		if not _skip_built:
+			_skip = BloomFauna.fauna_bodies(self)
+			_skip_built = true
 		var ang: float = _t * 0.05 + _idx
 		var p: Vector3 = _base + Vector3(cos(ang) * 1.6, 0.0, sin(ang) * 1.6)
-		p.y = BloomFauna.surface_y(self, p, _base.y)
+		p.y = BloomFauna.surface_y(self, p, _base.y, 1.2, 2.5, _skip)
 		global_position = p
 		# Head-first: the model is yaw-normalised to -Z-forward, so +PI turns it to lead
 		# its travel instead of crawling backwards.
@@ -1807,6 +1847,8 @@ class RustSnail extends Node3D:
 	var _to: Vector3
 	var _idx: int
 	var _glow_mats: Array[StandardMaterial3D] = []
+	var _skip: Array[RID] = []        ## fauna bodies the ground ray must ignore
+	var _skip_built: bool = false
 
 	func _init(idx: int, from_p: Vector3, to_p: Vector3) -> void:
 		_idx = idx
@@ -1855,11 +1897,14 @@ class RustSnail extends Node3D:
 	func _process(delta: float) -> void:
 		_t += delta
 		# A grazing run: crawl the length of its patch, then turn and work back.
+		if not _skip_built:
+			_skip = BloomFauna.fauna_bodies(self)
+			_skip_built = true
 		var span: float = 0.5 + 0.5 * sin(_t * 0.035)
 		var p: Vector3 = _from.lerp(_to, span)
 		# Sit on the plating rather than 6 cm above it — the runs were authored at
 		# deck+0.06, which reads as a snail hovering over the steel it is rasping.
-		p.y = BloomFauna.surface_y(self, p, p.y)
+		p.y = BloomFauna.surface_y(self, p, p.y, 1.2, 2.5, _skip)
 		global_position = p
 		# Rasping — the shell rocks side to side as the radula works the steel. The +PI turns
 		# the yaw-normalised (-Z-forward) model head-first; the second term flips it on the
@@ -1887,6 +1932,8 @@ class GlassSnail extends Node3D:
 	var _idx: int
 	var _gut_mats: Array[StandardMaterial3D] = []
 	var _interest: float = 0.0
+	var _skip: Array[RID] = []        ## fauna bodies the ground ray must ignore
+	var _skip_built: bool = false
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -1945,11 +1992,15 @@ class GlassSnail extends Node3D:
 			_gut_mats[i].emission_energy_multiplier = pulse * lerpf(1.4, 4.0, _interest)
 		if _gen_mats.size() > 0:
 			ANIM.drive(_gen_mats, 0.6, lerpf(0.6, 2.2, _interest))
-		# A slow drift across the submerged plate, and it turns to face a visitor. The foot
-		# sits at a fixed depth on the plate so it crawls rather than bobs/floats.
+		# A slow drift across the submerged plate, and it turns to face a visitor. The
+		# 0.9 m orbit is sized to stay ON the plate (see the spawn bases), so the ray
+		# always has steel under it and the foot rides the metal instead of the water.
+		if not _skip_built:
+			_skip = BloomFauna.fauna_bodies(self)
+			_skip_built = true
 		var ang: float = _t * 0.03 + _idx * 1.3
 		var p: Vector3 = _base + Vector3(cos(ang) * 0.9, 0.0, sin(ang) * 0.9)
-		p.y = BloomFauna.surface_y(self, p, _base.y)
+		p.y = BloomFauna.surface_y(self, p, _base.y, 1.2, 2.5, _skip)
 		global_position = p
 		# Model is yaw-normalised to -Z-forward, so +PI turns its lit gut coil (the head end)
 		# toward the player / into its travel instead of presenting its tail.

@@ -18,6 +18,11 @@ signal item_eaten(item_id: String)
 const LOW_THRESHOLD: float = 0.5
 const HOTBAR_SIZE: int = 4
 const MAX_BACKPACK: int = 12   ## Minecraft-ish, but a day pack, not a warehouse
+## Worn gear that actually does something. These are the ONLY numbers behind the
+## three upgrade crafts — without them the recipes promised mechanics that did not
+## exist anywhere in the codebase.
+const TOOL_BELT_SLOTS: int = 4        ## canvas pockets: four more things you can carry
+const BOOTS_COLD_RELIEF: float = 0.45 ## dry feet: cold bites 45% slower through them
 
 const LIFE_DRAIN_PER_SEC: float = 0.02   ## while starving or parched
 const LIFE_REGEN_PER_SEC: float = 0.01   ## while fed, watered, and not too sick
@@ -117,6 +122,10 @@ func _process(delta: float) -> void:
 		w_rate = tuning.get("warmth_per_sec_heated", 0.02)
 	elif GameClock.current_phase == GameClock.Phase.NIGHT:
 		w_rate = tuning.get("warmth_per_sec_night", -0.0015)
+	# Patched boots only help against LOSING heat — they are insulation, not a fire,
+	# so they never slow you warming up at a brazier.
+	if w_rate < 0.0 and has_item("patched_boots"):
+		w_rate *= (1.0 - BOOTS_COLD_RELIEF)
 	warmth += w_rate * delta
 	sickness = maxf(0.0, sickness - delta * 0.15)  # recover from sickness over time
 	# Life: starving or parched wears you down; fed + watered + mostly-well heals you.
@@ -202,8 +211,9 @@ func sleep_recovery() -> void:
 
 # --- persistence -------------------------------------------------------------
 # SaveManager owns the payload dict; these two are the whole comfort contribution.
-# HAND-OFF: save_game() should merge comfort_payload(), load_game() should call
-# apply_comfort_payload(data). Until it does, rest/comfort simply start fresh.
+# save_game() merges comfort_payload(); load_game() calls apply_comfort_payload().
+# camp_found rides along so the one-time camp acknowledgement stays one-time across
+# a reload instead of re-firing every session.
 
 func comfort_payload() -> Dictionary:
 	return {"rest": rest, "comfort": comfort, "camp_found": camp_found}
@@ -221,7 +231,7 @@ func add_item(item_id: String) -> bool:
 			inventory_changed.emit()
 			Journal.discover("item_" + item_id)
 			return true
-	if inventory.size() >= MAX_BACKPACK:
+	if inventory.size() >= backpack_capacity():
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud:
 			hud.toast("Pack is full.")
@@ -247,7 +257,7 @@ func backpack_to_hotbar(inv_idx: int) -> bool:
 func hotbar_to_backpack(slot: int) -> bool:
 	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:
 		return false
-	if inventory.size() >= MAX_BACKPACK:
+	if inventory.size() >= backpack_capacity():
 		return false
 	inventory.append(hotbar[slot])
 	hotbar[slot] = null
@@ -269,6 +279,32 @@ func remove_item(item_id: String) -> bool:
 
 func has_item(item_id: String) -> bool:
 	return hotbar.has(item_id) or inventory.has(item_id)
+
+## An upgraded tool does everything the crude one did. Without this the honed knife
+## was a trap: its recipe EATS the crude knife, but every knife gate in the game
+## (kelp fiber, foam block, filleting, the cleaning board, soft salvage, the float
+## and kelp harvests) named "crude_knife" literally, so "upgrading" strictly removed
+## capability. Read by BOTH tool checks — Salvage._has_any for world gates and
+## BenchPanel.tool_ready for recipes — so an upgrade can never orphan a verb again.
+const TOOL_SUPERSEDES: Dictionary = {
+	"crude_knife": ["honed_knife"],
+	"crude_spear": ["honed_spear"],
+}
+
+## How much the pack holds RIGHT NOW. The tool belt is worn, not spent: carrying it
+## costs a slot and gives back more than it takes. Everything that asks "is there
+## room" must come through here — MAX_BACKPACK is the bare-back number only.
+func backpack_capacity() -> int:
+	return MAX_BACKPACK + (TOOL_BELT_SLOTS if has_item("tool_belt") else 0)
+
+## True if the player is carrying this tool, or anything that supersedes it.
+func has_tool(tool_id: String) -> bool:
+	if has_item(tool_id):
+		return true
+	for better: String in TOOL_SUPERSEDES.get(tool_id, []):
+		if has_item(better):
+			return true
+	return false
 
 ## USE the item in a hotbar slot (consumables only; tools are passive keys for verbs).
 ## "eat" restores hunger, "drink" restores thirst; a def carrying BOTH hunger and

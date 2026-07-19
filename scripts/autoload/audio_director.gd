@@ -9,6 +9,15 @@ const BED_DEFS: Dictionary = {
 	"hum": "res://audio/hum_loop.wav",
 	"rain": "res://audio/rain_loop.wav",
 }
+## HANDED OVER TO Ambience. These three beds are now mixed by situation (height above
+## the waterline, roof cover, sea distance, storm, phase) in scripts/world/ambience.gd,
+## which plays wind_open / wind_howl / sea_swell / hull_groan / interior_hum instead.
+## Running the flat versions underneath meant walking indoors ducked the situational
+## wind while this one kept howling at full level — exactly the failure the new mix
+## exists to remove. Silenced at the single chokepoint (_fade) so every existing call
+## site stays honest; "rain" is NOT handed over — it is still this node's to drive.
+const AMBIENCE_OWNED: Array[String] = ["wind", "sea", "hum"]
+
 const ONE_SHOTS: Dictionary = {
 	"thunder": "res://audio/thunder.wav",
 	"groan": "res://audio/groan.wav",
@@ -129,9 +138,13 @@ func set_underwater(under: bool) -> void:
 
 func _fade(bed_name: String, target_db: float, duration: float = 2.5) -> void:
 	var p: AudioStreamPlayer = _beds.get(bed_name)
-	if p:
-		var tw: Tween = create_tween()
-		tw.tween_property(p, "volume_db", target_db, duration)
+	if p == null:
+		return
+	var want: float = target_db
+	if AMBIENCE_OWNED.has(bed_name):
+		want = -80.0   # see AMBIENCE_OWNED: Ambience carries these now
+	var tw: Tween = create_tween()
+	tw.tween_property(p, "volume_db", want, duration)
 
 func _schedule(t: Timer, mean_sec: float) -> void:
 	t.wait_time = maxf(2.0, randf_range(mean_sec * 0.5, mean_sec * 1.5))

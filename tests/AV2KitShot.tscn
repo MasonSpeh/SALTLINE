@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://av2_kitshot"]
+
+[ext_resource type="Script" path="res://tests/av2_kitshot.gd" id="1"]
+
+[node name="AV2KitShot" type="Node3D"]
+script = ExtResource("1")

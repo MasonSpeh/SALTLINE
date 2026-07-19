@@ -92,11 +92,19 @@ func _on_player_died() -> void:
 		stand()
 
 func _scan() -> void:
+	# Forget proxies whose furniture has been dismantled, or the dictionary grows a
+	# tail of freed objects that every later sweep has to step over.
+	for id: int in _attached.keys():
+		if not is_instance_valid(_attached[id]):
+			_attached.erase(id)
 	for n in get_tree().get_nodes_in_group(GROUP):
 		_attach(n)
 
 ## Give one marker its interactable. Idempotent — safe to call every sweep.
-func _attach(marker: Node) -> void:
+## `marker` is deliberately untyped: this arrives via call_deferred, and a marker
+## freed before the call lands fails the Object->Node conversion at the call
+## boundary — before any guard in here could catch it.
+func _attach(marker: Variant) -> void:
 	if not is_instance_valid(marker) or not marker is Node3D or not marker.is_in_group(GROUP):
 		return
 	var id: int = marker.get_instance_id()
@@ -314,7 +322,9 @@ func _storm() -> Object:
 func _near_lit_fire(pos: Vector3) -> bool:
 	for id in _attached:
 		var proxy: Variant = _attached[id]
-		if proxy is Hearth and is_instance_valid(proxy) and (proxy as Hearth).lit:
+		# Validity first: `is` against a freed instance is itself an error, and this
+		# runs every 0.35s forever because _attached never forgot its dead proxies.
+		if is_instance_valid(proxy) and proxy is Hearth and (proxy as Hearth).lit:
 			if (proxy as Hearth).global_position.distance_to(pos) <= FIRE_COMFORT_RANGE:
 				return true
 	return false
@@ -346,7 +356,16 @@ func _update_camp(_pos: Vector3) -> void:
 				Journal.discover("place_camp")   # no-ops if the entry doesn't exist yet
 				var hud: Node = get_tree().get_first_node_in_group("hud")
 				if hud:
-					hud.toast("Three things you made, standing together. That's a camp. That's yours.")
+					# NOT a statement of the rule. The old line ("Three things you
+					# made, standing together. That's a camp.") read the detection
+					# threshold back to the player — the one place the writing
+					# dropped out of the fiction and into the mechanic. This is the
+					# same beat without the counting.
+					hud.comfort_note("You look up, and it's a place now. Not a spot.")
+					# Claim the note channel: a comfort band change crossing in the
+					# same breath would otherwise overwrite the one line in the game
+					# that only ever gets said once.
+					_note_cd = NOTE_COOLDOWN_SEC
 			return
 
 ## The comfort read-out: a short line, only when the state actually changes, never twice

@@ -67,12 +67,15 @@ static func mat(kind: String, ghost: bool, emissive: float = 0.0) -> StandardMat
 			return MatLib.wood()
 		"driftwood":
 			return MatLib.weathered_wood()
+		# Nothing out here is new. Canvas was near-white (0.80) and wool was saturated
+		# enough to read as candy-pink against the teal ambient; both are pulled down
+		# and desaturated so the bedroll looks slept in rather than gift-wrapped.
 		"canvas":
-			return MatLib.canvas(Color(0.80, 0.78, 0.71))
+			return MatLib.canvas(Color(0.68, 0.65, 0.58))
 		"canvas_dark":
-			return MatLib.canvas(Color(0.52, 0.49, 0.43))
+			return MatLib.canvas(Color(0.44, 0.42, 0.37))
 		"wool":
-			return MatLib.canvas(Color(0.52, 0.30, 0.24))
+			return MatLib.canvas(Color(0.44, 0.27, 0.22))
 		"kelp_dry":
 			return MatLib.canvas(Color(0.44, 0.41, 0.27))
 		"rope":
@@ -222,10 +225,148 @@ static func bolts(root: Node3D, from_p: Vector3, to_p: Vector3, count: int,
 		var t: float = 0.0 if count == 1 else float(i) / float(count - 1)
 		box(root, from_p.lerp(to_p, t), Vector3(size, size, size), m, false)
 
-## A stretched canvas panel (thin box) with a slight sag baked into the tilt.
+## Soft bedding: a rounded, slightly lumpy slab. Everything soft in this game was
+## built out of BoxMesh, which is why the bedroll read as a hardcover book on a
+## pallet — bedding has no square corners and no flat top. A squashed capsule gives
+## a rounded silhouette from every angle for one primitive, and the wobble on the
+## scale keeps two of them from looking stamped from the same die.
+## `size` is (width X, thickness Y, length Z) in WORLD terms, like box().
+static func bedding(root: Node3D, pos: Vector3, size: Vector3, m: Material,
+		rot: Vector3 = Vector3.ZERO, lump: float = 0.0) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var cm := CapsuleMesh.new()
+	# CapsuleMesh runs along its local Y. Rotating +90° about X lays local Y down the
+	# world Z (the length of the bed); local X stays width; local Z becomes world Y,
+	# so squashing local Z is what makes a mattress out of a sausage.
+	var radius: float = maxf(size.x, 0.02) * 0.5
+	cm.radius = radius
+	cm.height = maxf(size.z, radius * 2.0 + 0.001)
+	cm.radial_segments = 14
+	cm.rings = 4
+	cm.material = m
+	mi.mesh = cm
+	root.add_child(mi)
+	mi.position = pos
+	var squash: float = maxf(size.y, 0.01) / maxf(size.x, 0.02)
+	var basis := Basis.from_euler(rot) * Basis.from_euler(Vector3(deg_to_rad(90.0), 0, 0))
+	mi.transform = Transform3D(basis, pos)
+	var s := Vector3(1.0, 1.0, squash)
+	if lump > 0.0:
+		s *= Vector3(1.0 + lump * 0.07, 1.0 - lump * 0.05, 1.0 + lump * 0.10)
+	mi.scale = s
+	return mi
+
+## A stretched canvas panel that actually SAGS. Every fabric on this rig comes
+## through here — windbreak, lean-to roof, rain-catcher tarp, bedroll cover, chair
+## sling — and for a long time this returned a 3cm box with razor-square corners,
+## which read as a projector screen rather than as cloth lashed at its corners.
+##
+## The sheet is a subdivided grid pinned at the perimeter and drooping in the
+## middle (a separable catenary approximation, near enough at this scale), with a
+## little per-vertex ripple so the surface is never a clean mathematical dish and
+## the free edges flutter slightly. Generated both-sides — a sagging sheet gets
+## looked at from underneath, and flipping cull on the shared canvas material
+## would turn every other user of it inside out.
+##
+## Collision, when asked for, stays a flat box: a 3cm discrepancy against the
+## visible droop is invisible in play and keeps the physics cheap.
+const CANVAS_SEGS: int = 6      ## grid cells per side; 6 is plenty at these spans
+const CANVAS_SAG: float = 0.13  ## droop at the centre, as a fraction of the short side
+const CANVAS_THICK: float = 0.022 ## real cloth thickness, so an edge-on sheet still reads
+
 static func canvas_panel(root: Node3D, pos: Vector3, size: Vector2, m: Material,
 		rot: Vector3 = Vector3.ZERO, collide: bool = false) -> MeshInstance3D:
-	return box(root, pos, Vector3(size.x, 0.03, size.y), m, collide, rot)
+	var mi := MeshInstance3D.new()
+	mi.mesh = _canvas_mesh(size, m)
+	root.add_child(mi)
+	mi.position = pos
+	mi.rotation = rot
+	if collide:
+		var body := StaticBody3D.new()
+		var shape := CollisionShape3D.new()
+		var b := BoxShape3D.new()
+		b.size = Vector3(size.x, 0.03, size.y)
+		shape.shape = b
+		body.add_child(shape)
+		root.add_child(body)
+		body.position = pos
+		body.rotation = rot
+	return mi
+
+static func _canvas_mesh(size: Vector2, m: Material) -> ArrayMesh:
+	var sag: float = minf(size.x, size.y) * CANVAS_SAG
+	var verts := PackedVector3Array()
+	var normals := PackedVector3Array()
+	var uvs := PackedVector2Array()
+	var idx := PackedInt32Array()
+	# Deterministic per-size wobble: the same panel is identical every rebuild, but
+	# a windbreak and a bedroll cover do not share a crease pattern.
+	var rng := RandomNumberGenerator.new()
+	rng.seed = hash(Vector2i(int(size.x * 1000.0), int(size.y * 1000.0)))
+	var n: int = CANVAS_SEGS
+	for iy in range(n + 1):
+		for ix in range(n + 1):
+			var u: float = float(ix) / float(n)
+			var v: float = float(iy) / float(n)
+			# Pinned edges, deepest at the centre.
+			var du: float = 1.0 - pow(absf(u * 2.0 - 1.0), 2.0)
+			var dv: float = 1.0 - pow(absf(v * 2.0 - 1.0), 2.0)
+			var drop: float = -sag * du * dv
+			# Ripple: strongest along the free span, never at a lashed corner.
+			drop += sin(u * 9.1 + v * 4.3) * sag * 0.10 * du * dv
+			drop += rng.randf_range(-0.004, 0.004)
+			verts.append(Vector3((u - 0.5) * size.x, drop, (v - 0.5) * size.y))
+			uvs.append(Vector2(u, v))
+	# Normals from the finished surface, so the droop actually catches the light.
+	for iy in range(n + 1):
+		for ix in range(n + 1):
+			var right: Vector3 = verts[iy * (n + 1) + mini(ix + 1, n)]
+			var left: Vector3 = verts[iy * (n + 1) + maxi(ix - 1, 0)]
+			var down: Vector3 = verts[mini(iy + 1, n) * (n + 1) + ix]
+			var up: Vector3 = verts[maxi(iy - 1, 0) * (n + 1) + ix]
+			var tangent: Vector3 = (right - left)
+			var bitangent: Vector3 = (down - up)
+			if tangent.length() < 0.0001 or bitangent.length() < 0.0001:
+				normals.append(Vector3.UP)
+			else:
+				var nn: Vector3 = bitangent.cross(tangent).normalized()
+				normals.append(nn if nn.y >= 0.0 else -nn)
+	for iy in range(n):
+		for ix in range(n):
+			var a: int = iy * (n + 1) + ix
+			var b2: int = a + 1
+			var c: int = a + (n + 1)
+			var d: int = c + 1
+			# Winding must agree with the +Y normals computed above, or the sheet is
+			# lit from underneath: the tarp tops went black and their undersides
+			# caught the sun.
+			idx.append_array([a, b2, c, b2, d, c])
+	# Back faces: reversed winding, inverted normals, and pushed BACK ALONG THE NORMAL
+	# so the sheet has real thickness. A zero-thickness sheet disappears into a line
+	# when you see it edge-on — the lean-to roof, which is viewed edge-on from most of
+	# the deck, became a pane of glass.
+	var base: int = verts.size()
+	var back_v := PackedVector3Array()
+	var back_n := PackedVector3Array()
+	for i in range(verts.size()):
+		back_v.append(verts[i] - normals[i] * CANVAS_THICK)
+		back_n.append(-normals[i])
+	verts.append_array(back_v)
+	normals.append_array(back_n)
+	uvs.append_array(uvs.duplicate())
+	var front_count: int = idx.size()
+	for i in range(0, front_count, 3):
+		idx.append_array([base + idx[i], base + idx[i + 2], base + idx[i + 1]])
+	var arrays: Array = []
+	arrays.resize(Mesh.ARRAY_MAX)
+	arrays[Mesh.ARRAY_VERTEX] = verts
+	arrays[Mesh.ARRAY_NORMAL] = normals
+	arrays[Mesh.ARRAY_TEX_UV] = uvs
+	arrays[Mesh.ARRAY_INDEX] = idx
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arrays)
+	mesh.surface_set_material(0, m)
+	return mesh
 
 # ------------------------------------------------------------- comfort hooks
 

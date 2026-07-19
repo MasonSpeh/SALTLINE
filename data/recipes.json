@@ -501,5 +501,31 @@
     "work_sec": 3.0,
     "desc": "Deck planks knocked together on a scrap-angle frame. Holds what you are not carrying, and the sea can have the rest.",
     "hint": "Driftwood off the gyre and one piece of scrap. Cheaper than a job box, and it does the same job."
+  },
+  "canvas_scrap": {
+    "name": "Canvas Scrap",
+    "cat": "material",
+    "needs": {
+      "tarp": 1
+    },
+    "tool": "crude_knife",
+    "makes": "canvas_scrap",
+    "count": 3,
+    "work_sec": 2.8,
+    "desc": "A whole tarp cut down into workable squares. Straight cuts, salt-stiff edges, and suddenly you have material instead of a sheet.",
+    "hint": "The sea keeps bringing tarps in. It does not bring sofas."
+  },
+  "pipe_length": {
+    "name": "Length of Pipe",
+    "cat": "material",
+    "needs": {
+      "steel_plate": 1,
+      "bolt_handful": 1
+    },
+    "tool": "hammer_tool",
+    "makes": "pipe_length",
+    "work_sec": 5.0,
+    "desc": "A plate beaten around a form until its edges meet, then bolted down the seam. It is not round and it does not need to be.",
+    "hint": "Everything upright out here started as something flat."
   }
 }

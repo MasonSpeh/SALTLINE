@@ -191,10 +191,18 @@ func take_back(idx: int) -> void:
 		laid.remove_at(idx)
 		refresh()
 
+## Sweep the bench back into the pack. Anything that will not fit STAYS on the
+## bench — walking away from a full pack must not delete the parts you laid.
 func return_all() -> void:
+	var stuck: Array[String] = []
 	for id in laid:
-		PlayerState.add_item(id)
-	laid.clear()
+		if not PlayerState.add_item(id):
+			stuck.append(id)
+	laid.assign(stuck)
+	if not stuck.is_empty():
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud:
+			hud.toast("No room for all of it. The rest stays on the bench.")
 	refresh()
 
 # ---------------------------------------------------------------- matching
@@ -230,9 +238,10 @@ func recipe_tool(rid: String) -> String:
 	return str(recipes.get(rid, {}).get("tool", ""))
 
 ## Tools are checked, not spent. You keep the hacksaw; the scrap becomes a plate.
+## has_tool, not has_item — an upgraded tool satisfies the gate its crude version set.
 func tool_ready(rid: String) -> bool:
 	var t: String = recipe_tool(rid)
-	return t == "" or PlayerState.has_item(t)
+	return t == "" or PlayerState.has_tool(t)
 
 func _laid_counts() -> Dictionary:
 	var counts: Dictionary = {}
@@ -332,6 +341,17 @@ func _finish_work() -> void:
 		refresh()
 		return
 	var recipe: Dictionary = recipes.get(_work_recipe, {})
+	# All-or-nothing, same contract as salvage: the laid parts are about to be
+	# destroyed, so refuse the craft outright rather than consume the inputs and
+	# bounce the output off a full pack. Counted BEFORE `laid` is cleared — laid
+	# parts already left the pack, so clearing them frees no slot.
+	if _free_slots() < _yield_total(recipe):
+		_set_working(false)
+		var hud_full: Node = get_tree().get_first_node_in_group("hud")
+		if hud_full:
+			hud_full.toast("No room in your pack for what this makes.")
+		refresh()
+		return
 	_working = false
 	_work_recipe = ""     # so re-laying the same recipe next is a fresh craft, not stale resume
 	_work_elapsed = 0.0
@@ -361,6 +381,24 @@ func _finish_work() -> void:
 			hud.toast("Made: %s — press B to build it." % recipe.get("name", product))
 	Journal.discover("place_rigging_bench")
 	refresh()
+
+## Everything one craft will hand back: the product (times its count) plus byproducts.
+func _yield_total(recipe: Dictionary) -> int:
+	var n: int = 0
+	if str(recipe.get("makes", "")) != "":
+		n += maxi(1, int(recipe.get("count", 1)))
+	var extra: Dictionary = recipe.get("extra", {})
+	for extra_id in extra:
+		n += maxi(1, int(extra[extra_id]))
+	return maxi(n, 1)
+
+## Free carry slots right now — hotbar holes plus room left in the pack.
+func _free_slots() -> int:
+	var n: int = 0
+	for s in PlayerState.hotbar:
+		if s == null:
+			n += 1
+	return n + maxi(0, PlayerState.backpack_capacity() - PlayerState.inventory.size())
 
 # ---------------------------------------------------------------- display
 
@@ -401,8 +439,8 @@ func refresh() -> void:
 		if not ready:
 			head = "These parts want to be: %s" % r["name"]
 			tint = "#c9b458"
-		blocks.append("[b][color=%s]%s[/color][/b]%s\n%s%s" % [
-			tint, head, _tool_note(exact), r["desc"], _yield_note(exact)])
+		blocks.append("[b][color=%s]%s[/color][/b]%s\n%s%s%s" % [
+			tint, head, _tool_note(exact), r["desc"], _yield_note(exact), _hint_note(exact)])
 		_work_button.disabled = not ready
 	else:
 		_work_button.disabled = true
@@ -446,6 +484,15 @@ func _hint_lines(partials: Array[String]) -> String:
 		lines.append("[color=#6f7a76]…and %d more. Lay another part to narrow it.[/color]" % hidden)
 	return "\n".join(lines)
 
+## The authored line under the description — the bench's own opinion of the thing
+## ("Nobody is coming. Cut the ring."). Dimmed and italic so it reads as a thought
+## rather than as another instruction.
+func _hint_note(rid: String) -> String:
+	var h: String = str(recipes.get(rid, {}).get("hint", ""))
+	if h == "":
+		return ""
+	return "\n[i][color=#7c8a86]%s[/color][/i]" % h
+
 ## "needs: Hacksaw in hand" — tools gate the craft but are never laid or spent.
 func _tool_note(rid: String) -> String:
 	var t: String = recipe_tool(rid)
@@ -453,6 +500,11 @@ func _tool_note(rid: String) -> String:
 		return ""
 	if PlayerState.has_item(t):
 		return "  [color=#7fd8c8](%s in hand)[/color]" % item_name(t)
+	# Name what you are ACTUALLY holding, or the panel says "needs: Crude Knife"
+	# at a player who is carrying the honed one that supersedes it.
+	for better: String in PlayerState.TOOL_SUPERSEDES.get(t, []):
+		if PlayerState.has_item(better):
+			return "  [color=#7fd8c8](%s in hand)[/color]" % item_name(better)
 	return "  [color=#c96f58](needs: %s in hand)[/color]" % item_name(t)
 
 ## Spell out multi-output and byproduct crafts so the bench never lies about its yield.

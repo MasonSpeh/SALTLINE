@@ -1,5 +1,5 @@
 {
-  "_schema": "item_id -> { name, use: eat|drink|tool|build, hunger/thirst: restore amounts, side_effect }",
+  "_schema": "item_id -> { name, use: eat|drink|tool|build, hunger/thirst: restore amounts, side_effect, melee_damage/melee_reach/swing_sec for weapons, and for worn gear: worn + the field naming its effect (pack_slots | light | cold_relief). The 'effect' string names the code that implements it — worn gear with no implementation is a lie.",
   "canned_food": {
     "name": "Canned Food",
     "use": "eat",
@@ -617,15 +617,24 @@
   },
   "tool_belt": {
     "name": "Tool Belt",
-    "use": "tool"
+    "use": "tool",
+    "worn": true,
+    "pack_slots": 4,
+    "effect": "Four more slots in the pack (PlayerState.backpack_capacity)."
   },
   "storm_lantern": {
     "name": "Storm Lantern",
-    "use": "tool"
+    "use": "tool",
+    "worn": true,
+    "light": true,
+    "effect": "Carried light: a warm 9m omni on the player (PlayerController._update_lantern)."
   },
   "patched_boots": {
     "name": "Patched Boots",
-    "use": "tool"
+    "use": "tool",
+    "worn": true,
+    "cold_relief": 0.45,
+    "effect": "Warmth is lost 45% slower while cold (PlayerState BOOTS_COLD_RELIEF)."
   },
   "storage_bin_kit": {
     "name": "Storage Bin (kit)",

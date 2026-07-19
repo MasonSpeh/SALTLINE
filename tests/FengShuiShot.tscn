@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://feng_shui_shot"]
+[ext_resource type="Script" path="res://tests/feng_shui_shot.gd" id="1"]
+[node name="FengShuiShot" type="Node"]
+script = ExtResource("1")

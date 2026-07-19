@@ -56,6 +56,7 @@ func _ready() -> void:
 	PlayerState.inventory_changed.connect(_refresh_hotbar)
 	PlayerState.inventory_changed.connect(_refresh_inventory_panel)
 	PlayerState.inventory_changed.connect(_refresh_crate_panel)
+	GameClock.phase_changed.connect(_on_phase_changed)
 	PlayerState.hunger_changed.connect(func(v: float) -> void: hunger_bar.set_value(v))
 	PlayerState.warmth_changed.connect(func(v: float) -> void: warmth_bar.set_value(v))
 	# thirst/life are new PlayerState stats — bind defensively so the HUD works
@@ -243,7 +244,10 @@ func _build() -> void:
 	# the place you're standing in changes character, then gets out of the way.
 	comfort_label = Label.new()
 	comfort_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
-	comfort_label.position += Vector2(-300, -206)
+	# Its own slot, well clear of the toast line at -170. At -206 the two sat 36px
+	# apart and a comfort note landing next to a "Journal — ..." discovery read as
+	# one run-on paragraph rather than as two different kinds of thing.
+	comfort_label.position += Vector2(-300, -248)
 	comfort_label.custom_minimum_size = Vector2(600, 26)
 	comfort_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	comfort_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
@@ -365,6 +369,16 @@ func toast(text: String) -> void:
 	_toast_tween.tween_interval(2.5)
 	_toast_tween.tween_property(toast_label, "modulate:a", 0.0, 1.0)
 
+## A toast is about RIGHT NOW. Forcing the clock (contact respawn, sleeping through
+## to dawn, a debug phase jump) used to leave the last one burned into the corner:
+## "Something's out there. Stay in the light until dawn." sat over full daylight in
+## every capture of the last batch, because nothing ever cleared it.
+func _on_phase_changed(_phase: GameClock.Phase) -> void:
+	if _toast_tween:
+		_toast_tween.kill()
+	toast_label.modulate.a = 0.0
+	toast_label.text = ""
+
 ## The comfort read-out. Deliberately not a toast: it fades in slowly, sits above the
 ## toast line so it never fights it, and lingers. ComfortFurniture rate-limits the
 ## call sites — this only ever fires on a genuine change of place.
@@ -435,6 +449,11 @@ func _panel_style() -> StyleBoxFlat:
 	s.set_content_margin_all(18)
 	return s
 
+## Panels sit above the world-layer text. The toast line lives at center-bottom -170
+## and the centred panels span most of the screen height, so a Journal discovery
+## firing while the bench was open drew straight across the pack grid.
+const PANEL_Z: int = 20
+
 func _make_panel(w: float, h: float) -> Panel:
 	var p := Panel.new()
 	p.set_anchors_preset(Control.PRESET_CENTER)
@@ -442,6 +461,7 @@ func _make_panel(w: float, h: float) -> Panel:
 	p.position = Vector2(-w * 0.5, -h * 0.5)
 	p.add_theme_stylebox_override("panel", _panel_style())
 	p.visible = false
+	p.z_index = PANEL_Z
 	add_child(p)
 	return p
 
@@ -529,7 +549,7 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	inv_grid.add_theme_constant_override("h_separation", 8)
 	inv_grid.add_theme_constant_override("v_separation", 8)
 	ivbox.add_child(inv_grid)
-	for i in range(PlayerState.HOTBAR_SIZE + PlayerState.MAX_BACKPACK):
+	for i in range(PlayerState.HOTBAR_SIZE + PlayerState.backpack_capacity()):
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(118, 52)
 		b.focus_mode = Control.FOCUS_NONE
@@ -585,6 +605,7 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	# BENCH — crafting surface, opened by the in-world rigging bench.
 	bench_panel = BenchPanel.new()
 	bench_panel.add_theme_stylebox_override("panel", _panel_style())
+	bench_panel.z_index = PANEL_Z
 	add_child(bench_panel)
 	bench_panel.set_anchors_preset(Control.PRESET_CENTER)
 	bench_panel.offset_left = -310
@@ -713,7 +734,7 @@ func _inv_all_slots() -> Array:
 	var slots: Array = []
 	for i in range(PlayerState.HOTBAR_SIZE):
 		slots.append(PlayerState.hotbar[i])
-	for i in range(PlayerState.MAX_BACKPACK):
+	for i in range(PlayerState.backpack_capacity()):
 		slots.append(PlayerState.inventory[i] if i < PlayerState.inventory.size() else null)
 	return slots
 
