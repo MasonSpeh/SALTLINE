@@ -493,6 +493,7 @@
   },
   "storage_bin_kit": {
     "name": "Storage Bin",
+    "cat": "structure",
     "needs": {
       "driftwood": 2,
       "scrap_metal": 1
@@ -527,5 +528,17 @@
     "work_sec": 5.0,
     "desc": "A plate beaten around a form until its edges meet, then bolted down the seam. It is not round and it does not need to be.",
     "hint": "Everything upright out here started as something flat."
+  },
+  "door_kit": {
+    "name": "Wooden Door",
+    "cat": "structure",
+    "needs": {
+      "driftwood": 2,
+      "bolt_handful": 1
+    },
+    "makes": "door_kit",
+    "work_sec": 4.5,
+    "desc": "Two planks ledged and braced into a leaf, hung on bolt-hinges in a driftwood frame. It swings, it latches, and a room with a door in it is a room you can shut.",
+    "hint": "A doorway is just a hole until something hangs in it."
   }
 }

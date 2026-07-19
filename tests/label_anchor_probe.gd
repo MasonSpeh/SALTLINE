@@ -44,11 +44,9 @@ const LOG_PATH: String = "/tmp/label_anchor_probe.txt"
 ## fixed — the probe complains if a quarantined label turns out to be backed, so this
 ## list cannot quietly rot into a permanent excuse.
 const QUARANTINE: Array[String] = [
-	"W.T. HATCH — CHAIN LOCKER 4-SW · KEEP CLOSED",
-	"FIRE PUMP No.2",
-	"SW SERVICE PUMP No.1",
-	"SW MAIN — GRAVITY FEED",
-	"LIFEBUOY",
+	# All five former wet_deck_detail.gd hand-offs are now backed by bolted sign plates
+	# (see _signplate) and are asserted for real. Add an entry back only for a genuinely
+	# un-fixable hand-off in a file this batch does not own.
 ]
 
 var _xforms: Array[Transform3D] = []

@@ -11,6 +11,18 @@ func _init() -> void:
 	verbs = ["OPEN"] as Array[String]
 	# available_verbs() is inherited: crates always offer OPEN.
 
+func _ready() -> void:
+	# Every crate, found locker and nest is a save target: its `items` persist keyed by
+	# where it stands. Join the group so SaveManager can find it, then — deferred, so
+	# the world transform is already set even for a crate rebuilt this very frame — ask
+	# for any contents the last load saved for this spot.
+	add_to_group("loot_container")
+	call_deferred("_claim_saved_contents")
+
+func _claim_saved_contents() -> void:
+	if is_instance_valid(SaveManager):
+		SaveManager.claim_container(self)
+
 func interact(verb: String, player: Node3D) -> void:
 	super(verb, player)
 	if not _opened:

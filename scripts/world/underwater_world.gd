@@ -6,6 +6,7 @@ extends Node3D
 ## Best appreciated in fly mode or falling in; diving proper is a later phase.
 
 const FISH := preload("res://scripts/world/fish_table.gd")
+const ANIM := preload("res://scripts/world/creature_anim.gd")
 
 const LEGS := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 const DEPTH_BAND := {"surface": -1.2, "mid": -4.5, "deep": -9.5}
@@ -170,11 +171,28 @@ func _spawn_schools() -> void:
 			mat.emission_energy_multiplier = 0.5
 		var size: float = float(school["size"])
 		var shape: String = String(school.get("shape", "slender"))
+		# The species' real generated skin: the SAME mesh the caught/held fish and the
+		# reef shoals use. Godot caches the .glb, so every member of a school shares the
+		# one mesh resource — only the node instances repeat. Tinted per the school entry,
+		# swimming on the UNDULATE body wave, each fish on its own phase so the school
+		# doesn't beat in lockstep. Missing asset -> the tinted primitive silhouette, so a
+		# fish still generating in the background never leaves a hole in the water.
+		var glow: Color = Color(0.2, 0.9, 0.85) if id == "fish_herring" else tint
+		var model_len: float = maxf(size, 0.3) * 0.7
+		var model_path: String = "res://assets/models/fauna/%s/%s.glb" % [id, id]
 		var members: Array = []
 		for i in range(int(school["count"])):
 			var f := Node3D.new()
 			root.add_child(f)
-			_build_fish(f, shape, size, mat)
+			var gen: Dictionary = ANIM.attach(f, model_path, model_len, ANIM.Mode.UNDULATE,
+				0.1, 2.2, glow, float(i) * 0.5)
+			if gen.is_empty():
+				_build_fish(f, shape, size, mat)   # no generated mesh yet — keep the silhouette
+			else:
+				for m in gen["mats"]:
+					(m as ShaderMaterial).set_shader_parameter("tint", tint)
+				if id == "fish_herring":
+					ANIM.drive(gen["mats"], 2.2, 0.5)   # the lantern shoal keeps its glow
 			members.append(f)
 		var band_y: float = DEPTH_BAND.get(def.get("depth", "mid"), -4.5)
 		_schools.append({

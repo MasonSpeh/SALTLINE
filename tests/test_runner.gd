@@ -415,6 +415,10 @@ func _run() -> void:
 	line._hung[0]["age_h"] = 4.1
 	line._process(0.016)
 	_check(line._hung[0]["id"] == "fish_rotten", "raw fish rots after 4 game hours hung")
+	# Isolate the cure test: the drop-net haul above leaves random raw species in the
+	# pack, and _hang() takes the first hangable fish it finds — so without clearing,
+	# slot 1 sometimes got a leftover raw fish (which rots) instead of the cooked one.
+	PlayerState.load_inventory([], [], [], [])
 	PlayerState.add_item("cooked_fish")
 	line._hang()
 	line._hung[1]["age_h"] = 4.1

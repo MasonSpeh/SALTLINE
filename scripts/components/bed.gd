@@ -15,7 +15,11 @@ var col_size: Vector3 = Vector3(1.0, 0.56, 2.1)
 
 func _init() -> void:
 	display_name = "Bunk"
-	verbs = ["SLEEP"] as Array[String]
+	# LIE DOWN is the primary verb (E) and is offered any time — turning in is a comfort,
+	# not a schedule. SLEEP only joins the list once the light's gone; the player reaches
+	# it from the lying posture by pressing S (see player_controller.lie_on_bed). interact()
+	# still honours a direct SLEEP call so the standing sleep tests drive the same flow.
+	verbs = ["LIE DOWN"] as Array[String]
 
 func _ready() -> void:
 	if build_bedding:
@@ -26,14 +30,30 @@ func _ready() -> void:
 		col.shape = box
 		add_child(col)
 
-## Only offer sleep once the light's gone — you don't nap through a working day.
+## Lie down any time; SLEEP is added once the light's gone — you don't nap through a
+## working day. (Kept as a two-verb list so `available_verbs().has("SLEEP")` still gates
+## on night/dusk for both the interaction ray and the sleep probes.)
 func available_verbs() -> Array[String]:
 	if _busy:
 		return [] as Array[String]
 	var ph: int = GameClock.current_phase
 	if ph == GameClock.Phase.NIGHT or ph == GameClock.Phase.DUSK:
-		return ["SLEEP"] as Array[String]
-	return [] as Array[String]
+		return ["LIE DOWN", "SLEEP"] as Array[String]
+	return ["LIE DOWN"] as Array[String]
+
+## Where the player's body parks when lying down, and which way it faces. The built
+## bunk carries its mattress at +0.56; the collision-only double bunk (rig_superstructure)
+## wraps both racks, so we lie on the lower mattress a little above its origin.
+func bed_lie_pos() -> Vector3:
+	var lift: float = 0.56 if build_bedding else 0.13
+	return global_position + global_transform.basis.y * lift
+
+func bed_lie_yaw() -> float:
+	return global_rotation.y
+
+## True while SLEEP is on the menu — the controller checks this before honouring an S.
+func bed_can_sleep() -> bool:
+	return available_verbs().has("SLEEP")
 
 func _build() -> void:
 	# Frame + mattress (the mattress carries the interaction collider).
@@ -68,7 +88,16 @@ func _build() -> void:
 		blanket.rotation.y = 0.35   # kicked askew
 
 func interact(verb: String, player: Node3D) -> void:
-	if verb != "SLEEP" or _busy:
+	if _busy:
+		return
+	# E lies you down on the mattress; the controller owns the prone posture and turns
+	# S (while lying) back into a SLEEP request against this same bed.
+	if verb == "LIE DOWN":
+		super.interact(verb, player)
+		if player and player.has_method("lie_on_bed"):
+			player.lie_on_bed(self)
+		return
+	if verb != "SLEEP":
 		return
 	_busy = true
 	super.interact(verb, player)
@@ -99,5 +128,9 @@ func _on_wake(player: Node3D, hud: Node) -> void:
 	if player:
 		player.input_locked = false
 	_busy = false
+	# If we got here from the lying posture (S-to-sleep), stand the player back up.
+	# No-ops for the standing sleep probes, which never lay down in the first place.
+	if player and player.has_method("bed_sleep_finished"):
+		player.bed_sleep_finished()
 	if hud and hud.has_method("toast"):
 		hud.toast("You slept until dawn — warm and mended, but hungry.")

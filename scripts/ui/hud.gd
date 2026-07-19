@@ -33,6 +33,7 @@ var inventory_panel: Panel
 var inv_grid: GridContainer
 var inv_info: Label
 var _inv_buttons: Array[Button] = []
+var _inv_hovered_idx: int = -1   ## last unified slot the cursor was over (for DROP)
 var bench_panel: BenchPanel
 var crate_panel: Panel
 var crate_title: Label
@@ -419,7 +420,12 @@ func _refresh_hotbar() -> void:
 	for i in range(hotbar_slots.size()):
 		var lbl: Label = hotbar_slots[i].get_node("L")
 		var item: Variant = PlayerState.hotbar[i]
-		lbl.text = "%d  %s" % [i + 1, str(item).capitalize() if item != null else "—"]
+		var txt: String = "%d  %s" % [i + 1, str(item).capitalize() if item != null else "—"]
+		if item != null:
+			var n: int = PlayerState.hotbar_stack(i)
+			if n > 1:
+				txt += "  ×%d" % n
+		lbl.text = txt
 		hotbar_slots[i].modulate.a = 0.95 if item != null else 0.5
 
 func fade_to_black(duration: float) -> Tween:
@@ -541,7 +547,7 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	ivbox.add_theme_constant_override("separation", 10)
 	inventory_panel.add_child(ivbox)
 	var ititle := Label.new()
-	ititle.text = "PACK        (click: hotbar ⇄ pack)"
+	ititle.text = "PACK        (left-click: hotbar ⇄ pack · right-click: drop one)"
 	ititle.add_theme_font_size_override("font_size", 17)
 	ivbox.add_child(ititle)
 	inv_grid = GridContainer.new()
@@ -549,21 +555,34 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	inv_grid.add_theme_constant_override("h_separation", 8)
 	inv_grid.add_theme_constant_override("v_separation", 8)
 	ivbox.add_child(inv_grid)
-	for i in range(PlayerState.HOTBAR_SIZE + PlayerState.backpack_capacity()):
+	# Build for the LARGEST the pack can ever get (with a tool belt on), and hide the
+	# slots past current capacity in _refresh — MAX_BACKPACK is derived now, so the
+	# grid can't be sized to a fixed number once and go stale when the belt is found.
+	var max_slots: int = PlayerState.HOTBAR_SIZE + PlayerState.MAX_BACKPACK + PlayerState.TOOL_BELT_SLOTS
+	for i in range(max_slots):
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(118, 52)
 		b.focus_mode = Control.FOCUS_NONE
 		var idx: int = i
 		b.pressed.connect(func() -> void: _inv_slot_clicked(idx))
 		b.mouse_entered.connect(func() -> void: _inv_slot_hovered(idx))
+		b.gui_input.connect(func(e: InputEvent) -> void: _inv_slot_gui_input(idx, e))
 		inv_grid.add_child(b)
 		_inv_buttons.append(b)
 	inv_info = Label.new()
 	inv_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	inv_info.custom_minimum_size = Vector2(0, 90)
+	inv_info.custom_minimum_size = Vector2(0, 74)
 	inv_info.add_theme_font_size_override("font_size", 13)
 	inv_info.add_theme_color_override("font_color", Color(0.72, 0.76, 0.72))
 	ivbox.add_child(inv_info)
+	# Drop control: acts on the last slot the cursor was over, so it works for pack and
+	# hotbar slots alike. The G key does the same for the selected hotbar slot in play.
+	var drop_btn := Button.new()
+	drop_btn.text = "⤓  DROP ONE"
+	drop_btn.custom_minimum_size = Vector2(0, 32)
+	drop_btn.focus_mode = Control.FOCUS_NONE
+	drop_btn.pressed.connect(func() -> void: _drop_slot(_inv_hovered_idx))
+	ivbox.add_child(drop_btn)
 
 	# CRATE — exchange with a storage crate: its contents left, your pack right.
 	crate_panel = _make_panel(560, 460)
@@ -589,6 +608,12 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	take_all.focus_mode = Control.FOCUS_NONE
 	take_all.pressed.connect(_crate_take_all)
 	crow.add_child(take_all)
+	var stow_all := Button.new()
+	stow_all.text = "STOW ALL"
+	stow_all.custom_minimum_size = Vector2(96, 30)
+	stow_all.focus_mode = Control.FOCUS_NONE
+	stow_all.pressed.connect(_crate_stow_all)
+	crow.add_child(stow_all)
 	var close_x := Button.new()
 	close_x.text = "✕"
 	close_x.custom_minimum_size = Vector2(30, 30)
@@ -688,6 +713,17 @@ func _input(event: InputEvent) -> void:
 				if crate_panel.visible:
 					toggle_panel("crate")
 					get_viewport().set_input_as_handled()
+			KEY_G:
+				# Drop one of the selected hotbar item — but only in open play, and
+				# never while carrying a prop (the player controller's G sets THAT
+				# down). With a panel open the on-screen DROP control owns it.
+				if not any_panel_open():
+					var pl: Node = get_tree().get_first_node_in_group("player")
+					if pl and pl.get("carried") == null:
+						var sel: int = PlayerState.selected_hotbar
+						if sel >= 0 and sel < PlayerState.HOTBAR_SIZE and PlayerState.hotbar[sel] != null:
+							_drop_slot(sel)
+							get_viewport().set_input_as_handled()
 			KEY_ESCAPE:
 				if any_panel_open():
 					var open: String = "help" if help_panel.visible else (
@@ -742,9 +778,20 @@ func _refresh_inventory_panel() -> void:
 	if inventory_panel == null or not inventory_panel.visible:
 		return
 	var slots: Array = _inv_all_slots()
+	var shown: int = PlayerState.HOTBAR_SIZE + PlayerState.backpack_capacity()
 	for i in range(_inv_buttons.size()):
-		var item: Variant = slots[i]
+		# Slots past current capacity (no tool belt) are hidden, not stale.
+		if i >= shown:
+			_inv_buttons[i].visible = false
+			continue
+		_inv_buttons[i].visible = true
+		var item: Variant = slots[i] if i < slots.size() else null
 		var label: String = str(item).capitalize() if item != null else "—"
+		if item != null:
+			var cnt: int = PlayerState.hotbar_stack(i) if i < PlayerState.HOTBAR_SIZE \
+				else PlayerState.inventory_stack(i - PlayerState.HOTBAR_SIZE)
+			if cnt > 1:
+				label += "  ×%d" % cnt
 		if i < PlayerState.HOTBAR_SIZE:
 			_inv_buttons[i].text = "%d· %s" % [i + 1, label]
 			_inv_buttons[i].modulate = Color(1, 0.95, 0.75) if item != null else Color(0.85, 0.85, 0.8, 0.7)
@@ -760,8 +807,9 @@ func _inv_slot_clicked(idx: int) -> void:
 	_refresh_inventory_panel()
 
 func _inv_slot_hovered(idx: int) -> void:
+	_inv_hovered_idx = idx
 	var slots: Array = _inv_all_slots()
-	var item: Variant = slots[idx]
+	var item: Variant = slots[idx] if idx < slots.size() else null
 	if item == null:
 		inv_info.text = ""
 		return
@@ -778,6 +826,36 @@ func _inv_slot_hovered(idx: int) -> void:
 	if jinfo.get("hint", "") != "":
 		line += "\n▸ %s" % jinfo["hint"]
 	inv_info.text = line
+
+## Right-click a slot to drop one from it (left-click still moves it).
+func _inv_slot_gui_input(idx: int, event: InputEvent) -> void:
+	if event is InputEventMouseButton and event.pressed \
+			and event.button_index == MOUSE_BUTTON_RIGHT:
+		_drop_slot(idx)
+
+## Drop one item from a unified slot into the world at the player's feet.
+func _drop_slot(unified_idx: int) -> void:
+	if unified_idx < 0:
+		return
+	var id: String = PlayerState.take_one_from_slot(unified_idx)
+	if id == "":
+		return
+	_spawn_drop(id)
+	_refresh_inventory_panel()
+	toast("Dropped %s" % PlayerState.items.get(id, {}).get("name", id.capitalize()))
+
+## Make the item real again on the deck in front of the player, with a small toss.
+func _spawn_drop(item_id: String) -> void:
+	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
+	if player == null:
+		return
+	var fwd: Vector3 = -player.global_transform.basis.z
+	fwd.y = 0.0
+	fwd = fwd.normalized() if fwd.length() > 0.01 else Vector3.FORWARD
+	var side: Vector3 = player.global_transform.basis.x
+	# A little forward of the feet, jittered sideways so a burst of drops fans out.
+	var toss: Vector3 = fwd * 0.7 + side * randf_range(-0.18, 0.18)
+	SaveManager.drop_into_world(item_id, player.global_position, toss)
 
 # ============================ crate exchange ==================================
 
@@ -802,14 +880,47 @@ func _crate_column(parent: Control, heading: String) -> VBoxContainer:
 	scroll.add_child(list)
 	return list
 
-func _crate_item_button(item_id: String, on_press: Callable) -> Button:
+func _crate_item_button(item_id: String, on_press: Callable, count: int = 1) -> Button:
 	var b := Button.new()
-	b.text = item_id.capitalize()
+	var nm: String = PlayerState.items.get(item_id, {}).get("name", item_id.capitalize())
+	b.text = nm + ("  ×%d" % count if count > 1 else "")
 	b.custom_minimum_size = Vector2(0, 34)
 	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	b.focus_mode = Control.FOCUS_NONE
 	b.pressed.connect(on_press)
 	return b
+
+## [ [id, count], ... ] in first-seen order — collapses duplicate ids into one row.
+func _group_counts(list: Array) -> Array:
+	var order: Array = []
+	var counts: Dictionary = {}
+	for it in list:
+		var id: String = str(it)
+		if not counts.has(id):
+			counts[id] = 0
+			order.append(id)
+		counts[id] = int(counts[id]) + 1
+	var out: Array = []
+	for id in order:
+		out.append([id, int(counts[id])])
+	return out
+
+## The pack as [ [id, total], ... ], summing across split stacks.
+func _pack_groups() -> Array:
+	var order: Array = []
+	var seen: Dictionary = {}
+	for it in PlayerState.hotbar:
+		if it != null and not seen.has(it):
+			seen[it] = true
+			order.append(str(it))
+	for it in PlayerState.inventory:
+		if not seen.has(it):
+			seen[it] = true
+			order.append(str(it))
+	var out: Array = []
+	for id in order:
+		out.append([id, PlayerState.count_item(id)])
+	return out
 
 func _crate_empty_line(text: String) -> Label:
 	var l := Label.new()
@@ -831,21 +942,18 @@ func _refresh_crate_panel() -> void:
 		c.queue_free()
 	for c in _pack_list.get_children():
 		c.queue_free()
-	if _crate.items.is_empty():
+	var crate_groups: Array = _group_counts(_crate.items)
+	if crate_groups.is_empty():
 		_crate_list.add_child(_crate_empty_line("· empty ·"))
-	for it in _crate.items:
-		var id: String = str(it)
-		_crate_list.add_child(_crate_item_button(id, func() -> void: _crate_take(id)))
-	var pack: Array = []
-	for it in PlayerState.hotbar:
-		if it != null:
-			pack.append(it)
-	pack.append_array(PlayerState.inventory)
-	if pack.is_empty():
+	for g in crate_groups:
+		var id: String = g[0]
+		_crate_list.add_child(_crate_item_button(id, func() -> void: _crate_take(id), g[1]))
+	var pack_groups: Array = _pack_groups()
+	if pack_groups.is_empty():
 		_pack_list.add_child(_crate_empty_line("· nothing to stow ·"))
-	for it in pack:
-		var pid: String = str(it)
-		_pack_list.add_child(_crate_item_button(pid, func() -> void: _crate_stow(pid)))
+	for g in pack_groups:
+		var pid: String = g[0]
+		_pack_list.add_child(_crate_item_button(pid, func() -> void: _crate_stow(pid), g[1]))
 
 func _crate_take(item_id: String) -> void:
 	if _crate == null or not is_instance_valid(_crate):
@@ -877,6 +985,18 @@ func _crate_take_all() -> void:
 			toast("Pack is full.")
 			break
 		_crate.items.remove_at(0)
+	_refresh_crate_panel()
+
+## Empty the pack into the crate — the mirror of TAKE ALL. Snapshot the totals first
+## so decrementing stacks as we go can't race the loop.
+func _crate_stow_all() -> void:
+	if _crate == null or not is_instance_valid(_crate):
+		_refresh_crate_panel()
+		return
+	for g in _pack_groups():
+		for _k in range(int(g[1])):
+			if PlayerState.remove_item(g[0]):
+				_crate.items.append(g[0])
 	_refresh_crate_panel()
 
 # ============================ stat bar widget =================================

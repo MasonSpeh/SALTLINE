@@ -98,6 +98,27 @@ var _last_f_ms: int = -10000       ## for double-tap F detection
 var swimming: bool = false         ## in the water, buoyant, mortal
 var _deep_t: float = 0.0           ## seconds spent past the deep-death line
 
+# Lying on a bed/bunk (Task: beds are lie-down-able any time). A scripted park like
+# sitting, but it reuses the controller's own PRONE posture so the eye line and stealth
+# are the ones the game already knows. S sleeps (the bed gates it to dusk/night), E gets
+# up. Wired by bed.gd (bunks) and comfort_furniture.gd's CampBed (placed bedrolls).
+var _lying: bool = false
+var _lying_bed: Node = null        ## the bunk/bedroll we're turned in on
+var _lying_pos: Vector3 = Vector3.ZERO  ## world point the body settles to (the mattress)
+var _lying_sleeping: bool = false  ## true while the S-to-dawn fade is running
+
+# Ledge mantle: pull up onto a knee-to-chest ledge from the air or the water (wet-deck
+# lip, pontoon edges). A short assisted lerp, not a teleport. Never onto thin railings,
+# never while prone.
+const MANTLE_TIME: float = 0.28    ## seconds for the assisted pull-up
+const MANTLE_MIN_H: float = 0.4    ## knee height — below this you just step up
+const MANTLE_MAX_H: float = 1.3    ## chest height — above this it's a climb, not a mantle
+var _mantling: bool = false
+var _mantle_from: Vector3 = Vector3.ZERO
+var _mantle_to: Vector3 = Vector3.ZERO
+var _mantle_t: float = 0.0
+var _mantle_cd: float = 0.0        ## brief lockout so a mantle can't instantly re-fire
+
 const JUMP_BUFFER_TIME: float = 0.15
 
 ## How detectable the player is to creatures right now (1.0 standing, 0.5 crouched,
@@ -135,19 +156,20 @@ func _ready() -> void:
 	_hand_item.position = HAND_ITEM_POS
 	_hand_item.rotation.y = -0.35
 	_hand_item.rotation.x = 0.15
-	# The storm lantern is worn light, not a held tool: carrying one lights the deck
-	# around you and keeps doing it in a squall. Without this the recipe promised
-	# "Wind can't touch it, rain can't touch it. It just burns." and then burned
-	# nothing — the item existed only as a world visual.
+	# The storm lantern is light you carry IN HAND: when it's the selected hotbar item it
+	# throws a warm pool that moves and points with your view (an OmniLight on the camera
+	# rig, down toward the held hand). Wind can't touch it, rain can't touch it — but it
+	# only burns while it's the thing in your hand, not merely somewhere in the pack.
 	_lantern_light = OmniLight3D.new()
 	_lantern_light.light_color = LANTERN_COLOR
 	_lantern_light.light_energy = 0.0
 	_lantern_light.omni_range = LANTERN_RANGE
 	_lantern_light.shadow_enabled = false   # gl_compatibility: keep the omni cheap
-	add_child(_lantern_light)
-	_lantern_light.position = Vector3(0, 1.1, 0)
+	camera.add_child(_lantern_light)
+	_lantern_light.position = Vector3(0.25, -0.2, -0.35)
+	# _update_held_item runs on both inventory changes AND slot selection, and it drives
+	# the lantern too — so selecting/holstering the lantern lights or darkens the hand.
 	PlayerState.inventory_changed.connect(_update_held_item)
-	PlayerState.inventory_changed.connect(_update_lantern)
 	PlayerState.player_died.connect(_on_player_died)
 	_update_lantern()
 
@@ -175,6 +197,10 @@ func _unhandled_input(event: InputEvent) -> void:
 			pitch_delta = -pitch_delta
 		head.rotate_x(pitch_delta)
 		head.rotation.x = clampf(head.rotation.x, deg_to_rad(-85.0), deg_to_rad(85.0))
+	# Lying on a bed owns everything but the look: S sleeps, E gets up, nothing else fires.
+	if _lying:
+		_handle_lying_input(event)
+		return
 	# Rod selected + LMB = cast. (While a cast is out, the FishingRod handles LMB.)
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
 			and event.pressed and not input_locked and not ui_locked and fishing == null \
@@ -348,11 +374,23 @@ func hook_returned() -> void:
 func _physics_process(delta: float) -> void:
 	if _attack_cd > 0.0:
 		_attack_cd -= delta
+	if _mantle_cd > 0.0:
+		_mantle_cd -= delta
 	if _fly:
 		_fly_process(delta)
 		return
+	if _mantling:
+		_mantle_process(delta)
+		return
+	if _lying:
+		_lie_process(delta)
+		return
 	if _climbing:
 		_climb_process(delta)
+		return
+	# From the air or the water, a push toward a knee-to-chest ledge pulls you up onto it.
+	if (swimming or not is_on_floor()) and _try_begin_mantle():
+		_mantle_process(delta)
 		return
 	if swimming:
 		_swim_process(delta)
@@ -520,7 +558,9 @@ func _toggle_prone() -> void:
 func _update_lantern() -> void:
 	if _lantern_light == null or not is_instance_valid(_lantern_light):
 		return
-	var want: float = LANTERN_ENERGY if PlayerState.has_item("storm_lantern") else 0.0
+	# Lit only when the lantern is BOTH owned and the selected hotbar item (in hand).
+	var lit: bool = PlayerState.has_item("storm_lantern") and _selected_item_id() == "storm_lantern"
+	var want: float = LANTERN_ENERGY if lit else 0.0
 	if is_equal_approx(_lantern_light.light_energy, want):
 		return
 	var tw: Tween = create_tween()
@@ -682,6 +722,8 @@ func _deep_death() -> void:
 		_respawn()
 
 func _respawn() -> void:
+	_clear_lying_state()
+	_mantling = false
 	global_position = respawn_point
 	velocity = Vector3.ZERO
 	swimming = false
@@ -705,6 +747,8 @@ func _on_player_died() -> void:
 	input_locked = true
 	if _climbing:
 		_leave_climb()   # dying mid-climb must re-arm the collision disabled on grab
+	_clear_lying_state()  # dying while turned in drops the lie lock cleanly
+	_mantling = false
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		var tw: Tween = hud.fade_to_black(1.2)
@@ -713,6 +757,8 @@ func _on_player_died() -> void:
 		_respawn_from_death()
 
 func _respawn_from_death() -> void:
+	_clear_lying_state()
+	_mantling = false
 	global_position = respawn_point
 	velocity = Vector3.ZERO
 	_prone = false
@@ -779,6 +825,8 @@ func _throw_carried() -> void:
 ## world-scale props with internal offsets, so we normalize at runtime: recenter on the
 ## combined AABB and uniform-scale so the largest dimension is HAND_ITEM_MAX_DIM.
 func _update_held_item() -> void:
+	# The hand light tracks the selected slot too — refresh it whenever the hand does.
+	_update_lantern()
 	# Clear previous hand item
 	for child in _hand_item.get_children():
 		_hand_item.remove_child(child)
@@ -837,6 +885,198 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 		# Angle the rod out over the water like it's actually being fished.
 		container.rotation = Vector3(deg_to_rad(-24), deg_to_rad(-14), 0)
 		container.position += Vector3(0.05, -0.05, -0.1)
+
+# ============================== lying on a bed ==============================
+
+## E on a bunk/bedroll: lie down on the mattress in the PRONE posture the controller
+## already owns — movement parked, but the look is free. From here S sleeps (the bed
+## gates it to dusk/night) and E gets you up, both shown as a HUD hint. Called by
+## bed.gd (bunks) and comfort_furniture.gd's CampBed (placed bedrolls); each hands us
+## where the body should park (the mattress) and which way to face.
+func lie_on_bed(bed: Node) -> void:
+	if _lying or _mantling or _climbing or swimming or _fly:
+		return
+	if bed == null or not is_instance_valid(bed) or not bed.has_method("bed_lie_pos"):
+		return
+	_lying = true
+	_lying_bed = bed
+	_lying_sleeping = false
+	_prone = true
+	ui_locked = true          # the interaction ray stands down — we own E now
+	velocity = Vector3.ZERO
+	_lying_pos = bed.bed_lie_pos()
+	rotation.y = float(bed.bed_lie_yaw())
+	PlayerState.resting = true
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("set_hint"):
+		hud.set_hint("[S]  sleep      [E]  get up")
+
+## Movement while lying: settle onto the mattress (a short assisted move, not a snap),
+## hold there, and keep easing the eye line down into the prone posture.
+func _lie_process(delta: float) -> void:
+	velocity = Vector3.ZERO
+	global_position = global_position.lerp(_lying_pos, clampf(delta * 8.0, 0.0, 1.0))
+	_prone = true
+	_update_posture(delta)
+	_update_head_bob(delta, false, false)
+
+## While lying, S asks the bed to sleep and E gets up. The fade window (S-to-dawn) is
+## owned by the bed; ignore keys until it hands control back through bed_sleep_finished().
+func _handle_lying_input(event: InputEvent) -> void:
+	if _lying_sleeping:
+		return
+	if event.is_action_pressed("interact"):
+		_end_lying()
+		get_viewport().set_input_as_handled()
+	elif event.is_action_pressed("move_back"):
+		_try_bed_sleep()
+		get_viewport().set_input_as_handled()
+
+## S while lying: sleep, if the bed allows it right now (its own dusk/night gate). The
+## bed runs the existing fade -> skip-to-dawn -> wake flow and, on waking, calls
+## bed_sleep_finished() to stand us up — so the S path reuses the exact sleep code the
+## standing SLEEP verb (and the sleep probes) drive.
+func _try_bed_sleep() -> void:
+	if _lying_bed == null or not is_instance_valid(_lying_bed):
+		return
+	if not bool(_lying_bed.call("bed_can_sleep")):
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("Not dark enough to sleep. Rest here — dusk will come.")
+		return
+	_lying_sleeping = true
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("set_hint"):
+		hud.set_hint("")   # release the lie hint; the fade owns the screen now
+	_lying_bed.interact("SLEEP", self)
+
+## The bed's wake callback lands here after an S-to-sleep. Stand back up. Guarded so a
+## direct SLEEP interact (the sleep probes, never lying) harmlessly no-ops.
+func bed_sleep_finished() -> void:
+	if not _lying:
+		return
+	_end_lying()
+
+## Get up: drop the lying lock, rise out of prone, hand input back, clear the hint.
+func _end_lying() -> void:
+	if not _lying:
+		return
+	_lying = false
+	_lying_bed = null
+	_lying_sleeping = false
+	_prone = false
+	ui_locked = false
+	PlayerState.resting = false
+	velocity = Vector3.ZERO
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("set_hint"):
+		hud.set_hint("")
+
+## Force the lying state off without any wake choreography — for death/respawn, where
+## the fade and control handoff are owned by the death flow, not the bed.
+func _clear_lying_state() -> void:
+	if not _lying and not _lying_sleeping:
+		return
+	_lying = false
+	_lying_bed = null
+	_lying_sleeping = false
+	ui_locked = false
+	PlayerState.resting = false
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("set_hint"):
+		hud.set_hint("")
+
+# ============================== ledge mantle ================================
+
+## From the air or the water, pushing toward a knee-to-chest ledge with standing room
+## above pulls you up onto it — the wet-deck lip from the sea, a pontoon edge, a low
+## parapet. Conservative by design: it refuses thin railings (a solid face must sit
+## below the lip) and never fires while prone. Returns true when a mantle was armed.
+func _try_begin_mantle() -> bool:
+	if _mantle_cd > 0.0 or _lying or _climbing or _fly:
+		return false
+	if input_locked or ui_locked or (build and build.active):
+		return false
+	if _posture == POSTURE_PRONE:
+		return false
+	# Must be actively pushing toward the ledge (a lean, not a drift-by).
+	var input_dir: Vector2 = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
+	if input_dir.length() < 0.5:
+		return false
+	var forward: Vector3 = transform.basis * Vector3(input_dir.x, 0.0, input_dir.y)
+	forward.y = 0.0
+	if forward.length() < 0.1:
+		return false
+	forward = forward.normalized()
+	var world: World3D = get_world_3d()
+	if world == null:
+		return false
+	var space: PhysicsDirectSpaceState3D = world.direct_space_state
+	var feet_y: float = global_position.y
+	var radius: float = 0.4
+	var ahead: Vector3 = Vector3(global_position.x, 0.0, global_position.z) + forward * (radius + 0.35)
+	# 1. Drop a ray just past the capsule to find the ledge top, and require it be a
+	#    walkable surface sitting between knee and chest height above the feet.
+	var top_hit: Dictionary = _mantle_ray(space,
+		Vector3(ahead.x, feet_y + MANTLE_MAX_H + 0.1, ahead.z),
+		Vector3(ahead.x, feet_y + MANTLE_MIN_H - 0.1, ahead.z))
+	if top_hit.is_empty() or float(top_hit.normal.y) < 0.7:
+		return false
+	var ledge_y: float = float(top_hit.position.y)
+	var ledge_h: float = ledge_y - feet_y
+	if ledge_h < MANTLE_MIN_H or ledge_h > MANTLE_MAX_H:
+		return false
+	# 2. A solid face must sit below the lip at knee height — a step, not a thin rail.
+	#    Railings leave a gap there (posts are slim and get missed), so this refuses them.
+	if _mantle_ray(space,
+			Vector3(global_position.x, feet_y + 0.3, global_position.z),
+			Vector3(global_position.x, feet_y + 0.3, global_position.z) + forward * (radius + 0.45)).is_empty():
+		return false
+	# 3. Standing room for a full stand on the ledge, or there's nowhere to end up.
+	var dest: Vector3 = Vector3(ahead.x, ledge_y + 0.05, ahead.z)
+	if not _mantle_room(space, dest):
+		return false
+	_mantle_from = global_position
+	_mantle_to = dest
+	_mantle_t = 0.0
+	_mantling = true
+	velocity = Vector3.ZERO
+	return true
+
+## The assisted pull-up: a smoothstepped lerp from the takeoff point up onto the ledge
+## over MANTLE_TIME. Direct position moves (no move_and_slide) so it rides cleanly over
+## the lip; the destination was already proven clear before we committed.
+func _mantle_process(delta: float) -> void:
+	_mantle_t += delta
+	var a: float = clampf(_mantle_t / MANTLE_TIME, 0.0, 1.0)
+	var s: float = a * a * (3.0 - 2.0 * a)
+	global_position = _mantle_from.lerp(_mantle_to, s)
+	velocity = Vector3.ZERO
+	if a >= 1.0:
+		_mantling = false
+		_mantle_cd = 0.35
+		swimming = false     # a mantle out of the sea lands you dry on the deck
+		_deep_t = 0.0
+
+## A world-only ray (collision layer 1, excluding the player) as a plain hit Dictionary.
+func _mantle_ray(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3) -> Dictionary:
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	q.collision_mask = 1
+	q.exclude = [get_rid()]
+	return space.intersect_ray(q)
+
+## True if a full standing capsule fits at `dest_feet` clear of world geometry — the
+## "is there room up there to stand" check that keeps mantles off cramped ledges.
+func _mantle_room(space: PhysicsDirectSpaceState3D, dest_feet: Vector3) -> bool:
+	var cap := CapsuleShape3D.new()
+	cap.radius = 0.35
+	cap.height = STAND_HEIGHT
+	var params := PhysicsShapeQueryParameters3D.new()
+	params.shape = cap
+	params.collision_mask = 1
+	params.exclude = [get_rid()]
+	params.transform = Transform3D(Basis(), dest_feet + Vector3(0.0, STAND_HEIGHT * 0.5, 0.0))
+	return space.intersect_shape(params, 1).is_empty()
 
 ## Composed local transform of `node` relative to ancestor `root` (tree-independent).
 static func _transform_relative_to(node: Node3D, root: Node3D) -> Transform3D:

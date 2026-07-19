@@ -255,13 +255,15 @@ func _wet_deck() -> void:
 	_p("pipe_wrench", Vector3(25.3, bench, -17.3), 200)
 	# Tool chest parked against the storeroom face, east of the bench.
 	_pc("metal_tool_chest", Vector3(26.7, y, -17.8), -90)
+	# Toolbox on the deck directly to the RIGHT (east) of the rigging bench (owner spec),
+	# forward of the tool chest so the two don't overlap.
+	_pc("metal_toolbox", Vector3(26.3, y, -18.8), -90)
 	# Jerry cans and a bucket by the storeroom wall.
 	_pc("metal_jerrycan", Vector3(11.6, y, -21.4), 25)
 	_pc("plastic_jerrycan", Vector3(12.2, y, -21.5), -40)
 	_p("wooden_bucket_01", Vector3(12.9, y, -21.3), 0)
-	# A caged worklight glowing over the bench — the one warm point down here.
-	_pw("caged_hanging_light", Vector3(25.0, y + 2.4, -17.5))
-	_lamp(Vector3(25.0, y + 2.2, -17.5), Color(1.0, 0.8, 0.55), 0.7, 5.0)
+	# The bench worklight is a real anchored gooseneck fixture built in rig_builder
+	# (_worklight_gooseneck), not a lamp hung from thin air over open deck.
 	# Fire extinguisher bracketed by the stair door; a case of rations against the wall.
 	_pw("korean_fire_extinguisher_01", Vector3(24.6, y + 0.55, -6.3), 180, 1.1)
 	_p("long_life_food", Vector3(11.0, y + 0.02, -21.3), 20)
@@ -361,9 +363,8 @@ func _machine_shop() -> void:
 	# A hand truck parked against the east wall; a searchlight on the shelf run.
 	_pc("hand_truck", Vector3(-23.5, y, -11.4), 100)
 	_p("portable_searchlight", Vector3(-26.6, y + 1.3, -12.5), 40)   # on the shelf run
-	# Worklight over the bench.
-	_pw("industrial_wall_lamp", Vector3(-19.6, y + 2.3, -12.4), 0)
-	_lamp(Vector3(-19.6, y + 2.1, -12.2), Color(1.0, 0.85, 0.6), 0.6, 5.0)
+	# The bench worklight is an anchored ceiling-hung fixture built in rig_builder
+	# (_worklight_ceiling) — the old industrial_wall_lamp floated mid-room over the bench.
 
 # ---- Deck B: crew cabins ----
 # Desks are 1.2 x 0.6 with a top at y+0.80; lockers are 0.55 square with a top at y+1.80.
@@ -400,7 +401,7 @@ func _deck_c_control() -> void:
 	# room's east bulkhead (x 23), with its operator's stool pulled out in front of it.
 	_pc("metal_office_desk", Vector3(22.2, y, 16.2), 90)
 	_p("vintage_radio_transceiver", Vector3(22.2, y + 1.0, 16.2), 90)
-	_lamp(Vector3(22.0, y + 1.35, 16.2), Color(0.5, 0.9, 0.7), 0.35, 3.0)   # cold instrument glow
+	_lamp(Vector3(22.2, y + 1.15, 16.2), Color(0.5, 0.9, 0.7), 0.35, 3.0)   # cold instrument glow, on the radio
 	_p("binder_notebook", Vector3(17.5, y + 2.0, 17.4), -20)                # on an instrument rack
 	_pc("metal_stool_02", Vector3(21.2, y, 16.2), 0)
 	# Power panel + fire extinguisher on the bulkheads.

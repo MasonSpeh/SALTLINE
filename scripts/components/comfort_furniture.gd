@@ -412,18 +412,39 @@ class CampBed extends Interactable:
 
 	func _init() -> void:
 		display_name = "Bedroll"
-		verbs = ["SLEEP"] as Array[String]
+		# E lies you down any time; SLEEP joins the list at night/dusk and is reached by
+		# pressing S while lying (player_controller.lie_on_bed). A direct SLEEP interact
+		# still runs the full flow, so the placement/sleep probes drive the same path.
+		verbs = ["LIE DOWN"] as Array[String]
 
 	func available_verbs() -> Array[String]:
 		if _busy:
 			return [] as Array[String]
 		if GameClock.current_phase == GameClock.Phase.NIGHT \
 				or GameClock.current_phase == GameClock.Phase.DUSK:
-			return ["SLEEP"] as Array[String]
-		return [] as Array[String]
+			return ["LIE DOWN", "SLEEP"] as Array[String]
+		return ["LIE DOWN"] as Array[String]
+
+	## Body park position + facing when lying on the bedroll (low on the deck), and the
+	## night/dusk sleep gate the controller checks before honouring an S press.
+	func bed_lie_pos() -> Vector3:
+		return global_position + global_transform.basis.y * 0.15
+
+	func bed_lie_yaw() -> float:
+		return global_rotation.y
+
+	func bed_can_sleep() -> bool:
+		return available_verbs().has("SLEEP")
 
 	func interact(verb: String, player: Node3D) -> void:
 		if _busy:
+			return
+		if verb == "LIE DOWN":
+			super.interact(verb, player)
+			if player and player.has_method("lie_on_bed"):
+				player.lie_on_bed(self)
+			return
+		if verb != "SLEEP":
 			return
 		_busy = true
 		super.interact(verb, player)
@@ -455,6 +476,9 @@ class CampBed extends Interactable:
 			player.input_locked = false
 		PlayerState.resting = false
 		_busy = false
+		# Stand back up if we slept from the lying posture; no-op for the sleep probes.
+		if is_instance_valid(player) and player.has_method("bed_sleep_finished"):
+			player.bed_sleep_finished()
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud:
 			hud.toast("Your own bed, in your own place. You wake rested, and hungry for it.")

@@ -222,6 +222,54 @@ func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float =
 		_box(cl + Vector3(0, 2.2 + lintel_h * 0.5, 0),
 			Vector3(door_w, lintel_h, WALL_T) if along_x else Vector3(WALL_T, lintel_h, door_w), mat)
 
+## Hang a real hinged door at a given hinge line. leaf_dir is the world direction the
+## closed leaf runs (hinge -> free edge). A plain Node3D pivot carries the orientation
+## so the InteractDoor's own rotation stays 0 when closed and swings +-100deg off that.
+func _hang_door(hinge_world: Vector3, leaf_dir: Vector3, wooden: bool,
+		leaf_w: float, leaf_h: float, name_: String = "Door") -> InteractDoor:
+	var pivot := Node3D.new()
+	add_child(pivot)
+	pivot.global_position = hinge_world
+	pivot.rotation.y = atan2(-leaf_dir.z, leaf_dir.x)
+	var door := InteractDoor.new()
+	door.wooden = wooden
+	door.display_name = name_
+	pivot.add_child(door)
+	door.build_door(leaf_w, leaf_h)
+	return door
+
+## Cut a doorway in a wall (same opening as _wall's door_t) AND fit it with a framed,
+## hinged door. The steel frame liner is sized to the FULL 2.2m opening so its top
+## meets the lintel — no dark gap. wooden=true gives a plank leaf; hinge_at_a picks
+## which jamb the leaf hangs on. Returns the door for callers that want to lock it.
+func _fit_door(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float,
+		wooden: bool = true, hinge_at_a: bool = true, name_: String = "Door") -> InteractDoor:
+	_wall(a, b, height, mat, door_t)
+	var dir: Vector3 = b - a
+	var length: float = dir.length()
+	var along_x: bool = absf(dir.x) > absf(dir.z)
+	var u: Vector3 = dir.normalized()
+	var door_pos: float = clampf(door_t, 0.1, 0.9) * length
+	var center: Vector3 = a + u * door_pos          # doorway centre on the wall line, y=a.y
+	const OPEN_W: float = 1.4
+	const OPEN_H: float = 2.2
+	var half: float = OPEN_W * 0.5
+	var steel: Material = MatLib.rust_steel()
+	# Frame liner that MEETS the opening top (fixes the frame-tops-below-the-opening gap).
+	var ja: Vector3 = center - u * half
+	var jb: Vector3 = center + u * half
+	if along_x:
+		_box(Vector3(ja.x, a.y + OPEN_H * 0.5, a.z), Vector3(0.12, OPEN_H, WALL_T + 0.1), steel, self, false)
+		_box(Vector3(jb.x, a.y + OPEN_H * 0.5, a.z), Vector3(0.12, OPEN_H, WALL_T + 0.1), steel, self, false)
+		_box(Vector3(center.x, a.y + OPEN_H + 0.08, a.z), Vector3(OPEN_W + 0.24, 0.16, WALL_T + 0.1), steel, self, false)
+	else:
+		_box(Vector3(a.x, a.y + OPEN_H * 0.5, ja.z), Vector3(WALL_T + 0.1, OPEN_H, 0.12), steel, self, false)
+		_box(Vector3(a.x, a.y + OPEN_H * 0.5, jb.z), Vector3(WALL_T + 0.1, OPEN_H, 0.12), steel, self, false)
+		_box(Vector3(a.x, a.y + OPEN_H + 0.08, center.z), Vector3(WALL_T + 0.1, 0.16, OPEN_W + 0.24), steel, self, false)
+	var ld: Vector3 = u if hinge_at_a else -u       # leaf direction: hinge -> free edge
+	var hinge: Vector3 = center - ld * (half - 0.02)
+	return _hang_door(Vector3(hinge.x, a.y, hinge.z), ld, wooden, OPEN_W - 0.06, OPEN_H - 0.08, name_)
+
 ## Square corner columns that swallow the seam where two centred walls meet, so
 ## corners read as one clean cast pilaster instead of a mitred notch. `corners`
 ## are floor-level XZ points; the post rises `height` from `y`.
@@ -443,32 +491,42 @@ func _build_wet_deck() -> void:
 		for hz in [-19.0, -21.0]:
 			_box(Vector3(hx, 0.1, hz), Vector3(0.1, 2.8, 0.1), MatLib.dark_metal(), self, false)
 
-	# Flooded pump room (knee-deep water, cold zone).
+	# Pump room — drained now. It read as a silly waist-deep swimming pool with a
+	# standing translucent slab; owner pulled the water. What's left is the AFTERMATH:
+	# a waterline stain ringing the walls where the flood once stood, silt and a couple
+	# of puddles on the floor, corroded gear. (The old cold WarmthZone and the water
+	# plane are gone; the storm-shelter box in storm_system.gd is the roofed-room bounds,
+	# not the water, and still applies.)
 	var pr_mat: Material = MatLib.concrete()
-	_wall(Vector3(10, WET_Y, -14), Vector3(18, WET_Y, -14), WALL_H, pr_mat, 0.5)
+	_fit_door(Vector3(10, WET_Y, -14), Vector3(18, WET_Y, -14), WALL_H, pr_mat, 0.5, true, true, "Pump Room")
 	_wall(Vector3(10, WET_Y, -6), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
 	_wall(Vector3(10, WET_Y, -14), Vector3(10, WET_Y, -6), WALL_H, pr_mat)
 	_wall(Vector3(18, WET_Y, -14), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
 	_corner_posts([Vector3(10, 0, -14), Vector3(18, 0, -14), Vector3(10, 0, -6), Vector3(18, 0, -6)],
 		WET_Y, WALL_H, pr_mat)
 	_box(Vector3(14, WET_Y + WALL_H, -10), Vector3(8.5, 0.25, 8.5), pr_mat) # roof
-	var water := _box(Vector3(14, WET_Y + 0.27, -10), Vector3(7.6, 0.55, 7.6), null, self, false)
-	var wmat := StandardMaterial3D.new()
-	wmat.albedo_color = Color(0.1, 0.2, 0.22, 0.6)
-	wmat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	water.material = wmat
-	var cold := WarmthZone.new()
-	cold.mode = -1
-	cold.setup(Vector3(8, 3, 8))
-	add_child(cold)
-	cold.global_position = Vector3(14, WET_Y + 1.5, -10)
-	_box(Vector3(12, WET_Y + 0.9, -12), Vector3(1.5, 1.8, 1.5), MatLib.dark_metal()) # dead pump
+	# Waterline stain band on the inner wall faces, at the old flood height (~knee).
+	var stain: Material = MatLib.tide_band()
+	_box(Vector3(10.2, WET_Y + 0.55, -10), Vector3(0.04, 0.42, 7.5), stain, self, false)   # west
+	_box(Vector3(17.8, WET_Y + 0.55, -10), Vector3(0.04, 0.42, 7.5), stain, self, false)   # east
+	_box(Vector3(14, WET_Y + 0.55, -6.2), Vector3(7.5, 0.42, 0.04), stain, self, false)    # north
+	_box(Vector3(15.6, WET_Y + 0.55, -13.8), Vector3(4.2, 0.42, 0.04), stain, self, false) # south (clear of the door)
+	# Silt drifts and a puddle or two the drain never took — flat, wet-dark, on the deck.
+	var wet: Material = MatLib.flat(Color(0.05, 0.09, 0.09))
+	var silt: Material = MatLib.flat(Color(0.17, 0.15, 0.11))
+	_box(Vector3(13.4, WET_Y + 0.015, -9.2), Vector3(2.6, 0.03, 1.9), wet, self, false)
+	_box(Vector3(16.2, WET_Y + 0.015, -11.4), Vector3(1.7, 0.03, 1.3), wet, self, false)
+	_box(Vector3(11.4, WET_Y + 0.02, -7.4), Vector3(1.5, 0.04, 1.1), silt, self, false)
+	# Corroded gear: the dead pump, now weeping rust down its flanks.
+	_box(Vector3(12, WET_Y + 0.9, -12), Vector3(1.5, 1.8, 1.5), MatLib.rusty_metal()) # dead pump
+	for sx in [-0.6, 0.0, 0.55]:
+		_box(Vector3(12 + sx, WET_Y + 0.9, -11.22), Vector3(0.06, 1.7, 0.02), stain, self, false)
 	_readable("pump_room_tag", "Lockout Tag", Vector3(12, WET_Y + 1.4, -11.1), Vector3(0.25, 0.3, 0.05))
 	_crate(["canned_food", "flare"], "Sealed Crate", Vector3(16.5, WET_Y + 0.01, -8))
 
 	# Loot room on the south edge.
 	var lr_mat: Material = MatLib.concrete()
-	_wall(Vector3(10, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat, 0.5)
+	_fit_door(Vector3(10, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat, 0.5, true, false, "Store Room")
 	_wall(Vector3(10, WET_Y, -22), Vector3(16, WET_Y, -22), WALL_H, lr_mat)
 	_wall(Vector3(10, WET_Y, -22), Vector3(10, WET_Y, -16), WALL_H, lr_mat)
 	_wall(Vector3(16, WET_Y, -22), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
@@ -845,7 +903,7 @@ func _build_bunkhouse() -> void:
 	_wall(Vector3(-28, y, 4), Vector3(-8, y, 4), WALL_H, mat)
 	_wall(Vector3(-28, y, 18), Vector3(-8, y, 18), WALL_H, mat)
 	_wall(Vector3(-28, y, 4), Vector3(-28, y, 18), WALL_H, mat)
-	_wall(Vector3(-8, y, 4), Vector3(-8, y, 18), WALL_H, mat, 0.5) # east entrance into corridor
+	_fit_door(Vector3(-8, y, 4), Vector3(-8, y, 18), WALL_H, mat, 0.5, true, true, "Bunkhouse") # east entrance into corridor
 	_corner_posts([Vector3(-28, 0, 4), Vector3(-8, 0, 4), Vector3(-28, 0, 18), Vector3(-8, 0, 18)],
 		y, WALL_H, mat)
 	_box(Vector3(-18, y + WALL_H, 11), Vector3(20.5, 0.25, 14.5), mat)
@@ -879,7 +937,7 @@ func _build_bunkhouse() -> void:
 func _build_galley() -> void:
 	var mat: Material = MatLib.concrete()
 	var y: float = DECK_Y
-	_wall(Vector3(-2, y, 8), Vector3(14, y, 8), WALL_H, mat, 0.5)   # south door
+	_fit_door(Vector3(-2, y, 8), Vector3(14, y, 8), WALL_H, mat, 0.5, true, true, "Galley")   # south door
 	_wall(Vector3(-2, y, 18), Vector3(14, y, 18), WALL_H, mat)
 	_wall(Vector3(-2, y, 8), Vector3(-2, y, 18), WALL_H, mat)
 	_wall(Vector3(14, y, 8), Vector3(14, y, 18), WALL_H, mat)
@@ -914,7 +972,7 @@ func _build_rec_room() -> void:
 	var y: float = DECK_Y
 	_wall(Vector3(18, y, 8), Vector3(28, y, 8), WALL_H, mat)
 	_wall(Vector3(18, y, 18), Vector3(28, y, 18), WALL_H, mat)
-	_wall(Vector3(18, y, 8), Vector3(18, y, 18), WALL_H, mat, 0.3)  # west door
+	_fit_door(Vector3(18, y, 8), Vector3(18, y, 18), WALL_H, mat, 0.3, true, true, "Rec Room")  # west door
 	_wall(Vector3(28, y, 8), Vector3(28, y, 18), WALL_H, mat)
 	_corner_posts([Vector3(18, 0, 8), Vector3(28, 0, 8), Vector3(18, 0, 18), Vector3(28, 0, 18)],
 		y, WALL_H, mat)
@@ -945,12 +1003,15 @@ func _build_machine_shop() -> void:
 	_box(Vector3(-14, y + 0.4, -12), Vector3(0.15, 0.8, 2.0), mat)   # sill below window
 	_box(Vector3(-14, y + 2.7, -12), Vector3(0.15, 1.0, 2.0), mat)   # header above window
 	_box(Vector3(-21, y + WALL_H, -12), Vector3(14.5, 0.25, 12.5), mat)
-	var door := InteractDoor.new()
-	door.display_name = "Machine Shop"
-	door.locked = false   # was locked+offset from its opening (looked blocked); now openable
-	add_child(door)
-	door.global_position = Vector3(-14, y, -15.0)   # centred in the wall opening (z-15.7..-14.3)
-	door.build_box_visual(Vector3(0.12, 2.2, 1.3), MatLib.flat(Color(0.4, 0.42, 0.4)).albedo_color)
+	# A real hinged plank door in the east-wall opening (z-15.7..-14.3). Was a slab that
+	# pivoted about its own centre (half the leaf swung into the room, half out); now it
+	# hangs on the south jamb and swings clear of whoever opens it. Steel liner meets the
+	# 2.2m opening top so there is no dark gap above the frame.
+	var steel: Material = MatLib.rust_steel()
+	_box(Vector3(-14, y + 1.1, -15.7), Vector3(WALL_T + 0.1, 2.2, 0.12), steel, self, false)
+	_box(Vector3(-14, y + 1.1, -14.3), Vector3(WALL_T + 0.1, 2.2, 0.12), steel, self, false)
+	_box(Vector3(-14, y + 2.28, -15.0), Vector3(WALL_T + 0.1, 0.16, 1.64), steel, self, false)
+	_hang_door(Vector3(-14, y, -15.68), Vector3(0, 0, 1), true, 1.34, 2.12, "Machine Shop")
 	_readable("machine_shop_sign", "Posted Notice", Vector3(-13.85, y + 1.5, -10.6), Vector3(0.05, 0.4, 0.3))
 	# The raft plans, posted on the shop's outer face below the sealed notice — the escape
 	# that the sea would never allow (readable from the accessible side, clear of the pane).
@@ -1111,10 +1172,17 @@ func _build_sphl() -> void:
 	_box(Vector3((gap_w + gap_e) * 0.5, fy - 0.05, iz_n + 0.85), Vector3(gap_e - gap_w + 0.6, 0.1, 1.9), MatLib.wood())
 
 	# --- interior dressing: red light, pressure readout, wake-up readables on benches ---
+	# The emergency lamp is a caged red dome bolted to the pod ceiling (it used to be a
+	# bare OmniLight hanging in the middle of the air). Housing + red lens + guard ribs,
+	# with the light just under the lens.
+	_box(Vector3(16.5, ceil_y - 0.11, cz), Vector3(0.26, 0.12, 0.26), MatLib.dark_metal(), self, false)
+	_cyl_nc(Vector3(16.5, ceil_y - 0.24, cz), 0.11, 0.1, MatLib.flat(Color(0.95, 0.12, 0.08), true, 2.2))
+	for rib in [-0.1, 0.0, 0.1]:
+		_box(Vector3(16.5 + rib, ceil_y - 0.26, cz), Vector3(0.02, 0.16, 0.02), MatLib.dark_metal(), self, false)
 	var red := OmniLight3D.new()
 	red.light_color = Color(0.9, 0.15, 0.1); red.light_energy = 1.6; red.omni_range = 5.0
 	red.light_volumetric_fog_energy = 2.0
-	add_child(red); red.global_position = Vector3(16.5, fy + 1.9, cz)
+	add_child(red); red.global_position = Vector3(16.5, ceil_y - 0.42, cz)
 	# Pressure readout, on a real panel. This was a bare green Label3D hanging at
 	# the bulkhead: unshaded so it glowed, double_sided so the face you actually
 	# woke up looking at from the benches was its MIRRORED back, and yawed -90 so
@@ -1412,6 +1480,10 @@ func _decorate_machine_shop() -> void:
 	for i in range(3):
 		_box(Vector3(-26.5, y + 0.2, -14.5 + i * 1.4), Vector3(0.8, 0.4, 1.0),
 			MatLib.flat([Color(0.55, 0.25, 0.2), Color(0.25, 0.35, 0.5), Color(0.45, 0.45, 0.4)][i]))
+	# The bench worklight — hung from the ceiling on a conduit (was an industrial_wall_lamp
+	# prop floating in mid-room over the bench with no wall behind it and nothing above it).
+	_worklight_ceiling(Vector3(-19.85, y + 2.35, -12.05), y + WALL_H - 0.12,
+		Color(1.0, 0.85, 0.6), 0.65, 5.5)
 
 func _decorate_pump_room() -> void:
 	var y: float = WET_Y
@@ -1453,6 +1525,52 @@ func _decorate_electrical() -> void:
 
 # ---------- Environmental objects ----------
 
+# ---------- Anchored worklight fixtures ----------
+# Every OmniLight on the rig has to sit within ~0.4m of visible fixture geometry
+# (tests/LightAnchorProbe.tscn is the guard). These build the fixture AND the light
+# together so a light can never end up floating in open air.
+
+func _fixture_light(pos: Vector3, color: Color, energy: float, rng: float) -> void:
+	var l := OmniLight3D.new()
+	l.light_color = color
+	l.light_energy = energy
+	l.omni_range = rng
+	l.shadow_enabled = false
+	add_child(l)
+	l.global_position = pos
+
+## A caged worklight HEAD centred at `pos`: dark housing, an emissive lens, guard ribs.
+func _caged_head(pos: Vector3) -> void:
+	_box(pos, Vector3(0.22, 0.2, 0.22), MatLib.dark_metal(), self, false)
+	_cyl_nc(pos + Vector3(0, -0.11, 0), 0.08, 0.1, MatLib.flat(Color(1.0, 0.88, 0.6), true, 1.6))
+	for rib in [-0.08, 0.0, 0.08]:
+		_box(pos + Vector3(rib, -0.12, 0), Vector3(0.02, 0.16, 0.02), MatLib.dark_metal(), self, false)
+
+## Gooseneck worklight standing on the deck: base plate + post at `base` (base.y=deck),
+## an arm reaching over `head`, the caged head hanging at `head`, warm light beneath it.
+func _worklight_gooseneck(base: Vector3, head: Vector3, color: Color, energy: float, rng: float) -> void:
+	var dark: Material = MatLib.dark_metal()
+	var top_y: float = head.y + 0.28
+	_box(Vector3(base.x, base.y + 0.03, base.z), Vector3(0.24, 0.06, 0.24), dark, self, false)
+	_box(Vector3(base.x, (base.y + top_y) * 0.5, base.z), Vector3(0.1, top_y - base.y, 0.1), dark, self, false)
+	var mid := Vector3((base.x + head.x) * 0.5, top_y, (base.z + head.z) * 0.5)
+	var dx: float = absf(head.x - base.x)
+	var dz: float = absf(head.z - base.z)
+	var arm_len: float = maxf(dx, dz) + 0.1
+	_box(mid, Vector3(arm_len, 0.07, 0.07) if dx >= dz else Vector3(0.07, 0.07, arm_len), dark, self, false)
+	_box(Vector3(head.x, (top_y + head.y) * 0.5 + 0.06, head.z), Vector3(0.04, top_y - head.y, 0.04), dark, self, false)
+	_caged_head(head)
+	_fixture_light(head - Vector3(0, 0.18, 0), color, energy, rng)
+
+## Ceiling-hung worklight: a junction box on the ceiling at `ceil_y`, a short conduit
+## drop to the caged head at `head`, warm light beneath it. For roofed interior bays.
+func _worklight_ceiling(head: Vector3, ceil_y: float, color: Color, energy: float, rng: float) -> void:
+	var dark: Material = MatLib.dark_metal()
+	_box(Vector3(head.x, ceil_y - 0.06, head.z), Vector3(0.16, 0.12, 0.16), dark, self, false)
+	_box(Vector3(head.x, (ceil_y + head.y) * 0.5, head.z), Vector3(0.05, ceil_y - head.y, 0.05), dark, self, false)
+	_caged_head(head)
+	_fixture_light(head - Vector3(0, 0.18, 0), color, energy, rng)
+
 func _build_env_objects() -> void:
 	# Rigging bench + hook ingredients: rope by the crane, prybar in the pump room.
 	# Off to the WEST of the SPHL hatch (exit corridor is x18.6–21.4) so stepping
@@ -1463,6 +1581,12 @@ func _build_env_objects() -> void:
 	bench.global_position = Vector3(25.0, WET_Y, -17.5)
 	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true)
 	_box(Vector3(25.0, WET_Y + 0.93, -17.5), Vector3(1.7, 0.06, 0.8), MatLib.wood(), self, false)
+	# Caged worklight on a real gooseneck — the bench's own light, no longer a lamp
+	# hanging from thin air (the old caged_hanging_light floated 2.4m over open deck
+	# with nothing above it). A post stands off the bench BACK edge, an arm reaches out
+	# over the top, and the caged head hangs from the arm end.
+	_worklight_gooseneck(Vector3(25.0, WET_Y, -17.05), Vector3(25.0, WET_Y + 2.32, -17.5),
+		Color(1.0, 0.82, 0.55), 0.75, 5.5)
 	# The Rigger's Handbook — chained to the bench, lists every recipe and how the
 	# bench works. A lectern stand so it reads as a fixed shop reference, not loot.
 	_box(Vector3(26.05, WET_Y + 0.62, -17.5), Vector3(0.35, 0.06, 0.5), MatLib.dark_metal(), self, false).rotation.z = deg_to_rad(-18)

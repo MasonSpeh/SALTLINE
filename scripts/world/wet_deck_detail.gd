@@ -85,6 +85,23 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
 	l.rotation.y = deg_to_rad(yaw_deg)
 	l.rotation.x = deg_to_rad(pitch_deg)
 
+## A stencilled sign backed by a bolted plate: draws a dark placard directly behind the
+## label's own text face (along its back direction) so the marking reads as printed on a
+## real object rather than floating. Pass the same yaw/pitch you would pass _plabel.
+func _signplate(text: String, pos: Vector3, yaw_deg: float, font_size: int, color: Color,
+		w: float, h: float, pitch_deg: float = 0.0) -> void:
+	var b := Basis.from_euler(Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg), 0.0))
+	var back: Vector3 = -b.z.normalized()
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(w, h, 0.03)
+	bm.material = MatLib.dark_metal()
+	mi.mesh = bm
+	add_child(mi)
+	mi.position = pos + back * 0.03
+	mi.rotation = Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg), 0.0)
+	_plabel(text, pos, yaw_deg, font_size, color, pitch_deg)
+
 func _readable(id: String, name_: String, pos: Vector3, size: Vector3 = Vector3(0.35, 0.45, 0.06)) -> Readable:
 	var r := Readable.new()
 	r.readable_id = id
@@ -164,7 +181,9 @@ func _boat_landing() -> void:
 		var patch := _dbox(Vector3(28.4 + 0.36 * cos(q * PI / 2 + PI / 4), y + 1.55 + 0.36 * sin(q * PI / 2 + PI / 4), -21.75),
 			Vector3(0.14, 0.14, 0.09), MatLib.flat(Color(0.92, 0.92, 0.9)))
 		patch.rotation.z = q * PI / 2 + PI / 4
-	_plabel("LIFEBUOY", Vector3(28.4, y + 2.1, -21.79), 180, 14, Color(0.88, 0.88, 0.84))
+	# Nameplate on the bracket post, below the ring, facing the deck — was floating text
+	# above the ring with nothing behind it.
+	_signplate("LIFEBUOY", Vector3(28.4, y + 0.95, -21.72), 0, 12, Color(0.88, 0.88, 0.84), 0.8, 0.22)
 	# Line-throwing set: the orange box every landing carries.
 	_dbox(Vector3(26.7, y + 0.16, -20.5), Vector3(0.5, 0.3, 0.3), MatLib.flat(Color(0.85, 0.45, 0.1)))
 	_plabel("LINE THROWER", Vector3(26.7, y + 0.2, -20.34), 180, 10, Color(0.92, 0.92, 0.88))
@@ -288,7 +307,8 @@ func _pipe_gallery() -> void:
 	var vw2 := _dtorus(Vector3(9.45, y + 2.05, -9.0), 0.08, 0.19, MatLib.flat(Color(0.8, 0.68, 0.2)))
 	vw2.rotation.x = deg_to_rad(0)
 	_dcyl(Vector3(9.45, y + 1.82, -9.0), 0.06, 0.4, MatLib.galvanized())
-	_plabel("SW MAIN — GRAVITY FEED", Vector3(9.6, y + 0.62, -16.5), 90, 13, Color(0.75, 0.78, 0.72))
+	# Stencil plate on the seawater main (was floating in the alley beside the pipe).
+	_signplate("SW MAIN — GRAVITY FEED", Vector3(9.3, y + 1.0, -16.5), 90, 12, Color(0.75, 0.78, 0.72), 1.5, 0.24)
 	# Cable tray along the pump-room west wall, dropping to a junction box.
 	for tray_p in [Vector3(9.82, y + 2.55, -10.0)]:
 		_dbox(tray_p, Vector3(0.3, 0.04, 7.6), MatLib.galvanized())
@@ -329,7 +349,9 @@ func _pump_skids() -> void:
 		# Dead gauge, needle at zero.
 		var g := _dcyl(Vector3(p.x + 0.72, y + 1.0, p.z - 0.45), 0.1, 0.04, MatLib.flat(Color(0.88, 0.88, 0.82)))
 		g.rotation.x = deg_to_rad(90)
-		_plabel(s[2], Vector3(p.x, y + 1.35, p.z - 0.62), 180, 14, Color(0.85, 0.85, 0.78))
+		# Bolted nameplate on the pump-skid front — was floating upright above the pump
+		# with nothing behind it. Now the stencil sits on a real plate on the housing.
+		_signplate(s[2], Vector3(p.x, y + 0.9, p.z - 0.62), 180, 12, Color(0.85, 0.85, 0.78), 1.9, 0.28)
 
 # ---------------------------------------------------------------- girder ceiling
 
@@ -377,7 +399,9 @@ func _vents_and_hatches() -> void:
 		var dog := _dbox(Vector3(14.8 + 0.38 * cos(d * PI / 2), y + 0.37, -18.2 + 0.38 * sin(d * PI / 2)),
 			Vector3(0.16, 0.04, 0.05), MatLib.galvanized())
 		dog.rotation.y = d * PI / 2
-	_plabel("W.T. HATCH — CHAIN LOCKER 4-SW · KEEP CLOSED", Vector3(14.8, y + 0.55, -17.7), 180, 11, Color(0.88, 0.88, 0.82))
+	# Terse stencil laid FLAT on the hatch lid, in three short lines that fit the 0.84m
+	# lid (the old single-line sign was 3m of text with nothing behind it). The lid backs it.
+	_plabel("W.T. HATCH\n4-SW\nKEEP CLOSED", Vector3(14.8, y + 0.37, -18.2), 180, 9, Color(0.88, 0.88, 0.82), -90)
 	# Bilge gutters along the deck edges.
 	_dbox(Vector3(8.22, y + 0.015, -10.0), Vector3(0.24, 0.03, 23.6), MatLib.dark_metal())
 	_dbox(Vector3(12.0, y + 0.015, -21.86), Vector3(7.6, 0.03, 0.24), MatLib.dark_metal())

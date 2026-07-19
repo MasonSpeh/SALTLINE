@@ -18,6 +18,10 @@ signal item_eaten(item_id: String)
 const LOW_THRESHOLD: float = 0.5
 const HOTBAR_SIZE: int = 4
 const MAX_BACKPACK: int = 12   ## Minecraft-ish, but a day pack, not a warehouse
+## Same-id items pile into one slot up to this many — food, kits, salvage all stack,
+## so a night's fishing is one slot instead of sixteen. Tools are the exception (see
+## is_stackable): a wrench is a wrench, you carry one.
+const MAX_STACK: int = 16
 ## Worn gear that actually does something. These are the ONLY numbers behind the
 ## three upgrade crafts — without them the recipes promised mechanics that did not
 ## exist anywhere in the codebase.
@@ -49,6 +53,12 @@ var rest: float = 1.0 : set = set_rest
 var comfort: float = 0.0 : set = set_comfort
 var hotbar: Array = [null, null, null, null]
 var inventory: Array = [] ## overflow list beyond the hotbar
+## How many sit in each slot. Parallel to hotbar/inventory rather than folded into
+## them, so every existing caller that reads `hotbar[i]` / iterates `inventory` still
+## sees a plain item id (or null) — the count rides alongside. Counts are only ever
+## meaningful where the matching slot holds an id; a null slot's count is ignored.
+var hotbar_counts: Array = [1, 1, 1, 1]
+var inventory_counts: Array = [] ## parallel to inventory, one int per stack
 var selected_hotbar: int = -1  ## last hotbar slot pressed (#1-4)
 
 ## Environmental warmth modifier, set by cold/heat zones: -1 cold, 0 neutral, +1 heated.
@@ -123,9 +133,12 @@ func _process(delta: float) -> void:
 	elif GameClock.current_phase == GameClock.Phase.NIGHT:
 		w_rate = tuning.get("warmth_per_sec_night", -0.0015)
 	# Patched boots only help against LOSING heat — they are insulation, not a fire,
-	# so they never slow you warming up at a brazier.
+	# so they never slow you warming up at a brazier. The relief fraction is the
+	# economy agent's `cold_relief` field on the item, not a hard-coded number, so a
+	# tuning pass on the boots needs no code change; BOOTS_COLD_RELIEF is the fallback.
 	if w_rate < 0.0 and has_item("patched_boots"):
-		w_rate *= (1.0 - BOOTS_COLD_RELIEF)
+		var relief: float = float(items.get("patched_boots", {}).get("cold_relief", BOOTS_COLD_RELIEF))
+		w_rate *= (1.0 - relief)
 	warmth += w_rate * delta
 	sickness = maxf(0.0, sickness - delta * 0.15)  # recover from sickness over time
 	# Life: starving or parched wears you down; fed + watered + mostly-well heals you.
@@ -224,10 +237,35 @@ func apply_comfort_payload(data: Dictionary) -> void:
 	comfort_target = comfort
 	camp_found = bool(data.get("camp_found", false))
 
+## How tall a stack of this item may grow. Tools never stack (a wrench is a wrench);
+## everything else piles to MAX_STACK.
+func is_stackable(item_id: String) -> bool:
+	return items.get(item_id, {}).get("use", "") != "tool"
+
+func _stack_cap(item_id: String) -> int:
+	return MAX_STACK if is_stackable(item_id) else 1
+
 func add_item(item_id: String) -> bool:
+	var cap: int = _stack_cap(item_id)
+	# Top up an existing stack before spending a fresh slot — hotbar first, then pack.
+	if cap > 1:
+		for i in range(HOTBAR_SIZE):
+			if hotbar[i] == item_id and int(hotbar_counts[i]) < cap:
+				hotbar_counts[i] = int(hotbar_counts[i]) + 1
+				inventory_changed.emit()
+				Journal.discover("item_" + item_id)
+				return true
+		for i in range(inventory.size()):
+			if inventory[i] == item_id and int(inventory_counts[i]) < cap:
+				inventory_counts[i] = int(inventory_counts[i]) + 1
+				inventory_changed.emit()
+				Journal.discover("item_" + item_id)
+				return true
+	# No room in an existing stack — take a fresh slot, hotbar before pack.
 	for i in range(HOTBAR_SIZE):
 		if hotbar[i] == null:
 			hotbar[i] = item_id
+			hotbar_counts[i] = 1
 			inventory_changed.emit()
 			Journal.discover("item_" + item_id)
 			return true
@@ -237,6 +275,7 @@ func add_item(item_id: String) -> bool:
 			hud.toast("Pack is full.")
 		return false
 	inventory.append(item_id)
+	inventory_counts.append(1)
 	inventory_changed.emit()
 	Journal.discover("item_" + item_id)
 	return true
@@ -248,8 +287,11 @@ func backpack_to_hotbar(inv_idx: int) -> bool:
 		return false
 	for i in range(HOTBAR_SIZE):
 		if hotbar[i] == null:
+			# The whole stack moves as a unit, count and all.
 			hotbar[i] = inventory[inv_idx]
+			hotbar_counts[i] = int(inventory_counts[inv_idx])
 			inventory.remove_at(inv_idx)
+			inventory_counts.remove_at(inv_idx)
 			inventory_changed.emit()
 			return true
 	return false
@@ -260,25 +302,118 @@ func hotbar_to_backpack(slot: int) -> bool:
 	if inventory.size() >= backpack_capacity():
 		return false
 	inventory.append(hotbar[slot])
+	inventory_counts.append(int(hotbar_counts[slot]))
 	hotbar[slot] = null
+	hotbar_counts[slot] = 1
 	inventory_changed.emit()
 	return true
 
+## Remove ONE of item_id — decrements the first stack found (hotbar before pack),
+## clearing the slot only when its count hits zero. Signature unchanged: every caller
+## that expected "take one away" still gets exactly that.
 func remove_item(item_id: String) -> bool:
 	var hotbar_idx: int = hotbar.find(item_id)
 	if hotbar_idx != -1:
-		hotbar[hotbar_idx] = null
+		_dec_hotbar(hotbar_idx)
 		inventory_changed.emit()
 		return true
 	var inv_idx: int = inventory.find(item_id)
 	if inv_idx != -1:
-		inventory.remove_at(inv_idx)
+		_dec_inventory(inv_idx)
 		inventory_changed.emit()
 		return true
 	return false
 
+## Take one off a hotbar stack; empty the slot (no auto-refill) when it runs out.
+func _dec_hotbar(i: int) -> void:
+	var c: int = int(hotbar_counts[i]) - 1
+	if c <= 0:
+		hotbar[i] = null
+		hotbar_counts[i] = 1
+	else:
+		hotbar_counts[i] = c
+
+## Take one off a pack stack; drop the slot entirely when it runs out.
+func _dec_inventory(i: int) -> void:
+	var c: int = int(inventory_counts[i]) - 1
+	if c <= 0:
+		inventory.remove_at(i)
+		inventory_counts.remove_at(i)
+	else:
+		inventory_counts[i] = c
+
 func has_item(item_id: String) -> bool:
 	return hotbar.has(item_id) or inventory.has(item_id)
+
+## Total across every stack — for callers that need the true item count, not slots.
+func count_item(item_id: String) -> int:
+	var n: int = 0
+	for i in range(HOTBAR_SIZE):
+		if hotbar[i] == item_id:
+			n += int(hotbar_counts[i])
+	for i in range(inventory.size()):
+		if inventory[i] == item_id:
+			n += int(inventory_counts[i])
+	return n
+
+## How many sit in a given hotbar / pack slot (0 for an empty or out-of-range slot).
+func hotbar_stack(slot: int) -> int:
+	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:
+		return 0
+	return int(hotbar_counts[slot])
+
+func inventory_stack(idx: int) -> int:
+	if idx < 0 or idx >= inventory.size():
+		return 0
+	return int(inventory_counts[idx])
+
+## Drop-one plumbing for the HUD: pull a single item off a unified slot index
+## (0..HOTBAR_SIZE-1 = hotbar, then the pack). Returns the id removed, or "".
+func take_one_from_slot(unified_idx: int) -> String:
+	if unified_idx < 0:
+		return ""
+	if unified_idx < HOTBAR_SIZE:
+		var id: Variant = hotbar[unified_idx]
+		if id == null:
+			return ""
+		_dec_hotbar(unified_idx)
+		inventory_changed.emit()
+		return String(id)
+	var inv_i: int = unified_idx - HOTBAR_SIZE
+	if inv_i >= inventory.size():
+		return ""
+	var iid: String = String(inventory[inv_i])
+	_dec_inventory(inv_i)
+	inventory_changed.emit()
+	return iid
+
+## Wholesale load of saved inventory, counts included. Tolerates old saves (no counts
+## arrays): a missing/short counts array defaults every occupied slot to one. Called by
+## SaveManager so hotbar/inventory and their counts can never drift out of length.
+func load_inventory(hb: Variant, hb_counts: Variant, inv: Variant, inv_counts: Variant) -> void:
+	hotbar = [null, null, null, null]
+	hotbar_counts = [1, 1, 1, 1]
+	if hb is Array:
+		for i in range(mini((hb as Array).size(), HOTBAR_SIZE)):
+			var v: Variant = (hb as Array)[i]
+			hotbar[i] = String(v) if v != null else null
+	inventory = []
+	inventory_counts = []
+	if inv is Array:
+		for v in (inv as Array):
+			if v == null:
+				continue
+			inventory.append(String(v))
+			inventory_counts.append(1)
+	# Overlay saved counts where present, clamped to each item's stack cap.
+	if hb_counts is Array:
+		for i in range(mini((hb_counts as Array).size(), HOTBAR_SIZE)):
+			if hotbar[i] != null:
+				hotbar_counts[i] = clampi(int((hb_counts as Array)[i]), 1, _stack_cap(hotbar[i]))
+	if inv_counts is Array:
+		for i in range(mini((inv_counts as Array).size(), inventory.size())):
+			inventory_counts[i] = clampi(int((inv_counts as Array)[i]), 1, _stack_cap(inventory[i]))
+	inventory_changed.emit()
 
 ## An upgraded tool does everything the crude one did. Without this the honed knife
 ## was a trap: its recipe EATS the crude knife, but every knife gate in the game
@@ -295,7 +430,11 @@ const TOOL_SUPERSEDES: Dictionary = {
 ## costs a slot and gives back more than it takes. Everything that asks "is there
 ## room" must come through here — MAX_BACKPACK is the bare-back number only.
 func backpack_capacity() -> int:
-	return MAX_BACKPACK + (TOOL_BELT_SLOTS if has_item("tool_belt") else 0)
+	var belt: int = 0
+	if has_item("tool_belt"):
+		# Honour the economy agent's `pack_slots` field; TOOL_BELT_SLOTS is the fallback.
+		belt = int(items.get("tool_belt", {}).get("pack_slots", TOOL_BELT_SLOTS))
+	return MAX_BACKPACK + belt
 
 ## True if the player is carrying this tool, or anything that supersedes it.
 func has_tool(tool_id: String) -> bool:
@@ -328,10 +467,17 @@ func use_hotbar(slot: int) -> void:
 		# Apply side effects (raw glow worm causes sickness)
 		if def.get("side_effect", "") == "sick":
 			sickness = 0.8
-		hotbar[slot] = null
-		# Pull an overflow item into the freed slot.
-		if not inventory.is_empty():
-			hotbar[slot] = inventory.pop_front()
+		# Eat one off the stack. Only when the slot truly empties does it get refilled
+		# from the pack — a stack of five cans keeps five slots' worth in one slot.
+		var remaining: int = int(hotbar_counts[slot]) - 1
+		if remaining > 0:
+			hotbar_counts[slot] = remaining
+		else:
+			hotbar[slot] = null
+			hotbar_counts[slot] = 1
+			if not inventory.is_empty():
+				hotbar[slot] = inventory.pop_front()
+				hotbar_counts[slot] = int(inventory_counts.pop_front())
 		inventory_changed.emit()
 		item_eaten.emit(id)
 		AudioDirector.play_one_shot("eat", Vector3.ZERO)

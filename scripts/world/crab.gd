@@ -32,6 +32,7 @@ var _claw_timer: Timer
 # Anatomy handles for the gait/menace animation.
 const KIT := preload("res://scripts/world/creature_kit.gd")
 const ANIM := preload("res://scripts/world/creature_anim.gd")
+const MOVE := preload("res://scripts/world/fauna_move.gd")
 var _legs: Array = []            ## [{hip: Node3D, knee: Node3D, phase: float, side: float}]
 var _claw_arms: Array = []       ## [Node3D] — rise when hunting
 var _pincers: Array = []         ## [Node3D] — idle open/close
@@ -310,17 +311,16 @@ var _stalled: float = 0.0
 ## position assignment (its whole FSM depends on that), so nothing in the physics world
 ## can push it — it used to walk straight through barrels, crates and bulkheads. Rather
 ## than convert it to a CharacterBody3D and rewrite the state machine, the step itself is
-## now collision-tested: probe the intended motion, and if it is blocked, SLIDE along the
-## obstruction the way a real body would. If it stays boxed in, give up the waypoint so it
-## can never wedge itself permanently.
+## collision-tested by the shared FaunaMove helper (the same wall-respecting step every
+## snail and deck gull now uses): probe the intended motion, slide along whatever blocks
+## it, and if it stays boxed in, give up the waypoint so it can never wedge itself.
 func _step_toward(target: Vector3, speed: float, delta: float) -> bool:
 	var to_target: Vector3 = target - global_position
 	if to_target.length() < 0.25:
 		_stalled = 0.0
 		return true
 	var step: Vector3 = to_target.normalized() * speed * delta
-	var moved: Vector3 = _resolve_step(step)
-	global_position += moved
+	var moved: Vector3 = MOVE.step(self, step, BODY_R, PROBE_H)
 	# Boxed in: bail out of this waypoint rather than grinding against geometry forever.
 	if moved.length() < step.length() * 0.25:
 		_stalled += delta
@@ -332,44 +332,6 @@ func _step_toward(target: Vector3, speed: float, delta: float) -> bool:
 	if to_target.length_squared() > 0.04:
 		look_at(Vector3(target.x, global_position.y, target.z), Vector3.UP)
 	return false
-
-## Return the part of `step` the crab may actually travel. Blocked head-on, it tries to
-## slide along the surface (projecting the step onto the hit plane) so it rounds corners
-## and follows walls instead of sticking to them.
-func _resolve_step(step: Vector3) -> Vector3:
-	if _blocked(step):
-		var n: Vector3 = _hit_normal(step)
-		if n == Vector3.ZERO:
-			return Vector3.ZERO
-		var slide: Vector3 = step - n * step.dot(n)
-		slide.y = 0.0
-		if slide.length() < 0.0001 or _blocked(slide):
-			return Vector3.ZERO
-		return slide
-	return step
-
-## Sweep the body's width: centre plus both shoulders, at shell height.
-func _blocked(step: Vector3) -> bool:
-	return _hit_normal(step) != Vector3.ZERO
-
-func _hit_normal(step: Vector3) -> Vector3:
-	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
-	var dir: Vector3 = step.normalized()
-	var side: Vector3 = Vector3(-dir.z, 0.0, dir.x) * BODY_R   # perpendicular, body width
-	var reach: float = step.length() + BODY_R
-	var base: Vector3 = global_position + Vector3(0, PROBE_H, 0)
-	for offset in [Vector3.ZERO, side, -side]:
-		var from: Vector3 = base + offset
-		var q := PhysicsRayQueryParameters3D.create(from, from + dir * reach)
-		q.collision_mask = 1                     # world geometry only
-		# No self-exclude needed: the crab is a bare Node3D with no collider of its own.
-		var hit: Dictionary = space.intersect_ray(q)
-		if not hit.is_empty():
-			var n: Vector3 = hit.get("normal", Vector3.ZERO)
-			n.y = 0.0                            # horizontal blocking only: it walks decks
-			if n.length() > 0.01:
-				return n.normalized()
-	return Vector3.ZERO
 
 func _pursue(delta: float, player: Node3D) -> void:
 	if player == null or GameClock.current_phase != GameClock.Phase.NIGHT:

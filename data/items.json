@@ -633,11 +633,15 @@
     "name": "Patched Boots",
     "use": "tool",
     "worn": true,
-    "cold_relief": 0.45,
-    "effect": "Warmth is lost 45% slower while cold (PlayerState BOOTS_COLD_RELIEF)."
+    "cold_relief": 0.35,
+    "effect": "Warmth is lost 35% slower while cold (PlayerState BOOTS_COLD_RELIEF); the spec's '35% wet protection' — no wetness stat exists, rain is a shelter-gate, so it lands as cold-loss relief."
   },
   "storage_bin_kit": {
     "name": "Storage Bin (kit)",
+    "use": "build"
+  },
+  "door_kit": {
+    "name": "Wooden Door (kit)",
     "use": "build"
   }
 }

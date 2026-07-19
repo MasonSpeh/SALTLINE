@@ -39,12 +39,17 @@ func _physics_process(_delta: float) -> void:
 			linear_velocity = Vector3(to.x * 5.0, minf(to.y * 5.0, 2.0), to.z * 5.0)
 			angular_velocity = angular_velocity.lerp(Vector3.ZERO, 0.25)
 		else:
-			# Carry: float at arm's length, tracking the look direction.
+			# Carry: float at arm's length, tracking the look direction — and turn WITH
+			# the gaze via the base carry_yaw_follow (velocity-honest yaw), so a chair
+			# grabbed square-on stays square-on as you look around instead of holding its
+			# old world facing. (This overrides _physics_process, so per phys_prop's
+			# subclass contract we call carry_yaw_follow in place of zeroing angular_velocity.)
 			var target: Vector3 = cam.global_position - cam.global_transform.basis.z * 1.35
 			linear_velocity = (target - global_position) * 12.0
-			angular_velocity = angular_velocity.lerp(Vector3.ZERO, 0.3)
+			carry_yaw_follow(held_by.global_rotation.y)
 	elif _was_held:
 		_was_held = false           # released — stays dynamic, settles, then sleeps
+		release_carry_orient()      # forget the pickup yaw so the next grab re-captures
 
 func get_prompt() -> String:
 	var verb: String = "Drag" if heavy else "Grab"

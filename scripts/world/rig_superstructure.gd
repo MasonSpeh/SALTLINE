@@ -109,6 +109,49 @@ func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float =
 		_box(cl + Vector3(0, 2.2 + lintel_h * 0.5, 0),
 			Vector3(door_w, lintel_h, WT) if along_x else Vector3(WT, lintel_h, door_w), mat)
 
+## Hang a real hinged door at a hinge line (see rig_builder._hang_door for the full note).
+func _hang_door(hinge_world: Vector3, leaf_dir: Vector3, wooden: bool,
+		leaf_w: float, leaf_h: float, name_: String = "Door") -> InteractDoor:
+	var pivot := Node3D.new()
+	add_child(pivot)
+	pivot.global_position = hinge_world
+	pivot.rotation.y = atan2(-leaf_dir.z, leaf_dir.x)
+	var door := InteractDoor.new()
+	door.wooden = wooden
+	door.display_name = name_
+	pivot.add_child(door)
+	door.build_door(leaf_w, leaf_h)
+	return door
+
+## Cut a doorway (as _wall's door_t) and fit it with a framed hinged door whose steel
+## liner meets the full 2.2m opening — no dark gap above the frame.
+func _fit_door(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float,
+		wooden: bool = true, hinge_at_a: bool = true, name_: String = "Door") -> InteractDoor:
+	_wall(a, b, height, mat, door_t)
+	var dir: Vector3 = b - a
+	var length: float = dir.length()
+	var along_x: bool = absf(dir.x) > absf(dir.z)
+	var u: Vector3 = dir.normalized()
+	var door_pos: float = clampf(door_t, 0.1, 0.9) * length
+	var center: Vector3 = a + u * door_pos
+	const OPEN_W: float = 1.4
+	const OPEN_H: float = 2.2
+	var half: float = OPEN_W * 0.5
+	var steel: Material = MatLib.rust_steel()
+	var ja: Vector3 = center - u * half
+	var jb: Vector3 = center + u * half
+	if along_x:
+		_box(Vector3(ja.x, a.y + OPEN_H * 0.5, a.z), Vector3(0.12, OPEN_H, WT + 0.1), steel, false)
+		_box(Vector3(jb.x, a.y + OPEN_H * 0.5, a.z), Vector3(0.12, OPEN_H, WT + 0.1), steel, false)
+		_box(Vector3(center.x, a.y + OPEN_H + 0.08, a.z), Vector3(OPEN_W + 0.24, 0.16, WT + 0.1), steel, false)
+	else:
+		_box(Vector3(a.x, a.y + OPEN_H * 0.5, ja.z), Vector3(WT + 0.1, OPEN_H, 0.12), steel, false)
+		_box(Vector3(a.x, a.y + OPEN_H * 0.5, jb.z), Vector3(WT + 0.1, OPEN_H, 0.12), steel, false)
+		_box(Vector3(a.x, a.y + OPEN_H + 0.08, center.z), Vector3(WT + 0.1, 0.16, OPEN_W + 0.24), steel, false)
+	var ld: Vector3 = u if hinge_at_a else -u
+	var hinge: Vector3 = center - ld * (half - 0.02)
+	return _hang_door(Vector3(hinge.x, a.y, hinge.z), ld, wooden, OPEN_W - 0.06, OPEN_H - 0.08, name_)
+
 func _ramp(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
 	var b := CSGBox3D.new()
 	b.size = Vector3(width, 0.25, from.distance_to(to))
@@ -352,6 +395,10 @@ func _window(pos: Vector3, along_x: bool, lit: bool) -> void:
 		spill.omni_range = 3.2
 		spill.light_color = Color(1.0, 0.82, 0.5)
 		spill.shadow_enabled = false
+		# This stands for warm light coming THROUGH the window opening, not a lamp — its
+		# anchor is the window it is offset from, so it joins the sourceless daylight group
+		# the LightAnchorProbe exempts (see that probe's header).
+		spill.add_to_group("spill_lights")
 		add_child(spill)
 		spill.position = pos + (Vector3(0, 0, 0.6 * signf(-pos.z + 12.0)) if along_x else Vector3(0.6 * signf(-pos.x + 13.0), 0, 0))
 
@@ -605,14 +652,15 @@ func _deck_b() -> void:
 	_ext_win_wall_x(-2, 28, 18, y, wmat, true)                          # north
 	_wall(Vector3(-2, y, 6), Vector3(-2, y, 18), WH, wmat)
 	_wall(Vector3(28, y, 6), Vector3(28, y, 18), WH, wmat)
-	# Corridor walls (z 11 and z 13) with a door per room.
+	# Corridor walls (z 11 and z 13) with a fitted hinged door per room (crew quarters).
+	# Cabins are ~5m deep, so an inward swing clears the bunks and desks.
 	var south_x := [-2.0, 3.0, 8.0, 13.0, 18.0, 23.0]
 	for i in range(5):
-		_wall(Vector3(south_x[i], y, 11), Vector3(south_x[i + 1], y, 11), WH, pmat, 0.5)
-	_wall(Vector3(23, y, 11), Vector3(28, y, 11), WH, pmat, 0.5)          # linen store door
+		_fit_door(Vector3(south_x[i], y, 11), Vector3(south_x[i + 1], y, 11), WH, pmat, 0.5, true, true, "Cabin B-0%d" % (i + 1))
+	_fit_door(Vector3(23, y, 11), Vector3(28, y, 11), WH, pmat, 0.5, true, true, "Linen Store")  # linen store door
 	var north_x := [-2.0, 6.0, 14.0, 19.0, 23.0]
 	for i in range(4):
-		_wall(Vector3(north_x[i], y, 13), Vector3(north_x[i + 1], y, 13), WH, pmat, 0.5)
+		_fit_door(Vector3(north_x[i], y, 13), Vector3(north_x[i + 1], y, 13), WH, pmat, 0.5, true, false, "Cabin")
 	# Cabin dividers south (z 6..11) and east room (linen store x 23..28, z 6..11).
 	for dx in [3.0, 8.0, 13.0, 18.0, 23.0]:
 		_wall(Vector3(dx, y, 6), Vector3(dx, y, 11), WH, pmat)

@@ -12,6 +12,7 @@ class_name Structures extends RefCounted
 const BLOOM_CIRCUIT := "bloom_lamps"   ## always-on: bio-light needs no breaker
 const FIRE_CIRCUIT := "built_fires"    ## always-on: a lit fire needs no breaker either
 const DROP_NET := preload("res://scripts/components/drop_net.gd")   # by path: class cache lags new files
+const DOOR := preload("res://scripts/components/door.gd")           # world agent's InteractDoor; by path per HARD RULE
 const SL := preload("res://scripts/world/structure_lib.gd")
 
 const KIT_ORDER := [
@@ -24,7 +25,7 @@ const KIT_ORDER := [
 	# water & growing
 	"rain_catcher_kit", "planter_kit",
 	# structure & ground
-	"walkway_kit", "wall_panel_kit", "barricade_kit", "chair_kit", "drop_net_kit",
+	"walkway_kit", "wall_panel_kit", "door_kit", "barricade_kit", "chair_kit", "drop_net_kit",
 ]
 
 ## Kits that may be mounted on a vertical surface (build mode aims a camera ray
@@ -45,6 +46,7 @@ static func display_name(kit: String) -> String:
 		"drying_rack_kit": "Drying Rack", "planter_kit": "Kelp Planter", "shelf_kit": "Wall Shelf",
 		"wall_panel_kit": "Wall Panel", "lamp_post_kit": "Lamp Post",
 		"windbreak_kit": "Windbreak", "rug_kit": "Woven Rug",
+		"door_kit": "Wooden Door",
 	}.get(kit, kit)
 
 ## Placement thud, per material. A canvas bedroll must not land like a girder.
@@ -52,7 +54,7 @@ static func place_sound(kit: String) -> String:
 	match kit:
 		"bedroll_kit", "rug_kit", "windbreak_kit", "drying_rack_kit", "leanto_kit":
 			return "step"
-		"chair_kit", "workbench_kit", "walkway_kit", "shelf_kit":
+		"chair_kit", "workbench_kit", "walkway_kit", "shelf_kit", "door_kit":
 			return "hatch"
 	return "clang"
 
@@ -108,6 +110,8 @@ static func _build(kit: String, ghost: bool) -> Node3D:
 			return shelf(ghost)
 		"wall_panel_kit":
 			return wall_panel(ghost)
+		"door_kit":
+			return wooden_door(ghost)
 		"lamp_post_kit":
 			return lamp_post(ghost)
 		"windbreak_kit":
@@ -675,6 +679,72 @@ static func wall_panel(ghost: bool) -> Node3D:
 	for sx2 in [-0.98, 0.98]:
 		SL.bolts(root, Vector3(sx2, 0.22, 0.06), Vector3(sx2, 2.06, 0.06), 7, bolt)
 	return root
+
+## A ledged-and-braced plank door hung in a driftwood frame. The leaf IS the world
+## agent's InteractDoor (OPEN/CLOSE, swings on its own origin), hinged at the LEFT
+## jamb; the toggle-able collider it carries is what blocks the doorway when shut and
+## drops while it stands open. The ghost preview draws the same leaf closed, no body.
+static func wooden_door(ghost: bool) -> Node3D:
+	var root := Node3D.new()
+	var wood: Material = SL.mat("wood", ghost)
+	var dark: Material = SL.mat("steel_dark", ghost)
+	var bolt: Material = SL.mat("bolt", ghost)
+	# Frame: two jambs + a header lintel. No sill — a threshold you trip on out here
+	# is worse than none, and the doorway has to stay walkable.
+	const FRAME_H: float = 2.06
+	for sx in [-1.0, 1.0]:
+		SL.box(root, Vector3(sx * 0.55, FRAME_H * 0.5, 0), Vector3(0.10, FRAME_H, 0.18), wood, not ghost)
+	SL.box(root, Vector3(0, FRAME_H + 0.02, 0), Vector3(1.24, 0.14, 0.18), wood, not ghost)
+	# Hinge at the left jamb inner face; the leaf hangs off it, extending in +X.
+	const HINGE_X: float = -0.50
+	const LEAF_W: float = 0.94
+	const LEAF_H: float = 1.94
+	var pivot: Node3D
+	if ghost:
+		pivot = Node3D.new()
+	else:
+		var d: InteractDoor = DOOR.new()
+		d.display_name = "Wooden Door"
+		pivot = d
+	root.add_child(pivot)
+	pivot.position = Vector3(HINGE_X, 0.0, 0.0)
+	_door_leaf(pivot, LEAF_W, LEAF_H, wood, dark, bolt)
+	if not ghost:
+		# The one collider the door toggles: a slab filling the opening, offset to the
+		# leaf centre so it sits IN the doorway rather than on the hinge line. Must be a
+		# DIRECT child of the InteractDoor — that is what door.gd._set_collision walks.
+		var cs := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(LEAF_W, LEAF_H, 0.06)
+		cs.shape = box
+		pivot.add_child(cs)
+		cs.position = Vector3(LEAF_W * 0.5, 0.05 + LEAF_H * 0.5, 0.0)
+	return root
+
+## The plank leaf, drawn onto `parent` with its hinge edge at the parent origin and
+## the leaf running out in +X. Vertical boards, two back battens and a diagonal brace,
+## hinge barrels at the hinge edge, a stub handle at the swinging edge.
+static func _door_leaf(parent: Node3D, w: float, h: float,
+		wood: Material, dark: Material, bolt: Material) -> void:
+	var gy: float = 0.05                 # deck gap under the leaf
+	var cy: float = gy + h * 0.5
+	# Four vertical boards with saw gaps, side by side across the width.
+	var bw: float = (w - 0.06) / 4.0
+	for i in range(4):
+		var bx: float = 0.06 + bw * (float(i) + 0.5)
+		SL.box(parent, Vector3(bx, cy, 0), Vector3(bw * 0.9, h, 0.05), wood)
+	# Two ledger battens across the back.
+	for by in [cy - h * 0.32, cy + h * 0.32]:
+		SL.box(parent, Vector3(w * 0.5, by, -0.045), Vector3(w * 0.9, 0.11, 0.03), dark)
+	# Diagonal brace, hinge-low to latch-high — the "braced" half of the name.
+	SL.box(parent, Vector3(w * 0.5, cy, -0.05), Vector3(w * 1.02, 0.09, 0.025), dark,
+		false, Vector3(0, 0, deg_to_rad(-52.0)))
+	# Hinge barrels + their bolt line, at the hinge edge.
+	for hy in [cy - h * 0.34, cy + h * 0.34]:
+		SL.cyl(parent, Vector3(0.04, hy, 0.03), 0.03, 0.16, dark)
+	SL.bolts(parent, Vector3(0.11, cy - h * 0.34, 0.04), Vector3(0.11, cy + h * 0.34, 0.04), 4, bolt, 0.028)
+	# Latch handle at the swinging edge.
+	SL.cyl(parent, Vector3(w - 0.08, cy, 0.06), 0.02, 0.14, bolt, false, Vector3(deg_to_rad(90), 0, 0))
 
 ## A pipe mast with a glow-mucus lamp head in a bent-steel hood. Taller reach and
 ## a wider safe circle than the little bloom lamp — this is the one you plant at

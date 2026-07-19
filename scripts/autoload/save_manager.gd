@@ -2,6 +2,19 @@ extends Node
 ## JSON save/load of world + player state. Single autosave slot; autosaves at dawn/dusk.
 
 const SAVE_PATH: String = "user://saltline_autosave.json"
+## Format version. v1 = the original (plain hotbar/inventory string arrays, no
+## container/dropped/structure persistence). v2 = stacks carry counts, and placed
+## structures, container contents and dropped items all round-trip. Old (v1, or
+## version-less) saves still load: every reader below defaults gracefully.
+const SAVE_VERSION: int = 2
+
+const TAKEABLE := preload("res://scripts/components/takeable.gd")
+
+## Container contents pulled from the last load, keyed by a stable position key. Held
+## so that containers which only exist AFTER the load call — structures rebuilt this
+## frame, found lockers the world-storage scanner adopts seconds later — can claim
+## their saved contents when they come up (see claim_container).
+var _pending_containers: Dictionary = {}
 
 func _ready() -> void:
 	GameClock.dawn.connect(save_game)
@@ -9,16 +22,21 @@ func _ready() -> void:
 
 func save_game() -> void:
 	var data: Dictionary = {
+		"version": SAVE_VERSION,
 		"hunger": PlayerState.hunger,
 		"thirst": PlayerState.thirst,
 		"warmth": PlayerState.warmth,
 		"life": PlayerState.life,
 		"hotbar": PlayerState.hotbar,
 		"inventory": PlayerState.inventory,
+		"hotbar_counts": PlayerState.hotbar_counts,
+		"inventory_counts": PlayerState.inventory_counts,
 		"phase": GameClock.current_phase,
 		"day_count": GameClock.day_count,
 		"powered": PowerGrid.powered_ids(),
 		"structures": _structures_payload(),
+		"containers": _containers_payload(),
+		"dropped": _dropped_payload(),
 	}
 	# rest / comfort / camp_found live with the stats that feed them.
 	data.merge(PlayerState.comfort_payload())
@@ -42,14 +60,24 @@ func load_game() -> bool:
 	PlayerState.thirst = data.get("thirst", 1.0)
 	PlayerState.warmth = data.get("warmth", 1.0)
 	PlayerState.life = data.get("life", 1.0)
-	PlayerState.hotbar = data.get("hotbar", [null, null, null, null])
-	PlayerState.inventory = data.get("inventory", [])
+	# load_inventory keeps the id arrays and their counts the same length, and copes
+	# with a v1 save that has no counts arrays at all (every slot defaults to one).
+	PlayerState.load_inventory(
+		data.get("hotbar", [null, null, null, null]),
+		data.get("hotbar_counts", []),
+		data.get("inventory", []),
+		data.get("inventory_counts", []))
 	PlayerState.apply_comfort_payload(data)
 	GameClock.day_count = int(data.get("day_count", 0))
 	for id in data.get("powered", []):
 		PowerGrid.power_circuit(id)
 	GameClock.force_phase(int(data.get("phase", GameClock.Phase.DAWN)) as GameClock.Phase)
+	# Stash container contents BEFORE rebuilding structures, so a storage crate that
+	# comes back as part of a rebuilt camp can claim its items the moment it spawns.
+	_pending_containers = data.get("containers", {}) if typeof(data.get("containers")) == TYPE_DICTIONARY else {}
 	restore_structures(data.get("structures", []))
+	_apply_pending_to_existing()
+	restore_dropped(data.get("dropped", []))
 	return true
 
 # --------------------------------------------------------------- base building
@@ -65,18 +93,7 @@ func _structures_payload() -> Array:
 		var kit: String = String((s as Node3D).get_meta("kit", ""))
 		if kit == "":
 			continue
-		var t: Transform3D = (s as Node3D).global_transform
-		out.append({
-			"kit": kit,
-			# Basis is stored column-major as nine floats — JSON has no Transform3D,
-			# and euler angles lose the wall-mount orientations build mode produces.
-			"pos": [t.origin.x, t.origin.y, t.origin.z],
-			"basis": [
-				t.basis.x.x, t.basis.x.y, t.basis.x.z,
-				t.basis.y.x, t.basis.y.y, t.basis.y.z,
-				t.basis.z.x, t.basis.z.y, t.basis.z.z,
-			],
-		})
+		out.append(_xform_dict({"kit": kit}, (s as Node3D).global_transform))
 	return out
 
 ## Rebuild a saved camp. Clears whatever is standing first so a mid-session load
@@ -101,10 +118,146 @@ func restore_structures(list: Variant) -> int:
 		if node == null:
 			continue
 		scene.add_child(node)
-		node.global_transform = Transform3D(_basis_from(entry.get("basis", [])),
-			_vec_from(entry.get("pos", [])))
+		node.global_transform = _xform_from(entry)
 		built += 1
 	return built
+
+# ------------------------------------------------------------ container contents
+# Every LootContainer (built crate, found locker, gull nest) tags itself into group
+# "loot_container" and its items save keyed by where it stands. On load, contents are
+# reapplied both to containers that already exist and — via claim_container — to ones
+# that spawn later, so a stash keeps what you left in it across a night's sleep.
+
+## A position key stable across a reload: containers do not move, and rebuilt/adopted
+## ones land back on the same spot, so rounded world position + name identifies them.
+func _container_key(c: Node3D) -> String:
+	var p: Vector3 = c.global_position
+	var name_: String = String(c.get("display_name")) if c.get("display_name") != null else ""
+	return "%.2f,%.2f,%.2f|%s" % [p.x, p.y, p.z, name_]
+
+func _containers_payload() -> Dictionary:
+	var out: Dictionary = {}
+	for c in get_tree().get_nodes_in_group("loot_container"):
+		if not (c is Node3D) or not is_instance_valid(c):
+			continue
+		var its: Variant = c.get("items")
+		if typeof(its) != TYPE_ARRAY:
+			continue
+		out[_container_key(c as Node3D)] = (its as Array).duplicate()
+	return out
+
+## Reapply saved contents to every container currently in the tree with a final
+## position. Idempotent: applying the same saved list twice is a no-op in effect.
+func _apply_pending_to_existing() -> void:
+	if _pending_containers.is_empty():
+		return
+	for c in get_tree().get_nodes_in_group("loot_container"):
+		if c is Node3D and is_instance_valid(c):
+			claim_container(c as Node3D)
+
+## Called (deferred) by a LootContainer once it is in the tree and positioned. If the
+## last load carried contents for its spot, adopt them.
+func claim_container(c: Node3D) -> void:
+	if _pending_containers.is_empty() or not is_instance_valid(c):
+		return
+	var key: String = _container_key(c)
+	if not _pending_containers.has(key):
+		return
+	var saved: Variant = _pending_containers[key]
+	if typeof(saved) != TYPE_ARRAY:
+		return
+	var restored: Array[String] = []
+	for it in (saved as Array):
+		restored.append(String(it))
+	c.set("items", restored)
+
+# ---------------------------------------------------------------- dropped items
+# Items the player tosses out of the pack become real Takeables on the deck. They are
+# tagged "dropped_item" so they save (id + transform) and come back where they fell.
+
+func _dropped_payload() -> Array:
+	var out: Array = []
+	for d in get_tree().get_nodes_in_group("dropped_item"):
+		if not (d is Node3D) or not is_instance_valid(d):
+			continue
+		var id: String = String(d.get("item_id")) if d.get("item_id") != null else ""
+		if id == "":
+			continue
+		out.append(_xform_dict({"id": id}, (d as Node3D).global_transform))
+	return out
+
+## Rebuild dropped items. Clears any currently on the deck first so a second load
+## cannot litter the world with duplicates.
+func restore_dropped(list: Variant) -> int:
+	if typeof(list) != TYPE_ARRAY:
+		return 0
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return 0
+	for old in get_tree().get_nodes_in_group("dropped_item"):
+		if is_instance_valid(old):
+			old.queue_free()
+	var n: int = 0
+	for entry in list:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var id: String = String(entry.get("id", ""))
+		if id == "":
+			continue
+		var t: Node3D = _make_drop(id)
+		scene.add_child(t)
+		t.global_transform = _xform_from(entry)
+		n += 1
+	return n
+
+## Build a dropped-item Takeable: its real world visual plus an interaction collider,
+## tagged so it persists. Not yet parented.
+func _make_drop(item_id: String) -> Node3D:
+	var t: Node3D = TAKEABLE.new()
+	t.set("item_id", item_id)
+	t.set("display_name", String(PlayerState.items.get(item_id, {}).get("name", item_id.capitalize())))
+	var col := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(0.4, 0.4, 0.4)
+	col.shape = box
+	col.position.y = 0.2
+	t.add_child(col)
+	t.add_child(ItemVisual.build(item_id))
+	t.add_to_group("dropped_item")
+	return t
+
+## Drop one item into the world at a foot point, with a short toss so it reads as set
+## down rather than teleported. Called by the HUD's drop control. Returns the node.
+func drop_into_world(item_id: String, feet: Vector3, toss_dir: Vector3 = Vector3.ZERO) -> Node3D:
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return null
+	var t: Node3D = _make_drop(item_id)
+	scene.add_child(t)
+	var landing: Vector3 = feet + toss_dir
+	t.global_position = feet + Vector3(0, 0.6, 0)
+	var tw: Tween = t.create_tween()
+	tw.tween_property(t, "global_position", landing + Vector3(0, 0.3, 0), 0.18) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_OUT)
+	tw.tween_property(t, "global_position", landing, 0.16) \
+		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
+	return t
+
+# ------------------------------------------------------------------- transforms
+# JSON has no Transform3D, and euler angles lose the wall-mount orientations build
+# mode produces, so a basis is stored column-major as nine floats.
+
+func _xform_dict(base: Dictionary, t: Transform3D) -> Dictionary:
+	base["pos"] = [t.origin.x, t.origin.y, t.origin.z]
+	base["basis"] = [
+		t.basis.x.x, t.basis.x.y, t.basis.x.z,
+		t.basis.y.x, t.basis.y.y, t.basis.y.z,
+		t.basis.z.x, t.basis.z.y, t.basis.z.z,
+	]
+	return base
+
+func _xform_from(entry: Dictionary) -> Transform3D:
+	return Transform3D(_basis_from(entry.get("basis", [])), _vec_from(entry.get("pos", [])))
 
 func _vec_from(a: Variant) -> Vector3:
 	if typeof(a) != TYPE_ARRAY or (a as Array).size() < 3:
