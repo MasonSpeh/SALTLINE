@@ -164,7 +164,9 @@ func _run() -> void:
 	_check(player.global_position.distance_to(rig.sphl_interior) < 2.0, "contact returns player to SPHL")
 	_check(GameClock.day_count > start_day, "contact skips to dawn")
 	_check(GameClock.current_phase == GameClock.Phase.DAWN, "phase is dawn after contact")
-	_check(main._ending, "end sequence armed at final dawn")
+	# Open-ended survival: dawn must NOT arm the end sequence anymore — sleeping used to
+	# finish the whole game because every sleep skips to dawn.
+	_check(not main._ending, "dawn does not end the game (open-ended survival)")
 
 	# Build mode: B toggles, ghost rides aim, place consumes the kit into a structure.
 	GameClock.force_phase(GameClock.Phase.DAY)

@@ -229,16 +229,14 @@ func _on_night() -> void:
 		crab.global_position = rig.crab_spawn + offsets[i]
 
 func _on_dawn() -> void:
-	if GameClock.day_count >= 1 and not _ending:
-		_ending = true
-		hud.set_objective("You made it. The sun is up.")
-		# 30 seconds of peace, then the card (GDD 5.8).
-		var t := get_tree().create_timer(30.0)
-		t.timeout.connect(func() -> void:
-			Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
-			hud.show_end_card()
-			EventBus.slice_complete.emit()
-			get_tree().paused = true)
+	# The v0.1 slice ended the game at the first dawn — an end card and a paused tree.
+	# That made SLEEPING end the game (both sleep paths call skip_to_next_dawn, which
+	# bumps day_count past the threshold). SALTLINE is open-ended survival now: the first
+	# dawn is a story beat, not a terminus. The end-card flow stays available for a real
+	# finale trigger later; nothing arms it automatically anymore.
+	if GameClock.day_count == 1 and not _ending:
+		hud.set_objective("You made it through the first night.")
+		hud.toast("The sun is up. The rig is yours to live on.")
 
 func _on_creature_contact() -> void:
 	if _contact_handled:
