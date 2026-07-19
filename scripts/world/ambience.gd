@@ -125,15 +125,16 @@ func _ready() -> void:
 		add_child(sp)
 		_step_pool.append(sp)
 
+	add_to_group("ambience")   # AudioDirector finds us to apply the options
 	_groan_timer = _make_timer(_on_groan)
 	_sheet_timer = _make_timer(_on_sheet)
 	_drip_timer = _make_timer(_on_drip)
 
 	call_deferred("_load_audio")
 	call_deferred("_build_visuals")
-	_schedule(_groan_timer, 26.0)
-	_schedule(_sheet_timer, 40.0)
-	_schedule(_drip_timer, 9.0)
+	_schedule(_groan_timer, 70.0)
+	_schedule(_sheet_timer, 105.0)
+	_schedule(_drip_timer, 26.0)
 
 
 func _make_timer(cb: Callable) -> Timer:
@@ -510,7 +511,7 @@ func _on_groan() -> void:
 		AudioDirector.play_one_shot("deep_groan", _player.global_position + off,
 			lerpf(-16.0, -6.0, _storm))
 	var night: bool = GameClock.current_phase == GameClock.Phase.NIGHT
-	_schedule(_groan_timer, lerpf(40.0, 15.0, _storm) * (0.7 if night else 1.0))
+	_schedule(_groan_timer, lerpf(95.0, 45.0, _storm) * (0.8 if night else 1.0))
 
 
 ## A loose sheet of cladding somewhere out on the deck, caught by a gust. Only when
@@ -522,7 +523,7 @@ func _on_sheet() -> void:
 			_rng.randf_range(-26, 26))
 		AudioDirector.play_one_shot("sheet_bang", _player.global_position + off,
 			lerpf(-20.0, -8.0, _storm))
-	_schedule(_sheet_timer, lerpf(55.0, 12.0, _storm))
+	_schedule(_sheet_timer, lerpf(140.0, 40.0, _storm))
 
 
 ## Under the wet deck: water finding its way down through the structure. Close, small,
@@ -534,7 +535,7 @@ func _on_drip() -> void:
 			_rng.randf_range(-7, 7))
 		AudioDirector.play_one_shot("drip", _player.global_position + off,
 			_rng.randf_range(-24.0, -15.0))
-	_schedule(_drip_timer, lerpf(11.0, 4.0, _storm))
+	_schedule(_drip_timer, lerpf(30.0, 13.0, _storm))
 
 
 # ====================================================================== visuals
@@ -807,3 +808,22 @@ func _search_storm(node: Node, depth: int) -> Node:
 # 3. StormSystem has no public `intensity()` / `wind_vector()`. We read `_intensity`
 #    and `_wind` defensively and fall back to is_storming(). Public getters would be
 #    cleaner; adding them requires no change here (the `get()` calls keep working).
+
+
+## Audio option: the atmosphere layer off leaves the honest weather — wind, sea, rain —
+## and silences the tonal beds and the randomized structural events that read as scoring.
+var atmosphere_enabled: bool = true
+
+func set_atmosphere_enabled(on: bool) -> void:
+	atmosphere_enabled = on
+	for t in [_groan_timer, _sheet_timer, _drip_timer]:
+		if t:
+			if on:
+				if t.is_stopped():
+					_schedule(t, 60.0)
+			else:
+				t.stop()
+	# hull_groan and interior_hum are the tonal ones; wind and sea stay.
+	for bed in ["hull_groan", "interior_hum"]:
+		if _target_db.has(bed):
+			_target_db[bed] = FLOOR_DB

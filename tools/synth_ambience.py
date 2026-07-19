@@ -168,12 +168,19 @@ def wind_howl(dur=22.0, xfade=2.5):
     dn = n_of(dur)
     src = white(total, rng)
     body = highpass(lowpass(src, 0.20), 0.002)
-    # Three narrow peaks, each sliding over its own slow period.
+    # TWO BROAD peaks, low and slow.
+    #
+    # This used to be three NARROW peaks (q 0.055/0.045/0.070) at 330/610/1180 Hz, each
+    # sliding over its own period. In this filter smaller q = ringier, so that is three
+    # near-pure tones drifting in pitch — which is, exactly, how you synthesize a WIND
+    # CHIME. The owner called it out as the worst sound in the game and he was right.
+    # Wind through a gap is broadband and breathy, not tonal: q is now an order of
+    # magnitude larger (barely resonant), the 1180 Hz peak that did most of the chiming
+    # is gone entirely, and what is left sits well under the broadband body.
     peaks = []
     for base, span, cyc, q, gain in (
-            (330.0, 90.0, 5, 0.055, 1.00),
-            (610.0, 150.0, 3, 0.045, 0.72),
-            (1180.0, 260.0, 8, 0.070, 0.38)):
+            (300.0, 60.0, 7, 0.62, 0.34),
+            (540.0, 90.0, 5, 0.78, 0.18)):
         f = lambda i, b=base, s=span, c=cyc: b + s * (lfo(i, c, dn) - 0.5) * 2.0
         peaks.append((svf_bandpass(src, f, q), gain))
     out = [0.0] * total

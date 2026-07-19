@@ -125,7 +125,10 @@ func _snagged_floats() -> void:
 	var def := {
 		"tools": [], "speed": ["crude_knife"], "verb": "CUT FREE", "work": 1.8,
 		"sound": "hiss", "name": "Snagged Float",
-		"yields": {"float_buoy": 1},
+		# The done-text has always said it comes away "still trailing a foot of someone
+		# else's rope" — so it hands you the rope too. Untying a float on the wet deck is
+		# one of the first things a player does; it should stock the first craft.
+		"yields": {"float_buoy": 1, "rope": 1},
 		"hint": "", "start": "You start working the line off the cleat.",
 		"done": "The float comes free, still trailing a foot of someone else's rope.",
 	}

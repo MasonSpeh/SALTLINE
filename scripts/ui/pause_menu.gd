@@ -6,6 +6,8 @@ var panel: CenterContainer
 var _sens_slider: HSlider
 var _vol_slider: HSlider
 var _invert_check: CheckBox
+var _wildlife_check: CheckBox
+var _atmos_check: CheckBox
 
 func _ready() -> void:
 	layer = 15
@@ -59,6 +61,24 @@ func _ready() -> void:
 		if p:
 			p.invert_y = on)
 	v.add_child(_invert_check)
+
+	# Audio options. The rig ran too many competing sources at once; these mute whole
+	# categories so the mix can fall back to the honest weather — sea, wind, rain, gulls.
+	# (There is no music track in SALTLINE, so the second switch governs the atmosphere
+	# layer: the tonal beds and randomized structural events that read as scoring.)
+	_wildlife_check = CheckBox.new()
+	_wildlife_check.text = "Wildlife & machinery sounds"
+	_wildlife_check.button_pressed = true
+	_wildlife_check.toggled.connect(func(on: bool) -> void:
+		AudioDirector.set_wildlife_machinery(on))
+	v.add_child(_wildlife_check)
+
+	_atmos_check = CheckBox.new()
+	_atmos_check.text = "Ambient atmosphere"
+	_atmos_check.button_pressed = true
+	_atmos_check.toggled.connect(func(on: bool) -> void:
+		AudioDirector.set_atmosphere(on))
+	v.add_child(_atmos_check)
 
 	var resume := Button.new()
 	resume.text = "Resume"

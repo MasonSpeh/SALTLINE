@@ -44,6 +44,41 @@ var _gull_timer: Timer
 var _tick_timer: Timer           ## dusk onward: distant claw ticks from below (GDD 5.5)
 var night_range_multiplier: float = 1.0
 
+## AUDIO OPTIONS (pause menu). The rig was over-stimulating: too many competing sources
+## at once. The default mix is now waves, wind, rain and gulls, with everything else
+## earning its place — and these two switches let the player mute whole categories.
+##
+## NOTE there is no music track in SALTLINE ("NO MUSIC — canon law", top of this file), so
+## the second switch governs the ATMOSPHERE LAYER — the tonal beds and the randomized
+## structural events (hull groans, sheet-metal bangs, drips) that read as scoring.
+var wildlife_machinery_on: bool = true
+var atmosphere_on: bool = true
+
+## Creature and machinery sources: animal calls and the idle plant hum.
+const WILDLIFE_MACHINERY: Array[String] = ["gull", "claw", "groan"]
+## The scored-feeling layer: randomized structural events.
+const ATMOSPHERE_EVENTS: Array[String] = ["deep_groan", "sheet_bang", "drip"]
+
+## True when this sample is allowed to sound under the current options.
+func _shot_allowed(shot_name: String) -> bool:
+	if not wildlife_machinery_on and WILDLIFE_MACHINERY.has(shot_name):
+		return false
+	if not atmosphere_on and ATMOSPHERE_EVENTS.has(shot_name):
+		return false
+	return true
+
+## Called by the pause menu. Re-mixes the beds the switch owns straight away so the
+## change is audible without waiting for the next crossfade.
+func set_wildlife_machinery(on: bool) -> void:
+	wildlife_machinery_on = on
+	_fade("hum", -80.0 if not on else -18.0, 0.6)
+
+func set_atmosphere(on: bool) -> void:
+	atmosphere_on = on
+	var amb: Node = get_tree().get_first_node_in_group("ambience")
+	if amb and amb.has_method("set_atmosphere_enabled"):
+		amb.set_atmosphere_enabled(on)
+
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	for bed_name in BED_DEFS:
@@ -177,7 +212,7 @@ func _random_gull() -> void:
 ## Spatialized one-shot. Zero position = non-positional (UI-ish sounds like eating).
 func play_one_shot(shot_name: String, world_pos: Vector3, volume_db: float = 0.0) -> void:
 	var stream: AudioStream = _streams.get(shot_name)
-	if stream == null:
+	if stream == null or not _shot_allowed(shot_name):
 		return
 	if world_pos == Vector3.ZERO:
 		var p := AudioStreamPlayer.new()
