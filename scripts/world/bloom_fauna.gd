@@ -613,7 +613,12 @@ class LampEel extends Node3D:
 			_jaw.rotation.x = 0.14 + 0.12 * sin(_t * 0.9)   # slow gulp
 		Journal.discover_if_near(_segs[0], "creature_lamp_eel", 24.0)
 		# Figure-eights at the surface off the north edge, clear of the deck overhang.
-		var head := Vector3(sin(_t * 0.5) * 13.0, 0.12, 26.0 + sin(_t * 1.0) * 5.0)
+		# Tracks the swell rather than a fixed y: at +0.12 on a flat sea this skimmed the
+		# surface, but against 2 m of Gerstner it swam through open air over the troughs.
+		var hx: float = sin(_t * 0.5) * 13.0
+		var hz: float = 26.0 + sin(_t * 1.0) * 5.0
+		var hsurf: float = Gyre.wave_height(Vector2(hx, hz), Gyre.water_time())
+		var head := Vector3(hx, hsurf - 0.25, hz)
 		var from: Vector3 = _segs[0].global_position
 		_segs[0].global_position = from.lerp(head, delta * 4.0)
 		var dir: Vector3 = _segs[0].global_position - from
@@ -723,7 +728,18 @@ class FiddlerShoal extends Node3D:
 		# At dusk the shoal picks up a bloom-touched glint.
 		_mat.emission = BloomFauna.TEAL if GameClock.current_phase == GameClock.Phase.DUSK else Color(0.7, 0.78, 0.8)
 		_mat.emission_energy_multiplier = 0.7 if GameClock.current_phase == GameClock.Phase.DUSK else 0.15
-		var center := Vector3(19.0 + cos(_t * 0.13) * 8.0, -0.15, -10.0 + sin(_t * 0.19) * 7.0)
+		# The shoal runs SHALLOW — that is the whole point, you reach down and grab one —
+		# but "shallow" was authored as a fixed y -0.15 against a flat sea. The sea now
+		# has 2 m of Gerstner swell, so a fixed y left eighteen fish flapping in mid-air
+		# over every trough. Ride the actual surface instead, a constant depth under it,
+		# using the same waterline main.gd tests the camera against. The grab still wins
+		# on the crests, when the swell lifts the school up to the pontoon lip.
+		var cx: float = 19.0 + cos(_t * 0.13) * 8.0
+		var cz: float = -10.0 + sin(_t * 0.19) * 7.0
+		# Full Gerstner height, NOT main.gd's 0.85 camera-test fudge: 0.85 compresses the
+		# wave toward zero and so lifts the school above the real surface in every trough.
+		var surf: float = Gyre.wave_height(Vector2(cx, cz), Gyre.water_time())
+		var center := Vector3(cx, surf - 0.45, cz)
 		global_position = center
 		Journal.discover_if_near(self, "creature_fiddler_shoal", 13.0)
 		for i in range(COUNT):

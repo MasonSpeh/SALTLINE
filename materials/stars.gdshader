@@ -94,26 +94,37 @@ vec3 star_color(float t) {
 	return mix(amber, red, (t - 0.95) / 0.05);
 }
 
-// One star layer. Single-cell lookup with in-cell jitter (the star never crosses
-// a cell edge, so no 3x3x3 scan needed and no lattice tell), power-law magnitude,
-// per-star twinkle, soft halo for bright ones. Returns colour*luminance.
-vec3 star_layer(vec3 sd, float scale, float density, float bpow,
-		float radius, float halo_mul, float seed, float tw_amp, float t) {
+// One star layer. Each cell holds at most one star, jittered fully within the cell
+// (big jitter -> no perceptible grid). `reach` = 0 scans just the home cell (faint,
+// halo-less layers); reach = 1 scans the 3x3x3 neighbourhood so a BRIGHT star's soft
+// halo spills across cell edges instead of being clipped into a square (the subtle
+// lattice tell the single-cell version left on the brightest stars). Power-law
+// magnitude, per-star twinkle phase+rate, temperature colour. Returns colour*lum.
+vec3 star_layer(vec3 sd, float scale, float density, float bpow, float radius,
+		float halo_mul, float seed, float tw_amp, float t, int reach) {
 	vec3 gp = sd * scale;
-	vec3 cell = floor(gp);
-	vec3 h = hash33(cell + vec3(seed));
-	if (h.x < 1.0 - density) {
-		return vec3(0.0);
+	vec3 base_cell = floor(gp);
+	vec3 acc = vec3(0.0);
+	for (int gx = -reach; gx <= reach; gx++) {
+		for (int gy = -reach; gy <= reach; gy++) {
+			for (int gz = -reach; gz <= reach; gz++) {
+				vec3 cell = base_cell + vec3(float(gx), float(gy), float(gz));
+				vec3 h = hash33(cell + vec3(seed));
+				if (h.x < 1.0 - density) {
+					continue;
+				}
+				vec3 center = cell + 0.5 + (h - 0.5) * 0.72;   // star position, jittered
+				float d = length(gp - center);
+				float mag = pow(hash13(cell + vec3(seed + 7.31)), bpow);
+				float core = smoothstep(radius, 0.0, d);
+				float halo = smoothstep(radius * 5.0, 0.0, d) * halo_mul;
+				float tw = 1.0 - tw_amp + tw_amp * sin(t * (1.5 + h.z * 4.0) + h.y * 6.2831);
+				float lum = (core + halo) * mag * tw;
+				acc += star_color(hash13(cell + vec3(seed + 19.13))) * lum;
+			}
+		}
 	}
-	vec3 f = fract(gp) - 0.5;
-	vec3 center = (h - 0.5) * 0.6;               // jitter, kept clear of the edges
-	float d = length(f - center);
-	float mag = pow(hash13(cell + vec3(seed + 7.31)), bpow);   // power-law brightness
-	float core = smoothstep(radius, 0.0, d);
-	float halo = smoothstep(radius * 5.0, 0.0, d) * halo_mul;
-	float tw = 1.0 - tw_amp + tw_amp * sin(t * (1.5 + h.z * 4.0) + h.y * 6.2831);
-	float lum = (core + halo) * mag * tw;
-	return star_color(hash13(cell + vec3(seed + 19.13))) * lum;
+	return acc;
 }
 
 void vertex() {
@@ -133,31 +144,41 @@ void fragment() {
 	vec3 ext = exp(-airmass * vec3(0.013, 0.023, 0.042));
 	float tw_amp = 0.14 + 0.42 * clamp((airmass - 1.0) / 8.0, 0.0, 1.0);  // scintillation grows near horizon
 
-	// ---- celestial rotation: the whole star field wheels slowly ----
-	vec3 cdir = rot(normalize(vec3(0.15, 0.72, 0.68)), TIME * sky_spin_rate) * dir;
+	// ---- how visible are the stars here? (night, no cloud, above the horizon) ----
+	float above = smoothstep(-0.02, 0.05, elev);
+	float star_vis = night_amount * (1.0 - storm) * above;
 
-	// ---- star field: bright/sparse -> faint/dense, each layer rotated so no grid aligns ----
-	vec3 s0 = rot(vec3(0.2, 0.9, 0.35), 0.7) * cdir;
-	vec3 s1 = rot(vec3(0.8, 0.1, 0.55), 1.9) * cdir;
-	vec3 s2 = rot(vec3(0.45, 0.4, 0.8), 3.1) * cdir;
-	vec3 s3 = rot(vec3(0.6, 0.75, 0.2), 4.4) * cdir;
+	// ---- star field + Milky Way: computed only when they can show (night, clear) ----
 	vec3 stars = vec3(0.0);
-	stars += star_layer(s0, 40.0, 0.05, 7.0, 0.16, 0.30, 3.0, tw_amp, TIME) * 3.2;   // rare, bright, blooms
-	stars += star_layer(s1, 105.0, 0.09, 5.0, 0.13, 0.14, 17.0, tw_amp, TIME) * 1.5; // medium
-	stars += star_layer(s2, 250.0, 0.13, 4.0, 0.11, 0.05, 41.0, tw_amp, TIME) * 0.85;// faint dust
-	stars += star_layer(s3, 520.0, 0.16, 3.5, 0.10, 0.0, 71.0, tw_amp, TIME) * 0.5;  // faintest grain
+	vec3 milky = vec3(0.0);
+	if (star_vis > 0.0025) {
+		// celestial rotation: the whole field wheels slowly
+		vec3 cdir = rot(normalize(vec3(0.15, 0.72, 0.68)), TIME * sky_spin_rate) * dir;
+		// bright/sparse -> faint/dense, each layer rotated so no two grids align
+		vec3 s0 = rot(vec3(0.2, 0.9, 0.35), 0.7) * cdir;
+		vec3 s1 = rot(vec3(0.8, 0.1, 0.55), 1.9) * cdir;
+		vec3 s2 = rot(vec3(0.45, 0.4, 0.8), 3.1) * cdir;
+		vec3 s3 = rot(vec3(0.6, 0.75, 0.2), 4.4) * cdir;
+		// Core radii are in CELL units: angular radius = radius / scale. Keep them near
+		// one pixel (~0.05 deg) so stars read as crisp points; anything larger renders
+		// as a fuzzy blob the size of the moon. The halo (5x) does the "brilliant" work.
+		stars += star_layer(s0, 40.0, 0.055, 7.0, 0.060, 0.38, 3.0, tw_amp, TIME, 1) * 4.2;  // rare, brilliant, halos
+		stars += star_layer(s1, 105.0, 0.11, 5.0, 0.095, 0.14, 17.0, tw_amp, TIME, 1) * 1.9; // medium, small halos
+		stars += star_layer(s2, 250.0, 0.16, 4.0, 0.11, 0.0, 41.0, tw_amp, TIME, 0) * 1.0;  // faint dust
+		stars += star_layer(s3, 520.0, 0.20, 3.5, 0.10, 0.0, 71.0, tw_amp, TIME, 0) * 0.6;  // faintest grain
 
-	// ---- Milky Way: off-axis great circle, fbm clouds, dark dust lanes, granular cores ----
-	float gb = dot(cdir, normalize(vec3(0.42, 0.34, 0.84)));   // distance from galactic plane
-	float band = smoothstep(0.34, 0.0, abs(gb));
-	float mw_cloud = fbm(cdir * 4.5 + 5.0);
-	float mw_rift = fbm(cdir * 7.0 + 21.0);
-	float mw_gran = fbm(cdir * 26.0);
-	float mw = band * (0.35 + 0.75 * mw_cloud);
-	mw *= smoothstep(0.62, 0.28, mw_rift);        // dark rifts cut through the band
-	mw += band * band * mw_gran * 0.35;           // star-cloud grain
-	vec3 mw_col = mix(vec3(0.55, 0.62, 0.82), vec3(0.86, 0.80, 0.70), mw_cloud);
-	vec3 milky = mw_col * max(mw, 0.0) * 0.16;
+		// Milky Way: off-axis great circle, fbm clouds, dark dust lanes, granular cores
+		float gb = dot(cdir, normalize(vec3(0.42, 0.34, 0.84)));   // distance from galactic plane
+		float band = smoothstep(0.34, 0.0, abs(gb));
+		float mw_cloud = fbm(cdir * 4.5 + 5.0);
+		float mw_rift = fbm(cdir * 7.0 + 21.0);
+		float mw_gran = fbm(cdir * 26.0);
+		float mw = band * (0.35 + 0.75 * mw_cloud);
+		mw *= smoothstep(0.62, 0.28, mw_rift);        // dark rifts cut through the band
+		mw += band * band * mw_gran * 0.55;           // star-cloud grain
+		vec3 mw_col = mix(vec3(0.55, 0.62, 0.82), vec3(0.86, 0.80, 0.70), mw_cloud);
+		milky = mw_col * max(mw, 0.0) * 0.16;
+	}
 
 	// ---- night sky base: deep blue, faint airglow lift at the horizon ----
 	vec3 night_zen = vec3(0.006, 0.013, 0.032);
@@ -182,7 +203,7 @@ void fragment() {
 	// sun disc + halo (only above the horizon)
 	float sun_up = clamp(sun_height * 6.0 + 0.3, 0.0, 1.0);
 	vec3 sun_col = mix(vec3(1.0, 0.55, 0.28), vec3(1.0, 0.98, 0.92), clamp(sun_height * 2.5, 0.0, 1.0));
-	float disc = smoothstep(0.9994, 0.99975, sdot);
+	float disc = smoothstep(0.99988, 0.99995, sdot);   // ~0.6-0.9 deg, near the real sun
 	float sglow = pow(sdot, 260.0) * 0.6 + pow(sdot, 7.0) * 0.12;
 	vec3 sun_c = sun_col * (disc * 7.0 + sglow) * sun_up * (1.0 - storm);
 
@@ -197,14 +218,17 @@ void fragment() {
 	sky += vec3(0.8, 0.85, 0.9) * smoothstep(0.55, 0.95, haze) * 0.12 * (1.0 - night_amount) * day_bright;
 
 	// stars + Milky Way: night only, killed by storm, extinguished toward the horizon
-	float above = smoothstep(-0.02, 0.05, elev);
-	float star_vis = night_amount * (1.0 - storm) * above;
+	// (star_vis / above computed above, before the star field itself)
 	sky += (stars * star_gain + milky) * ext * star_vis;
 
 	// moon disc + soft halo, with a crude phase dimming
-	float mdisc = smoothstep(0.9990, 0.99965, mdot);
+	float mdisc = smoothstep(0.99980, 0.99991, mdot);   // ~0.8-1.1 deg moon, not a lamp
 	float mhalo = pow(mdot, 220.0) * 0.35 + pow(mdot, 6.0) * 0.05;
-	float phase = clamp(dot(moon_dir, sun_dir) * 0.5 + 0.6, 0.15, 1.0);
+	// Illuminated fraction = (1 - cos(elongation)) / 2. Moon OPPOSITE the sun (dot = -1)
+	// is FULL; moon toward the sun (dot = +1) is new. The old term had this backwards
+	// (dot*0.5 + 0.6), so it dimmed the moon to its floor exactly on the clear opposed
+	// nights when it should be brightest.
+	float phase = clamp((1.0 - dot(moon_dir, sun_dir)) * 0.5, 0.10, 1.0);
 	sky += vec3(0.90, 0.93, 1.0) * (mdisc * 4.5 * phase + mhalo) * moon_bright * (1.0 - storm) * above;
 
 	// ---- storm: genuine overcast, structured, starless ----
@@ -215,9 +239,16 @@ void fragment() {
 	sky = mix(sky, storm_sky, storm);
 
 	// ---- horizon: fade to the scene fog colour so the dome meets the sea seamlessly ----
+	// horizon_tint comes from the scene's ambient/fog, which at night is a READABILITY
+	// floor rather than a real sky radiance — several times brighter than the night sky
+	// above it. Blending to it undamped ringed the whole horizon with a bright uniform
+	// strip, which is the single loudest "this is a painted shell" tell there is. Damp it
+	// hard at night: the daytime seam match is preserved, the night horizon stays dark
+	// with only the faint airglow the night gradient already carries.
+	vec3 hz = mix(horizon_tint, horizon_tint * 0.22, night_amount);
 	float seam = smoothstep(0.09, 0.0, elev);
-	sky = mix(sky, horizon_tint, seam * 0.7);
-	sky = mix(horizon_tint, sky, above);   // nothing crisp below the horizon line
+	sky = mix(sky, hz, seam * 0.7);
+	sky = mix(hz, sky, above);   // nothing crisp below the horizon line
 
 	// tiny ordered dither breaks 8-bit banding in the smooth gradients
 	sky += (hash13(dir * 997.0) - 0.5) * 0.004;

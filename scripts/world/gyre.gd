@@ -22,19 +22,72 @@ const DEBRIS_TYPES := [
 var _rng := RandomNumberGenerator.new()
 var _sheen_mat: StandardMaterial3D
 
-# -- shader-matched wave math (keep in sync with ocean_water.gdshader) -------
+# -- shader-matched wave math (keep in sync with ocean_water.gdshader) --------
+# Gerstner sum, mirrored so floating debris rides the SAME swell the water shows.
+# Gerstner displaces horizontally toward crests, so debris needs that offset too or
+# it drifts off the peak it should sit on.
+#
+# SEA STATE IS LIVE. This used to mirror the ocean at a hard-coded calm 0.4 while the
+# shader's sea_state was driven up toward 1.0 by StormSystem. Amplitude scales as
+# 0.18 + 0.92*ss, so a full squall drew waves TWICE the height this math believed in:
+# every plank hung in mid-air over a trough, and main.gd's "is the camera underwater"
+# test (same function) missed the wave tops. SunController.set_sea_state() now feeds
+# the same value it hands the shader, so the CPU and GPU seas are the one sea.
+const G_WAVE: float = 9.81
+const WAVE_SEA_STATE: float = 0.4   # calm baseline; == SunController.BASE_SEA_STATE
+
+static var _sea_state: float = WAVE_SEA_STATE
+
+## The sea state the wave math is currently mirroring (SunController drives this).
+static func sea_state() -> float:
+	return _sea_state
+
+static func set_sea_state(v: float) -> void:
+	_sea_state = clampf(v, 0.0, 1.0)
+const W_DIR: Array[Vector2] = [
+	Vector2(0.990, 0.139), Vector2(0.995, -0.105), Vector2(0.951, 0.309),
+	Vector2(0.866, 0.500), Vector2(0.940, -0.342), Vector2(0.695, 0.719),
+	Vector2(0.788, -0.616), Vector2(0.500, 0.866), Vector2(0.574, -0.819),
+	Vector2(0.259, 0.966), Vector2(0.342, -0.940),
+]
+const W_LEN: Array[float] = [90.0, 62.0, 48.0, 24.0, 16.0, 11.0, 8.5, 5.5, 3.8, 2.6, 1.7]
+const W_AMP: Array[float] = [1.40, 1.05, 0.82, 0.52, 0.40, 0.29, 0.22, 0.15, 0.11, 0.078, 0.052]
+const W_STEEP: Array[float] = [0.62, 0.68, 0.72, 0.80, 0.82, 0.85, 0.85, 0.90, 0.90, 0.92, 0.95]
+const SET_DIR_A: Vector2 = Vector2(0.97, 0.24)
+const SET_DIR_B: Vector2 = Vector2(0.20, -0.98)
 
 static func _warp(p: Vector2, t: float) -> Vector2:
-	return p + 4.0 * Vector2(sin(p.y * 0.021 + t * 0.06), sin(p.x * 0.017 - t * 0.05))
+	return p + 3.0 * Vector2(sin(p.y * 0.018 + t * 0.05), sin(p.x * 0.015 - t * 0.04))
+
+## Full Gerstner displacement at world xz: (horizontal_x, surface_height, horizontal_z).
+static func wave_offset(raw_p: Vector2, t: float) -> Vector3:
+	var w: Vector2 = _warp(raw_p, t)
+	var ss: float = _sea_state
+	var amp_scale: float = 0.18 + 0.92 * ss
+	var steep_scale: float = 0.35 + 0.65 * ss
+	var dx: float = 0.0
+	var dz: float = 0.0
+	var h: float = 0.0
+	for i in range(11):
+		var dir: Vector2 = W_DIR[i]
+		var k: float = TAU / W_LEN[i]
+		var omega: float = sqrt(G_WAVE * k)
+		var a: float = W_AMP[i] * amp_scale
+		if i < 3:
+			var sd: Vector2 = SET_DIR_B if i == 1 else SET_DIR_A
+			var env: float = sd.dot(raw_p) * 0.010 - t * (0.045 + 0.02 * float(i))
+			a *= 0.55 + 0.45 * sin(env)
+		var steep_eff: float = W_STEEP[i] * steep_scale
+		var qa: float = steep_eff / (k * 11.0)
+		var phase: float = k * dir.dot(w) - omega * t
+		var c: float = cos(phase)
+		dx += qa * dir.x * c
+		dz += qa * dir.y * c
+		h += a * sin(phase)
+	return Vector3(dx, h, dz)
 
 static func wave_height(raw_p: Vector2, t: float) -> float:
-	var p: Vector2 = _warp(raw_p, t)
-	var h: float = 0.0
-	h += 0.5 * sin(Vector2(1.0, 0.32).normalized().dot(p) * (TAU / 64.0) + t * 0.9)
-	h += 0.25 * sin(Vector2(-0.62, 1.0).normalized().dot(p) * (TAU / 24.0) + t * 1.4)
-	h += 0.12 * sin(Vector2(0.41, -1.0).normalized().dot(p) * (TAU / 10.0) + t * 2.1)
-	h += 0.3 * sin(Vector2(-0.9, -0.44).normalized().dot(p) * (TAU / 110.0) + t * 0.55)
-	return h
+	return wave_offset(raw_p, t).y
 
 static func water_time() -> float:
 	return Time.get_ticks_msec() * 0.001
@@ -90,13 +143,16 @@ func _build_surface_hints() -> void:
 	# Foam streaks turning with the current — the gyre is readable from the deck.
 	for i in range(9):
 		var streak := MeshInstance3D.new()
-		var qm := BoxMesh.new()
-		qm.size = Vector3(_rng.randf_range(1.6, 3.4), 0.02, 0.3)
-		var m := StandardMaterial3D.new()
-		m.albedo_color = Color(0.85, 0.9, 0.9, 0.32)
-		m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		qm.material = m
+		# Soft-edged sprites lying ON the water, not lit boxes floating in it. As solid
+		# alpha BoxMeshes these caught the moonlight as hard pale rectangles and read from
+		# a distance as litter scattered over the night sea — the streaks are meant to be
+		# foam the current has drawn out, so they get a radial falloff, no shading, and a
+		# lower alpha. Flat quad rather than a box: nothing here has thickness.
+		var qm := QuadMesh.new()
+		qm.size = Vector2(_rng.randf_range(1.6, 3.4), _rng.randf_range(0.5, 0.9))
+		qm.material = MatLib.soft_mote(Color(0.85, 0.9, 0.9, 0.20), false)
 		streak.mesh = qm
+		streak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		streak.add_to_group("gyre_streaks")
 		add_child(streak)
 		streak.set_meta("angle", _rng.randf_range(0, TAU))
@@ -124,11 +180,22 @@ func _physics_process(delta: float) -> void:
 		var a: float = s.get_meta("angle") + delta * 0.25
 		s.set_meta("angle", a)
 		var r: float = s.get_meta("radius")
-		s.global_position = CENTER + Vector3(cos(a) * r, wave_height(Vector2(CENTER.x + cos(a) * r, CENTER.z + sin(a) * r), t) + 0.06, sin(a) * r)
-		s.rotation.y = -a
+		var sx: float = CENTER.x + cos(a) * r
+		var sz: float = CENTER.z + sin(a) * r
+		var so: Vector3 = wave_offset(Vector2(sx, sz), t)
+		s.global_position = Vector3(sx + so.x, so.y + 0.06, sz + so.z)
+		# QuadMesh faces +Z, so lay it flat on the water (-90 about X) then turn it to
+		# follow the current. It used to be a BoxMesh, which needed no such pitch.
+		s.rotation = Vector3(-PI * 0.5, -a, 0.0)
 
 ## One piece of flotsam riding the gyre. Hook it to claim its resource.
 class FloatingDebris extends Node3D:
+	## How proud of the surface the flotsam floats. A CONSTANT, because that is what a
+	## draft is. This used to be `wave_height * 0.9 + 0.06`, which scales the error with
+	## the swell: harmless in a calm 1.5 m sea, but a squall doubles the wave height and
+	## the same 10% sinks every plank a third of a metre into the face of each crest.
+	const DRAFT: float = 0.05
+
 	var item_id: String = "driftwood"
 	var display_name: String = "Debris"
 	var gyre_angle: float = 0.0
@@ -205,7 +272,7 @@ class FloatingDebris extends Node3D:
 			var target: Vector3 = hooked_by.global_position
 			global_position = global_position.lerp(Vector3(target.x, global_position.y, target.z), delta * 8.0)
 			var t2: float = Gyre.water_time()
-			global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t2) * 0.85 + 0.08
+			global_position.y = Gyre.wave_offset(Vector2(global_position.x, global_position.z), t2).y + DRAFT
 			return
 		# Spiral: angular speed rises toward the eye (conservation of drama).
 		var speed: float = 0.06 + 1.6 / maxf(gyre_radius, 3.0)
@@ -214,7 +281,8 @@ class FloatingDebris extends Node3D:
 		var t: float = Gyre.water_time()
 		var x: float = Gyre.CENTER.x + cos(gyre_angle) * gyre_radius
 		var z: float = Gyre.CENTER.z + sin(gyre_angle) * gyre_radius
-		global_position = Vector3(x, Gyre.wave_height(Vector2(x, z), t) * 0.85 + 0.08, z)
+		var wo: Vector3 = Gyre.wave_offset(Vector2(x, z), t)
+		global_position = Vector3(x + wo.x, wo.y + DRAFT, z + wo.z)
 		rotation.y = -gyre_angle - PI * 0.5
 		rotation.x = sin(t * 0.9 + gyre_angle) * 0.08
 

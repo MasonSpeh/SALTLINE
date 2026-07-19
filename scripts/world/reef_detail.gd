@@ -16,6 +16,7 @@ class_name ReefDetail extends Node3D
 ## Spawned as a child of Seabed; visual only, no collision.
 
 const SEABED := preload("res://scripts/world/seabed.gd")
+const REEF_LIFE := preload("res://scripts/world/reef_life.gd")
 
 var _rng := RandomNumberGenerator.new()
 var _rock_mat: ShaderMaterial
@@ -31,6 +32,8 @@ func _ready() -> void:
 	_build_east_scatter(Vector2(40, 4))     # a second landmark cluster on the flank
 	_build_reef_slabs()
 	_report()
+	# Depth-zoned reef communities seated on the shelves/faces we just reported.
+	add_child(REEF_LIFE.new(_shelves))
 
 # --------------------------------------------------------------- floor helpers
 

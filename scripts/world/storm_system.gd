@@ -249,6 +249,14 @@ func _follow_player() -> void:
 		return
 	# Rain box sits above the player, nudged upwind so it sweeps across the view.
 	_rain.global_position = player.global_position + Vector3(-_wind.x * 6.0, 16.0, -_wind.y * 6.0)
+	# ...but never render it below the waterline. The streaks are billboarded quads that
+	# know nothing about where the sea is, so diving during a squall put white rain
+	# falling straight through the water column around you. The rain AUDIO already ducked
+	# when submerged; the visuals never did. Same waterline test main.gd swaps the
+	# underwater environment on, so the two agree frame for frame.
+	var cam: Camera3D = player.get_node_or_null("Head/Camera3D")
+	var eye: Vector3 = cam.global_position if cam != null else player.global_position
+	_rain.visible = eye.y > Gyre.wave_height(Vector2(eye.x, eye.z), Gyre.water_time()) * 0.85
 
 func _update_lightning(delta: float) -> void:
 	# Decay the last flash toward dark, fast.

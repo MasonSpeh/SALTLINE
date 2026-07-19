@@ -26,7 +26,15 @@ class_name Seabed extends Node3D
 const REEF := preload("res://scripts/world/reef_detail.gd")
 
 const FLOOR_Y: float = -23.0
-const LEGS := [Vector2(-22, -12), Vector2(22, -12), Vector2(-22, 12), Vector2(22, 12)]
+## The caisson extensions in underwater_world.gd are box(6, 20, 6) centred at y -13,
+## so each is a 6 m square in plan bottoming out at exactly -23. The mud under a leg
+## is held at PLANT_Y (a little ABOVE that bottom) so the leg is bedded in the silt
+## rather than hovering over it.
+const CAISSON_HALF: float = 3.0
+const CAISSON_BOTTOM: float = -23.0
+const BED_SINK: float = 0.45              # how far the mud climbs the caisson base
+const PLANT_Y: float = CAISSON_BOTTOM + BED_SINK
+const LEGS: Array[Vector2] = [Vector2(-22, -12), Vector2(22, -12), Vector2(-22, 12), Vector2(22, 12)]
 const EXT: float = 90.0          # floor half-extent (180 x 180 m), fog hides the edge
 const STEP: float = 2.25         # grid spacing; ripples live in the shader, not here
 
@@ -34,6 +42,7 @@ static var _fn: FastNoiseLite
 
 var _haze_mat: ShaderMaterial
 var _floor_mat: ShaderMaterial
+var _bloom_glow: float = 0.28   # tracked here; reading it back off the shader returns Nil
 var _rng := RandomNumberGenerator.new()
 
 # -------------------------------------------------------------- sculpt (shared)
@@ -47,18 +56,41 @@ static func _noise() -> FastNoiseLite:
 		_fn.fractal_octaves = 3
 	return _fn
 
-## The mudline at world (x, z). FLOOR_Y plus broad silt swells, minus a scour bowl
-## around each leg (with a raised deposition rim). Boulders/riprap sit ON this; the
-## deep floor never rises above ~ -20, so it never fouls the -3.8 caisson bottoms.
+## Distance from world (x, z) to the nearest point of a caisson's square footprint.
+## 0 anywhere UNDER the leg, growing outward. Scour and bedding are shaped against
+## this rather than against the distance to the leg CENTRE — a 6 m square structure
+## does not scour in a circle, and more importantly nothing may be dug out from
+## beneath the footprint itself.
+static func _footprint_dist(p: Vector2, leg: Vector2) -> float:
+	var d := (p - leg).abs() - Vector2(CAISSON_HALF, CAISSON_HALF)
+	return Vector2(maxf(d.x, 0.0), maxf(d.y, 0.0)).length()
+
+## The mudline at world (x, z). FLOOR_Y plus broad silt swells, a BEDDING plateau under
+## each caisson, and a scour MOAT ringing it (with a deposition rim further out).
+##
+## The moat used to be a Gaussian bowl centred on the leg, i.e. deepest exactly where
+## the caisson stands: it dug ~2.6 m of mud out from under every leg and left all four
+## hovering over an open gap, which is the first thing you see swimming the bottom.
+## Real gravity-base scour is an annulus — the structure is bedded IN the soil and the
+## current excavates around its edge — so the sculpt is now: flat plant under the
+## footprint (mud packed BED_SINK up the caisson base, so a leg plants and never
+## floats), the moat peaking a few metres outboard, then the spoil rim.
 static func floor_height(p: Vector2) -> float:
 	var fn := _noise()
 	var h := FLOOR_Y
 	h += 1.9 * fn.get_noise_2d(p.x, p.y)
 	h += 0.7 * fn.get_noise_2d(p.x * 2.7 + 100.0, p.y * 2.7 - 60.0)
 	for leg in LEGS:
-		var d: float = p.distance_to(leg)
-		h -= 2.8 * exp(-(d * d) / (2.0 * 7.5 * 7.5))                     # scour bowl
-		h += 0.85 * exp(-((d - 12.0) * (d - 12.0)) / (2.0 * 3.5 * 3.5)) # deposition rim
+		var fd: float = _footprint_dist(p, leg)
+		# Bedding: inside (and right up against) the footprint the mud is a flat pad at
+		# the plant height, so the caisson bottom is buried, not bridged.
+		var bed_w: float = 1.0 - smoothstep(0.0, 2.4, fd)
+		h = lerpf(h, PLANT_Y, bed_w)
+		# Scour moat: zero under the leg, deepest a few metres out, tailing away.
+		var moat: float = exp(-((fd - 4.5) * (fd - 4.5)) / (2.0 * 2.8 * 2.8))
+		h -= 2.8 * moat * smoothstep(1.6, 3.4, fd)
+		# Spoil rim: what the current carried out of the moat.
+		h += 0.85 * exp(-((fd - 13.0) * (fd - 13.0)) / (2.0 * 3.5 * 3.5))
 	return h
 
 static func floor_normal(p: Vector2) -> Vector3:
@@ -83,12 +115,13 @@ func _process(_delta: float) -> void:
 	# The Bloom in the silt answers the night, like the gyre eye does.
 	var want: float = 0.9 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.28
 	if _floor_mat:
-		var cur: float = _floor_mat.get_shader_parameter("bloom_glow")
-		_floor_mat.set_shader_parameter("bloom_glow", lerpf(cur, want, _delta * 0.6))
+		_bloom_glow = lerpf(_bloom_glow, want, _delta * 0.6)
+		_floor_mat.set_shader_parameter("bloom_glow", _bloom_glow)
 
 func _build_floor() -> void:
 	_floor_mat = ShaderMaterial.new()
 	_floor_mat.shader = load("res://materials/seabed.gdshader")
+	_floor_mat.set_shader_parameter("bloom_glow", _bloom_glow)
 	var n: int = int(EXT * 2.0 / STEP)           # cells per side
 	var verts := PackedVector3Array()
 	var norms := PackedVector3Array()
@@ -143,9 +176,16 @@ func _build_riprap() -> void:
 		var rings := 46
 		for k in range(rings):
 			var a: float = _rng.randf_range(0, TAU)
-			var r: float = _rng.randf_range(3.4, 8.5)
-			var pos2 := leg + Vector2(cos(a), sin(a)) * r
-			var pile: float = clampf((8.5 - r) / 5.0, 0.0, 1.0)   # taller against the leg
+			var ca: float = cos(a)
+			var sa: float = sin(a)
+			# Hug the SQUARE footprint, not a circle around its centre: a circle of
+			# radius 3.4 passes inside the 4.24 m corners, so a third of the armour used
+			# to be dumped inside the caisson where it is buried in concrete. Start at
+			# the footprint boundary along this bearing and pile outward into the moat.
+			var boundary: float = CAISSON_HALF / maxf(absf(ca), absf(sa))
+			var out: float = _rng.randf_range(0.15, 5.0)
+			var pos2 := leg + Vector2(ca, sa) * (boundary + out)
+			var pile: float = clampf(1.0 - out / 5.0, 0.0, 1.0)   # taller against the leg
 			var s: float = _rng.randf_range(0.8, 2.1)
 			var y: float = floor_height(pos2) + s * 0.35 + pile * _rng.randf_range(0.0, 1.6)
 			var basis := Basis.from_euler(Vector3(
@@ -276,13 +316,8 @@ func _build_sediment() -> void:
 	mat.initial_velocity_max = 0.06
 	p.process_material = mat
 	var quad := QuadMesh.new()
-	quad.size = Vector2(0.06, 0.06)
-	var qm := StandardMaterial3D.new()
-	qm.albedo_color = Color(0.6, 0.72, 0.72, 0.28)
-	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	quad.material = qm
+	quad.size = Vector2(0.08, 0.08)
+	quad.material = MatLib.soft_mote(Color(0.6, 0.72, 0.72, 0.3))
 	p.draw_pass_1 = quad
 	p.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	add_child(p)

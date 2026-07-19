@@ -145,7 +145,14 @@ func _build_environment() -> void:
 	dome_mesh.material = star_mat
 	var dome := MeshInstance3D.new()
 	dome.mesh = dome_mesh
+	# A 1600 m sphere must never be a shadow CASTER. Left on (the default), it drags the
+	# directional light's caster bounds out to enclose the entire dome, so every shadow
+	# split is fitted to a 3 km volume — the dome is redrawn into each split and the
+	# whole rig's shadow resolution collapses at the same time.
+	dome.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	dome.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	add_child(dome)
+	_star_dome = dome
 	sun_ctl = SunController.new()
 	add_child(sun_ctl)
 	sun_ctl.setup(sun, moon, env, star_mat)
@@ -155,29 +162,13 @@ func _build_environment() -> void:
 	storm.setup(sun_ctl)
 
 func _build_ocean() -> void:
-	var shader: Shader = load("res://materials/ocean_water.gdshader")
-	# Near mesh: dense enough for vertex waves around the rig.
-	var near_mat := ShaderMaterial.new()
-	near_mat.shader = shader
-	var near_mesh := PlaneMesh.new()
-	near_mesh.size = Vector2(500, 500)
-	near_mesh.subdivide_width = 250
-	near_mesh.subdivide_depth = 250
-	near_mesh.material = near_mat
-	var near := MeshInstance3D.new()
-	near.mesh = near_mesh
-	add_child(near)
-	# Far plane: flat, fragment ripples only, meets the horizon under the fog.
-	var far_mat := ShaderMaterial.new()
-	far_mat.shader = shader
-	far_mat.set_shader_parameter("vertex_waves", false)
-	var far_mesh := PlaneMesh.new()
-	far_mesh.size = Vector2(6000, 6000)
-	far_mesh.material = far_mat
-	var far := MeshInstance3D.new()
-	far.mesh = far_mesh
-	add_child(far)
-	far.position.y = -1.35   # below the deepest v2 trough so it never pokes through
+	# One camera-following radial mesh (OceanSurface): resolution grades from ~0.4 m
+	# quads at the player's feet to the fog horizon, so real 1.5 m chop is resolvable
+	# near the camera and there is no far-plane seam. Gerstner waves live in
+	# ocean_water.gdshader; sea_state is driven by the storm via SunController.
+	var ocean: Variant = preload("res://scripts/world/ocean_surface.gd").new()
+	add_child(ocean)
+	sun_ctl.register_ocean(ocean.get_material_ref())
 
 func _on_hatch_used(_verb: String) -> void:
 	# First time the player opens the SPHL hatch, advance from the intro beat.
@@ -263,6 +254,7 @@ func _on_creature_contact() -> void:
 
 var _underwater_env: Environment = null
 var _was_under: bool = false
+var _star_dome: MeshInstance3D = null
 
 ## Swap the camera's own Environment when it dips below the swell — dense teal
 ## fog, dim ambient, no sky — and duck the topside audio. Camera-level override
@@ -294,3 +286,12 @@ func _process(_delta: float) -> void:
 		_was_under = under
 		cam.environment = _underwater_env if under else null
 		AudioDirector.set_underwater(under)
+		# The ocean surface is single-sided (cull_back), so from below you look straight
+		# THROUGH it — and the 1600 m star dome, which draws the whole sky, was showing
+		# up as a bright blue-grey band across the top of every mid-water shot. The Snell
+		# plane cannot cover this: it is 620 m wide, so at 15 m down every ray within
+		# ~3 deg of horizontal passes its edge and reaches the dome anyway. Underwater the
+		# sky is simply not visible — hide the dome and let the graded fog own the
+		# distance, which is what "the deep" is supposed to look like.
+		if _star_dome != null:
+			_star_dome.visible = not under

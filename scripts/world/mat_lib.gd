@@ -360,3 +360,37 @@ static func _fine(key: String, base: Color, roughness: float, seed_val: int,
 	m.uv2_scale = Vector3(0.18, 0.18, 0.18)
 	_cache[key] = m
 	return m
+
+## A soft round particle mote: billboarded, unshaded, alpha, with a RADIAL falloff so it
+## reads as a suspended flake rather than a flat card.
+##
+## Marine snow / sediment / bubbles were untextured QuadMeshes, which render as hard
+## axis-aligned SQUARES — from a metre away the water column looked like it was full of
+## confetti. A radial gradient texture costs nothing (one 32 px texture shared by every
+## emitter) and needs no shader, so it stays safe on the Compatibility renderer.
+static func soft_mote(tint: Color, billboard: bool = true) -> StandardMaterial3D:
+	var key := "soft_mote_%s_%s" % [tint.to_html(), billboard]
+	if _cache.has(key):
+		return _cache[key]
+	var grad := Gradient.new()
+	grad.set_color(0, Color(1, 1, 1, 1))
+	grad.set_color(1, Color(1, 1, 1, 0))
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	tex.width = 32
+	tex.height = 32
+	var m := StandardMaterial3D.new()
+	m.albedo_color = tint
+	m.albedo_texture = tex
+	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	if billboard:
+		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+	else:
+		m.cull_mode = BaseMaterial3D.CULL_DISABLED   # flat-on-the-water sprites
+	m.vertex_color_use_as_albedo = false
+	_cache[key] = m
+	return m

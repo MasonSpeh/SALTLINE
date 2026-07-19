@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://uw_shot"]
+[ext_resource type="Script" path="res://tests/uw_shot.gd" id="1"]
+[node name="UwShot" type="Node3D"]
+script = ExtResource("1")

@@ -7,6 +7,8 @@ extends Node3D
 
 const FISH := preload("res://scripts/world/fish_table.gd")
 const ANIM := preload("res://scripts/world/creature_anim.gd")
+const SEABED := preload("res://scripts/world/seabed.gd")
+const FX := preload("res://scripts/world/underwater_fx.gd")
 
 const LEGS := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 const DEPTH_BAND := {"surface": -1.2, "mid": -4.5, "deep": -9.5}
@@ -15,6 +17,8 @@ var _kelp: Array[Node3D] = []
 var _schools: Array = []   # [{root, fish[], def, band_y, center, t}]
 var _t: float = 0.0
 var _rng := RandomNumberGenerator.new()
+var _snow: GPUParticles3D          # marine snow, storm/depth-reactive in _process
+var _storm: Node = null
 
 func _ready() -> void:
 	_rng.seed = 7411
@@ -24,15 +28,38 @@ func _ready() -> void:
 	_bubble_vents()
 	_mooring_chains()
 	_spawn_schools()
+	# The sculpted sea floor + wreck field + reef communities, and the visibility /
+	# light FX (Snell window, shafts, caustics, depth-graded fog). Both self-contain,
+	# so wiring them here keeps main.gd (owned by the waves/sky builder) untouched.
+	add_child(SEABED.new())
+	add_child(FX.new())
+	# Nothing below the wave line casts a directional shadow: it is all under 20+ m of
+	# water the sunlight never reaches usefully, but Godot was still drawing every one of
+	# these meshes (seabed, riprap, wreck field, reef, kelp, chains) into each shadow
+	# split. Switching the whole subtree off is the single cheapest thing in this file.
+	_no_shadows(self)
+
+## Recursively stop a subtree casting shadows.
+func _no_shadows(n: Node) -> void:
+	if n is GeometryInstance3D:
+		var g: GeometryInstance3D = n
+		g.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		g.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+	for c in n.get_children():
+		_no_shadows(c)
 
 # ---------------------------------------------------------------- structure
 
 ## The caissons don't stop at the pontoons — carry them down into the dark so
 ## looking below the surface reads as architecture, not a void.
 func _leg_extensions() -> void:
-	var deep_conc := StandardMaterial3D.new()
-	deep_conc.albedo_color = Color(0.3, 0.36, 0.36)
-	deep_conc.roughness = 0.95
+	# The SAME concrete the rig's caissons are built from. These extensions butt directly
+	# onto rig_builder's caisson (which bottoms out at -3.8) and used to carry their own
+	# paler grey-green material, so every leg visibly changed colour at y -3 — a hard
+	# horizontal seam a few metres under the surface that read like a translucent box
+	# sleeved over the caisson. One leg is one casting; one leg gets one material, and
+	# the depth-graded fog does the darkening.
+	var deep_conc: Material = MatLib.concrete()
 	for leg in LEGS:
 		var mi := MeshInstance3D.new()
 		var bm := BoxMesh.new()
@@ -77,53 +104,54 @@ func _kelp_forest() -> void:
 ## Marine snow: slow drifting particulate that sells the water as a medium.
 func _marine_snow() -> void:
 	var snow := GPUParticles3D.new()
-	snow.amount = 700
+	snow.amount = 1200               # headroom; amount_ratio scales the live count cheaply
+	snow.amount_ratio = 0.55         # calm baseline; storm ramps it toward 1.0
 	snow.lifetime = 14.0
 	snow.preprocess = 14.0
 	snow.local_coords = false
-	snow.visibility_aabb = AABB(Vector3(-45, -16, -45), Vector3(90, 16, 90))
+	snow.visibility_aabb = AABB(Vector3(-45, -18, -45), Vector3(90, 18, 90))
+	_snow = snow
 	var mat := ParticleProcessMaterial.new()
 	mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_BOX
-	mat.emission_box_extents = Vector3(40, 7, 40)
+	# Keep the top of the emission box well BELOW the deepest wave trough. Spawning to
+	# y -1 put unshaded white billboards above the waterline every time a trough passed,
+	# and they read from the deck as hard white squares littering the night sea. The
+	# swell reaches ~2.8 m of amplitude at full sea state, so -4 is the shallowest safe
+	# ceiling; snow still greets you as soon as you are a couple of metres under.
+	mat.emission_box_extents = Vector3(40, 6, 40)   # node sits at y -10 -> spans -16..-4
 	mat.gravity = Vector3(0.25, -0.12, 0.18)   # the gyre's slow underwater set
 	mat.initial_velocity_min = 0.02
 	mat.initial_velocity_max = 0.1
 	snow.process_material = mat
 	var quad := QuadMesh.new()
-	quad.size = Vector2(0.035, 0.035)
-	var qm := StandardMaterial3D.new()
-	qm.albedo_color = Color(0.75, 0.85, 0.85, 0.5)
-	qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-	qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-	qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-	quad.material = qm
+	quad.size = Vector2(0.05, 0.05)
+	quad.material = MatLib.soft_mote(Color(0.75, 0.85, 0.85, 0.55))
 	snow.draw_pass_1 = quad
 	add_child(snow)
-	snow.position = Vector3(0, -8, 0)
+	snow.position = Vector3(0, -10, 0)
 
 func _bubble_vents() -> void:
 	for leg in [LEGS[1], LEGS[2]]:
 		var bub := GPUParticles3D.new()
 		bub.amount = 60
-		bub.lifetime = 6.0
-		bub.preprocess = 6.0
+		bub.lifetime = 5.0    # with the gravity below, a plume tops out around y -6
+		bub.preprocess = 5.0
 		bub.local_coords = false
 		bub.visibility_aabb = AABB(Vector3(-3, 0, -3), Vector3(6, 14, 6))
 		var mat := ParticleProcessMaterial.new()
 		mat.emission_shape = ParticleProcessMaterial.EMISSION_SHAPE_SPHERE
 		mat.emission_sphere_radius = 0.6
-		mat.gravity = Vector3(0, 1.9, 0)
+		# Buoyancy, not a rocket. At 1.9 m/s^2 over a 6 s life a bubble climbed
+		# 0.5*1.9*36 = 34 m from its -13.5 m vent, i.e. it burst out of the sea and kept
+		# going 20 m into the air. Dialled to a rise that tops out several metres under
+		# the swell, which is also what a real vent plume looks like from below.
+		mat.gravity = Vector3(0, 0.42, 0)
 		mat.initial_velocity_min = 0.2
 		mat.initial_velocity_max = 0.5
 		bub.process_material = mat
 		var quad := QuadMesh.new()
-		quad.size = Vector2(0.05, 0.05)
-		var qm := StandardMaterial3D.new()
-		qm.albedo_color = Color(0.85, 0.95, 0.95, 0.6)
-		qm.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		qm.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
-		qm.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
-		quad.material = qm
+		quad.size = Vector2(0.06, 0.06)
+		quad.material = MatLib.soft_mote(Color(0.85, 0.95, 0.95, 0.6))
 		bub.draw_pass_1 = quad
 		add_child(bub)
 		bub.position = Vector3(leg.x + 2.2, -13.5, leg.z - 1.5)
@@ -147,6 +175,26 @@ func _mooring_chains() -> void:
 		mi.global_position = (from + to) * 0.5
 		mi.look_at_from_position(mi.global_position, to, Vector3.UP)
 		mi.rotate_object_local(Vector3.RIGHT, PI * 0.5)
+
+func _storm_node() -> Node:
+	if _storm != null and is_instance_valid(_storm):
+		return _storm
+	var stack: Array = [get_tree().root]
+	while stack.size() > 0:
+		var n: Node = stack.pop_back()
+		if n is StormSystem:
+			_storm = n
+			return n
+		for c in n.get_children():
+			stack.append(c)
+	return null
+
+func _storm_intensity() -> float:
+	var st: Node = _storm_node()
+	if st == null:
+		return 0.0
+	var v: Variant = st.get("_intensity")
+	return clampf(float(v), 0.0, 1.0) if v != null else 0.0
 
 # ---------------------------------------------------------------- schools
 
@@ -288,6 +336,12 @@ func _eye() -> StandardMaterial3D:
 
 func _process(delta: float) -> void:
 	_t += delta
+	# Marine snow thickens and drives harder when a storm stirs the water column —
+	# the same sediment that fogs the near-surface visibility (see underwater_fx).
+	if _snow != null:
+		var storm: float = _storm_intensity()
+		_snow.amount_ratio = clampf(0.55 + storm * 0.45, 0.0, 1.0)
+		_snow.speed_scale = 1.0 + storm * 0.7
 	# Kelp sways in the set of the current.
 	for strand in _kelp:
 		var sway: float = strand.get_meta("sway")
@@ -319,6 +373,14 @@ func _process(delta: float) -> void:
 			var a: float = t * (1.2 / maxf(s["size"], 0.6)) + i * (TAU / maxi(n, 1))
 			var r: float = (0.8 + 0.5 * sin(t * 0.7 + i)) * (1.0 + s["size"] * 0.5)
 			var next: Vector3 = center + Vector3(cos(a) * r, sin(t * 1.3 + i) * 0.25, sin(a) * r * 0.7)
+			# Never let a school breach. The "surface" band sits at -1.2, which was under
+			# water when the sea was a flat plane; against the Gerstner swell (±2 m calm,
+			# more in a squall) it put whole shoals of fish flapping above the waterline.
+			# Clamp to the live surface, so a squall pushes the shallow bands down with it.
+			# Full wave height: the 0.85 camera-test factor lifts a point above the true
+			# surface in troughs, which is exactly where a shallow school would breach.
+			var surf: float = Gyre.wave_height(Vector2(next.x, next.z), Gyre.water_time())
+			next.y = minf(next.y, surf - 0.5 - s["size"] * 0.5)
 			var vel: Vector3 = next - f.global_position
 			f.global_position = next
 			# Steer by the FLAT velocity only — a vertical bob aligned with UP
