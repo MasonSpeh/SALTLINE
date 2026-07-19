@@ -26,6 +26,30 @@ var _sun: DirectionalLight3D
 var _storm: Node = null
 var _rng := RandomNumberGenerator.new()
 
+# --- submerged sun attenuation (see _grade_sun) ---
+var _sun_topside_energy: float = -1.0
+var _sun_topside_color: Color = Color.WHITE
+var _wrote_energy: float = -1.0
+var _wrote_color: Color = Color.WHITE
+
+## Direct sunlight lost the instant it crosses the surface — Fresnel reflection off the
+## swell plus immediate forward scatter. Underwater the beam is DIFFUSE, and that is the
+## whole point of this constant: it is what stops the sun drawing hard-edged shadows down
+## here. The pontoon slab overhead was casting a razor-sharp horizontal shadow edge onto
+## every caisson at y -3 — geometrically correct, and the exact "hard horizontal seam a few
+## metres under the surface" that has been blamed on the caustic quads through two previous
+## fixes. (It is not the caustics: a strength-0 capture is identical, and it survives
+## merging the leg into a single mesh. See the scratchpad exp_* frames.) Sunlight four
+## metres down simply is not a hard light source, so the fix is to stop lighting it like one.
+const SUN_SURFACE_LOSS: float = 0.55
+## Extinction of direct sunlight per metre of water, on top of the surface loss: about a
+## fifth of it left at 4 m, a fiftieth by 15 m, where ambient scatter takes over entirely.
+const SUN_EXTINCTION: float = 0.22
+## Sunlight that survives to the seabed as scattered blue-green, so nothing goes pure black.
+const SUN_FLOOR: float = 0.06
+## Water absorbs red first, then green. The deep colour direct sunlight decays TOWARD.
+const DEEP_LIGHT := Color(0.16, 0.62, 0.72)
+
 # graded underwater colours (near surface -> seabed)
 const NEAR_FOG := Color(0.10, 0.27, 0.24)     # greenish, lit from above
 const DEEP_FOG := Color(0.006, 0.022, 0.045)  # blue-black deep
@@ -97,7 +121,12 @@ func _build_light_shafts() -> void:
 func _build_caustics() -> void:
 	var mat := ShaderMaterial.new()
 	mat.shader = load("res://materials/caustics.gdshader")
-	mat.set_shader_parameter("reach", 6.5)
+	# Reach must die INSIDE the quad, not at its edge. The quads span 8 m (y +2 down to
+	# y -6) and a 6.5 m reach still left a residue lit where the mesh simply stops, which
+	# an additive pass on dark water draws as a straight horizontal line right across every
+	# caisson face — the "translucent box sleeved over the leg" seam again, by another
+	# route. 4.6 m is fully faded a metre and a half above the bottom edge.
+	mat.set_shader_parameter("reach", 4.6)
 	mat.set_shader_parameter("scale", 0.85)
 	mat.set_shader_parameter("strength", 1.1)
 	_caustic_mats.append(mat)
@@ -164,6 +193,47 @@ func _storm_intensity() -> float:
 	var v: Variant = st.get("_intensity")
 	return clampf(float(v), 0.0, 1.0) if v != null else 0.0
 
+## Clamp the DIRECT sun on submerged surfaces by the same depth curve the water volume is
+## graded with.
+##
+## The environment fog grades the medium, but fog is a function of distance from the camera,
+## so a concrete caisson five metres away came through it almost untouched: its sunlit face
+## rendered near-white cream with a hard shadow edge, completely untinted, while every cubic
+## metre of water around it was teal. The water graded and the rig standing in it did not,
+## which reads as the rig being pasted over the sea rather than standing in it — at 15 m
+## down, where no direct sunlight of that colour or intensity exists.
+##
+## Sunlight entering water loses red within a couple of metres and most of its intensity
+## within ten, so the fix is to attenuate the directional light itself while the camera is
+## under, on the same extinction curve, and shift what survives toward blue-green.
+##
+## SunController owns this light and rewrites it on every clock tick. Rather than fight it,
+## remember the last value we wrote: anything we did not write is a fresh topside value from
+## the controller, so a phase change or a squall mid-dive still comes through, and surfacing
+## restores the light exactly. Above water the attenuation is 1.0 and this is a no-op.
+func _grade_sun(surf: float, cam_y: float, under: bool, storm: float) -> void:
+	if _sun == null:
+		return
+	if _sun_topside_energy < 0.0 or not is_equal_approx(_sun.light_energy, _wrote_energy):
+		_sun_topside_energy = _sun.light_energy
+	if _sun.light_color != _wrote_color:
+		_sun_topside_color = _sun.light_color
+	var atten: float = 1.0
+	var tint: float = 0.0
+	if under:
+		var depth: float = maxf(surf - cam_y, 0.0)
+		atten = SUN_FLOOR + (SUN_SURFACE_LOSS - SUN_FLOOR) * exp(-depth * SUN_EXTINCTION)
+		# A squall stirs sediment into the top of the column: less light gets in at all.
+		atten *= (1.0 - storm * 0.45)
+		# Red is gone within a couple of metres; the shift saturates well before the seabed.
+		tint = clampf(depth / 7.0, 0.0, 1.0)
+	var e: float = _sun_topside_energy * atten
+	var c: Color = _sun_topside_color.lerp(DEEP_LIGHT, tint)
+	_sun.light_energy = e
+	_sun.light_color = c
+	_wrote_energy = e
+	_wrote_color = c
+
 func _process(_delta: float) -> void:
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	if player == null:
@@ -208,6 +278,9 @@ func _process(_delta: float) -> void:
 		m.set_shader_parameter("daylight", day * (1.0 - storm * 0.6))
 		m.set_shader_parameter("top_y", surf)
 
+	# ---- the rig's own surfaces must obey the water too ----
+	_grade_sun(surf, cam_y, under, storm)
+
 	# ---- depth-graded water: re-grade the camera's underwater environment ----
 	if under:
 		var env: Environment = cam.environment
@@ -218,7 +291,14 @@ func _process(_delta: float) -> void:
 			# base grade
 			var fog_col: Color = NEAR_FOG.lerp(DEEP_FOG, tc)
 			var amb_col: Color = NEAR_AMB.lerp(DEEP_AMB, tc)
-			var dens: float = lerpf(0.040, 0.165, tc)
+			# Extinction of the MEDIUM. At 0.040 the near field was effectively clear
+			# water — a caisson face five metres away picked up 18% fog and stayed the
+			# colour it was painted, so the water graded and the concrete standing in it
+			# did not. 0.085 near the surface puts a third of the water's colour on
+			# anything at 5 m and four fifths on anything at 20 m, which is roughly
+			# coastal North Sea visibility and is what makes submerged steel read as
+			# submerged rather than photographed dry.
+			var dens: float = lerpf(0.085, 0.30, tc)
 			var amb_e: float = lerpf(0.85, 0.14, t)
 			# storm stirs sediment near the surface: denser, murkier, dimmer up top
 			var near: float = (1.0 - t)

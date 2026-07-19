@@ -12,7 +12,14 @@ const R_MAX: float = 1500.0        # rim inside the 1600 m star dome, lost in fo
 const ANG: int = 220               # angular segments (azimuthal resolution)
 const NEAR_SPACING: float = 0.40   # innermost radial quad size (m)
 const SPACING_GROW: float = 1.065  # radial spacing multiplier per ring
-const MAX_SPACING: float = 55.0    # coarsest radial quad size, far out
+## Coarsest radial quad, far out. At 55 m the far field sampled the swell roughly once per
+## wavelength, so at full sea state the horizon rendered as a row of dark rectangular teeth
+## — a crenellated low-poly skyline exactly where a North Atlantic horizon should be a soft
+## haze line. 18 m keeps the outer rings under the shortest long-swell wavelength, and
+## ocean_water.gdshader now damps wave amplitude to nothing across the same distance band,
+## so the two together flatten the far field into fog instead of aliasing it. The extra
+## rings cost ~16k triangles on a mesh that is a single draw call.
+const MAX_SPACING: float = 18.0
 const FOLLOW_SNAP: float = 0.5     # snap follow pos to this grid (kills swim)
 
 var _mat: ShaderMaterial

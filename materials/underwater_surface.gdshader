@@ -63,14 +63,33 @@ void fragment() {
 	float n1 = fbm(rp + vec2(TIME * 0.22, TIME * 0.17));
 	float n2 = fbm(rp * 2.3 - vec2(TIME * 0.13, TIME * 0.28));
 	float shimmer = (n1 + n2 - 1.0);            // ~ -0.5 .. 0.5
-	float upw = clamp(up + shimmer * 0.30 * ripple, 0.0, 1.0);
+	// The ripple has to DEFORM the rim, not erase it. At 0.30 the displacement was wider
+	// than the whole edge ramp, so the boundary averaged out into a gradient and the effect
+	// read as fog rather than as a window with an edge.
+	float upw = clamp(up + shimmer * 0.13 * ripple, 0.0, 1.0);
 
-	// Snell's window: a crisp bright refraction disc, collapsing to the dark mirrored
-	// deep toward the horizontal. Sharper edge so it reads as a rippling window even
-	// just under the surface, where the disc fills most of the view.
-	float window = smoothstep(0.50, 0.74, upw);
+	// SNELL'S WINDOW. Total internal reflection puts the ENTIRE sky — horizon to horizon —
+	// inside a cone of half-angle 48.6 deg about the vertical; outside it the underside of
+	// the water is a mirror showing the dark deep. cos(48.6) = 0.661, so the rim belongs at
+	// upw = 0.66 and it belongs SHARP: that hard boundary is the whole phenomenon, and a
+	// smoothstep(0.50, 0.74) ramp spread it over 20 degrees of arc until nothing was left
+	// of it but a soft teal wash.
+	const float CRIT = 0.661;
+	float window = smoothstep(CRIT - 0.045, CRIT + 0.035, upw);
 	vec3 col = mix(horizon_color, window_color, window);
 	col += window_color * window * 0.12;   // lift the disc so it glows
+
+	// The whole 360 deg horizon is compressed into a thin annulus just inside the rim, and
+	// it is the brightest part of a real window — the bright ring is what makes the disc
+	// read as the sky seen through a hole rather than as a patch of lighter water. Sky
+	// beyond the horizon ring is squeezed too, so the gradient inside the disc runs bright
+	// at the edge to open zenith at the centre.
+	float ring = smoothstep(CRIT - 0.030, CRIT + 0.010, upw) * (1.0 - smoothstep(CRIT + 0.010, CRIT + 0.16, upw));
+	col += mix(window_color, sun_color, 0.35) * ring * 0.55 * (0.25 + 0.75 * daylight);
+	// Beyond the rim, the mirrored deep is not uniformly black: it carries a dim, upside
+	// down reflection of the water below, which keeps the outside of the window readable
+	// as a surface rather than as empty fog.
+	col += horizon_color * (1.0 - window) * (0.6 + 0.4 * n1);
 
 	// Sun / moon smeared through the window, biased to the sun's azimuth and the
 	// steep-up centre of the cone.

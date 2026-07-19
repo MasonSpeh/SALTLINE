@@ -148,7 +148,13 @@ static func rusty_metal() -> StandardMaterial3D:
 
 static func painted_steel() -> StandardMaterial3D:
 	## Once-white paint peeled to rust — the accommodation block's weather face.
-	return _pbr("paint", "PaintedMetal013", Color.WHITE, 0.28, 1.0, 0.0, Color(0.6, 0.66, 0.63))
+	##
+	## uv scale 0.28 stretched one tile of PaintedMetal013 across 3.6 m, so its peel and
+	## staining became metre-scale blotches: on anything small the material read as polished
+	## marble or granite rather than paint, which is what made the crane operator's cab
+	## photograph as a pale stone cube bolted to the deck. 0.65 repeats every 1.5 m, which is
+	## about the scale real peeling paint works at and gives a 2 m cab panel real texture.
+	return _pbr("paint", "PaintedMetal013", Color.WHITE, 0.65, 1.0, 0.0, Color(0.6, 0.66, 0.63))
 
 static func dark_metal() -> StandardMaterial3D:
 	## Grungy riveted plate — caissons, machinery, structural dark steel.
@@ -373,19 +379,30 @@ static func soft_mote(tint: Color, billboard: bool = true) -> StandardMaterial3D
 	if _cache.has(key):
 		return _cache[key]
 	var grad := Gradient.new()
-	grad.set_color(0, Color(1, 1, 1, 1))
-	grad.set_color(1, Color(1, 1, 1, 0))
+	# The fade has to be COMPLETE well inside the quad, not at its corner. A linear ramp to
+	# the quad edge leaves ~0.5 alpha at the halfway radius, and a marine-snow mote is only
+	# a few pixels across on screen — the mip chain then averages that into a flat, uniform
+	# patch that fills the whole quad, which is why the water column photographed as hard
+	# opaque teal RECTANGLES rather than soft motes. Pull the alpha down fast and reach
+	# zero at 0.5 of the fill radius, so the lit part of the sprite is a disc inside a
+	# transparent border no filtering can smear back out to the edges.
+	grad.offsets = PackedFloat32Array([0.0, 0.22, 0.5, 1.0])
+	grad.colors = PackedColorArray([
+		Color(1, 1, 1, 1), Color(1, 1, 1, 0.55), Color(1, 1, 1, 0.0), Color(1, 1, 1, 0.0)])
 	var tex := GradientTexture2D.new()
 	tex.gradient = grad
 	tex.fill = GradientTexture2D.FILL_RADIAL
 	tex.fill_from = Vector2(0.5, 0.5)
 	tex.fill_to = Vector2(1.0, 0.5)
-	tex.width = 32
-	tex.height = 32
+	tex.width = 64
+	tex.height = 64
 	var m := StandardMaterial3D.new()
 	m.albedo_color = tint
 	m.albedo_texture = tex
 	m.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	# No mip chain: mipmapping a small radial sprite is precisely what flattened it into a
+	# uniform square at the distances these are actually seen from.
+	m.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR
 	m.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	if billboard:
 		m.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED

@@ -16,6 +16,9 @@ func _init() -> void:
 	display_name = "Drying Line"
 
 func _ready() -> void:
+	# A drying line is strung BETWEEN two posts and there is nothing under it by design,
+	# so the placement audit must not measure the deck 2 m below it as a missing support.
+	add_to_group("placement_exempt")
 	# One game hour in real seconds, from the clock's own day plan.
 	var day_sec: float = 0.0
 	for phase in GameClock.phase_durations_minutes:

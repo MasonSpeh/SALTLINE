@@ -21,7 +21,11 @@ var _main: Node3D
 func _ready() -> void:
 	_main = load("res://scenes/Main.tscn").instantiate()
 	add_child(_main)
-	await get_tree().create_timer(2.5).timeout
+	# WAIT FOR THE WORLD. The dressing streams in over ~20 s and render_budget.gd sweeps
+	# behind it, so a 2.5 s wait measured a half-built rig with none of the frame budget
+	# applied — the earlier spots came out several times worse than the same spots measured
+	# later in the same run, which made this harness's own numbers inconsistent.
+	await get_tree().create_timer(28.0).timeout
 	GameClock.force_phase(GameClock.Phase.DAY)
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	player.set_physics_process(false)

@@ -329,6 +329,68 @@ func _galley_bulkhead_layout() -> void:
 		# z-fight the plate it is painted on.
 		elif n is Label3D and (n as Label3D).text.contains("LAST MENU"):
 			n.position = Vector3(-1.865, y + 2.65, 12.6)
+	_galley_board_dressing()
+
+## Put something ON the notice board, and give the bare north end of the bulkhead a fitting.
+##
+## Moving the board out of the shelf pile-up fixed the overlap but left the wall SPACED
+## rather than composed: the board photographed as a completely blank black rectangle with
+## no notices, no paper and no pins — which reads as an unfinished placeholder, or worse, a
+## hole cut in the bulkhead — and the whole north half of the plate was bare concrete.
+##
+## Board face is x -1.822 (slab centre -1.85, 0.05 thick), spanning z 8.95..10.15 and
+## y+1.38..y+2.18. Everything below is hung a few millimetres proud of that face.
+func _galley_board_dressing() -> void:
+	var y: float = DECK_Y
+	var face: float = -1.822
+	var paper: Material = MatLib.flat(Color(0.86, 0.84, 0.76))
+	var aged: Material = MatLib.flat(Color(0.78, 0.73, 0.58))
+	var pin: Material = MatLib.flat(Color(0.72, 0.16, 0.12))
+	# The duty rota, dead centre and squarely pinned: the one sheet that is still legible.
+	_wall_mesh(Vector3(face - 0.004, y + 1.86, 9.55), Vector3(0.006, 0.42, 0.30), paper)
+	for pz in [9.42, 9.68]:
+		_wall_mesh(Vector3(face - 0.010, y + 2.04, pz), Vector3(0.012, 0.022, 0.022), pin)
+	# Ruled lines on the rota, so it is a document rather than a white rectangle.
+	for i in range(5):
+		_wall_mesh(Vector3(face - 0.008, y + 1.98 - i * 0.055, 9.55),
+			Vector3(0.004, 0.006, 0.24), MatLib.flat(Color(0.34, 0.33, 0.30)))
+	# A smaller memo overlapping its corner, hung on ONE pin and curled off the board —
+	# the detail that says paper has been here a long time in damp air.
+	var memo: MeshInstance3D = _wall_mesh(Vector3(face - 0.014, y + 1.62, 9.94),
+		Vector3(0.006, 0.24, 0.17), aged)
+	memo.rotation.x = deg_to_rad(6.0)
+	memo.rotation.z = deg_to_rad(-9.0)
+	_wall_mesh(Vector3(face - 0.018, y + 1.71, 9.94), Vector3(0.012, 0.022, 0.022), pin)
+	# A curled photograph high on the left, and a torn-off corner nobody took down.
+	var photo: MeshInstance3D = _wall_mesh(Vector3(face - 0.012, y + 2.02, 9.13),
+		Vector3(0.006, 0.15, 0.20), MatLib.flat(Color(0.42, 0.46, 0.44)))
+	photo.rotation.z = deg_to_rad(4.0)
+	_wall_mesh(Vector3(face - 0.016, y + 2.09, 9.13), Vector3(0.012, 0.020, 0.020), pin)
+	_wall_mesh(Vector3(face - 0.008, y + 1.47, 9.20), Vector3(0.005, 0.09, 0.07), aged)
+	# THE BARE NORTH PLATE (z 15.9..17.6): a fire blanket in its tab-pull pouch over a
+	# stencilled panel. Standard galley kit, and the one thing that belongs on the wall
+	# beside a range and a fridge.
+	var pouch_z: float = 16.65
+	_wall_mesh(Vector3(-1.845, y + 1.72, pouch_z), Vector3(0.10, 0.34, 0.26),
+		MatLib.flat(Color(0.62, 0.13, 0.10)))
+	_wall_mesh(Vector3(-1.795, y + 1.55, pouch_z), Vector3(0.02, 0.10, 0.05),
+		MatLib.flat(Color(0.90, 0.88, 0.82)))   # the pull tab hanging out of the pouch
+	_wall_mesh(Vector3(-1.868, y + 2.06, pouch_z), Vector3(0.006, 0.16, 0.30),
+		MatLib.flat(Color(0.80, 0.78, 0.70)))   # instruction placard above it
+
+## A bulkhead-mounted mesh: no collision, no shadow, and declared wall-fixed so the
+## placement audit does not go looking for a floor under it.
+func _wall_mesh(pos: Vector3, size: Vector3, mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = size
+	bm.material = mat
+	mi.mesh = bm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	mi.global_position = pos
+	mi.add_to_group("placement_exempt")
+	return mi
 
 func _galley() -> void:
 	var y: float = DECK_Y
@@ -344,8 +406,10 @@ func _galley() -> void:
 	# and are 0.42m wide. x -1.58 puts them mid-depth on the 0.35-deep boards.
 	_p("long_life_food", Vector3(-1.58, y + 1.80, 12.1), 90)
 	_p("cleaner_tin_01", Vector3(-1.58, y + 2.40, 13.3), 90)
-	# A monobloc chair pushed back from a table, a thermos left on a table top.
-	_pc("plastic_monobloc_chair_01", Vector3(4.3, y, 12.9), 30)
+	# A mess stool pushed back from a table, a thermos left on a table top. Was a white
+	# plastic garden monobloc — the one object in the galley that read as suburban patio
+	# furniture rather than as something a supply boat landed on a North Sea rig.
+	_pc("metal_stool_01", Vector3(4.3, y, 12.9), 30)
 	_p("modified_thermos", Vector3(8.5, y + 0.7, 11.3), 60)
 	_p("russian_food_cans_01", Vector3(2.5, y + 0.7, 14.15), -30)
 	# A trash can by the fridge, overflowing a little.

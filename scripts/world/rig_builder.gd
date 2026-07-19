@@ -491,7 +491,8 @@ func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
 	c.display_name = name_
 	add_child(c)
 	c.global_position = pos
-	c.build_box_visual(Vector3(1.1, 0.8, 0.8), Color(0.5, 0.45, 0.3), false, true)
+	c.build_box_visual(Vector3(1.1, 0.8, 0.8), Color(0.5, 0.45, 0.3), false, true,
+		MatLib.weathered_wood())
 	preload("res://scripts/world/surface_snap.gd").attach(c)
 	return c
 
@@ -538,7 +539,18 @@ func _build_structure() -> void:
 	for leg_pos in legs:
 		# Top ends below the deck slab — coplanar faces z-fight through the floors above.
 		# Gravity-base look: smooth aged concrete, like the Troll A caissons.
-		_box(leg_pos + Vector3(0, 6.6, 0), Vector3(6, 20.8, 6), MatLib.concrete())
+		#
+		# ONE LEG IS ONE CASTING, ALL THE WAY DOWN. This box used to stop at y -3.8 and
+		# underwater_world._leg_extensions() carried the leg on down to -23 as a SECOND mesh
+		# butted onto it. Both carried MatLib.concrete(), but two meshes are two lighting
+		# paths — the deep half was excluded from the shadow/GI pass for perf while this half
+		# was not — and the join drew a razor-sharp horizontal tone change across every
+		# caisson face a few metres under the surface: the "translucent box sleeved over the
+		# leg" defect. It survived two previous fixes because both went after the caustic
+		# quads instead, and a strength-0 capture exonerates those completely (see the
+		# scratchpad exp_nocaustic / exp_redleg / exp_noext frames, which localise the seam
+		# to the junction itself). A junction that does not exist cannot show.
+		_box(leg_pos + Vector3(0, -3.0, 0), Vector3(6, 40.0, 6), MatLib.concrete())
 	# Pontoons riding just above the bigger v2 swell (crests reach ~0.9).
 	_box(Vector3(0, -1.05, -12), Vector3(56, 4, 8), MatLib.concrete_floor())
 	_box(Vector3(0, -1.05, 12), Vector3(56, 4, 8), MatLib.concrete_floor())
@@ -706,6 +718,9 @@ func _build_stair_tower() -> void:
 	cable.gap_length = 2.0
 	add_child(cable)
 	cable.global_position = Vector3(27.6, 10.9, 6)
+	# A cable run is routed along the wall; there is no floor under it and there is not
+	# meant to be, so it is not a dropped prop the placement audit should be seating.
+	cable.add_to_group("placement_exempt")
 	cable.build_box_visual(Vector3(0.4, 0.5, 2.2), Color(0.12, 0.08, 0.06))
 	breaker.set_cable(cable)
 	# Cosmetic cable runs to and from the gap.
@@ -1687,7 +1702,8 @@ func _decorate_galley() -> void:
 	var stove: Interactable = preload("res://scripts/components/cook_stove.gd").new()
 	add_child(stove)
 	stove.global_position = Vector3(11.5, y + 0.5, 16.2)
-	stove.build_box_visual(Vector3(1.3, 1.0, 1.2), Color(0.16, 0.17, 0.19), false, true)
+	stove.build_box_visual(Vector3(1.3, 1.0, 1.2), Color(0.16, 0.17, 0.19), false, true,
+		MatLib.dark_metal())
 	# Its bottle: pressure that survived the Flash.
 	_cyl_nc(Vector3(12.5, y + 0.45, 17.1), 0.17, 0.9, MatLib.galvanized())
 	_plabel("LPG", Vector3(12.5, y + 0.55, 16.92), 180, 10, Color(0.8, 0.3, 0.2))
@@ -1698,8 +1714,11 @@ func _decorate_galley() -> void:
 	var fridge: Interactable = preload("res://scripts/components/cold_store.gd").new()
 	add_child(fridge)
 	fridge.global_position = Vector3(-1.2, y + 0.95, 15.2)
-	fridge.build_box_visual(Vector3(0.9, 1.9, 0.9), Color(0.82, 0.84, 0.82), false, true)
-	var fdoor := _box(Vector3(-0.7, y + 0.95, 15.85), Vector3(0.06, 1.85, 0.85), MatLib.flat(Color(0.78, 0.8, 0.78)), self, false)
+	# Was a pure-white untextured box — the one thing in the galley that read as an
+	# unfinished primitive. Grubby enamel panel, like everything else in this kitchen.
+	fridge.build_box_visual(Vector3(0.9, 1.9, 0.9), Color(0.82, 0.84, 0.82), false, true,
+		MatLib.dirty_white_panel())
+	var fdoor := _box(Vector3(-0.7, y + 0.95, 15.85), Vector3(0.06, 1.85, 0.85), MatLib.dirty_white_panel(), self, false)
 	fdoor.rotation.y = 0.5
 	# Wall shelves with canned rows.
 	for sy in [1.6, 2.2]:
@@ -1896,9 +1915,15 @@ func _build_env_objects() -> void:
 	# side rather than dead ahead.
 	var bench := CraftBench.new()
 	add_child(bench)
-	bench.global_position = Vector3(25.0, WET_Y, -17.5)
-	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true)
-	_box(Vector3(25.0, WET_Y + 0.93, -17.5), Vector3(1.7, 0.06, 0.8), MatLib.wood(), self, false)
+	# build_box_visual CENTRES its box on the node, so placing the bench at deck level
+	# buried the bottom half of the carcass in the plating and left its authored plank top
+	# (WET_Y + 0.93) hanging 0.48 m clear of the carcass it is supposed to be lying on —
+	# the tan slab photographed floating beside the bench. Stand the carcass ON the deck by
+	# lifting it half its own height, and drop the plank to sit flush on it.
+	bench.global_position = Vector3(25.0, WET_Y + 0.45, -17.5)
+	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true,
+		MatLib.weathered_wood())
+	_box(Vector3(25.0, WET_Y + 0.92, -17.5), Vector3(1.7, 0.06, 0.8), MatLib.wood(), self, false)
 	# Caged worklight on a real gooseneck — the bench's own light, no longer a lamp
 	# hanging from thin air (the old caged_hanging_light floated 2.4m over open deck
 	# with nothing above it). A post stands off the bench BACK edge, an arm reaches out

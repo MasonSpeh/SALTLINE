@@ -96,7 +96,8 @@ func _ready() -> void:
 	add_child(nest)
 	nest.add_to_group("gull_nest")
 	nest.global_position = Vector3(-20, 21.25, 12)
-	nest.build_box_visual(Vector3(0.7, 0.25, 0.7), Color(0.45, 0.38, 0.26), false, true)
+	nest.build_box_visual(Vector3(0.7, 0.25, 0.7), Color(0.45, 0.38, 0.26), false, true,
+		MatLib.weathered_wood())
 	var twigs := CSGTorus3D.new()
 	twigs.inner_radius = 0.22
 	twigs.outer_radius = 0.42

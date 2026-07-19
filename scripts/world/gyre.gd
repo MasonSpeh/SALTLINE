@@ -59,12 +59,22 @@ const SET_DIR_B: Vector2 = Vector2(0.20, -0.98)
 static func _warp(p: Vector2, t: float) -> Vector2:
 	return p + 3.0 * Vector2(sin(p.y * 0.018 + t * 0.05), sin(p.x * 0.015 - t * 0.04))
 
+## Wind mottling on the wind-wave and chop bands — the drifting cat's-paw patches that stop
+## the sea reading as one uniform roughness everywhere. MUST match patchiness() in
+## ocean_water.gdshader, or a floating drum rides a different sea from the drawn one.
+static func _patchiness(p: Vector2, t: float) -> float:
+	var a: float = sin(p.x * 0.085 + p.y * 0.031 - t * 0.16)
+	var b: float = sin(p.x * -0.024 + p.y * 0.061 - t * 0.11)
+	var c: float = sin((p.x + p.y) * 0.037 + t * 0.07)
+	return lerpf(0.42, 1.42, clampf(0.5 + 0.26 * a + 0.20 * b + 0.16 * c, 0.0, 1.0))
+
 ## Full Gerstner displacement at world xz: (horizontal_x, surface_height, horizontal_z).
 static func wave_offset(raw_p: Vector2, t: float) -> Vector3:
 	var w: Vector2 = _warp(raw_p, t)
 	var ss: float = _sea_state
 	var amp_scale: float = 0.18 + 0.92 * ss
 	var steep_scale: float = 0.35 + 0.65 * ss
+	var gust: float = _patchiness(raw_p, t)
 	var dx: float = 0.0
 	var dz: float = 0.0
 	var h: float = 0.0
@@ -77,6 +87,8 @@ static func wave_offset(raw_p: Vector2, t: float) -> Vector3:
 			var sd: Vector2 = SET_DIR_B if i == 1 else SET_DIR_A
 			var env: float = sd.dot(raw_p) * 0.010 - t * (0.045 + 0.02 * float(i))
 			a *= 0.55 + 0.45 * sin(env)
+		else:
+			a *= gust
 		var steep_eff: float = W_STEEP[i] * steep_scale
 		var qa: float = steep_eff / (k * 11.0)
 		var phase: float = k * dir.dot(w) - omega * t

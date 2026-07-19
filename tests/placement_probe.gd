@@ -25,6 +25,25 @@ const TOL: float = 0.05            ## gap that counts as floating
 const REACH: float = 2.0           ## no surface within this below => hanging, exempt
 const CLUTTER_SPAN: float = 2.0    ## loose-object footprint cap (bigger = furniture)
 const CLUTTER_H: float = 1.6
+
+## FURNITURE floating: an object too big to be clutter still needs a foot on something.
+## The float branch above skips anything over CLUTTER_SPAN/CLUTTER_H, which structurally
+## excluded every exterior_dress assembly — pipe racks, gas cages, the gen set, the HVAC,
+## the cargo basket, drums, the radome — from the audit that was being quoted as proof
+## they do not float. They get their own, looser, check: a 3 m gen set resting 4 cm proud
+## of its plinth is a modelling choice, one hanging 40 cm over the roof is a bug.
+const FURN_SPAN: float = 12.0      ## bigger than this is structure, not placed furniture
+const FURN_TOL: float = 0.18       ## gap that counts as a floating assembly
+const FURN_REACH: float = 3.0      ## nothing within this below => it is a hung fixture
+
+## PENETRATION: the float test only ever measured a POSITIVE gap, so an object driven
+## THROUGH the surface it is supposed to rest on scored a perfect zero — which is how a
+## coil of wire rope sunk into the boom-heel plate passed an audit reading FLOATING 0.
+## Some interpenetration is correct (a plank lying across a frame, a bolt in a plate), so
+## the threshold scales with the object: flag it once it is buried past a third of its own
+## height, or past PEN_ABS, whichever is shallower.
+const PEN_ABS: float = 0.10
+const PEN_FRAC: float = 0.34
 const BLOCK_SPAN: float = 4.0      ## blocking check also covers furniture-sized objects
 const CONTAINER_CHILDREN: int = 40 ## a node with more children than this is a builder
 
@@ -63,7 +82,10 @@ func _ready() -> void:
 	var scenery_float: Array = []
 	var scenery_block: Array = []
 	var on_floor: Array = []
+	var furniture: Array = []      ## managed assemblies bigger than clutter, hanging free
+	var penetrating: Array = []    ## managed objects driven THROUGH their support
 	var checked: int = 0
+	var furn_checked: int = 0
 	var hanging: int = 0
 
 	for o in objects:
@@ -88,8 +110,26 @@ func _ready() -> void:
 					blocking.append(line)
 				else:
 					scenery_block.append(line)
-		# --- FLOATING: loose clutter only.
+		# --- FLOATING FURNITURE: assemblies too big to be clutter still need a foot on
+		# something. Reported separately because the tolerance has to be looser — this
+		# catches a gen set hanging over a roof, not a 3 cm modelling gap under a plinth.
 		if span > CLUTTER_SPAN or a.size.y > CLUTTER_H:
+			if managed and span <= FURN_SPAN and not _exempt(node) \
+					and not SUPPORT.is_wall_panel(a) and not _simulated(node):
+				var ftop: float = index.support_top(a, node, 0.0)
+				if ftop != -INF and a.position.y - ftop <= FURN_REACH:
+					furn_checked += 1
+					var fgap: float = a.position.y - ftop
+					if fgap > FURN_TOL:
+						furniture.append("%-28s gap=%.3f  at %s  size %.1fx%.1fx%.1f  (%s)" % [
+							_label(node), fgap, _v(a.get_center()),
+							a.size.x, a.size.y, a.size.z, _owner(node)])
+					else:
+						var ctop: float = _centre_support(index, a, node)
+						if ctop != -INF and a.position.y - ctop < -_pen_limit(a):
+							penetrating.append("%-28s sunk=%.3f  at %s  size %.1fx%.1fx%.1f  (%s)" % [
+								_label(node), ctop - a.position.y, _v(a.get_center()),
+								a.size.x, a.size.y, a.size.z, _owner(node)])
 			continue
 		if _exempt(node) or SUPPORT.is_wall_panel(a) or _simulated(node):
 			continue
@@ -111,9 +151,19 @@ func _ready() -> void:
 				floating.append(f)
 			else:
 				scenery_float.append([gap, f])
+		elif managed:
+			# Driven THROUGH its support rather than resting on it. Invisible to the float
+			# test, which only ever measured a positive gap.
+			var ctop: float = _centre_support(index, a, node)
+			if ctop != -INF and a.position.y - ctop < -_pen_limit(a):
+				penetrating.append("%-28s sunk=%.3f  at %s  size %.2fx%.2fx%.2f  (%s)" % [
+					_label(node), ctop - a.position.y, _v(a.get_center()),
+					a.size.x, a.size.y, a.size.z, _owner(node)])
 
 	floating.sort()
 	blocking.sort()
+	furniture.sort()
+	penetrating.sort()
 	print("--- placement probe (visual-support) ---")
 	print("support surfaces indexed: ", index.surface_count())
 	print("placed objects checked: ", checked, "   (hanging/exempt-by-reach: ", hanging, ")")
@@ -123,6 +173,13 @@ func _ready() -> void:
 	print("BLOCKING: ", blocking.size())
 	for b in blocking.slice(0, 40):
 		print("   ", b)
+	print("furniture-sized assemblies checked: ", furn_checked)
+	print("FLOATING FURNITURE: ", furniture.size())
+	for f in furniture.slice(0, 40):
+		print("   ", f)
+	print("PENETRATING: ", penetrating.size())
+	for p in penetrating.slice(0, 40):
+		print("   ", p)
 	on_floor.sort()
 	print("ADVISORY small items resting on a deck: ", on_floor.size())
 	for f in on_floor.slice(0, 40):
@@ -142,6 +199,30 @@ func _ready() -> void:
 
 ## Deck slab levels: a support top at one of these is the floor, not furniture.
 const DECKS := [2.0, 6.0, 10.0, 18.0, 21.6, 25.1, 28.6, 32.1]
+
+## How deep an object may sink into its support before it counts as interpenetration. A
+## plank lying across a frame legitimately overlaps it by its own thickness; a coil of rope
+## buried to a third of its height does not.
+func _pen_limit(a: AABB) -> float:
+	return minf(PEN_ABS, maxf(a.size.y * PEN_FRAC, 0.02))
+
+## Penetration depth under an object's CENTRE COLUMN, or -INF if nothing is under it.
+##
+## Support has to be resolved from a narrow column here, not from the full AABB the float
+## test uses. Full-AABB resolution answers "is there anything at all beneath this footprint",
+## which is the right question for floating and the wrong one for burial: it fires on any
+## low object that merely clips a corner of the footprint. Both of the first hits this check
+## produced were that artefact — a cable tray terminating inside the radome's tripod base,
+## and a roof ladder standing on the deck beside a low kerb — neither of which is buried in
+## anything. A column at 30% of the footprint only sees what the object is actually sitting
+## on top of.
+func _centre_support(index, a: AABB, node: Node) -> float:
+	var c: Vector3 = a.get_center()
+	var hx: float = maxf(a.size.x * 0.15, 0.02)
+	var hz: float = maxf(a.size.z * 0.15, 0.02)
+	var col := AABB(Vector3(c.x - hx, a.position.y, c.z - hz),
+		Vector3(hx * 2.0, a.size.y, hz * 2.0))
+	return index.support_top(col, node, 0.0)
 
 func _on_deck(top: float) -> bool:
 	for d in DECKS:

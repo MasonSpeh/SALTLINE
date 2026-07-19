@@ -31,6 +31,16 @@ func _ready() -> void:
 	await _shot(Vector3(18, 31, -42), 111.0, -6.0, "cr_hook")
 	# Machinery deck: the cab (glazed west face + door) and the boom-heel findables.
 	await _shot(Vector3(-3, 36, -10), -54.0, -4.0, "cr_deck_findables")
+	# STILL NEEDED: a vantage on the CAB'S GLAZED WEST FACE. No frame in this harness can
+	# see it — the only angles that catch the cab at all take it obliquely from ~20 m, where
+	# it reads as a pale block and there is no way to judge whether the glazing, mullions,
+	# kick panel, seat and console rig_builder._crane_cab() authors are actually there.
+	# The cab is x 3.2..5.0, z -16.6..-14.4, standing on CRANE_DECK_TOP (y 34.15), so the
+	# eye wants to be about (0.9, 35.4, -15.5) looking due EAST. Three attempts at that from
+	# _shot() came out facing open sea instead, so the yaw/pitch convention here is not what
+	# I assumed and needs checking against a known-good vantage before this is re-added —
+	# a mis-aimed vantage that photographs the horizon is worse than none, because it looks
+	# like evidence. Deliberately left out rather than committed wrong.
 	# Mid landing on the climb, with its kit.
 	await _shot(Vector3(-5, 27, -14), -90.0, -6.0, "cr_landing")
 	# DOORFRAMES head-on — the two annex doors that carried the floating-head bug.

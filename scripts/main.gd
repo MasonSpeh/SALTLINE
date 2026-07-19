@@ -44,6 +44,10 @@ func _ready() -> void:
 	EventBus.creature_contact.connect(_on_creature_contact)
 	# Drop a few loose grabbables on the wet deck — something to physically handle.
 	_spawn_props()
+	# Frame budget: drop sub-texel geometry out of the shadow cascades and give small
+	# dressing a distance range. See render_budget.gd — this is what keeps the rig's
+	# ~6,800 authored primitives inside a MacBook's draw-call budget.
+	add_child(preload("res://scripts/world/render_budget.gd").new())
 	# Immediate start — no countdown, no black screen, no locked input. The hatch is
 	# already unlocked, so the player can look at it and press E to swing it open on
 	# the first try, then walk straight out onto the rig.
@@ -52,23 +56,34 @@ func _ready() -> void:
 	rig.sphl_hatch.interacted.connect(_on_hatch_used)
 
 func _spawn_props() -> void:
+	# Three loose things to physically handle on the way out of the pod. These used to be
+	# MatLib.flat() boxes — untextured brown, blue-grey and TAN cubes sitting on the wet
+	# deck, the only un-authored primitives the player meets in the first ten seconds, and
+	# invisible to PlacementProbe because it exempts unfrozen rigid bodies. They are now
+	# a timber dunnage block, a galvanised ammo-can and a rusted steel offcut: same
+	# physics, same grab handles, but they read as salvage off a working deck.
+	# wet_deck_respawn is a STANDING point (deck + 0.6), not the plating: dropping props
+	# from it left them a metre in the air, free to bounce off dressing and come to rest
+	# half inside a crate. Work from the plating itself and set each one down on its base.
 	var base: Vector3 = rig.wet_deck_respawn
+	var deck_y: float = base.y - 0.6
 	var specs := [
-		[Vector3(1.4, 0.6, 0.8), Vector3(0.4, 0.4, 0.4), Color(0.55, 0.3, 0.18)],
-		[Vector3(-1.2, 0.6, 1.4), Vector3(0.35, 0.35, 0.35), Color(0.3, 0.45, 0.5)],
-		[Vector3(0.6, 0.6, 2.2), Vector3(0.45, 0.3, 0.3), Color(0.6, 0.55, 0.25)],
+		[Vector2(1.4, 0.8), Vector3(0.42, 0.26, 0.42), MatLib.weathered_wood(), 1.6],
+		[Vector2(-1.2, 1.4), Vector3(0.34, 0.3, 0.24), MatLib.galvanized(), 1.1],
+		[Vector2(0.6, 2.2), Vector3(0.46, 0.14, 0.3), MatLib.rust_steel(), 2.2],
 	]
 	for s in specs:
 		var prop := PhysProp.new()
 		add_child(prop)
-		prop.global_position = base + (s[0] as Vector3)
-		prop.mass = 1.2
 		var size: Vector3 = s[1]
+		var off: Vector2 = s[0]
+		prop.global_position = Vector3(base.x + off.x, deck_y + size.y * 0.5 + 0.005, base.z + off.y)
+		prop.mass = s[3]
 		var mesh_inst := MeshInstance3D.new()
 		var box := BoxMesh.new()
 		box.size = size
 		mesh_inst.mesh = box
-		mesh_inst.material_override = MatLib.flat(s[2])
+		mesh_inst.material_override = s[2]
 		prop.add_child(mesh_inst)
 		var col := CollisionShape3D.new()
 		var shape := BoxShape3D.new()
@@ -128,12 +143,23 @@ func _build_environment() -> void:
 	add_child(we)
 	var sun := DirectionalLight3D.new()   # must be first DirectionalLight: sky tracks it
 	sun.shadow_enabled = true
-	sun.directional_shadow_max_distance = 120.0
+	# FRAME BUDGET. In gl_compatibility every PSSM split re-draws every shadow caster it
+	# contains, so the 4-split default multiplied this rig's ~6,800 mesh surfaces into
+	# ~20,000 draw calls and held the two commonest vantages (standing on deck, sitting at
+	# sea level) at 9-10 fps on an M1. Two splits over 80 m covers everything the player
+	# reads shadows on — the deck they stand on and the structure immediately around it —
+	# and the far rig reads by silhouette and fog anyway.
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
+	sun.directional_shadow_max_distance = 60.0
+	sun.directional_shadow_split_1 = 0.14
 	add_child(sun)
 	var moon := DirectionalLight3D.new()
 	moon.light_color = Color(0.62, 0.72, 0.95)
 	moon.light_energy = 0.0
-	moon.shadow_enabled = true
+	# The moon peaks at 0.28 energy against an ambient night floor, so its shadows are
+	# barely a shade — but with shadow_enabled it rendered a SECOND full cascade of the
+	# whole rig every frame, all day, while its light energy was zero. Not worth a cascade.
+	moon.shadow_enabled = false
 	moon.rotation_degrees = Vector3(-42, 140, 0)
 	add_child(moon)
 	# Star dome, faded in by the controller at night.

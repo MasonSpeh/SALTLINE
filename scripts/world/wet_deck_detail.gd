@@ -139,7 +139,10 @@ func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
 	c.display_name = name_
 	add_child(c)
 	c.global_position = pos
-	c.build_box_visual(Vector3(1.1, 0.8, 0.8), Color(0.5, 0.45, 0.3), false, true)
+	# A flat untextured tan box reads as an un-authored placeholder beside this rig's
+	# textured steel and timber. Loot crates are timber; give them timber.
+	c.build_box_visual(Vector3(1.1, 0.8, 0.8), Color(0.5, 0.45, 0.3), false, true,
+		MatLib.weathered_wood())
 	c.add_to_group("settle_me")
 	return c
 

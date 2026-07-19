@@ -32,6 +32,9 @@ uniform float debug_flat = 0.0;   // TEMP: 1 = unshaded height, to check the geo
 
 const float G = 9.81;
 const int NW = 11;
+// Distance band over which vertex displacement fades to flat (see vertex()).
+const float FAR_DAMP_NEAR = 180.0;
+const float FAR_DAMP_FAR = 620.0;
 // Unit heading directions — near-but-not-identical, fanned across ~145 deg so no band
 // of parallel crests can form. (cos, sin) of chosen angles.
 const vec2 W_DIR[11] = {
@@ -84,6 +87,27 @@ vec2 warp(vec2 p, float t) {
 	return p + 3.0 * vec2(sin(p.y * 0.018 + t * 0.05), sin(p.x * 0.015 - t * 0.04));
 }
 
+// GUST PATCHINESS — the fix for "the waves all look the same".
+//
+// The spectrum below already fans 11 trains across 145 degrees, but every one of them ran
+// at CONSTANT amplitude everywhere on the sea at once, so the whole visible field had a
+// single uniform roughness: the same chop on the same swell in every direction, to the
+// horizon. A real sea is patchy at a scale you can see from a deck — wind lays dark
+// cat's-paws in bands 50-100 m across and leaves glassy slicks between them, and that
+// mottling is most of what makes water look alive rather than tiled.
+//
+// Three drifting long-period sinusoids (74 / 103 / 170 m, travelling downwind) modulate the
+// WIND-WAVE and CHOP bands only. Swell is not wind-driven and must not pulse with the
+// gusts, so components 0-2 are left alone. Sinusoids rather than hash noise so gyre.gd can
+// mirror it exactly and floating debris keeps riding the same water.
+// Must match Gyre._patchiness().
+float patchiness(vec2 p, float t) {
+	float a = sin(p.x * 0.085 + p.y * 0.031 - t * 0.16);
+	float b = sin(p.x * -0.024 + p.y * 0.061 - t * 0.11);
+	float c = sin((p.x + p.y) * 0.037 + t * 0.07);
+	return mix(0.42, 1.42, clamp(0.5 + 0.26 * a + 0.20 * b + 0.16 * c, 0.0, 1.0));
+}
+
 // Sum of Gerstner components at world xz. Returns horizontal+vertical displacement,
 // analytic normal, and the Jacobian folding term (>0 where the surface compresses).
 void gerstner(vec2 x0, float t, float ss, out vec3 disp, out vec3 nrm, out float fold) {
@@ -97,6 +121,7 @@ void gerstner(vec2 x0, float t, float ss, out vec3 disp, out vec3 nrm, out float
 	float jxz = 0.0;
 	float amp_scale = 0.18 + 0.92 * ss;              // sea_state -> amplitude
 	float steep_scale = 0.35 + 0.65 * ss;            // sea_state -> steepness
+	float gust = patchiness(x0, t);                  // wind mottling, wind bands only
 	for (int i = 0; i < NW; i++) {
 		vec2 dir = W_DIR[i];
 		float k = 6.28318530718 / W_LEN[i];
@@ -107,6 +132,8 @@ void gerstner(vec2 x0, float t, float ss, out vec3 disp, out vec3 nrm, out float
 			vec2 sd = (i == 1) ? SET_DIR_B : SET_DIR_A;
 			float env = dot(sd, x0) * 0.010 - t * (0.045 + 0.02 * float(i));
 			A *= 0.55 + 0.45 * sin(env);
+		} else {
+			A *= gust;                               // wind waves & chop are patchy
 		}
 		float steepEff = W_STEEP[i] * steep_scale;
 		// Q*A and Q*k*A are independent of A (A cancels), so wave-set fades never blow up.
@@ -140,6 +167,19 @@ void vertex() {
 		vec3 nrm;
 		float fold;
 		gerstner(world_pos.xz, TIME, sea_state, disp, nrm, fold);
+		// FAR-FIELD DAMPING. The radial mesh coarsens with radius, so out past a couple of
+		// hundred metres one quad spans most of a wavelength and full-amplitude Gerstner
+		// displacement aliases into hard rectangular teeth along the horizon. Real distant
+		// sea does the opposite: individual crests stop being resolvable and the surface
+		// reads as a flat haze band. Fade the displacement out across the same band the
+		// fog swallows, and flatten the normal with it so no far crest catches a specular
+		// glint the geometry can no longer justify. Gyre (the CPU mirror) is untouched:
+		// everything that floats lives inside 40 m of the rig, where damp == 1.
+		float cam_dist = length(world_pos.xz - INV_VIEW_MATRIX[3].xz);
+		float damp = 1.0 - smoothstep(FAR_DAMP_NEAR, FAR_DAMP_FAR, cam_dist);
+		disp *= damp;
+		nrm = normalize(mix(vec3(0.0, 1.0, 0.0), nrm, damp));
+		fold *= damp;
 		// Ocean node is translation-only (camera follow), so world delta == local delta.
 		VERTEX += disp;
 		world_pos += disp;

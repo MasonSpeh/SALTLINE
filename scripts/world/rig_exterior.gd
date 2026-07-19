@@ -376,7 +376,8 @@ func _containers() -> void:
 	stash.display_name = "Container Stash"
 	add_child(stash)
 	stash.position = Vector3(23.5, DECK_Y + 0.01, -17.8)
-	stash.build_box_visual(Vector3(0.9, 0.7, 0.7), Color(0.45, 0.4, 0.3), false, true)
+	stash.build_box_visual(Vector3(0.9, 0.7, 0.7), Color(0.45, 0.4, 0.3), false, true,
+		MatLib.weathered_wood())
 
 # ---------------------------------------------------------------- flare boom
 

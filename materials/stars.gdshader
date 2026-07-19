@@ -22,6 +22,9 @@ uniform float moon_bright : hint_range(0.0, 1.0) = 1.0;   // moon disc visibilit
 uniform vec3 horizon_tint = vec3(0.08, 0.10, 0.14);       // scene fog colour at the horizon
 uniform float star_gain : hint_range(0.0, 3.0) = 1.0;
 uniform float sky_spin_rate = 0.0035;   // celestial rotation, rad/s (subtle wheeling)
+// Fair-weather cloud amount. 0 = empty blue, 1 = solid overcast. The squall has its own
+// overcast layer further down; this is the sky on an ordinary day.
+uniform float cloud_cover : hint_range(0.0, 1.0) = 0.58;
 
 varying vec3 world_dir;
 
@@ -217,6 +220,43 @@ void fragment() {
 	// thin day haze brightens the sky subtly where it thickens
 	sky += vec3(0.8, 0.85, 0.9) * smoothstep(0.55, 0.95, haze) * 0.12 * (1.0 - night_amount) * day_bright;
 
+	// ---- CLOUD DECK ------------------------------------------------------------------
+	// The loudest "this is a painted dome" tell in daylight was that the day sky was a
+	// pure two-colour vertical gradient — a smooth blue shell with not one cloud in it,
+	// over a North Sea rig. Nothing else in the frame gives the sky depth or scale, so the
+	// eye reads the gradient as the inside of a sphere, which is exactly what it is.
+	//
+	// This is a broken stratocumulus deck projected onto a flat LAYER rather than onto the
+	// dome: dividing by elevation compresses the cells toward the horizon the way a real
+	// cloud base does, which is the cue that says "that is a ceiling several kilometres
+	// up", not "that is a surface 1600 m away in every direction". Tops are lit by
+	// sampling the same field displaced toward the sun — where the cloud above this point
+	// is thinner, this point is brighter — giving stable silver linings and shaded bases
+	// without a second noise field or any lighting pass.
+	vec2 cp = dir.xz / (max(elev, 0.0) + 0.22) * 3.0;
+	vec2 cdrift = vec2(TIME * 0.0042, TIME * 0.0026);
+	float c1 = fbm(vec3(cp * 0.50 + cdrift, TIME * 0.004));
+	float c2 = fbm(vec3(cp * 1.55 - cdrift * 1.7, TIME * 0.007));
+	float mass = c1 * 0.70 + c2 * 0.30;
+	float lo = mix(0.66, 0.28, cloud_cover);
+	float cover = smoothstep(lo, lo + 0.19, mass);
+	// Run the deck out into haze near the horizon instead of stopping at the dome rim,
+	// and never draw it below the sea line.
+	cover *= smoothstep(0.0, 0.13, elev);
+	// Self-shadowing: the field one cloud-step toward the sun is what is shading us.
+	float mass_above = fbm(vec3((cp + sun_dir.xz * 5.0) * 0.50 + cdrift, TIME * 0.004));
+	float shade = clamp(0.46 + 1.30 * (mass - mass_above), 0.10, 1.25);
+	vec3 cl_day = mix(vec3(0.27, 0.30, 0.35), vec3(1.00, 0.99, 0.96), clamp(shade, 0.0, 1.0));
+	// Dawn/dusk fires the undersides orange before it fires anything else.
+	cl_day = mix(cl_day, vec3(1.0, 0.66, 0.42), low * 0.6 * clamp(shade, 0.0, 1.0));
+	vec3 cl_night = vec3(0.035, 0.045, 0.07)
+			+ vec3(0.20, 0.21, 0.26) * moon_bright * clamp(shade, 0.0, 1.0) * 0.5;
+	vec3 cloud_col = mix(cl_day * day_bright, cl_night, night_amount);
+	float cloud_a = cover * (1.0 - storm);
+	// The mix itself is applied AFTER the stars and the moon below: cloud is opaque, and
+	// it hiding the star field and the moon disc behind it is most of what sells it as
+	// matter rather than a tint laid over the gradient.
+
 	// stars + Milky Way: night only, killed by storm, extinguished toward the horizon
 	// (star_vis / above computed above, before the star field itself)
 	sky += (stars * star_gain + milky) * ext * star_vis;
@@ -230,6 +270,9 @@ void fragment() {
 	// nights when it should be brightest.
 	float phase = clamp((1.0 - dot(moon_dir, sun_dir)) * 0.5, 0.10, 1.0);
 	sky += vec3(0.90, 0.93, 1.0) * (mdisc * 4.5 * phase + mhalo) * moon_bright * (1.0 - storm) * above;
+
+	// Cloud goes on last, over the stars and the moon it is physically in front of.
+	sky = mix(sky, cloud_col, cloud_a);
 
 	// ---- storm: genuine overcast, structured, starless ----
 	vec3 oc_col = vec3(0.26, 0.29, 0.33);

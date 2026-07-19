@@ -24,17 +24,25 @@ func get_prompt() -> String:
 func interact(verb: String, _player: Node3D) -> void:
 	interacted.emit(verb)
 
-## Attach a simple colored box mesh + collider — components are greybox by canon.
-func build_box_visual(size: Vector3, color: Color, emissive: bool = false, cast_shadow: bool = false) -> MeshInstance3D:
+## Attach a simple box mesh + collider. `surface` overrides the flat colour with a real
+## MatLib material: a flat untextured albedo reads as an un-authored placeholder cube next
+## to this rig's textured steel and timber, so anything the player actually walks up to
+## (benches, lockers) should pass one. The colour is kept as the fallback and as the tint
+## for emissive greybox components.
+func build_box_visual(size: Vector3, color: Color, emissive: bool = false, cast_shadow: bool = false,
+		surface: Material = null) -> MeshInstance3D:
 	var mesh := BoxMesh.new()
 	mesh.size = size
-	var mat := StandardMaterial3D.new()
-	mat.albedo_color = color
-	mat.roughness = 0.6
-	if emissive:
-		mat.emission_enabled = true
-		mat.emission = color
-		mat.emission_energy_multiplier = 0.8
+	var mat: Material = surface
+	if mat == null:
+		var sm := StandardMaterial3D.new()
+		sm.albedo_color = color
+		sm.roughness = 0.6
+		if emissive:
+			sm.emission_enabled = true
+			sm.emission = color
+			sm.emission_energy_multiplier = 0.8
+		mat = sm
 	mesh.material = mat
 	var mi := MeshInstance3D.new()
 	mi.mesh = mesh

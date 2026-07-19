@@ -530,7 +530,8 @@ func _crate(items: Array, name_: String, pos: Vector3) -> void:
 	c.display_name = name_
 	add_child(c)
 	c.position = pos
-	c.build_box_visual(Vector3(1.0, 0.75, 0.75), Color(0.5, 0.45, 0.3), false, true)
+	c.build_box_visual(Vector3(1.0, 0.75, 0.75), Color(0.5, 0.45, 0.3), false, true,
+		MatLib.weathered_wood())
 	preload("res://scripts/world/surface_snap.gd").attach(c)
 
 # ---- furniture kits (decoration-grade: no collision except the big hulls) ----
@@ -1034,9 +1035,12 @@ func _deck_d() -> void:
 	# Workshop (x 15.5..23, z 15..18): SECOND CRAFT BENCH + pegboard.
 	var bench := CraftBench.new()
 	add_child(bench)
-	bench.position = Vector3(19, y, 17.0)
-	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true)
-	_dbox(Vector3(19, y + 0.93, 17.0), Vector3(1.7, 0.06, 0.8), MatLib.wood())
+	# Same fix as the wet-deck bench: the box visual is CENTRED, so at floor level half the
+	# carcass sank through the deck and the plank top floated clear above it.
+	bench.position = Vector3(19, y + 0.45, 17.0)
+	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true,
+		MatLib.weathered_wood())
+	_dbox(Vector3(19, y + 0.92, 17.0), Vector3(1.7, 0.06, 0.8), MatLib.wood())
 	# Pegboard on the pier between the x16 and x20 windows. Window openings are
 	# WIN_W wide on the WIN_GRID, so that pier is x 16.8..19.2 and the board's own
 	# face is x 16.85..19.15; its back sits flush on the wall's inner skin (z 17.875).

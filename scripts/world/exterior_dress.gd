@@ -212,6 +212,12 @@ func _compact() -> void:
 func _asm(n: String) -> Node3D:
 	var a := Node3D.new()
 	a.name = n
+	# Declare every assembly to the placement audit. These are plain Node3D groupings of
+	# bare MeshInstance3D by design (see the header), and PlacementProbe's "managed" test
+	# was `is_in_group("dress_prop") or n is CollisionObject3D` — so the whole of this file
+	# fell into the advisory scenery bucket and "FLOATING 0" said nothing whatsoever about
+	# the alley and roof dressing. One group call puts it back under audit.
+	a.add_to_group("dress_prop")
 	add_child(a)
 	return a
 

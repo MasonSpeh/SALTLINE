@@ -22,7 +22,6 @@ var _storm: Node = null
 
 func _ready() -> void:
 	_rng.seed = 7411
-	_leg_extensions()
 	_kelp_forest()
 	_marine_snow()
 	_bubble_vents()
@@ -50,24 +49,10 @@ func _no_shadows(n: Node) -> void:
 
 # ---------------------------------------------------------------- structure
 
-## The caissons don't stop at the pontoons — carry them down into the dark so
-## looking below the surface reads as architecture, not a void.
-func _leg_extensions() -> void:
-	# The SAME concrete the rig's caissons are built from. These extensions butt directly
-	# onto rig_builder's caisson (which bottoms out at -3.8) and used to carry their own
-	# paler grey-green material, so every leg visibly changed colour at y -3 — a hard
-	# horizontal seam a few metres under the surface that read like a translucent box
-	# sleeved over the caisson. One leg is one casting; one leg gets one material, and
-	# the depth-graded fog does the darkening.
-	var deep_conc: Material = MatLib.concrete()
-	for leg in LEGS:
-		var mi := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(6.0, 20.0, 6.0)
-		bm.material = deep_conc
-		mi.mesh = bm
-		add_child(mi)
-		mi.position = Vector3(leg.x, -13.0, leg.z)
+## The caissons are ONE casting each, authored in rig_builder._build_structure() and run
+## from the deck rim down to y -23 in a single box. There used to be a second set of boxes
+## here extending them below -3.8; see the comment on that _box call for why merging them
+## was the only thing that removed the hard horizontal seam under every leg.
 
 func _kelp_forest() -> void:
 	var kelp_mat := StandardMaterial3D.new()
@@ -122,10 +107,16 @@ func _marine_snow() -> void:
 	mat.gravity = Vector3(0.25, -0.12, 0.18)   # the gyre's slow underwater set
 	mat.initial_velocity_min = 0.02
 	mat.initial_velocity_max = 0.1
+	# Marine snow is aggregate: flakes range from barely-there specks to visible tufts.
+	# Every mote being the SAME size was half of why the field read as scattered confetti
+	# rather than suspended particulate — identical size plus billboarding means identical
+	# on-screen shape for every single one.
+	mat.scale_min = 0.45
+	mat.scale_max = 2.3
 	snow.process_material = mat
 	var quad := QuadMesh.new()
-	quad.size = Vector2(0.05, 0.05)
-	quad.material = MatLib.soft_mote(Color(0.75, 0.85, 0.85, 0.55))
+	quad.size = Vector2(0.06, 0.06)
+	quad.material = MatLib.soft_mote(Color(0.75, 0.85, 0.85, 0.5))
 	snow.draw_pass_1 = quad
 	add_child(snow)
 	snow.position = Vector3(0, -10, 0)
@@ -334,7 +325,31 @@ func _cone(mat: Material) -> CylinderMesh:
 func _eye() -> StandardMaterial3D:
 	var m := StandardMaterial3D.new(); m.albedo_color = Color(0.02, 0.02, 0.03); m.roughness = 0.3; return m
 
+## Above the surface, none of this is visible — and none of it should be SUBMITTED.
+##
+## ocean_water.gdshader is depth_draw_opaque, so from a deck 24 m up you cannot see the
+## seabed, the wreck field, the reef, the kelp or the marine snow through the water: they
+## are all behind an opaque surface. Godot's Compatibility renderer has no occlusion
+## culling, though, so every one of those meshes was still being drawn and then discarded
+## by the depth test on every frame the player spent topside — which is nearly all of them.
+## Measured from sea level it was ~4.9 M triangles and ~4,100 draw calls of pure waste.
+##
+## The margin keeps everything alive well before the camera reaches the water, so nothing
+## pops in as you climb down the tidal ladder or a fish breaks the surface beside you.
+const TOPSIDE_MARGIN: float = 4.0
+
+func _cull_topside() -> void:
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var cp: Vector3 = cam.global_position
+	var surf: float = Gyre.wave_height(Vector2(cp.x, cp.z), Gyre.water_time()) * 0.85
+	var want: bool = cp.y < surf + TOPSIDE_MARGIN
+	if visible != want:
+		visible = want
+
 func _process(delta: float) -> void:
+	_cull_topside()
 	_t += delta
 	# Marine snow thickens and drives harder when a storm stirs the water column —
 	# the same sediment that fogs the near-surface visibility (see underwater_fx).
