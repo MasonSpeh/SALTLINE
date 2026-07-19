@@ -21,7 +21,7 @@ func _ready() -> void:
 	_west_stairs()
 	# Place-Codex beacons: the derrick floor and the empty davits file a journal entry
 	# the first time the player stands near them (same pattern as the fire barrel).
-	_beacon("place_derrick", Vector3(2.0, DECK_Y + 1.0, -15.0), 7.0)
+	_beacon("place_derrick", Vector3(TOWER.x, DECK_Y + 1.0, TOWER.z), 7.0)
 	_beacon("place_davits", Vector3(-10.5, DECK_Y + 1.1, -18.8), 6.0)
 
 ## Drop an invisible proximity beacon that discovers a place-Codex entry once near.
@@ -229,48 +229,60 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
 
 # ---------------------------------------------------------------- derrick
 
-## The existing high-iron mast (x 0..4, z -16..-12, lookout at y 34) grows into a
-## full drilling derrick: wider tapering corner legs, dense bracing, a drill-floor
-## apron, a standing drill string, and a rotary block. The lookout stays.
+## The outer lattice of the CRANE TOWER — the tapering rusted derrick that wraps the
+## high-iron mast, with a drill-floor apron, a standing drill string and a rotary block.
+##
+## ALIGNMENT. This used to be centred on z=-15 while the mast it wraps (RigBuilder
+## CRANE_X/CRANE_Z, its legs on x 0..4 / z -16..-12) is centred on z=-14, and its Z taper
+## ran on different factors from its X taper (0.85 at the base, 0.72 at the top). So the
+## outer bays sat a metre off the inner ones and shrank at a different rate on the way up:
+## from the deck the whole tower read as two structures leaning through each other, which
+## is the "structures aren't centered" the owner photographed. Everything here is now
+## measured from RigBuilder's tower axis with ONE symmetric half-extent per level, so the
+## bays are concentric and the legs converge on a common point.
+const TOWER := Vector3(2.0, 0.0, -14.0)   ## the crane tower's axis — shared with RigBuilder
+const DERRICK_BAYS: int = 4
+
 func _derrick() -> void:
 	var mat: Material = MatLib.rust_steel()
-	var base_c := Vector3(2.0, DECK_Y, -15.0)
+	var base_c := Vector3(TOWER.x, DECK_Y, TOWER.z)
 	var half_base: float = 4.2
 	var half_top: float = 2.9
-	var top_y: float = DECK_Y + 15.7   # meets just under the lookout platform
+	var foot_y: float = DECK_Y + 0.6
+	var top_y: float = DECK_Y + 15.7   # meets just under the machinery deck
 	# Four tapering corner legs (collidable at the base run so the player can't clip).
 	for sx in [-1, 1]:
 		for sz in [-1, 1]:
-			var a := Vector3(base_c.x + sx * half_base, DECK_Y, base_c.z + sz * half_base * 0.85)
-			var b := Vector3(base_c.x + sx * half_top, top_y, base_c.z + sz * half_top * 0.72)
+			var a := Vector3(base_c.x + sx * half_base, DECK_Y, base_c.z + sz * half_base)
+			var b := Vector3(base_c.x + sx * half_top, top_y, base_c.z + sz * half_top)
 			var leg := CSGBox3D.new()
 			leg.size = Vector3(0.28, a.distance_to(b) + 0.2, 0.28)
 			leg.material = mat
 			leg.use_collision = true
 			add_child(leg)
 			_align_y(leg, a, b)
-	# Ring + X bracing every ~4m on all four faces.
-	for i in range(4):
-		var t0: float = i / 4.0
-		var t1: float = (i + 1) / 4.0
-		var y0: float = lerpf(DECK_Y + 0.6, top_y, t0)
-		var y1: float = lerpf(DECK_Y + 0.6, top_y, t1)
-		var hx0: float = lerpf(half_base, half_top, t0)
-		var hx1: float = lerpf(half_base, half_top, t1)
-		var hz0: float = hx0 * 0.85 - (hx0 - lerpf(half_base * 0.85, half_top * 0.72, t0))
-		hz0 = lerpf(half_base * 0.85, half_top * 0.72, t0)
-		var hz1: float = lerpf(half_base * 0.85, half_top * 0.72, t1)
-		# Horizontal rings at y1.
-		_dbox(Vector3(base_c.x, y1, base_c.z - hz1), Vector3(hx1 * 2, 0.12, 0.12), mat)
-		_dbox(Vector3(base_c.x, y1, base_c.z + hz1), Vector3(hx1 * 2, 0.12, 0.12), mat)
-		_dbox(Vector3(base_c.x - hx1, y1, base_c.z), Vector3(0.12, 0.12, hz1 * 2), mat)
-		_dbox(Vector3(base_c.x + hx1, y1, base_c.z), Vector3(0.12, 0.12, hz1 * 2), mat)
-		# Diagonals, south and north faces then east and west.
-		_member(Vector3(base_c.x - hx0, y0, base_c.z - hz0), Vector3(base_c.x + hx1, y1, base_c.z - hz1), 0.09, mat)
-		_member(Vector3(base_c.x + hx0, y0, base_c.z - hz0), Vector3(base_c.x - hx1, y1, base_c.z - hz1), 0.09, mat)
-		_member(Vector3(base_c.x - hx0, y0, base_c.z + hz0), Vector3(base_c.x + hx1, y1, base_c.z + hz1), 0.09, mat)
-		_member(Vector3(base_c.x - hx0, y0, base_c.z - hz0), Vector3(base_c.x - hx1, y1, base_c.z + hz1), 0.09, mat)
-		_member(Vector3(base_c.x + hx0, y0, base_c.z + hz0), Vector3(base_c.x + hx1, y1, base_c.z - hz1), 0.09, mat)
+	# Ring + X bracing per bay. Every member now starts and ends ON a leg line at a ring
+	# height, so the bracing meets the joints instead of running past them.
+	for i in range(DERRICK_BAYS):
+		var y0: float = lerpf(foot_y, top_y, float(i) / DERRICK_BAYS)
+		var y1: float = lerpf(foot_y, top_y, float(i + 1) / DERRICK_BAYS)
+		var h0: float = lerpf(half_base, half_top, float(i) / DERRICK_BAYS)
+		var h1: float = lerpf(half_base, half_top, float(i + 1) / DERRICK_BAYS)
+		if i == 0:
+			_derrick_ring(base_c, y0, h0, mat)   # closes the bottom bay
+		_derrick_ring(base_c, y1, h1, mat)
+		# A full X on each of the four faces: both diagonals, corner to corner.
+		for s in [-1.0, 1.0]:
+			# South/north faces (constant z), running in X.
+			_member(Vector3(base_c.x - h0, y0, base_c.z + s * h0),
+				Vector3(base_c.x + h1, y1, base_c.z + s * h1), 0.09, mat)
+			_member(Vector3(base_c.x + h0, y0, base_c.z + s * h0),
+				Vector3(base_c.x - h1, y1, base_c.z + s * h1), 0.09, mat)
+			# West/east faces (constant x), running in Z.
+			_member(Vector3(base_c.x + s * h0, y0, base_c.z - h0),
+				Vector3(base_c.x + s * h1, y1, base_c.z + h1), 0.09, mat)
+			_member(Vector3(base_c.x + s * h0, y0, base_c.z + h0),
+				Vector3(base_c.x + s * h1, y1, base_c.z - h1), 0.09, mat)
 	# Drill-floor apron: checker plate skirt with kick rails and hazard paint.
 	_dbox(Vector3(base_c.x, DECK_Y + 0.03, base_c.z), Vector3(9.4, 0.02, 8.6), MatLib.checker_plate())
 	_dbox(Vector3(base_c.x, DECK_Y + 0.05, base_c.z - 4.1), Vector3(9.4, 0.02, 0.5), MatLib.flat(Color(0.8, 0.7, 0.1)))
@@ -289,9 +301,19 @@ func _derrick() -> void:
 		var lean := _dcyl(Vector3(base_c.x + half_base - 0.4, DECK_Y + 5.4, base_c.z - 2.0 + i * 1.1), 0.1, 11.0, MatLib.galvanized())
 		lean.rotation.z = 0.12
 		lean.rotation.x = 0.03 * (i - 1.5)
-	# Crown cap above the lookout: a small sheave house silhouette.
-	_dbox(Vector3(2, DECK_Y + 17.6, -14), Vector3(3.2, 1.2, 2.6), mat)
-	_dcyl(Vector3(2, DECK_Y + 18.5, -14), 0.35, 0.5, MatLib.dark_metal())
+	# NO crown cap here any more. It used to be a flat 3.2x1.2x2.6 plate floating above
+	# the lookout with nothing on it — the "topped by a flat plate with nothing above it"
+	# in the owner's photo. The real crane head (slew ring, A-frame, boom out over the
+	# water, hoist, hook block, cab) is built on the machinery deck by
+	# RigBuilder._build_crane_head(), which owns the tower top.
+
+## One horizontal ring brace at height `y`, half-extent `h`, on all four faces. Each bar
+## spans the full face and stops on the leg lines, so the four of them close a square.
+func _derrick_ring(c: Vector3, y: float, h: float, mat: Material) -> void:
+	_dbox(Vector3(c.x, y, c.z - h), Vector3(h * 2.0, 0.12, 0.12), mat)
+	_dbox(Vector3(c.x, y, c.z + h), Vector3(h * 2.0, 0.12, 0.12), mat)
+	_dbox(Vector3(c.x - h, y, c.z), Vector3(0.12, 0.12, h * 2.0), mat)
+	_dbox(Vector3(c.x + h, y, c.z), Vector3(0.12, 0.12, h * 2.0), mat)
 
 # ---------------------------------------------------------------- pipe deck
 

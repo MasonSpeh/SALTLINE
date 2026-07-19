@@ -63,6 +63,10 @@ func _ready() -> void:
 	# Exterior silhouette: derrick, flare boom, pipe deck, containers, davits,
 	# west observation platform, external stair to the Stack.
 	add_child(preload("res://scripts/world/rig_exterior.gd").new())
+	# West alley (Bay 4) + machine-shop roof dressing. Self-contained; derives its
+	# coordinates from the machine shop / bunkhouse / topside deck built above.
+	# Preloaded by path — the global class cache may not know the new file yet.
+	add_child(preload("res://scripts/world/exterior_dress.gd").new())
 
 ## Daylight spill for interiors (greybox stand-in for door/window light shafts).
 ## Grouped so SunController scales them with the sun — interiors go dark at night.
@@ -92,6 +96,50 @@ func _box(pos: Vector3, size: Vector3, mat: Material, parent: Node3D = self, col
 	parent.add_child(b)
 	b.position = pos
 	return b
+
+## Non-colliding decoration mesh — high-iron bracing, boom lattice, cables. Nothing up
+## there is walked on, and a CSG box per member 25m in the air is collision we pay for
+## and never touch.
+func _dbox(pos: Vector3, size: Vector3, mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var m := BoxMesh.new()
+	m.size = size
+	m.material = mat
+	mi.mesh = m
+	add_child(mi)
+	mi.position = pos
+	return mi
+
+func _dcyl(pos: Vector3, radius: float, height: float, mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var m := CylinderMesh.new()
+	m.top_radius = radius
+	m.bottom_radius = radius
+	m.height = height
+	m.material = mat
+	mi.mesh = m
+	add_child(mi)
+	mi.position = pos
+	return mi
+
+## Position a node at the midpoint of a->b with its local +Y running along the span.
+func _align_y(node: Node3D, a: Vector3, b: Vector3) -> void:
+	node.global_position = (a + b) * 0.5
+	var d: Vector3 = (b - a).normalized()
+	var up := Vector3(0, 0, 1) if absf(d.y) > 0.99 else Vector3.UP
+	node.look_at(node.global_position + d, up)
+	node.rotate_object_local(Vector3.RIGHT, -PI / 2)
+
+## One structural member spanning a->b at any angle — the unit of every lattice here.
+func _member(a: Vector3, b: Vector3, thickness: float, mat: Material) -> MeshInstance3D:
+	var mi := MeshInstance3D.new()
+	var m := BoxMesh.new()
+	m.size = Vector3(thickness, a.distance_to(b), thickness)
+	m.material = mat
+	mi.mesh = m
+	add_child(mi)
+	_align_y(mi, a, b)
+	return mi
 
 func _cyl(pos: Vector3, radius: float, height: float, mat: Material, parent: Node3D = self) -> CSGCylinder3D:
 	var c := CSGCylinder3D.new()
@@ -192,19 +240,47 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 			rise * 0.5 + 0.5, run * 0.5)
 		guard.rotation.x = -angle
 
+const DOORFRAME := preload("res://scripts/world/door_frame.gd")   # by path: class cache lags
+const OPEN_W: float = 1.4     ## every walk-through opening cut by _wall
+const OPEN_H: float = 2.2
+
+## Narrowest pier of wall that may be left standing beside an opening.
+##
+## THE BUG THIS KILLS: door_t used to be clamped to 0.1..0.9 of the RUN, which says
+## nothing about whether the opening fits. On a 4m wall, door_t 0.1 puts the centre of a
+## 1.4m opening 0.4m from the end — the hole runs 0.3m PAST the end of the wall. _wall
+## then computed a negative-length pier, silently skipped it, and cased the hole anyway,
+## so the DoorFrame's jamb stood as a stub of steel in open air past the corner with a
+## gap where the wall should have closed. Every shaft door on the stack was authored that
+## way. Clamping the opening CENTRE instead of the fraction makes that unrepresentable.
+const MIN_PIER: float = 0.12
+
+## Distance along a wall of `length` at which an opening of `door_w` is centred, given
+## `door_t` (0-1). Clamped so the whole opening plus MIN_PIER of wall fits inside the run.
+## Returns -1.0 when the wall is too short to carry an opening at all — build it solid.
+static func _door_center(length: float, door_t: float, door_w: float) -> float:
+	var margin: float = door_w * 0.5 + MIN_PIER
+	if length < margin * 2.0:
+		return -1.0
+	return clampf(clampf(door_t, 0.0, 1.0) * length, margin, length - margin)
+
 ## Wall between floor points a->b (axis aligned), with optional doorway at door_t (0-1 along wall).
-func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float = -1.0) -> void:
+## A doorway is ALWAYS cased by DoorFrame, derived from the hole this function actually cut —
+## the frame cannot drift from the opening because it is computed from the same numbers.
+func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float = -1.0,
+		frame: bool = true) -> void:
 	var dir: Vector3 = b - a
 	var length: float = dir.length()
 	var mid: Vector3 = (a + b) * 0.5
 	var along_x: bool = absf(dir.x) > absf(dir.z)
-	if door_t < 0.0:
+	# Split around a 1.4m doorway, 2.2m tall (or the full wall if it is shorter), lintel above.
+	var door_w: float = OPEN_W
+	var door_h: float = minf(OPEN_H, height)
+	var door_pos: float = _door_center(length, door_t, door_w) if door_t >= 0.0 else -1.0
+	if door_pos < 0.0:
 		var size := Vector3(length, height, WALL_T) if along_x else Vector3(WALL_T, height, length)
 		_box(mid + Vector3(0, height * 0.5, 0), size, mat)
 		return
-	# Split around a 1.4m doorway, 2.2m tall, with lintel above.
-	var door_w: float = 1.4
-	var door_pos: float = clampf(door_t, 0.1, 0.9) * length
 	var seg1: float = door_pos - door_w * 0.5
 	var seg2: float = length - door_pos - door_w * 0.5
 	var u: Vector3 = dir.normalized()
@@ -216,11 +292,14 @@ func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float =
 		var c2: Vector3 = b - u * (seg2 * 0.5)
 		_box(c2 + Vector3(0, height * 0.5, 0),
 			Vector3(seg2, height, WALL_T) if along_x else Vector3(WALL_T, height, seg2), mat)
-	var lintel_h: float = height - 2.2
+	var cl: Vector3 = a + u * door_pos
+	var lintel_h: float = height - door_h
 	if lintel_h > 0.05:
-		var cl: Vector3 = a + u * door_pos
-		_box(cl + Vector3(0, 2.2 + lintel_h * 0.5, 0),
+		_box(cl + Vector3(0, door_h + lintel_h * 0.5, 0),
 			Vector3(door_w, lintel_h, WALL_T) if along_x else Vector3(WALL_T, lintel_h, door_w), mat)
+	if frame:
+		DOORFRAME.build(self, Vector3(cl.x, a.y, cl.z), along_x, door_w, door_h,
+			WALL_T, MatLib.rust_steel())
 
 ## Hang a real hinged door at a given hinge line. leaf_dir is the world direction the
 ## closed leaf runs (hinge -> free edge). A plain Node3D pivot carries the orientation
@@ -238,37 +317,26 @@ func _hang_door(hinge_world: Vector3, leaf_dir: Vector3, wooden: bool,
 	door.build_door(leaf_w, leaf_h)
 	return door
 
-## Cut a doorway in a wall (same opening as _wall's door_t) AND fit it with a framed,
-## hinged door. The steel frame liner is sized to the FULL 2.2m opening so its top
-## meets the lintel — no dark gap. wooden=true gives a plank leaf; hinge_at_a picks
-## which jamb the leaf hangs on. Returns the door for callers that want to lock it.
+## Cut a doorway in a wall (same opening as _wall's door_t) AND hang a leaf in it.
+## _wall already cases the hole through DoorFrame, so there is NO hand-authored casing
+## here any more — that duplicate was the geometry that drifted out of agreement with
+## its opening. The leaf is sized off DoorFrame's CLEAR opening (the hole minus the
+## liner), so it swings inside its own frame instead of clipping through the jambs.
+## wooden=true gives a plank leaf; hinge_at_a picks which jamb the leaf hangs on.
 func _fit_door(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float,
 		wooden: bool = true, hinge_at_a: bool = true, name_: String = "Door") -> InteractDoor:
 	_wall(a, b, height, mat, door_t)
 	var dir: Vector3 = b - a
 	var length: float = dir.length()
-	var along_x: bool = absf(dir.x) > absf(dir.z)
 	var u: Vector3 = dir.normalized()
-	var door_pos: float = clampf(door_t, 0.1, 0.9) * length
+	# The SAME clamp _wall used, so the leaf hangs in the hole that was actually cut.
+	var door_pos: float = _door_center(length, door_t, OPEN_W)
 	var center: Vector3 = a + u * door_pos          # doorway centre on the wall line, y=a.y
-	const OPEN_W: float = 1.4
-	const OPEN_H: float = 2.2
-	var half: float = OPEN_W * 0.5
-	var steel: Material = MatLib.rust_steel()
-	# Frame liner that MEETS the opening top (fixes the frame-tops-below-the-opening gap).
-	var ja: Vector3 = center - u * half
-	var jb: Vector3 = center + u * half
-	if along_x:
-		_box(Vector3(ja.x, a.y + OPEN_H * 0.5, a.z), Vector3(0.12, OPEN_H, WALL_T + 0.1), steel, self, false)
-		_box(Vector3(jb.x, a.y + OPEN_H * 0.5, a.z), Vector3(0.12, OPEN_H, WALL_T + 0.1), steel, self, false)
-		_box(Vector3(center.x, a.y + OPEN_H + 0.08, a.z), Vector3(OPEN_W + 0.24, 0.16, WALL_T + 0.1), steel, self, false)
-	else:
-		_box(Vector3(a.x, a.y + OPEN_H * 0.5, ja.z), Vector3(WALL_T + 0.1, OPEN_H, 0.12), steel, self, false)
-		_box(Vector3(a.x, a.y + OPEN_H * 0.5, jb.z), Vector3(WALL_T + 0.1, OPEN_H, 0.12), steel, self, false)
-		_box(Vector3(a.x, a.y + OPEN_H + 0.08, center.z), Vector3(WALL_T + 0.1, 0.16, OPEN_W + 0.24), steel, self, false)
+	var cw: float = DOORFRAME.clear_w(OPEN_W)
+	var ch: float = DOORFRAME.clear_h(minf(OPEN_H, height))
 	var ld: Vector3 = u if hinge_at_a else -u       # leaf direction: hinge -> free edge
-	var hinge: Vector3 = center - ld * (half - 0.02)
-	return _hang_door(Vector3(hinge.x, a.y, hinge.z), ld, wooden, OPEN_W - 0.06, OPEN_H - 0.08, name_)
+	var hinge: Vector3 = center - ld * cw * 0.5
+	return _hang_door(Vector3(hinge.x, a.y, hinge.z), ld, wooden, cw - 0.02, ch - 0.02, name_)
 
 ## Square corner columns that swallow the seam where two centred walls meet, so
 ## corners read as one clean cast pilaster instead of a mitred notch. `corners`
@@ -659,16 +727,16 @@ func _west_wall_with_deck_door(mat: Material, shell_h: float) -> void:
 	wall.material = mat
 	comb.add_child(wall)
 	wall.position = Vector3(22, WET_Y + shell_h * 0.5, -2)
+	# The opening rect, declared ONCE and used for both the cut and the casing.
+	var ow: float = 1.8
+	var oh: float = 2.4
+	var oz: float = 0.5
 	var door := CSGBox3D.new()
-	door.size = Vector3(WALL_T + 0.8, 2.4, 1.8)
+	door.size = Vector3(WALL_T + 0.8, oh, ow)
 	door.operation = CSGShape3D.OPERATION_SUBTRACTION
 	comb.add_child(door)
-	door.position = Vector3(22, DECK_Y + 1.2, 0.5)     # y 18..20.4, z -0.4..1.4
-	# Steel jamb frame so the cut edge reads as a real hatch onto the deck.
-	var steel: Material = MatLib.rust_steel()
-	_box(Vector3(22, DECK_Y + 1.2, -0.5), Vector3(0.32, 2.5, 0.16), steel)
-	_box(Vector3(22, DECK_Y + 1.2, 1.5), Vector3(0.32, 2.5, 0.16), steel)
-	_box(Vector3(22, DECK_Y + 2.45, 0.5), Vector3(0.32, 0.2, 2.2), steel)
+	door.position = Vector3(22, DECK_Y + oh * 0.5, oz)     # y 18..20.4, z -0.4..1.4
+	DOORFRAME.build(self, Vector3(22, DECK_Y, oz), false, ow, oh, WALL_T, MatLib.rust_steel())
 
 ## North shell wall (z=2, x22..30), solid except door gaps onto the machinery room
 ## (y6, door at x28.5) and the breaker room (y10, door at x23.5). Without these the
@@ -683,16 +751,16 @@ func _north_wall_with_room_doors(mat: Material, shell_h: float) -> void:
 	comb.add_child(wall)
 	wall.position = Vector3(26, WET_Y + shell_h * 0.5, 2)
 	var steel: Material = MatLib.rust_steel()
+	var ow: float = 1.6
+	var oh: float = 2.4
 	for spec in [[28.5, 6.0], [23.5, 10.0]]:           # [door x, room floor y]
+		var fy: float = float(spec[1])
 		var d := CSGBox3D.new()
-		d.size = Vector3(1.6, 2.4, WALL_T + 0.8)
+		d.size = Vector3(ow, oh, WALL_T + 0.8)
 		d.operation = CSGShape3D.OPERATION_SUBTRACTION
 		comb.add_child(d)
-		d.position = Vector3(spec[0], spec[1] + 1.2, 2)
-		# Steel jamb frame around the opening.
-		_box(Vector3(spec[0] - 0.85, spec[1] + 1.2, 2), Vector3(0.16, 2.5, 0.32), steel)
-		_box(Vector3(spec[0] + 0.85, spec[1] + 1.2, 2), Vector3(0.16, 2.5, 0.32), steel)
-		_box(Vector3(spec[0], spec[1] + 2.45, 2), Vector3(1.8, 0.2, 0.32), steel)
+		d.position = Vector3(spec[0], fy + oh * 0.5, 2)
+		DOORFRAME.build(self, Vector3(spec[0], fy, 2.0), true, ow, oh, WALL_T, steel)
 
 ## OPERATIONS LOOKOUT — the glass-walled room capping the tower, with a 360° view of
 ## the rig, the ocean and the storm. Reached only by the internal stair, which emerges
@@ -805,11 +873,22 @@ func _build_ops_room(fy: float) -> void:
 	add_child(lamp)
 	lamp.global_position = Vector3(24.0, roof_y - 0.4, -4.0)
 
-func _room_north(a: Vector3, b: Vector3, mat: Material, door_t: float) -> void:
-	## Rectangular room north of the tower: a=(west,floor_y,south) b=(east,floor_y,north).
+## Rectangular room north of the tower: a=(west,floor_y,south) b=(east,floor_y,north).
+##
+## `own_south_wall` must stay FALSE for any room whose south edge lands on the tower's
+## north shell wall at z=2. That wall is already there, already carries the opening into
+## this room, and already cases it (see _north_wall_with_room_doors). Building a second
+## south wall on the same plane gave the machinery and breaker rooms TWO coincident walls
+## with TWO different holes in them — a 1.6 x 2.4 opening in the shell and a 1.4 x 2.2 one
+## in the duplicate — so their casings nested, and the outer frame's head stood 0.2m clear
+## above the opening you actually walk through. That is the floating head the owner
+## photographed. The two wall faces z-fought each other the whole way up as a bonus.
+func _room_north(a: Vector3, b: Vector3, mat: Material, door_t: float,
+		own_south_wall: bool = false) -> void:
 	var y: float = a.y
 	_box(Vector3((a.x + b.x) * 0.5, y - 0.15, (a.z + b.z) * 0.5), Vector3(b.x - a.x + 0.5, 0.3, b.z - a.z + 0.5), MatLib.deck_plate())
-	_wall(Vector3(a.x, y, a.z), Vector3(b.x, y, a.z), WALL_H, mat, door_t) # south wall w/ door
+	if own_south_wall:
+		_wall(Vector3(a.x, y, a.z), Vector3(b.x, y, a.z), WALL_H, mat, door_t) # south wall w/ door
 	_wall(Vector3(a.x, y, b.z), Vector3(b.x, y, b.z), WALL_H, mat)
 	_wall(Vector3(a.x, y, a.z), Vector3(a.x, y, b.z), WALL_H, mat)
 	_wall(Vector3(b.x, y, a.z), Vector3(b.x, y, b.z), WALL_H, mat)
@@ -1003,15 +1082,15 @@ func _build_machine_shop() -> void:
 	_box(Vector3(-14, y + 0.4, -12), Vector3(0.15, 0.8, 2.0), mat)   # sill below window
 	_box(Vector3(-14, y + 2.7, -12), Vector3(0.15, 1.0, 2.0), mat)   # header above window
 	_box(Vector3(-21, y + WALL_H, -12), Vector3(14.5, 0.25, 12.5), mat)
-	# A real hinged plank door in the east-wall opening (z-15.7..-14.3). Was a slab that
-	# pivoted about its own centre (half the leaf swung into the room, half out); now it
-	# hangs on the south jamb and swings clear of whoever opens it. Steel liner meets the
-	# 2.2m opening top so there is no dark gap above the frame.
-	var steel: Material = MatLib.rust_steel()
-	_box(Vector3(-14, y + 1.1, -15.7), Vector3(WALL_T + 0.1, 2.2, 0.12), steel, self, false)
-	_box(Vector3(-14, y + 1.1, -14.3), Vector3(WALL_T + 0.1, 2.2, 0.12), steel, self, false)
-	_box(Vector3(-14, y + 2.28, -15.0), Vector3(WALL_T + 0.1, 0.16, 1.64), steel, self, false)
-	_hang_door(Vector3(-14, y, -15.68), Vector3(0, 0, 1), true, 1.34, 2.12, "Machine Shop")
+	# A real hinged plank door in the east-wall opening (z -15.7..-14.3, cut by the _wall
+	# call above, which also cases it through DoorFrame). The hand-authored liner that
+	# used to sit here is gone — it was a second set of literals for the same hole. The
+	# leaf hangs on the SOUTH jamb of the frame's CLEAR opening and swings clear of
+	# whoever opens it.
+	var mcw: float = DOORFRAME.clear_w(OPEN_W)
+	var mch: float = DOORFRAME.clear_h(OPEN_H)
+	_hang_door(Vector3(-14, y, -15.0 - mcw * 0.5), Vector3(0, 0, 1), true,
+		mcw - 0.02, mch - 0.02, "Machine Shop")
 	_readable("machine_shop_sign", "Posted Notice", Vector3(-13.85, y + 1.5, -10.6), Vector3(0.05, 0.4, 0.3))
 	# The raft plans, posted on the shop's outer face below the sealed notice — the escape
 	# that the sea would never allow (readable from the accessible side, clear of the pane).
@@ -1058,26 +1137,253 @@ func _build_floodlights() -> void:
 
 # ---------- Z5: High Iron ----------
 
+## THE CRANE TOWER — the inner lattice mast, its ladder, its two landings, the machinery
+## deck at the top, and the crane head standing on it.
+##
+## ONE AXIS, ONE GRID. Everything here is measured off (CRANE_X, CRANE_Z) with symmetric
+## half-extents, and rig_exterior._derrick() wraps the SAME axis with the outer lattice.
+## The two used to be a metre apart in Z with different tapers, which is why the bays
+## visibly refused to line up. Change the axis in one place and both towers move together.
+const CRANE_X: float = 2.0
+const CRANE_Z: float = -14.0
+const MAST_HALF: float = 2.0             ## mast leg half-spacing, both axes
+const CRANE_LAND_Y: float = DECK_Y + 8.0    ## 26.0 — mid landing, half way up the ladder
+const CRANE_DECK_Y: float = DECK_Y + 16.0   ## 34.0 — machinery deck slab CENTRE
+const CRANE_DECK_TOP: float = CRANE_DECK_Y + 0.15
+const CRANE_DECK_HALF: float = 3.5
+
 func _build_high_iron() -> void:
 	var mat: Material = MatLib.rust_steel()
-	# Lattice mast posts x 0..4, z -16..-12, rising to the lookout.
-	for px in [0.0, 4.0]:
-		for pz in [-16.0, -12.0]:
-			_box(Vector3(px, DECK_Y + 8, pz), Vector3(0.3, 16, 0.3), mat)
-	# Cross-braces every 4m.
+	# Four mast legs, deck to machinery deck, on the tower axis.
+	for sx in [-1.0, 1.0]:
+		for sz in [-1.0, 1.0]:
+			_box(Vector3(CRANE_X + sx * MAST_HALF, DECK_Y + 8, CRANE_Z + sz * MAST_HALF),
+				Vector3(0.3, 16, 0.3), mat)
+	# Ring + X bracing per 4m bay, on all four faces. The old version braced only the two
+	# Z faces with a bare horizontal bar, so from the east or west the mast was four bare
+	# posts with nothing tying them — half a lattice, and the half you could see.
 	for i in range(4):
-		var by: float = DECK_Y + 3 + i * 4
-		_box(Vector3(2, by, -16), Vector3(4, 0.2, 0.2), mat)
-		_box(Vector3(2, by, -12), Vector3(4, 0.2, 0.2), mat)
-	# Lookout platform + rails.
-	_box(Vector3(2, DECK_Y + 16, -14), Vector3(6, 0.3, 6), MatLib.deck_plate())
-	for r in [[Vector3(2, DECK_Y + 16.6, -11.1), Vector3(6, 0.1, 0.1)], [Vector3(2, DECK_Y + 16.6, -16.9), Vector3(6, 0.1, 0.1)],
-			[Vector3(-0.9, DECK_Y + 16.6, -14), Vector3(0.1, 0.1, 6)], [Vector3(4.9, DECK_Y + 16.6, -14), Vector3(0.1, 0.1, 6)]]:
-		_box(r[0], r[1], mat)
-	_ladder(Vector3(-0.35, DECK_Y, -14), 16.0, 90.0, "Mast Ladder", 1.2)
-	_readable("lookout_note", "Weathered Notebook", Vector3(3.4, DECK_Y + 16.5, -14), Vector3(0.3, 0.06, 0.4))
+		var y0: float = DECK_Y + i * 4.0
+		var y1: float = y0 + 4.0
+		for s in [-1.0, 1.0]:
+			_dbox(Vector3(CRANE_X, y1, CRANE_Z + s * MAST_HALF),
+				Vector3(MAST_HALF * 2.0, 0.16, 0.16), mat)
+			_dbox(Vector3(CRANE_X + s * MAST_HALF, y1, CRANE_Z),
+				Vector3(0.16, 0.16, MAST_HALF * 2.0), mat)
+			# Full X on each face, corner to corner — every end lands on a leg.
+			_member(Vector3(CRANE_X - MAST_HALF, y0, CRANE_Z + s * MAST_HALF),
+				Vector3(CRANE_X + MAST_HALF, y1, CRANE_Z + s * MAST_HALF), 0.1, mat)
+			_member(Vector3(CRANE_X + MAST_HALF, y0, CRANE_Z + s * MAST_HALF),
+				Vector3(CRANE_X - MAST_HALF, y1, CRANE_Z + s * MAST_HALF), 0.1, mat)
+			_member(Vector3(CRANE_X + s * MAST_HALF, y0, CRANE_Z - MAST_HALF),
+				Vector3(CRANE_X + s * MAST_HALF, y1, CRANE_Z + MAST_HALF), 0.1, mat)
+			_member(Vector3(CRANE_X + s * MAST_HALF, y0, CRANE_Z + MAST_HALF),
+				Vector3(CRANE_X + s * MAST_HALF, y1, CRANE_Z - MAST_HALF), 0.1, mat)
+
+	# --- the climb: two ladder runs with a real landing between them ---
+	# One 16m ladder ran the whole way with nothing to stop at. Split at the halfway
+	# platform, so the climb has a rest, a view, and somewhere to leave things.
+	_crane_landing()
+	_ladder(Vector3(CRANE_X - 2.35, DECK_Y, CRANE_Z), 8.0, 90.0, "Mast Ladder", 1.2)
+	_ladder(Vector3(CRANE_X - 2.35, CRANE_LAND_Y, CRANE_Z), 8.15, 90.0, "Mast Ladder — Upper", 1.2)
+
+	# --- machinery deck: the crane's own floor, the plate the head is bolted to ---
+	_box(Vector3(CRANE_X, CRANE_DECK_Y, CRANE_Z),
+		Vector3(CRANE_DECK_HALF * 2.0, 0.3, CRANE_DECK_HALF * 2.0), MatLib.deck_plate())
+	_crane_rails(CRANE_DECK_TOP, CRANE_DECK_HALF - 0.1, mat)
+	_build_crane_head()
+
+	_readable("lookout_note", "Weathered Notebook",
+		Vector3(CRANE_X - 1.4, CRANE_DECK_TOP + 0.03, CRANE_Z + 1.0), Vector3(0.3, 0.06, 0.4))
 	# Osk's watch slate, propped on the drill floor by the finger rack — the night he first saw it.
 	_readable("osk_watch_slate", "Night Watch Slate", Vector3(5.8, DECK_Y + 0.62, -15.0), Vector3(0.34, 0.28, 0.04))
+
+## Perimeter guard: a visual top+mid bar on all four sides plus one smooth full-height
+## slab per side, the same grammar the deck rails use — a lone waist bar with open air
+## under it is what a capsule wedges into.
+func _crane_rails(top_y: float, half: float, mat: Material) -> void:
+	for s in [-1.0, 1.0]:
+		for h in [0.55, 0.95]:
+			_dbox(Vector3(CRANE_X, top_y + h, CRANE_Z + s * half), Vector3(half * 2.0, 0.08, 0.08), mat)
+			_dbox(Vector3(CRANE_X + s * half, top_y + h, CRANE_Z), Vector3(0.08, 0.08, half * 2.0), mat)
+		_rail_slab(Vector3(CRANE_X, top_y + 0.6, CRANE_Z + s * half), Vector3(half * 2.0, 1.3, 0.07))
+		_rail_slab(Vector3(CRANE_X + s * half, top_y + 0.6, CRANE_Z), Vector3(0.07, 1.3, half * 2.0))
+
+## Halfway landing on the mast ladder: a grating plate hung between the legs with the
+## ladder passing through it, railed on all four sides. Somewhere to stand, and the
+## reason there is anything worth finding on the way up.
+func _crane_landing() -> void:
+	var mat: Material = MatLib.rust_steel()
+	var y: float = CRANE_LAND_Y
+	# Top face lands exactly on CRANE_LAND_Y so the lower ladder tops out flush with it.
+	_box(Vector3(CRANE_X - 0.1, y - 0.15, CRANE_Z), Vector3(6.2, 0.3, 3.0), MatLib.grating())
+	# Kick plates + rails round the four edges.
+	for spec in [[Vector3(CRANE_X - 0.1, y + 0.55, CRANE_Z - 1.5), Vector3(6.2, 0.9, 0.06)],
+			[Vector3(CRANE_X - 0.1, y + 0.55, CRANE_Z + 1.5), Vector3(6.2, 0.9, 0.06)],
+			[Vector3(CRANE_X - 3.2, y + 0.55, CRANE_Z), Vector3(0.06, 0.9, 3.0)],
+			[Vector3(CRANE_X + 3.0, y + 0.55, CRANE_Z), Vector3(0.06, 0.9, 3.0)]]:
+		_box(spec[0], spec[1], mat, self, false)
+		_rail_slab(spec[0], Vector3(maxf(spec[1].x, 0.07), 1.3, maxf(spec[1].z, 0.07)))
+	# A rigger left his kit up here the day the crane stopped.
+	_dbox(Vector3(CRANE_X + 1.5, y + 0.09, CRANE_Z - 0.9), Vector3(0.7, 0.18, 0.5), MatLib.dark_metal())
+	_takeable("wrench", "Rigger's Wrench", Vector3(CRANE_X + 1.5, y + 0.19, CRANE_Z - 0.9))
+	_takeable("bolt_handful", "Handful of Bolts", Vector3(CRANE_X + 2.4, y + 0.01, CRANE_Z + 0.8))
+	_plabel("LANDING 1 — HOLD THE RAIL", Vector3(CRANE_X - 0.1, y + 0.55, CRANE_Z - 1.54), 180, 18,
+		Color(0.9, 0.8, 0.4))
+
+# ---------- the crane head ----------
+
+## THE TOP OF THE CRANE, which used to simply not exist: the tower ended in a flat plate
+## with a decorative cap floating over it and nothing else. This is the machine the tower
+## was built to hold up — a slew ring and turret on the deck plate, an A-frame gantry
+## behind it, a lattice BOOM raked out to the south over open water, luffing pendants from
+## the gantry apex to the boom tip, a hoist rope over the tip sheave with a hook block
+## hanging on the end of it, and the operator's cab beside the boom heel.
+##
+## The boom is the whole point of a rig crane: it reaches PAST the deck edge (z -20) so a
+## supply boat can come alongside and be worked. Its tip lands at z -37.4, seventeen metres
+## out over the sea and twenty-one above it, which is what makes it read as a silhouette
+## from anywhere on the topside deck.
+## The boom heel pins sit high on the king post ON PURPOSE. Hung at turret-deck level the
+## boom's lower chord crossed the machinery deck at chest height and a 1.8m player walked
+## straight through it; pinned at 36.9 the chord clears the plate by 1.9m at the heel and
+## keeps rising all the way out, so the deck under it stays walkable.
+const BOOM_HEEL := Vector3(2.0, 36.9, -14.2)
+const BOOM_TIP := Vector3(2.0, 40.6, -37.4)
+const GANTRY_APEX := Vector3(2.0, 43.0, -12.6)
+const BOOM_BAYS: int = 7
+
+func _build_crane_head() -> void:
+	var mat: Material = MatLib.rust_steel()
+	var dark: Material = MatLib.dark_metal()
+	var top: float = CRANE_DECK_TOP
+
+	# --- slew ring + king post: the crane turns on a bearing, not on the plate ---
+	_cyl(Vector3(CRANE_X, top + 0.2, CRANE_Z), 1.95, 0.4, dark)
+	_dcyl(Vector3(CRANE_X, top + 0.44, CRANE_Z), 2.1, 0.06, MatLib.hazard_stripe())
+	var turret := _box(Vector3(CRANE_X, top + 1.8, CRANE_Z + 1.2), Vector3(2.8, 2.8, 2.6), mat)
+	turret.name = "CraneTurret"
+	# Machinery-house detail: exhaust stack, vent louvres, and the boom-hoist sheave
+	# standing proud of the front face where the rope would run out onto the boom.
+	_dcyl(Vector3(CRANE_X - 1.0, top + 3.6, CRANE_Z + 1.9), 0.11, 1.2, MatLib.rusty_metal())
+	for i in range(3):
+		_dbox(Vector3(CRANE_X + 1.42, top + 1.4 + i * 0.4, CRANE_Z + 1.2), Vector3(0.05, 0.22, 1.6), dark)
+	var guide := _dcyl(Vector3(CRANE_X, top + 2.6, CRANE_Z - 0.05), 0.38, 0.18, dark)
+	guide.rotation.z = PI / 2
+	_plabel("CRANE 1 — SWL 12t", Vector3(CRANE_X, top + 2.2, CRANE_Z + 2.51), 0, 22,
+		Color(0.9, 0.8, 0.4))
+
+	# --- A-frame gantry behind the king post, and the pendants that hold the boom up ---
+	for s in [-1.0, 1.0]:
+		_member(Vector3(CRANE_X + s * 1.7, top + 0.45, CRANE_Z + 2.0), GANTRY_APEX, 0.18, mat)
+		_member(Vector3(CRANE_X + s * 1.7, top + 0.45, CRANE_Z + 0.4), GANTRY_APEX, 0.14, mat)
+	_dbox(GANTRY_APEX, Vector3(1.2, 0.26, 0.5), mat)
+	for s in [-1.0, 1.0]:
+		_member(GANTRY_APEX + Vector3(s * 0.4, 0, 0), BOOM_TIP + Vector3(s * 0.4, 0.3, 0.5),
+			0.07, dark)   # luffing pendant
+
+	# --- the boom ---
+	_boom_lattice(mat)
+
+	# --- hoist: sheave at the tip, rope down to a hook block over the water ---
+	var d: Vector3 = (BOOM_TIP - BOOM_HEEL).normalized()
+	var sheave: Vector3 = BOOM_TIP - d * 0.9
+	var wheel := _dcyl(sheave, 0.42, 0.16, dark)
+	wheel.rotation.z = PI / 2
+	var block_y: float = 28.0
+	for s in [-0.16, 0.16]:
+		var rope := _dcyl(Vector3(sheave.x + s, (sheave.y + block_y) * 0.5, sheave.z),
+			0.035, sheave.y - block_y, dark)
+		rope.name = "HoistRope"
+	# Hook block: cheeks, pin, and the hook itself.
+	_dbox(Vector3(sheave.x, block_y - 0.3, sheave.z), Vector3(0.5, 0.6, 0.34), dark)
+	_dcyl(Vector3(sheave.x, block_y - 0.3, sheave.z), 0.22, 0.5, MatLib.galvanized()).rotation.z = PI / 2
+	_dbox(Vector3(sheave.x, block_y - 0.85, sheave.z), Vector3(0.14, 0.6, 0.14), MatLib.galvanized())
+	var hook := _dbox(Vector3(sheave.x + 0.22, block_y - 1.2, sheave.z), Vector3(0.5, 0.14, 0.14),
+		MatLib.galvanized())
+	hook.rotation.z = deg_to_rad(-40)
+	# Obstruction lamp on the tip. Emissive mesh only — no OmniLight this far out to sea.
+	_dcyl(BOOM_TIP + Vector3(0, 0.5, 0), 0.14, 0.28, MatLib.flat(Color(0.85, 0.12, 0.1), true, 1.6))
+
+	# --- boom-heel deck + the operator's cab ---
+	_crane_cab(top)
+
+## Four tapering chords with ring ties and lacing between them — a real box boom, not a
+## painted stick. Built as plain meshes: it is twenty metres in the air over open water.
+func _boom_lattice(mat: Material) -> void:
+	var d: Vector3 = (BOOM_TIP - BOOM_HEEL).normalized()
+	var right := Vector3(1, 0, 0)
+	var up: Vector3 = right.cross(d).normalized()
+	var h0: float = 0.85    # half-section at the heel
+	var h1: float = 0.32    # half-section at the tip
+	for sr in [-1.0, 1.0]:
+		for su in [-1.0, 1.0]:
+			_member(BOOM_HEEL + (right * sr + up * su) * h0,
+				BOOM_TIP + (right * sr + up * su) * h1, 0.11, mat)
+	for i in range(BOOM_BAYS + 1):
+		var t: float = float(i) / BOOM_BAYS
+		var c: Vector3 = BOOM_HEEL.lerp(BOOM_TIP, t)
+		var h: float = lerpf(h0, h1, t)
+		# Ring at this station: four ties closing the square section.
+		_member(c + (right - up) * h, c + (right + up) * h, 0.07, mat)
+		_member(c - (right - up) * h, c - (right + up) * h, 0.07, mat)
+		_member(c + (right + up) * h, c + (-right + up) * h, 0.07, mat)
+		_member(c + (right - up) * h, c + (-right - up) * h, 0.07, mat)
+		if i == BOOM_BAYS:
+			break
+		# Lacing: one diagonal per side face per bay, alternating so it reads as zig-zag.
+		var t2: float = float(i + 1) / BOOM_BAYS
+		var c2: Vector3 = BOOM_HEEL.lerp(BOOM_TIP, t2)
+		var hn: float = lerpf(h0, h1, t2)
+		var flip: float = 1.0 if i % 2 == 0 else -1.0
+		for sr in [-1.0, 1.0]:
+			_member(c + (right * sr + up * flip) * h, c2 + (right * sr - up * flip) * hn, 0.06, mat)
+		for su in [-1.0, 1.0]:
+			_member(c + (right * flip + up * su) * h, c2 + (right * -flip + up * su) * hn, 0.06, mat)
+
+## The operator's cab, bolted to the machinery deck east of the boom heel so the driver
+## sits alongside his load line and looks down it. A real room: three steel walls, a
+## glazed west face onto the boom, a roof, a seat and a console — and a DOORWAY on the
+## north face cut and cased by the same _wall/DoorFrame path as every other opening on
+## the rig, so it is audited by DoorFrameProbe like the rest of them.
+const CAB_X0: float = 3.2
+const CAB_X1: float = 5.0
+const CAB_Z0: float = -16.6      # south
+const CAB_Z1: float = -14.4      # north (the deck side, where the door is)
+const CAB_H: float = 2.4
+
+func _crane_cab(top: float) -> void:
+	var steel: Material = MatLib.painted_steel()
+	var dark: Material = MatLib.dark_metal()
+	# Boom-heel working plate west of the cab, and the rope coil left on it.
+	_box(Vector3(CRANE_X - 1.2, top + 0.02, CRANE_Z - 1.6), Vector3(2.4, 0.04, 2.6),
+		MatLib.checker_plate(), self, false)
+	_takeable("rope", "Coil of Wire Rope", Vector3(CRANE_X - 1.6, top + 0.05, CRANE_Z - 1.6))
+	_takeable("flare", "Signal Flare", Vector3(CRANE_X - 2.4, top + 0.02, CRANE_Z + 1.7))
+
+	_wall(Vector3(CAB_X0, top, CAB_Z1), Vector3(CAB_X1, top, CAB_Z1), CAB_H, steel, 0.5)  # door
+	_wall(Vector3(CAB_X0, top, CAB_Z0), Vector3(CAB_X1, top, CAB_Z0), CAB_H, steel)
+	_wall(Vector3(CAB_X1, top, CAB_Z0), Vector3(CAB_X1, top, CAB_Z1), CAB_H, steel)
+	_box(Vector3((CAB_X0 + CAB_X1) * 0.5, top + CAB_H + 0.07, (CAB_Z0 + CAB_Z1) * 0.5),
+		Vector3(CAB_X1 - CAB_X0 + 0.3, 0.14, CAB_Z1 - CAB_Z0 + 0.3), steel)
+	# West face: kick panel under a full-height pane, so the driver can see the hook.
+	var cz: float = (CAB_Z0 + CAB_Z1) * 0.5
+	var cd: float = CAB_Z1 - CAB_Z0
+	_box(Vector3(CAB_X0, top + 0.3, cz), Vector3(0.1, 0.6, cd), steel)
+	_box(Vector3(CAB_X0, top + 1.55, cz), Vector3(0.05, 1.9, cd - 0.12),
+		MatLib.glass(Color(0.55, 0.68, 0.72)), self, false)
+	for gz in [cz - cd * 0.25, cz + cd * 0.25]:
+		_dbox(Vector3(CAB_X0, top + 1.55, gz), Vector3(0.07, 1.9, 0.07), steel)
+	# Inside: seat, console, levers, and what the last driver left behind.
+	_box(Vector3(4.1, top + 0.28, cz - 0.35), Vector3(0.5, 0.56, 0.5), dark, self, false)
+	_box(Vector3(4.35, top + 0.75, cz - 0.35), Vector3(0.1, 0.6, 0.5), dark, self, false)
+	var console := _box(Vector3(4.1, top + 0.42, cz + 0.55), Vector3(1.2, 0.84, 0.4), dark, self, false)
+	console.name = "CraneConsole"
+	for lx in [3.85, 4.35]:
+		var lever := _dcyl(Vector3(lx, top + 1.05, cz + 0.5), 0.03, 0.42, MatLib.galvanized())
+		lever.rotation.x = deg_to_rad(-18)
+	_takeable("sealed_tin", "Sealed Tin", Vector3(4.15, top + 0.85, cz + 0.6))
+	_takeable("storm_lantern", "Crane Lantern", Vector3(3.55, top + 0.01, cz - 0.75))
 
 # ---------- The SPHL ----------
 
@@ -1156,18 +1462,30 @@ func _build_sphl() -> void:
 	_box(Vector3(ix1, wall_cy, cz), Vector3(0.15, wall_h, iz_n - iz_s), grey)         # east wall
 	_box(Vector3((ix0 + gap_w) * 0.5, wall_cy, iz_n), Vector3(gap_w - ix0, wall_h, 0.15), grey)   # N pier W
 	_box(Vector3((gap_e + ix1) * 0.5, wall_cy, iz_n), Vector3(ix1 - gap_e, wall_h, 0.15), grey)   # N pier E
-	_box(Vector3((gap_w + gap_e) * 0.5, ceil_y - 0.25, iz_n), Vector3(gap_e - gap_w + 0.2, 0.4, 0.16), grey, self, false)  # lintel
+	# The hatch opening, declared once. The lintel fills from the opening head to the
+	# ceiling — it used to be authored at a fixed ceil_y-0.45 soffit while the leaf was
+	# built 1.95m tall, so the leaf was TALLER than the hole it hung in.
+	var hw: float = gap_e - gap_w
+	var hh: float = 1.95
+	var lint_h: float = (ceil_y - fy) - hh
+	if lint_h > 0.02:
+		_box(Vector3((gap_w + gap_e) * 0.5, fy + hh + lint_h * 0.5, iz_n),
+			Vector3(hw + 0.2, lint_h, 0.16), grey, self, false)   # lintel
+	DOORFRAME.build(self, Vector3((gap_w + gap_e) * 0.5, fy, iz_n), true, hw, hh, 0.15,
+		MatLib.sphl_hi_vis(), false)
 
 	# --- hatch door: hinged at the west jamb, swings clear of the x=20 walk line ---
+	var hcw: float = DOORFRAME.clear_w(hw)
+	var hch: float = DOORFRAME.clear_h(hh)
 	sphl_hatch = InteractDoor.new()
 	sphl_hatch.display_name = "Hatch"
 	sphl_hatch.locked = false
 	add_child(sphl_hatch)
-	sphl_hatch.global_position = Vector3(gap_w, fy + 0.15, iz_n)
-	sphl_hatch.build_box_visual(Vector3(gap_e - gap_w, 1.95, 0.12), MatLib.sphl_hi_vis().albedo_color)
+	sphl_hatch.global_position = Vector3(gap_w + DOORFRAME.JAMB, fy + 0.05, iz_n)
+	sphl_hatch.build_box_visual(Vector3(hcw, hch - 0.05, 0.12), MatLib.sphl_hi_vis().albedo_color)
 	for c in sphl_hatch.get_children():
 		if c is MeshInstance3D or c is CollisionShape3D:
-			c.position = Vector3((gap_e - gap_w) * 0.5, 1.0, 0)
+			c.position = Vector3(hcw * 0.5, (hch - 0.05) * 0.5, 0)
 	# Gangplank out to the wet deck.
 	_box(Vector3((gap_w + gap_e) * 0.5, fy - 0.05, iz_n + 0.85), Vector3(gap_e - gap_w + 0.6, 0.1, 1.9), MatLib.wood())
 

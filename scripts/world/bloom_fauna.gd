@@ -1395,126 +1395,21 @@ class HarborSeal extends Node3D:
 			hud.toast("Wet fur, warm under. It leans into your hand." if not _fed
 				else "It rolls over. Entirely shameless.")
 
-# ------------------------------------------------- shared ground crawler
-class GroundCrawler extends RefCounted:
-	## Wander for a slow deck-grazer (the snails, and anything else that crawls a patch).
-	## It heads in a direction, GROUNDS to whatever plating is under it every frame so it
-	## never floats, and RESPECTS WALLS through FaunaMove — when a bulkhead or rail stops
-	## it, or it strays past its leash, or a graze leg runs out, it TURNS to a new heading
-	## (running along the wall it hit, or reversing along its seam, or back toward its
-	## patch) and sometimes pauses to feed before moving on. No more straight-line drift
-	## through concrete, and no more infinite circles that ignore the geometry.
+# ------------------------------------------------- shared surface crawler
+class GroundCrawler extends FaunaMove.SurfaceCrawler:
+	## The wander a slow grazer runs — the three snails, and anything else that works a
+	## patch on foot. It is a SURFACE crawler, not a ground walker: the whole behaviour
+	## (frame carried on the face it is stuck to, obstruction decisions, kerbs crawled
+	## over, tall faces climbed and turned back from at six metres) lives in
+	## FaunaMove.SurfaceCrawler so the crab and the deck gulls can take it later.
 	##
-	## Two shapes: FREE (wander a disc of `leash` around `home`) and SEAM (patrol a line
-	## through `home` along `axis`, turning at each end) — give a non-zero `axis` for a seam.
-	const MOVE := preload("res://scripts/world/fauna_move.gd")
+	## Kept as a named species-side class because that is what every snail and the E2E
+	## wall probe construct; the constructor, `heading`, `blocked`, `tick()` and
+	## `face_yaw()` are unchanged. New: `up`, `basis()`, `orient()`, `climbing`,
+	## `climb_peak` and `choice`, which are what a climbing animal needs to be drawn
+	## and to be audited.
+	pass
 
-	var home: Vector3            ## centre of the patch it works
-	var leash: float            ## metres it may reach from home before turning back
-	var speed: float
-	var body_radius: float
-	var probe_height: float
-	var y_fallback: float       ## ground-ray fallback when nothing is underneath
-	var axis: Vector3           ## seam direction (unit); ZERO = free disc wander
-	var heading: Vector3 = Vector3.FORWARD
-	var blocked: bool = false   ## true the frame a wall turned it (callers can react)
-	var paused: bool = false
-	var _goal: Vector3          ## current seam endpoint being walked toward
-	var _leg: float = 0.0       ## metres left on this free-wander heading
-	var _pause: float = 0.0
-	var _skip: Array[RID] = []
-	var _bound: bool = false
-	var _rng := RandomNumberGenerator.new()
-
-	func _init(home_: Vector3, leash_: float, speed_: float, seed_: int,
-			body_radius_: float, probe_height_: float, y_fallback_: float,
-			axis_: Vector3 = Vector3.ZERO) -> void:
-		home = home_
-		leash = leash_
-		speed = speed_
-		body_radius = body_radius_
-		probe_height = probe_height_
-		y_fallback = y_fallback_
-		_rng.seed = seed_
-		axis = Vector3(axis_.x, 0.0, axis_.z)
-		if axis.length() > 0.001:
-			axis = axis.normalized()
-			_goal = home + axis * leash          # walk out to one end first
-			heading = axis
-		else:
-			var a: float = _rng.randf() * TAU
-			heading = Vector3(cos(a), 0.0, sin(a))
-			_leg = _rng.randf_range(leash * 0.6, leash * 1.3)
-
-	## Advance one frame: move `host` wall-aware, ground it to the surface, keep it near
-	## its patch. Yaw is left to the caller (via face_yaw) so a snail can still turn to
-	## look at the player without losing its footing.
-	func tick(host: Node3D, delta: float) -> void:
-		if not _bound:
-			_skip = BloomFauna.fauna_bodies(host)   # never read another animal as wall/floor
-			_bound = true
-		blocked = false
-		paused = _pause > 0.0
-		if paused:
-			_pause -= delta
-		else:
-			var step_vec: Vector3 = heading * speed * delta
-			var moved: Vector3 = MOVE.step(host, step_vec, body_radius, probe_height, _skip)
-			var stuck: bool = moved.length() < step_vec.length() * 0.5
-			if axis.length() > 0.5:
-				_seam_step(host, stuck)
-			else:
-				_free_step(host, moved, stuck)
-		# Ground to the plating under it, continuously — the foot never floats.
-		var g: Vector3 = host.global_position
-		g.y = BloomFauna.surface_y(host, g, y_fallback, 1.2, 2.5, _skip)
-		host.global_position = g
-
-	## Yaw so the yaw-normalised (-Z-forward) model leads its travel; snails add the +PI.
-	func face_yaw() -> float:
-		return atan2(heading.x, heading.z) + PI
-
-	## Seam patrol: walk toward the current endpoint; on arrival or a block, flip to the
-	## far endpoint (a real turn), jitter the aim, and sometimes pause to rasp.
-	func _seam_step(host: Node3D, stuck: bool) -> void:
-		var to_goal: Vector3 = Vector3(_goal.x - host.global_position.x, 0.0, _goal.z - host.global_position.z)
-		if stuck or to_goal.length() < 0.3 or to_goal.dot(heading) < 0.0:
-			blocked = stuck
-			_goal = home + home - _goal          # the opposite end of the seam
-			var to_new: Vector3 = Vector3(_goal.x - host.global_position.x, 0.0, _goal.z - host.global_position.z)
-			if to_new.length() > 0.01:
-				heading = to_new.normalized().rotated(Vector3.UP, _rng.randf_range(-0.2, 0.2))
-			if _rng.randf() < 0.4:
-				_pause = _rng.randf_range(0.6, 2.4)
-
-	## Free disc wander: turn when blocked (slide along the wall), when it strays past the
-	## leash (pull back toward the patch), or when the current heading has run its length.
-	func _free_step(host: Node3D, moved: Vector3, stuck: bool) -> void:
-		_leg -= moved.length()
-		var off: Vector3 = Vector3(host.global_position.x - home.x, 0.0, host.global_position.z - home.z)
-		var strayed: bool = off.length() > leash
-		if not (stuck or strayed or _leg <= 0.0):
-			return
-		blocked = stuck
-		var new_head: Vector3 = heading
-		if strayed and off.length() > 0.01:
-			new_head = (-off).normalized().rotated(Vector3.UP, _rng.randf_range(-0.7, 0.7))
-		elif stuck:
-			# Run ALONG the wall: perpendicular to the blocking normal, side picked at random.
-			var n: Vector3 = MOVE.hit_normal(host, heading * (body_radius + speed), body_radius, probe_height, _skip)
-			if n != Vector3.ZERO:
-				var along := Vector3(-n.z, 0.0, n.x)
-				new_head = along if _rng.randf() < 0.5 else -along
-			else:
-				new_head = heading.rotated(Vector3.UP, PI * _rng.randf_range(0.6, 1.4))
-		else:
-			new_head = heading.rotated(Vector3.UP, _rng.randf_range(1.2, TAU - 1.2))
-		if new_head.length() < 0.001:
-			new_head = heading
-		heading = Vector3(new_head.x, 0.0, new_head.z).normalized()
-		_leg = _rng.randf_range(leash * 0.6, leash * 1.3)
-		if _rng.randf() < 0.35:
-			_pause = _rng.randf_range(0.5, 2.2)   # a graze pause
 
 # ------------------------------------------------- Lamp Snail constellation
 class LampSnail extends Node3D:
@@ -1657,7 +1552,10 @@ class LampSnail extends Node3D:
 		# never floats; the +PI in face_yaw leads the yaw-normalised (-Z-forward) model
 		# head-first instead of crawling backwards.
 		_crawler.tick(self, delta)
-		rotation.y = _crawler.face_yaw()
+		# The FULL surface frame, not a yaw: -Z leads the travel and +Y is the face normal,
+		# so one of these on the caisson wall reads as a snail stuck to the caisson wall
+		# rather than a snail lying on its side in the air beside it.
+		_crawler.orient(self, delta)
 
 # ------------------------------------------------------------ FaunaTouch
 class FaunaTouch extends Interactable:
@@ -2031,10 +1929,10 @@ class RustSnail extends Node3D:
 		_t += delta
 		# Patrol the scoured seam, respecting whatever rail or bulkhead crosses it.
 		_crawler.tick(self, delta)
-		# Rasping — the shell rocks side to side as the radula works the steel; face_yaw
-		# leads the yaw-normalised (-Z-forward) model head-first along its travel.
-		rotation.y = _crawler.face_yaw()
-		rotation.z = sin(_t * 2.4) * 0.06
+		# Rasping — the shell rocks side to side as the radula works the steel. The rock is
+		# handed to orient() as a body-local roll so it rides ON the surface frame: rasping
+		# up a vertical rail rocks across the rail, and the foot stays on the steel.
+		_crawler.orient(self, delta, 4.0, sin(_t * 2.4) * 0.06)
 		var heat: float = 0.8 + 0.5 * sin(_t * 0.7 + _idx)
 		for i in range(_glow_mats.size()):
 			_glow_mats[i].emission_energy_multiplier = heat * (0.7 + 0.3 * sin(_t * 1.3 + i))
@@ -2125,10 +2023,13 @@ class GlassSnail extends Node3D:
 		# Model is yaw-normalised to -Z-forward, so the +PI in face_yaw turns its lit gut
 		# coil (the head end) into its travel; when you lean over the rail it turns to look.
 		if near and player:
-			var to_p: Vector3 = player.global_position - global_position
-			rotation.y = lerp_angle(rotation.y, atan2(to_p.x, to_p.z) + PI, delta * 0.9)
+			# Curiosity, kept on the plate: the look direction is projected into the face it
+			# is stuck to, so it turns its lit coil toward you ACROSS the steel instead of
+			# rolling its foot off the surface to point at you.
+			var want: Basis = _crawler.look_basis(player.global_position - global_position)
+			global_basis = global_basis.orthonormalized().slerp(want, clampf(delta * 0.9, 0.0, 1.0))
 		else:
-			rotation.y = lerp_angle(rotation.y, _crawler.face_yaw(), delta * 2.0)
+			_crawler.orient(self, delta, 2.0)
 		if near:
 			Journal.discover_if_near(self, "creature_glass_snail", 7.0)
 

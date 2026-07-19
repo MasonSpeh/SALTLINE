@@ -76,6 +76,19 @@ func _ready() -> void:
 	# -- 5. DECK MARKING FLAT. "LIFEBOAT 2" painted at (-10.5, 18.012, -17.9), pitch -90.
 	await _shot(Vector3(-10.5, 18.05, -14.2), 0.0, -26.0, "deck_mark")
 	await _shot(Vector3(-8.0, 18.05, -15.0), 22.0, -30.0, "deck_mark_oblique")
+
+	# -- 6. GALLEY WEST BULKHEAD (this batch). Inner face x -1.875, run z 8.125..17.875,
+	# composition datum y ~20. Stand east of it (yaw 90 faces -x) for the head-on read of
+	# the notice board / pantry shelves / clock / potted plant, no longer overlapping.
+	await _shot(Vector3(5.6, 18.2, 12.6), 90.0, 4.0, "galley_wall")
+	await _shot(Vector3(6.4, 18.2, 9.6), 108.0, 2.0, "galley_wall_angle")
+
+	# -- 7. RIGGING BENCH + TOOLBOX (this batch). Bench (25.0, 2.0, -17.5), the single
+	# toolbox set on the plating at its WEST END (23.9, 2.0, -17.4). Wet deck floor y2.
+	# Down the long axis (yaw -90 faces +x): toolbox in the near foreground, bench behind.
+	await _shot(Vector3(21.2, 2.05, -17.4), -90.0, -12.0, "bench_toolbox_axis")
+	# 3/4 from the SW so the toolbox reads as a separate box beside the bench end.
+	await _shot(Vector3(21.3, 2.05, -18.7), -107.0, -15.0, "bench_toolbox")
 	print("[int] done")
 	get_tree().quit(0)
 

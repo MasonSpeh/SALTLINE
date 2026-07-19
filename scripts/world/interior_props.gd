@@ -86,6 +86,10 @@ func _ready() -> void:
 	# The wet deck's natural stock — tar seams, barnacle crust, snagged floats,
 	# kelp, the fish-cleaning board. Cheap CSG, so it goes up immediately.
 	add_child(HARVEST_NODES.new())
+	# Pull the galley bulkhead's two stray fittings into the composition documented
+	# above the galley section. Safe to run here: rig_builder calls _density_a()
+	# (which authors them) BEFORE it adds this node, so they already exist.
+	_galley_bulkhead_layout()
 	_stream()   # drain the queue across frames, then settle (runs as a coroutine)
 
 ## Instance the queued props a handful per frame so no single frame stalls.
@@ -250,14 +254,21 @@ func _lamp(pos: Vector3, color: Color = Color(1.0, 0.82, 0.5), energy: float = 0
 func _wet_deck() -> void:
 	var y: float = WET_Y
 	var bench: float = y + 0.75   # bench top is y+0.45; the settle drops the rest
-	_p("metal_toolbox", Vector3(24.7, bench, -17.4), -90)
+	# The bench top carries only what a job leaves out: the oil can and the wrench.
+	# THE TOOLBOX IS NOT ON THE BENCH (owner playtest note) — see below.
 	_p("small_oil_can_01", Vector3(25.5, bench, -17.72), 40)
 	_p("pipe_wrench", Vector3(25.3, bench, -17.3), 200)
 	# Tool chest parked against the storeroom face, east of the bench.
 	_pc("metal_tool_chest", Vector3(26.7, y, -17.8), -90)
-	# Toolbox on the deck directly to the RIGHT (east) of the rigging bench (owner spec),
-	# forward of the tool chest so the two don't overlap.
-	_pc("metal_toolbox", Vector3(26.3, y, -18.8), -90)
+	# THE TOOLBOX: set down on the plating at the bench's WEST END, mid-job, long axis
+	# along Z so it hugs the end face. Bench footprint is x 24.2..26.1, z -17.85..-17.15,
+	# and the only two free flanks are the ends: the bench's SOUTH skirt carries the
+	# painted "RIGGING BENCH" stencil (rig_builder, z -17.86) and its NORTH face has the
+	# gooseneck worklight stanchion planted at x 25.0, so a box on either long side
+	# either buries the paint or fouls the light. The west end leaves >1.5m of clear
+	# plating on the walk line down to the SPHL gangplank (x 19.2..20.8, z -22.9).
+	# Auto-settle drops it onto the deck plate.
+	_pc("metal_toolbox", Vector3(23.9, y, -17.4), -90)
 	# Jerry cans and a bucket by the storeroom wall.
 	_pc("metal_jerrycan", Vector3(11.6, y, -21.4), 25)
 	_pc("plastic_jerrycan", Vector3(12.2, y, -21.5), -40)
@@ -272,6 +283,52 @@ func _wet_deck() -> void:
 # Counter run: top y+1.0, x 1..11, z 16.4..17.6.  Mess tables: top y+0.49, 1.8 x 1.0, at
 # (2,11) (8,11) (2,14.5) (8,14.5).  Wall shelves x -1.6: tops y+1.63 / y+2.23, z 10.9..14.1
 # with canned rows already standing at z 11.2/11.8/12.4/13.0/13.6 — leave those gaps alone.
+#
+# THE WEST BULKHEAD (galley wall). Its inner face is x = -1.875 (wall centreline x -2,
+# WALL_T 0.25) and it runs z 8.125..17.875. See _galley_bulkhead_layout() for the
+# composition; the zones it reserves are:
+#   z  8.3..8.9   deck corner: the potted plant
+#   z  8.95..10.15, y+1.38..y+2.18   the chalk/notice board (clear wall, nothing on it)
+#   z  9.55, y+2.65                  the mess clock, centred over the board
+#   z 10.5                           structural conduit drop (rig_builder) — leave alone
+#   z 10.9..14.1, y+1.6 / y+2.2      the two pantry shelves and their can rows
+#   z 11.85..13.35, y+2.65           the PAINTED stencil, on bare plate above the shelves
+#   z 14.75..15.65                   the fridge
+# The y+2.65 line is a deliberate datum: clock and paint share it, everything else sits
+# below, so the wall reads as composed rather than piled.
+
+## Repair the galley bulkhead's stacked fittings.
+##
+## The board and the stencil are authored in rig_builder._density_a() at the SAME spot
+## (-1.86 / -1.82, DECK_Y+1.9, 12.5) — dead centre of the pantry-shelf run. The result
+## the owner photographed: painted lettering silk-screened across a dark notice board,
+## both shelves and both rows of cans cutting straight through the pair of them.
+##
+## Nothing here re-authors that dressing; it only moves two existing nodes into the free
+## zones the wall already has. This file settling other builders' props at runtime is an
+## established pattern (see _settle_pass, which sweeps the whole tree). Both lookups are
+## gated on an exact signature — position, size, text — so if rig_builder is ever fixed
+## at source this silently no-ops instead of fighting it. FOLD INTO rig_builder.gd AND
+## DELETE FROM HERE when that file is next opened.
+func _galley_bulkhead_layout() -> void:
+	var y: float = DECK_Y
+	var host: Node = get_parent()
+	if host == null:
+		return
+	for n in host.get_children():
+		# The notice board: 0.05 x 0.8 x 1.2 slab buried in the shelf run.
+		# Rehung on the clear south panel, back flush to the wall face (x -1.875).
+		if n is CSGBox3D:
+			var b := n as CSGBox3D
+			if b.size.is_equal_approx(Vector3(0.05, 0.8, 1.2)) \
+					and b.position.distance_to(Vector3(-1.86, y + 1.9, 12.5)) < 0.05:
+				b.position = Vector3(-1.85, y + 1.78, 9.55)
+		# The stencil is PAINT. It moves up onto the bare plate above the shelves, on the
+		# y+2.65 datum: clear of the upper shelf (top y+2.23, cans to y+2.41) and clear
+		# of the ceiling beam that lands at y+2.82. 0.01 proud of the wall so it does not
+		# z-fight the plate it is painted on.
+		elif n is Label3D and (n as Label3D).text.contains("LAST MENU"):
+			n.position = Vector3(-1.865, y + 2.65, 12.6)
 
 func _galley() -> void:
 	var y: float = DECK_Y
@@ -281,10 +338,12 @@ func _galley() -> void:
 	_p("plastic_thermos", Vector3(5.1, counter, 17.0), -120)
 	_p("russian_food_cans_01", Vector3(6.6, counter, 17.1), 10)
 	_p("boombox", Vector3(9.0, counter, 17.1), 200)
-	# Ration tins on the wall shelves (tops y+1.63 / y+2.23), in the two slots the canned
-	# rows already standing there leave free.
-	_p("long_life_food", Vector3(-1.55, y + 1.85, 10.95), 90)
-	_p("cleaner_tin_01", Vector3(-1.55, y + 2.45, 14.0), 90)
+	# Ration tins ON the wall shelves (tops y+1.63 / y+2.23), standing in the gaps BETWEEN
+	# the can rows rather than half-off the shelf ends: the cans are r0.09 at z 11.2 /
+	# 11.8 / 12.4 / 13.0 / 13.6, so the clear slots are centred 11.5 / 12.1 / 12.7 / 13.3
+	# and are 0.42m wide. x -1.58 puts them mid-depth on the 0.35-deep boards.
+	_p("long_life_food", Vector3(-1.58, y + 1.80, 12.1), 90)
+	_p("cleaner_tin_01", Vector3(-1.58, y + 2.40, 13.3), 90)
 	# A monobloc chair pushed back from a table, a thermos left on a table top.
 	_pc("plastic_monobloc_chair_01", Vector3(4.3, y, 12.9), 30)
 	_p("modified_thermos", Vector3(8.5, y + 0.7, 11.3), 60)
@@ -445,10 +504,13 @@ func _galley_more() -> void:
 	for tp in [Vector3(2, y, 11), Vector3(8, y, 11), Vector3(2, y, 14.5), Vector3(8, y, 14.5)]:
 		_pc("WoodenChair_01", tp + Vector3(0, 0, -1.0), 0)
 		_pc("WoodenChair_01", tp + Vector3(0, 0, 1.0), 180)
-	# A potted plant by the door, a wall clock, a thermos on the counter.
-	_pc("ceramic_pot", Vector3(-1.4, y, 9.0), 0)
-	_p("calathea_orbifolia_01", Vector3(-1.4, y + 0.6, 9.0), 0)
-	_pw("alarm_clock_01", Vector3(-1.8, y + 2.0, 10.0), 90)
+	# West bulkhead, south end: the plant tucked into the corner clear of the notice
+	# board above it (board bottom y+1.30, z 8.95..10.15 — the plant used to stand at
+	# z 9.0 with its leaves reaching into that panel), and the mess clock centred over
+	# the board on the y+2.65 paint datum.
+	_pc("ceramic_pot", Vector3(-1.4, y, 8.55), 0)
+	_p("calathea_orbifolia_01", Vector3(-1.4, y + 0.6, 8.55), 0)
+	_pw("alarm_clock_01", Vector3(-1.8, y + 2.65, 9.55), 90)
 	_p("plastic_thermos", Vector3(6.0, counter, 17.0), -60)
 
 func _bunkhouse_more() -> void:

@@ -81,17 +81,41 @@ func _cyl(pos: Vector3, radius: float, height: float, mat: Material) -> CSGCylin
 	return c
 
 ## Wall from a to b (axis aligned) with optional doorway at fraction door_t.
-func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float = -1.0) -> void:
+const DOORFRAME := preload("res://scripts/world/door_frame.gd")   # by path: class cache lags
+const OPEN_W: float = 1.4     ## every walk-through opening cut by _wall
+const OPEN_H: float = 2.2
+
+## Narrowest pier of wall that may be left standing beside an opening. See the long note
+## on RigBuilder.MIN_PIER: clamping door_t as a FRACTION let a 1.4m opening centred 0.4m
+## from the end of a 4m wall run 0.3m past that end, and the DoorFrame cased the hole
+## anyway — a jamb standing in open air past the corner. Every _shaft_walls door on this
+## stack was authored at door_t 0.1 on a 4m wall, so every one of them did it.
+const MIN_PIER: float = 0.12
+
+## Distance along a wall of `length` at which an opening of `door_w` is centred, given
+## `door_t` (0-1), clamped so the whole opening plus MIN_PIER of wall fits inside the run.
+## Returns -1.0 when the wall cannot carry an opening at all — build it solid.
+static func _door_center(length: float, door_t: float, door_w: float) -> float:
+	var margin: float = door_w * 0.5 + MIN_PIER
+	if length < margin * 2.0:
+		return -1.0
+	return clampf(clampf(door_t, 0.0, 1.0) * length, margin, length - margin)
+
+## Wall a->b with an optional doorway at door_t. The doorway is ALWAYS cased by DoorFrame,
+## derived from the hole cut here — see scripts/world/door_frame.gd for why that matters.
+func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float = -1.0,
+		frame: bool = true) -> void:
 	var dir: Vector3 = b - a
 	var length: float = dir.length()
 	var mid: Vector3 = (a + b) * 0.5
 	var along_x: bool = absf(dir.x) > absf(dir.z)
-	if door_t < 0.0:
+	var door_w: float = OPEN_W
+	var door_h: float = minf(OPEN_H, height)
+	var door_pos: float = _door_center(length, door_t, door_w) if door_t >= 0.0 else -1.0
+	if door_pos < 0.0:
 		var size := Vector3(length, height, WT) if along_x else Vector3(WT, height, length)
 		_box(mid + Vector3(0, height * 0.5, 0), size, mat)
 		return
-	var door_w: float = 1.4
-	var door_pos: float = clampf(door_t, 0.1, 0.9) * length
 	var seg1: float = door_pos - door_w * 0.5
 	var seg2: float = length - door_pos - door_w * 0.5
 	var u: Vector3 = dir.normalized()
@@ -103,11 +127,14 @@ func _wall(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float =
 		var c2: Vector3 = b - u * (seg2 * 0.5)
 		_box(c2 + Vector3(0, height * 0.5, 0),
 			Vector3(seg2, height, WT) if along_x else Vector3(WT, height, seg2), mat)
-	var lintel_h: float = height - 2.2
+	var cl: Vector3 = a + u * door_pos
+	var lintel_h: float = height - door_h
 	if lintel_h > 0.05:
-		var cl: Vector3 = a + u * door_pos
-		_box(cl + Vector3(0, 2.2 + lintel_h * 0.5, 0),
+		_box(cl + Vector3(0, door_h + lintel_h * 0.5, 0),
 			Vector3(door_w, lintel_h, WT) if along_x else Vector3(WT, lintel_h, door_w), mat)
+	if frame:
+		DOORFRAME.build(self, Vector3(cl.x, a.y, cl.z), along_x, door_w, door_h,
+			WT, MatLib.rust_steel())
 
 ## Hang a real hinged door at a hinge line (see rig_builder._hang_door for the full note).
 func _hang_door(hinge_world: Vector3, leaf_dir: Vector3, wooden: bool,
@@ -123,34 +150,23 @@ func _hang_door(hinge_world: Vector3, leaf_dir: Vector3, wooden: bool,
 	door.build_door(leaf_w, leaf_h)
 	return door
 
-## Cut a doorway (as _wall's door_t) and fit it with a framed hinged door whose steel
-## liner meets the full 2.2m opening — no dark gap above the frame.
+## Cut a doorway (as _wall's door_t) and hang a leaf in it. _wall already cased the hole
+## through DoorFrame; the duplicate hand-authored liner that used to live here is gone.
+## The leaf is sized off the frame's CLEAR opening so it never clips its own jambs.
 func _fit_door(a: Vector3, b: Vector3, height: float, mat: Material, door_t: float,
 		wooden: bool = true, hinge_at_a: bool = true, name_: String = "Door") -> InteractDoor:
 	_wall(a, b, height, mat, door_t)
 	var dir: Vector3 = b - a
 	var length: float = dir.length()
-	var along_x: bool = absf(dir.x) > absf(dir.z)
 	var u: Vector3 = dir.normalized()
-	var door_pos: float = clampf(door_t, 0.1, 0.9) * length
+	# The SAME clamp _wall used, so the leaf hangs in the hole that was actually cut.
+	var door_pos: float = _door_center(length, door_t, OPEN_W)
 	var center: Vector3 = a + u * door_pos
-	const OPEN_W: float = 1.4
-	const OPEN_H: float = 2.2
-	var half: float = OPEN_W * 0.5
-	var steel: Material = MatLib.rust_steel()
-	var ja: Vector3 = center - u * half
-	var jb: Vector3 = center + u * half
-	if along_x:
-		_box(Vector3(ja.x, a.y + OPEN_H * 0.5, a.z), Vector3(0.12, OPEN_H, WT + 0.1), steel, false)
-		_box(Vector3(jb.x, a.y + OPEN_H * 0.5, a.z), Vector3(0.12, OPEN_H, WT + 0.1), steel, false)
-		_box(Vector3(center.x, a.y + OPEN_H + 0.08, a.z), Vector3(OPEN_W + 0.24, 0.16, WT + 0.1), steel, false)
-	else:
-		_box(Vector3(a.x, a.y + OPEN_H * 0.5, ja.z), Vector3(WT + 0.1, OPEN_H, 0.12), steel, false)
-		_box(Vector3(a.x, a.y + OPEN_H * 0.5, jb.z), Vector3(WT + 0.1, OPEN_H, 0.12), steel, false)
-		_box(Vector3(a.x, a.y + OPEN_H + 0.08, center.z), Vector3(WT + 0.1, 0.16, OPEN_W + 0.24), steel, false)
+	var cw: float = DOORFRAME.clear_w(OPEN_W)
+	var ch: float = DOORFRAME.clear_h(minf(OPEN_H, height))
 	var ld: Vector3 = u if hinge_at_a else -u
-	var hinge: Vector3 = center - ld * (half - 0.02)
-	return _hang_door(Vector3(hinge.x, a.y, hinge.z), ld, wooden, OPEN_W - 0.06, OPEN_H - 0.08, name_)
+	var hinge: Vector3 = center - ld * cw * 0.5
+	return _hang_door(Vector3(hinge.x, a.y, hinge.z), ld, wooden, cw - 0.02, ch - 0.02, name_)
 
 func _ramp(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
 	var b := CSGBox3D.new()
@@ -453,6 +469,18 @@ func _ext_win_wall_x(x0: float, x1: float, z: float, floor_y: float, mat: Materi
 	# The windows themselves.
 	for c in centers:
 		_window(Vector3(c, floor_y + WIN_SILL + WIN_H * 0.5, z), true, lit)
+	# The doorway. This used to be the one opening class on the rig with no casing at
+	# all: a bare 1.5m slot punched through every band, floor to ceiling, with the raw
+	# ends of the sill and lintel bands showing. Now it gets a real head at OPEN_H and
+	# the same DoorFrame every other opening is cased by, derived from the SAME 1.5m
+	# rect the bands above were segmented around.
+	if not is_nan(door_x):
+		var dw: float = 1.5
+		var dh: float = minf(OPEN_H, WH)
+		var head_h: float = WH - dh
+		if head_h > 0.02:
+			_box(Vector3(door_x, floor_y + dh + head_h * 0.5, z), Vector3(dw, head_h, WT), mat)
+		DOORFRAME.build(self, Vector3(door_x, floor_y, z), true, dw, dh, WT, MatLib.rust_steel())
 
 func _porthole(pos: Vector3, along_x: bool) -> void:
 	var rim := MeshInstance3D.new()
