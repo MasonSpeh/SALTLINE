@@ -44,10 +44,16 @@ const MAX_DROP: float = 2.5
 
 ## Subtrees that must never be indexed as scenery: they move. A fish swimming past is not
 ## a shelf. Matched against the node's script path.
+## Plus one subtree that does not move but must still not be indexed: mesh_batcher.gd's
+## welded output is a DUPLICATE of geometry already in this index. The batcher deliberately
+## leaves every source node in the tree (it only clears their render layer mask), so the
+## real surfaces are still counted from the originals; indexing the welds as well would add
+## one enormous merged AABB per bucket and let a mug rest on the convex hull of a hundred
+## scattered bolts. tests/placement_probe.gd reads this same list.
 const SKIP_SCRIPTS := [
 	"crab.gd", "shark.gd", "bloom_fauna.gd", "underwater_world.gd", "creature_kit.gd",
 	"creature_anim.gd", "jelly_glow.gd", "gyre.gd", "storm_system.gd", "fish_model_lib.gd",
-	"flare_stick.gd", "player.gd", "rain_audio.gd",
+	"flare_stick.gd", "player.gd", "rain_audio.gd", "mesh_batcher.gd",
 ]
 
 var _surf: Array = []              # [min_x, max_x, min_z, max_z, top_y, node]

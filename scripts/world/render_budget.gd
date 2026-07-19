@@ -43,6 +43,10 @@ const SWEEP_EVERY: float = 3.0
 const SKIP_SCRIPTS: Array[String] = [
 	"ocean_surface.gd", "underwater_fx.gd", "gyre.gd", "storm_system.gd",
 	"jelly_glow.gd", "stars.gdshader",
+	# mesh_batcher.gd's welded chunks already carry the longest visibility range of the
+	# primitives inside them; re-deriving one from the merged AABB would cull a whole
+	# bucket at the range of a single bolt.
+	"mesh_batcher.gd",
 ]
 const SKIP_GROUPS: Array[String] = [
 	"player", "floating_debris", "gyre_streaks", "lit_flares", "ocean_surface",

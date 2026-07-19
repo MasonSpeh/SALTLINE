@@ -117,6 +117,10 @@ func _collect(n: Node, lights: Array[Light3D]) -> void:
 	var stack: Array[Node] = [n]
 	while not stack.is_empty():
 		var cur: Node = stack.pop_back()
+		# Welded render batches duplicate geometry this walk already collects from the
+		# source nodes — see the same skip in label_anchor_probe.gd.
+		if cur.is_in_group("render_batch"):
+			continue
 		for c in cur.get_children():
 			stack.append(c)
 		# DirectionalLight is not a fixture; only Omni/Spot stand for lamps.

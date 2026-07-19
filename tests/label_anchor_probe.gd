@@ -129,6 +129,12 @@ func _collect(n: Node, labels: Array[Label3D]) -> void:
 	var stack: Array[Node] = [n]
 	while not stack.is_empty():
 		var cur: Node = stack.pop_back()
+		# mesh_batcher.gd's welded chunks are a DUPLICATE of geometry collected below from
+		# the source nodes (which the batcher deliberately leaves in the tree). Indexing
+		# them too would put one filled 20m AABB behind every label in the bucket and this
+		# probe would pass on geometry that isn't there.
+		if cur.is_in_group("render_batch"):
+			continue
 		for c in cur.get_children():
 			stack.append(c)
 		if cur is Label3D:

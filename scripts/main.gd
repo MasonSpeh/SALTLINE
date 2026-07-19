@@ -48,6 +48,11 @@ func _ready() -> void:
 	# dressing a distance range. See render_budget.gd — this is what keeps the rig's
 	# ~6,800 authored primitives inside a MacBook's draw-call budget.
 	add_child(preload("res://scripts/world/render_budget.gd").new())
+	# Then the other half of the same problem: what IS drawn, drawn in fewer calls. The
+	# budget pass stops at "one draw call per primitive"; this welds primitives that share
+	# a material into single meshes. See mesh_batcher.gd — it runs behind the budget sweep
+	# and leaves every source node in the tree for the placement/support probes to read.
+	add_child(preload("res://scripts/world/mesh_batcher.gd").new())
 	# Immediate start — no countdown, no black screen, no locked input. The hatch is
 	# already unlocked, so the player can look at it and press E to swing it open on
 	# the first try, then walk straight out onto the rig.
