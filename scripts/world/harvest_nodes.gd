@@ -167,8 +167,13 @@ func _kelp_growth() -> void:
 		"hint": "", "start": "",
 		"done": "You strip an armful off the plate; it's cold and it faintly glows.",
 	}
-	for spot in [Vector3(28.8, WET_Y, -20.4), Vector3(8.5, WET_Y, -14.2),
-			Vector3(28.9, WET_Y, -1.4), Vector3(8.5, WET_Y, -5.6)]:
+	# Kelp belongs in the SPLASH ZONE, not on the walking deck. These four sat at WET_Y
+	# (the wet-deck floor, y2), so glowing fronds sprouted between the barrels underfoot
+	# and read as teal slabs poking out from under the dressing. Moved down onto the
+	# pontoon top (~y0.95) and the leg plates the sea actually wets, where they are still
+	# reachable from the water's edge but look like growth instead of litter.
+	for spot in [Vector3(28.8, 0.95, -20.4), Vector3(8.5, 0.95, -14.2),
+			Vector3(28.9, 0.55, -1.4), Vector3(8.5, 0.55, -5.6)]:
 		SALVAGE.from_visual(self, _kelp_visual(), spot, fmod(spot.z * 23.0, 360.0), def, 0.45)
 
 func _kelp_visual() -> Node3D:
@@ -182,9 +187,11 @@ func _kelp_visual() -> Node3D:
 		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		root.add_child(mi)
 		var a: float = i * 2.399963
-		mi.position = Vector3(cos(a) * 0.07, 0.012 + (i % 3) * 0.014, sin(a) * 0.07)
+		mi.position = Vector3(cos(a) * 0.07, 0.06 + (i % 3) * 0.05, sin(a) * 0.07)
 		mi.rotation.y = a
-		mi.rotation.x = deg_to_rad(fmod(i * 13.0, 9.0) - 4.0)
+		# Blades LEAN UP off the plate (55-80 deg) instead of lying flat: a frond reads
+		# as growth, a flat slab reads as a dropped panel.
+		mi.rotation.x = deg_to_rad(-55.0 - fmod(i * 17.0, 25.0))
 	return root
 
 # ---- the fish-cleaning board under the drying lines ----

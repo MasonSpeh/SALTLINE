@@ -20,7 +20,7 @@ const KIT_ORDER := [
 	# light & heat
 	"bloom_lamp_kit", "lamp_post_kit", "brazier_kit",
 	# work & storage
-	"workbench_kit", "locker_kit", "shelf_kit", "drying_rack_kit",
+	"workbench_kit", "storage_bin_kit", "locker_kit", "shelf_kit", "drying_rack_kit",
 	# water & growing
 	"rain_catcher_kit", "planter_kit",
 	# structure & ground
@@ -40,7 +40,7 @@ static func display_name(kit: String) -> String:
 		"bloom_lamp_kit": "Bloom Lamp", "leanto_kit": "Lean-To",
 		"walkway_kit": "Plank Walkway", "barricade_kit": "Barricade",
 		"drop_net_kit": "Drop Net",
-		"bedroll_kit": "Bedroll", "locker_kit": "Job Box", "rain_catcher_kit": "Rain Catcher",
+		"bedroll_kit": "Bedroll", "storage_bin_kit": "Storage Bin", "locker_kit": "Job Box", "rain_catcher_kit": "Rain Catcher",
 		"brazier_kit": "Brazier", "chair_kit": "Deck Chair", "workbench_kit": "Workbench",
 		"drying_rack_kit": "Drying Rack", "planter_kit": "Kelp Planter", "shelf_kit": "Wall Shelf",
 		"wall_panel_kit": "Wall Panel", "lamp_post_kit": "Lamp Post",
@@ -88,6 +88,8 @@ static func _build(kit: String, ghost: bool) -> Node3D:
 			return drop_net(ghost)
 		"bedroll_kit":
 			return bedroll(ghost)
+		"storage_bin_kit":
+			return storage_bin(ghost)
 		"locker_kit":
 			return locker(ghost)
 		"rain_catcher_kit":
@@ -313,6 +315,41 @@ static func bedroll(ghost: bool) -> Node3D:
 	return root
 
 ## A steel job-box: hinged lid, hasp, skids to keep it off the wet deck.
+## A crate knocked together from salvaged deck planks on a scrap-steel frame — the
+## early-game stash, before you have the plate and bolts for a proper job box. Same
+## storage contract as the locker (comfort_marker "storage" -> LootContainer), so it
+## uses the crate/pack exchange panel with no new UI.
+static func storage_bin(ghost: bool) -> Node3D:
+	var root := Node3D.new()
+	var wood: Material = SL.mat("wood", ghost)
+	var dark: Material = SL.mat("steel_dark", ghost)
+	var bolt: Material = SL.mat("bolt", ghost)
+	# Two skids so it sits off the wet plating, like everything else out here.
+	for sz in [-1.0, 1.0]:
+		SL.box(root, Vector3(0, 0.04, sz * 0.24), Vector3(0.92, 0.08, 0.10), wood, not ghost)
+	# Body: four plank walls around an open box, with a visible gap between courses.
+	var h: float = 0.52
+	for iz in [-1.0, 1.0]:
+		for course in range(3):
+			SL.box(root, Vector3(0, 0.14 + course * 0.17, iz * 0.27),
+				Vector3(0.90, 0.15, 0.035), wood, not ghost and course == 0)
+	for ix in [-1.0, 1.0]:
+		for course in range(3):
+			SL.box(root, Vector3(ix * 0.45, 0.14 + course * 0.17, 0),
+				Vector3(0.035, 0.15, 0.54), wood, not ghost and course == 0)
+	# Corner angle-iron: the scrap metal half of the recipe, doing visible work.
+	for cx in [-0.45, 0.45]:
+		for cz in [-0.27, 0.27]:
+			SL.box(root, Vector3(cx, 0.30, cz), Vector3(0.05, 0.50, 0.05), dark)
+	# Floor slats, a plank lid resting slightly askew, and a rope handle.
+	SL.box(root, Vector3(0, 0.10, 0), Vector3(0.88, 0.03, 0.52), wood, not ghost)
+	SL.box(root, Vector3(0.02, 0.60, 0), Vector3(0.94, 0.05, 0.58), wood, not ghost)
+	SL.bolts(root, Vector3(-0.40, 0.30, 0.28), Vector3(0.40, 0.30, 0.28), 4, bolt)
+	if not ghost:
+		SL.comfort_marker(root, "storage", "storage_bin_kit", Vector3(0, 0.34, 0),
+			Vector3(0.90, 0.52, 0.54), {"label": "Storage Bin"})
+	return root
+
 static func locker(ghost: bool) -> Node3D:
 	var root := Node3D.new()
 	var steel: Material = SL.mat("steel", ghost)

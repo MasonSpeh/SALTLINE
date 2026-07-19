@@ -1,6 +1,5 @@
 {
   "_schema": "recipe_id -> { name, cat: material|structure|gear|food, needs: {item: count}, tool: item_id (held, NOT consumed), makes, count: output qty, extra: {item: count} byproducts, work_sec, desc, hint }. Bench crafting: lay parts, work them. Laid parts total must be <= 4 (BenchPanel.MAX_LAID) and every recipe's needs multiset must be unique. A needs key beginning with '@' is a token: '@raw_fish' matches any raw fish species except bone and rot.",
-
   "steel_plate": {
     "name": "Steel Plate",
     "cat": "material",
@@ -142,7 +141,6 @@
     "desc": "Head off, gut out, two clean sides off the frame. Keep the spine — bone still takes an edge.",
     "hint": "Any fish, and something sharp. Don't eat it raw if you can help it."
   },
-
   "cured_fillet": {
     "name": "Cured Fillet",
     "cat": "food",
@@ -166,7 +164,6 @@
     "desc": "A minute on hot steel and the light goes out of it. What's left is honest meat.",
     "hint": "Raw ones bite back on the way down. Sear it first."
   },
-
   "bloom_lamp_kit": {
     "name": "Bloom Lamp",
     "cat": "structure",
@@ -393,7 +390,6 @@
     "desc": "Fiber hooked through doubled canvas until it's thick enough to kneel on. Takes hours. Nobody made you do it.",
     "hint": "Steel is cold through boots. This isn't."
   },
-
   "throwing_hook": {
     "name": "Throwing Hook",
     "cat": "gear",
@@ -494,5 +490,16 @@
     "work_sec": 4.0,
     "desc": "Hose split for soles, canvas uppers, every seam paid with tar. Dry feet. You'd forgotten what that was.",
     "hint": "Wet feet is how the cold gets in and stays in."
+  },
+  "storage_bin_kit": {
+    "name": "Storage Bin",
+    "needs": {
+      "driftwood": 2,
+      "scrap_metal": 1
+    },
+    "makes": "storage_bin_kit",
+    "work_sec": 3.0,
+    "desc": "Deck planks knocked together on a scrap-angle frame. Holds what you are not carrying, and the sea can have the rest.",
+    "hint": "Driftwood off the gyre and one piece of scrap. Cheaper than a job box, and it does the same job."
   }
 }

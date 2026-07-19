@@ -479,7 +479,6 @@
     "use": "eat",
     "hunger": 0.55
   },
-
   "steel_plate": {
     "name": "Steel Plate",
     "use": "tool"
@@ -520,7 +519,6 @@
     "name": "Rubber Hose",
     "use": "tool"
   },
-
   "kelp_fiber": {
     "name": "Kelp Fiber",
     "use": "tool"
@@ -551,7 +549,6 @@
     "hunger": 0.14,
     "side_effect": "sick"
   },
-
   "bedroll_kit": {
     "name": "Bedroll (kit)",
     "use": "build"
@@ -604,7 +601,6 @@
     "name": "Deck Rug (kit)",
     "use": "build"
   },
-
   "honed_knife": {
     "name": "Honed Knife",
     "use": "tool",
@@ -630,5 +626,9 @@
   "patched_boots": {
     "name": "Patched Boots",
     "use": "tool"
+  },
+  "storage_bin_kit": {
+    "name": "Storage Bin (kit)",
+    "use": "build"
   }
 }
