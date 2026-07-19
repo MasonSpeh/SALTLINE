@@ -83,15 +83,7 @@ func _stream() -> void:
 			SALVAGE.from_prop(self, id, item[1], item[2], item[3], SALVAGE_TABLE.def(id))
 		else:
 			var mov: bool = PropLib.is_moveable(id)
-			var node: Node3D = PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
-			# Seat it on whatever is actually beneath it. Every prop height here is a
-			# hand-typed number, so any mismatch with the real bench/shelf/deck top left
-			# the object hovering — the oil can and gloves by the rigging bench were the
-			# first thing a new player saw. The drop is bounded (SNAP_MAX_DROP) so this
-			# only corrects near-misses and never drags wall-mounted dressing to the floor.
-			if node != null:
-				preload("res://scripts/world/surface_snap.gd").attach(
-					node, 0, 1.2, SNAP_MAX_DROP)
+			PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
 		i += 1
 		if i % PER_FRAME == 0:
 			await get_tree().process_frame
@@ -134,10 +126,11 @@ func _pc(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 ## much lands the dominant 0.10-hover flush, keeps the rest within ~0.06 of resting,
 ## and never sinks a floor item below its deck.
 const _PS_SETTLE: float = 0.10
-## Largest correction the per-prop surface snap may apply. Big enough to seat anything
-## authored a little off its bench or shelf, small enough that a wall clock 1.5m up a
-## bulkhead is never mistaken for a floating prop and dragged to the deck.
-const SNAP_MAX_DROP: float = 0.55
+## NOTE for the next pass at floating props: a blanket physics-raycast snap does NOT
+## work here and was tried and reverted. Most dressing furniture is NON-COLLIDING, so a
+## downward ray from a mug on a desk passes straight through the desk and reports the
+## deck — snapping to that would rain shelf and desk items onto the floor. Any real fix
+## must resolve support surfaces from VISUAL geometry AABBs, not from physics.
 
 func _ps(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 	## Scattered clutter. Give pos.y as the authored surface-top + small hover; the
@@ -409,10 +402,15 @@ func _stack_more() -> void:
 func _scatter_wetdeck() -> void:
 	var w: float = WET_Y
 	# Rigging bench west third (25,-17.5, top ~2.96) — a working deck bench.
-	_ps("garden_gloves_01", Vector3(24.0, w + 1.1, -17.5), 20)
-	_ps("fishermans_hat", Vector3(24.3, w + 1.1, -17.1), -30)
-	_ps("can_rusted", Vector3(24.6, w + 1.1, -17.9), 0)
-	_ps("oil_tin", Vector3(23.7, w + 1.1, -17.8), 40)
+	# _ps coords are (surface top + the 0.10 hover _PS_SETTLE removes). The bench top is
+	# w+0.96 — the toolbox, oil can and wrench on the same bench all sit at 0.96 — so these
+	# belong at w+1.06, not the w+1.1 they were authored at. More importantly the gloves
+	# sat at x24.0, PAST the bench's west edge, hanging over bare deck: the floating item
+	# a new player sees first. All four pulled onto the bench top.
+	_ps("garden_gloves_01", Vector3(24.6, w + 1.06, -17.4), 20)
+	_ps("fishermans_hat", Vector3(24.3, w + 1.06, -17.1), -30)
+	_ps("can_rusted", Vector3(25.6, w + 1.06, -17.9), 0)
+	_ps("oil_tin", Vector3(24.0, w + 1.06, -17.85), 40)
 	# Pump-room dead-pump top (12,-12, ~3.8) beside the toolbox, and the dry SW corner.
 	_ps("russian_food_cans_01", Vector3(12.3, w + 2.0, -12.3), 15)
 	_ps("plastic_thermos", Vector3(11.7, w + 2.0, -11.8), -20)
