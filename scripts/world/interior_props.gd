@@ -19,6 +19,13 @@ const D_Y: float = 28.6
 var _queue: Array = []
 const PER_FRAME: int = 5
 
+## The salvage economy. Any prop id with an entry in SalvageTable is streamed in as
+## a Salvage station rather than a grabbable MovableProp, so a dead drawer cabinet
+## becomes steel plate instead of scenery. Preloaded per the class-cache rule.
+const SALVAGE := preload("res://scripts/components/salvage.gd")
+const SALVAGE_TABLE := preload("res://scripts/world/salvage_table.gd")
+const HARVEST_NODES := preload("res://scripts/world/harvest_nodes.gd")
+
 ## Food/drink dressing that reads as real, found food: any of these prop ids, wherever
 ## it's placed, becomes a Takeable carrying an items.json id, so a player can pick it up
 ## and eat/drink it. Comfort matters — the galley should feel like people ate here.
@@ -55,6 +62,9 @@ func _ready() -> void:
 	_scatter_deckb()
 	_scatter_deckc()
 	_scatter_deckd()
+	# The wet deck's natural stock — tar seams, barnacle crust, snagged floats,
+	# kelp, the fish-cleaning board. Cheap CSG, so it goes up immediately.
+	add_child(HARVEST_NODES.new())
 	_stream()   # drain the queue across frames (runs as a coroutine)
 
 ## Instance the queued props a handful per frame so no single frame stalls.
@@ -69,9 +79,19 @@ func _stream() -> void:
 		var id: String = item[0]
 		if FOOD_MAP.has(id):
 			_make_food(id, FOOD_MAP[id], item[1], item[2], item[3])
+		elif SALVAGE_TABLE.has_def(id):
+			SALVAGE.from_prop(self, id, item[1], item[2], item[3], SALVAGE_TABLE.def(id))
 		else:
 			var mov: bool = PropLib.is_moveable(id)
-			PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
+			var node: Node3D = PropLib.spawn(id, self, item[1], item[2], item[3], item[4], -1.0, mov)
+			# Seat it on whatever is actually beneath it. Every prop height here is a
+			# hand-typed number, so any mismatch with the real bench/shelf/deck top left
+			# the object hovering — the oil can and gloves by the rigging bench were the
+			# first thing a new player saw. The drop is bounded (SNAP_MAX_DROP) so this
+			# only corrects near-misses and never drags wall-mounted dressing to the floor.
+			if node != null:
+				preload("res://scripts/world/surface_snap.gd").attach(
+					node, 0, 1.2, SNAP_MAX_DROP)
 		i += 1
 		if i % PER_FRAME == 0:
 			await get_tree().process_frame
@@ -114,6 +134,10 @@ func _pc(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 ## much lands the dominant 0.10-hover flush, keeps the rest within ~0.06 of resting,
 ## and never sinks a floor item below its deck.
 const _PS_SETTLE: float = 0.10
+## Largest correction the per-prop surface snap may apply. Big enough to seat anything
+## authored a little off its bench or shelf, small enough that a wall clock 1.5m up a
+## bulkhead is never mistaken for a floating prop and dragged to the deck.
+const SNAP_MAX_DROP: float = 0.55
 
 func _ps(id: String, pos: Vector3, yaw: float = 0.0, sm: float = 1.0) -> void:
 	## Scattered clutter. Give pos.y as the authored surface-top + small hover; the

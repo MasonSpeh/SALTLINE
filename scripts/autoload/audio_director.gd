@@ -22,6 +22,10 @@ const ONE_SHOTS: Dictionary = {
 	"splash": "res://audio/splash.wav",
 	"eat": "res://audio/eat.wav",
 	"step": "res://audio/step.wav",
+	# Ambience events (scripts/world/ambience.gd schedules these).
+	"deep_groan": "res://audio/deep_groan.wav",
+	"sheet_bang": "res://audio/sheet_bang.wav",
+	"drip": "res://audio/drip.wav",
 }
 
 var _beds: Dictionary = {}       ## name -> AudioStreamPlayer

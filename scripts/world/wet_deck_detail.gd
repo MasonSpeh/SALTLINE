@@ -65,8 +65,10 @@ func _dtorus(pos: Vector3, inner: float, outer: float, mat: Material) -> MeshIns
 	mi.position = pos
 	return mi
 
+## pitch_deg tips the paint out of vertical: pass -90 to lay a marking FLAT on decking,
+## rather than standing it up in the plating with half the glyph buried.
 func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
-		color: Color = Color(0.82, 0.83, 0.8)) -> void:
+		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0) -> void:
 	var l := Label3D.new()
 	l.text = text
 	l.font_size = font_size
@@ -81,6 +83,7 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
+	l.rotation.x = deg_to_rad(pitch_deg)
 
 func _readable(id: String, name_: String, pos: Vector3, size: Vector3 = Vector3(0.35, 0.45, 0.06)) -> Readable:
 	var r := Readable.new()

@@ -7,6 +7,8 @@ signal hunger_changed(value: float)
 signal thirst_changed(value: float)
 signal warmth_changed(value: float)
 signal life_changed(value: float)
+signal rest_changed(value: float)
+signal comfort_changed(value: float)
 signal player_died
 signal stat_low(stat_name: String)
 signal stat_recovered(stat_name: String)
@@ -20,10 +22,26 @@ const MAX_BACKPACK: int = 12   ## Minecraft-ish, but a day pack, not a warehouse
 const LIFE_DRAIN_PER_SEC: float = 0.02   ## while starving or parched
 const LIFE_REGEN_PER_SEC: float = 0.01   ## while fed, watered, and not too sick
 
+## Rest: the slow tax of being awake. Only sleep pays it back in full; sitting down
+## slows the bleed. Low rest is a soft, real cost — you get winded sooner.
+const REST_TIRED: float = 0.35           ## below this the stamina ceiling drops
+const REST_SIT_RECOVER_MULT: float = 0.5 ## sitting recovers rest at half the drain rate
+## Comfort: not a score, a reading. It climbs while you are seated, warm, under cover
+## and inside your own camp, and it falls when you are out in a squall with nothing
+## over your head. Its only mechanical job is to slow hunger and thirst — the reason
+## to build somewhere nice instead of sleeping wherever you fall.
+const COMFORT_EASE_PER_SEC: float = 0.09 ## comfort chases its target this fast
+const COMFORT_HUNGER_RELIEF: float = 0.4 ## at comfort 1.0, hunger/thirst run 40% slower
+const RESTING_DECAY_MULT: float = 0.45   ## seated or asleep: stats decay this much as fast
+
+const COMFORT_SAVE_KEYS: Array[String] = ["rest", "comfort", "camp_found"]
+
 var hunger: float = 1.0 : set = set_hunger
 var thirst: float = 1.0 : set = set_thirst
 var warmth: float = 1.0 : set = set_warmth
 var life: float = 1.0 : set = set_life
+var rest: float = 1.0 : set = set_rest
+var comfort: float = 0.0 : set = set_comfort
 var hotbar: Array = [null, null, null, null]
 var inventory: Array = [] ## overflow list beyond the hotbar
 var selected_hotbar: int = -1  ## last hotbar slot pressed (#1-4)
@@ -31,6 +49,13 @@ var selected_hotbar: int = -1  ## last hotbar slot pressed (#1-4)
 ## Environmental warmth modifier, set by cold/heat zones: -1 cold, 0 neutral, +1 heated.
 var warmth_zone: int = 0
 var sickness: float = 0.0  ## 0-1, sick reduces stamina; decays over time
+
+## Written by ComfortFurniture each frame — where comfort is trying to settle (0-1).
+var comfort_target: float = 0.0
+## True while the player is sat down or asleep: stats ease off, rest creeps back.
+var resting: bool = false
+## Set once, the first time a real camp is recognised. Persisted.
+var camp_found: bool = false
 
 var tuning: Dictionary = {}
 var items: Dictionary = {}
@@ -45,6 +70,17 @@ func _ready() -> void:
 	tuning = _load_json("res://data/tuning.json")
 	items = _load_json("res://data/items.json")
 	EventBus.creature_contact.connect(_on_creature_contact)
+	# The comfort layer rides along with the state it feeds. Living here (rather than
+	# in the level) means it survives scene reloads and needs no project.godot entry.
+	# Deferred load(), never preload(): comfort_furniture.gd names the PlayerState
+	# singleton, and that identifier does not exist yet while this autoload is itself
+	# being compiled. Preloading it here fails the whole autoload, silently.
+	call_deferred("_mount_comfort")
+
+func _mount_comfort() -> void:
+	var cf: GDScript = load("res://scripts/components/comfort_furniture.gd")
+	if cf:
+		add_child(cf.new())
 
 func _on_creature_contact() -> void:
 	life -= 0.2
@@ -58,10 +94,22 @@ func _load_json(path: String) -> Dictionary:
 	return {}
 
 func _process(delta: float) -> void:
+	# Comfort eases toward whatever ComfortFurniture is reading off the world; it
+	# keeps moving even when depletion is frozen, so the HUD never lies.
+	comfort = move_toward(comfort, clampf(comfort_target, 0.0, 1.0), COMFORT_EASE_PER_SEC * delta)
 	if not _depleting:
 		return
-	hunger -= tuning.get("hunger_per_sec", 0.00055) * delta
-	thirst -= tuning.get("thirst_per_sec", 0.0011) * delta
+	# A settled camp is a slower burn: comfort buys back a slice of hunger and thirst,
+	# and sitting down (or sleeping) slows the whole clock further.
+	var ease: float = 1.0 - COMFORT_HUNGER_RELIEF * comfort
+	if resting:
+		ease *= RESTING_DECAY_MULT
+	hunger -= tuning.get("hunger_per_sec", 0.00055) * delta * ease
+	thirst -= tuning.get("thirst_per_sec", 0.0011) * delta * ease
+	# Rest: awake spends it, sitting still claws a little of it back. Only a night's
+	# sleep fills it — see ComfortFurniture's bed flow.
+	var rest_rate: float = tuning.get("rest_per_sec_awake", 0.00028)
+	rest += (rest_rate * REST_SIT_RECOVER_MULT if resting else -rest_rate) * delta
 	var w_rate: float = tuning.get("warmth_per_sec_neutral", 0.0)
 	if warmth_zone < 0:
 		w_rate = tuning.get("warmth_per_sec_cold", -0.004)
@@ -89,6 +137,14 @@ func set_thirst(value: float) -> void:
 	thirst = clampf(value, 0.0, 1.0)
 	thirst_changed.emit(thirst)
 	_check_threshold("thirst", thirst, _thirst_was_low)
+
+func set_rest(value: float) -> void:
+	rest = clampf(value, 0.0, 1.0)
+	rest_changed.emit(rest)
+
+func set_comfort(value: float) -> void:
+	comfort = clampf(value, 0.0, 1.0)
+	comfort_changed.emit(comfort)
 
 func set_warmth(value: float) -> void:
 	warmth = clampf(value, 0.0, 1.0)
@@ -130,7 +186,33 @@ func stamina_ceiling_multiplier() -> float:
 		mult *= 0.75
 	if sickness > 0.5:
 		mult *= 0.5
+	if rest < REST_TIRED:
+		mult *= 0.8   # short nights show up in the legs before anywhere else
 	return mult
+
+## A full night in a bed you made. Bed.gd owns the wet-deck bunks; this is the shared
+## payoff both it and a placed bedroll can call so the numbers never drift apart.
+func sleep_recovery() -> void:
+	rest = 1.0
+	warmth = 1.0
+	life = minf(1.0, life + 0.15)
+	sickness = 0.0
+	hunger = maxf(0.0, hunger - 0.08)
+	thirst = maxf(0.0, thirst - 0.10)
+
+# --- persistence -------------------------------------------------------------
+# SaveManager owns the payload dict; these two are the whole comfort contribution.
+# HAND-OFF: save_game() should merge comfort_payload(), load_game() should call
+# apply_comfort_payload(data). Until it does, rest/comfort simply start fresh.
+
+func comfort_payload() -> Dictionary:
+	return {"rest": rest, "comfort": comfort, "camp_found": camp_found}
+
+func apply_comfort_payload(data: Dictionary) -> void:
+	rest = float(data.get("rest", 1.0))
+	comfort = float(data.get("comfort", 0.0))
+	comfort_target = comfort
+	camp_found = bool(data.get("camp_found", false))
 
 func add_item(item_id: String) -> bool:
 	for i in range(HOTBAR_SIZE):

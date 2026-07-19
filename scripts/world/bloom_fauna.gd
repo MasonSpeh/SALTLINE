@@ -43,20 +43,26 @@ func _ready() -> void:
 	add_child(HarborSeal.new())      # day patrol + curiosity (befriendable canon)
 	add_child(HarborSeal.new())
 	# Lamp Snails: glowing constellations circling the leg bases at night (§54).
-	var snail_legs: Array[Vector3] = [Vector3(-19, 0, -12), Vector3(19, 0, -12), Vector3(-19, 0, 12),
-			Vector3(19, 0, 12), Vector3(-22, 0, -9), Vector3(22, 0, 9)]
+	# Centres sit INBOARD of the caisson faces (the legs occupy |x| 19..25), so a 1.6 m
+	# ring clears the concrete instead of sweeping through it, and on the pontoon decks
+	# (top y 0.95) rather than the old y 0.3 which buried them in the slab.
+	var snail_legs: Array[Vector3] = [Vector3(-17.2, 0, -12), Vector3(17.2, 0, -12),
+			Vector3(-17.2, 0, 12), Vector3(17.2, 0, 12), Vector3(-10.0, 0, -12), Vector3(10.0, 0, 12)]
 	for i in range(snail_legs.size()):
-		add_child(LampSnail.new(i, snail_legs[i] + Vector3(0, 0.3, 0)))
+		add_child(LampSnail.new(i, snail_legs[i] + Vector3(0, 0.95, 0)))
 	# Rust snails grazing the STEEL itself (54b) -- each works a scoured track along a
 	# rail or a deck seam. Placed where the player already walks, so the amber glow and
 	# the cleaned metal behind them get noticed.
 	# Rust snails live in the splash zone (§54b: they eat the rig at the tide line) — never
 	# high topside. Every run sits within a couple of metres of the waterline (y=0).
+	# Wet deck tops out at y 2.0 and the pontoons at 0.95; the runs used to be authored
+	# a few cm above both. The SW-leg run sat at x -19.0, which is exactly the caisson's
+	# inboard face, so that snail crawled along the inside of the concrete.
 	var graze_runs: Array = [
-		[Vector3(24.6, 2.06, -18.4), Vector3(24.6, 2.06, -12.6)],   # wet-deck rail
-		[Vector3(-19.0, 1.0, -13.4), Vector3(-19.0, 1.0, -10.6)],   # SW leg splash zone
-		[Vector3(13.0, 2.06, -18.2), Vector3(19.0, 2.06, -18.2)],   # wet-deck plate seam
-		[Vector3(3.0, 1.01, -12.4), Vector3(9.0, 1.01, -12.4)],     # pontoon seam
+		[Vector3(24.6, 2.0, -18.4), Vector3(24.6, 2.0, -12.6)],     # wet-deck rail
+		[Vector3(-17.4, 0.95, -13.4), Vector3(-17.4, 0.95, -10.6)], # SW leg splash zone
+		[Vector3(13.0, 2.0, -18.2), Vector3(19.0, 2.0, -18.2)],     # wet-deck plate seam
+		[Vector3(3.0, 0.95, -12.4), Vector3(9.0, 0.95, -12.4)],     # pontoon seam
 	]
 	for i in range(graze_runs.size()):
 		add_child(RustSnail.new(i, graze_runs[i][0], graze_runs[i][1]))
@@ -164,6 +170,27 @@ static func ground_model(host: Node3D, model: Node3D) -> void:
 	if first:
 		return   # no meshes to measure
 	model.position.y -= (low - host.global_position.y)
+
+## The y of the world surface under `p`, so a crawler rides what is actually there
+## instead of a hard-coded depth. Snails were authored with fixed y offsets measured
+## against geometry that has since moved: the lamp ring sat 1.05 m INSIDE the pontoon
+## and every grounded snail floated ~6 cm proud of its plating. The ray starts above
+## `p` so it still finds the top face when the creature has drifted inside something,
+## and it skips the creature's own bodies (FaunaTouch is a StaticBody3D and would
+## otherwise be the first thing hit). Returns `fallback` when nothing is underneath.
+static func surface_y(host: Node3D, p: Vector3, fallback: float, up: float = 1.2,
+		down: float = 2.5) -> float:
+	var world: World3D = host.get_world_3d()
+	if world == null:
+		return fallback
+	var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, up, 0), p - Vector3(0, down, 0))
+	q.collide_with_areas = false
+	var skip: Array[RID] = []
+	for b in host.find_children("*", "CollisionObject3D", true, false):
+		skip.append((b as CollisionObject3D).get_rid())
+	q.exclude = skip
+	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+	return hit["position"].y if not hit.is_empty() else fallback
 
 ## The gulls' flush test (Codex threat behaviour). Track the closest the player has ever
 ## crept to `pos`; each time they close another ~1m inside `range_m`, roll `chance` to
@@ -1464,10 +1491,13 @@ class LampSnail extends Node3D:
 			var s: Node3D = _stalks[i]
 			s.rotation.z = sin(_t * 0.6 + i * PI) * 0.22
 			s.rotation.y = sin(_t * 0.4 + i * 1.7) * 0.18
-		# A slow crawl circling the leg base, just under the surface. The foot stays at a
-		# fixed depth so it reads as crawling, not bobbing/floating.
+		# A slow crawl circling the leg base, riding the pontoon top. The old fixed
+		# -0.4 offset put the whole ring 1.05 m inside the pontoon slab, so six
+		# glowing snails were sealed in concrete and never visible at all.
 		var ang: float = _t * 0.05 + _idx
-		global_position = _base + Vector3(cos(ang) * 1.6, -0.4, sin(ang) * 1.6)
+		var p: Vector3 = _base + Vector3(cos(ang) * 1.6, 0.0, sin(ang) * 1.6)
+		p.y = BloomFauna.surface_y(self, p, _base.y)
+		global_position = p
 		# Head-first: the model is yaw-normalised to -Z-forward, so +PI turns it to lead
 		# its travel instead of crawling backwards.
 		rotation.y = -ang + PI
@@ -1561,10 +1591,12 @@ class DeckGull extends Node3D:
 				_regen = randf_range(45.0, 90.0)
 			return
 		# Grounded threat: track the closest the player has crept and roll a flush at each
-		# ~1m they close inside 10m. Crouch-sneaking skips the rolls (crouch_factor 0.0) —
-		# that's the window to grab it. Non-crouched and right on top of it always flushes.
+		# ~1m they close inside 10m. Crouch-sneaking CUTS the odds (crouch_factor 0.3)
+		# rather than skipping the roll: sneaking should improve your chances, not make
+		# you flatly undetectable, or the grab stops being a gamble worth taking.
+		# Non-crouched and right on top of it always flushes.
 		if player:
-			var res: Array = BloomFauna.gull_flush_roll(player, global_position, _closest, 10.0, 0.34, 0.0)
+			var res: Array = BloomFauna.gull_flush_roll(player, global_position, _closest, 10.0, 0.34, 0.3)
 			_closest = res[1]
 			var crouched: bool = player.get("crouching") == true
 			if res[0] or (not crouched and player.global_position.distance_to(global_position) < 1.5):
@@ -1824,7 +1856,11 @@ class RustSnail extends Node3D:
 		_t += delta
 		# A grazing run: crawl the length of its patch, then turn and work back.
 		var span: float = 0.5 + 0.5 * sin(_t * 0.035)
-		global_position = _from.lerp(_to, span)
+		var p: Vector3 = _from.lerp(_to, span)
+		# Sit on the plating rather than 6 cm above it — the runs were authored at
+		# deck+0.06, which reads as a snail hovering over the steel it is rasping.
+		p.y = BloomFauna.surface_y(self, p, p.y)
+		global_position = p
 		# Rasping — the shell rocks side to side as the radula works the steel. The +PI turns
 		# the yaw-normalised (-Z-forward) model head-first; the second term flips it on the
 		# return pass so it always leads its travel instead of crawling backwards.
@@ -1912,7 +1948,9 @@ class GlassSnail extends Node3D:
 		# A slow drift across the submerged plate, and it turns to face a visitor. The foot
 		# sits at a fixed depth on the plate so it crawls rather than bobs/floats.
 		var ang: float = _t * 0.03 + _idx * 1.3
-		global_position = _base + Vector3(cos(ang) * 0.9, 0.0, sin(ang) * 0.9)
+		var p: Vector3 = _base + Vector3(cos(ang) * 0.9, 0.0, sin(ang) * 0.9)
+		p.y = BloomFauna.surface_y(self, p, _base.y)
+		global_position = p
 		# Model is yaw-normalised to -Z-forward, so +PI turns its lit gut coil (the head end)
 		# toward the player / into its travel instead of presenting its tail.
 		if near and player:
@@ -2140,7 +2178,7 @@ class CorvidGull extends Node3D:
 		# Threat roll while perched: creep inside 10m and each ~1m closer may flush it.
 		# Crouch-sneaking cuts the odds (crouch_factor 0.3) rather than skipping them.
 		if day and player:
-			var res: Array = BloomFauna.gull_flush_roll(player, global_position, _closest, 10.0, 0.3, 0.3)
+			var res: Array = BloomFauna.gull_flush_roll(player, global_position, _closest, 10.0, 0.34, 0.3)
 			_closest = res[1]
 			if res[0]:
 				_begin_flee(player)
@@ -2155,7 +2193,14 @@ class CorvidGull extends Node3D:
 				rotation.y = lerp_angle(rotation.y, atan2(flat.x, flat.z) + PI, delta * 2.5)
 			# A curious head-tilt while it watches.
 			_head.rotation.z = sin(_t * 0.7) * 0.35
-			_head.rotation.y = lerp_angle(_head.rotation.y, 0.0, delta * 2.0)
+			# It keeps breaking the stare to glance about, on the same organic clock it
+			# uses when unobserved but with a tighter arc. Pinning the head yaw to dead
+			# ahead the whole time you are near read as animatronic rather than curious.
+			_look_cd -= delta
+			if _look_cd <= 0.0:
+				_look_cd = randf_range(1.1, 3.0)
+				_look_yaw = randf_range(-0.5, 0.5)
+			_head.rotation.y = lerp_angle(_head.rotation.y, _look_yaw, delta * 2.0)
 		else:
 			_head.rotation.z = move_toward(_head.rotation.z, 0.0, delta)
 			# Idle head-turns: it glances around the rail on its own organic clock.

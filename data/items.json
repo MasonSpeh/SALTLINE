@@ -478,5 +478,157 @@
     "name": "Roast Gull",
     "use": "eat",
     "hunger": 0.55
+  },
+
+  "steel_plate": {
+    "name": "Steel Plate",
+    "use": "tool"
+  },
+  "pipe_length": {
+    "name": "Length of Pipe",
+    "use": "tool"
+  },
+  "wire_spool": {
+    "name": "Spool of Wire",
+    "use": "tool"
+  },
+  "bolt_handful": {
+    "name": "Handful of Bolts",
+    "use": "tool"
+  },
+  "glass_pane": {
+    "name": "Glass Pane",
+    "use": "tool"
+  },
+  "canvas_scrap": {
+    "name": "Canvas Scrap",
+    "use": "tool"
+  },
+  "foam_block": {
+    "name": "Foam Block",
+    "use": "tool"
+  },
+  "ceramic_shard": {
+    "name": "Ceramic Shard",
+    "use": "tool"
+  },
+  "copper_coil": {
+    "name": "Copper Coil",
+    "use": "tool"
+  },
+  "rubber_hose": {
+    "name": "Rubber Hose",
+    "use": "tool"
+  },
+
+  "kelp_fiber": {
+    "name": "Kelp Fiber",
+    "use": "tool"
+  },
+  "fish_bone": {
+    "name": "Fish Bone",
+    "use": "tool"
+  },
+  "shell_grit": {
+    "name": "Shell Grit",
+    "use": "tool"
+  },
+  "tar_lump": {
+    "name": "Tar Lump",
+    "use": "tool"
+  },
+  "float_buoy": {
+    "name": "Float Buoy",
+    "use": "tool"
+  },
+  "wood_slat": {
+    "name": "Wood Slats",
+    "use": "tool"
+  },
+  "raw_fillet": {
+    "name": "Raw Fillet",
+    "use": "eat",
+    "hunger": 0.14,
+    "side_effect": "sick"
+  },
+
+  "bedroll_kit": {
+    "name": "Bedroll (kit)",
+    "use": "build"
+  },
+  "locker_kit": {
+    "name": "Steel Locker (kit)",
+    "use": "build"
+  },
+  "rain_catcher_kit": {
+    "name": "Rain Catcher (kit)",
+    "use": "build"
+  },
+  "brazier_kit": {
+    "name": "Brazier (kit)",
+    "use": "build"
+  },
+  "chair_kit": {
+    "name": "Deck Chair (kit)",
+    "use": "build"
+  },
+  "workbench_kit": {
+    "name": "Workbench (kit)",
+    "use": "build"
+  },
+  "drying_rack_kit": {
+    "name": "Drying Rack (kit)",
+    "use": "build"
+  },
+  "planter_kit": {
+    "name": "Planter Box (kit)",
+    "use": "build"
+  },
+  "shelf_kit": {
+    "name": "Wall Shelf (kit)",
+    "use": "build"
+  },
+  "wall_panel_kit": {
+    "name": "Wall Panel (kit)",
+    "use": "build"
+  },
+  "lamp_post_kit": {
+    "name": "Lamp Post (kit)",
+    "use": "build"
+  },
+  "windbreak_kit": {
+    "name": "Windbreak (kit)",
+    "use": "build"
+  },
+  "rug_kit": {
+    "name": "Deck Rug (kit)",
+    "use": "build"
+  },
+
+  "honed_knife": {
+    "name": "Honed Knife",
+    "use": "tool",
+    "melee_damage": 1.6,
+    "melee_reach": 2.0,
+    "swing_sec": 0.38
+  },
+  "honed_spear": {
+    "name": "Honed Spear",
+    "use": "tool",
+    "melee_damage": 2.6,
+    "melee_reach": 3.3,
+    "swing_sec": 0.62
+  },
+  "tool_belt": {
+    "name": "Tool Belt",
+    "use": "tool"
+  },
+  "storm_lantern": {
+    "name": "Storm Lantern",
+    "use": "tool"
+  },
+  "patched_boots": {
+    "name": "Patched Boots",
+    "use": "tool"
   }
 }

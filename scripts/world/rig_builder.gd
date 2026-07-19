@@ -344,6 +344,16 @@ func _build_wet_deck() -> void:
 	# Platform slung at the waterline — anti-slip checker plate, not bare deck.
 	_box(Vector3(19, WET_Y - 0.25, -10), Vector3(22, 0.5, 24), MatLib.checker_plate())
 
+	# Submerged work plate hung off the south lip on four rods — the drowned staging
+	# they used to reach the caisson. It is what the glass snails live on: they were
+	# authored "on the submerged plate" at y -1.3 but no such plate existed, so all
+	# four spawned inside the pontoon slab. Lean over the south rail and their lit gut
+	# coils are the only thing down there.
+	_box(Vector3(16.5, -1.45, -20.0), Vector3(11, 0.3, 3.4), MatLib.rust_steel())
+	for hx in [12.0, 21.0]:
+		for hz in [-19.0, -21.0]:
+			_box(Vector3(hx, 0.1, hz), Vector3(0.1, 2.8, 0.1), MatLib.dark_metal(), self, false)
+
 	# Flooded pump room (knee-deep water, cold zone).
 	var pr_mat: Material = MatLib.concrete()
 	_wall(Vector3(10, WET_Y, -14), Vector3(18, WET_Y, -14), WALL_H, pr_mat, 0.5)
@@ -1009,8 +1019,18 @@ func _build_sphl() -> void:
 	var board_x: float = ix0 + 0.075                    # interior face of the west wall
 	_box(Vector3(board_x + 0.02, fy + 1.55, cz), Vector3(0.04, 0.30, 1.05),
 		MatLib.dark_metal(), self, false)               # placard plate
+	# Recessed readout face, faintly self-lit. The glass of a powered instrument glows
+	# with its text; lighting the panel is what makes the (unshaded) green characters
+	# below read as an LCD behind glass rather than as luminous paint floating on a
+	# dark plate — the last "glowing free-space text" complaint against this sign.
+	var readout := StandardMaterial3D.new()
+	readout.albedo_color = Color(0.05, 0.09, 0.07)
+	readout.emission_enabled = true
+	readout.emission = Color(0.12, 0.5, 0.22)
+	readout.emission_energy_multiplier = 0.35
+	readout.roughness = 0.25
 	_box(Vector3(board_x + 0.045, fy + 1.55, cz), Vector3(0.012, 0.22, 0.92),
-		MatLib.flat(Color(0.06, 0.07, 0.07)), self, false)   # recessed readout face
+		readout, self, false)   # recessed readout face
 	for b in [Vector2(0.125, 0.49), Vector2(0.125, -0.49),
 			Vector2(-0.125, 0.49), Vector2(-0.125, -0.49)]:
 		_cyl_nc(Vector3(board_x + 0.045, fy + 1.55 + b.x, cz + b.y), 0.012, 0.02,
@@ -1746,8 +1766,11 @@ func _more_industry() -> void:
 		_bolt_ring(leg2 + Vector3(0, DECK_Y - 1.9, 0), 3.0, "y", 12, dark)
 
 ## Painted block lettering on a surface (shaded, single-sided — reads as stencil paint).
+## pitch_deg tips the paint out of vertical: pass -90 to lay a marking FLAT on decking.
+## Without it a stencil authored at floor height renders as an upright sheet standing
+## in the plating with half the glyph buried, which is what "LIFEBOAT 2" used to do.
 func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 32,
-		color: Color = Color(0.82, 0.83, 0.8)) -> void:
+		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0) -> void:
 	var l := Label3D.new()
 	l.text = text
 	# Scaled down — oversized paint bled across panel joints and door reveals.
@@ -1763,6 +1786,7 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 32,
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
+	l.rotation.x = deg_to_rad(pitch_deg)
 
 ## Weathered black stencil paint. Brighter/more-saturated source colors read as
 ## slightly more faded (lifted toward charcoal); pale args stay near-black. Alpha
@@ -1812,8 +1836,18 @@ func _build_broken_bridge(u: Vector3) -> void:
 	for side in [-0.8, 0.8]:
 		var leg := _box(bar_pos + perp * side + Vector3(0, 0.45, 0), Vector3(0.1, 0.9, 0.1), MatLib.dark_metal(), self, false)
 		leg.rotation.y = yaw
-	_plabel("SPAN OUT — SALTLINE-2", bar_pos + Vector3(0, 1.45, 0) - u * 0.12,
-		rad_to_deg(yaw) - 90.0, 26, Color(0.9, 0.75, 0.2))   # faces back toward the rig
+	# Sign plate welded to the barricade on two stubs. The warning used to sit 0.43 m
+	# ABOVE the top of the bar, so from the deck it read as text hanging over open sea
+	# — the one place on the rig where floating letters were most obvious.
+	for sp in [-0.75, 0.75]:
+		var stub := _box(bar_pos + perp * sp + Vector3(0, 1.16, 0) - u * 0.1,
+			Vector3(0.06, 0.42, 0.06), MatLib.dark_metal(), self, false)
+		stub.rotation.y = yaw
+	var plate := _box(bar_pos + Vector3(0, 1.45, 0) - u * 0.14,
+		Vector3(0.06, 0.44, 2.2), MatLib.flat(Color(0.85, 0.72, 0.1)), self, false)
+	plate.rotation.y = yaw
+	_plabel("SPAN OUT — SALTLINE-2", bar_pos + Vector3(0, 1.45, 0) - u * 0.18,
+		rad_to_deg(yaw) - 90.0, 26, Color(0.2, 0.18, 0.12))   # faces back toward the rig
 	# Hazard paint where the bridge leaves the deck.
 	_box(Vector3(29.2, DECK_Y + 0.02, 14.0), Vector3(1.6, 0.02, 2.4), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
 

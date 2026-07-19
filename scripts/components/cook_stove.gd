@@ -34,9 +34,15 @@ func interact(verb: String, _player: Node3D) -> void:
 		if hud:
 			hud.toast("Nothing raw to cook. The pan waits.")
 		return
-	PlayerState.remove_item(raw)
 	var cooked: String = _cooked_for(raw)
-	PlayerState.add_item(cooked)
+	PlayerState.remove_item(raw)
+	# Put the raw fish back if the meal has nowhere to go. Without this check a cook
+	# with a full pack silently destroyed the catch and handed back nothing.
+	if not PlayerState.add_item(cooked):
+		PlayerState.add_item(raw)
+		if hud:
+			hud.toast("No room in the pack. The pan waits.")
+		return
 	AudioDirector.play_one_shot("hiss", global_position, -10.0)
 	Journal.discover("system_stove")
 	if hud:

@@ -297,15 +297,79 @@ func _follow_path(path: Array, delta: float) -> bool:
 		_wp_index += 1
 	return _wp_index >= path.size()
 
+## Body half-width used for the obstruction probes. The crab is ~0.9m across, so it
+## sweeps its own shoulders, not just its centre line — a centre-only ray lets it clip
+## a barrel with half its shell.
+const BODY_R: float = 0.42
+const PROBE_H: float = 0.35        ## probe from shell height, above deck lips and cables
+const STALL_GIVE_UP: float = 2.5   ## seconds boxed in before it abandons the waypoint
+
+var _stalled: float = 0.0
+
+## Move toward `target`, but STOP AT WALLS. The crab is a plain Node3D driven by direct
+## position assignment (its whole FSM depends on that), so nothing in the physics world
+## can push it — it used to walk straight through barrels, crates and bulkheads. Rather
+## than convert it to a CharacterBody3D and rewrite the state machine, the step itself is
+## now collision-tested: probe the intended motion, and if it is blocked, SLIDE along the
+## obstruction the way a real body would. If it stays boxed in, give up the waypoint so it
+## can never wedge itself permanently.
 func _step_toward(target: Vector3, speed: float, delta: float) -> bool:
 	var to_target: Vector3 = target - global_position
 	if to_target.length() < 0.25:
+		_stalled = 0.0
 		return true
 	var step: Vector3 = to_target.normalized() * speed * delta
-	global_position += step
+	var moved: Vector3 = _resolve_step(step)
+	global_position += moved
+	# Boxed in: bail out of this waypoint rather than grinding against geometry forever.
+	if moved.length() < step.length() * 0.25:
+		_stalled += delta
+		if _stalled > STALL_GIVE_UP:
+			_stalled = 0.0
+			return true
+	else:
+		_stalled = 0.0
 	if to_target.length_squared() > 0.04:
 		look_at(Vector3(target.x, global_position.y, target.z), Vector3.UP)
 	return false
+
+## Return the part of `step` the crab may actually travel. Blocked head-on, it tries to
+## slide along the surface (projecting the step onto the hit plane) so it rounds corners
+## and follows walls instead of sticking to them.
+func _resolve_step(step: Vector3) -> Vector3:
+	if _blocked(step):
+		var n: Vector3 = _hit_normal(step)
+		if n == Vector3.ZERO:
+			return Vector3.ZERO
+		var slide: Vector3 = step - n * step.dot(n)
+		slide.y = 0.0
+		if slide.length() < 0.0001 or _blocked(slide):
+			return Vector3.ZERO
+		return slide
+	return step
+
+## Sweep the body's width: centre plus both shoulders, at shell height.
+func _blocked(step: Vector3) -> bool:
+	return _hit_normal(step) != Vector3.ZERO
+
+func _hit_normal(step: Vector3) -> Vector3:
+	var space: PhysicsDirectSpaceState3D = get_world_3d().direct_space_state
+	var dir: Vector3 = step.normalized()
+	var side: Vector3 = Vector3(-dir.z, 0.0, dir.x) * BODY_R   # perpendicular, body width
+	var reach: float = step.length() + BODY_R
+	var base: Vector3 = global_position + Vector3(0, PROBE_H, 0)
+	for offset in [Vector3.ZERO, side, -side]:
+		var from: Vector3 = base + offset
+		var q := PhysicsRayQueryParameters3D.create(from, from + dir * reach)
+		q.collision_mask = 1                     # world geometry only
+		# No self-exclude needed: the crab is a bare Node3D with no collider of its own.
+		var hit: Dictionary = space.intersect_ray(q)
+		if not hit.is_empty():
+			var n: Vector3 = hit.get("normal", Vector3.ZERO)
+			n.y = 0.0                            # horizontal blocking only: it walks decks
+			if n.length() > 0.01:
+				return n.normalized()
+	return Vector3.ZERO
 
 func _pursue(delta: float, player: Node3D) -> void:
 	if player == null or GameClock.current_phase != GameClock.Phase.NIGHT:

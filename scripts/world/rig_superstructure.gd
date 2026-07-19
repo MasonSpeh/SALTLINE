@@ -141,8 +141,11 @@ func _rail_z(z0: float, z1: float, y: float, x: float) -> void:
 ## Wall sign — reads as PAINTED block lettering, not a lit sign: shaded so it takes
 ## scene light like the concrete it's stenciled on, slightly weathered alpha.
 ## yaw_deg: 0 faces +Z, 180 faces -Z, 90 faces +X, -90 faces -X.
+## pitch_deg tips the paint out of vertical: pass -90 to lay a marking FLAT on decking,
+## which is the only way a stencil authored at floor height reads as paint rather than
+## as an upright sheet standing in the plating.
 func _label(text: String, pos: Vector3, yaw_deg: float, font_size: int = 48,
-		color: Color = Color(0.85, 0.87, 0.84)) -> void:
+		color: Color = Color(0.85, 0.87, 0.84), pitch_deg: float = 0.0) -> void:
 	var l := Label3D.new()
 	l.text = text
 	# Scaled down — oversized paint bled across panel joints and door reveals.
@@ -158,6 +161,7 @@ func _label(text: String, pos: Vector3, yaw_deg: float, font_size: int = 48,
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
+	l.rotation.x = deg_to_rad(pitch_deg)
 
 func _light(pos: Vector3, energy: float = 0.55, range_: float = 7.0) -> void:
 	var l := OmniLight3D.new()
@@ -1035,7 +1039,14 @@ func _deck_a_signage() -> void:
 	_label("REC ROOM", Vector3(17.84, DECK_Y + 2.4, 10.5), -90, 30)
 	_label("MUSTER STATION →", Vector3(9, DECK_Y + 1.9, 7.84), 180, 28, Color(0.95, 0.75, 0.2))
 	_label("RIGGING BENCH — WET DECK ↓", Vector3(21.9, DECK_Y + 2.5, -0.9), 90, 24, Color(0.9, 0.85, 0.6))
-	_label("B-DECK QUARTERS ↑", Vector3(0, DECK_Y + 2.6, 2.55), 0, 30, Color(0.9, 0.85, 0.6))
+	# Bolted to the stair stringer, not hanging in the flight. At (0, DECK_Y+2.6, 2.55)
+	# this was mid-air between open treads — the stair up to B deck is external steel
+	# with no wall anywhere near it, so the letters read through the steelwork.
+	_dbox(Vector3(2.06, DECK_Y + 1.45, 2.55), Vector3(0.06, 0.3, 2.2), MatLib.painted_steel())
+	for sz in [1.55, 3.55]:
+		for sy in [DECK_Y + 1.34, DECK_Y + 1.56]:
+			_dbox(Vector3(2.09, sy, sz), Vector3(0.03, 0.04, 0.04), MatLib.galvanized())
+	_label("B-DECK QUARTERS ↑", Vector3(2.1, DECK_Y + 1.45, 2.55), 90, 30, Color(0.9, 0.85, 0.6))
 
 # ============================================================ density pass
 

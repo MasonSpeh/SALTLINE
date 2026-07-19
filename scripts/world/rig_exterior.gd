@@ -111,8 +111,11 @@ func _rail_z(z0: float, z1: float, y: float, x: float) -> void:
 	for i in range(n + 1):
 		_dbox(Vector3(x, y + 0.28, z0 + (z1 - z0) * i / n), Vector3(0.06, 0.56, 0.06), mat)
 
+## pitch_deg tips the paint out of vertical: pass -90 to lay a marking FLAT on decking.
+## Without it a stencil authored at deck height renders as an upright sheet standing in
+## the plating with part of the glyph buried below it, not as paint.
 func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
-		color: Color = Color(0.82, 0.83, 0.8)) -> void:
+		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0) -> void:
 	var l := Label3D.new()
 	l.text = text
 	l.font_size = font_size
@@ -126,6 +129,7 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
+	l.rotation.x = deg_to_rad(pitch_deg)
 
 # ---------------------------------------------------------------- derrick
 
@@ -203,7 +207,17 @@ func _pipe_deck() -> void:
 			var pz: float = -18.6 - 0.45 + (i + layer * 0.5) * 0.24
 			var p := _dcyl(Vector3(13.0, py, pz), 0.11, 10.5, MatLib.galvanized())
 			p.rotation.z = PI / 2
-	_plabel("PIPE DECK — SLING LOADS", Vector3(13, DECK_Y + 1.7, -17.5), 0, 22, Color(0.85, 0.8, 0.6))
+	# Rack placard on its own stand at the head of the pipe racks. This line used to
+	# hang at y+1.7 where the racks top out around y+1.2 — the whole string floated
+	# against open sky and ocean with nothing behind it from any angle.
+	for px in [10.9, 15.1]:
+		_dbox(Vector3(px, DECK_Y + 0.85, -17.52), Vector3(0.07, 1.7, 0.07), MatLib.rust_steel())
+	_box(Vector3(13, DECK_Y + 1.42, -17.55), Vector3(4.5, 0.5, 0.07),
+		MatLib.painted_steel(), false)
+	for bx in [11.02, 14.98]:
+		for by in [DECK_Y + 1.26, DECK_Y + 1.58]:
+			_dcyl(Vector3(bx, by, -17.5), 0.018, 0.03, MatLib.galvanized()).rotation.x = PI / 2
+	_plabel("PIPE DECK — SLING LOADS", Vector3(13, DECK_Y + 1.42, -17.5), 0, 22, Color(0.85, 0.8, 0.6))
 	# Bollards and a chain edge along the south rail behind the racks.
 	for bx in [8.0, 13.0, 18.0]:
 		_box(Vector3(bx, DECK_Y + 0.3, -19.3), Vector3(0.3, 0.6, 0.3), MatLib.flat(Color(0.75, 0.65, 0.15)))
@@ -278,7 +292,17 @@ func _flare_boom() -> void:
 	_box(Vector3(-28.0, DECK_Y + 0.45, -18.0), Vector3(1.6, 0.9, 1.6), MatLib.dark_metal())
 	_rail_x(-29.6, -26.4, DECK_Y, -16.4)
 	_rail_z(-19.4, -16.4, DECK_Y, -26.4)
-	_plabel("FLARE BOOM — NO ENTRY", Vector3(-28, DECK_Y + 1.35, -16.32), 0, 22, Color(0.9, 0.75, 0.2))
+	# Warning board on the west bulkhead (a Z-running wall at x=-28, z -18..-6).
+	# The line used to be authored at yaw 0, so its text ran along X — straight THROUGH
+	# the edge of that wall, which is why half of it landed on steel and half hung over
+	# open sea. Turned to yaw 90 the string runs along Z and lies flat on the wall face.
+	_box(Vector3(-27.9, DECK_Y + 1.4, -15.0), Vector3(0.06, 0.5, 2.7),
+		MatLib.flat(Color(0.85, 0.72, 0.1)), false)
+	for bz in [-16.15, -13.85]:
+		for by in [DECK_Y + 1.25, DECK_Y + 1.55]:
+			_dcyl(Vector3(-27.86, by, bz), 0.018, 0.03, MatLib.galvanized()).rotation.z = PI / 2
+	_plabel("FLARE BOOM — NO ENTRY", Vector3(-27.85, DECK_Y + 1.4, -15.0), 90, 22,
+		Color(0.2, 0.18, 0.12))
 
 # ---------------------------------------------------------------- davits
 
@@ -296,8 +320,19 @@ func _davits() -> void:
 	for cx in [-11.4, -9.6]:
 		var chock := _box(Vector3(cx, DECK_Y + 0.18, -18.7), Vector3(0.3, 0.36, 0.9), MatLib.dark_metal(), false)
 		chock.rotation.z = 0.35
-	_plabel("LIFEBOAT 2", Vector3(-10.5, DECK_Y + 0.04, -17.9), 0, 34, Color(0.75, 0.72, 0.55))
-	_plabel("MUSTER — BOAT AWAY", Vector3(-10.5, DECK_Y + 1.5, -19.08), 0, 20, Color(0.9, 0.75, 0.2))
+	# Berth number painted FLAT on the plating between the arms (pitch -90). Authored
+	# upright it stood in the deck like a sign, with a third of the glyph below the
+	# plate; laid flat it reads as deck paint to anyone walking south onto the muster.
+	_plabel("LIFEBOAT 2", Vector3(-10.5, DECK_Y + 0.012, -17.9), 0, 34,
+		Color(0.75, 0.72, 0.55), -90.0)
+	# Muster placard on a real bolted plate spanning the two davit posts — the text
+	# used to hang in the gap between them with nothing behind it.
+	_box(Vector3(-10.5, DECK_Y + 1.5, -19.16), Vector3(2.7, 0.42, 0.06),
+		MatLib.dark_metal(), false)
+	for bx in [-11.62, -9.38]:
+		for by in [DECK_Y + 1.35, DECK_Y + 1.65]:
+			_dcyl(Vector3(bx, by, -19.12), 0.018, 0.03, MatLib.galvanized()).rotation.x = PI / 2
+	_plabel("MUSTER — BOAT AWAY", Vector3(-10.5, DECK_Y + 1.5, -19.12), 0, 20, Color(0.9, 0.75, 0.2))
 
 # ---------------------------------------------------------------- observation platform
 

@@ -14,6 +14,8 @@ var life_bar: StatBar
 var hunger_bar: StatBar
 var thirst_bar: StatBar
 var warmth_bar: StatBar
+var rest_bar: StatBar
+var comfort_label: Label
 var sick_chip: PanelContainer
 var reading_panel: Panel
 var reading_title: Label
@@ -39,9 +41,11 @@ var _pack_list: VBoxContainer
 var _crate: LootContainer = null
 
 var _toast_tween: Tween
+var _comfort_tween: Tween
 var reading_open: bool = false
 var _thirst_bound: bool = false   # PlayerState.thirst_changed connected?
 var _life_bound: bool = false     # PlayerState.life_changed connected?
+var _rest_bound: bool = false     # PlayerState.rest_changed connected?
 
 func _ready() -> void:
 	add_to_group("hud")
@@ -62,12 +66,16 @@ func _ready() -> void:
 	if PlayerState.has_signal("life_changed"):
 		PlayerState.connect("life_changed", func(v: float) -> void: life_bar.set_value(v))
 		_life_bound = true
+	if PlayerState.has_signal("rest_changed"):
+		PlayerState.connect("rest_changed", func(v: float) -> void: rest_bar.set_value(v))
+		_rest_bound = true
 	Journal.entry_added.connect(func(_id: String, _t: String) -> void: _update_journal_badge())
 	_refresh_hotbar()
 	hunger_bar.set_value(PlayerState.hunger)
 	warmth_bar.set_value(PlayerState.warmth)
 	thirst_bar.set_value(_stat_value_or_full("thirst"))
 	life_bar.set_value(_stat_value_or_full("life"))
+	rest_bar.set_value(_stat_value_or_full("rest"))
 
 func _process(_delta: float) -> void:
 	# SICK chip: sickness has no changed-signal, so poll it.
@@ -80,6 +88,8 @@ func _process(_delta: float) -> void:
 		thirst_bar.set_value(_stat_value_or_full("thirst"))
 	if not _life_bound:
 		life_bar.set_value(_stat_value_or_full("life"))
+	if not _rest_bound:
+		rest_bar.set_value(_stat_value_or_full("rest"))
 
 ## Defensive read for stats another system may not have added yet.
 func _stat_value_or_full(prop: String) -> float:
@@ -226,6 +236,23 @@ func _build() -> void:
 	stats.add_child(thirst_bar)
 	warmth_bar = StatBar.new("WARMTH", Color(0.9, 0.55, 0.3))
 	stats.add_child(warmth_bar)
+	rest_bar = StatBar.new("REST", Color(0.55, 0.5, 0.75))
+	stats.add_child(rest_bar)
+
+	# Comfort is never a bar and never a number — it's a line that shows up when
+	# the place you're standing in changes character, then gets out of the way.
+	comfort_label = Label.new()
+	comfort_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	comfort_label.position += Vector2(-300, -206)
+	comfort_label.custom_minimum_size = Vector2(600, 26)
+	comfort_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	comfort_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	comfort_label.add_theme_font_size_override("font_size", 15)
+	comfort_label.add_theme_color_override("font_color", Color(0.72, 0.78, 0.74))
+	comfort_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
+	comfort_label.add_theme_constant_override("outline_size", 3)
+	comfort_label.modulate.a = 0.0
+	root.add_child(comfort_label)
 
 	# Reading overlay (full-screen text; stand-in for in-world paper).
 	reading_panel = Panel.new()
@@ -338,6 +365,21 @@ func toast(text: String) -> void:
 	_toast_tween.tween_interval(2.5)
 	_toast_tween.tween_property(toast_label, "modulate:a", 0.0, 1.0)
 
+## The comfort read-out. Deliberately not a toast: it fades in slowly, sits above the
+## toast line so it never fights it, and lingers. ComfortFurniture rate-limits the
+## call sites — this only ever fires on a genuine change of place.
+func comfort_note(text: String) -> void:
+	if comfort_label == null:
+		return
+	comfort_label.text = text
+	if _comfort_tween:
+		_comfort_tween.kill()
+	comfort_label.modulate.a = 0.0
+	_comfort_tween = create_tween()
+	_comfort_tween.tween_property(comfort_label, "modulate:a", 0.85, 1.6)
+	_comfort_tween.tween_interval(3.4)
+	_comfort_tween.tween_property(comfort_label, "modulate:a", 0.0, 2.2)
+
 func show_reading(title: String, body: String) -> void:
 	reading_title.text = title
 	reading_body.text = body
@@ -439,12 +481,15 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]Body[/b]
 · Watch [b]LIFE[/b] — starving or dehydration drains it; food and water bring it back.
 · Glow worms must be [b]seared at a bench[/b] before eating — raw ones make you sick.
+· [b]REST[/b] only comes back in a bed. Sit down and it stops falling so fast.
 
 [b]Tips[/b]
 · The fire barrel on the wet deck is warmth that needs no power.
 · The gyre south of the rig collects what the sea carries. Hook it.
 · Bloom lamps you build make real safe light — the crab honors them.
 · A lean-to is a pocket of warmth anywhere. Walkways bridge anything.
+· Three of your own structures around a bed or a fire make a [b]camp[/b]. Camps keep you.
+· Sit in a chair and watch the sea. It costs you almost nothing, and it isn't nothing.
 · When the gulls leave, you have one dusk of grace. Use it.
 · Listen. The claw-ticks through the deck are a countdown."""
 	help_panel.add_child(help_text)

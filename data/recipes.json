@@ -1,29 +1,187 @@
 {
-  "_schema": "recipe_id -> { name, needs: {item: count}, makes, work_sec, desc, hint }. Bench crafting: lay parts, work them.",
-  "throwing_hook": {
-    "name": "Throwing Hook",
+  "_schema": "recipe_id -> { name, cat: material|structure|gear|food, needs: {item: count}, tool: item_id (held, NOT consumed), makes, count: output qty, extra: {item: count} byproducts, work_sec, desc, hint }. Bench crafting: lay parts, work them. Laid parts total must be <= 4 (BenchPanel.MAX_LAID) and every recipe's needs multiset must be unique. A needs key beginning with '@' is a token: '@raw_fish' matches any raw fish species except bone and rot.",
+
+  "steel_plate": {
+    "name": "Steel Plate",
+    "cat": "material",
     "needs": {
-      "mini_anchor": 1,
+      "scrap_metal": 1
+    },
+    "tool": "hacksaw",
+    "makes": "steel_plate",
+    "work_sec": 3.5,
+    "desc": "Twenty minutes of blade on rust and the scrap gives up a square edge. Your arm knows it afterwards.",
+    "hint": "Scrap is only scrap until something cuts it straight."
+  },
+  "bolt_handful": {
+    "name": "Handful of Bolts",
+    "cat": "material",
+    "needs": {
+      "scrap_metal": 2
+    },
+    "tool": "hand_file",
+    "makes": "bolt_handful",
+    "work_sec": 4.0,
+    "desc": "Shanks cut short and threaded by hand. Not pretty. They hold.",
+    "hint": "Every wall you ever build will want more of these."
+  },
+  "copper_coil": {
+    "name": "Copper Coil",
+    "cat": "material",
+    "needs": {
+      "cable_spool": 1
+    },
+    "tool": "hacksaw",
+    "makes": "copper_coil",
+    "count": 2,
+    "work_sec": 3.0,
+    "desc": "Cut the jacket off a dead cable drum and the copper comes out bright as a coin.",
+    "hint": "The rig is full of cable that will never carry current again."
+  },
+  "wire_spool": {
+    "name": "Spool of Wire",
+    "cat": "material",
+    "needs": {
+      "copper_coil": 1
+    },
+    "tool": "hand_file",
+    "makes": "wire_spool",
+    "count": 2,
+    "work_sec": 3.0,
+    "desc": "Drawn down thin and wound onto an old bobbin. Ties what rope is too fat to tie.",
+    "hint": "Copper wants to be wire. Give it a file and a bobbin."
+  },
+  "kelp_fiber": {
+    "name": "Kelp Fiber",
+    "cat": "material",
+    "needs": {
+      "kelp_bundle": 1
+    },
+    "tool": "crude_knife",
+    "makes": "kelp_fiber",
+    "count": 2,
+    "work_sec": 2.5,
+    "desc": "Split the fronds down their length, strip the slime, lay them out. Dries into something like hemp.",
+    "hint": "Kelp is rope that hasn't been convinced yet."
+  },
+  "shell_grit": {
+    "name": "Shell Grit",
+    "cat": "material",
+    "needs": {
+      "limpet_shell": 1
+    },
+    "tool": "hammer_tool",
+    "makes": "shell_grit",
+    "count": 2,
+    "work_sec": 2.0,
+    "desc": "Shell crushed to a coarse white salt. Draws water out of anything you bury in it.",
+    "hint": "There is no salt tin left aboard. There are shells everywhere."
+  },
+  "wood_slat": {
+    "name": "Wood Slats",
+    "cat": "material",
+    "needs": {
+      "driftwood": 1
+    },
+    "tool": "hacksaw",
+    "makes": "wood_slat",
+    "count": 2,
+    "work_sec": 3.0,
+    "desc": "One waterlogged plank ripped into slats. The sawdust smells like a forest you can't picture anymore.",
+    "hint": "A plank is one thing. Slats are furniture."
+  },
+  "foam_block": {
+    "name": "Foam Block",
+    "cat": "material",
+    "needs": {
+      "life_ring": 1
+    },
+    "tool": "crude_knife",
+    "makes": "foam_block",
+    "count": 2,
+    "work_sec": 2.5,
+    "desc": "The ring wasn't going to save anyone. Cut open it's closed-cell foam — dry, light, warm to lie on.",
+    "hint": "Nobody is coming. Cut the ring."
+  },
+  "rope_laid": {
+    "name": "Laid Rope",
+    "cat": "material",
+    "needs": {
+      "kelp_fiber": 3
+    },
+    "makes": "rope",
+    "work_sec": 4.5,
+    "desc": "Three hanks of fiber twisted against each other until they refuse to come apart. Slow work. Good work.",
+    "hint": "Rope runs out. Kelp doesn't."
+  },
+  "float_buoy": {
+    "name": "Float Buoy",
+    "cat": "material",
+    "needs": {
+      "foam_block": 1,
+      "canvas_scrap": 1,
       "rope": 1
     },
-    "makes": "throwing_hook",
-    "work_sec": 2.5,
-    "desc": "A mini anchor lashed to a heaving line. Takes back what the gyre holds.",
-    "hint": "A mini anchor from the machine shop; rope from the crane deck."
+    "makes": "float_buoy",
+    "work_sec": 3.0,
+    "desc": "Foam sewn into canvas with a becket spliced on. Marks a spot on water that has no other landmarks.",
+    "hint": "Wrap the foam before the sea eats it."
   },
+  "fillet_catch": {
+    "name": "Fillet the Catch",
+    "cat": "material",
+    "needs": {
+      "@raw_fish": 1
+    },
+    "tool": "crude_knife",
+    "makes": "raw_fillet",
+    "extra": {
+      "fish_bone": 1
+    },
+    "work_sec": 2.0,
+    "desc": "Head off, gut out, two clean sides off the frame. Keep the spine — bone still takes an edge.",
+    "hint": "Any fish, and something sharp. Don't eat it raw if you can help it."
+  },
+
+  "cured_fillet": {
+    "name": "Cured Fillet",
+    "cat": "food",
+    "needs": {
+      "raw_fillet": 1,
+      "shell_grit": 1
+    },
+    "makes": "dried_fish",
+    "work_sec": 5.0,
+    "desc": "Packed in crushed shell and left to give up its water. Keeps for weeks. Tastes like the sea apologising.",
+    "hint": "Salt is how you argue with time."
+  },
+  "glow_worm_cooked": {
+    "name": "Seared Glow Worm",
+    "cat": "food",
+    "needs": {
+      "glow_worm": 1
+    },
+    "makes": "glow_worm_cooked",
+    "work_sec": 2.0,
+    "desc": "A minute on hot steel and the light goes out of it. What's left is honest meat.",
+    "hint": "Raw ones bite back on the way down. Sear it first."
+  },
+
   "bloom_lamp_kit": {
     "name": "Bloom Lamp",
+    "cat": "structure",
     "needs": {
       "kelp_bundle": 2,
       "scrap_metal": 1
     },
     "makes": "bloom_lamp_kit",
     "work_sec": 3.0,
-    "desc": "Bloom-kelp sealed in a scrap housing. Cold teal light, no power needed \u2014 and what walks at night honors it.",
+    "desc": "Bloom-kelp sealed in a scrap housing. Cold teal light, no power needed — and what walks at night honors it.",
     "hint": "Kelp glows for weeks in a sealed housing. The crew knew."
   },
   "leanto_kit": {
     "name": "Lean-To",
+    "cat": "structure",
     "needs": {
       "tarp": 1,
       "driftwood": 2
@@ -35,6 +193,7 @@
   },
   "walkway_kit": {
     "name": "Plank Walkway",
+    "cat": "structure",
     "needs": {
       "driftwood": 2
     },
@@ -45,6 +204,7 @@
   },
   "barricade_kit": {
     "name": "Barricade",
+    "cat": "structure",
     "needs": {
       "driftwood": 1,
       "scrap_metal": 2
@@ -54,18 +214,9 @@
     "desc": "Scrap plate on a wood brace. Waist-high, storm-solid.",
     "hint": "Plate the gyre coughs up still remembers being a wall."
   },
-  "glow_worm_cooked": {
-    "name": "Seared Glow Worm",
-    "needs": {
-      "glow_worm": 1
-    },
-    "makes": "glow_worm_cooked",
-    "work_sec": 2.0,
-    "desc": "A minute on hot steel and the light goes out of it. What's left is honest meat.",
-    "hint": "Raw ones bite back on the way down. Sear it first."
-  },
   "drop_net_kit": {
     "name": "Drop Net",
+    "cat": "structure",
     "needs": {
       "rope": 2,
       "driftwood": 1
@@ -73,10 +224,191 @@
     "makes": "drop_net_kit",
     "work_sec": 3.0,
     "desc": "A weighted mesh on a winch line. Lower it off an edge, let the sea walk in, haul.",
-    "hint": "Set it before dusk \u2014 the night shift swims shallower."
+    "hint": "Set it before dusk — the night shift swims shallower."
+  },
+  "bedroll_kit": {
+    "name": "Bedroll",
+    "cat": "structure",
+    "needs": {
+      "canvas_scrap": 2,
+      "foam_block": 1,
+      "rope": 1
+    },
+    "makes": "bedroll_kit",
+    "work_sec": 4.0,
+    "desc": "Foam sandwiched in doubled canvas, rolled and strapped. Somewhere to lie down that isn't steel.",
+    "hint": "You have been sleeping sitting up. Stop that."
+  },
+  "locker_kit": {
+    "name": "Steel Locker",
+    "cat": "structure",
+    "needs": {
+      "steel_plate": 2,
+      "bolt_handful": 1
+    },
+    "tool": "hammer_tool",
+    "makes": "locker_kit",
+    "work_sec": 5.0,
+    "desc": "Two plates folded into a box and bolted at the seam. Puts your things somewhere the wind can't take them.",
+    "hint": "Fold the plate over the edge of the bench. Hit it until it's a corner."
+  },
+  "rain_catcher_kit": {
+    "name": "Rain Catcher",
+    "cat": "structure",
+    "needs": {
+      "tarp": 1,
+      "pipe_length": 1,
+      "rope": 2
+    },
+    "makes": "rain_catcher_kit",
+    "work_sec": 4.0,
+    "desc": "Tarp slung on guys with a pipe running down to a vessel. The North Sea gives fresh water for free if you ask it right.",
+    "hint": "Sag the middle. Water finds the low point on its own."
+  },
+  "brazier_kit": {
+    "name": "Brazier",
+    "cat": "structure",
+    "needs": {
+      "steel_plate": 2,
+      "ceramic_shard": 1
+    },
+    "tool": "hammer_tool",
+    "makes": "brazier_kit",
+    "work_sec": 4.5,
+    "desc": "A cut drum lined with broken firebrick, vents punched round the base. Fire you can stand close to.",
+    "hint": "The ceramic keeps the steel from burning through by the second night."
+  },
+  "chair_kit": {
+    "name": "Deck Chair",
+    "cat": "structure",
+    "needs": {
+      "wood_slat": 2,
+      "canvas_scrap": 1,
+      "bolt_handful": 1
+    },
+    "makes": "chair_kit",
+    "work_sec": 3.5,
+    "desc": "Slats bolted into an X, canvas slung between. Somewhere to sit and watch the water do nothing.",
+    "hint": "You are allowed to sit down."
+  },
+  "workbench_kit": {
+    "name": "Workbench",
+    "cat": "structure",
+    "needs": {
+      "driftwood": 3,
+      "steel_plate": 1
+    },
+    "tool": "wrench",
+    "makes": "workbench_kit",
+    "work_sec": 5.5,
+    "desc": "Plank top, steel skin over one end for hot work, legs torqued down hard. A second place to make things.",
+    "hint": "One bench on the whole rig is one bench too few."
+  },
+  "drying_rack_kit": {
+    "name": "Drying Rack",
+    "cat": "structure",
+    "needs": {
+      "driftwood": 2,
+      "rope": 2
+    },
+    "makes": "drying_rack_kit",
+    "work_sec": 3.0,
+    "desc": "An A-frame strung with line. Hang fish, hang kelp, hang the shirt off your back.",
+    "hint": "Wind and time do the work. You just have to hang it up."
+  },
+  "planter_kit": {
+    "name": "Planter Box",
+    "cat": "structure",
+    "needs": {
+      "steel_plate": 1,
+      "kelp_fiber": 2,
+      "tar_lump": 1
+    },
+    "makes": "planter_kit",
+    "work_sec": 4.0,
+    "desc": "Plate folded into a tray, seams tarred, packed with rotted fiber for soil. Something green, on purpose, for once.",
+    "hint": "It won't feed you for months. Do it anyway."
+  },
+  "shelf_kit": {
+    "name": "Wall Shelf",
+    "cat": "structure",
+    "needs": {
+      "wood_slat": 2,
+      "bolt_handful": 1
+    },
+    "tool": "screwdriver",
+    "makes": "shelf_kit",
+    "work_sec": 3.0,
+    "desc": "A slat and a bracket, screwed to a bulkhead. Puts your things at eye height, where you can see you own them.",
+    "hint": "Level it. You'll be looking at it every day."
+  },
+  "wall_panel_kit": {
+    "name": "Wall Panel",
+    "cat": "structure",
+    "needs": {
+      "steel_plate": 2,
+      "pipe_length": 1,
+      "bolt_handful": 1
+    },
+    "makes": "wall_panel_kit",
+    "work_sec": 4.5,
+    "desc": "Plate skinned onto a pipe frame. Closes a gap in a room and makes it a room.",
+    "hint": "Walls are how you decide where inside is."
+  },
+  "lamp_post_kit": {
+    "name": "Lamp Post",
+    "cat": "structure",
+    "needs": {
+      "pipe_length": 1,
+      "glow_mucus": 1,
+      "wire_spool": 1
+    },
+    "makes": "lamp_post_kit",
+    "work_sec": 4.0,
+    "desc": "Bloom-mucus sealed in a jar and wired to the head of a standing pipe. Marks a path across the deck at night.",
+    "hint": "Set them in a line. Coming home in the dark is easier with a line."
+  },
+  "windbreak_kit": {
+    "name": "Windbreak",
+    "cat": "structure",
+    "needs": {
+      "tarp": 1,
+      "pipe_length": 2,
+      "rope": 1
+    },
+    "makes": "windbreak_kit",
+    "work_sec": 3.5,
+    "desc": "Canvas stretched between two staked pipes. Doesn't look like much until the wind swings north.",
+    "hint": "The cold isn't the temperature. It's the wind."
+  },
+  "rug_kit": {
+    "name": "Deck Rug",
+    "cat": "structure",
+    "needs": {
+      "canvas_scrap": 2,
+      "kelp_fiber": 2
+    },
+    "makes": "rug_kit",
+    "work_sec": 3.0,
+    "desc": "Fiber hooked through doubled canvas until it's thick enough to kneel on. Takes hours. Nobody made you do it.",
+    "hint": "Steel is cold through boots. This isn't."
+  },
+
+  "throwing_hook": {
+    "name": "Throwing Hook",
+    "cat": "gear",
+    "needs": {
+      "mini_anchor": 1,
+      "rope": 1
+    },
+    "makes": "throwing_hook",
+    "work_sec": 2.5,
+    "desc": "A mini anchor lashed to a heaving line. Takes back what the gyre holds.",
+    "hint": "A mini anchor from the machine shop; rope from the crane deck."
   },
   "crude_knife": {
     "name": "Crude Knife",
+    "cat": "gear",
     "needs": {
       "scrap_metal": 1,
       "rope": 1
@@ -88,6 +420,7 @@
   },
   "crude_spear": {
     "name": "Crude Spear",
+    "cat": "gear",
     "needs": {
       "scrap_metal": 1,
       "driftwood": 1,
@@ -95,7 +428,71 @@
     },
     "makes": "crude_spear",
     "work_sec": 4.0,
-    "desc": "A shard lashed to a driftwood pole. Reach \u2014 put the point in them before a claw finds you.",
+    "desc": "A shard lashed to a driftwood pole. Reach — put the point in them before a claw finds you.",
     "hint": "A shard, a pole, and rope to lash it. Beats a claw at arm's length."
+  },
+  "honed_knife": {
+    "name": "Honed Knife",
+    "cat": "gear",
+    "needs": {
+      "crude_knife": 1
+    },
+    "tool": "hand_file",
+    "makes": "honed_knife",
+    "work_sec": 4.0,
+    "desc": "The same ugly shard, worked back to a real edge and trued along the spine. It goes in now instead of tearing.",
+    "hint": "A file and patience. Nothing on this rig is finished the first time."
+  },
+  "honed_spear": {
+    "name": "Honed Spear",
+    "cat": "gear",
+    "needs": {
+      "crude_spear": 1,
+      "fish_bone": 1
+    },
+    "tool": "hand_file",
+    "makes": "honed_spear",
+    "work_sec": 4.5,
+    "desc": "Point filed narrow, a bone barb set behind it so nothing walks itself back off the shaft.",
+    "hint": "The barb is the whole difference. Ask anything you've lost."
+  },
+  "tool_belt": {
+    "name": "Tool Belt",
+    "cat": "gear",
+    "needs": {
+      "canvas_scrap": 2,
+      "rope": 1
+    },
+    "makes": "tool_belt",
+    "work_sec": 3.5,
+    "desc": "Canvas pockets stitched onto a rope waist. Keeps your hands empty and your tools where your hands expect them.",
+    "hint": "You keep going back for the one thing you didn't bring."
+  },
+  "storm_lantern": {
+    "name": "Storm Lantern",
+    "cat": "gear",
+    "needs": {
+      "glass_pane": 1,
+      "steel_plate": 1,
+      "glow_mucus": 1
+    },
+    "tool": "screwdriver",
+    "makes": "storm_lantern",
+    "work_sec": 5.0,
+    "desc": "Bloom-mucus behind glass in a screwed steel cage. Wind can't touch it, rain can't touch it. It just burns.",
+    "hint": "Light that doesn't go out when the weather turns is worth a day's work."
+  },
+  "patched_boots": {
+    "name": "Patched Boots",
+    "cat": "gear",
+    "needs": {
+      "rubber_hose": 1,
+      "canvas_scrap": 1,
+      "tar_lump": 1
+    },
+    "makes": "patched_boots",
+    "work_sec": 4.0,
+    "desc": "Hose split for soles, canvas uppers, every seam paid with tar. Dry feet. You'd forgotten what that was.",
+    "hint": "Wet feet is how the cold gets in and stays in."
   }
 }

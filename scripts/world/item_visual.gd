@@ -185,6 +185,263 @@ static func build(item_id: String) -> Node3D:
 		"glow_worm", "glow_worm_cooked":
 			# Glowing sphere for raw/cooked worm (slightly different glow in hand)
 			_box(root, Vector3(0.25, 0.25, 0.25), Color(0.2, 0.9, 0.85), Vector3(0, 0.125, 0), true, 1.0)
+
+		# ---- SALVAGED MATERIALS: what the rig gives up when you take it apart ----
+		"steel_plate":
+			# Flat rusted rectangle, one edge bright where the saw went through.
+			var sp := _box(root, Vector3(0.62, 0.035, 0.44), Color(0.44, 0.34, 0.26), Vector3(0, 0.02, 0))
+			sp.rotation.y = deg_to_rad(8)
+			_box(root, Vector3(0.62, 0.012, 0.05), Color(0.66, 0.68, 0.7), Vector3(0, 0.042, 0.2))
+		"pipe_length":
+			# A metre of tube lying on its side, threaded collar at one end.
+			var pipe := _cyl(root, 0.055, 1.05, Color(0.36, 0.37, 0.4), Vector3(0, 0.055, 0))
+			pipe.rotation.z = deg_to_rad(90)
+			var collar := _cyl(root, 0.072, 0.09, Color(0.3, 0.28, 0.26), Vector3(-0.46, 0.055, 0))
+			collar.rotation.z = deg_to_rad(90)
+		"wire_spool":
+			# Coil wound on a drum: hub, two end cheeks, copper turns between them.
+			var hub_w := _cyl(root, 0.07, 0.24, Color(0.35, 0.3, 0.22), Vector3(0, 0.13, 0))
+			hub_w.rotation.z = deg_to_rad(90)
+			for ex in [-0.12, 0.12]:
+				var cheek := _cyl(root, 0.15, 0.025, Color(0.3, 0.26, 0.2), Vector3(ex, 0.13, 0))
+				cheek.rotation.z = deg_to_rad(90)
+			for t in range(3):
+				var turn := _cyl(root, 0.115, 0.06, Color(0.68, 0.44, 0.22), Vector3(-0.07 + t * 0.07, 0.13, 0))
+				turn.rotation.z = deg_to_rad(90)
+		"bolt_handful":
+			# A scatter of cut shanks — never a neat pile.
+			for i in range(5):
+				var bolt := _cyl(root, 0.016, 0.11, Color(0.5, 0.45, 0.38),
+					Vector3(-0.08 + i * 0.04, 0.02, sin(i * 2.1) * 0.05))
+				bolt.rotation.z = deg_to_rad(90)
+				bolt.rotation.y = i * 0.7
+				_box(root, Vector3(0.035, 0.02, 0.035), Color(0.56, 0.5, 0.42),
+					Vector3(-0.13 + i * 0.04, 0.02, sin(i * 2.1) * 0.05))
+		"glass_pane":
+			# Standing pane, one corner gone. Pale, not clear — the sea fogs it.
+			_box(root, Vector3(0.44, 0.5, 0.014), Color(0.7, 0.8, 0.82), Vector3(0, 0.25, 0))
+			_box(root, Vector3(0.46, 0.03, 0.03), Color(0.4, 0.42, 0.44), Vector3(0, 0.01, 0))
+			var chip := _box(root, Vector3(0.1, 0.1, 0.016), Color(0.62, 0.72, 0.74), Vector3(0.19, 0.46, 0))
+			chip.rotation.z = deg_to_rad(38)
+		"canvas_scrap":
+			# Cut-down tarp, folded twice, corners not lining up.
+			var fold_a := _box(root, Vector3(0.4, 0.03, 0.3), Color(0.6, 0.63, 0.57), Vector3(0, 0.02, 0))
+			fold_a.rotation.y = deg_to_rad(-9)
+			var fold_b := _box(root, Vector3(0.36, 0.03, 0.26), Color(0.66, 0.69, 0.62), Vector3(0.02, 0.05, 0.02))
+			fold_b.rotation.y = deg_to_rad(12)
+			_box(root, Vector3(0.3, 0.025, 0.2), Color(0.56, 0.6, 0.55), Vector3(-0.01, 0.076, -0.01))
+		"foam_block":
+			# Closed-cell foam, yellowed, one face cut open.
+			_box(root, Vector3(0.34, 0.2, 0.26), Color(0.82, 0.8, 0.68), Vector3(0, 0.1, 0))
+			_box(root, Vector3(0.33, 0.03, 0.25), Color(0.88, 0.87, 0.78), Vector3(0, 0.2, 0))
+		"ceramic_shard":
+			# Broken firebrick: two angled pieces, chalky and pale.
+			var sh_a := _box(root, Vector3(0.26, 0.05, 0.18), Color(0.78, 0.74, 0.66), Vector3(0, 0.03, 0))
+			sh_a.rotation.z = deg_to_rad(-7)
+			var sh_b := _box(root, Vector3(0.16, 0.05, 0.13), Color(0.7, 0.66, 0.58), Vector3(0.11, 0.08, 0.05))
+			sh_b.rotation.z = deg_to_rad(24)
+			sh_b.rotation.y = deg_to_rad(30)
+		"copper_coil":
+			# Three bright turns still holding the shape of the drum.
+			for i in range(3):
+				_torus(root, 0.045, 0.17, Color(0.74, 0.45, 0.2), Vector3(0, 0.05 + i * 0.045, 0))
+		"rubber_hose":
+			# Perished hose, coiled, one cut end showing its bore.
+			_torus(root, 0.035, 0.24, Color(0.16, 0.16, 0.17), Vector3(0, 0.04, 0))
+			_torus(root, 0.035, 0.2, Color(0.2, 0.2, 0.21), Vector3(0, 0.1, 0))
+			var cut := _cyl(root, 0.037, 0.1, Color(0.24, 0.23, 0.22), Vector3(0.2, 0.13, 0.06))
+			cut.rotation.z = deg_to_rad(70)
+
+		# ---- HARVESTED: what the water gives, once you work it ----
+		"kelp_fiber":
+			# Stripped fronds dried into hanks, tied at the waist.
+			for i in range(5):
+				var strand := _box(root, Vector3(0.03, 0.4, 0.02),
+					Color(0.52, 0.6, 0.36), Vector3(-0.08 + i * 0.04, 0.2, 0.0))
+				strand.rotation.z = deg_to_rad(-10 + i * 5)
+			_box(root, Vector3(0.22, 0.05, 0.06), Color(0.72, 0.66, 0.5), Vector3(0, 0.22, 0))
+		"fish_bone":
+			# A picked spine: skull, backbone, ribs going thin toward the tail.
+			_box(root, Vector3(0.34, 0.012, 0.012), Color(0.86, 0.84, 0.76), Vector3(0, 0.02, 0))
+			_box(root, Vector3(0.07, 0.05, 0.045), Color(0.82, 0.8, 0.72), Vector3(-0.18, 0.03, 0))
+			for i in range(5):
+				var rib := _box(root, Vector3(0.008, 0.07 - i * 0.011, 0.008),
+					Color(0.84, 0.82, 0.74), Vector3(-0.1 + i * 0.055, 0.02, 0))
+				rib.rotation.x = deg_to_rad(24)
+		"shell_grit":
+			# A low drift of crushed shell with a few pieces the hammer missed.
+			_cyl(root, 0.16, 0.05, Color(0.86, 0.84, 0.78), Vector3(0, 0.025, 0))
+			_cyl(root, 0.09, 0.04, Color(0.9, 0.88, 0.82), Vector3(0.01, 0.06, 0.0))
+			_box(root, Vector3(0.05, 0.02, 0.04), Color(0.78, 0.74, 0.68), Vector3(-0.1, 0.06, 0.06))
+			_box(root, Vector3(0.04, 0.02, 0.03), Color(0.8, 0.77, 0.7), Vector3(0.11, 0.06, -0.05))
+		"tar_lump":
+			# Black, soft-edged, picks up every light in the room.
+			_box(root, Vector3(0.2, 0.12, 0.17), Color(0.09, 0.09, 0.1), Vector3(0, 0.06, 0))
+			var blob := _box(root, Vector3(0.12, 0.08, 0.11), Color(0.13, 0.12, 0.12), Vector3(0.05, 0.13, 0.02))
+			blob.rotation.y = deg_to_rad(28)
+		"float_buoy":
+			# Orange foam float, painted band, becket rope on top.
+			_cyl(root, 0.16, 0.3, Color(0.86, 0.42, 0.16), Vector3(0, 0.15, 0))
+			_cyl(root, 0.165, 0.07, Color(0.75, 0.74, 0.7), Vector3(0, 0.19, 0))
+			_torus(root, 0.02, 0.07, Color(0.74, 0.67, 0.5), Vector3(0, 0.32, 0))
+		"wood_slat":
+			# Three ripped slats, stacked and not quite square to each other.
+			for i in range(3):
+				var slat := _box(root, Vector3(0.8, 0.035, 0.11),
+					Color(0.52, 0.42, 0.3), Vector3(0, 0.02 + i * 0.04, i * 0.02))
+				slat.rotation.y = deg_to_rad(-6 + i * 6)
+		"raw_fillet":
+			# Two pale sides off the frame, skin down.
+			var fil := _box(root, Vector3(0.3, 0.045, 0.14), Color(0.85, 0.72, 0.68), Vector3(0, 0.025, 0))
+			fil.rotation.y = deg_to_rad(-8)
+			var fil2 := _box(root, Vector3(0.28, 0.04, 0.13), Color(0.8, 0.66, 0.62), Vector3(0.02, 0.07, 0.05))
+			fil2.rotation.y = deg_to_rad(14)
+			_box(root, Vector3(0.29, 0.012, 0.13), Color(0.55, 0.58, 0.6), Vector3(0, 0.005, 0))
+
+		# ---- STRUCTURE KITS: a bundle you carry and unroll somewhere ----
+		"bedroll_kit":
+			# Canvas rolled around foam, strapped twice.
+			var roll_b := _cyl(root, 0.15, 0.62, Color(0.6, 0.63, 0.57), Vector3(0, 0.15, 0))
+			roll_b.rotation.z = deg_to_rad(90)
+			var core := _cyl(root, 0.09, 0.64, Color(0.82, 0.8, 0.68), Vector3(0.0, 0.15, 0))
+			core.rotation.z = deg_to_rad(90)
+			for sx in [-0.17, 0.17]:
+				var strap := _box(root, Vector3(0.04, 0.32, 0.32), Color(0.74, 0.67, 0.5), Vector3(sx, 0.15, 0))
+				strap.rotation.x = deg_to_rad(4)
+		"locker_kit":
+			# Two folded plates face to face with the bolt bag wedged between.
+			var pl_a := _box(root, Vector3(0.5, 0.06, 0.36), Color(0.42, 0.36, 0.3), Vector3(0, 0.03, 0))
+			pl_a.rotation.y = deg_to_rad(5)
+			_box(root, Vector3(0.5, 0.06, 0.36), Color(0.36, 0.37, 0.4), Vector3(0.02, 0.1, 0.02))
+			_box(root, Vector3(0.14, 0.09, 0.12), Color(0.55, 0.5, 0.42), Vector3(-0.14, 0.17, -0.05))
+			_box(root, Vector3(0.08, 0.03, 0.03), Color(0.5, 0.52, 0.55), Vector3(0.2, 0.16, 0.1))
+		"rain_catcher_kit":
+			# Folded tarp with the downpipe laid across it and guys coiled on top.
+			_box(root, Vector3(0.42, 0.1, 0.34), Color(0.6, 0.64, 0.58), Vector3(0, 0.05, 0))
+			var dp := _cyl(root, 0.045, 0.6, Color(0.36, 0.37, 0.4), Vector3(0, 0.14, 0.06))
+			dp.rotation.z = deg_to_rad(90)
+			_torus(root, 0.03, 0.11, Color(0.74, 0.67, 0.5), Vector3(0.05, 0.21, -0.08))
+		"brazier_kit":
+			# A cut drum with vent slots punched round the foot, firebrick inside.
+			_cyl(root, 0.2, 0.34, Color(0.42, 0.32, 0.24), Vector3(0, 0.17, 0))
+			_cyl(root, 0.17, 0.06, Color(0.72, 0.68, 0.6), Vector3(0, 0.32, 0))
+			for i in range(6):
+				var a: float = i * TAU / 6.0
+				_box(root, Vector3(0.05, 0.07, 0.05), Color(0.1, 0.09, 0.09),
+					Vector3(cos(a) * 0.19, 0.07, sin(a) * 0.19))
+			_torus(root, 0.015, 0.055, Color(0.34, 0.35, 0.38), Vector3(0.2, 0.28, 0))
+		"chair_kit":
+			# Slats folded flat with the sling canvas laid over them.
+			for i in range(2):
+				var leg := _box(root, Vector3(0.72, 0.04, 0.09),
+					Color(0.52, 0.42, 0.3), Vector3(0, 0.03 + i * 0.045, -0.06 + i * 0.12))
+				leg.rotation.y = deg_to_rad(-11 + i * 22)
+			_box(root, Vector3(0.34, 0.035, 0.26), Color(0.6, 0.63, 0.57), Vector3(0, 0.14, 0))
+			_box(root, Vector3(0.09, 0.05, 0.07), Color(0.55, 0.5, 0.42), Vector3(0.24, 0.14, 0.05))
+		"workbench_kit":
+			# Plank top bundled with the steel end-skin and the leg stock.
+			for i in range(3):
+				_box(root, Vector3(0.85, 0.05, 0.24), Color(0.5, 0.4, 0.28), Vector3(0, 0.03 + i * 0.055, 0))
+			_box(root, Vector3(0.3, 0.03, 0.26), Color(0.4, 0.42, 0.45), Vector3(-0.26, 0.21, 0))
+			var vise := _box(root, Vector3(0.1, 0.09, 0.09), Color(0.34, 0.35, 0.38), Vector3(0.3, 0.24, 0))
+			vise.rotation.z = deg_to_rad(9)
+		"drying_rack_kit":
+			# Two poles crossed at the head with the line coiled where they meet.
+			var pole_a := _box(root, Vector3(0.06, 0.95, 0.06), Color(0.5, 0.4, 0.28), Vector3(-0.04, 0.42, 0))
+			pole_a.rotation.z = deg_to_rad(11)
+			var pole_b := _box(root, Vector3(0.06, 0.95, 0.06), Color(0.46, 0.37, 0.26), Vector3(0.04, 0.42, 0.07))
+			pole_b.rotation.z = deg_to_rad(-11)
+			_torus(root, 0.035, 0.13, Color(0.74, 0.67, 0.5), Vector3(0, 0.78, 0.03))
+		"planter_kit":
+			# Folded steel tray, seams black with tar, packed with fiber.
+			_box(root, Vector3(0.46, 0.16, 0.3), Color(0.4, 0.42, 0.45), Vector3(0, 0.08, 0))
+			_box(root, Vector3(0.4, 0.05, 0.24), Color(0.24, 0.2, 0.14), Vector3(0, 0.17, 0))
+			for ex in [-0.23, 0.23]:
+				_box(root, Vector3(0.02, 0.17, 0.31), Color(0.1, 0.1, 0.1), Vector3(ex, 0.08, 0))
+			_box(root, Vector3(0.05, 0.12, 0.03), Color(0.45, 0.62, 0.35), Vector3(0.06, 0.24, 0.02), true, 0.5)
+		"shelf_kit":
+			# One slat and two folded brackets, wrapped together.
+			_box(root, Vector3(0.7, 0.05, 0.2), Color(0.52, 0.42, 0.3), Vector3(0, 0.03, 0))
+			for ex2 in [-0.22, 0.22]:
+				_box(root, Vector3(0.04, 0.14, 0.04), Color(0.4, 0.42, 0.45), Vector3(ex2, 0.12, -0.06))
+				_box(root, Vector3(0.04, 0.04, 0.14), Color(0.4, 0.42, 0.45), Vector3(ex2, 0.07, 0.0))
+			_box(root, Vector3(0.1, 0.05, 0.08), Color(0.55, 0.5, 0.42), Vector3(0, 0.09, 0.09))
+		"wall_panel_kit":
+			# Two plates leaning against the frame pipe.
+			var pan_a := _box(root, Vector3(0.55, 0.55, 0.03), Color(0.4, 0.42, 0.45), Vector3(0, 0.28, 0))
+			pan_a.rotation.z = deg_to_rad(-8)
+			var pan_b := _box(root, Vector3(0.52, 0.52, 0.03), Color(0.44, 0.34, 0.26), Vector3(0.05, 0.26, 0.07))
+			pan_b.rotation.z = deg_to_rad(-13)
+			var frame := _cyl(root, 0.04, 0.6, Color(0.36, 0.37, 0.4), Vector3(-0.24, 0.3, 0.1))
+			frame.rotation.z = deg_to_rad(6)
+		"lamp_post_kit":
+			# The post lying down with its bloom head already glowing.
+			var post := _cyl(root, 0.05, 1.0, Color(0.36, 0.37, 0.4), Vector3(0, 0.06, 0))
+			post.rotation.z = deg_to_rad(90)
+			_box(root, Vector3(0.16, 0.16, 0.16), Color(0.2, 0.9, 0.85), Vector3(0.5, 0.09, 0), true, 1.8)
+			_torus(root, 0.02, 0.07, Color(0.68, 0.44, 0.22), Vector3(0.3, 0.1, 0))
+		"windbreak_kit":
+			# Tarp rolled around two stake pipes.
+			var wr := _cyl(root, 0.13, 0.7, Color(0.58, 0.62, 0.56), Vector3(0, 0.13, 0))
+			wr.rotation.z = deg_to_rad(90)
+			for zx in [-0.09, 0.09]:
+				var stake := _cyl(root, 0.035, 0.86, Color(0.36, 0.37, 0.4), Vector3(0, 0.28, zx))
+				stake.rotation.z = deg_to_rad(90)
+			_box(root, Vector3(0.05, 0.3, 0.3), Color(0.74, 0.67, 0.5), Vector3(0.16, 0.16, 0))
+		"rug_kit":
+			# A hooked mat rolled tight, fiber showing at the ends.
+			var rug := _cyl(root, 0.14, 0.66, Color(0.56, 0.5, 0.4), Vector3(0, 0.14, 0))
+			rug.rotation.z = deg_to_rad(90)
+			for ex3 in [-0.33, 0.33]:
+				var endc := _cyl(root, 0.13, 0.05, Color(0.5, 0.58, 0.36), Vector3(ex3, 0.14, 0))
+				endc.rotation.z = deg_to_rad(90)
+			_box(root, Vector3(0.04, 0.3, 0.3), Color(0.72, 0.66, 0.5), Vector3(0.1, 0.14, 0))
+
+		# ---- UPGRADED GEAR: the same tools, finished properly ----
+		"honed_knife":
+			# Crude knife re-worked: longer bright blade, trued spine, wrapped grip.
+			_box(root, Vector3(0.05, 0.19, 0.05), Color(0.36, 0.26, 0.17), Vector3(0, 0.09, 0))
+			for i in range(3):
+				_box(root, Vector3(0.055, 0.02, 0.055), Color(0.7, 0.63, 0.46), Vector3(0, 0.04 + i * 0.05, 0))
+			_box(root, Vector3(0.035, 0.04, 0.12), Color(0.3, 0.31, 0.34), Vector3(0, 0.2, 0))
+			var hb := _box(root, Vector3(0.022, 0.4, 0.085), Color(0.78, 0.8, 0.84), Vector3(0, 0.43, 0.02))
+			hb.rotation.x = deg_to_rad(-5)
+			_box(root, Vector3(0.006, 0.4, 0.02), Color(0.92, 0.94, 0.96), Vector3(0.011, 0.43, 0.06))
+		"honed_spear":
+			# Filed point with a bone barb set behind it.
+			var hs := _box(root, Vector3(0.045, 1.4, 0.045), Color(0.46, 0.37, 0.26), Vector3(0, 0.62, 0))
+			hs.rotation.z = deg_to_rad(10)
+			_box(root, Vector3(0.07, 0.1, 0.07), Color(0.72, 0.64, 0.46), Vector3(0.17, 1.08, 0))
+			var hh := _box(root, Vector3(0.028, 0.34, 0.09), Color(0.8, 0.82, 0.86), Vector3(0.22, 1.38, 0))
+			hh.rotation.z = deg_to_rad(10)
+			var barb := _box(root, Vector3(0.015, 0.13, 0.03), Color(0.86, 0.84, 0.76), Vector3(0.2, 1.26, 0.03))
+			barb.rotation.z = deg_to_rad(-32)
+		"tool_belt":
+			# A rope waist with canvas pouches hanging off it.
+			_torus(root, 0.035, 0.24, Color(0.74, 0.67, 0.5), Vector3(0, 0.06, 0))
+			for i in range(3):
+				var a2: float = -0.7 + i * 0.7
+				_box(root, Vector3(0.12, 0.14, 0.07), Color(0.6, 0.63, 0.57),
+					Vector3(cos(a2) * 0.2, 0.09, sin(a2) * 0.2))
+			_box(root, Vector3(0.07, 0.05, 0.03), Color(0.5, 0.52, 0.55), Vector3(-0.22, 0.07, 0))
+		"storm_lantern":
+			# Bloom light behind glass in a screwed steel cage. Weather can't touch it.
+			_cyl(root, 0.11, 0.05, Color(0.36, 0.37, 0.4), Vector3(0, 0.025, 0))
+			_cyl(root, 0.085, 0.22, Color(0.2, 0.9, 0.85), Vector3(0, 0.16, 0), true, 1.6)
+			for i in range(4):
+				var a3: float = i * TAU / 4.0
+				_box(root, Vector3(0.018, 0.24, 0.018), Color(0.42, 0.43, 0.46),
+					Vector3(cos(a3) * 0.095, 0.16, sin(a3) * 0.095))
+			_cyl(root, 0.1, 0.05, Color(0.36, 0.37, 0.4), Vector3(0, 0.29, 0))
+			_torus(root, 0.014, 0.06, Color(0.5, 0.52, 0.55), Vector3(0, 0.35, 0))
+		"patched_boots":
+			# Two boots, hose soles, canvas uppers, every seam paid with tar.
+			for i in range(2):
+				var bx: float = -0.1 + i * 0.2
+				_box(root, Vector3(0.15, 0.05, 0.32), Color(0.16, 0.16, 0.17), Vector3(bx, 0.025, 0))
+				_box(root, Vector3(0.14, 0.16, 0.2), Color(0.6, 0.63, 0.57), Vector3(bx, 0.13, -0.05))
+				_box(root, Vector3(0.145, 0.03, 0.21), Color(0.1, 0.1, 0.1), Vector3(bx, 0.055, -0.05))
+				_box(root, Vector3(0.05, 0.04, 0.05), Color(0.72, 0.66, 0.5), Vector3(bx, 0.2, -0.05))
 		_:
 			_box(root, Vector3(0.28, 0.3, 0.28), Interactable.COLOR_TAKEABLE, Vector3(0, 0.15, 0))
 	return root
@@ -285,13 +542,14 @@ static func _box(root: Node3D, size: Vector3, color: Color, pos: Vector3,
 	mi.position = pos
 	return mi
 
-static func _cyl(root: Node3D, radius: float, h: float, color: Color, pos: Vector3) -> MeshInstance3D:
+static func _cyl(root: Node3D, radius: float, h: float, color: Color, pos: Vector3,
+		emissive: bool = false, energy: float = 1.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var m := CylinderMesh.new()
 	m.top_radius = radius
 	m.bottom_radius = radius
 	m.height = h
-	m.material = MatLib.flat(color)
+	m.material = MatLib.flat(color, emissive, energy)
 	mi.mesh = m
 	root.add_child(mi)
 	mi.position = pos
