@@ -961,10 +961,22 @@ func _deck_d() -> void:
 	bench.position = Vector3(19, y, 17.0)
 	bench.build_box_visual(Vector3(1.6, 0.9, 0.7), Color(0.5, 0.42, 0.3), false, true)
 	_dbox(Vector3(19, y + 0.93, 17.0), Vector3(1.7, 0.06, 0.8), MatLib.wood())
-	_dbox(Vector3(18.0, y + 1.9, 17.83), Vector3(2.3, 1.2, 0.05), MatLib.flat(Color(0.75, 0.72, 0.6)))  # board on the pier between windows x16 & x20
+	# Pegboard on the pier between the x16 and x20 windows. Window openings are
+	# WIN_W wide on the WIN_GRID, so that pier is x 16.8..19.2 and the board's own
+	# face is x 16.85..19.15; its back sits flush on the wall's inner skin (z 17.875).
+	const PEG_X: float = 18.0
+	const PEG_W: float = 2.3
+	const PEG_Z: float = 18.0 - WT * 0.5 - 0.025      # board centre, back flush to the wall
+	_dbox(Vector3(PEG_X, y + 1.9, PEG_Z), Vector3(PEG_W, 1.2, 0.05),
+		MatLib.flat(Color(0.75, 0.72, 0.6)))
 	var tool_colors := [Color(0.7, 0.3, 0.2), Color(0.3, 0.4, 0.6), Color(0.5, 0.5, 0.5), Color(0.7, 0.6, 0.2)]
 	for i in range(4):
-		_dbox(Vector3(18.1 + i * 0.6, y + 1.9 + (0.2 if i % 2 == 0 else -0.15), 17.79),
+		# Spread across the board's OWN face and hung on its front skin. These used to
+		# march east from x 18.1 in 0.6m steps, which put the last two at x 19.3 and
+		# 19.9 — past the board, past the pier, hanging in the x20 window opening with
+		# open sea behind them.
+		_dbox(Vector3(PEG_X + (float(i) - 1.5) * 0.55,
+				y + 1.9 + (0.2 if i % 2 == 0 else -0.15), PEG_Z - 0.05),
 			Vector3(0.1, 0.38, 0.05), MatLib.flat(tool_colors[i]))
 	_takeable("prybar", "Spare Prybar", Vector3(21.8, y + 0.01, 16.2))
 	_label("WORKSHOP — RIGGING BENCH", Vector3(19, y + 2.35, 14.84), 180, 26, Color(0.9, 0.85, 0.6))

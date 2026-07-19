@@ -108,7 +108,7 @@ func _ready() -> void:
 			if managed:
 				floating.append(f)
 			else:
-				scenery_float.append(f)
+				scenery_float.append([gap, f])
 
 	floating.sort()
 	blocking.sort()
@@ -129,6 +129,13 @@ func _ready() -> void:
 	print("scenery floating: ", scenery_float.size(), "   scenery blocking: ", scenery_block.size())
 	for b in scenery_block.slice(0, 10):
 		print("   ", b)
+	# Worst-gap first. A bare count is not a hand-off — most of this list is decoration
+	# drawn INSIDE its furniture (books in a case, tools on a board) and reads correctly
+	# in game, so whoever picks this up needs the big gaps, which are the real ones.
+	scenery_float.sort_custom(func(a, b): return a[0] > b[0])
+	print("   worst 25 by gap:")
+	for e in scenery_float.slice(0, 25):
+		print("      ", e[1])
 	get_tree().quit(0)
 
 ## Deck slab levels: a support top at one of these is the floor, not furniture.

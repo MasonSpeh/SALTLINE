@@ -157,10 +157,10 @@ func _routes() -> Array:
 		# leave the pod walkable, which is exactly what this route measures: it walks
 		# the full interior and REQUIRES a finite headroom reading the whole way.
 		["SPHL pod interior (roof must be solid, floor must stay walkable)", [
-			Vector3(15.5, 2.05, -24.0),     # aft benches, west end
+			Vector3(15.5, 2.05, -24.0),     # aft end of the centre aisle
 			Vector3(20.5, 2.05, -24.0),     # forward, past the hatch line
 			Vector3(20.0, 2.05, -23.3),     # in front of the hatch
-			Vector3(16.0, 2.05, -24.8),     # back across the pod
+			Vector3(16.5, 2.05, -24.0),     # back down the aisle (benches line both sides)
 		], true],
 	]
 
