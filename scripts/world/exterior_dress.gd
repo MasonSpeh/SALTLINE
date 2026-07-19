@@ -94,6 +94,7 @@ func _ready() -> void:
 	_radome()
 	_roof_cable_trays()
 	_roof_signage()
+	_anchor()
 	_compact()
 
 ## PlacementProbe walks up from each drawn mesh to the outermost node whose PARENT has
@@ -105,6 +106,87 @@ func _ready() -> void:
 ## nothing moves; this is a tree shape change, not a placement change.
 const BUCKET: int = 24
 const BUCKET_LIMIT: int = 32
+
+## Give every assembly a pivot INSIDE ITSELF.
+##
+## _asm() adds its node with no position, so an assembly's origin sits at the world origin
+## while its parts carry absolute world coordinates — the machine-shop roof kit is authored
+## 20m out, the alley props 25m out. That is harmless as long as nobody ever writes a
+## rotation to an assembly node. Something does: ambience.gd::_collect_sway walks the live
+## scene looking for hanging things to blow about, matches them BY NAME FRAGMENT ("tarp",
+## "chain", "flag", ...), and then writes transform.basis on whatever it matched. Rotating a
+## node whose geometry is 25m from its own origin does not flap it — it swings the whole
+## prop through an arc metres long. The tarped pallet load in the alley was matched on
+## "tarp", and in a storm (peak sway ~8 degrees at 25.7m radius) it was thrown about 3.7m
+## into the air over the deck, which is the object the owner photographed and took for a
+## lifeboat. On the other half of the cycle it sank into the plating.
+##
+## Re-seating each assembly on the centre of its own geometry makes that impossible: the
+## parts move by exactly the amount the origin moves, so nothing shifts by a millimetre,
+## but any basis written to the node now pivots the prop in place instead of orbiting it
+## around the middle of the map. It also makes the sway collector's own proximity test
+## (`global_position.distance_to(player) < 34`) measure the prop rather than the world
+## origin, which is what it was always meant to mean.
+func _anchor() -> void:
+	for child in get_children():
+		var a := child as Node3D
+		if a == null or a == _zone:
+			continue
+		var c: Vector3 = Vector3.ZERO
+		var box: AABB = _tree_aabb(a)
+		if box.size != Vector3.ZERO:
+			c = box.get_center()
+		else:
+			# Stencil-paint assemblies hold nothing but Label3Ds, whose AABB is still empty
+			# this early — the glyph mesh is not built until the label has been drawn once.
+			# Their part positions are just as good a centre, and without this fallback the
+			# two wall-stencil assemblies keep their origin out at the middle of the map.
+			var mid: Vector3 = _parts_centre(a)
+			if mid == Vector3.INF:
+				continue
+			c = mid
+		for part in a.get_children():
+			var p := part as Node3D
+			if p != null:
+				p.position -= c
+		a.position += c
+
+## Midpoint of an assembly's direct parts, for assemblies that draw nothing measurable yet.
+## Vector3.INF means it has no positioned parts at all.
+func _parts_centre(a: Node3D) -> Vector3:
+	var lo := Vector3.INF
+	var hi := -Vector3.INF
+	for part in a.get_children():
+		var p := part as Node3D
+		if p == null:
+			continue
+		lo = lo.min(p.position)
+		hi = hi.max(p.position)
+	if lo == Vector3.INF:
+		return Vector3.INF
+	return (lo + hi) * 0.5
+
+## Merged world AABB of every visual under `n`. Assemblies are unrotated and unscaled at
+## this point, so this is also their local AABB — but go through the transform anyway so a
+## part authored with a rotation (tarp skirts, tilted chocks) is measured where it is.
+func _tree_aabb(n: Node3D) -> AABB:
+	var acc := AABB()
+	var first: bool = true
+	var stack: Array = [n]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		for c in cur.get_children():
+			stack.append(c)
+		var vi := cur as VisualInstance3D
+		if vi == null or vi.get_aabb().size == Vector3.ZERO:
+			continue
+		var a: AABB = vi.global_transform * vi.get_aabb()
+		if first:
+			acc = a
+			first = false
+		else:
+			acc = acc.merge(a)
+	return acc if not first else AABB()
 
 func _compact() -> void:
 	for a in get_children():
@@ -992,8 +1074,18 @@ func _extinguisher_point() -> void:
 		Color(0.94, 0.92, 0.88, 0.95))
 	_solid(a, Vector3(x, DECK_Y + 0.9, z), Vector3(0.9, 1.9, 0.5))
 
+## Deck cargo: two pallets, a couple of crates and a drum under a weathered tarpaulin,
+## strapped down to D-rings bolted through the plating.
+##
+## NAME MATTERS HERE. ambience.gd's wind-sway collector classifies props by name fragment
+## and "tarp" is on its list, so this assembly used to be picked up and rotated as though
+## it were a loose sheet hanging in the wind. It is the opposite of that: it is a LASHED
+## load, roped down at eight points to rings bolted through the deck, and the correct
+## amount for it to move is none. _anchor() stops a stray rotation from throwing it across
+## the sky, but it should not be classified as flapping fabric in the first place — hence
+## a name that describes the load rather than the sheet over it.
 func _tarped_pallets() -> void:
-	var a := _asm("TarpedPallets")
+	var a := _asm("LashedPalletLoad")
 	var wood: Material = MatLib.weathered_wood()
 	var tarp: Material = MatLib.canvas(Color(0.30, 0.36, 0.33))
 	var x: float = -25.6

@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://float_hunt"]
+[ext_resource type="Script" path="res://tests/float_hunt.gd" id="1"]
+[node name="FloatHunt" type="Node"]
+script = ExtResource("1")

@@ -48,7 +48,9 @@ func _ready() -> void:
 	await get_tree().process_frame
 	# The dressing streams in a few props per frame and settles itself at the end of the
 	# stream; give it room, plus physics ticks so SurfaceSnap has run and rigid props rest.
-	await get_tree().create_timer(8.0).timeout
+	# The world build grew a lot (seabed, reef, exterior dressing) and now takes ~25s;
+	# an 8s wait made this probe report against a half-built rig, or hang outright.
+	await get_tree().create_timer(30.0).timeout
 	for i in range(10):
 		await get_tree().physics_frame
 

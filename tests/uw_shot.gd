@@ -16,8 +16,15 @@ var _storm: Node
 # name, phase, eye, aim, storm  (night shot last: if the windowed run loses focus at
 # the very end, the daylight shots are already saved)
 const SHOTS := [
-	# just under the surface looking up — Snell's window
-	["surface_up", "day", Vector3(16.0, -1.1, -6.0), Vector3(17.4, 5.0, -6.0), false],
+	# SNELL'S WINDOW. The old vantage sat 1.1 m under the surface and aimed 77 deg up: from
+	# there the 96 deg cone overfills a 72 deg frame completely, so the rim — the entire
+	# point of the effect — was never in shot and the capture could only ever be a wash of
+	# window interior. Drop to 5 m and pitch 45 deg up: at that depth the disc subtends
+	# about 11 m across at the surface, comfortably inside the frame, with the dark
+	# total-internal-reflection field around it and the rig's legs for scale.
+	["surface_up", "day", Vector3(16.0, -5.0, -6.0), Vector3(22.0, 1.0, -6.0), false],
+	# Straight up from the same depth: the disc centred, so the rim is a full ring.
+	["surface_up_axis", "day", Vector3(16.0, -6.0, -6.0), Vector3(17.6, 1.0, -5.0), false],
 	# mid-water beside a leg — light shafts, caustics on the caisson, kelp
 	["leg_shafts", "day", Vector3(15.0, -4.2, -6.0), Vector3(22.0, -5.5, -12.0), false],
 	# the same mid-water leg shot during a storm — sediment murk, denser snow

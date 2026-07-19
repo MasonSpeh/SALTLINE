@@ -72,6 +72,72 @@ func _ready() -> void:
 	print("FAILURES: ", failures)
 	get_tree().quit(1 if failures > 0 else 0)
 
+## ambience.gd::_collect_sway finds hanging things to blow about BY NAME FRAGMENT and then
+## writes transform.basis on whatever it matched. exterior_dress.gd builds each prop as a
+## node at the world origin with parts carrying absolute coordinates, so a rotation written
+## to one of those nodes swings the whole prop through an arc as long as its distance from
+## the middle of the map. That is how a lashed pallet load in the alley ended up hanging
+## several metres over the deck in a storm, looking like a lifeboat.
+##
+## Two invariants keep it dead: every assembly is seated on its own geometry (so a stray
+## rotation pivots it in place), and no assembly is named such that the sway collector
+## claims it in the first place.
+const SWAY_NAME_FRAGMENTS: Array[String] = [
+	"hanging", "chain", "windsock", "flag", "banner", "tarp", "drying",
+]
+
+func _check_exterior_dress_anchors(main: Node) -> void:
+	var dress: Node = _find_class(main, "exterior_dress.gd")
+	_check(dress != null, "exterior dress built")
+	if dress == null:
+		return
+	var assemblies: int = 0
+	var adrift: Array[String] = []
+	var swayable: Array[String] = []
+	for child in dress.get_children():
+		var a := child as Node3D
+		if a == null or a is LightZone:
+			continue
+		var box: AABB = _visual_aabb(a)
+		if box.size == Vector3.ZERO:
+			continue
+		assemblies += 1
+		# The pivot must lie inside the prop's own silhouette (grown a little, so a flat
+		# thing like the deck paint whose AABB has ~zero height still passes).
+		var grown: AABB = box.grow(0.5)
+		if not grown.has_point(a.global_position):
+			adrift.append("%s@%.0f,%.0f,%.0f" % [a.name,
+				a.global_position.x, a.global_position.y, a.global_position.z])
+		var lower: String = String(a.name).to_lower()
+		for frag in SWAY_NAME_FRAGMENTS:
+			if lower.contains(frag):
+				swayable.append(String(a.name))
+				break
+	_check(assemblies >= 30, "exterior dress assemblies present (found %d)" % assemblies)
+	_check(adrift.is_empty(),
+		"every exterior-dress assembly pivots inside itself (adrift: %s)" % str(adrift))
+	_check(swayable.is_empty(),
+		"no exterior-dress assembly is named as wind-sway fodder (matched: %s)" % str(swayable))
+
+func _visual_aabb(n: Node3D) -> AABB:
+	var acc := AABB()
+	var first: bool = true
+	var stack: Array[Node] = [n]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		for c in cur.get_children():
+			stack.append(c)
+		var vi := cur as VisualInstance3D
+		if vi == null or vi.get_aabb().size == Vector3.ZERO:
+			continue
+		var a: AABB = vi.global_transform * vi.get_aabb()
+		if first:
+			acc = a
+			first = false
+		else:
+			acc = acc.merge(a)
+	return acc if not first else AABB()
+
 func _run() -> void:
 	var main: Node3D = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
@@ -95,6 +161,8 @@ func _run() -> void:
 	await get_tree().process_frame
 	_check(main.hud.objective_label.text.to_lower().contains("power"),
 		"opening the hatch advances the objective")
+
+	_check_exterior_dress_anchors(main)
 
 	# Readables.
 	Readable.load_texts()

@@ -729,14 +729,49 @@ func _collect_sway(node: Node, around: Vector3, depth: int) -> void:
 ## scripts on this project, and a missed identifier here is a parse error at boot.
 const HANG_LINE := preload("res://scripts/components/hang_line.gd")
 
+## Does the wind get to move this node?
+##
+## THIS USED TO BE A SUBSTRING MATCH ON THE NODE NAME, and it cost a real bug: a lashed
+## pallet load named "TarpedPallets" contains "tarp", so the wind claimed it — and because
+## exterior_dress builds each assembly as a node parked AT THE WORLD ORIGIN with its parts
+## carrying absolute coordinates, rotating it swung the whole prop through an arc as long
+## as its distance from the map centre. 25.7m of radius at 8 degrees is ~3.7m of lift: the
+## pallets hung in the air over the deck looking like a lifeboat.
+##
+## So: OPT IN, not guess. A thing that should blow about joins the "wind_swayable" group
+## (or is a HangLine, which is one by construction). Names are for humans.
+## The legacy fragments still match, but ONLY as a fallback for nodes nobody has migrated,
+## and only when the node's origin sits inside its own geometry — see _pivots_in_place(),
+## which is the guarantee that a rotation stays a rotation instead of becoming an orbit.
 func _is_swayable(n3: Node3D) -> bool:
-	if n3.get_script() == HANG_LINE:
+	if n3.get_script() == HANG_LINE or n3.is_in_group("wind_swayable"):
 		return true
 	var name_l: String = n3.name.to_lower()
 	for frag: String in SWAY_NAMES:
 		if name_l.contains(frag):
-			return true
+			return _pivots_in_place(n3)
 	return false
+
+## True when the node's origin lies inside the geometry it draws. A node whose parts carry
+## absolute world coordinates has its origin at the map centre and its geometry somewhere
+## else entirely; spinning that is an orbit, not a sway, so the wind leaves it alone.
+func _pivots_in_place(n3: Node3D) -> bool:
+	var acc := AABB()
+	var first: bool = true
+	var stack: Array[Node] = [n3]
+	while not stack.is_empty():
+		var cur: Node = stack.pop_back()
+		for c in cur.get_children():
+			stack.append(c)
+		var vi := cur as VisualInstance3D
+		if vi == null or vi.get_aabb().size == Vector3.ZERO:
+			continue
+		var a: AABB = vi.global_transform * vi.get_aabb()
+		acc = a if first else acc.merge(a)
+		first = false
+	if first:
+		return false                      # nothing drawn: nothing to sway
+	return acc.grow(0.5).has_point(n3.global_position)
 
 
 ## Small-amplitude pendulum about the rest pose, driven along the storm's wind vector
