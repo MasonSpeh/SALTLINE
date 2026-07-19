@@ -425,7 +425,7 @@ func _shop_wall_line() -> void:
 		Color(0.11, 0.11, 0.12, 0.88))
 	_paint(sg, "MACHINE SHOP", Vector3(-24.4, DECK_Y + 1.42, zf + 0.02), 0.0, 0.0, 26,
 		Color(0.12, 0.12, 0.13, 0.8))
-	_paint(sg, "NO NAKED FLAME", Vector3(-19.4, DECK_Y + 1.62, zf + 0.02), 0.0, 0.0, 20,
+	_paint(sg, "NO NAKED FLAME", Vector3(-19.4, DECK_Y + 1.62, zf + 0.02), 0.0, 0.0, 16,
 		Color(0.13, 0.12, 0.12, 0.8))
 
 ## Bunkhouse face (z 3.875). Nothing here fouls the existing grab rail on that wall
@@ -565,7 +565,7 @@ func _drum_bund() -> void:
 			_ring(a, Vector3(dx, DECK_Y + ry, z), 0.29, 0.325, MatLib.rust_steel())
 		_cy(a, Vector3(dx, DECK_Y + 1.10, z), 0.30, 0.03, MatLib.rusty_metal())
 		_cy(a, Vector3(dx + 0.16, DECK_Y + 1.13, z), 0.045, 0.04, galv)
-	_paint(a, "WASTE OIL", Vector3(x - 0.66, DECK_Y + 0.72, z - 0.32), 180.0, 0.0, 11,
+	_paint(a, "WASTE OIL", Vector3(x - 0.66, DECK_Y + 0.72, z - 0.32), 180.0, 0.0, 16,
 		Color(0.88, 0.86, 0.8, 0.9))
 	_solid(a, Vector3(x, DECK_Y + 0.6, z), Vector3(2.1, 1.2, 1.25))
 
@@ -637,7 +637,7 @@ func _gas_bottle_cage() -> void:
 	# Placard on a bolted plate (never bare text on a bar).
 	_bx(a, Vector3(x + 0.45, DECK_Y + 1.45, z - 0.71), Vector3(0.92, 0.46, 0.025),
 		MatLib.flat(Color(0.80, 0.72, 0.18)))
-	_paint(a, "FLAMMABLE\n   GAS", Vector3(x + 0.45, DECK_Y + 1.53, z - 0.73), 180.0, 0.0, 17,
+	_paint(a, "FLAMMABLE\n   GAS", Vector3(x + 0.45, DECK_Y + 1.53, z - 0.73), 180.0, 0.0, 16,
 		Color(0.10, 0.10, 0.10, 0.95))
 	_solid(a, Vector3(x, DECK_Y + 1.0, z), Vector3(2.0, 2.0, 1.5))
 
@@ -839,7 +839,7 @@ func _safety_locker() -> void:
 	_bx(a, Vector3(x, DECK_Y + 2.02, z), Vector3(1.04, 0.06, 0.56), steel)   # rain hood
 	_bx(a, Vector3(x, DECK_Y + 1.72, z - 0.29), Vector3(0.94, 0.22, 0.02),
 		MatLib.flat(Color(0.90, 0.88, 0.82)))
-	_paint(a, "SAFETY EQUIPMENT", Vector3(x, DECK_Y + 1.77, z - 0.31), 180.0, 0.0, 11,
+	_paint(a, "SAFETY EQUIPMENT", Vector3(x, DECK_Y + 1.77, z - 0.31), 180.0, 0.0, 16,
 		Color(0.10, 0.10, 0.10, 0.95))
 	_solid(a, Vector3(x, DECK_Y + 1.0, z), Vector3(1.1, 2.0, 0.62))
 
@@ -869,7 +869,7 @@ func _hose_reel_cabinet() -> void:
 	_bx(a, Vector3(x, DECK_Y + 1.96, z + 0.02), Vector3(1.06, 0.06, 0.48), steel)  # hood
 	_bx(a, Vector3(x, DECK_Y + 2.05, DORM_WALL_Z - 0.03), Vector3(0.86, 0.24, 0.03),
 		MatLib.flat(Color(0.72, 0.15, 0.12)))
-	_paint(a, "FIRE HOSE REEL", Vector3(x, DECK_Y + 2.10, DORM_WALL_Z - 0.05), 180.0, 0.0, 15,
+	_paint(a, "FIRE HOSE REEL", Vector3(x, DECK_Y + 2.10, DORM_WALL_Z - 0.05), 180.0, 0.0, 16,
 		Color(0.94, 0.92, 0.88, 0.95))
 	_solid(a, Vector3(x, DECK_Y + 1.42, z), Vector3(1.0, 1.05, 0.46))
 
@@ -896,7 +896,7 @@ func _eyewash_station() -> void:
 	_cy(a, Vector3(x + 0.12, DECK_Y + 0.5, z + 0.14), 0.028, 1.0, MatLib.galvanized())
 	# Sign on the post — a real plate, not floating paint.
 	_bx(a, Vector3(x, DECK_Y + 1.78, z + 0.01), Vector3(0.94, 0.42, 0.03), green)
-	_paint(a, "EYEWASH", Vector3(x, DECK_Y + 1.80, z - 0.01), 180.0, 0.0, 18,
+	_paint(a, "EYEWASH", Vector3(x, DECK_Y + 1.80, z - 0.01), 180.0, 0.0, 16,
 		Color(0.94, 0.94, 0.90, 0.95))
 	_cy(a, Vector3(x, DECK_Y + 1.48, z), 0.045, 0.70, green)
 	_solid(a, Vector3(x, DECK_Y + 0.9, z), Vector3(0.5, 1.8, 0.5))
@@ -952,7 +952,7 @@ func _grit_bin() -> void:
 	_bx(a, Vector3(x, DECK_Y + 0.96, z - 0.49), Vector3(0.26, 0.07, 0.06), steel)   # lid handle
 	for cx2 in [-0.6, 0.6]:
 		_bx(a, Vector3(x + cx2, DECK_Y + 0.52, z), Vector3(0.05, 0.78, 0.94), steel)
-	_paint(a, "GRIT", Vector3(x, DECK_Y + 0.58, z - 0.47), 180.0, 0.0, 26,
+	_paint(a, "GRIT", Vector3(x, DECK_Y + 0.58, z - 0.47), 180.0, 0.0, 16,
 		Color(0.10, 0.10, 0.10, 0.9))
 	# The scoop lives in the bin, handle out.
 	var sc := _cy(a, Vector3(x + 0.5, DECK_Y + 1.22, z + 0.1), 0.025, 0.85,
@@ -1193,7 +1193,7 @@ func _muster_point() -> void:
 	_bx(a, Vector3(px, DECK_Y + 1.95, pz - 0.03), Vector3(0.78, 0.56, 0.04), green)
 	_bx(a, Vector3(px, DECK_Y + 1.95, pz - 0.055), Vector3(0.70, 0.48, 0.01), white)
 	_bx(a, Vector3(px, DECK_Y + 1.95, pz - 0.06), Vector3(0.64, 0.42, 0.005), green)
-	_paint(a, "MUSTER\nSTATION B", Vector3(px, DECK_Y + 2.06, pz - 0.07), 180.0, 0.0, 17,
+	_paint(a, "MUSTER\nSTATION B", Vector3(px, DECK_Y + 2.06, pz - 0.07), 180.0, 0.0, 16,
 		Color(0.93, 0.94, 0.90, 0.95))
 	# Tally board below it, with the hooks the tags hang on.
 	_bx(a, Vector3(px, DECK_Y + 1.35, pz - 0.03), Vector3(0.62, 0.44, 0.04),
