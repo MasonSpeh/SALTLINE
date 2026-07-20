@@ -24,6 +24,7 @@ var _storm: Node = null
 func _ready() -> void:
 	_rng.seed = 7411
 	_kelp_forest()
+	_leg_reef_growth()
 	_marine_snow()
 	_bubble_vents()
 	_mooring_chains()
@@ -65,9 +66,11 @@ func _kelp_forest() -> void:
 	tip_mat.emission = Color(0.2, 0.9, 0.85)
 	tip_mat.emission_energy_multiplier = 0.25
 	for leg in LEGS:
-		for i in range(6):
+		# Denser stand — 6 procedural strands read thin against a 6 m caisson; a real kelp
+		# forest is a wall you swim through, not a scatter you swim past.
+		for i in range(11):
 			var a: float = _rng.randf_range(0, TAU)
-			var r: float = _rng.randf_range(3.6, 5.4)
+			var r: float = _rng.randf_range(3.2, 6.0)
 			var base := Vector3(leg.x + cos(a) * r, -12.0, leg.z + sin(a) * r)
 			var strand := Node3D.new()
 			add_child(strand)
@@ -86,6 +89,69 @@ func _kelp_forest() -> void:
 			strand.set_meta("sway", _rng.randf_range(0.8, 1.4))
 			strand.set_meta("phase", _rng.randf_range(0, TAU))
 			_kelp.append(strand)
+		# A few real GENERATED kelp fronds (glow_kelp.glb) mixed in among the procedural
+		# strands — same holdfast ring, a richer silhouette than boxes alone can give.
+		for i in range(4):
+			var a2: float = _rng.randf_range(0, TAU)
+			var r2: float = _rng.randf_range(3.5, 6.2)
+			var pos := Vector3(leg.x + cos(a2) * r2, -12.0, leg.z + sin(a2) * r2)
+			var host := Node3D.new()
+			add_child(host)
+			host.position = pos
+			host.rotation.y = _rng.randf_range(0, TAU)
+			var gen: Dictionary = ANIM.attach(host, "res://assets/models/fauna/glow_kelp/glow_kelp.glb",
+				_rng.randf_range(6.0, 9.5), ANIM.Mode.SWAY, 0.1, _rng.randf_range(0.4, 0.7),
+				Color(0.22, 0.85, 0.7), _rng.randf() * TAU)
+			if gen.is_empty():
+				host.queue_free()
+				continue
+			ANIM.drive(gen["mats"], 0.55, 0.3)
+			BloomFauna.ground_model(host, gen["model"])
+
+## Reef growth encrusting the four legs themselves — anemones, sponge clusters, tube
+## worms, urchins — the years of Bloom colonisation the rig would actually carry, right
+## where a diving player spends most of their time. The wreck field / reef ridge
+## (reef_detail.gd, reef_life.gd) put the deep, elaborate reef community far south of the
+## rig at z -30..-60; this is the CLOSE, immediate life on the steel itself, in the
+## reachable band (roughly y -2..-11, well inside the 13 m death line).
+func _leg_reef_growth() -> void:
+	const SPECIES := [
+		["bloom_anemone", 0.4, 0.9, ANIM.Mode.SWAY, 0.08, Color(0.95, 0.45, 0.7)],
+		["bloom_sponge_cluster", 0.5, 1.1, ANIM.Mode.BREATHE, 0.03, Color(1.0, 0.62, 0.22)],
+		["bloom_tube_worms", 0.5, 0.9, ANIM.Mode.CIRRI, 0.05, Color(0.25, 0.95, 0.88)],
+		["bloom_urchin", 0.3, 0.55, ANIM.Mode.BREATHE, 0.04, Color(0.75, 0.55, 1.0)],
+	]
+	for leg in LEGS:
+		for i in range(14):
+			var spec: Array = SPECIES[_rng.randi() % SPECIES.size()]
+			var slug: String = spec[0]
+			var size: float = _rng.randf_range(spec[1], spec[2])
+			var mode: int = spec[3]
+			var amp: float = spec[4]
+			var glow: Color = spec[5]
+			# Pick a face of the 6 m square caisson and a reachable depth, then stand the
+			# growth just proud of that face (a small standoff so it doesn't clip the concrete).
+			var side: float = [-1.0, 1.0][_rng.randi_range(0, 1)]
+			var along_x: bool = _rng.randf() < 0.5
+			var along: float = _rng.randf_range(-2.6, 2.6)
+			var depth_y: float = _rng.randf_range(-2.5, -10.5)
+			var standoff: float = 3.05 + size * 0.15
+			var pos: Vector3
+			if along_x:
+				pos = Vector3(leg.x + along, depth_y, leg.z + side * standoff)
+			else:
+				pos = Vector3(leg.x + side * standoff, depth_y, leg.z + along)
+			var host := Node3D.new()
+			add_child(host)
+			host.global_position = pos
+			host.rotation.y = _rng.randf_range(0.0, TAU)
+			var gen: Dictionary = ANIM.attach(host, "res://assets/models/fauna/%s/%s.glb" % [slug, slug],
+				size, mode, amp, _rng.randf_range(0.3, 0.6), glow, _rng.randf() * TAU)
+			if gen.is_empty():
+				host.queue_free()
+				continue
+			ANIM.drive(gen["mats"], 0.5, _rng.randf_range(0.2, 0.4))
+			BloomFauna.ground_model(host, gen["model"])
 
 ## Marine snow: slow drifting particulate that sells the water as a medium.
 func _marine_snow() -> void:

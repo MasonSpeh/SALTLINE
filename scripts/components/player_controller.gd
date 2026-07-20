@@ -74,6 +74,14 @@ var _hand_item: Node3D = null  ## visual item mesh held in right hand
 var _attack_cd: float = 0.0    ## melee swing cooldown
 var _held_item_id: String = ""
 var _hand_reach: float = 0.0   ## half the held item's longest dimension — see hand_tip_world()
+## The LOCAL (container-space) direction from the held item's centre out to its "tip" —
+## most props are authored lying flat pointing out along -Z, but the fishing rod's shaft
+## (item_visual.gd) runs up the mesh's own +Y instead, so a single hardcoded axis put the
+## computed "tip" near the grip, barely off the hand, instead of out at the rod's real end.
+const HAND_TIP_AXIS := {
+	"fishing_rod": Vector3(0, 1, 0),
+}
+var _hand_reach_axis: Vector3 = Vector3(0, 0, -1)
 
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
@@ -962,6 +970,7 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	# line/string anchored there tracks the actual held object instead of a
 	# fixed offset from the player's feet.
 	_hand_reach = largest * 0.5
+	_hand_reach_axis = HAND_TIP_AXIS.get(_held_item_id, Vector3(0, 0, -1))
 
 ## World position of the far end of whatever is currently in the hand — the
 ## fishing rod anchors its line/string here instead of a fixed offset from the
@@ -970,14 +979,21 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 ## line read as "glitched away" from the rod). container is _hand_item's first
 ## (and only) child, built fresh by _update_held_item whenever a hotbar slot changes;
 ## its LIVE global_transform already carries the camera's position/look, the
-## idle sway, and the per-item angle/offset tweak above, so a local point along
-## its -Z (the "out and away from the body" direction every ItemVisual is built
-## along) lands on the tip of the actual held object, wherever it is looking.
+## idle sway, and the per-item angle/offset tweak above.
+##
+## If the item's ItemVisual placed an exact "hand_tip" marker (see item_visual.gd's
+## fishing_rod case), that node's own global_position is used directly — the real
+## rendered tip, not a guess. Otherwise a local point along _hand_reach_axis (most
+## props are built lying flat along -Z; a few, like the rod, run up their own +Y —
+## see HAND_TIP_AXIS) approximates the far end of whatever is held.
 func hand_tip_world() -> Vector3:
 	if _hand_item == null or _hand_item.get_child_count() == 0:
 		return camera.global_position - camera.global_transform.basis.z * 0.6
 	var container: Node3D = _hand_item.get_child(0)
-	return container.global_transform * Vector3(0, 0, -_hand_reach)
+	var marker: Node = container.find_child("hand_tip", true, false)
+	if marker is Node3D:
+		return (marker as Node3D).global_position
+	return container.global_transform * (_hand_reach_axis * _hand_reach)
 
 # ============================== lying on a bed ==============================
 

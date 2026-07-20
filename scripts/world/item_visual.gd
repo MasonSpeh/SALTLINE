@@ -171,6 +171,16 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.06, 0.3, 0.06), Color(0.65, 0.52, 0.35), Vector3(-0.14, 0.12, 0))
 			var reel := _cyl(root, 0.07, 0.06, Color(0.25, 0.27, 0.3), Vector3(-0.1, 0.26, 0.05))
 			reel.rotation.x = deg_to_rad(90)
+			# An exact marker at the working end of the shaft (the end away from the grip/
+			# reel), a child of the shaft itself so it inherits the shaft's own tilt and
+			# position automatically. player_controller.hand_tip_world() looks this up by
+			# name so the fishing line anchors to the ROD'S REAL RENDERED TIP instead of a
+			# generic "longest AABB axis" guess, which put the anchor near the grip for any
+			# item (like this rod) whose mesh is built along +Y rather than -Z.
+			var tip := Node3D.new()
+			tip.name = "hand_tip"
+			shaft.add_child(tip)
+			tip.position = Vector3(0, 0.75, 0)   # the shaft's own half-height: its far end
 		"cooked_fish":
 			_box(root, Vector3(0.3, 0.06, 0.16), Color(0.62, 0.45, 0.26), Vector3(0, 0.05, 0))
 			_box(root, Vector3(0.24, 0.02, 0.12), Color(0.35, 0.22, 0.12), Vector3(0, 0.09, 0))

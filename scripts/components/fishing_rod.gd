@@ -254,18 +254,31 @@ func _finish(msg: String) -> void:
 		_player.fishing_done()
 	queue_free()
 
+## Stretch the line mesh exactly from the rod tip (a) to the float (b). MUST land on
+## BOTH points exactly, every frame, wherever the bob drifts to — that was the bug:
+## the old version shifted the cylinder's PIVOT down for a slack "sag" look, then called
+## look_at(b) FROM that shifted pivot. look_at only orients toward b; it does not correct
+## for the pivot having moved, so the far half of the cylinder (extending the opposite way
+## from the same shifted point) missed the true `a` by roughly twice the sag offset — a
+## fixed, cosmetic, unrelated-to-anchoring line that read as "the line just lies near the
+## water", never actually reaching the rod. This builds the segment directly from a
+## transform basis (StructureLib.line()'s technique): dist is the true a-b span, mid is the
+## true a-b midpoint, and the basis's Y axis (a CylinderMesh's own length axis) is set to
+## point exactly along a->b, so the two ends of the cylinder are ALWAYS exactly a and b —
+## no reorientation step that can drift off either endpoint.
 func _update_line() -> void:
 	var a: Vector3 = _hand_pos()
 	var b: Vector3 = global_position + Vector3(0, 0.05, 0)
-	var mid: Vector3 = (a + b) * 0.5
-	if _state != State.FIGHT:
-		mid.y -= minf(a.distance_to(b) * 0.05, 0.9)   # slack sag
-	var dist: float = a.distance_to(b)
+	var delta: Vector3 = b - a
+	var dist: float = delta.length()
 	_line_mesh.height = dist
-	_line.global_position = mid
-	if dist > 0.01:
-		_line.look_at(b, Vector3.UP)
-		_line.rotate_object_local(Vector3.RIGHT, PI * 0.5)
+	_line.global_position = (a + b) * 0.5
+	if dist > 0.001:
+		var dir: Vector3 = delta / dist
+		var ref: Vector3 = Vector3.UP if absf(dir.dot(Vector3.UP)) < 0.98 else Vector3.RIGHT
+		var xa: Vector3 = ref.cross(dir).normalized()
+		var za: Vector3 = dir.cross(xa).normalized()
+		_line.global_transform = Transform3D(Basis(xa, dir, za), _line.global_position)
 
 func _unhandled_input(event: InputEvent) -> void:
 	if not (event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT):
