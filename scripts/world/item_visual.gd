@@ -133,13 +133,13 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.42, 0.015, 0.02), Color(0.72, 0.74, 0.77), Vector3(0, 0.18, 0))       # blade
 			var grip := _cyl(root, 0.035, 0.16, Color(0.4, 0.28, 0.18), Vector3(-0.21, 0.2, 0))        # pistol grip
 			grip.rotation.z = deg_to_rad(18)
-		"gull_meat":
-			# A plucked, dressed gull — pink raw flesh, two leg stubs.
+		"raw_sea_bird":
+			# A plucked, dressed sea-bird — pink raw flesh, two leg stubs.
 			_box(root, Vector3(0.22, 0.12, 0.14), Color(0.82, 0.55, 0.5), Vector3(0, 0.09, 0))
 			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.8, 0.72, 0.6), Vector3(-0.05, 0.02, 0.05))
 			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.8, 0.72, 0.6), Vector3(0.05, 0.02, 0.05))
-		"cooked_gull_meat":
-			# Roasted gull — browned skin, crisped legs.
+		"cooked_sea_bird":
+			# Roasted sea-bird — browned skin, crisped legs.
 			_box(root, Vector3(0.22, 0.12, 0.14), Color(0.55, 0.35, 0.18), Vector3(0, 0.09, 0))
 			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.4, 0.26, 0.14), Vector3(-0.05, 0.02, 0.05))
 			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.4, 0.26, 0.14), Vector3(0.05, 0.02, 0.05))

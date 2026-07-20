@@ -73,6 +73,7 @@ const DEEP_GRACE_SEC: float = 1.6
 var _hand_item: Node3D = null  ## visual item mesh held in right hand
 var _attack_cd: float = 0.0    ## melee swing cooldown
 var _held_item_id: String = ""
+var _hand_reach: float = 0.0   ## half the held item's longest dimension — see hand_tip_world()
 
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
@@ -875,7 +876,7 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	var target: float = HAND_ITEM_MAX_DIM
 	match _held_item_id:
 		"fishing_rod":
-			target = 0.62
+			target = 0.9   # a full-length rod actually reads as a rod, not a twig
 		"prybar":
 			target = 0.4
 	if largest > 0.0001:
@@ -885,6 +886,28 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 		# Angle the rod out over the water like it's actually being fished.
 		container.rotation = Vector3(deg_to_rad(-24), deg_to_rad(-14), 0)
 		container.position += Vector3(0.05, -0.05, -0.1)
+	# Half the item's longest dimension, in CONTAINER-local units (after the
+	# recentre above, the visual's AABB is symmetric about the container origin).
+	# hand_tip_world() uses this to find the far end of whatever is held, so a
+	# line/string anchored there tracks the actual held object instead of a
+	# fixed offset from the player's feet.
+	_hand_reach = largest * 0.5
+
+## World position of the far end of whatever is currently in the hand — the
+## fishing rod anchors its line/string here instead of a fixed offset from the
+## player's feet, which never tracked the camera at all (turn to look around and
+## the old anchor stayed put while the rod visual swung with the view, so the
+## line read as "glitched away" from the rod). container is _hand_item's first
+## (and only) child, built fresh by _update_held_item whenever a hotbar slot changes;
+## its LIVE global_transform already carries the camera's position/look, the
+## idle sway, and the per-item angle/offset tweak above, so a local point along
+## its -Z (the "out and away from the body" direction every ItemVisual is built
+## along) lands on the tip of the actual held object, wherever it is looking.
+func hand_tip_world() -> Vector3:
+	if _hand_item == null or _hand_item.get_child_count() == 0:
+		return camera.global_position - camera.global_transform.basis.z * 0.6
+	var container: Node3D = _hand_item.get_child(0)
+	return container.global_transform * Vector3(0, 0, -_hand_reach)
 
 # ============================== lying on a bed ==============================
 

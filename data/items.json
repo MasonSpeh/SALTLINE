@@ -468,14 +468,14 @@
     "name": "Hacksaw",
     "use": "tool"
   },
-  "gull_meat": {
-    "name": "Gull",
+  "raw_sea_bird": {
+    "name": "Raw Sea-Bird",
     "use": "eat",
     "hunger": 0.12,
     "side_effect": "sick"
   },
-  "cooked_gull_meat": {
-    "name": "Roast Gull",
+  "cooked_sea_bird": {
+    "name": "Roast Sea-Bird",
     "use": "eat",
     "hunger": 0.55
   },

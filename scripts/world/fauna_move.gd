@@ -204,6 +204,17 @@ class SurfaceCrawler extends RefCounted:
 	const CLIMB_MAX := 6.0     ## metres above the foothold where a climb turns back
 	const FOOT := 0.02         ## clearance held between the origin and the face
 	const COMMIT := 1.6        ## seconds a fresh decision is protected from patch steering
+	## Sum of signed turns taken by consecutive _decide() left/right responses, above
+	## which the crawler forces a break for open water instead of following the wall
+	## another step. This is the wall-hugging twin of the free-wander leash bug fixed
+	## earlier: THAT fix stopped the patch-steering path from orbiting the patch centre,
+	## but the wall-RESPONSE path (_decide) has no memory across decisions at all — each
+	## turn is locally correct (toward the open flank) yet a curved or circular boundary
+	## (a round tank, a small submerged plate) keeps curving into the new heading, so the
+	## same rotational sense repeats decision after decision and the SUM walks a full
+	## lap. That is what "spins in circles after hitting a wall" actually was: not one
+	## bad decision, but an unbounded run of individually-correct ones.
+	const WALL_FOLLOW_BREAK := 4.71   ## ~270 degrees
 
 	var home: Vector3           ## centre of the patch it works
 	var leash: float            ## metres it may reach from home before turning back
@@ -232,6 +243,7 @@ class SurfaceCrawler extends RefCounted:
 	var _bound: bool = false
 	var _grounded: bool = false ## a real face was under the foot last frame
 	var _seated: bool = false   ## the first wide grounding probe has run
+	var _wall_turn: float = 0.0 ## running signed turn from consecutive wall decisions
 	var _rng := RandomNumberGenerator.new()
 
 	func _init(home_: Vector3, leash_: float, speed_: float, seed_: int,
@@ -315,6 +327,10 @@ class SurfaceCrawler extends RefCounted:
 			var ahead: Vector3 = before + heading * step_len
 			if _has_footing(host, ahead):
 				host.global_position = ahead
+				# Clear travel forgets the wall-hugging memory — a snail that has actually
+				# gotten away from the last wall is no longer at risk of laminating a loop
+				# out of it, so let it wall-follow normally again next time it meets one.
+				_wall_turn = move_toward(_wall_turn, 0.0, delta * 2.0)
 			elif _grounded:
 				_edge(host)                       # convex edge: over it, or turn back
 			else:
@@ -359,6 +375,7 @@ class SurfaceCrawler extends RefCounted:
 		if n.y > 0.7 and up.y < 0.7:
 			_attach(host, n, surmount)
 			choice = "land"
+			_wall_turn = 0.0
 			return
 		var h: float = _boundary_height(host, info)
 		boundary_h = h
@@ -385,8 +402,23 @@ class SurfaceCrawler extends RefCounted:
 			choice = "climb"
 			return
 		var go_left: bool = left_clear if left_clear != right_clear else _rng.randf() < 0.5
-		heading = along if go_left else -along
-		choice = "left" if go_left else "right"
+		var new_head: Vector3 = along if go_left else -along
+		var delta_ang: float = atan2(heading.cross(new_head).dot(up), heading.dot(new_head))
+		_wall_turn += delta_ang
+		if absf(_wall_turn) > WALL_FOLLOW_BREAK:
+			# Enough consecutive turns in the same rotational sense to have walked a lap —
+			# stop following this curve and strike for open water instead, exactly the way
+			# a strayed free-wander breaks for home rather than skimming the boundary.
+			var inward: Vector3 = Vector3(home.x - host.global_position.x, 0.0, home.z - host.global_position.z)
+			if inward.length() > 0.01:
+				new_head = inward.normalized().rotated(Vector3.UP, _rng.randf_range(-0.3, 0.3))
+				new_head = new_head - up * new_head.dot(up)
+			_wall_turn = 0.0
+			choice = "unwind"
+		else:
+			choice = "left" if go_left else "right"
+		if new_head.length() > 0.001:
+			heading = new_head.normalized()
 		_leg = _rng.randf_range(leash * 0.6, leash * 1.3)
 		_commit = COMMIT
 		if _rng.randf() < 0.3:
@@ -551,6 +583,7 @@ class SurfaceCrawler extends RefCounted:
 		_pause = 0.0
 		_leg = _rng.randf_range(leash * 0.5, leash * 1.2)
 		_commit = COMMIT
+		_wall_turn = 0.0
 		blocked = true
 		choice = "unstick"
 

@@ -78,6 +78,13 @@ func _ready() -> void:
 	_schedule_bite()
 
 func _hand_pos() -> Vector3:
+	# The tip of the actually-held rod visual, wherever the camera is looking — not
+	# a fixed world-space offset from the player's feet. That fixed offset never
+	# moved with the camera at all, so turning to look around left the line's start
+	# point behind while the rod on screen swung with the view: the "glitched away"
+	# line. hand_tip_world() reads the held item's live transform instead.
+	if _player.has_method("hand_tip_world"):
+		return _player.hand_tip_world()
 	return _player.global_position + Vector3(0, 1.25, 0)
 
 func _schedule_bite() -> void:
