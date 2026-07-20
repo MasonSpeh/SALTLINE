@@ -245,6 +245,18 @@ static func drop_net(ghost: bool) -> Node3D:
 			_part(net, Vector3(cx, -0.5, cz), Vector3(0.035, 1.1, 0.035), cord, false)
 	for wx in [-0.4, 0.4]:
 		_part(net, Vector3(wx, -1.12, 0), Vector3(0.12, 0.1, 0.12), steel, false)   # weights
+	# The net basket is SOLID — one box collider on the world layer covering the bag, so
+	# nothing (fish, the player, any FaunaMove creature) passes through the mesh. Parented
+	# to `net` so it rides the winch's raise/lower tween. Skipped for the build-mode ghost.
+	if not ghost:
+		var net_body := StaticBody3D.new()
+		var net_shape := CollisionShape3D.new()
+		var net_box := BoxShape3D.new()
+		net_box.size = Vector3(1.15, 1.25, 1.15)
+		net_shape.shape = net_box
+		net_body.add_child(net_shape)
+		net.add_child(net_body)
+		net_body.position = Vector3(0, -0.5, 0)
 	# Hang line from the boom tip (stretches with the drop).
 	var rope_pivot := Node3D.new()
 	root.add_child(rope_pivot)

@@ -424,6 +424,17 @@ static func build(item_id: String) -> Node3D:
 				_box(root, Vector3(0.12, 0.14, 0.07), Color(0.6, 0.63, 0.57),
 					Vector3(cos(a2) * 0.2, 0.09, sin(a2) * 0.2))
 			_box(root, Vector3(0.07, 0.05, 0.03), Color(0.5, 0.52, 0.55), Vector3(-0.22, 0.07, 0))
+		"flashlight":
+			# A rubber-armoured hand torch lying on its side: barrel, knurled grip band, a
+			# wider head, and a pale lens on the head end. Long axis laid along X.
+			var body: MeshInstance3D = _cyl(root, 0.028, 0.2, Color(0.16, 0.17, 0.19), Vector3(0, 0.028, 0))
+			body.rotation.z = deg_to_rad(90)
+			var grip: MeshInstance3D = _cyl(root, 0.031, 0.03, Color(0.5, 0.42, 0.12), Vector3(-0.02, 0.028, 0))
+			grip.rotation.z = deg_to_rad(90)
+			var head: MeshInstance3D = _cyl(root, 0.045, 0.05, Color(0.2, 0.21, 0.23), Vector3(0.11, 0.028, 0))
+			head.rotation.z = deg_to_rad(90)
+			var lens: MeshInstance3D = _cyl(root, 0.04, 0.012, Color(0.9, 0.92, 0.85), Vector3(0.14, 0.028, 0), true, 0.6)
+			lens.rotation.z = deg_to_rad(90)
 		"storm_lantern":
 			# Bloom light behind glass in a screwed steel cage. Weather can't touch it.
 			_cyl(root, 0.11, 0.05, Color(0.36, 0.37, 0.4), Vector3(0, 0.025, 0))

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c8j85lojjxj7l"
 path.s3tc="res://.godot/imported/cross_pein_hammer_nor_gl_1k.jpg-3503e5dbee3baa091a398eb81c47eb9a.s3tc.ctex"
+path.etc2="res://.godot/imported/cross_pein_hammer_nor_gl_1k.jpg-3503e5dbee3baa091a398eb81c47eb9a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cross_pein_hammer/textures/cross_pein_hammer_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/cross_pein_hammer_nor_gl_1k.jpg-3503e5dbee3baa091a398eb81c47eb9a.s3tc.ctex"]
+dest_files=["res://.godot/imported/cross_pein_hammer_nor_gl_1k.jpg-3503e5dbee3baa091a398eb81c47eb9a.s3tc.ctex", "res://.godot/imported/cross_pein_hammer_nor_gl_1k.jpg-3503e5dbee3baa091a398eb81c47eb9a.etc2.ctex"]
 
 [params]
 

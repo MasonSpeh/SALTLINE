@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c7wvawom1i4m"
 path.s3tc="res://.godot/imported/bronze_ray_statue_arm_1k.jpg-3a83694ca98b7b4c128c5884bb45b3d8.s3tc.ctex"
+path.etc2="res://.godot/imported/bronze_ray_statue_arm_1k.jpg-3a83694ca98b7b4c128c5884bb45b3d8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bronze_ray_statue/textures/bronze_ray_statue_arm_1k.jpg"
-dest_files=["res://.godot/imported/bronze_ray_statue_arm_1k.jpg-3a83694ca98b7b4c128c5884bb45b3d8.s3tc.ctex"]
+dest_files=["res://.godot/imported/bronze_ray_statue_arm_1k.jpg-3a83694ca98b7b4c128c5884bb45b3d8.s3tc.ctex", "res://.godot/imported/bronze_ray_statue_arm_1k.jpg-3a83694ca98b7b4c128c5884bb45b3d8.etc2.ctex"]
 
 [params]
 

@@ -452,6 +452,11 @@ func _tide_bands() -> void:
 func _scatter_items() -> void:
 	var y: float = WET_Y
 	_takeable("driftwood", "Driftwood", Vector3(26.8, y + 0.05, -21.4))
+	# A working flashlight on the dock crate by the pod, where the player lands — the
+	# wet deck is the first dark space they cross, so the torch meets them there. Select
+	# it in the hotbar and press F to click the beam on/off. More are stashed in the
+	# dark rooms (pump room, store room, machine shop) below.
+	_takeable("flashlight", "Flashlight", Vector3(18.4, y + 0.05, -22.4))
 	# The fishing rod — propped in the storeroom where a rigger left it. The other
 	# half of the food economy, waiting behind the first door most players open.
 	_takeable("fishing_rod", "Fishing Rod", Vector3(11.0, y + 0.05, -17.2))

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bj7djbsd32pec"
 path.s3tc="res://.godot/imported/food_apple_01_nor_gl_1k.jpg-dc25ef101e2994f31b4461711dc03aa8.s3tc.ctex"
+path.etc2="res://.godot/imported/food_apple_01_nor_gl_1k.jpg-dc25ef101e2994f31b4461711dc03aa8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/food_apple_01/textures/food_apple_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/food_apple_01_nor_gl_1k.jpg-dc25ef101e2994f31b4461711dc03aa8.s3tc.ctex"]
+dest_files=["res://.godot/imported/food_apple_01_nor_gl_1k.jpg-dc25ef101e2994f31b4461711dc03aa8.s3tc.ctex", "res://.godot/imported/food_apple_01_nor_gl_1k.jpg-dc25ef101e2994f31b4461711dc03aa8.etc2.ctex"]
 
 [params]
 

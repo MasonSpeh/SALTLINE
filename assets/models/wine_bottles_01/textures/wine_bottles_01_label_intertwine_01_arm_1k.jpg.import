@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bby2kv1sr23ju"
 path.s3tc="res://.godot/imported/wine_bottles_01_label_intertwine_01_arm_1k.jpg-a61d5dbb05cc66d84054684b47740936.s3tc.ctex"
+path.etc2="res://.godot/imported/wine_bottles_01_label_intertwine_01_arm_1k.jpg-a61d5dbb05cc66d84054684b47740936.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/wine_bottles_01/textures/wine_bottles_01_label_intertwine_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/wine_bottles_01_label_intertwine_01_arm_1k.jpg-a61d5dbb05cc66d84054684b47740936.s3tc.ctex"]
+dest_files=["res://.godot/imported/wine_bottles_01_label_intertwine_01_arm_1k.jpg-a61d5dbb05cc66d84054684b47740936.s3tc.ctex", "res://.godot/imported/wine_bottles_01_label_intertwine_01_arm_1k.jpg-a61d5dbb05cc66d84054684b47740936.etc2.ctex"]
 
 [params]
 

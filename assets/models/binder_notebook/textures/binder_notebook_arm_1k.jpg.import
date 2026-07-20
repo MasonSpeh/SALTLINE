@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ycouwwvvcyfu"
 path.s3tc="res://.godot/imported/binder_notebook_arm_1k.jpg-6e7877bd89aa6aa05b06f5a638f57325.s3tc.ctex"
+path.etc2="res://.godot/imported/binder_notebook_arm_1k.jpg-6e7877bd89aa6aa05b06f5a638f57325.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/binder_notebook/textures/binder_notebook_arm_1k.jpg"
-dest_files=["res://.godot/imported/binder_notebook_arm_1k.jpg-6e7877bd89aa6aa05b06f5a638f57325.s3tc.ctex"]
+dest_files=["res://.godot/imported/binder_notebook_arm_1k.jpg-6e7877bd89aa6aa05b06f5a638f57325.s3tc.ctex", "res://.godot/imported/binder_notebook_arm_1k.jpg-6e7877bd89aa6aa05b06f5a638f57325.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://e2ag37c8al7m"
 path.s3tc="res://.godot/imported/metal_detector_nor_gl_1k.jpg-6557897c07a26038f3aae66d92366645.s3tc.ctex"
+path.etc2="res://.godot/imported/metal_detector_nor_gl_1k.jpg-6557897c07a26038f3aae66d92366645.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_detector/textures/metal_detector_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/metal_detector_nor_gl_1k.jpg-6557897c07a26038f3aae66d92366645.s3tc.ctex"]
+dest_files=["res://.godot/imported/metal_detector_nor_gl_1k.jpg-6557897c07a26038f3aae66d92366645.s3tc.ctex", "res://.godot/imported/metal_detector_nor_gl_1k.jpg-6557897c07a26038f3aae66d92366645.etc2.ctex"]
 
 [params]
 

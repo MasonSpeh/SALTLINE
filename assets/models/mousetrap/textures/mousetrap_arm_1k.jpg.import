@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bqb1b00ee2j7m"
 path.s3tc="res://.godot/imported/mousetrap_arm_1k.jpg-339f60d9b3aad7dee8af4e15a7ae327d.s3tc.ctex"
+path.etc2="res://.godot/imported/mousetrap_arm_1k.jpg-339f60d9b3aad7dee8af4e15a7ae327d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/mousetrap/textures/mousetrap_arm_1k.jpg"
-dest_files=["res://.godot/imported/mousetrap_arm_1k.jpg-339f60d9b3aad7dee8af4e15a7ae327d.s3tc.ctex"]
+dest_files=["res://.godot/imported/mousetrap_arm_1k.jpg-339f60d9b3aad7dee8af4e15a7ae327d.s3tc.ctex", "res://.godot/imported/mousetrap_arm_1k.jpg-339f60d9b3aad7dee8af4e15a7ae327d.etc2.ctex"]
 
 [params]
 

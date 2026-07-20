@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bdhrynisirbb1"
 path.s3tc="res://.godot/imported/vintage_video_camera_nor_gl_1k.jpg-8c8f60df951cc940e56325bbaad61532.s3tc.ctex"
+path.etc2="res://.godot/imported/vintage_video_camera_nor_gl_1k.jpg-8c8f60df951cc940e56325bbaad61532.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/vintage_video_camera/textures/vintage_video_camera_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/vintage_video_camera_nor_gl_1k.jpg-8c8f60df951cc940e56325bbaad61532.s3tc.ctex"]
+dest_files=["res://.godot/imported/vintage_video_camera_nor_gl_1k.jpg-8c8f60df951cc940e56325bbaad61532.s3tc.ctex", "res://.godot/imported/vintage_video_camera_nor_gl_1k.jpg-8c8f60df951cc940e56325bbaad61532.etc2.ctex"]
 
 [params]
 

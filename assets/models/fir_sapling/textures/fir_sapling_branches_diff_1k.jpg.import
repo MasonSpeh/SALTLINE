@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c15jjg1rk4vtk"
 path.s3tc="res://.godot/imported/fir_sapling_branches_diff_1k.jpg-70bf6d98cac01187b566371994a56516.s3tc.ctex"
+path.etc2="res://.godot/imported/fir_sapling_branches_diff_1k.jpg-70bf6d98cac01187b566371994a56516.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/fir_sapling/textures/fir_sapling_branches_diff_1k.jpg"
-dest_files=["res://.godot/imported/fir_sapling_branches_diff_1k.jpg-70bf6d98cac01187b566371994a56516.s3tc.ctex"]
+dest_files=["res://.godot/imported/fir_sapling_branches_diff_1k.jpg-70bf6d98cac01187b566371994a56516.s3tc.ctex", "res://.godot/imported/fir_sapling_branches_diff_1k.jpg-70bf6d98cac01187b566371994a56516.etc2.ctex"]
 
 [params]
 

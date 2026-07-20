@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cx3vgmabc151p"
 path.s3tc="res://.godot/imported/strawberry_chocolate_cake_diff_1k.jpg-329f8f32ca61dd7ab369b318943bb6bf.s3tc.ctex"
+path.etc2="res://.godot/imported/strawberry_chocolate_cake_diff_1k.jpg-329f8f32ca61dd7ab369b318943bb6bf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/strawberry_chocolate_cake/textures/strawberry_chocolate_cake_diff_1k.jpg"
-dest_files=["res://.godot/imported/strawberry_chocolate_cake_diff_1k.jpg-329f8f32ca61dd7ab369b318943bb6bf.s3tc.ctex"]
+dest_files=["res://.godot/imported/strawberry_chocolate_cake_diff_1k.jpg-329f8f32ca61dd7ab369b318943bb6bf.s3tc.ctex", "res://.godot/imported/strawberry_chocolate_cake_diff_1k.jpg-329f8f32ca61dd7ab369b318943bb6bf.etc2.ctex"]
 
 [params]
 

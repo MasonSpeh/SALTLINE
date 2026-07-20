@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://1v77kppjp2d2"
 path.s3tc="res://.godot/imported/coffee_table_round_01_diff_1k.jpg-49288729579d7cb8c7d8a62675fa7214.s3tc.ctex"
+path.etc2="res://.godot/imported/coffee_table_round_01_diff_1k.jpg-49288729579d7cb8c7d8a62675fa7214.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/coffee_table_round_01/textures/coffee_table_round_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/coffee_table_round_01_diff_1k.jpg-49288729579d7cb8c7d8a62675fa7214.s3tc.ctex"]
+dest_files=["res://.godot/imported/coffee_table_round_01_diff_1k.jpg-49288729579d7cb8c7d8a62675fa7214.s3tc.ctex", "res://.godot/imported/coffee_table_round_01_diff_1k.jpg-49288729579d7cb8c7d8a62675fa7214.etc2.ctex"]
 
 [params]
 

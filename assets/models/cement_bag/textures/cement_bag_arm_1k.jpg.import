@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://8apgd2baxvfj"
 path.s3tc="res://.godot/imported/cement_bag_arm_1k.jpg-a2dfa7d35799beafa6b124fb0ea90aa9.s3tc.ctex"
+path.etc2="res://.godot/imported/cement_bag_arm_1k.jpg-a2dfa7d35799beafa6b124fb0ea90aa9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cement_bag/textures/cement_bag_arm_1k.jpg"
-dest_files=["res://.godot/imported/cement_bag_arm_1k.jpg-a2dfa7d35799beafa6b124fb0ea90aa9.s3tc.ctex"]
+dest_files=["res://.godot/imported/cement_bag_arm_1k.jpg-a2dfa7d35799beafa6b124fb0ea90aa9.s3tc.ctex", "res://.godot/imported/cement_bag_arm_1k.jpg-a2dfa7d35799beafa6b124fb0ea90aa9.etc2.ctex"]
 
 [params]
 

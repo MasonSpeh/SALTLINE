@@ -629,6 +629,13 @@
     "light": true,
     "effect": "Carried light: a warm 9m omni on the player (PlayerController._update_lantern)."
   },
+  "flashlight": {
+    "name": "Flashlight",
+    "use": "tool",
+    "worn": true,
+    "light": true,
+    "effect": "Hold it and press F to click a hard 22m beam on/off, aimed where you look (PlayerController._update_flashlight)."
+  },
   "patched_boots": {
     "name": "Patched Boots",
     "use": "tool",

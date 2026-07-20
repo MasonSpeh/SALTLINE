@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cqjyu8frhfxlc"
 path.s3tc="res://.godot/imported/metal_toolbox_nor_gl_1k.jpg-21a14ff3a3c015f2b9fa48446e4dde92.s3tc.ctex"
+path.etc2="res://.godot/imported/metal_toolbox_nor_gl_1k.jpg-21a14ff3a3c015f2b9fa48446e4dde92.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_toolbox/textures/metal_toolbox_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/metal_toolbox_nor_gl_1k.jpg-21a14ff3a3c015f2b9fa48446e4dde92.s3tc.ctex"]
+dest_files=["res://.godot/imported/metal_toolbox_nor_gl_1k.jpg-21a14ff3a3c015f2b9fa48446e4dde92.s3tc.ctex", "res://.godot/imported/metal_toolbox_nor_gl_1k.jpg-21a14ff3a3c015f2b9fa48446e4dde92.etc2.ctex"]
 
 [params]
 

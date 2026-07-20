@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxlnlg58401f7"
 path.s3tc="res://.godot/imported/DiamondPlate008B_1K-JPG_Metalness.jpg-da694c22bfc0d980924f4b593d54c891.s3tc.ctex"
+path.etc2="res://.godot/imported/DiamondPlate008B_1K-JPG_Metalness.jpg-da694c22bfc0d980924f4b593d54c891.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/DiamondPlate008B/DiamondPlate008B_1K-JPG_Metalness.jpg"
-dest_files=["res://.godot/imported/DiamondPlate008B_1K-JPG_Metalness.jpg-da694c22bfc0d980924f4b593d54c891.s3tc.ctex"]
+dest_files=["res://.godot/imported/DiamondPlate008B_1K-JPG_Metalness.jpg-da694c22bfc0d980924f4b593d54c891.s3tc.ctex", "res://.godot/imported/DiamondPlate008B_1K-JPG_Metalness.jpg-da694c22bfc0d980924f4b593d54c891.etc2.ctex"]
 
 [params]
 

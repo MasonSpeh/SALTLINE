@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c6nfi3nmu5bvk"
 path.s3tc="res://.godot/imported/metal_toolbox_diff_1k.jpg-34a0a888f8d3ef6a421ab8f8ab670b0a.s3tc.ctex"
+path.etc2="res://.godot/imported/metal_toolbox_diff_1k.jpg-34a0a888f8d3ef6a421ab8f8ab670b0a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_toolbox/textures/metal_toolbox_diff_1k.jpg"
-dest_files=["res://.godot/imported/metal_toolbox_diff_1k.jpg-34a0a888f8d3ef6a421ab8f8ab670b0a.s3tc.ctex"]
+dest_files=["res://.godot/imported/metal_toolbox_diff_1k.jpg-34a0a888f8d3ef6a421ab8f8ab670b0a.s3tc.ctex", "res://.godot/imported/metal_toolbox_diff_1k.jpg-34a0a888f8d3ef6a421ab8f8ab670b0a.etc2.ctex"]
 
 [params]
 

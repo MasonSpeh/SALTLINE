@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://xu570cpjx0jo"
 path.s3tc="res://.godot/imported/Rust007_1K-JPG_Color.jpg-b0b3c24e1328f6a7f9efd70eeeb7e813.s3tc.ctex"
+path.etc2="res://.godot/imported/Rust007_1K-JPG_Color.jpg-b0b3c24e1328f6a7f9efd70eeeb7e813.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/Rust007/Rust007_1K-JPG_Color.jpg"
-dest_files=["res://.godot/imported/Rust007_1K-JPG_Color.jpg-b0b3c24e1328f6a7f9efd70eeeb7e813.s3tc.ctex"]
+dest_files=["res://.godot/imported/Rust007_1K-JPG_Color.jpg-b0b3c24e1328f6a7f9efd70eeeb7e813.s3tc.ctex", "res://.godot/imported/Rust007_1K-JPG_Color.jpg-b0b3c24e1328f6a7f9efd70eeeb7e813.etc2.ctex"]
 
 [params]
 

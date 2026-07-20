@@ -9,6 +9,7 @@ const FISH := preload("res://scripts/world/fish_table.gd")
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 const SEABED := preload("res://scripts/world/seabed.gd")
 const FX := preload("res://scripts/world/underwater_fx.gd")
+const MOVE := preload("res://scripts/world/fauna_move.gd")
 
 const LEGS := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 const DEPTH_BAND := {"surface": -1.2, "mid": -4.5, "deep": -9.5}
@@ -396,6 +397,13 @@ func _process(delta: float) -> void:
 			# surface in troughs, which is exactly where a shallow school would breach.
 			var surf: float = Gyre.wave_height(Vector2(next.x, next.z), Gyre.water_time())
 			next.y = minf(next.y, surf - 0.5 - s["size"] * 0.5)
+			# A school's drift band overlaps the rig legs — don't let fish swim through a
+			# caisson. Only pay for the raycast near a leg (the schools spend most of their
+			# orbit in open water), and if the step would enter the steel, stop the fish at
+			# the surface so it grazes the leg and its orbit carries it back out.
+			if _near_leg(next):
+				var res: Dictionary = MOVE.swim_clear(f, f.global_position, next, 0.3)
+				next = res["pos"]
 			var vel: Vector3 = next - f.global_position
 			f.global_position = next
 			# Steer by the FLAT velocity only — a vertical bob aligned with UP
@@ -403,3 +411,11 @@ func _process(delta: float) -> void:
 			var flat := Vector3(vel.x, 0.0, vel.z)
 			if flat.length_squared() > 0.0001:
 				f.look_at(next + flat, Vector3.UP)
+
+## Is `p` close enough to a rig leg (in plan) that a wall test is worth casting? The legs
+## are 6 m square; 4.5 m from a centre clears the caisson plus a fish's turn radius.
+func _near_leg(p: Vector3) -> bool:
+	for leg in LEGS:
+		if absf(p.x - leg.x) < 4.5 and absf(p.z - leg.z) < 4.5:
+			return true
+	return false

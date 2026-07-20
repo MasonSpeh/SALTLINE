@@ -787,6 +787,8 @@ class FiddlerShoal extends Node3D:
 			var a: float = _t * 1.6 + i * (TAU / COUNT)
 			var r: float = 1.2 + sin(_t * 0.9 + i) * 0.5
 			var next := center + Vector3(cos(a) * r, sin(_t * 2.0 + i) * 0.1, sin(a) * r * 0.7)
+			# They shoal under the wet-deck lip and around the legs — keep them out of the steel.
+			next = FaunaMove.swim_clear(_fish[i], _fish[i].global_position, next, 0.2)["pos"]
 			var vel: Vector3 = next - _fish[i].global_position
 			_fish[i].global_position = next
 			if vel.length_squared() > 0.0001:
@@ -1909,6 +1911,9 @@ class ReefFish extends Node3D:
 			var a: float = Time.get_ticks_msec() * 0.001 * f["spd"] + f["ph"]
 			var pos: Vector3 = _centre + Vector3(cos(a) * f["r"], f["h"] + sin(a * 2.3) * 0.3, sin(a) * f["r"])
 			var node: Node3D = f["node"]
+			# These orbit a rig leg — don't let one clip through the caisson. Stop it at the
+			# steel; its orbit carries it back out next frame.
+			pos = FaunaMove.swim_clear(node, node.global_position, pos, 0.25)["pos"]
 			var vel: Vector3 = pos - node.global_position
 			node.global_position = pos
 			if vel.length_squared() > 0.00001:

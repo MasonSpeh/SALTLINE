@@ -140,6 +140,15 @@ const LANTERN_RANGE: float = 9.0
 const LANTERN_ENERGY: float = 1.5
 var _lantern_light: OmniLight3D = null
 
+## Flashlight: a cold hard beam you aim where you look — the tool for the dark decks,
+## the pump room, the stairwell. Unlike the storm lantern (a warm pool that's simply on
+## whenever it's in hand), the flashlight is a SpotLight you TOGGLE: hold one and press F
+## to click it on and off. Lit only while a flashlight is the item in hand AND switched on.
+const FLASHLIGHT_COLOR: Color = Color(0.85, 0.9, 1.0)
+const FLASHLIGHT_ENERGY: float = 4.0
+var _flashlight: SpotLight3D = null
+var _flashlight_on: bool = true   ## picked up switched on, like a working torch
+
 func _ready() -> void:
 	add_to_group("player")
 	camera.fov = 75.0
@@ -168,11 +177,24 @@ func _ready() -> void:
 	_lantern_light.shadow_enabled = false   # gl_compatibility: keep the omni cheap
 	camera.add_child(_lantern_light)
 	_lantern_light.position = Vector3(0.25, -0.2, -0.35)
+	# The flashlight beam: a SpotLight on the camera pointing where you look (a Node3D's
+	# -Z is forward, and the camera already faces -Z). Off until a flashlight is in hand
+	# and switched on. Shadowless on gl_compatibility to keep it cheap.
+	_flashlight = SpotLight3D.new()
+	_flashlight.light_color = FLASHLIGHT_COLOR
+	_flashlight.light_energy = 0.0
+	_flashlight.spot_range = 22.0
+	_flashlight.spot_angle = 32.0
+	_flashlight.spot_attenuation = 1.2
+	_flashlight.shadow_enabled = false
+	camera.add_child(_flashlight)
+	_flashlight.position = Vector3(0.2, -0.15, 0.0)
 	# _update_held_item runs on both inventory changes AND slot selection, and it drives
 	# the lantern too — so selecting/holstering the lantern lights or darkens the hand.
 	PlayerState.inventory_changed.connect(_update_held_item)
 	PlayerState.player_died.connect(_on_player_died)
 	_update_lantern()
+	_update_flashlight()
 
 ## Guarantee the posture actions exist even if project.godot lacks them. `crouch` is
 ## defined in the project map (Ctrl); `prone` is registered here at runtime (Z) so we
@@ -260,6 +282,16 @@ func _hotbar_pressed(slot: int) -> void:
 ## a quick double-tap toggles dev fly mode (testing). The stray single-tap hook
 ## on the way into a double-tap is harmless — it needs a hook item and reels back.
 func _f_pressed() -> void:
+	# With a flashlight in hand, F is its on/off switch — the intuitive key wins over the
+	# rigging hook, which needs its own item and is rarely held at the same time as a torch.
+	if _selected_item_id() == "flashlight":
+		_flashlight_on = not _flashlight_on
+		_update_flashlight()
+		AudioDirector.play_one_shot("clang", global_position, -30.0)   # a soft switch click
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("Flashlight %s." % ("on" if _flashlight_on else "off"))
+		return
 	var now: int = Time.get_ticks_msec()
 	if now - _last_f_ms <= DOUBLE_TAP_MS:
 		_last_f_ms = -10000
@@ -567,6 +599,14 @@ func _update_lantern() -> void:
 	var tw: Tween = create_tween()
 	tw.tween_property(_lantern_light, "light_energy", want, 0.6)
 
+## The flashlight beam is on only while a flashlight is the item in hand AND its switch
+## is on. Snappier than the lantern ease — a torch clicks, it doesn't fade.
+func _update_flashlight() -> void:
+	if _flashlight == null or not is_instance_valid(_flashlight):
+		return
+	var lit: bool = _flashlight_on and _selected_item_id() == "flashlight"
+	_flashlight.light_energy = FLASHLIGHT_ENERGY if lit else 0.0
+
 func _update_footsteps(_delta: float) -> void:
 	if not is_on_floor():
 		return
@@ -826,8 +866,9 @@ func _throw_carried() -> void:
 ## world-scale props with internal offsets, so we normalize at runtime: recenter on the
 ## combined AABB and uniform-scale so the largest dimension is HAND_ITEM_MAX_DIM.
 func _update_held_item() -> void:
-	# The hand light tracks the selected slot too — refresh it whenever the hand does.
+	# The hand lights track the selected slot too — refresh them whenever the hand does.
 	_update_lantern()
+	_update_flashlight()
 	# Clear previous hand item
 	for child in _hand_item.get_children():
 		_hand_item.remove_child(child)

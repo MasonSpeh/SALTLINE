@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://hnwmdolcswqw"
 path.s3tc="res://.godot/imported/ceramic_pot_arm_1k.jpg-2c04ce3dc5d954a554cca9b831c3f2a2.s3tc.ctex"
+path.etc2="res://.godot/imported/ceramic_pot_arm_1k.jpg-2c04ce3dc5d954a554cca9b831c3f2a2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ceramic_pot/textures/ceramic_pot_arm_1k.jpg"
-dest_files=["res://.godot/imported/ceramic_pot_arm_1k.jpg-2c04ce3dc5d954a554cca9b831c3f2a2.s3tc.ctex"]
+dest_files=["res://.godot/imported/ceramic_pot_arm_1k.jpg-2c04ce3dc5d954a554cca9b831c3f2a2.s3tc.ctex", "res://.godot/imported/ceramic_pot_arm_1k.jpg-2c04ce3dc5d954a554cca9b831c3f2a2.etc2.ctex"]
 
 [params]
 

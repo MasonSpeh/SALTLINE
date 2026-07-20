@@ -1783,6 +1783,8 @@ func _decorate_rec_room() -> void:
 
 func _decorate_machine_shop() -> void:
 	var y: float = DECK_Y
+	# A flashlight on the fitter's bench — the shop's own torch.
+	_takeable("flashlight", "Flashlight", Vector3(-19.0, y + 1.02, -12.05))
 	# Pegboard of tools, visible through the window — the tease continues.
 	_box(Vector3(-21, y + 1.9, -17.6), Vector3(3.0, 1.4, 0.06), MatLib.flat(Color(0.75, 0.72, 0.6)), self, false)
 	var tool_colors := [Color(0.7, 0.3, 0.2), Color(0.3, 0.4, 0.6), Color(0.5, 0.5, 0.5), Color(0.7, 0.6, 0.2), Color(0.4, 0.4, 0.4), Color(0.6, 0.35, 0.25)]
@@ -1826,6 +1828,8 @@ func _decorate_machine_shop() -> void:
 
 func _decorate_pump_room() -> void:
 	var y: float = WET_Y
+	# A flashlight left on the dead pump — the pump room is unlit until power is back.
+	_takeable("flashlight", "Flashlight", Vector3(12.0, y + 1.85, -12.0))
 	# Pipe runs along the north wall, one valve wheel each.
 	for py in [2.6, 3.2]:
 		var pipe := _cyl_nc(Vector3(14, y + py, -6.5), 0.12, 7.0, MatLib.rusty_metal())

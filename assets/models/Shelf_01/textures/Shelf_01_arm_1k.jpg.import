@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bhl7j4fsywd5"
 path.s3tc="res://.godot/imported/Shelf_01_arm_1k.jpg-ed0eaf3a3e69936ef5085bb05fb800f1.s3tc.ctex"
+path.etc2="res://.godot/imported/Shelf_01_arm_1k.jpg-ed0eaf3a3e69936ef5085bb05fb800f1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Shelf_01/textures/Shelf_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/Shelf_01_arm_1k.jpg-ed0eaf3a3e69936ef5085bb05fb800f1.s3tc.ctex"]
+dest_files=["res://.godot/imported/Shelf_01_arm_1k.jpg-ed0eaf3a3e69936ef5085bb05fb800f1.s3tc.ctex", "res://.godot/imported/Shelf_01_arm_1k.jpg-ed0eaf3a3e69936ef5085bb05fb800f1.etc2.ctex"]
 
 [params]
 

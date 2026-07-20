@@ -117,6 +117,40 @@ static func point_solid(node: Node3D, pos: Vector3, exclude: Array[RID] = []) ->
 	q.exclude = exclude
 	return not world.direct_space_state.intersect_point(q, 1).is_empty()
 
+# ---------------------------------------------------------------- 3D anti-clip
+
+## SWIMMERS AND FLYERS that path near the rig — fish schools around the legs, the shark's
+## charge, the eel, the reef shoals — move in full 3D by direct global_position assignment,
+## the same way the deck walkers do in XZ. This is their wall test: raycast the intended move
+## `from`->`to` against world geometry (mask 1, the rig's caissons/pontoons/decks and the
+## drop net). Returns {"pos", "blocked"}:
+##   clear   -> {to, false}, move freely.
+##   blocked -> {a point `radius` short of the surface, true}. The body stops OUTSIDE the
+##              solid, never in it, and the caller — seeing blocked — turns to a new heading,
+##              exactly the way a snail meeting a wall picks a new direction instead of
+##              pressing through. `exclude` drops the creature's own bodies (and other fauna)
+##              so it never reads itself as a wall.
+static func swim_clear(node: Node3D, from: Vector3, to: Vector3, radius: float = 0.4,
+		exclude: Array[RID] = []) -> Dictionary:
+	var world: World3D = node.get_world_3d()
+	if world == null:
+		return {"pos": to, "blocked": false}
+	var seg: Vector3 = to - from
+	var dist: float = seg.length()
+	if dist < 0.0001:
+		return {"pos": to, "blocked": false}
+	var dir: Vector3 = seg / dist
+	# Cast a little past the target so we stop short of a surface we would end up touching.
+	var q := PhysicsRayQueryParameters3D.create(from, to + dir * radius)
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = exclude
+	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return {"pos": to, "blocked": false}
+	var stop: Vector3 = (hit["position"] as Vector3) - dir * radius
+	return {"pos": stop, "blocked": true}
+
 ## The obstruction `reach` metres ahead along `heading`, for a body of `body_radius`
 ## whose up is `up`: {} when the way is clear, else {"point", "normal", "distance"} for
 ## the NEAREST of the three body probes (centre + both shoulders). A face within ~45
