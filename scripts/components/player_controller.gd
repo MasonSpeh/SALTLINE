@@ -682,14 +682,43 @@ func _climb_process(_delta: float) -> void:
 	velocity = Vector3(0, up_input * CLIMB_SPEED, 0)
 	move_and_slide()
 	if global_position.y >= top_y - 0.2 and up_input > 0.0 and not _climb_from_top:
-		# Mantle off the top, onto the open exit side (clear of the rungs and wall).
-		global_position = ladder.top_point() - ladder.face_dir() * ladder.exit_forward + Vector3(0, 0.4, 0)
-		_leave_climb()
+		# Mantle off the top, onto a spot that is actually clear (never blind — see below).
+		_dismount_clear(ladder.top_point() + Vector3(0, 0.4, 0), -ladder.face_dir(), ladder.exit_forward)
 	elif global_position.y <= bottom_y + 0.1 and up_input < 0.0:
-		# Step off the bottom onto the open side so re-armed collision doesn't drop the
-		# capsule straight back into the pinch between the rungs and the shaft wall.
-		global_position = ladder.bottom_point() - ladder.face_dir() * ladder.exit_forward + Vector3(0, 0.1, 0)
-		_leave_climb()
+		# Step off the bottom onto a clear spot, not the pinch between rungs and shaft wall.
+		_dismount_clear(ladder.bottom_point() + Vector3(0, 0.1, 0), -ladder.face_dir(), ladder.exit_forward)
+
+## Leave the ladder onto a spot the capsule actually FITS. This is the fix for the
+## permanent "stuck near a ladder" trap: the old exit teleported the player blind to
+## anchor - face_dir*exit_forward. Collision is off during the whole climb, so if a crate,
+## drum, bench or wall happened to sit at that spot, the player was dropped INSIDE it and,
+## the instant collision re-armed, move_and_slide() could never depenetrate a fully-buried
+## capsule — dead stuck, and out of the climb state, so none of the bail keys applied.
+##
+## Now: re-arm collision FIRST (so the test can see the world), then try a spread of exit
+## spots — the intended one, then progressively further out, then half a body to each side,
+## then straight up out of the pinch — and take the first that is clear. test_move with
+## recovery_as_collision reports an initial overlap even with zero travel, so "clear" means
+## the capsule does not already intersect anything there.
+func _dismount_clear(anchor: Vector3, into: Vector3, ef: float) -> void:
+	set_collision_layer_value(1, true)
+	set_collision_mask_value(1, true)
+	_climbing = null
+	var flat: Vector3 = Vector3(into.x, 0.0, into.z)
+	flat = flat.normalized() if flat.length() > 0.01 else -global_transform.basis.z
+	var side: Vector3 = flat.cross(Vector3.UP).normalized()
+	var cands: Array[Vector3] = []
+	for d in [ef, ef + 0.6, ef + 1.3]:
+		cands.append(anchor + flat * d)
+		cands.append(anchor + flat * d + side * 0.55)
+		cands.append(anchor + flat * d - side * 0.55)
+	cands.append(anchor + Vector3(0, 1.3, 0))   # last resort: straight up
+	for c in cands:
+		var xf := Transform3D(global_transform.basis, c)
+		if not test_move(xf, Vector3(0, -0.05, 0), null, 0.001, true):
+			global_position = c
+			return
+	global_position = cands[0]   # nothing clear anywhere — take the intended spot
 
 ## Entering the water no longer teleports you out — you swim (GDD §31). The sea
 ## takes warmth constantly, ladders are the way back up, and the deep is death.

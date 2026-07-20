@@ -1630,6 +1630,14 @@ func _build_access() -> void:
 	# Sea -> dock: the swimmer's way back up, at the relocated boat landing east
 	# of the pod. Starts below the swell so falling in is survivable (GDD §31).
 	_ladder(Vector3(24.6, -1.4, -22.42), WET_Y + 1.6, 180.0, "Dock Ladder", 0.9)
+	# Two more sea->wet-deck ladders so a swimmer is never far from a way back up,
+	# spread onto clear edges away from the deck clutter. Base below the swell (y-1.4),
+	# rising to just over the deck (top y2.2); facing chosen so the climber mantles
+	# INWARD onto open plating (east edge -> steps west; north edge -> steps south).
+	# The exit itself is now clearance-checked (player_controller._dismount_clear), so
+	# the old "stuck against a nearby object" trap can't happen at any of them.
+	_ladder(Vector3(29.9, -1.4, -10.0), 3.6, -90.0, "Wet Deck Ladder — East", 1.0)
+	_ladder(Vector3(12.0, -1.4, 2.1), 3.6, 180.0, "Wet Deck Ladder — North", 1.0)
 	# Wet Deck -> pump room roof (small vantage, stashed crate).
 	_ladder(Vector3(18.25, WET_Y, -8), 3.5, -90.0, "Roof Ladder", 1.0)
 	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.13, -8.5))

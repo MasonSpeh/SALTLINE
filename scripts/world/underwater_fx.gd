@@ -90,14 +90,19 @@ func _build_light_shafts() -> void:
 	var spots: Array[Vector3] = []
 	for leg in LEGS:
 		spots.append(Vector3(leg.x + _rng.randf_range(-3.5, 3.5), 0, leg.y + _rng.randf_range(-3.5, 3.5)))
-	# a few in the open water off the wet deck and toward the gyre
-	for extra in [Vector3(16, 0, -18), Vector3(6, 0, -24), Vector3(-6, 0, 2), Vector3(12, 0, 6)]:
+	# a couple in the open water — fewer than before, so the shafts stay an occasional
+	# accent in the column rather than a picket fence of them.
+	for extra in [Vector3(6, 0, -24), Vector3(-6, 0, 2)]:
 		spots.append(extra)
 	for sp in spots:
 		var mat := ShaderMaterial.new()
 		mat.shader = load("res://materials/light_shaft.gdshader")
 		mat.set_shader_parameter("reach", _rng.randf_range(11.0, 15.0))
-		mat.set_shader_parameter("density", _rng.randf_range(0.22, 0.38))
+		# Much fainter than before — the shafts read as suggestions of light in the water,
+		# not solid glowing bars. The shader now also breaks them into rays and fades them
+		# near the camera, so a low density here reads as subtle god-rays.
+		mat.set_shader_parameter("density", _rng.randf_range(0.04, 0.07))
+		mat.set_shader_parameter("shaft_color", Vector3(0.24, 0.46, 0.48))
 		_shaft_mats.append(mat)
 		var yaw: float = _rng.randf_range(0, TAU)
 		var w: float = _rng.randf_range(1.3, 2.1)

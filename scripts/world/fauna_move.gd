@@ -300,6 +300,29 @@ class SurfaceCrawler extends RefCounted:
 			heading = Vector3(cos(a), 0.0, sin(a))
 			_leg = _rng.randf_range(leash * 0.6, leash * 1.3)
 
+	## Re-home the crawler at `new_home` and reset its grounding/decision state, so a snail
+	## that was picked up and set down somewhere new resumes crawling FROM there — re-seats
+	## onto whatever surface is under the drop point and wanders around it, instead of
+	## snapping back to where it was first spawned.
+	func reseat(new_home: Vector3) -> void:
+		home = new_home
+		y_fallback = new_home.y
+		_seated = false          # re-run the wide grounding probe next tick
+		_grounded = false
+		_bound = false           # re-collect the kin-body skip list at the new spot
+		_commit = 0.0
+		_wall_turn = 0.0
+		_still = 0.0
+		_pause = 0.0
+		up = Vector3.UP
+		if axis.length() > 0.5:
+			_goal = new_home + axis * leash
+			heading = axis
+		else:
+			var a: float = _rng.randf() * TAU
+			heading = Vector3(cos(a), 0.0, sin(a))
+		_leg = _rng.randf_range(leash * 0.6, leash * 1.3)
+
 	## Advance one frame: crawl the surface, decide about whatever is in the way, and
 	## re-seat the foot on the face. Orientation is the caller's (basis()/orient()).
 	func tick(host: Node3D, delta: float) -> void:
