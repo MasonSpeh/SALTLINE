@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b1fpuyjtoabi2"
 path.s3tc="res://.godot/imported/vintage_stapler_arm_1k.jpg-5ac9875e05f1eb3108b04af29604099d.s3tc.ctex"
+path.etc2="res://.godot/imported/vintage_stapler_arm_1k.jpg-5ac9875e05f1eb3108b04af29604099d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/vintage_stapler/textures/vintage_stapler_arm_1k.jpg"
-dest_files=["res://.godot/imported/vintage_stapler_arm_1k.jpg-5ac9875e05f1eb3108b04af29604099d.s3tc.ctex"]
+dest_files=["res://.godot/imported/vintage_stapler_arm_1k.jpg-5ac9875e05f1eb3108b04af29604099d.s3tc.ctex", "res://.godot/imported/vintage_stapler_arm_1k.jpg-5ac9875e05f1eb3108b04af29604099d.etc2.ctex"]
 
 [params]
 

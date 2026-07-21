@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cmmlkj6udfy3j"
 path.s3tc="res://.godot/imported/russian_food_cans_01_arm_1k.jpg-7760f6710d99f3131e1087fbd61ed0e5.s3tc.ctex"
+path.etc2="res://.godot/imported/russian_food_cans_01_arm_1k.jpg-7760f6710d99f3131e1087fbd61ed0e5.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/russian_food_cans_01/textures/russian_food_cans_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/russian_food_cans_01_arm_1k.jpg-7760f6710d99f3131e1087fbd61ed0e5.s3tc.ctex"]
+dest_files=["res://.godot/imported/russian_food_cans_01_arm_1k.jpg-7760f6710d99f3131e1087fbd61ed0e5.s3tc.ctex", "res://.godot/imported/russian_food_cans_01_arm_1k.jpg-7760f6710d99f3131e1087fbd61ed0e5.etc2.ctex"]
 
 [params]
 

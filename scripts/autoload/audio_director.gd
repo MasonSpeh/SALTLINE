@@ -233,12 +233,23 @@ func play_one_shot(shot_name: String, world_pos: Vector3, volume_db: float = 0.0
 		p3.play()
 
 ## Looping spatial emitter attached to a moving node (crab claw-steps).
-func attach_loop(shot_name: String, parent: Node3D, interval: float) -> Timer:
+## Repeating positional one-shot. `volume_db` is per-loop now — the claw loop used to
+## hardcode -4 dB here, which made every looping sound effect nearly full-volume.
+## `max_range` > 0 skips the shot entirely while the player is further away than that:
+## a repeating cue is a proximity warning, and a warning you can hear from anywhere on
+## the rig all night is just noise.
+func attach_loop(shot_name: String, parent: Node3D, interval: float,
+		volume_db: float = -4.0, max_range: float = 0.0) -> Timer:
 	var t := Timer.new()
 	t.wait_time = interval
 	parent.add_child(t)
 	t.timeout.connect(func() -> void:
-		if is_instance_valid(parent):
-			play_one_shot(shot_name, parent.global_position, -4.0))
+		if not is_instance_valid(parent):
+			return
+		if max_range > 0.0:
+			var player: Node = get_tree().get_first_node_in_group("player")
+			if player is Node3D and (player as Node3D).global_position.distance_to(parent.global_position) > max_range:
+				return
+		play_one_shot(shot_name, parent.global_position, volume_db))
 	t.start()
 	return t

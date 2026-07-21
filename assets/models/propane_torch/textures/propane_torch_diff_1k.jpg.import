@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dsaiw315fj3x6"
 path.s3tc="res://.godot/imported/propane_torch_diff_1k.jpg-f10cefb5e6920f996b5832ae366fcecd.s3tc.ctex"
+path.etc2="res://.godot/imported/propane_torch_diff_1k.jpg-f10cefb5e6920f996b5832ae366fcecd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/propane_torch/textures/propane_torch_diff_1k.jpg"
-dest_files=["res://.godot/imported/propane_torch_diff_1k.jpg-f10cefb5e6920f996b5832ae366fcecd.s3tc.ctex"]
+dest_files=["res://.godot/imported/propane_torch_diff_1k.jpg-f10cefb5e6920f996b5832ae366fcecd.s3tc.ctex", "res://.godot/imported/propane_torch_diff_1k.jpg-f10cefb5e6920f996b5832ae366fcecd.etc2.ctex"]
 
 [params]
 

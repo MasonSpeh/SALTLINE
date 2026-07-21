@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dtkprw26q5dsw"
 path.s3tc="res://.godot/imported/rubber_duck_toy_arm_1k.jpg-d905c90c3b513e84d3c6fed3fadbcbba.s3tc.ctex"
+path.etc2="res://.godot/imported/rubber_duck_toy_arm_1k.jpg-d905c90c3b513e84d3c6fed3fadbcbba.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/rubber_duck_toy/textures/rubber_duck_toy_arm_1k.jpg"
-dest_files=["res://.godot/imported/rubber_duck_toy_arm_1k.jpg-d905c90c3b513e84d3c6fed3fadbcbba.s3tc.ctex"]
+dest_files=["res://.godot/imported/rubber_duck_toy_arm_1k.jpg-d905c90c3b513e84d3c6fed3fadbcbba.s3tc.ctex", "res://.godot/imported/rubber_duck_toy_arm_1k.jpg-d905c90c3b513e84d3c6fed3fadbcbba.etc2.ctex"]
 
 [params]
 

@@ -59,7 +59,12 @@ func _ready() -> void:
 	# a few cm above both. The SW-leg run sat at x -19.0, which is exactly the caisson's
 	# inboard face, so that snail crawled along the inside of the concrete.
 	var graze_runs: Array = [
-		[Vector3(24.6, 2.0, -18.4), Vector3(24.6, 2.0, -12.6)],     # wet-deck rail
+		# CLEAR STRETCH: this run used to be x24.6 z-18.4..-12.6, which drove the seam
+		# STRAIGHT INTO the rigging bench (x24-26, z-17.5) — and its home sat in that
+		# clutter too, so the snail pinballed off the bench and spun in place (measured
+		# ~4.4 laps / 0.2 m net). Moved to the open plate north of the pump room, a real
+		# clear seam it can actually patrol end to end.
+		[Vector3(11.5, 2.0, -4.0), Vector3(19.5, 2.0, -4.0)],       # wet-deck plate (open)
 		[Vector3(-17.4, 0.95, -13.4), Vector3(-17.4, 0.95, -10.6)], # SW leg splash zone
 		[Vector3(13.0, 2.0, -18.2), Vector3(19.0, 2.0, -18.2)],     # wet-deck plate seam
 		[Vector3(3.0, 0.95, -12.4), Vector3(9.0, 0.95, -12.4)],     # pontoon seam
@@ -161,6 +166,51 @@ static func glow_mat(color: Color, energy: float, alpha: float = 1.0) -> Standar
 static func is_dark_phase() -> bool:
 	return GameClock.current_phase == GameClock.Phase.NIGHT \
 		or GameClock.current_phase == GameClock.Phase.DUSK
+
+## Pick up a whole snail like a normal deck item — an actual carry of the LIVE animal.
+## The snail is NOT swapped for a box: it keeps its own shell, gut-glow and pedal
+## animation, is held out in front of you, and when you set it down it resumes crawling
+## from wherever you put it (see SurfaceCrawler.reseat + snail_carry below). It goes into
+## the same `carried` slot movable props use, so [E]/[G] sets it down and [LMB] tosses it.
+## Snails are plain Node3D crawlers (never RigidBody3D — that is what lets them climb and
+## hug walls), so they can't ride the PhysProp carry physics; snail_carry() moves them.
+static func grab_snail(species: Node3D, player: Node3D) -> void:
+	if species == null or player == null or not player.has_method("try_grab"):
+		return
+	species.set("_carried_by", player)
+	_snail_touch_solid(species, false)   # don't let the held snail shove the player
+	player.try_grab(species)
+
+## Toggle the snail's FaunaTouch collider on/off. While carried it floats a hand's reach
+## in front of the camera, exactly where the player walks — a live StaticBody there would
+## shove the player around, so its collision layer is cleared until it is set back down.
+static func _snail_touch_solid(species: Node3D, solid: bool) -> void:
+	for ch in species.get_children():
+		if ch is FaunaTouch:
+			(ch as FaunaTouch).collision_layer = 1 if solid else 0
+
+## Per-frame carry for a live snail. Call it at the top of the species' crawl step:
+## returns true while the animal is being carried (the species should then skip its
+## world crawl but keep animating), false otherwise. On the frame it is set down it
+## re-homes the crawler at the drop point so the snail crawls on from there.
+static func snail_carry(species: Node3D, crawler, delta: float) -> bool:
+	var by: Variant = species.get("_carried_by")
+	if by == null:
+		return false
+	# Dropped (set down, thrown, or the carrier vanished): resume crawling here.
+	if not is_instance_valid(by) or by.get("carried") != species:
+		species.set("_carried_by", null)
+		_snail_touch_solid(species, true)   # grabbable again where it was set down
+		if crawler != null:
+			crawler.reseat(species.global_position)
+		return false
+	# Carried: ride a hand's reach in front of the carrier's gaze, a little below centre.
+	var cam: Node = by.get_node_or_null("Head/Camera3D")
+	if cam is Camera3D:
+		var c: Camera3D = cam
+		var target: Vector3 = c.global_position - c.global_transform.basis.z * 0.95 + Vector3(0, -0.28, 0)
+		species.global_position = species.global_position.lerp(target, clampf(delta * 12.0, 0.0, 1.0))
+	return true
 
 ## Drop a just-attached generated model so its lowest point sits at the host's local
 ## origin — the foot touches the surface instead of floating. Same trick FloraPatch
@@ -752,6 +802,8 @@ class FiddlerShoal extends Node3D:
 			var a: float = _t * 1.6 + i * (TAU / COUNT)
 			var r: float = 1.2 + sin(_t * 0.9 + i) * 0.5
 			var next := center + Vector3(cos(a) * r, sin(_t * 2.0 + i) * 0.1, sin(a) * r * 0.7)
+			# They shoal under the wet-deck lip and around the legs — keep them out of the steel.
+			next = FaunaMove.swim_clear(_fish[i], _fish[i].global_position, next, 0.2)["pos"]
 			var vel: Vector3 = next - _fish[i].global_position
 			_fish[i].global_position = next
 			if vel.length_squared() > 0.0001:
@@ -1444,6 +1496,7 @@ class LampSnail extends Node3D:
 	var _eye_mat: StandardMaterial3D
 	var _harvest_cd: float = 0.0      ## regrowth time after a mucus harvest
 	var _crawler: GroundCrawler       ## wall-aware wander around the leg base
+	var _carried_by: Node3D = null    ## set while the player is carrying this live snail
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -1516,8 +1569,11 @@ class LampSnail extends Node3D:
 		var touch := FaunaTouch.new("Lamp Snail", 0.85,
 			func() -> Array:
 				var night: bool = GameClock.current_phase == GameClock.Phase.NIGHT
-				return ["HARVEST"] if night and _harvest_cd <= 0.0 else [],
-			_harvest)
+				var out: Array = ["GRAB"]
+				if night and _harvest_cd <= 0.0:
+					out.push_front("HARVEST")
+				return out,
+			_touch_act)
 		add_child(touch)
 		# Generated mesh: a faint shell flex; the constellation does the real work.
 		# PEDAL: the foot ripples back-to-front, which is how a snail actually travels.
@@ -1529,6 +1585,12 @@ class LampSnail extends Node3D:
 		# heads out, and when the caisson or a rail stops it, it turns and grazes on.
 		global_position = _base
 		_crawler = GroundCrawler.new(_base, 4.2, 0.13, 400 + _idx, 0.35, 0.2, _base.y)
+
+	func _touch_act(verb: String, player: Node3D) -> void:
+		if verb == "GRAB":
+			BloomFauna.grab_snail(self, player)
+			return
+		_harvest(verb, player)
 
 	func _harvest(_verb: String, _player: Node3D) -> void:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
@@ -1564,6 +1626,9 @@ class LampSnail extends Node3D:
 			var s: Node3D = _stalks[i]
 			s.rotation.z = sin(_t * 0.6 + i * PI) * 0.22
 			s.rotation.y = sin(_t * 0.4 + i * 1.7) * 0.18
+		# Being carried: hold in front of the player, keep the pedal animation, don't crawl.
+		if BloomFauna.snail_carry(self, _crawler, delta):
+			return
 		# A slow wander round the leg base, riding the pontoon top and turning away from the
 		# caisson instead of tracing a rigid circle through it. Grounds every frame so it
 		# never floats; the +PI in face_yaw leads the yaw-normalised (-Z-forward) model
@@ -1623,6 +1688,13 @@ class DeckGull extends Node3D:
 	var _closest: float = 1e9     ## closest the player has crept this landing (threat roll)
 	var _look_cd: float = 0.0     ## idle head-turn clock
 	var _look_yaw: float = 0.0
+	## Legs: the generated body (like every text-to-3D asset here — see
+	## creature_anim.gd) is a single static mesh with no skeleton to animate, so a
+	## real walk cycle needs its own procedural pivots, the same way crab.gd's 8 legs
+	## do. Two is enough to read as a strutting bird; ANIM.attach (unlike .replace)
+	## never hides pre-existing geometry, so these stay visible next to the model.
+	var _leg_l: Node3D
+	var _leg_r: Node3D
 
 	func _init(home: Vector3) -> void:
 		_home = home
@@ -1639,9 +1711,29 @@ class DeckGull extends Node3D:
 		ANIM.drive(_gen_mats, 0.6, 0.15)
 		global_position = _home
 		_peck = randf_range(2.0, 5.0)
+		_leg_l = _build_leg(-0.045)
+		_leg_r = _build_leg(0.045)
 		# Grab it if you can reach it before it flushes — crouch-sneak to close the gap.
 		var touch := FaunaTouch.new("Deck Gull", 0.9, _grab_verbs, _grab_act)
 		add_child(touch)
+
+	## A hip pivot at the body with a thin shin hanging from it, so rotating the
+	## pivot swings the whole leg from the top the way a real stride works instead
+	## of just tilting a stick planted at the ground.
+	func _build_leg(side_x: float) -> Node3D:
+		var hip := Node3D.new()
+		add_child(hip)
+		hip.position = Vector3(side_x, 0.16, 0.0)
+		var shin := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.008
+		cm.bottom_radius = 0.011
+		cm.height = 0.14
+		cm.material = BloomFauna.glow_mat(Color(0.8, 0.6, 0.2), 0.0)
+		shin.mesh = cm
+		hip.add_child(shin)
+		shin.position = Vector3(0, -0.07, 0)
+		return hip
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -1661,6 +1753,10 @@ class DeckGull extends Node3D:
 			_flushing += delta
 			global_position += _flush_dir * delta * 6.5 + Vector3(0, delta * 3.2, 0)
 			rotation.y = atan2(_flush_dir.x, _flush_dir.z) + PI
+			# Legs tuck up under the body in flight, not stay planted for the ground stride.
+			if _leg_l and _leg_r:
+				_leg_l.rotation.x = lerpf(_leg_l.rotation.x, deg_to_rad(-100.0), delta * 6.0)
+				_leg_r.rotation.x = lerpf(_leg_r.rotation.x, deg_to_rad(-100.0), delta * 6.0)
 			if _flushing > 3.0:
 				visible = false
 				_regen = randf_range(45.0, 90.0)
@@ -1697,10 +1793,18 @@ class DeckGull extends Node3D:
 			rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z) + PI, delta * 5.0)
 			if _model:
 				_model.rotation.z = sin(_t * 7.0) * 0.06   # the waddle
+			if _leg_l and _leg_r:
+				# Opposite-phase stride, same swing frequency as the waddle above so the
+				# legs and the body roll read as one gait rather than two separate ticks.
+				_leg_l.rotation.x = sin(_t * 7.0) * 0.5
+				_leg_r.rotation.x = sin(_t * 7.0 + PI) * 0.5
 		elif _model:
 			# Pecking: quick bow, twice, then upright — reads as feeding.
 			_model.rotation.x = maxf(sin(_t * 5.0), 0.0) * 0.5 * maxf(sin(_t * 0.7), 0.0)
 			_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 4.0)
+			if _leg_l and _leg_r:
+				_leg_l.rotation.x = lerpf(_leg_l.rotation.x, 0.0, delta * 5.0)
+				_leg_r.rotation.x = lerpf(_leg_r.rotation.x, 0.0, delta * 5.0)
 			# Idle head-turns: it glances around on its own organic clock.
 			_look_cd -= delta
 			if _look_cd <= 0.0:
@@ -1731,7 +1835,7 @@ class DeckGull extends Node3D:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if _flushing >= 0.0 or _regen > 0.0 or not visible:
 			return
-		if not PlayerState.add_item("gull_meat"):
+		if not PlayerState.add_item("raw_sea_bird"):
 			if hud and hud.has_method("toast"):
 				hud.toast("No room for it — the gull thrashes free.")
 			return
@@ -1741,7 +1845,7 @@ class DeckGull extends Node3D:
 		_flushing = -1.0
 		_regen = randf_range(60.0, 120.0)   # another gull drops onto the deck later
 		if hud and hud.has_method("toast"):
-			hud.toast("You get both hands round it before it can bolt. Gull meat for the pot.")
+			hud.toast("You get both hands round it before it can bolt. A sea-bird for the pot.")
 
 # -------------------------------------------------------------- ReefFish
 class ReefFish extends Node3D:
@@ -1826,6 +1930,9 @@ class ReefFish extends Node3D:
 			var a: float = Time.get_ticks_msec() * 0.001 * f["spd"] + f["ph"]
 			var pos: Vector3 = _centre + Vector3(cos(a) * f["r"], f["h"] + sin(a * 2.3) * 0.3, sin(a) * f["r"])
 			var node: Node3D = f["node"]
+			# These orbit a rig leg — don't let one clip through the caisson. Stop it at the
+			# steel; its orbit carries it back out next frame.
+			pos = FaunaMove.swim_clear(node, node.global_position, pos, 0.25)["pos"]
 			var vel: Vector3 = pos - node.global_position
 			node.global_position = pos
 			if vel.length_squared() > 0.00001:
@@ -1891,6 +1998,7 @@ class RustSnail extends Node3D:
 	var _idx: int
 	var _glow_mats: Array[StandardMaterial3D] = []
 	var _crawler: GroundCrawler       ## wall-aware patrol along the scoured seam
+	var _carried_by: Node3D = null    ## set while the player is carrying this live snail
 
 	func _init(idx: int, from_p: Vector3, to_p: Vector3) -> void:
 		_idx = idx
@@ -1941,9 +2049,16 @@ class RustSnail extends Node3D:
 		var mid: Vector3 = _from.lerp(_to, 0.5)
 		_crawler = GroundCrawler.new(mid, _from.distance_to(_to) * 0.5, 0.1, 700 + _idx,
 			0.2, 0.15, _from.y, _to - _from)
+		# Grab it like any other loose item — it comes off the rail into your hands.
+		var touch := FaunaTouch.new("Rust Snail", 0.5, func() -> Array: return ["GRAB"],
+			func(_verb: String, player: Node3D) -> void:
+				BloomFauna.grab_snail(self, player))
+		add_child(touch)
 
 	func _process(delta: float) -> void:
 		_t += delta
+		if BloomFauna.snail_carry(self, _crawler, delta):
+			return
 		# Patrol the scoured seam, respecting whatever rail or bulkhead crosses it.
 		_crawler.tick(self, delta)
 		# Rasping — the shell rocks side to side as the radula works the steel. The rock is
@@ -1972,6 +2087,7 @@ class GlassSnail extends Node3D:
 	var _gut_mats: Array[StandardMaterial3D] = []
 	var _interest: float = 0.0
 	var _crawler: GroundCrawler       ## wall-aware drift across the submerged plate
+	var _carried_by: Node3D = null    ## set while the player is carrying this live snail
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -2022,6 +2138,11 @@ class GlassSnail extends Node3D:
 		# and turning back at the plate edge instead of hanging out over open water.
 		global_position = _base
 		_crawler = GroundCrawler.new(_base, 3.0, 0.08, 900 + _idx, 0.18, 0.12, _base.y)
+		# Grab it like any other loose item — the curious one comes along easily too.
+		var touch := FaunaTouch.new("Glass Snail", 0.4, func() -> Array: return ["GRAB"],
+			func(_verb: String, player: Node3D) -> void:
+				BloomFauna.grab_snail(self, player))
+		add_child(touch)
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -2034,6 +2155,8 @@ class GlassSnail extends Node3D:
 			_gut_mats[i].emission_energy_multiplier = pulse * lerpf(1.4, 4.0, _interest)
 		if _gen_mats.size() > 0:
 			ANIM.drive(_gen_mats, 0.6, lerpf(0.6, 2.2, _interest))
+		if BloomFauna.snail_carry(self, _crawler, delta):
+			return
 		# A slow wander across the submerged plate, kept on the steel by its short leash so
 		# the ground ray always has metal under it and the foot rides the plate, not water.
 		_crawler.tick(self, delta)

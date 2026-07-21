@@ -87,6 +87,17 @@ static func is_geometry(n: Node) -> bool:
 func _skipped(n: Node) -> bool:
 	if n.is_in_group("player"):
 		return true
+	# rig_batcher.gd bakes many separate dressing meshes — at many different real
+	# heights — into ONE ArrayMesh per cell/material. That merged mesh's single AABB
+	# top face is meaningless as "the surface here": a cell can combine a girder and a
+	# nearby bolt, and the merged AABB reports the TALLER one across the whole footprint,
+	# inventing a false shelf (or hiding a real one) anywhere within it. This never costs
+	# real placement: interior_props' own settle pass builds and discards its SupportIndex
+	# BEFORE the batcher merges anything (rig_batcher waits on settle_done precisely so it
+	# never removes a surface something is still settling onto), so nothing at runtime
+	# ever queries a SupportIndex again afterward — only a later, from-scratch audit would.
+	if n.is_in_group("merged_dressing"):
+		return true
 	var s: Script = n.get_script() as Script
 	if s != null:
 		var p: String = s.resource_path

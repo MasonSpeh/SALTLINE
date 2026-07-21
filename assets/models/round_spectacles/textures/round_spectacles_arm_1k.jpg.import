@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dg2758470ck0j"
 path.s3tc="res://.godot/imported/round_spectacles_arm_1k.jpg-13a6dd0ef0131be1d7fd8a8a512d2518.s3tc.ctex"
+path.etc2="res://.godot/imported/round_spectacles_arm_1k.jpg-13a6dd0ef0131be1d7fd8a8a512d2518.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/round_spectacles/textures/round_spectacles_arm_1k.jpg"
-dest_files=["res://.godot/imported/round_spectacles_arm_1k.jpg-13a6dd0ef0131be1d7fd8a8a512d2518.s3tc.ctex"]
+dest_files=["res://.godot/imported/round_spectacles_arm_1k.jpg-13a6dd0ef0131be1d7fd8a8a512d2518.s3tc.ctex", "res://.godot/imported/round_spectacles_arm_1k.jpg-13a6dd0ef0131be1d7fd8a8a512d2518.etc2.ctex"]
 
 [params]
 

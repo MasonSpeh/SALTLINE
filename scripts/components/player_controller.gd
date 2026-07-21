@@ -73,6 +73,15 @@ const DEEP_GRACE_SEC: float = 1.6
 var _hand_item: Node3D = null  ## visual item mesh held in right hand
 var _attack_cd: float = 0.0    ## melee swing cooldown
 var _held_item_id: String = ""
+var _hand_reach: float = 0.0   ## half the held item's longest dimension — see hand_tip_world()
+## The LOCAL (container-space) direction from the held item's centre out to its "tip" —
+## most props are authored lying flat pointing out along -Z, but the fishing rod's shaft
+## (item_visual.gd) runs up the mesh's own +Y instead, so a single hardcoded axis put the
+## computed "tip" near the grip, barely off the hand, instead of out at the rod's real end.
+const HAND_TIP_AXIS := {
+	"fishing_rod": Vector3(0, 1, 0),
+}
+var _hand_reach_axis: Vector3 = Vector3(0, 0, -1)
 
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
@@ -139,6 +148,15 @@ const LANTERN_RANGE: float = 9.0
 const LANTERN_ENERGY: float = 1.5
 var _lantern_light: OmniLight3D = null
 
+## Flashlight: a cold hard beam you aim where you look — the tool for the dark decks,
+## the pump room, the stairwell. Unlike the storm lantern (a warm pool that's simply on
+## whenever it's in hand), the flashlight is a SpotLight you TOGGLE: hold one and press F
+## to click it on and off. Lit only while a flashlight is the item in hand AND switched on.
+const FLASHLIGHT_COLOR: Color = Color(0.85, 0.9, 1.0)
+const FLASHLIGHT_ENERGY: float = 4.0
+var _flashlight: SpotLight3D = null
+var _flashlight_on: bool = true   ## picked up switched on, like a working torch
+
 func _ready() -> void:
 	add_to_group("player")
 	camera.fov = 75.0
@@ -167,11 +185,24 @@ func _ready() -> void:
 	_lantern_light.shadow_enabled = false   # gl_compatibility: keep the omni cheap
 	camera.add_child(_lantern_light)
 	_lantern_light.position = Vector3(0.25, -0.2, -0.35)
+	# The flashlight beam: a SpotLight on the camera pointing where you look (a Node3D's
+	# -Z is forward, and the camera already faces -Z). Off until a flashlight is in hand
+	# and switched on. Shadowless on gl_compatibility to keep it cheap.
+	_flashlight = SpotLight3D.new()
+	_flashlight.light_color = FLASHLIGHT_COLOR
+	_flashlight.light_energy = 0.0
+	_flashlight.spot_range = 22.0
+	_flashlight.spot_angle = 32.0
+	_flashlight.spot_attenuation = 1.2
+	_flashlight.shadow_enabled = false
+	camera.add_child(_flashlight)
+	_flashlight.position = Vector3(0.2, -0.15, 0.0)
 	# _update_held_item runs on both inventory changes AND slot selection, and it drives
 	# the lantern too — so selecting/holstering the lantern lights or darkens the hand.
 	PlayerState.inventory_changed.connect(_update_held_item)
 	PlayerState.player_died.connect(_on_player_died)
 	_update_lantern()
+	_update_flashlight()
 
 ## Guarantee the posture actions exist even if project.godot lacks them. `crouch` is
 ## defined in the project map (Ctrl); `prone` is registered here at runtime (Z) so we
@@ -259,6 +290,16 @@ func _hotbar_pressed(slot: int) -> void:
 ## a quick double-tap toggles dev fly mode (testing). The stray single-tap hook
 ## on the way into a double-tap is harmless — it needs a hook item and reels back.
 func _f_pressed() -> void:
+	# With a flashlight in hand, F is its on/off switch — the intuitive key wins over the
+	# rigging hook, which needs its own item and is rarely held at the same time as a torch.
+	if _selected_item_id() == "flashlight":
+		_flashlight_on = not _flashlight_on
+		_update_flashlight()
+		AudioDirector.play_one_shot("clang", global_position, -30.0)   # a soft switch click
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("Flashlight %s." % ("on" if _flashlight_on else "off"))
+		return
 	var now: int = Time.get_ticks_msec()
 	if now - _last_f_ms <= DOUBLE_TAP_MS:
 		_last_f_ms = -10000
@@ -566,6 +607,14 @@ func _update_lantern() -> void:
 	var tw: Tween = create_tween()
 	tw.tween_property(_lantern_light, "light_energy", want, 0.6)
 
+## The flashlight beam is on only while a flashlight is the item in hand AND its switch
+## is on. Snappier than the lantern ease — a torch clicks, it doesn't fade.
+func _update_flashlight() -> void:
+	if _flashlight == null or not is_instance_valid(_flashlight):
+		return
+	var lit: bool = _flashlight_on and _selected_item_id() == "flashlight"
+	_flashlight.light_energy = FLASHLIGHT_ENERGY if lit else 0.0
+
 func _update_footsteps(_delta: float) -> void:
 	if not is_on_floor():
 		return
@@ -611,10 +660,37 @@ func start_climb(ladder: Ladder) -> void:
 
 ## Every climb exit routes here: re-arm the world collision start_climb() disabled
 ## and drop the latch, so normal movement never resumes with collision ghosted off.
+##
+## THE MID-CLIMB STUCK TRAP. The top/bottom mantles go through _dismount_clear, but
+## releasing E (or jumping off) can happen at ANY height — including the exact frames the
+## capsule is passing through a hatch slab, or overlapping the shaft wall the interior
+## well ladders stand 0.35 m off. Collision is off for the whole climb, so re-arming it
+## right there re-armed it around a capsule already buried in the floor plate, and
+## move_and_slide() cannot depenetrate a fully-embedded body: permanently stuck, out of
+## the climb state, no bail key applicable. Now every route through here checks for an
+## overlap after re-arming and, if buried, nudges to the nearest clear spot (off the
+## ladder's wall side first, then the other way, then vertically).
 func _leave_climb() -> void:
 	set_collision_layer_value(1, true)
 	set_collision_mask_value(1, true)
+	var ladder: Ladder = _climbing
 	_climbing = null
+	# Zero-motion test with recovery_as_collision: true only when the capsule already
+	# overlaps something (resting contact separation is far above the 0.001 margin).
+	if not test_move(global_transform, Vector3.ZERO, null, 0.001, true):
+		return
+	var dirs: Array[Vector3] = []
+	if ladder != null and is_instance_valid(ladder):
+		dirs.append(ladder.face_dir())      # away from the wall the ladder faces
+		dirs.append(-ladder.face_dir())
+	dirs.append(Vector3.UP)                 # up out of a hatch slab
+	dirs.append(Vector3.DOWN)               # down out of a ceiling lip
+	for d in dirs:
+		for dist in [0.35, 0.7, 1.1, 1.6]:
+			var c: Vector3 = global_position + d * dist
+			if not test_move(Transform3D(global_transform.basis, c), Vector3.ZERO, null, 0.001, true):
+				global_position = c
+				return
 
 func _climb_process(_delta: float) -> void:
 	# Let go when E is released or the player is input-locked (cutscene) — gravity resumes.
@@ -641,14 +717,43 @@ func _climb_process(_delta: float) -> void:
 	velocity = Vector3(0, up_input * CLIMB_SPEED, 0)
 	move_and_slide()
 	if global_position.y >= top_y - 0.2 and up_input > 0.0 and not _climb_from_top:
-		# Mantle off the top, onto the open exit side (clear of the rungs and wall).
-		global_position = ladder.top_point() - ladder.face_dir() * ladder.exit_forward + Vector3(0, 0.4, 0)
-		_leave_climb()
+		# Mantle off the top, onto a spot that is actually clear (never blind — see below).
+		_dismount_clear(ladder.top_point() + Vector3(0, 0.4, 0), -ladder.face_dir(), ladder.exit_forward)
 	elif global_position.y <= bottom_y + 0.1 and up_input < 0.0:
-		# Step off the bottom onto the open side so re-armed collision doesn't drop the
-		# capsule straight back into the pinch between the rungs and the shaft wall.
-		global_position = ladder.bottom_point() - ladder.face_dir() * ladder.exit_forward + Vector3(0, 0.1, 0)
-		_leave_climb()
+		# Step off the bottom onto a clear spot, not the pinch between rungs and shaft wall.
+		_dismount_clear(ladder.bottom_point() + Vector3(0, 0.1, 0), -ladder.face_dir(), ladder.exit_forward)
+
+## Leave the ladder onto a spot the capsule actually FITS. This is the fix for the
+## permanent "stuck near a ladder" trap: the old exit teleported the player blind to
+## anchor - face_dir*exit_forward. Collision is off during the whole climb, so if a crate,
+## drum, bench or wall happened to sit at that spot, the player was dropped INSIDE it and,
+## the instant collision re-armed, move_and_slide() could never depenetrate a fully-buried
+## capsule — dead stuck, and out of the climb state, so none of the bail keys applied.
+##
+## Now: re-arm collision FIRST (so the test can see the world), then try a spread of exit
+## spots — the intended one, then progressively further out, then half a body to each side,
+## then straight up out of the pinch — and take the first that is clear. test_move with
+## recovery_as_collision reports an initial overlap even with zero travel, so "clear" means
+## the capsule does not already intersect anything there.
+func _dismount_clear(anchor: Vector3, into: Vector3, ef: float) -> void:
+	set_collision_layer_value(1, true)
+	set_collision_mask_value(1, true)
+	_climbing = null
+	var flat: Vector3 = Vector3(into.x, 0.0, into.z)
+	flat = flat.normalized() if flat.length() > 0.01 else -global_transform.basis.z
+	var side: Vector3 = flat.cross(Vector3.UP).normalized()
+	var cands: Array[Vector3] = []
+	for d in [ef, ef + 0.6, ef + 1.3]:
+		cands.append(anchor + flat * d)
+		cands.append(anchor + flat * d + side * 0.55)
+		cands.append(anchor + flat * d - side * 0.55)
+	cands.append(anchor + Vector3(0, 1.3, 0))   # last resort: straight up
+	for c in cands:
+		var xf := Transform3D(global_transform.basis, c)
+		if not test_move(xf, Vector3(0, -0.05, 0), null, 0.001, true):
+			global_position = c
+			return
+	global_position = cands[0]   # nothing clear anywhere — take the intended spot
 
 ## Entering the water no longer teleports you out — you swim (GDD §31). The sea
 ## takes warmth constantly, ladders are the way back up, and the deep is death.
@@ -825,8 +930,9 @@ func _throw_carried() -> void:
 ## world-scale props with internal offsets, so we normalize at runtime: recenter on the
 ## combined AABB and uniform-scale so the largest dimension is HAND_ITEM_MAX_DIM.
 func _update_held_item() -> void:
-	# The hand light tracks the selected slot too — refresh it whenever the hand does.
+	# The hand lights track the selected slot too — refresh them whenever the hand does.
 	_update_lantern()
+	_update_flashlight()
 	# Clear previous hand item
 	for child in _hand_item.get_children():
 		_hand_item.remove_child(child)
@@ -875,7 +981,7 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	var target: float = HAND_ITEM_MAX_DIM
 	match _held_item_id:
 		"fishing_rod":
-			target = 0.62
+			target = 0.9   # a full-length rod actually reads as a rod, not a twig
 		"prybar":
 			target = 0.4
 	if largest > 0.0001:
@@ -885,6 +991,36 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 		# Angle the rod out over the water like it's actually being fished.
 		container.rotation = Vector3(deg_to_rad(-24), deg_to_rad(-14), 0)
 		container.position += Vector3(0.05, -0.05, -0.1)
+	# Half the item's longest dimension, in CONTAINER-local units (after the
+	# recentre above, the visual's AABB is symmetric about the container origin).
+	# hand_tip_world() uses this to find the far end of whatever is held, so a
+	# line/string anchored there tracks the actual held object instead of a
+	# fixed offset from the player's feet.
+	_hand_reach = largest * 0.5
+	_hand_reach_axis = HAND_TIP_AXIS.get(_held_item_id, Vector3(0, 0, -1))
+
+## World position of the far end of whatever is currently in the hand — the
+## fishing rod anchors its line/string here instead of a fixed offset from the
+## player's feet, which never tracked the camera at all (turn to look around and
+## the old anchor stayed put while the rod visual swung with the view, so the
+## line read as "glitched away" from the rod). container is _hand_item's first
+## (and only) child, built fresh by _update_held_item whenever a hotbar slot changes;
+## its LIVE global_transform already carries the camera's position/look, the
+## idle sway, and the per-item angle/offset tweak above.
+##
+## If the item's ItemVisual placed an exact "hand_tip" marker (see item_visual.gd's
+## fishing_rod case), that node's own global_position is used directly — the real
+## rendered tip, not a guess. Otherwise a local point along _hand_reach_axis (most
+## props are built lying flat along -Z; a few, like the rod, run up their own +Y —
+## see HAND_TIP_AXIS) approximates the far end of whatever is held.
+func hand_tip_world() -> Vector3:
+	if _hand_item == null or _hand_item.get_child_count() == 0:
+		return camera.global_position - camera.global_transform.basis.z * 0.6
+	var container: Node3D = _hand_item.get_child(0)
+	var marker: Node = container.find_child("hand_tip", true, false)
+	if marker is Node3D:
+		return (marker as Node3D).global_position
+	return container.global_transform * (_hand_reach_axis * _hand_reach)
 
 # ============================== lying on a bed ==============================
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://diuxvr0lxlm7"
 path.s3tc="res://.godot/imported/Megaphone_01_nor_gl_1k.jpg-1b8727a4af591077fe3c4b70aab09a33.s3tc.ctex"
+path.etc2="res://.godot/imported/Megaphone_01_nor_gl_1k.jpg-1b8727a4af591077fe3c4b70aab09a33.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Megaphone_01/textures/Megaphone_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/Megaphone_01_nor_gl_1k.jpg-1b8727a4af591077fe3c4b70aab09a33.s3tc.ctex"]
+dest_files=["res://.godot/imported/Megaphone_01_nor_gl_1k.jpg-1b8727a4af591077fe3c4b70aab09a33.s3tc.ctex", "res://.godot/imported/Megaphone_01_nor_gl_1k.jpg-1b8727a4af591077fe3c4b70aab09a33.etc2.ctex"]
 
 [params]
 

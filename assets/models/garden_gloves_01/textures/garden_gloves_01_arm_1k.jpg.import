@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://djqnebgv7s6kj"
 path.s3tc="res://.godot/imported/garden_gloves_01_arm_1k.jpg-ba0298ca928492705ca38553ce424824.s3tc.ctex"
+path.etc2="res://.godot/imported/garden_gloves_01_arm_1k.jpg-ba0298ca928492705ca38553ce424824.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/garden_gloves_01/textures/garden_gloves_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/garden_gloves_01_arm_1k.jpg-ba0298ca928492705ca38553ce424824.s3tc.ctex"]
+dest_files=["res://.godot/imported/garden_gloves_01_arm_1k.jpg-ba0298ca928492705ca38553ce424824.s3tc.ctex", "res://.godot/imported/garden_gloves_01_arm_1k.jpg-ba0298ca928492705ca38553ce424824.etc2.ctex"]
 
 [params]
 

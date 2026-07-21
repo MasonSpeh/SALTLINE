@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://l3uvmwrsibd5"
 path.s3tc="res://.godot/imported/dining_chair_02_diff_1k.jpg-4eb6d24aaff719847530d46ad2f6f515.s3tc.ctex"
+path.etc2="res://.godot/imported/dining_chair_02_diff_1k.jpg-4eb6d24aaff719847530d46ad2f6f515.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/dining_chair_02/textures/dining_chair_02_diff_1k.jpg"
-dest_files=["res://.godot/imported/dining_chair_02_diff_1k.jpg-4eb6d24aaff719847530d46ad2f6f515.s3tc.ctex"]
+dest_files=["res://.godot/imported/dining_chair_02_diff_1k.jpg-4eb6d24aaff719847530d46ad2f6f515.s3tc.ctex", "res://.godot/imported/dining_chair_02_diff_1k.jpg-4eb6d24aaff719847530d46ad2f6f515.etc2.ctex"]
 
 [params]
 

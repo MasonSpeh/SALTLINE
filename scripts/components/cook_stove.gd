@@ -2,16 +2,16 @@ class_name CookStove extends Interactable
 ## The galley range — old propane bottle, honest heat. COOK sears one raw fish
 ## from the pack into that species' own meal: a Lantern Herring becomes a Cooked
 ## Lantern Herring, a Barrel Grouper feeds you for days. Bigger fish feed you more.
-## Gull meat roasts here too. Eating stays on the hotbar like any food.
+## A caught sea-bird roasts here too. Eating stays on the hotbar like any food.
 
 # What sears into what comes from data/fish.json (cooked_to) via FishTable —
 # the stove automatically knows every species the rod and net can land, and each
 # now sears to its OWN cooked meal ("Cooked Lantern Herring"), not a generic fillet.
 const FISH := preload("res://scripts/world/fish_table.gd")
 
-# Non-fish things the range also cooks — gull meat off the deck, and room to grow.
+# Non-fish things the range also cooks — a caught sea-bird off the deck, and room to grow.
 const EXTRA_COOK := {
-	"gull_meat": "cooked_gull_meat",
+	"raw_sea_bird": "cooked_sea_bird",
 }
 
 ## What a raw item cooks into ("" = not cookable). Fish come from the table; a few

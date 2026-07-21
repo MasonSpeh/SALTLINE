@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cqnpixwb1c7fu"
 path.s3tc="res://.godot/imported/television_02_diff_1k.jpg-80a2d844c2d7d86aaaab2f43c022f799.s3tc.ctex"
+path.etc2="res://.godot/imported/television_02_diff_1k.jpg-80a2d844c2d7d86aaaab2f43c022f799.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/television_02/textures/television_02_diff_1k.jpg"
-dest_files=["res://.godot/imported/television_02_diff_1k.jpg-80a2d844c2d7d86aaaab2f43c022f799.s3tc.ctex"]
+dest_files=["res://.godot/imported/television_02_diff_1k.jpg-80a2d844c2d7d86aaaab2f43c022f799.s3tc.ctex", "res://.godot/imported/television_02_diff_1k.jpg-80a2d844c2d7d86aaaab2f43c022f799.etc2.ctex"]
 
 [params]
 

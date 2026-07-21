@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3jhc6r40dcyk"
 path.s3tc="res://.godot/imported/carved_wooden_plate_nor_gl_1k.jpg-2938e4cb09179e2ffac64b06b86d9393.s3tc.ctex"
+path.etc2="res://.godot/imported/carved_wooden_plate_nor_gl_1k.jpg-2938e4cb09179e2ffac64b06b86d9393.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/carved_wooden_plate/textures/carved_wooden_plate_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/carved_wooden_plate_nor_gl_1k.jpg-2938e4cb09179e2ffac64b06b86d9393.s3tc.ctex"]
+dest_files=["res://.godot/imported/carved_wooden_plate_nor_gl_1k.jpg-2938e4cb09179e2ffac64b06b86d9393.s3tc.ctex", "res://.godot/imported/carved_wooden_plate_nor_gl_1k.jpg-2938e4cb09179e2ffac64b06b86d9393.etc2.ctex"]
 
 [params]
 

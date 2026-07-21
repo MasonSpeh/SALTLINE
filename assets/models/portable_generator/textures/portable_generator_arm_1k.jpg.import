@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://2ak40qmnd0fe"
 path.s3tc="res://.godot/imported/portable_generator_arm_1k.jpg-47e0d3fb5afc9bbda006508283b8ef9d.s3tc.ctex"
+path.etc2="res://.godot/imported/portable_generator_arm_1k.jpg-47e0d3fb5afc9bbda006508283b8ef9d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/portable_generator/textures/portable_generator_arm_1k.jpg"
-dest_files=["res://.godot/imported/portable_generator_arm_1k.jpg-47e0d3fb5afc9bbda006508283b8ef9d.s3tc.ctex"]
+dest_files=["res://.godot/imported/portable_generator_arm_1k.jpg-47e0d3fb5afc9bbda006508283b8ef9d.s3tc.ctex", "res://.godot/imported/portable_generator_arm_1k.jpg-47e0d3fb5afc9bbda006508283b8ef9d.etc2.ctex"]
 
 [params]
 

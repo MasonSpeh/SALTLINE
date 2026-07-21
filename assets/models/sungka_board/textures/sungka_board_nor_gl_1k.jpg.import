@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1cfk3iwunv4t"
 path.s3tc="res://.godot/imported/sungka_board_nor_gl_1k.jpg-d8a8b114bfe216bf86d227168236dd8e.s3tc.ctex"
+path.etc2="res://.godot/imported/sungka_board_nor_gl_1k.jpg-d8a8b114bfe216bf86d227168236dd8e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/sungka_board/textures/sungka_board_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/sungka_board_nor_gl_1k.jpg-d8a8b114bfe216bf86d227168236dd8e.s3tc.ctex"]
+dest_files=["res://.godot/imported/sungka_board_nor_gl_1k.jpg-d8a8b114bfe216bf86d227168236dd8e.s3tc.ctex", "res://.godot/imported/sungka_board_nor_gl_1k.jpg-d8a8b114bfe216bf86d227168236dd8e.etc2.ctex"]
 
 [params]
 

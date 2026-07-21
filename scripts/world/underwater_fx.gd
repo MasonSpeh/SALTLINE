@@ -57,6 +57,20 @@ const NEAR_AMB := Color(0.16, 0.34, 0.32)
 const DEEP_AMB := Color(0.04, 0.10, 0.15)
 const STORM_MURK := Color(0.13, 0.17, 0.12)   # stirred sediment, near the surface
 
+## The depth-graded fog/ambient below (in _process) resolves fully across this many metres
+## of depth — matched to player_controller.DEEP_DEATH_M (~13), the water the player can
+## actually swim, rather than the seabed at -23 they never reach alive. Grading it over
+## the seabed's full depth was the bug: the whole survivable column only ever covered
+## the first ~60% of the curve, so it read as "the same shade no matter how deep you go".
+const REACHABLE_DEPTH_M: float = 13.0
+## Fog never gets denser than this: caps how far it can swallow a nearby animal into flat
+## fog colour, so a grouper (or the rig, the reef) is always visible as at least a shape
+## even at the death line.
+const MAX_DENS: float = 0.19
+## Ambient light never drops below this at depth, for the same reason — a silhouette
+## needs SOME rim light to read as a silhouette rather than pure black.
+const AMB_FLOOR: float = 0.20
+
 func _ready() -> void:
 	_rng.seed = 90210
 	process_priority = 100   # run AFTER main.gd's environment write, so our grade wins
@@ -90,14 +104,19 @@ func _build_light_shafts() -> void:
 	var spots: Array[Vector3] = []
 	for leg in LEGS:
 		spots.append(Vector3(leg.x + _rng.randf_range(-3.5, 3.5), 0, leg.y + _rng.randf_range(-3.5, 3.5)))
-	# a few in the open water off the wet deck and toward the gyre
-	for extra in [Vector3(16, 0, -18), Vector3(6, 0, -24), Vector3(-6, 0, 2), Vector3(12, 0, 6)]:
+	# a couple in the open water — fewer than before, so the shafts stay an occasional
+	# accent in the column rather than a picket fence of them.
+	for extra in [Vector3(6, 0, -24), Vector3(-6, 0, 2)]:
 		spots.append(extra)
 	for sp in spots:
 		var mat := ShaderMaterial.new()
 		mat.shader = load("res://materials/light_shaft.gdshader")
 		mat.set_shader_parameter("reach", _rng.randf_range(11.0, 15.0))
-		mat.set_shader_parameter("density", _rng.randf_range(0.22, 0.38))
+		# Much fainter than before — the shafts read as suggestions of light in the water,
+		# not solid glowing bars. The shader now also breaks them into rays and fades them
+		# near the camera, so a low density here reads as subtle god-rays.
+		mat.set_shader_parameter("density", _rng.randf_range(0.04, 0.07))
+		mat.set_shader_parameter("shaft_color", Vector3(0.24, 0.46, 0.48))
 		_shaft_mats.append(mat)
 		var yaw: float = _rng.randf_range(0, TAU)
 		var w: float = _rng.randf_range(1.3, 2.1)
@@ -286,25 +305,58 @@ func _process(_delta: float) -> void:
 		var env: Environment = cam.environment
 		if env != null and env.fog_enabled:
 			var depth: float = maxf(surf - cam_y, 0.0)
-			var t: float = clampf(depth / 22.0, 0.0, 1.0)     # 0 surface .. 1 seabed
-			var tc: float = t * t                              # deep thickens faster
-			# base grade
+			# Normalised over the SURVIVABLE column (0..REACHABLE_DEPTH_M), not the seabed
+			# at -23 the player never reaches alive. The old curve resolved over 22 m, so
+			# within the ~13 m a player can actually swim it only ever reached t~0.59 — the
+			# whole reachable water read as "a similar shade no matter how deep you go"
+			# because the colour/density grade barely got going. Now shallow-to-death-line
+			# spans the FULL near->deep look.
+			var t: float = clampf(depth / REACHABLE_DEPTH_M, 0.0, 1.0)   # 0 surface..1 death line
+			# Three readable bands instead of one smooth curve: SHALLOW (0..~0.22, ~0-3m)
+			# stays close to clear water so the rig, reef and fauna read in real detail;
+			# MID (~0.22..1.0) is where it visibly starts murking up and keeps thickening;
+			# it never reaches full opacity (see MAX_DENS/AMB_FLOOR) so something like a
+			# grouper is always at least a silhouette, never swallowed to flat fog colour.
+			var tc: float = clampf((t - 0.22) / 0.78, 0.0, 1.0)
+			tc = tc * tc * (3.0 - 2.0 * tc)   # smoothstep: gentle at both ends, steep between
 			var fog_col: Color = NEAR_FOG.lerp(DEEP_FOG, tc)
 			var amb_col: Color = NEAR_AMB.lerp(DEEP_AMB, tc)
-			# Extinction of the MEDIUM. At 0.040 the near field was effectively clear
-			# water — a caisson face five metres away picked up 18% fog and stayed the
-			# colour it was painted, so the water graded and the concrete standing in it
-			# did not. 0.085 near the surface puts a third of the water's colour on
-			# anything at 5 m and four fifths on anything at 20 m, which is roughly
-			# coastal North Sea visibility and is what makes submerged steel read as
-			# submerged rather than photographed dry.
-			var dens: float = lerpf(0.085, 0.30, tc)
-			var amb_e: float = lerpf(0.85, 0.14, t)
+			# Extinction of the MEDIUM. Shallow starts genuinely clear (0.028 — a caisson
+			# face 10+ m off still reads); by the death line it is thick enough to feel like
+			# a real depth limit without ever fully swallowing a nearby animal — density is
+			# capped at MAX_DENS and the ambient floor (AMB_FLOOR) never goes fully dark, so
+			# anything close always shows as at least a shape.
+			var dens: float = lerpf(0.028, MAX_DENS, tc)
+			var amb_e: float = lerpf(0.9, AMB_FLOOR, tc)
+			# Wavy top: sunlight through a moving swell dapples the shallows, not a flat
+			# wash — a slow, position-locked shimmer on the near-surface band only, faded
+			# out by the time the mid band takes over, so the water reads as genuinely lit
+			# from above near the top and genuinely still and dark going deeper.
+			var shimmer_zone: float = 1.0 - smoothstep(0.0, 0.3, t)
+			if shimmer_zone > 0.0:
+				var wt: float = Gyre.water_time()
+				var s1: float = sin(px * 0.22 + wt * 1.6)
+				var s2: float = sin(pz * 0.19 - wt * 1.3 + 1.7)
+				var shimmer: float = (0.5 + 0.5 * s1) * (0.5 + 0.5 * s2)
+				amb_e *= 1.0 + shimmer * 0.4 * shimmer_zone * day
+				dens *= 1.0 - shimmer * 0.15 * shimmer_zone
 			# storm stirs sediment near the surface: denser, murkier, dimmer up top
 			var near: float = (1.0 - t)
 			dens += storm * near * 0.11
 			fog_col = fog_col.lerp(STORM_MURK, storm * near * 0.6)
 			amb_e *= (1.0 - storm * near * 0.35)
+			dens = minf(dens, MAX_DENS + storm * 0.08)
+			amb_e = maxf(amb_e, AMB_FLOOR * 0.5)
+			# THE ABYSS. Below the death line (fly mode, kill cams, the long look down) the
+			# water keeps closing in for another 50 m — fog thickening past the silhouette
+			# cap, ambient collapsing, colour going to near-black — so the -92 floor can
+			# never be seen from anywhere a camera can be. The grouper band (-17..-29) sits
+			# just above this ramp: shapes at the edge of the dark, then nothing.
+			var abyss: float = clampf((depth - REACHABLE_DEPTH_M) / 50.0, 0.0, 1.0)
+			if abyss > 0.0:
+				dens = lerpf(dens, 0.42, abyss)
+				amb_e = lerpf(amb_e, 0.03, abyss)
+				fog_col = fog_col.lerp(Color(0.002, 0.006, 0.012), abyss)
 			# night pulls the whole column toward the dark, leaving the Bloom's own glow
 			# (seabed shader, fauna rims) as the main light — brightest by day.
 			var lum: float = 0.28 + 0.72 * day
@@ -313,6 +365,6 @@ func _process(_delta: float) -> void:
 			amb_e *= lum
 			env.fog_light_color = fog_col
 			env.fog_density = dens
-			env.background_color = fog_col.darkened(0.5)
+			env.background_color = fog_col.darkened(0.35)
 			env.ambient_light_color = amb_col
 			env.ambient_light_energy = amb_e

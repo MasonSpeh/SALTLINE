@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dyapcs57uiwfc"
 path.s3tc="res://.godot/imported/retro_multimeter_nor_gl_1k.jpg-5b5f913ed0adf9bab220f0592529b46b.s3tc.ctex"
+path.etc2="res://.godot/imported/retro_multimeter_nor_gl_1k.jpg-5b5f913ed0adf9bab220f0592529b46b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/retro_multimeter/textures/retro_multimeter_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/retro_multimeter_nor_gl_1k.jpg-5b5f913ed0adf9bab220f0592529b46b.s3tc.ctex"]
+dest_files=["res://.godot/imported/retro_multimeter_nor_gl_1k.jpg-5b5f913ed0adf9bab220f0592529b46b.s3tc.ctex", "res://.godot/imported/retro_multimeter_nor_gl_1k.jpg-5b5f913ed0adf9bab220f0592529b46b.etc2.ctex"]
 
 [params]
 

@@ -106,10 +106,12 @@ func _torus(pos: Vector3, inner: float, outer: float, mat: Material, euler := Ve
 
 # --------------------------------------------------------------- reef ridge
 
-## A rock reef ridge climbing from the deep silt up into the reachable band
-## (top ~ y -12, inside the 13 m death line). Overlapping boulders read as a spine;
-## its broad top and current-swept flank are prime coral ground. Landmark on the
-## swim south toward the gyre.
+## A rock reef ridge rising off the deep silt — overlapping boulders reading as a
+## spine, its broad top and current-swept flank prime coral ground. A landmark on the
+## swim south toward the gyre. FLOOR-RELATIVE: the crest used to lerp toward an
+## absolute y -12 ("reachable"), which was ~11 m of relief over the old -23 floor;
+## against the 4x-deeper abyssal floor that formula would have extruded 80 m rock
+## spires, so the ridge now keeps the same ~11 m of relief above wherever the mud is.
 func _build_reef_ridge() -> void:
 	var base := Vector2(9, -30)
 	var axis := Vector2(0.5, -0.86).normalized()   # runs SSW->NNE
@@ -120,7 +122,7 @@ func _build_reef_ridge() -> void:
 		var c := base + axis * along
 		var crest: float = 1.0 - abs(f - 0.45) * 1.7          # tallest just past middle
 		crest = clampf(crest, 0.0, 1.0)
-		var top_y: float = lerpf(floor_y(c.x, c.y) + 2.0, -12.0, crest)
+		var top_y: float = lerpf(floor_y(c.x, c.y) + 2.0, floor_y(c.x, c.y) + 11.0, crest)
 		var span: float = _rng.randf_range(3.0, 5.5)
 		var lo: float = floor_y(c.x, c.y) - 0.5
 		var cy: float = (top_y + lo) * 0.5
@@ -138,10 +140,12 @@ func _build_reef_ridge() -> void:
 			var bs: float = _rng.randf_range(1.0, 2.2)
 			_blob(Vector3(bx, floor_y(bx, bz) + bs * 0.35, bz), Vector3(bs, bs * 0.6, bs), _rock_mat,
 				Vector3(0, _rng.randf_range(0, TAU), 0))
-	# broad flat top = coral shelf; note the swept south face too
+	# broad flat top = coral shelf; note the swept south face too (floor-relative now)
 	var topc := base + axis * (0.45 - 0.5) * 22.0
-	_shelf(Vector3(topc.x, -12.2, topc.y), "reef ridge crown (reachable, ~ -12): broad flat, high current")
-	_shelf(Vector3(base.x + 4.0, -17.5, base.y + 3.0), "reef ridge SW flank: current-swept face")
+	_shelf(Vector3(topc.x, floor_y(topc.x, topc.y) + 10.8, topc.y),
+		"reef ridge crown: broad flat, high current")
+	_shelf(Vector3(base.x + 4.0, floor_y(base.x + 4.0, base.y + 3.0) + 5.5, base.y + 3.0),
+		"reef ridge SW flank: current-swept face")
 
 # --------------------------------------------------------------- wreck field
 
@@ -178,9 +182,12 @@ func _build_wreck_field(c: Vector2) -> void:
 	# --- a crushed shipping container, doors sprung, half sunk ---
 	_container(Vector3(c.x + 13.0, 0, c.y + 4.0), 0.7, MatLib.container(Color(0.5, 0.42, 0.3)))
 
-	# the workboat's up-turned bilge and the container roof are flat colonisable faces
-	_shelf(Vector3(c.x - 3.0, -19.6, c.y + 2.0), "capsized workboat bilge: broad flat steel, encrusted")
-	_shelf(Vector3(c.x + 13.0, -19.9, c.y + 4.0), "crushed container roof: flat shelf near the gyre eye")
+	# the workboat's up-turned bilge and the container roof are flat colonisable faces —
+	# both wrecks rest ON the mud (floor_y), so their shelf tops ride it too
+	_shelf(Vector3(c.x - 3.0, floor_y(c.x - 3.0, c.y + 2.0) + 3.4, c.y + 2.0),
+		"capsized workboat bilge: broad flat steel, encrusted")
+	_shelf(Vector3(c.x + 13.0, floor_y(c.x + 13.0, c.y + 4.0) + 2.9, c.y + 4.0),
+		"crushed container roof: flat shelf near the gyre eye")
 
 func _workboat(base: Vector3, yaw: float, hull_mat: Material, dark: Material) -> void:
 	var root := Node3D.new()

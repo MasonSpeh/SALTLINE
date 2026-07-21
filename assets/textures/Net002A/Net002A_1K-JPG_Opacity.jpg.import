@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ccr45e7da3lck"
 path.s3tc="res://.godot/imported/Net002A_1K-JPG_Opacity.jpg-b809f7d65440a08b20de4e3b790f1153.s3tc.ctex"
+path.etc2="res://.godot/imported/Net002A_1K-JPG_Opacity.jpg-b809f7d65440a08b20de4e3b790f1153.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/Net002A/Net002A_1K-JPG_Opacity.jpg"
-dest_files=["res://.godot/imported/Net002A_1K-JPG_Opacity.jpg-b809f7d65440a08b20de4e3b790f1153.s3tc.ctex"]
+dest_files=["res://.godot/imported/Net002A_1K-JPG_Opacity.jpg-b809f7d65440a08b20de4e3b790f1153.s3tc.ctex", "res://.godot/imported/Net002A_1K-JPG_Opacity.jpg-b809f7d65440a08b20de4e3b790f1153.etc2.ctex"]
 
 [params]
 

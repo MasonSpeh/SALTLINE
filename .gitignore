@@ -13,3 +13,6 @@ data_*/
 __pycache__/
 
 .env
+
+# Exported game builds
+builds/

@@ -38,6 +38,12 @@ const SETTLE_PER_FRAME: int = 80
 ## Wall-mounted and hanging dressing is recorded too, but only to be exempted.
 var _placed: Array = []   # [node, settle: bool]
 
+## Fired once every prop has streamed in AND settled onto its surface. RigBatcher waits
+## for this before it merges dressing geometry: SupportIndex resolves the surface under
+## each item from VISUAL meshes, so the merge must not run until the last item has landed.
+signal settle_done
+var settle_complete: bool = false
+
 ## Resolves what an object is standing on from drawn geometry rather than colliders.
 const SUPPORT := preload("res://scripts/world/support_index.gd")
 
@@ -117,6 +123,9 @@ func _stream() -> void:
 			await get_tree().process_frame
 	_queue.clear()
 	await _settle_all()
+	if is_instance_valid(self):
+		settle_complete = true
+		settle_done.emit()
 
 ## Tag a spawned prop so the placement probe (and anything else) can tell dressing from
 ## structure, and so declared wall/hanging fittings are never pulled down onto a surface.

@@ -52,15 +52,26 @@ void fragment() {
 	float belowness = clamp(d, 0.0, reach) / reach;
 	float fall = (1.0 - belowness);
 	fall *= fall * smoothstep(0.0, 0.6, d);
-	// Soft edges across the beam so it reads as a shaft, not a rectangle. Squared for a
-	// narrow bright core feathering to nothing at the edges.
-	float edge = smoothstep(0.0, 0.48, v_uv.x) * smoothstep(1.0, 0.52, v_uv.x);
+	// Soft edges across the beam so it reads as a shaft, not a rectangle. Narrow bright
+	// core feathering to nothing well before the beam edge.
+	float edge = smoothstep(0.0, 0.42, v_uv.x) * smoothstep(1.0, 0.58, v_uv.x);
 	edge *= edge;
-	// Scrolling breakup down the beam — high contrast so the shaft dissolves into
-	// separate rays instead of reading as a solid slab.
-	float n1 = fbm(vec2(v_world.x * 0.28 + v_world.z * 0.19, v_world.y * 0.24 - TIME * 0.42));
-	float n2 = fbm(vec2(v_world.x * 0.6 - TIME * 0.2, v_world.z * 0.5 + TIME * 0.15));
-	float breakup = clamp((0.15 + 0.85 * n1) * (0.35 + 0.85 * n2), 0.0, 1.0);
-	float beam = edge * fall * breakup;
-	ALBEDO = shaft_color * beam * density * (0.15 + 0.85 * daylight);
+	// Scrolling breakup that ACTUALLY cuts the beam into separate rays: a smoothstep with a
+	// high floor carves real gaps into the noise instead of merely dimming it, so the shaft
+	// dissolves into a handful of thin rays rather than reading as one solid glowing slab
+	// (which is exactly what it did before — a neon panel underwater).
+	float n1 = fbm(vec2(v_world.x * 0.30 + v_world.z * 0.21, v_world.y * 0.22 - TIME * 0.40));
+	float n2 = fbm(vec2(v_world.x * 0.58 - TIME * 0.18, v_world.z * 0.5 + TIME * 0.14));
+	float breakup = pow(smoothstep(0.30, 0.82, n1 * (0.55 + 0.85 * n2)), 1.5);
+	// Fade the shaft out as it nears the camera, so swimming through one never fills the
+	// screen with a wall of additive cyan — a real god-ray is only ever seen at a distance.
+	float cam_dist = length(v_world - CAMERA_POSITION_WORLD);
+	float near_fade = smoothstep(2.5, 11.0, cam_dist);
+	// Broadside softening: a flat quad whose face points straight at the camera is exactly
+	// what reads as a solid glowing PANEL. Fade it hard toward grazing angles so the shaft
+	// only ever shows as a soft diffuse streak in the water, never a lit rectangle.
+	float facing = abs(dot(normalize(NORMAL), normalize(VIEW)));
+	float broadside = mix(1.0, 0.12, facing);
+	float beam = edge * fall * breakup * near_fade * broadside;
+	ALBEDO = shaft_color * beam * density * (0.12 + 0.88 * daylight);
 }

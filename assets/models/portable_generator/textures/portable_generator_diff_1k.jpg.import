@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c32xw0eapgxpm"
 path.s3tc="res://.godot/imported/portable_generator_diff_1k.jpg-a5dd78a3a08dd282fd52ea707509de10.s3tc.ctex"
+path.etc2="res://.godot/imported/portable_generator_diff_1k.jpg-a5dd78a3a08dd282fd52ea707509de10.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/portable_generator/textures/portable_generator_diff_1k.jpg"
-dest_files=["res://.godot/imported/portable_generator_diff_1k.jpg-a5dd78a3a08dd282fd52ea707509de10.s3tc.ctex"]
+dest_files=["res://.godot/imported/portable_generator_diff_1k.jpg-a5dd78a3a08dd282fd52ea707509de10.s3tc.ctex", "res://.godot/imported/portable_generator_diff_1k.jpg-a5dd78a3a08dd282fd52ea707509de10.etc2.ctex"]
 
 [params]
 

@@ -209,12 +209,14 @@ func _populate_soft_bottom() -> void:
 			_sessile("bloom_sea_cucumber", _near(bed_pos, 3.0),
 				_rng.randf_range(0.7, 1.2), ANIM.Mode.BREATHE, 0.03, 0.2,
 				0.2, PINK, 1.0, 0.1)
-	# salp chains drifting just off the bottom (translucent, gelatinous)
-	for c in [Vector3(0, -20.5, -44), Vector3(-10, -20.0, -50), Vector3(8, -20.0, -55)]:
+	# salp chains drifting just off the bottom (translucent, gelatinous) — a couple of
+	# metres above the mud wherever the mud actually is (was a hardcoded -20, which
+	# left them stranded 70 m mid-water once the floor dropped to -92)
+	for c in [Vector3(0, 2.5, -44), Vector3(-10, 3.0, -50), Vector3(8, 2.8, -55)]:
 		var host := _sessile("bloom_salp_chain", Vector3(c.x, floor_y(c.x, c.z), c.z),
 			2.4, ANIM.Mode.UNDULATE, 0.08, 0.6, 0.4, Color(0.7, 0.95, 1.0), 0.5)
 		if host != null:
-			host.position.y = c.y   # lift it into the water column
+			host.position.y = floor_y(c.x, c.z) + c.y   # lift just off the bottom
 			host.add_child(SalpDrift.new())
 
 # ------------------------------------------------------------ tints

@@ -133,13 +133,13 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.42, 0.015, 0.02), Color(0.72, 0.74, 0.77), Vector3(0, 0.18, 0))       # blade
 			var grip := _cyl(root, 0.035, 0.16, Color(0.4, 0.28, 0.18), Vector3(-0.21, 0.2, 0))        # pistol grip
 			grip.rotation.z = deg_to_rad(18)
-		"gull_meat":
-			# A plucked, dressed gull — pink raw flesh, two leg stubs.
+		"raw_sea_bird":
+			# A plucked, dressed sea-bird — pink raw flesh, two leg stubs.
 			_box(root, Vector3(0.22, 0.12, 0.14), Color(0.82, 0.55, 0.5), Vector3(0, 0.09, 0))
 			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.8, 0.72, 0.6), Vector3(-0.05, 0.02, 0.05))
 			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.8, 0.72, 0.6), Vector3(0.05, 0.02, 0.05))
-		"cooked_gull_meat":
-			# Roasted gull — browned skin, crisped legs.
+		"cooked_sea_bird":
+			# Roasted sea-bird — browned skin, crisped legs.
 			_box(root, Vector3(0.22, 0.12, 0.14), Color(0.55, 0.35, 0.18), Vector3(0, 0.09, 0))
 			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.4, 0.26, 0.14), Vector3(-0.05, 0.02, 0.05))
 			_box(root, Vector3(0.03, 0.1, 0.03), Color(0.4, 0.26, 0.14), Vector3(0.05, 0.02, 0.05))
@@ -171,6 +171,16 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.06, 0.3, 0.06), Color(0.65, 0.52, 0.35), Vector3(-0.14, 0.12, 0))
 			var reel := _cyl(root, 0.07, 0.06, Color(0.25, 0.27, 0.3), Vector3(-0.1, 0.26, 0.05))
 			reel.rotation.x = deg_to_rad(90)
+			# An exact marker at the working end of the shaft (the end away from the grip/
+			# reel), a child of the shaft itself so it inherits the shaft's own tilt and
+			# position automatically. player_controller.hand_tip_world() looks this up by
+			# name so the fishing line anchors to the ROD'S REAL RENDERED TIP instead of a
+			# generic "longest AABB axis" guess, which put the anchor near the grip for any
+			# item (like this rod) whose mesh is built along +Y rather than -Z.
+			var tip := Node3D.new()
+			tip.name = "hand_tip"
+			shaft.add_child(tip)
+			tip.position = Vector3(0, 0.75, 0)   # the shaft's own half-height: its far end
 		"cooked_fish":
 			_box(root, Vector3(0.3, 0.06, 0.16), Color(0.62, 0.45, 0.26), Vector3(0, 0.05, 0))
 			_box(root, Vector3(0.24, 0.02, 0.12), Color(0.35, 0.22, 0.12), Vector3(0, 0.09, 0))
@@ -424,6 +434,17 @@ static func build(item_id: String) -> Node3D:
 				_box(root, Vector3(0.12, 0.14, 0.07), Color(0.6, 0.63, 0.57),
 					Vector3(cos(a2) * 0.2, 0.09, sin(a2) * 0.2))
 			_box(root, Vector3(0.07, 0.05, 0.03), Color(0.5, 0.52, 0.55), Vector3(-0.22, 0.07, 0))
+		"flashlight":
+			# A rubber-armoured hand torch lying on its side: barrel, knurled grip band, a
+			# wider head, and a pale lens on the head end. Long axis laid along X.
+			var body: MeshInstance3D = _cyl(root, 0.028, 0.2, Color(0.16, 0.17, 0.19), Vector3(0, 0.028, 0))
+			body.rotation.z = deg_to_rad(90)
+			var grip: MeshInstance3D = _cyl(root, 0.031, 0.03, Color(0.5, 0.42, 0.12), Vector3(-0.02, 0.028, 0))
+			grip.rotation.z = deg_to_rad(90)
+			var head: MeshInstance3D = _cyl(root, 0.045, 0.05, Color(0.2, 0.21, 0.23), Vector3(0.11, 0.028, 0))
+			head.rotation.z = deg_to_rad(90)
+			var lens: MeshInstance3D = _cyl(root, 0.04, 0.012, Color(0.9, 0.92, 0.85), Vector3(0.14, 0.028, 0), true, 0.6)
+			lens.rotation.z = deg_to_rad(90)
 		"storm_lantern":
 			# Bloom light behind glass in a screwed steel cage. Weather can't touch it.
 			_cyl(root, 0.11, 0.05, Color(0.36, 0.37, 0.4), Vector3(0, 0.025, 0))

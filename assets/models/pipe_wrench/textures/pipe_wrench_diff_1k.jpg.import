@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dny1tv56mpq4o"
 path.s3tc="res://.godot/imported/pipe_wrench_diff_1k.jpg-3b8ef9cfdb0f145c54c0095975b3cd50.s3tc.ctex"
+path.etc2="res://.godot/imported/pipe_wrench_diff_1k.jpg-3b8ef9cfdb0f145c54c0095975b3cd50.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/pipe_wrench/textures/pipe_wrench_diff_1k.jpg"
-dest_files=["res://.godot/imported/pipe_wrench_diff_1k.jpg-3b8ef9cfdb0f145c54c0095975b3cd50.s3tc.ctex"]
+dest_files=["res://.godot/imported/pipe_wrench_diff_1k.jpg-3b8ef9cfdb0f145c54c0095975b3cd50.s3tc.ctex", "res://.godot/imported/pipe_wrench_diff_1k.jpg-3b8ef9cfdb0f145c54c0095975b3cd50.etc2.ctex"]
 
 [params]
 

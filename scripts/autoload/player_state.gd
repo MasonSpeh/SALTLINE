@@ -18,9 +18,9 @@ signal item_eaten(item_id: String)
 const LOW_THRESHOLD: float = 0.5
 const HOTBAR_SIZE: int = 4
 const MAX_BACKPACK: int = 12   ## Minecraft-ish, but a day pack, not a warehouse
-## Same-id items pile into one slot up to this many — food, kits, salvage all stack,
-## so a night's fishing is one slot instead of sixteen. Tools are the exception (see
-## is_stackable): a wrench is a wrench, you carry one.
+## Same-id items pile into one slot up to this many — food, kits, materials and salvage
+## all stack, so a night's fishing is one slot instead of sixteen. Held/worn equipment
+## is the exception (see EQUIPMENT below): a wrench is a wrench, you carry one.
 const MAX_STACK: int = 16
 ## Worn gear that actually does something. These are the ONLY numbers behind the
 ## three upgrade crafts — without them the recipes promised mechanics that did not
@@ -237,10 +237,24 @@ func apply_comfort_payload(data: Dictionary) -> void:
 	comfort_target = comfort
 	camp_found = bool(data.get("camp_found", false))
 
-## How tall a stack of this item may grow. Tools never stack (a wrench is a wrench);
-## everything else piles to MAX_STACK.
+## Genuine one-of-a-kind EQUIPMENT — the things you hold, wear or operate. Only these
+## refuse to stack. The old rule was `use != "tool"`, but items.json tags every raw
+## MATERIAL as a "tool" too (rope, driftwood, scrap_metal, steel_plate, bolt_handful...),
+## so the exact things a scavenger hoards sixteen of were the ones locked to one per
+## slot. Materials, salvage yields, flares and kits all pile to MAX_STACK now.
+const EQUIPMENT := {
+	"fishing_rod": true, "prybar": true, "throwing_hook": true,
+	"crude_knife": true, "crude_spear": true, "honed_knife": true, "honed_spear": true,
+	"wrench": true, "hammer_tool": true, "spanner": true, "screwdriver": true,
+	"hand_file": true, "hacksaw": true, "tool_belt": true,
+	"storm_lantern": true, "flashlight": true, "patched_boots": true,
+	"life_ring": true, "mini_anchor": true, "cable_spool": true,
+}
+
+## How tall a stack of this item may grow. Equipment never stacks (a wrench is a
+## wrench); everything else — food, drink, kits, materials, flares — piles to MAX_STACK.
 func is_stackable(item_id: String) -> bool:
-	return items.get(item_id, {}).get("use", "") != "tool"
+	return not EQUIPMENT.has(item_id)
 
 func _stack_cap(item_id: String) -> int:
 	return MAX_STACK if is_stackable(item_id) else 1

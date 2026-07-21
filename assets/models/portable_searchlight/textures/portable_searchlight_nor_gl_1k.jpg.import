@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://0v5oec6qr5rh"
 path.s3tc="res://.godot/imported/portable_searchlight_nor_gl_1k.jpg-bcfdee728aec1bd50c2102f9bcc8ef18.s3tc.ctex"
+path.etc2="res://.godot/imported/portable_searchlight_nor_gl_1k.jpg-bcfdee728aec1bd50c2102f9bcc8ef18.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/portable_searchlight/textures/portable_searchlight_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/portable_searchlight_nor_gl_1k.jpg-bcfdee728aec1bd50c2102f9bcc8ef18.s3tc.ctex"]
+dest_files=["res://.godot/imported/portable_searchlight_nor_gl_1k.jpg-bcfdee728aec1bd50c2102f9bcc8ef18.s3tc.ctex", "res://.godot/imported/portable_searchlight_nor_gl_1k.jpg-bcfdee728aec1bd50c2102f9bcc8ef18.etc2.ctex"]
 
 [params]
 

@@ -550,7 +550,10 @@ func _build_structure() -> void:
 		# quads instead, and a strength-0 capture exonerates those completely (see the
 		# scratchpad exp_nocaustic / exp_redleg / exp_noext frames, which localise the seam
 		# to the junction itself). A junction that does not exist cannot show.
-		_box(leg_pos + Vector3(0, -3.0, 0), Vector3(6, 40.0, 6), MatLib.concrete())
+		# Height/centre put the top just below the deck slab and the bottom at exactly
+		# Seabed.CAISSON_BOTTOM (-92) — the ocean is 4x deeper now, and one casting still
+		# runs the whole way down so no join line ever shows through the water.
+		_box(leg_pos + Vector3(0, -37.5, 0), Vector3(6, 109.0, 6), MatLib.concrete())
 	# Pontoons riding just above the bigger v2 swell (crests reach ~0.9).
 	_box(Vector3(0, -1.05, -12), Vector3(56, 4, 8), MatLib.concrete_floor())
 	_box(Vector3(0, -1.05, 12), Vector3(56, 4, 8), MatLib.concrete_floor())
@@ -628,8 +631,11 @@ func _build_wet_deck() -> void:
 			Vector3(26.0, WET_Y + 0.5, -21.4)]:
 		_cyl(p, 0.45, 1.0, MatLib.rust_steel())
 
-	# Exterior ladder: Wet Deck -> Topside (the long, exposed alternative).
-	_ladder(Vector3(29.9, WET_Y, -16), DECK_Y - WET_Y, -90.0, "Leg Ladder", 1.2)
+	# The exterior "Leg Ladder" (Wet Deck -> Topside) used to run here as the long,
+	# exposed alternative to the stair tower. It read as glitchy (a 16m climb with
+	# nothing else on this rig using that span) and the stair tower already covers
+	# the same route, so it — and the landing platform built only for it, see the
+	# removed _build_ladder_landing() — are gone rather than duplicated.
 
 # ---------- Z2: The Stairs ----------
 
@@ -941,7 +947,6 @@ func _build_topside() -> void:
 	_box(Vector3(29.8, DECK_Y + 0.55, 7.3), Vector3(0.12, 0.12, 10.6), rail_mat)
 	_box(Vector3(29.8, DECK_Y + 0.55, 17.2), Vector3(0.12, 0.12, 3.6), rail_mat)
 
-	_build_ladder_landing()
 	_build_bunkhouse()
 	_build_galley()
 	_build_rec_room()
@@ -952,43 +957,6 @@ func _build_topside() -> void:
 	for i in range(6):
 		_cyl(Vector3(-6 + i * 2.2, DECK_Y + 0.5, -16), 0.45, 1.0, MatLib.rust_steel())
 	_box(Vector3(8, DECK_Y + 0.4, -14), Vector3(2.4, 0.8, 1.2), MatLib.wood()) # pallet stack
-
-## A proper landing where the Leg Ladder tops out at (29.9, 18, -16). The east
-## perimeter rails skip z-16 entirely, so the ladder used to arrive at a bare,
-## unrailed stretch of deck rim — you mantled straight over an open edge with
-## nothing to hold and nothing underfoot outboard of you. This is a small grippy
-## plate lapped flush onto the deck edge and cantilevered out on two knee braces,
-## with a U of railing round the three seaward sides. The deck side (west) is left
-## open: that is the way on and off, straight through onto the topside plate.
-func _build_ladder_landing() -> void:
-	var y: float = DECK_Y
-	var lz: float = -16.0                       # the Leg Ladder's z
-	var rail: Material = MatLib.rust_steel()
-	# Anti-slip plate, top face coplanar with the deck at y18 so the join is flush.
-	_box(Vector3(30.6, y - 0.05, lz), Vector3(1.3, 0.1, 1.5), MatLib.checker_plate())
-	# Hazard paint along the outboard lip — same yellow as the deck hazard strips.
-	_box(Vector3(31.2, y + 0.005, lz), Vector3(0.1, 0.02, 1.5),
-		MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
-	# Knee braces: high at the plate's outboard lip, angling down and inboard to
-	# tuck under the deck edge — what actually holds a cantilevered landing up.
-	for bz in [lz - 0.6, lz + 0.6]:
-		var brace := _box(Vector3(30.55, y - 0.42, bz), Vector3(1.35, 0.09, 0.09), rail, self, false)
-		brace.rotation.z = deg_to_rad(29.0)
-	# Stanchions at the four corners; the deck-side pair frames the way through.
-	for c in [Vector2(31.2, lz - 0.65), Vector2(31.2, lz + 0.65),
-			Vector2(30.0, lz - 0.65), Vector2(30.0, lz + 0.65)]:
-		_box(Vector3(c.x, y + 0.5, c.y), Vector3(0.08, 1.0, 0.08), rail)
-	# Top and mid rail on the three seaward sides — solid, so they actually catch you.
-	for h in [[0.95, 0.07], [0.5, 0.05]]:
-		var ry: float = y + float(h[0])
-		var rt: float = float(h[1])
-		_box(Vector3(30.6, ry, lz - 0.65), Vector3(1.2, rt, rt), rail)
-		_box(Vector3(30.6, ry, lz + 0.65), Vector3(1.2, rt, rt), rail)
-		_box(Vector3(31.2, ry, lz), Vector3(rt, rt, 1.3), rail)
-	# Toe boards, so nothing kicked off the plate goes straight into the sea.
-	_box(Vector3(30.6, y + 0.09, lz - 0.7), Vector3(1.3, 0.18, 0.04), rail, self, false)
-	_box(Vector3(30.6, y + 0.09, lz + 0.7), Vector3(1.3, 0.18, 0.04), rail, self, false)
-	_box(Vector3(31.25, y + 0.09, lz), Vector3(0.04, 0.18, 1.5), rail, self, false)
 
 func _build_bunkhouse() -> void:
 	var mat: Material = MatLib.concrete()
@@ -1495,12 +1463,46 @@ func _build_sphl() -> void:
 	sphl_hatch = InteractDoor.new()
 	sphl_hatch.display_name = "Hatch"
 	sphl_hatch.locked = false
+	# A riveted steel plate leaf (InteractDoor's own _plate_leaf builder — hinge
+	# barrels, batten straps, a handle), not a flat colour box. This used to call
+	# build_box_visual() directly, which is a plain BoxMesh with no detailing at
+	# all — it read as a placeholder, not a hatch.
+	sphl_hatch.wooden = false
 	add_child(sphl_hatch)
 	sphl_hatch.global_position = Vector3(gap_w + DOORFRAME.JAMB, fy + 0.05, iz_n)
-	sphl_hatch.build_box_visual(Vector3(hcw, hch - 0.05, 0.12), MatLib.sphl_hi_vis().albedo_color)
-	for c in sphl_hatch.get_children():
-		if c is MeshInstance3D or c is CollisionShape3D:
-			c.position = Vector3(hcw * 0.5, (hch - 0.05) * 0.5, 0)
+	sphl_hatch.build_door(hcw, hch - 0.05)
+	# A dogging wheel on the leaf face — what actually reads "pressure hatch" rather
+	# than "hinged door." Mounted on the leaf itself so it swings with it, on the
+	# outward (dock-facing) side.
+	var wheel_c: Vector3 = Vector3(hcw * 0.5, (hch - 0.05) * 0.5, -0.09)
+	var rim := MeshInstance3D.new()
+	var rim_mesh := TorusMesh.new()
+	rim_mesh.inner_radius = 0.09
+	rim_mesh.outer_radius = 0.15
+	rim_mesh.material = MatLib.galvanized()
+	rim.mesh = rim_mesh
+	sphl_hatch.add_child(rim)
+	rim.position = wheel_c
+	rim.rotation.x = deg_to_rad(90)
+	for s in range(4):
+		var spoke := MeshInstance3D.new()
+		var spoke_mesh := BoxMesh.new()
+		spoke_mesh.size = Vector3(0.02, 0.26, 0.02)
+		spoke_mesh.material = MatLib.dark_metal()
+		spoke.mesh = spoke_mesh
+		sphl_hatch.add_child(spoke)
+		spoke.position = wheel_c
+		spoke.rotation.z = deg_to_rad(45.0 * s)
+	var hub := MeshInstance3D.new()
+	var hub_mesh := CylinderMesh.new()
+	hub_mesh.top_radius = 0.04
+	hub_mesh.bottom_radius = 0.04
+	hub_mesh.height = 0.05
+	hub_mesh.material = MatLib.dark_metal()
+	hub.mesh = hub_mesh
+	sphl_hatch.add_child(hub)
+	hub.position = wheel_c
+	hub.rotation.x = deg_to_rad(90)
 	# Gangplank out to the wet deck.
 	_box(Vector3((gap_w + gap_e) * 0.5, fy - 0.05, iz_n + 0.85), Vector3(gap_e - gap_w + 0.6, 0.1, 1.9), MatLib.wood())
 
@@ -1631,6 +1633,14 @@ func _build_access() -> void:
 	# Sea -> dock: the swimmer's way back up, at the relocated boat landing east
 	# of the pod. Starts below the swell so falling in is survivable (GDD §31).
 	_ladder(Vector3(24.6, -1.4, -22.42), WET_Y + 1.6, 180.0, "Dock Ladder", 0.9)
+	# Two more sea->wet-deck ladders so a swimmer is never far from a way back up,
+	# spread onto clear edges away from the deck clutter. Base below the swell (y-1.4),
+	# rising to just over the deck (top y2.2); facing chosen so the climber mantles
+	# INWARD onto open plating (east edge -> steps west; north edge -> steps south).
+	# The exit itself is now clearance-checked (player_controller._dismount_clear), so
+	# the old "stuck against a nearby object" trap can't happen at any of them.
+	_ladder(Vector3(29.9, -1.4, -10.0), 3.6, -90.0, "Wet Deck Ladder — East", 1.0)
+	_ladder(Vector3(12.0, -1.4, 2.1), 3.6, 180.0, "Wet Deck Ladder — North", 1.0)
 	# Wet Deck -> pump room roof (small vantage, stashed crate).
 	_ladder(Vector3(18.25, WET_Y, -8), 3.5, -90.0, "Roof Ladder", 1.0)
 	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.13, -8.5))
@@ -1736,6 +1746,9 @@ func _decorate_galley() -> void:
 
 func _decorate_rec_room() -> void:
 	var y: float = DECK_Y
+	# A third rod, propped in the SE corner clear of the couch/rug/bookshelf — someone
+	# kept one up here too, for the nights the weather keeps you off the wet deck.
+	_takeable("fishing_rod", "Fishing Rod", Vector3(27.0, y + 0.05, 9.5))
 	# Rug, low table, and a card game nobody finished.
 	_box(Vector3(23, y + 0.02, 12.5), Vector3(3.4, 0.03, 2.4), MatLib.flat(Color(0.4, 0.2, 0.18)), self, false)
 	_box(Vector3(23, y + 0.28, 12.5), Vector3(1.5, 0.08, 0.95), MatLib.wood())
@@ -1781,6 +1794,8 @@ func _decorate_rec_room() -> void:
 
 func _decorate_machine_shop() -> void:
 	var y: float = DECK_Y
+	# A flashlight on the fitter's bench — the shop's own torch.
+	_takeable("flashlight", "Flashlight", Vector3(-19.0, y + 1.02, -12.05))
 	# Pegboard of tools, visible through the window — the tease continues.
 	_box(Vector3(-21, y + 1.9, -17.6), Vector3(3.0, 1.4, 0.06), MatLib.flat(Color(0.75, 0.72, 0.6)), self, false)
 	var tool_colors := [Color(0.7, 0.3, 0.2), Color(0.3, 0.4, 0.6), Color(0.5, 0.5, 0.5), Color(0.7, 0.6, 0.2), Color(0.4, 0.4, 0.4), Color(0.6, 0.35, 0.25)]
@@ -1824,6 +1839,8 @@ func _decorate_machine_shop() -> void:
 
 func _decorate_pump_room() -> void:
 	var y: float = WET_Y
+	# A flashlight left on the dead pump — the pump room is unlit until power is back.
+	_takeable("flashlight", "Flashlight", Vector3(12.0, y + 1.85, -12.0))
 	# Pipe runs along the north wall, one valve wheel each.
 	for py in [2.6, 3.2]:
 		var pipe := _cyl_nc(Vector3(14, y + py, -6.5), 0.12, 7.0, MatLib.rusty_metal())
@@ -2562,8 +2579,11 @@ func _density_a() -> void:
 	for hx in [-24.0, -16.0]:
 		_box(Vector3(hx, y + 1.5, 17.83), Vector3(0.35, 0.55, 0.05), MatLib.flat(Color(0.75, 0.72, 0.68)), self, false)
 	_box(Vector3(-9.0, y + 0.4, 5.0), Vector3(0.7, 0.8, 0.4), MatLib.flat(Color(0.6, 0.3, 0.16)))
-	# Pump room: hose reel drum, spare wheels, toolbox on the dead pump.
-	_cyl_nc(Vector3(16.8, WET_Y + 0.7, -7.0), 0.5, 0.4, MatLib.flat(Color(0.62, 0.14, 0.1))).rotation.z = deg_to_rad(90)
+	# Pump room: hose reel drum, spare wheels, toolbox on the dead pump. Lying on its
+	# side, a cylinder rests at radius above the deck, not half its height — this was
+	# authored at WET_Y+0.7 (a leftover upright-drum offset) and floated 0.2m clear
+	# of the plating.
+	_cyl_nc(Vector3(16.8, WET_Y + 0.52, -7.0), 0.5, 0.4, MatLib.flat(Color(0.62, 0.14, 0.1))).rotation.z = deg_to_rad(90)
 	for wz in [-8.2, -9.0]:
 		var ww := CSGTorus3D.new()
 		ww.inner_radius = 0.1

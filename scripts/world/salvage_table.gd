@@ -96,8 +96,9 @@ const PROPS := {
 	"watering_can_metal_01": ["plumbing", {"steel_plate": 1}, "Watering Can"],
 
 	# ---- steel: hacksaw -> plate, bolts ----
-	"metal_tool_chest": ["steel", {"steel_plate": 1, "bolt_handful": 1}, "Tool Chest"],
-	"drawer_cabinet": ["steel", {"steel_plate": 1, "bolt_handful": 1}, "Drawer Cabinet"],
+	# (metal_tool_chest / drawer_cabinet / metal_toolbox / metal_trash_can are NOT here:
+	# anything with a lid, doors or drawers is player STORAGE now — world_storage.gd
+	# adopts them as stashes, and a prop can't be both a stash and a salvage station.)
 	"tool_cart": ["steel", {"steel_plate": 1, "bolt_handful": 1}, "Tool Cart"],
 	"metal_office_desk": ["steel", {"steel_plate": 1, "bolt_handful": 1}, "Office Desk"],
 	"steel_frame_shelves_01": ["steel", {"steel_plate": 1, "bolt_handful": 1}, "Steel Shelving"],
@@ -107,10 +108,8 @@ const PROPS := {
 	"Barrel_01": ["steel", {"steel_plate": 1}, "Steel Drum"],
 	"Barrel_02": ["steel", {"steel_plate": 1}, "Steel Drum"],
 	"barrel_03": ["steel", {"steel_plate": 1}, "Steel Drum"],
-	"metal_trash_can": ["steel", {"steel_plate": 1}, "Trash Can"],
 	"metal_jerrycan": ["steel", {"steel_plate": 1}, "Jerrycan"],
 	"metal_jerrycan_green": ["steel", {"steel_plate": 1}, "Jerrycan"],
-	"metal_toolbox": ["steel", {"steel_plate": 1, "bolt_handful": 1}, "Toolbox"],
 	"metal_stool_01": ["steel", {"steel_plate": 1, "bolt_handful": 1}, "Metal Stool"],
 	"metal_stool_02": ["steel", {"steel_plate": 1, "bolt_handful": 1}, "Metal Stool"],
 
@@ -118,7 +117,6 @@ const PROPS := {
 	"small_wooden_table_01": ["timber", {"driftwood": 1, "bolt_handful": 1}, "Wooden Table"],
 	"painted_wooden_chair_01": ["timber", {"driftwood": 1}, "Painted Chair"],
 	"folding_wooden_stool": ["timber", {"driftwood": 1}, "Folding Stool"],
-	"ClassicNightstand_01": ["timber", {"driftwood": 1, "bolt_handful": 1}, "Nightstand"],
 	"chinese_stool": ["timber", {"driftwood": 1}, "Wooden Stool"],
 	"bar_chair_round_01": ["timber", {"driftwood": 1, "bolt_handful": 1}, "Bar Stool"],
 	"wooden_bucket_01": ["timber", {"driftwood": 1}, "Wooden Bucket"],

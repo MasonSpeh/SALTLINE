@@ -419,11 +419,19 @@ func _vents_and_hatches() -> void:
 ## Frame the tower door so the way up reads from across the deck.
 func _stair_entry() -> void:
 	var y: float = WET_Y
+	# The real doorway this frames is cut by _wall()/DOORFRAME.build in rig_builder.gd
+	# at door_h = min(OPEN_H, shell_h) = 2.2m, so its cased top sits at y+2.2. These
+	# hazard jambs were authored 2.3m tall (top at y+2.3) with the lintel starting
+	# there — 0.1m (DOORFRAME.HEAD) too high, leaving a gap between the real frame's
+	# head and the underside of the striped lintel above it. Both are shifted down
+	# by that same 0.1m so the striping actually cases the opening instead of
+	# floating over it.
+	const GAP_FIX: float = -0.1
 	for jx in [22.85, 24.35]:
-		_dbox(Vector3(jx, y + 1.15, -6.0), Vector3(0.18, 2.3, 0.32), MatLib.hazard_stripe())
-	_dbox(Vector3(23.6, y + 2.4, -6.0), Vector3(1.7, 0.2, 0.32), MatLib.hazard_stripe())
+		_dbox(Vector3(jx, y + 1.15 + GAP_FIX, -6.0), Vector3(0.18, 2.3, 0.32), MatLib.hazard_stripe())
+	_dbox(Vector3(23.6, y + 2.4 + GAP_FIX, -6.0), Vector3(1.7, 0.2, 0.32), MatLib.hazard_stripe())
 	_box(Vector3(23.6, y + 0.02, -6.65), Vector3(1.5, 0.04, 0.9), MatLib.checker_plate(), false)
-	_plabel("STAIRS → TOPSIDE DECK", Vector3(23.6, y + 2.75, -6.18), 180, 20, Color(0.88, 0.88, 0.84))
+	_plabel("STAIRS → TOPSIDE DECK", Vector3(23.6, y + 2.75 + GAP_FIX, -6.18), 180, 20, Color(0.88, 0.88, 0.84))
 	# Dead caged lamp over the door.
 	_dbox(Vector3(23.6, y + 3.2, -6.22), Vector3(0.22, 0.28, 0.14), MatLib.dark_metal())
 	_dcyl(Vector3(23.6, y + 3.2, -6.3), 0.08, 0.1, MatLib.glass(Color(0.8, 0.85, 0.8)))
@@ -444,6 +452,11 @@ func _tide_bands() -> void:
 func _scatter_items() -> void:
 	var y: float = WET_Y
 	_takeable("driftwood", "Driftwood", Vector3(26.8, y + 0.05, -21.4))
+	# A working flashlight on the dock crate by the pod, where the player lands — the
+	# wet deck is the first dark space they cross, so the torch meets them there. Select
+	# it in the hotbar and press F to click the beam on/off. More are stashed in the
+	# dark rooms (pump room, store room, machine shop) below.
+	_takeable("flashlight", "Flashlight", Vector3(18.4, y + 0.05, -22.4))
 	# The fishing rod — propped in the storeroom where a rigger left it. The other
 	# half of the food economy, waiting behind the first door most players open.
 	_takeable("fishing_rod", "Fishing Rod", Vector3(11.0, y + 0.05, -17.2))
@@ -468,7 +481,12 @@ func _scatter_items() -> void:
 	_takeable("tarp", "Folded Tarp", Vector3(23.2, y + 1.3, -21.0))
 	_takeable("scrap_metal", "Scrap Plate", Vector3(8.8, y + 0.05, -17.5))
 	_takeable("sealed_tin", "Sealed Tin", Vector3(9.1, y + 0.05, -7.6))
-	_takeable("kelp_bundle", "Kelp Snag", Vector3(23.0, y + 0.05, -15.8))
+	# Kelp belongs in the wet ground the sea actually reaches, not on the main walking
+	# lane — it used to sit in the middle of the entry platform (x23, z-15.8, right on
+	# the walk between the SPHL and the stair tower). Moved south of the loot room's
+	# back wall (z-22), the open wet patch behind the Z1 buildings, so it reads as
+	# something the current left behind rather than deck litter underfoot.
+	_takeable("kelp_bundle", "Kelp Snag", Vector3(14.0, y + 0.05, -23.4))
 	_takeable("canned_food", "Dropped Ration", Vector3(11.3, y + 0.05, -23.1))
 	# Oil drums in the NE corner, one tipped mid-pour, spill stain beneath.
 	for i in range(3):

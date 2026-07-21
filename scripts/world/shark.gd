@@ -219,11 +219,28 @@ func _bite(player: Node3D) -> void:
 	_flee_target.y = _depth
 	_state = SState.FLEE
 
+const MOVE := preload("res://scripts/world/fauna_move.gd")
+const BODY_R: float = 1.2     ## the hammerhead is big — keep its bulk out of the steel
+
 func _move_toward_point(target: Vector3, delta: float, speed: float) -> void:
 	var to: Vector3 = target - global_position
 	if to.length() < 0.05:
 		return
-	global_position += to.limit_length(speed * delta)
+	# A hammerhead is not a ghost: it cannot swim through the caissons, pontoons or the
+	# drop net. Clamp the step at any solid in the way, and if it hits one, break off and
+	# veer away instead of grinding into it — the same "meet a wall, pick a new heading"
+	# rule the deck crawlers use.
+	var want: Vector3 = global_position + to.limit_length(speed * delta)
+	var res: Dictionary = MOVE.swim_clear(self, global_position, want, BODY_R)
+	global_position = res["pos"]
+	if res["blocked"] and _state != SState.FLEE:
+		var away: Vector3 = (global_position - target)
+		away.y = 0.0
+		if away.length() < 0.5:
+			away = Vector3(-to.z, 0.0, to.x)   # no clean push-off: veer sideways
+		_flee_target = global_position + away.normalized() * 16.0
+		_flee_target.y = _depth
+		_state = SState.FLEE
 	var flat := Vector3(to.x, 0, to.z)
 	if flat.length_squared() > 0.0001:
 		var desired: float = atan2(flat.x, flat.z)

@@ -25,13 +25,17 @@ class_name Seabed extends Node3D
 
 const REEF := preload("res://scripts/world/reef_detail.gd")
 
-const FLOOR_Y: float = -23.0
-## The caisson extensions in underwater_world.gd are box(6, 20, 6) centred at y -13,
-## so each is a 6 m square in plan bottoming out at exactly -23. The mud under a leg
-## is held at PLANT_Y (a little ABOVE that bottom) so the leg is bedded in the silt
-## rather than hovering over it.
+## The true abyssal floor. Was -23; deepened 4x so the bottom is a place the light
+## never reaches — from the surface the water just fades to black below (the fog grade
+## in underwater_fx.gd swallows anything past ~40 m), and the 13 m death line keeps it
+## forever out of reach. Everything planted here (riprap, chains, wreck, reef slabs)
+## rides floor_height() and follows automatically.
+const FLOOR_Y: float = -92.0
+## The caissons (rig_builder._build_structure) run in ONE casting from the deck rim
+## down to exactly this bottom, planted in the silt at PLANT_Y (a little ABOVE the
+## bottom) so each leg is bedded in the mud rather than hovering over it.
 const CAISSON_HALF: float = 3.0
-const CAISSON_BOTTOM: float = -23.0
+const CAISSON_BOTTOM: float = -92.0
 const BED_SINK: float = 0.45              # how far the mud climbs the caisson base
 const PLANT_Y: float = CAISSON_BOTTOM + BED_SINK
 const LEGS: Array[Vector2] = [Vector2(-22, -12), Vector2(22, -12), Vector2(-22, 12), Vector2(22, 12)]

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bbgg5vu182iv"
 path.s3tc="res://.godot/imported/GothicCabinet_01_diff_1k.jpg-140976fcbee1d5b164af6a62be0ffe92.s3tc.ctex"
+path.etc2="res://.godot/imported/GothicCabinet_01_diff_1k.jpg-140976fcbee1d5b164af6a62be0ffe92.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/GothicCabinet_01/textures/GothicCabinet_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/GothicCabinet_01_diff_1k.jpg-140976fcbee1d5b164af6a62be0ffe92.s3tc.ctex"]
+dest_files=["res://.godot/imported/GothicCabinet_01_diff_1k.jpg-140976fcbee1d5b164af6a62be0ffe92.s3tc.ctex", "res://.godot/imported/GothicCabinet_01_diff_1k.jpg-140976fcbee1d5b164af6a62be0ffe92.etc2.ctex"]
 
 [params]
 

@@ -117,6 +117,40 @@ static func point_solid(node: Node3D, pos: Vector3, exclude: Array[RID] = []) ->
 	q.exclude = exclude
 	return not world.direct_space_state.intersect_point(q, 1).is_empty()
 
+# ---------------------------------------------------------------- 3D anti-clip
+
+## SWIMMERS AND FLYERS that path near the rig — fish schools around the legs, the shark's
+## charge, the eel, the reef shoals — move in full 3D by direct global_position assignment,
+## the same way the deck walkers do in XZ. This is their wall test: raycast the intended move
+## `from`->`to` against world geometry (mask 1, the rig's caissons/pontoons/decks and the
+## drop net). Returns {"pos", "blocked"}:
+##   clear   -> {to, false}, move freely.
+##   blocked -> {a point `radius` short of the surface, true}. The body stops OUTSIDE the
+##              solid, never in it, and the caller — seeing blocked — turns to a new heading,
+##              exactly the way a snail meeting a wall picks a new direction instead of
+##              pressing through. `exclude` drops the creature's own bodies (and other fauna)
+##              so it never reads itself as a wall.
+static func swim_clear(node: Node3D, from: Vector3, to: Vector3, radius: float = 0.4,
+		exclude: Array[RID] = []) -> Dictionary:
+	var world: World3D = node.get_world_3d()
+	if world == null:
+		return {"pos": to, "blocked": false}
+	var seg: Vector3 = to - from
+	var dist: float = seg.length()
+	if dist < 0.0001:
+		return {"pos": to, "blocked": false}
+	var dir: Vector3 = seg / dist
+	# Cast a little past the target so we stop short of a surface we would end up touching.
+	var q := PhysicsRayQueryParameters3D.create(from, to + dir * radius)
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = exclude
+	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return {"pos": to, "blocked": false}
+	var stop: Vector3 = (hit["position"] as Vector3) - dir * radius
+	return {"pos": stop, "blocked": true}
+
 ## The obstruction `reach` metres ahead along `heading`, for a body of `body_radius`
 ## whose up is `up`: {} when the way is clear, else {"point", "normal", "distance"} for
 ## the NEAREST of the three body probes (centre + both shoulders). A face within ~45
@@ -204,6 +238,17 @@ class SurfaceCrawler extends RefCounted:
 	const CLIMB_MAX := 6.0     ## metres above the foothold where a climb turns back
 	const FOOT := 0.02         ## clearance held between the origin and the face
 	const COMMIT := 1.6        ## seconds a fresh decision is protected from patch steering
+	## Sum of signed turns taken by consecutive _decide() left/right responses, above
+	## which the crawler forces a break for open water instead of following the wall
+	## another step. This is the wall-hugging twin of the free-wander leash bug fixed
+	## earlier: THAT fix stopped the patch-steering path from orbiting the patch centre,
+	## but the wall-RESPONSE path (_decide) has no memory across decisions at all — each
+	## turn is locally correct (toward the open flank) yet a curved or circular boundary
+	## (a round tank, a small submerged plate) keeps curving into the new heading, so the
+	## same rotational sense repeats decision after decision and the SUM walks a full
+	## lap. That is what "spins in circles after hitting a wall" actually was: not one
+	## bad decision, but an unbounded run of individually-correct ones.
+	const WALL_FOLLOW_BREAK := 4.71   ## ~270 degrees
 
 	var home: Vector3           ## centre of the patch it works
 	var leash: float            ## metres it may reach from home before turning back
@@ -232,6 +277,7 @@ class SurfaceCrawler extends RefCounted:
 	var _bound: bool = false
 	var _grounded: bool = false ## a real face was under the foot last frame
 	var _seated: bool = false   ## the first wide grounding probe has run
+	var _wall_turn: float = 0.0 ## running signed turn from consecutive wall decisions
 	var _rng := RandomNumberGenerator.new()
 
 	func _init(home_: Vector3, leash_: float, speed_: float, seed_: int,
@@ -253,6 +299,29 @@ class SurfaceCrawler extends RefCounted:
 			var a: float = _rng.randf() * TAU
 			heading = Vector3(cos(a), 0.0, sin(a))
 			_leg = _rng.randf_range(leash * 0.6, leash * 1.3)
+
+	## Re-home the crawler at `new_home` and reset its grounding/decision state, so a snail
+	## that was picked up and set down somewhere new resumes crawling FROM there — re-seats
+	## onto whatever surface is under the drop point and wanders around it, instead of
+	## snapping back to where it was first spawned.
+	func reseat(new_home: Vector3) -> void:
+		home = new_home
+		y_fallback = new_home.y
+		_seated = false          # re-run the wide grounding probe next tick
+		_grounded = false
+		_bound = false           # re-collect the kin-body skip list at the new spot
+		_commit = 0.0
+		_wall_turn = 0.0
+		_still = 0.0
+		_pause = 0.0
+		up = Vector3.UP
+		if axis.length() > 0.5:
+			_goal = new_home + axis * leash
+			heading = axis
+		else:
+			var a: float = _rng.randf() * TAU
+			heading = Vector3(cos(a), 0.0, sin(a))
+		_leg = _rng.randf_range(leash * 0.6, leash * 1.3)
 
 	## Advance one frame: crawl the surface, decide about whatever is in the way, and
 	## re-seat the foot on the face. Orientation is the caller's (basis()/orient()).
@@ -315,6 +384,10 @@ class SurfaceCrawler extends RefCounted:
 			var ahead: Vector3 = before + heading * step_len
 			if _has_footing(host, ahead):
 				host.global_position = ahead
+				# Clear travel forgets the wall-hugging memory — a snail that has actually
+				# gotten away from the last wall is no longer at risk of laminating a loop
+				# out of it, so let it wall-follow normally again next time it meets one.
+				_wall_turn = move_toward(_wall_turn, 0.0, delta * 2.0)
 			elif _grounded:
 				_edge(host)                       # convex edge: over it, or turn back
 			else:
@@ -359,6 +432,7 @@ class SurfaceCrawler extends RefCounted:
 		if n.y > 0.7 and up.y < 0.7:
 			_attach(host, n, surmount)
 			choice = "land"
+			_wall_turn = 0.0
 			return
 		var h: float = _boundary_height(host, info)
 		boundary_h = h
@@ -385,8 +459,23 @@ class SurfaceCrawler extends RefCounted:
 			choice = "climb"
 			return
 		var go_left: bool = left_clear if left_clear != right_clear else _rng.randf() < 0.5
-		heading = along if go_left else -along
-		choice = "left" if go_left else "right"
+		var new_head: Vector3 = along if go_left else -along
+		var delta_ang: float = atan2(heading.cross(new_head).dot(up), heading.dot(new_head))
+		_wall_turn += delta_ang
+		if absf(_wall_turn) > WALL_FOLLOW_BREAK:
+			# Enough consecutive turns in the same rotational sense to have walked a lap —
+			# stop following this curve and strike for open water instead, exactly the way
+			# a strayed free-wander breaks for home rather than skimming the boundary.
+			var inward: Vector3 = Vector3(home.x - host.global_position.x, 0.0, home.z - host.global_position.z)
+			if inward.length() > 0.01:
+				new_head = inward.normalized().rotated(Vector3.UP, _rng.randf_range(-0.3, 0.3))
+				new_head = new_head - up * new_head.dot(up)
+			_wall_turn = 0.0
+			choice = "unwind"
+		else:
+			choice = "left" if go_left else "right"
+		if new_head.length() > 0.001:
+			heading = new_head.normalized()
 		_leg = _rng.randf_range(leash * 0.6, leash * 1.3)
 		_commit = COMMIT
 		if _rng.randf() < 0.3:
@@ -551,6 +640,7 @@ class SurfaceCrawler extends RefCounted:
 		_pause = 0.0
 		_leg = _rng.randf_range(leash * 0.5, leash * 1.2)
 		_commit = COMMIT
+		_wall_turn = 0.0
 		blocked = true
 		choice = "unstick"
 

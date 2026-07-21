@@ -9,6 +9,7 @@ const FISH := preload("res://scripts/world/fish_table.gd")
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 const SEABED := preload("res://scripts/world/seabed.gd")
 const FX := preload("res://scripts/world/underwater_fx.gd")
+const MOVE := preload("res://scripts/world/fauna_move.gd")
 
 const LEGS := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 const DEPTH_BAND := {"surface": -1.2, "mid": -4.5, "deep": -9.5}
@@ -23,10 +24,13 @@ var _storm: Node = null
 func _ready() -> void:
 	_rng.seed = 7411
 	_kelp_forest()
+	_leg_reef_growth()
 	_marine_snow()
 	_bubble_vents()
 	_mooring_chains()
 	_spawn_schools()
+	_rig_underlights()
+	_deep_giants()
 	# The sculpted sea floor + wreck field + reef communities, and the visibility /
 	# light FX (Snell window, shafts, caustics, depth-graded fog). Both self-contain,
 	# so wiring them here keeps main.gd (owned by the waves/sky builder) untouched.
@@ -64,9 +68,11 @@ func _kelp_forest() -> void:
 	tip_mat.emission = Color(0.2, 0.9, 0.85)
 	tip_mat.emission_energy_multiplier = 0.25
 	for leg in LEGS:
-		for i in range(6):
+		# Denser stand — 6 procedural strands read thin against a 6 m caisson; a real kelp
+		# forest is a wall you swim through, not a scatter you swim past.
+		for i in range(11):
 			var a: float = _rng.randf_range(0, TAU)
-			var r: float = _rng.randf_range(3.6, 5.4)
+			var r: float = _rng.randf_range(3.2, 6.0)
 			var base := Vector3(leg.x + cos(a) * r, -12.0, leg.z + sin(a) * r)
 			var strand := Node3D.new()
 			add_child(strand)
@@ -85,6 +91,170 @@ func _kelp_forest() -> void:
 			strand.set_meta("sway", _rng.randf_range(0.8, 1.4))
 			strand.set_meta("phase", _rng.randf_range(0, TAU))
 			_kelp.append(strand)
+		# A few real GENERATED kelp fronds (glow_kelp.glb) mixed in among the procedural
+		# strands — same holdfast ring, a richer silhouette than boxes alone can give.
+		for i in range(4):
+			var a2: float = _rng.randf_range(0, TAU)
+			var r2: float = _rng.randf_range(3.5, 6.2)
+			var pos := Vector3(leg.x + cos(a2) * r2, -12.0, leg.z + sin(a2) * r2)
+			var host := Node3D.new()
+			add_child(host)
+			host.position = pos
+			host.rotation.y = _rng.randf_range(0, TAU)
+			var gen: Dictionary = ANIM.attach(host, "res://assets/models/fauna/glow_kelp/glow_kelp.glb",
+				_rng.randf_range(6.0, 9.5), ANIM.Mode.SWAY, 0.1, _rng.randf_range(0.4, 0.7),
+				Color(0.22, 0.85, 0.7), _rng.randf() * TAU)
+			if gen.is_empty():
+				host.queue_free()
+				continue
+			ANIM.drive(gen["mats"], 0.55, 0.3)
+			BloomFauna.ground_model(host, gen["model"])
+
+## Reef growth encrusting the four legs themselves — anemones, sponge clusters, tube
+## worms, urchins — the years of Bloom colonisation the rig would actually carry, right
+## where a diving player spends most of their time. The wreck field / reef ridge
+## (reef_detail.gd, reef_life.gd) put the deep, elaborate reef community far south of the
+## rig at z -30..-60; this is the CLOSE, immediate life on the steel itself, in the
+## reachable band (roughly y -2..-11, well inside the 13 m death line).
+func _leg_reef_growth() -> void:
+	const SPECIES := [
+		["bloom_anemone", 0.4, 0.9, ANIM.Mode.SWAY, 0.08, Color(0.95, 0.45, 0.7)],
+		["bloom_sponge_cluster", 0.5, 1.1, ANIM.Mode.BREATHE, 0.03, Color(1.0, 0.62, 0.22)],
+		["bloom_tube_worms", 0.5, 0.9, ANIM.Mode.CIRRI, 0.05, Color(0.25, 0.95, 0.88)],
+		["bloom_urchin", 0.3, 0.55, ANIM.Mode.BREATHE, 0.04, Color(0.75, 0.55, 1.0)],
+	]
+	for leg in LEGS:
+		for i in range(14):
+			var spec: Array = SPECIES[_rng.randi() % SPECIES.size()]
+			var slug: String = spec[0]
+			var size: float = _rng.randf_range(spec[1], spec[2])
+			var mode: int = spec[3]
+			var amp: float = spec[4]
+			var glow: Color = spec[5]
+			# Pick a face of the 6 m square caisson and a reachable depth, then stand the
+			# growth just proud of that face (a small standoff so it doesn't clip the concrete).
+			var side: float = [-1.0, 1.0][_rng.randi_range(0, 1)]
+			var along_x: bool = _rng.randf() < 0.5
+			var along: float = _rng.randf_range(-2.6, 2.6)
+			var depth_y: float = _rng.randf_range(-2.5, -10.5)
+			var standoff: float = 3.05 + size * 0.15
+			var pos: Vector3
+			if along_x:
+				pos = Vector3(leg.x + along, depth_y, leg.z + side * standoff)
+			else:
+				pos = Vector3(leg.x + side * standoff, depth_y, leg.z + along)
+			var host := Node3D.new()
+			add_child(host)
+			host.global_position = pos
+			host.rotation.y = _rng.randf_range(0.0, TAU)
+			var gen: Dictionary = ANIM.attach(host, "res://assets/models/fauna/%s/%s.glb" % [slug, slug],
+				size, mode, amp, _rng.randf_range(0.3, 0.6), glow, _rng.randf() * TAU)
+			if gen.is_empty():
+				host.queue_free()
+				continue
+			ANIM.drive(gen["mats"], 0.5, _rng.randf_range(0.2, 0.4))
+			BloomFauna.ground_model(host, gen["model"])
+
+## Work floodlights bolted under the pontoons, aimed straight down into the deep — the
+## rig's own light story continuing below the waterline. Each is a small emissive fixture
+## plus a wide shadowless SpotLight3D (cheap on gl_compatibility). They carve cones a few
+## tens of metres down into water that now fades to black long before the -92 floor, and
+## the deep giants (below) cruise through exactly these cones, so from the surface you see
+## huge lit silhouettes slide in and out of the dark.
+func _rig_underlights() -> void:
+	# Pontoons: boxes at (0, -1.05, ±12), 56 x 4 x 8 — undersides at y -3.05.
+	for spec in [Vector2(-14.0, -12.0), Vector2(14.0, -12.0),
+			Vector2(-14.0, 12.0), Vector2(14.0, 12.0)]:
+		var lamp := SpotLight3D.new()
+		lamp.light_color = Color(0.62, 0.85, 0.95)
+		lamp.light_energy = 3.4
+		lamp.spot_range = 42.0
+		lamp.spot_angle = 38.0
+		lamp.spot_attenuation = 1.1
+		lamp.shadow_enabled = false
+		add_child(lamp)
+		lamp.position = Vector3(spec.x, -3.15, spec.y)
+		lamp.rotation.x = -PI / 2.0   # a SpotLight fires along -Z; pitch it straight down
+		# The housing: a small dark can with a glowing lens face, so the beam has a source.
+		var can := MeshInstance3D.new()
+		var cm := CylinderMesh.new()
+		cm.top_radius = 0.24
+		cm.bottom_radius = 0.3
+		cm.height = 0.35
+		cm.material = MatLib.dark_metal()
+		can.mesh = cm
+		add_child(can)
+		can.position = Vector3(spec.x, -2.95, spec.y)
+		var lens := MeshInstance3D.new()
+		var lm := CylinderMesh.new()
+		lm.top_radius = 0.22
+		lm.bottom_radius = 0.22
+		lm.height = 0.04
+		lm.material = MatLib.glowing(Color(0.75, 0.92, 1.0), 2.4)
+		lens.mesh = lm
+		add_child(lens)
+		lens.position = Vector3(spec.x, -3.14, spec.y)
+
+## The BIG ones. Barrel groupers the size of doors and a fathom halibut like a lost
+## tabletop, patrolling slow circuits 15-30 m down — deep enough that the water has
+## already gone dark around them, shallow enough that the pontoon floodlights rake
+## across their backs as they pass under the rig. From the deck or the shallows you
+## mostly get moving silhouettes at the edge of the light, which is the point.
+func _deep_giants() -> void:
+	var specs := [
+		# [slug, size_m, band_y, orbit_r, rate, phase]
+		["fish_barrel_grouper", 3.6, -17.0, 13.0, 0.05, 0.0],
+		["fish_barrel_grouper", 4.4, -24.0, 17.0, 0.038, 2.4],
+		["fish_fathom_halibut", 3.2, -29.0, 11.0, 0.045, 4.2],
+	]
+	for s in specs:
+		var host := DeepGiant.new(s[1], s[2], s[3], s[4], s[5])
+		host.slug = s[0]
+		add_child(host)
+
+## One slow giant on a drifting circuit under the rig. Raw circular path — it lives
+## 15+ m down in open water between the legs (orbit radii keep it clear of the caissons
+## at ±22/±12), below every deck, net and swimmer, so no wall test is needed.
+class DeepGiant extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	var slug: String = "fish_barrel_grouper"
+	var _size: float
+	var _band_y: float
+	var _r: float
+	var _rate: float
+	var _ph: float
+	var _t: float = 0.0
+	var _mats: Array = []
+
+	func _init(size: float = 3.5, band_y: float = -20.0, r: float = 12.0,
+			rate: float = 0.05, ph: float = 0.0) -> void:
+		_size = size
+		_band_y = band_y
+		_r = r
+		_rate = rate
+		_ph = ph
+
+	func _ready() -> void:
+		var gen: Dictionary = ANIM.attach(self, "res://assets/models/fauna/%s/%s.glb" % [slug, slug],
+			_size, ANIM.Mode.UNDULATE, 0.07, 0.5, Color(0.2, 0.5, 0.55), _ph)
+		if gen.is_empty():
+			queue_free()
+			return
+		_mats = gen["mats"]
+		# Barely lit — these read as shapes in the murk, not lanterns. The pontoon
+		# floodlights supply whatever highlight they get.
+		ANIM.drive(_mats, 0.45, 0.05)
+		_t = _ph * 20.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		var a: float = _t * _rate + _ph
+		var next := Vector3(cos(a) * _r, _band_y + sin(_t * 0.11 + _ph) * 1.6, sin(a) * _r * 0.8)
+		var vel: Vector3 = next - global_position
+		global_position = next
+		var flat := Vector3(vel.x, 0.0, vel.z)
+		if flat.length_squared() > 0.00001:
+			look_at(next + flat, Vector3.UP)
 
 ## Marine snow: slow drifting particulate that sells the water as a medium.
 func _marine_snow() -> void:
@@ -154,7 +324,10 @@ func _mooring_chains() -> void:
 	for leg in LEGS:
 		var dir := Vector3(signf(leg.x), 0, signf(leg.z)).normalized()
 		var from := Vector3(leg.x, -2.5, leg.z) + dir * 3.2
-		var to := from + dir * 26.0 + Vector3(0, -20.0, 0)
+		# Mooring lines run down and out until they vanish into the deep murk — with the
+		# 4x floor they no longer reach bottom on screen; the fog swallows them, which is
+		# exactly what a real mooring looks like from the surface zone.
+		var to := from + dir * 44.0 + Vector3(0, -46.0, 0)
 		var mi := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
 		cm.top_radius = 0.09
@@ -396,6 +569,13 @@ func _process(delta: float) -> void:
 			# surface in troughs, which is exactly where a shallow school would breach.
 			var surf: float = Gyre.wave_height(Vector2(next.x, next.z), Gyre.water_time())
 			next.y = minf(next.y, surf - 0.5 - s["size"] * 0.5)
+			# A school's drift band overlaps the rig legs — don't let fish swim through a
+			# caisson. Only pay for the raycast near a leg (the schools spend most of their
+			# orbit in open water), and if the step would enter the steel, stop the fish at
+			# the surface so it grazes the leg and its orbit carries it back out.
+			if _near_leg(next):
+				var res: Dictionary = MOVE.swim_clear(f, f.global_position, next, 0.3)
+				next = res["pos"]
 			var vel: Vector3 = next - f.global_position
 			f.global_position = next
 			# Steer by the FLAT velocity only — a vertical bob aligned with UP
@@ -403,3 +583,11 @@ func _process(delta: float) -> void:
 			var flat := Vector3(vel.x, 0.0, vel.z)
 			if flat.length_squared() > 0.0001:
 				f.look_at(next + flat, Vector3.UP)
+
+## Is `p` close enough to a rig leg (in plan) that a wall test is worth casting? The legs
+## are 6 m square; 4.5 m from a centre clears the caisson plus a fish's turn radius.
+func _near_leg(p: Vector3) -> bool:
+	for leg in LEGS:
+		if absf(p.x - leg.x) < 4.5 and absf(p.z - leg.z) < 4.5:
+			return true
+	return false

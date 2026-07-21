@@ -278,6 +278,14 @@ func _skip_subtree(n: Node) -> bool:
 	if n.is_in_group("player") or n.is_in_group("floating_debris") \
 			or n.is_in_group("gyre_streaks") or n.is_in_group("lit_flares"):
 		return true
+	# rig_batcher.gd's baked dressing (group "merged_dressing", see support_index.gd) is
+	# static world geometry, not loose clutter: its MergedDressing holder has 250+
+	# children, so _object_root's ">CONTAINER_CHILDREN" boundary check was stopping at
+	# each individual merged mesh and auditing it as its own dropped item needing a
+	# floor — which is exactly backwards for a baked batch of bolts, pipes and panels
+	# that were each individually placed and settled BEFORE they were merged.
+	if n.is_in_group("merged_dressing"):
+		return true
 	var s: Script = n.get_script() as Script
 	if s != null:
 		for frag in SUPPORT.SKIP_SCRIPTS:
