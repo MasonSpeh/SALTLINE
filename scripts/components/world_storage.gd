@@ -27,6 +27,17 @@ const STORABLE: Array[String] = [
 ## already drives (loot caches, the gull nest), or fixtures whose interaction is spoken for.
 const EXCLUDE: Array[String] = ["nest", "fridge", "stove", "oven", "washing", "dishwasher"]
 
+## Model SUB-MESH names. A glTF prop's internals are often storable-named — the office
+## desk carries six meshes literally called metal_office_desk_drawer_01.., a tool chest
+## has *_lid / *_hinge_* / *_handle_* parts. Those are pieces of a prop, never props;
+## without this filter each one adopted as its own stash ("Drawer Unit x12"), including
+## inside salvage stations whose contents would vanish with the dismantled prop.
+## (No "_chest" here — that substring is part of the tool chest's own root name; a
+## chest's inner *_chest mesh is deduped by _under_loot_container instead.)
+const PART_NAMES: Array[String] = [
+	"_drawer_0", "_drawer_1", "_lid", "_handle", "_hinge", "_lock", "_latch",
+]
+
 ## How far above the prop's base the interaction volume sits, and how big it is. A found
 ## locker should be reachable from standing height without swallowing the doorway beside it.
 const PAD: float = 0.06
@@ -34,13 +45,17 @@ const PAD: float = 0.06
 var _adopted: int = 0
 
 func _ready() -> void:
-	# The dressing streams in over a couple of seconds; adopt after it has settled so the
-	# scan sees every prop exactly once.
-	await get_tree().create_timer(3.0).timeout
-	var root: Node = get_tree().current_scene
-	if root == null:
-		root = get_parent()
-	_scan(root)
+	# The dressing STREAMS in over many seconds (interior_props instances a few props per
+	# frame, then settles them), so one scan at t=3 raced it — whichever cabinets hadn't
+	# landed yet stayed scenery, and the adopted count varied run to run. Sweep several
+	# times instead; a prop already adopted carries a LootContainer child, which the
+	# Interactable-child guard in _scan skips, so re-sweeping is idempotent and cheap.
+	for i in range(6):
+		await get_tree().create_timer(3.0).timeout
+		var root: Node = get_tree().current_scene
+		if root == null:
+			root = get_parent()
+		_scan(root)
 	if _adopted > 0:
 		print("[world_storage] adopted %d found containers" % _adopted)
 
@@ -58,6 +73,14 @@ func _scan(root: Node) -> void:
 		# takeable, a comfort fixture. Two prompts on one object is worse than none.
 		if n is Interactable or _has_interactable_child(n):
 			continue
+		# ONE stash per prop. Parents are processed before children in this walk, so by
+		# the time a prop's inner mesh comes up, the prop root already carries its
+		# LootContainer — a claimed ancestry means this subtree is spoken for. (The
+		# PART_NAMES filter in _is_storable handles the other half: model sub-meshes
+		# named *_drawer_NN / *_lid / *_handle that belong to props this scanner never
+		# adopts at all, like the salvage office desk.)
+		if _under_loot_container(n):
+			continue
 		# A LootContainer under a RigidBody3D is invalid (a static body riding a moving
 		# one floods the log) — and carryable props shouldn't be stashes anyway: you pick
 		# those up. A StaticBody3D wrapper is FINE though: fixed furniture (the drawer
@@ -72,6 +95,9 @@ func _is_storable(n: Node) -> bool:
 	var low: String = n.name.to_lower()
 	for bad in EXCLUDE:
 		if low.contains(bad):
+			return false
+	for part in PART_NAMES:
+		if low.contains(part):
 			return false
 	for frag in STORABLE:
 		if low.contains(frag):
@@ -96,6 +122,27 @@ func _has_interactable_child(n: Node) -> bool:
 			return true
 	return false
 
+## True when `n` sits under a node WITHIN ITS OWN PROP that is (or hosts) a LootContainer
+## — the prop is adopted, or is itself a built crate; its inner meshes must not sprout
+## stashes of their own. The walk stops at the first scripted ancestor: builder roots
+## (rig_builder, interior_props, wet_deck_detail...) all carry scripts and parent HUNDREDS
+## of unrelated nodes — including the built crates, which are LootContainers themselves —
+## so walking past the prop's own scope reads the whole rig as "claimed" and kills every
+## adoption. Prop internals are plain script-less scene nodes, so the script boundary IS
+## the prop boundary.
+func _under_loot_container(n: Node) -> bool:
+	var cur: Node = n.get_parent()
+	while cur != null:
+		if cur is LootContainer:
+			return true
+		for c in cur.get_children():
+			if c is LootContainer:
+				return true
+		if cur.get_script() != null:
+			return false   # reached a builder/system node — the prop's scope has ended
+		cur = cur.get_parent()
+	return false
+
 ## Hang a LootContainer on the prop, sized to the prop's own bounds, and seed it with a
 ## little of what a locker on an abandoned rig would plausibly still hold.
 func _adopt(prop: Node3D) -> void:
@@ -103,7 +150,13 @@ func _adopt(prop: Node3D) -> void:
 	if bounds.size == Vector3.ZERO:
 		return
 	# Too small to be a container (a hand tool named "toolbox_small_detail", say).
-	if bounds.size.x < 0.25 or bounds.size.y < 0.2:
+	# Judge by SORTED dimensions, not by the x axis: the old `size.x < 0.25` test was
+	# axis-roulette — the drawer cabinet is a tall narrow unit (0.23 x 0.9 x 0.55) and
+	# happened to face its thin side down x, so the one prop literally made of drawers
+	# was the one the storage pass rejected. A real container is big on two axes.
+	var dims: Array = [bounds.size.x, bounds.size.y, bounds.size.z]
+	dims.sort()
+	if dims[2] < 0.45 or dims[1] < 0.2:
 		return
 	var box: LootContainer = LOOT.new()
 	box.display_name = _pretty(prop.name)

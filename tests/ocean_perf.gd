@@ -13,7 +13,8 @@ const SPOTS := [
 	["deck_storm", Vector3(0.0, 26.0, 0.0), Vector3(120.0, 8.0, 120.0), true],
 	["sea_level", Vector3(60.0, 2.6, 60.0), Vector3(0.0, 1.0, 0.0), false],
 	["midwater_leg", Vector3(15.0, -4.2, -6.0), Vector3(22.0, -5.5, -12.0), false],
-	["seabed_wreck", Vector3(12.0, -13.5, -30.0), Vector3(-1.0, -21.0, -47.0), false],
+	# The floor dropped to -92 in the 4x-depth pass; this vantage rides the wreck field down.
+	["seabed_wreck", Vector3(12.0, -80.0, -30.0), Vector3(-1.0, -89.0, -47.0), false],
 ]
 
 var _main: Node3D
