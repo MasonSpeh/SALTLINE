@@ -550,7 +550,10 @@ func _build_structure() -> void:
 		# quads instead, and a strength-0 capture exonerates those completely (see the
 		# scratchpad exp_nocaustic / exp_redleg / exp_noext frames, which localise the seam
 		# to the junction itself). A junction that does not exist cannot show.
-		_box(leg_pos + Vector3(0, -3.0, 0), Vector3(6, 40.0, 6), MatLib.concrete())
+		# Height/centre put the top just below the deck slab and the bottom at exactly
+		# Seabed.CAISSON_BOTTOM (-92) — the ocean is 4x deeper now, and one casting still
+		# runs the whole way down so no join line ever shows through the water.
+		_box(leg_pos + Vector3(0, -37.5, 0), Vector3(6, 109.0, 6), MatLib.concrete())
 	# Pontoons riding just above the bigger v2 swell (crests reach ~0.9).
 	_box(Vector3(0, -1.05, -12), Vector3(56, 4, 8), MatLib.concrete_floor())
 	_box(Vector3(0, -1.05, 12), Vector3(56, 4, 8), MatLib.concrete_floor())

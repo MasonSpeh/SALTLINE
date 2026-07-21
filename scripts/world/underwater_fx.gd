@@ -347,6 +347,16 @@ func _process(_delta: float) -> void:
 			amb_e *= (1.0 - storm * near * 0.35)
 			dens = minf(dens, MAX_DENS + storm * 0.08)
 			amb_e = maxf(amb_e, AMB_FLOOR * 0.5)
+			# THE ABYSS. Below the death line (fly mode, kill cams, the long look down) the
+			# water keeps closing in for another 50 m — fog thickening past the silhouette
+			# cap, ambient collapsing, colour going to near-black — so the -92 floor can
+			# never be seen from anywhere a camera can be. The grouper band (-17..-29) sits
+			# just above this ramp: shapes at the edge of the dark, then nothing.
+			var abyss: float = clampf((depth - REACHABLE_DEPTH_M) / 50.0, 0.0, 1.0)
+			if abyss > 0.0:
+				dens = lerpf(dens, 0.42, abyss)
+				amb_e = lerpf(amb_e, 0.03, abyss)
+				fog_col = fog_col.lerp(Color(0.002, 0.006, 0.012), abyss)
 			# night pulls the whole column toward the dark, leaving the Bloom's own glow
 			# (seabed shader, fauna rims) as the main light — brightest by day.
 			var lum: float = 0.28 + 0.72 * day

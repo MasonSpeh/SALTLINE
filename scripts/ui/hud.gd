@@ -14,6 +14,7 @@ var life_bar: StatBar
 var hunger_bar: StatBar
 var thirst_bar: StatBar
 var warmth_bar: StatBar
+var _cold_hint_shown: bool = false   ## one-time "how to warm up" teach (see warmth hook)
 var rest_bar: StatBar
 var comfort_label: Label
 var sick_chip: PanelContainer
@@ -59,7 +60,14 @@ func _ready() -> void:
 	PlayerState.inventory_changed.connect(_refresh_crate_panel)
 	GameClock.phase_changed.connect(_on_phase_changed)
 	PlayerState.hunger_changed.connect(func(v: float) -> void: hunger_bar.set_value(v))
-	PlayerState.warmth_changed.connect(func(v: float) -> void: warmth_bar.set_value(v))
+	PlayerState.warmth_changed.connect(func(v: float) -> void:
+		warmth_bar.set_value(v)
+		# One-time contextual teach the first time the cold actually bites: the ways to
+		# warm up exist (lit fire barrel, lean-to shelter, a night's sleep) but were only
+		# named in the static tips list — a player who skipped that had no way to know.
+		if v < 0.35 and not _cold_hint_shown:
+			_cold_hint_shown = true
+			toast("The cold is setting in. A lit fire barrel, a lean-to, or a night's sleep in a bunk will warm you."))
 	# thirst/life are new PlayerState stats — bind defensively so the HUD works
 	# the moment the signals exist and never crashes if one is briefly absent.
 	if PlayerState.has_signal("thirst_changed"):

@@ -660,10 +660,37 @@ func start_climb(ladder: Ladder) -> void:
 
 ## Every climb exit routes here: re-arm the world collision start_climb() disabled
 ## and drop the latch, so normal movement never resumes with collision ghosted off.
+##
+## THE MID-CLIMB STUCK TRAP. The top/bottom mantles go through _dismount_clear, but
+## releasing E (or jumping off) can happen at ANY height — including the exact frames the
+## capsule is passing through a hatch slab, or overlapping the shaft wall the interior
+## well ladders stand 0.35 m off. Collision is off for the whole climb, so re-arming it
+## right there re-armed it around a capsule already buried in the floor plate, and
+## move_and_slide() cannot depenetrate a fully-embedded body: permanently stuck, out of
+## the climb state, no bail key applicable. Now every route through here checks for an
+## overlap after re-arming and, if buried, nudges to the nearest clear spot (off the
+## ladder's wall side first, then the other way, then vertically).
 func _leave_climb() -> void:
 	set_collision_layer_value(1, true)
 	set_collision_mask_value(1, true)
+	var ladder: Ladder = _climbing
 	_climbing = null
+	# Zero-motion test with recovery_as_collision: true only when the capsule already
+	# overlaps something (resting contact separation is far above the 0.001 margin).
+	if not test_move(global_transform, Vector3.ZERO, null, 0.001, true):
+		return
+	var dirs: Array[Vector3] = []
+	if ladder != null and is_instance_valid(ladder):
+		dirs.append(ladder.face_dir())      # away from the wall the ladder faces
+		dirs.append(-ladder.face_dir())
+	dirs.append(Vector3.UP)                 # up out of a hatch slab
+	dirs.append(Vector3.DOWN)               # down out of a ceiling lip
+	for d in dirs:
+		for dist in [0.35, 0.7, 1.1, 1.6]:
+			var c: Vector3 = global_position + d * dist
+			if not test_move(Transform3D(global_transform.basis, c), Vector3.ZERO, null, 0.001, true):
+				global_position = c
+				return
 
 func _climb_process(_delta: float) -> void:
 	# Let go when E is released or the player is input-locked (cutscene) — gravity resumes.

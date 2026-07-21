@@ -20,7 +20,6 @@ const SPACING_GROW: float = 1.065  # radial spacing multiplier per ring
 ## so the two together flatten the far field into fog instead of aliasing it. The extra
 ## rings cost ~16k triangles on a mesh that is a single draw call.
 const MAX_SPACING: float = 18.0
-const FOLLOW_SNAP: float = 0.5     # snap follow pos to this grid (kills swim)
 
 var _mat: ShaderMaterial
 var vert_count: int = 0
@@ -109,8 +108,13 @@ func _process(_delta: float) -> void:
 	var cam: Camera3D = get_viewport().get_camera_3d()
 	if cam == null:
 		return
+	# CONTINUOUS follow, no grid snap. The mesh used to snap to a 0.5 m grid ("kills
+	# swim"), but the Gerstner displacement in ocean_water.gdshader is a pure function of
+	# WORLD position and TIME — a vertex samples the same wave wherever the node sits, so
+	# there is no swim to kill. What the snap DID do was hop the entire 16k-triangle fan
+	# 0.5 m sideways in a single frame every time the camera crossed a grid line — a step
+	# larger than the 0.4 m near-field quads, landing in rhythm with a walking stride, so
+	# the whole sea visibly popped underfoot with every few steps ("choppy and jumps").
+	# Sliding smoothly resamples the world-locked wave field continuously instead.
 	var cp: Vector3 = cam.global_position
-	global_position = Vector3(
-		snappedf(cp.x, FOLLOW_SNAP),
-		0.0,
-		snappedf(cp.z, FOLLOW_SNAP))
+	global_position = Vector3(cp.x, 0.0, cp.z)

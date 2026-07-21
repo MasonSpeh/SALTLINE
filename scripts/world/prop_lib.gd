@@ -106,14 +106,20 @@ const FIXED := {
 	"industrial_wall_lamp": true, "industrial_pipe_lamp": true, "modular_pipes": true,
 	"modular_industrial_pipes_01": true, "power_box_01": true, "metal_office_desk": true,
 	"vintage_radio_transceiver": true, "SchoolDesk_01": true,
+	# Storage furniture stays PUT. Anything world_storage.gd adopts as a stash must be a
+	# fixed StaticBody prop — a RigidBody you can carry off can't host a LootContainer
+	# (physics-body nesting), and a locker that wanders is a locker whose saved contents
+	# key (rounded world position) breaks. Chests, drawer units and bins are bolted down.
+	"metal_tool_chest": true, "metal_toolbox": true, "metal_trash_can": true,
+	"ClassicNightstand_01": true,
 }
 # Moveable but too big/heavy to lift — dragged along the floor instead.
 const HEAVY := {
 	"Sofa_01": true, "old_bed_frame": true, "vintage_day_bed": true, "ArmChair_01": true,
 	"dining_table": true, "WoodenTable_01": true, "WoodenTable_02": true, "WoodenTable_03": true,
 	"CoffeeTable_01": true, "chinese_tea_table": true, "Barrel_01": true, "Barrel_02": true,
-	"barrel_03": true, "barrel_stove": true, "propane_tank": true, "metal_trash_can": true,
-	"television_02": true, "small_lpg_tank": true, "metal_tool_chest": true,
+	"barrel_03": true, "barrel_stove": true, "propane_tank": true,
+	"television_02": true, "small_lpg_tank": true,
 	"wooden_military_crate": true, "old_military_crate": true,
 }
 

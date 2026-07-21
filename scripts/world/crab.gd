@@ -48,7 +48,14 @@ func _ready() -> void:
 	detect_radius = PlayerState.tuning.get("crab_detect_radius", 6.0)
 	contact_radius = PlayerState.tuning.get("crab_contact_radius", 1.2)
 	_build_body()
-	_claw_timer = AudioDirector.attach_loop("claw", self, 0.5)
+	# The claw-tick is a PROXIMITY warning, not a soundtrack. At 0.5 s / -4 dB / the
+	# night range doubler, three crabs clicked in overlapping half-second rounds all
+	# night, audible from anywhere on the rig — the "nonstop jingle" complaint. Now each
+	# crab ticks on its own slower beat (staggered so a pack never phase-locks), much
+	# quieter, and only while it is within 26 m of the player — you hear it coming
+	# through the deck when it is actually coming, and silence means you're clear.
+	_claw_timer = AudioDirector.attach_loop("claw", self,
+		2.1 + float(spawn_index) * 0.35, -14.0, 26.0)
 	GameClock.dawn.connect(_on_dawn)
 	_last_pos = global_position
 	add_to_group("hittable")   # craftable melee weapons can drive it off

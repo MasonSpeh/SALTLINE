@@ -20,6 +20,7 @@ const STORABLE: Array[String] = [
 	"tool_chest", "toolbox", "metal_toolbox", "job_box",
 	"cabinet", "locker", "cupboard", "drawer", "sideboard",
 	"footlocker", "trunk", "chest_", "storage_box", "crate_wood",
+	"nightstand", "trash_can",
 ]
 
 ## Never turn these into stashes even if the name matches: they are containers the game
@@ -57,10 +58,13 @@ func _scan(root: Node) -> void:
 		# takeable, a comfort fixture. Two prompts on one object is worse than none.
 		if n is Interactable or _has_interactable_child(n):
 			continue
-		# A LootContainer is a StaticBody3D, and Godot refuses a physics body nested
-		# inside another one. Carryable props (MovableProp/PhysProp are RigidBody3D)
-		# therefore cannot host a stash — and should not: you pick those up instead.
-		if _inside_physics_body(n):
+		# A LootContainer under a RigidBody3D is invalid (a static body riding a moving
+		# one floods the log) — and carryable props shouldn't be stashes anyway: you pick
+		# those up. A StaticBody3D wrapper is FINE though: fixed furniture (the drawer
+		# cabinets, tool chests, bins — everything PropLib.FIXED) spawns wrapped in one,
+		# and the old blanket CollisionObject3D guard was silently rejecting all of it,
+		# which is why only a couple of containers ever got adopted.
+		if _inside_rigid_body(n):
 			continue
 		_adopt(n as Node3D)
 
@@ -74,13 +78,14 @@ func _is_storable(n: Node) -> bool:
 			return true
 	return false
 
-## True when this node IS a physics body or sits under one. Nesting a StaticBody3D
+## True when this node IS a RigidBody3D or sits under one. Nesting a StaticBody3D
 ## inside a RigidBody3D is invalid in Godot and floods the log (it is what silently
-## broke the test run when this scanner first landed).
-func _inside_physics_body(n: Node) -> bool:
+## broke the test run when this scanner first landed). Static ancestry is allowed —
+## fixed furniture is wrapped in a StaticBody3D by PropLib and hosts a stash fine.
+func _inside_rigid_body(n: Node) -> bool:
 	var cur: Node = n
 	while cur != null:
-		if cur is CollisionObject3D:
+		if cur is RigidBody3D:
 			return true
 		cur = cur.get_parent()
 	return false
