@@ -11,7 +11,10 @@ const WALL_H: float = 3.2
 const WALL_T: float = 0.25
 
 var player_spawn: Vector3 = Vector3(20.0, WET_Y + 0.2, -24.7)   # dead ahead of the hatch
-var wet_deck_respawn: Vector3 = Vector3(20.0, WET_Y + 0.6, -10.0)
+# Respawn INSIDE the pump ready room: roofed (storm shelter), reached through the
+# always-open east archway. Was (20, +0.6, -10) — bare deck in the rain beside a
+# closed door; waking up under a roof with your gear around you reads as a camp.
+var wet_deck_respawn: Vector3 = Vector3(15.0, WET_Y + 0.6, -10.5)
 var sphl_hatch: InteractDoor
 var sphl_interior: Vector3 = Vector3(16.5, WET_Y + 0.4, -24.0)
 var countdown_label: Label3D
@@ -584,14 +587,24 @@ func _build_wet_deck() -> void:
 	_fit_door(Vector3(10, WET_Y, -14), Vector3(18, WET_Y, -14), WALL_H, pr_mat, 0.5, true, true, "Pump Room")
 	_wall(Vector3(10, WET_Y, -6), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
 	_wall(Vector3(10, WET_Y, -14), Vector3(10, WET_Y, -6), WALL_H, pr_mat)
-	_wall(Vector3(18, WET_Y, -14), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
+	# East wall carries the READY-ROOM ARCHWAY (z -10.75..-9.25): a real opening with
+	# steel jambs, a header and a checker threshold — no leaf, so respawn access can
+	# never be blocked by a stuck door. The respawn point wakes up just inside it.
+	_wall(Vector3(18, WET_Y, -14), Vector3(18, WET_Y, -10.75), WALL_H, pr_mat)
+	_wall(Vector3(18, WET_Y, -9.25), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
+	_box(Vector3(18, WET_Y + 2.75, -10), Vector3(0.25, 0.9, 1.9), pr_mat)   # header over the arch
+	for jz in [-10.75, -9.25]:
+		_box(Vector3(18, WET_Y + 1.6, jz), Vector3(0.34, 3.2, 0.2), MatLib.rust_steel(), self, false)
+	_box(Vector3(18, WET_Y + 0.02, -10), Vector3(0.7, 0.06, 1.6), MatLib.checker_plate())
 	_corner_posts([Vector3(10, 0, -14), Vector3(18, 0, -14), Vector3(10, 0, -6), Vector3(18, 0, -6)],
 		WET_Y, WALL_H, pr_mat)
 	_box(Vector3(14, WET_Y + WALL_H, -10), Vector3(8.5, 0.25, 8.5), pr_mat) # roof
 	# Waterline stain band on the inner wall faces, at the old flood height (~knee).
 	var stain: Material = MatLib.tide_band()
 	_box(Vector3(10.2, WET_Y + 0.55, -10), Vector3(0.04, 0.42, 7.5), stain, self, false)   # west
-	_box(Vector3(17.8, WET_Y + 0.55, -10), Vector3(0.04, 0.42, 7.5), stain, self, false)   # east
+	# East stain splits around the ready-room archway (opening z -10.75..-9.25).
+	_box(Vector3(17.8, WET_Y + 0.55, -12.4), Vector3(0.04, 0.42, 2.8), stain, self, false)   # east, S of arch
+	_box(Vector3(17.8, WET_Y + 0.55, -7.7), Vector3(0.04, 0.42, 2.9), stain, self, false)    # east, N of arch
 	_box(Vector3(14, WET_Y + 0.55, -6.2), Vector3(7.5, 0.42, 0.04), stain, self, false)    # north
 	_box(Vector3(15.6, WET_Y + 0.55, -13.8), Vector3(4.2, 0.42, 0.04), stain, self, false) # south (clear of the door)
 	# Silt drifts and a puddle or two the drain never took — flat, wet-dark, on the deck.
@@ -2305,11 +2318,15 @@ func _more_industry() -> void:
 	_gauge(Vector3(12.5, WET_Y + 2.05, -14.4), "z")
 	_gauge(Vector3(13.0, WET_Y + 1.75, -14.4), "z")
 	# Pump room east face (x=18.1) — vertical risers dropping to the deck manifold.
-	for rz in [-12.5, -10.0, -7.5]:
+	# Rerouted around the ready-room ARCHWAY (z -10.75..-9.25): two risers south of
+	# the opening, one north, and the manifold split into two capped segments that
+	# flank the doorway. Pipes respect doors; the old middle riser stood dead
+	# centre in the new opening at head height (sonar audit).
+	for rz in [-12.6, -11.5, -7.9]:
 		_pipe_fitted(Vector3(18.15, WET_Y + 0.2, rz), Vector3(18.15, WET_Y + 2.7, rz), 0.09, "y", pipe, false, false)
 		_valve_wheel(Vector3(18.3, WET_Y + 1.3, rz), "y", pipe)
-	# A low deck manifold tying the pump-room risers together, gauges on the header.
-	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -13.0), Vector3(18.3, WET_Y + 0.3, -7.0), 0.11, "z", pipe, true, true)
+	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -13.0), Vector3(18.3, WET_Y + 0.3, -11.1), 0.11, "z", pipe, true, true)
+	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -8.9), Vector3(18.3, WET_Y + 0.3, -7.0), 0.11, "z", pipe, true, true)
 	# Loot room north face (z=-16.1) and stair tower west face (x=21.85).
 	for spec2 in [[1.4, 0.09], [1.75, 0.07]]:
 		_pipe_fitted(Vector3(10.3, WET_Y + spec2[0], -16.1), Vector3(15.7, WET_Y + spec2[0], -16.1), spec2[1], "x", pipe, false, false)

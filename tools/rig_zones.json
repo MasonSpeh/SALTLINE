@@ -1,0 +1,23 @@
+{
+  "frame": "godot",
+  "_comment": "Authored zone volumes in Godot meters (Y-up), straight from RigBuilder wall coordinates. Edit freely — ingest copies this into the scan scene; smaller zones win when they overlap.",
+  "zones": [
+    {"name": "machine_shop",   "min": [-28, 18, -18],  "max": [-14, 21.2, -6],  "desc": "topside workshop, west"},
+    {"name": "bunkhouse",      "min": [-28, 18, 4],    "max": [-8, 21.2, 18],   "desc": "crew cabins, 3+3 bunks"},
+    {"name": "galley",         "min": [-2, 18, 8],     "max": [14, 21.2, 18],   "desc": "mess/kitchen"},
+    {"name": "rec_room",       "min": [18, 18, 8],     "max": [28, 21.2, 18],   "desc": "recreation room"},
+    {"name": "stair_tower",    "min": [21.9, 2, -6.1], "max": [30.1, 21.2, 2.1], "desc": "switchback stairs wet deck→topside"},
+    {"name": "sphl_pod",       "min": [12, 1, -28],    "max": [21, 6, -21],     "desc": "SPHL survival pod + hatch (player start)"},
+    {"name": "pump_ready_room", "min": [10, 1.8, -14], "max": [18, 5.4, -6],    "desc": "drained pump room turned respawn ready room; open east archway"},
+    {"name": "store_room",     "min": [10, 1.8, -22],  "max": [16, 5.4, -16],   "desc": "dock stores; hinged door on the north wall"},
+    {"name": "wet_deck",       "min": [6, 1, -28],     "max": [32, 6.5, -4],    "desc": "Z1 lower deck: pumps, salvage, boat landing access"},
+    {"name": "boat_landing",   "min": [6, -3.5, -30],  "max": [34, 1, 0],       "desc": "water-level landing + mooring"},
+    {"name": "deck_b_cabins",  "min": [-2, 21.6, 4],   "max": [30, 25.0, 19],   "desc": "accommodation stack deck B"},
+    {"name": "deck_c_cabins",  "min": [-2, 25.1, 4],   "max": [30, 28.5, 19],   "desc": "accommodation stack deck C"},
+    {"name": "deck_d_cabins",  "min": [8, 28.6, 4],    "max": [30, 32.0, 19],   "desc": "accommodation stack deck D — works/gym (west wall x=8, sonar-verified)"},
+    {"name": "stack_roof",     "min": [-2, 32.1, 4],   "max": [30, 36, 19],     "desc": "superstructure roof + comms mast base"},
+    {"name": "ops_lookout",    "min": [21, 36, -7],    "max": [31, 41, 3],      "desc": "glass ops lookout atop stair tower"},
+    {"name": "high_iron",      "min": [-12, 32, -12],  "max": [12, 52, 12],     "desc": "derrick / crane structure"},
+    {"name": "topside_deck",   "min": [-30, 17.5, -20], "max": [30, 21.4, 20],  "desc": "Z4 main deck (catch-all)"}
+  ]
+}

@@ -16,3 +16,9 @@ __pycache__/
 
 # Exported game builds
 builds/
+
+# Sonar scan artifacts (regenerate with tools/export_rig.sh)
+rig_capture.glb
+main_rig.glb
+.sonar-rig/
+.sonar-scan/

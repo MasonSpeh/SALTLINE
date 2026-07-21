@@ -267,8 +267,10 @@ func _wet_deck() -> void:
 	# THE TOOLBOX IS NOT ON THE BENCH (owner playtest note) — see below.
 	_p("small_oil_can_01", Vector3(25.5, bench, -17.72), 40)
 	_p("pipe_wrench", Vector3(25.3, bench, -17.3), 200)
-	# Tool chest parked against the storeroom face, east of the bench.
-	_pc("metal_tool_chest", Vector3(26.7, y, -17.8), -90)
+	# Tool chest parked against the storeroom's EAST face (x 16.125 + half depth),
+	# drawers opening toward the bench walk. It used to float at x 26.7 — 10m of open
+	# deck from the wall this comment always claimed it was against (sonar audit).
+	_pc("metal_tool_chest", Vector3(16.35, y, -17.8), 90)
 	# THE TOOLBOX: set down on the plating at the bench's WEST END, mid-job, long axis
 	# along Z so it hugs the end face. Bench footprint is x 24.2..26.1, z -17.85..-17.15,
 	# and the only two free flanks are the ends: the bench's SOUTH skirt carries the
@@ -287,6 +289,21 @@ func _wet_deck() -> void:
 	# Fire extinguisher bracketed by the stair door; a case of rations against the wall.
 	_pw("korean_fire_extinguisher_01", Vector3(24.6, y + 0.55, -6.3), 180, 1.1)
 	_p("long_life_food", Vector3(11.0, y + 0.02, -21.3), 20)
+
+	# ---- the pump READY ROOM (respawn lives here now) ----
+	# The drained pump room keeps its aftermath — stains, silt, the dead pump — but
+	# someone has moved in: a cot along the north wall, a storage rack squared on the
+	# west wall, safety gear where a hand finds it from the bunk. The respawn point
+	# (15.0, +0.6, -10.5) wakes up facing the east archway and open deck beyond.
+	_pc("vintage_day_bed", Vector3(14.3, y, -6.9), 180)          # cot, back to the north wall
+	_pc("worn_metal_rack", Vector3(10.38, y, -8.6), -90)         # rack flush on the west wall (face x 10.125)
+	_p("medical_tape", Vector3(10.38, y + 1.3, -8.5), 30)        # first-aid on the rack shelf
+	_p("plastic_container", Vector3(10.38, y + 0.75, -8.75), -15)
+	_p("vintage_flashlight", Vector3(13.3, y + 0.02, -7.6), 70)  # dropped by the cot
+	_pc("folding_wooden_stool", Vector3(15.9, y, -7.4), 30)      # pulled to the cot's foot
+	_pw("lifebuoy", Vector3(17.82, y + 1.7, -12.2), -90, 1.1)    # east wall, seen from the arch
+	_pw("life_jacket", Vector3(12.6, y + 1.5, -6.24), 180)       # hung over the cot
+	_lamp(Vector3(14.3, y + 1.9, -7.2), Color(1.0, 0.83, 0.5), 0.55, 4.5)
 
 # ---- galley ----
 # Counter run: top y+1.0, x 1..11, z 16.4..17.6.  Mess tables: top y+0.49, 1.8 x 1.0, at
@@ -481,20 +498,24 @@ func _rec_room() -> void:
 func _machine_shop() -> void:
 	var y: float = DECK_Y
 	# The shop is the tool jackpot — chest, cart, welding rig, drums, jerry cans, all on
-	# the wall lines so the middle of the floor stays workable.
-	_pc("metal_tool_chest", Vector3(-25.5, y, -12.5), 90)
-	_pc("tool_cart", Vector3(-22.5, y, -13.5), 0)
+	# the wall lines so the middle of the floor stays workable. The west wall's inner
+	# face is x -27.875 (sonar-verified): the storage line backs against it at -27.5,
+	# not the -26.6 it used to float at, 1.3m out into the walk space.
+	_pc("metal_tool_chest", Vector3(-27.5, y, -10.6), 90)
+	_pc("tool_cart", Vector3(-22.5, y, -13.5), 0)   # the one mobile piece, mid-job
 	_pc("portable_welding_cart", Vector3(-25.5, y, -16.5), 20)
-	_pc("drawer_cabinet", Vector3(-26.6, y, -14.8), 90)
+	_pc("drawer_cabinet", Vector3(-27.55, y, -14.8), 90)
 	_pc("Barrel_01", Vector3(-20.5, y, -17.0), 0)
 	_pc("barrel_03", Vector3(-21.4, y, -16.6), 0)
 	_pc("metal_jerrycan_green", Vector3(-19.5, y, -16.6), 60)
 	# On the fitter's bench (top y+0.95).
 	_p("metal_toolbox", Vector3(-19.75, y + 0.96, -11.8), 0)
 	_p("small_oil_can_01", Vector3(-20.3, y + 0.96, -11.75), 0)
-	# A hand truck parked against the east wall; a searchlight on the shelf run.
-	_pc("hand_truck", Vector3(-23.5, y, -11.4), 100)
-	_p("portable_searchlight", Vector3(-26.6, y + 1.3, -12.5), 40)   # on the shelf run
+	# A hand truck parked where "against the east wall" is actually true — leaned by
+	# the door pocket (east wall inner face x -14.125, door gap z -13..-11); the
+	# searchlight rides the shelf run, which now stands on the west wall proper.
+	_pc("hand_truck", Vector3(-14.6, y, -9.0), -90)
+	_p("portable_searchlight", Vector3(-27.55, y + 1.3, -12.5), 40)   # on the shelf run
 	# The bench worklight is an anchored ceiling-hung fixture built in rig_builder
 	# (_worklight_ceiling) — the old industrial_wall_lamp floated mid-room over the bench.
 
@@ -632,13 +653,15 @@ func _machine_shop_more() -> void:
 	_p("crowbar_01", Vector3(-20.55, bench, -12.55), 60)
 	_p("bolt_cutters_01", Vector3(-19.05, bench, -11.7), -40)
 	_p("bench_vice_01", Vector3(-18.9, bench, -12.0), 0)
-	# More drums and a jerry can cluster; a shelf run against the west wall.
-	_pc("Barrel_02", Vector3(-26.6, y, -17.2), 0)
+	# More drums and a jerry can cluster; the shelf run FLUSH on the west wall
+	# (inner face -27.875) with its tins riding along — the whole line sat 1.3m
+	# off the wall before the sonar audit caught it.
+	_pc("Barrel_02", Vector3(-27.4, y, -17.2), 0)
 	_pc("metal_jerrycan", Vector3(-20.2, y, -16.2), -30)
-	_pc("steel_frame_shelves_02", Vector3(-26.6, y, -13.0), 90)
-	_p("oil_tin", Vector3(-26.6, y + 1.3, -13.3), 0)
-	_p("cleaner_tin_01", Vector3(-26.6, y + 1.3, -12.75), 0)
-	_p("can_rusted", Vector3(-26.6, y + 1.3, -13.0), 0)
+	_pc("steel_frame_shelves_02", Vector3(-27.55, y, -13.0), 90)
+	_p("oil_tin", Vector3(-27.55, y + 1.3, -13.3), 0)
+	_p("cleaner_tin_01", Vector3(-27.55, y + 1.3, -12.75), 0)
+	_p("can_rusted", Vector3(-27.55, y + 1.3, -13.0), 0)
 
 func _stack_more() -> void:
 	# Deck B cabins: plants and pictures.

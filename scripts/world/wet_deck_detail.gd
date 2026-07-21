@@ -409,7 +409,10 @@ func _vents_and_hatches() -> void:
 	_dbox(Vector3(8.22, y + 0.015, -10.0), Vector3(0.24, 0.03, 23.6), MatLib.dark_metal())
 	_dbox(Vector3(12.0, y + 0.015, -21.86), Vector3(7.6, 0.03, 0.24), MatLib.dark_metal())
 	# Escape-route signage — photoluminescent green, the offshore lingua franca.
-	_plabel("ESCAPE ROUTE → STAIRS", Vector3(18.2, y + 2.0, -10.0), 90, 18, Color(0.55, 0.9, 0.6))
+	# The escape-route sign used to be painted mid-wall here; that wall now carries the
+	# ready-room ARCHWAY (z -10.75..-9.25), so the sign rides the header ABOVE the
+	# opening — over-door placement, which is where escape signage lives anyway.
+	_plabel("ESCAPE ROUTE → STAIRS", Vector3(18.2, y + 2.85, -10.0), 90, 18, Color(0.55, 0.9, 0.6))
 	_plabel("↑ MUSTER STATION B — TOPSIDE", Vector3(21.86, y + 2.0, -2.5), -90, 16, Color(0.55, 0.9, 0.6))
 	# Ballast tank stencil on the caisson's west face.
 	_plabel("W.B.T. 4-SE", Vector3(18.96, y + 3.5, -12.0), -90, 26, Color(0.7, 0.72, 0.68))

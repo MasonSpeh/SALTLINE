@@ -1,0 +1,11 @@
+{
+  "mcpServers": {
+    "sonar": {
+      "command": "/Users/mjspeh/Desktop/VoxelSonarPlan/sonar-mcp/.venv/bin/python",
+      "args": ["/Users/mjspeh/Desktop/VoxelSonarPlan/sonar-mcp/server.py"],
+      "env": {
+        "SONAR_SCENE_DIR": "/Users/mjspeh/SALTLINE/.sonar-rig"
+      }
+    }
+  }
+}
