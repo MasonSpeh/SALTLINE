@@ -1985,6 +1985,62 @@ func _decorate_machine_shop() -> void:
 	_worklight_ceiling(Vector3(-19.85, y + 2.35, -12.05), y + WALL_H - 0.12,
 		Color(1.0, 0.85, 0.6), 0.65, 5.5)
 
+	# ---- Bare-wall dressing. The declutter pass left the SOUTH bulkhead (interior face
+	# z -6.125, solid full-width) and the south end of the WEST wall reading empty. These
+	# fixtures fill them, era-appropriate shop kit, every one built FLUSH: each back face
+	# sits on the real wall plane (verified in the sonar scan), nothing floats in front of
+	# it, and all clear the east door pocket (z -13..-11), the window (z -12) and the bench.
+	var mdark: Material = MatLib.dark_metal()
+	var mgalv: Material = MatLib.galvanized()
+	var mred: Material = MatLib.red_paint()
+	var sz: float = -6.125   # south wall interior face; room is at z < sz
+
+	# A) Two-tier steel wall shelf, west end of the south wall (x -26.1..-23.9). Flush back
+	# plate; 0.30-deep boards on end brackets. Tins ride the boards (stocked in interior_props).
+	_box(Vector3(-25.0, y + 1.5, sz - 0.015), Vector3(2.3, 1.0, 0.03), mgalv, self, false)   # back plate, flush
+	for shy in [1.15, 1.75]:
+		_box(Vector3(-25.0, y + shy, sz - 0.16), Vector3(2.2, 0.04, 0.30), mdark, self, false)   # shelf board
+		for bx in [-26.0, -24.0]:
+			_box(Vector3(bx, y + shy - 0.09, sz - 0.16), Vector3(0.03, 0.14, 0.28), mdark, self, false)  # end bracket
+
+	# B) Fire-hose reel, centre of the south wall (x -21). Flush backboard, a hub standing
+	# off it, the flat red hose coiled around the hub, a brass nozzle hanging below.
+	_box(Vector3(-21.0, y + 1.55, sz - 0.03), Vector3(0.9, 0.9, 0.06), MatLib.painted_steel(), self, false)  # backboard, flush
+	var hub := _cyl_nc(Vector3(-21.0, y + 1.55, sz - 0.34), 0.11, 0.55, mdark)                 # reel hub
+	hub.rotation.x = deg_to_rad(90)                                                            # axis into the room
+	for r in [0.20, 0.28, 0.36]:
+		var coil := CSGTorus3D.new()
+		coil.inner_radius = r
+		coil.outer_radius = r + 0.06
+		coil.material = mred
+		coil.use_collision = false
+		add_child(coil)
+		coil.position = Vector3(-21.0, y + 1.55, sz - 0.30)
+		coil.rotation.x = deg_to_rad(90)
+	_cyl_nc(Vector3(-21.0, y + 0.95, sz - 0.40), 0.05, 0.35, mred)                              # dangling nozzle stem
+	_box(Vector3(-21.0, y + 0.76, sz - 0.40), Vector3(0.09, 0.14, 0.09), MatLib.flat(Color(0.7, 0.65, 0.2)), self, false)  # brass nozzle
+
+	# C) Electrical / gauge panel, east end of the south wall (x -16.5). Flush cabinet with
+	# two dead dials, three breaker switches, and a conduit dropping from the ceiling into it.
+	_box(Vector3(-16.5, y + 1.7, sz - 0.04), Vector3(1.1, 0.95, 0.08), mdark, self, false)      # panel cabinet, flush
+	for gx in [-16.9, -16.1]:
+		var dial := _cyl_nc(Vector3(gx, y + 1.95, sz - 0.10), 0.12, 0.03, MatLib.flat(Color(0.86, 0.86, 0.8)))
+		dial.rotation.x = deg_to_rad(90)
+	for bx2 in [-16.85, -16.5, -16.15]:
+		_box(Vector3(bx2, y + 1.45, sz - 0.10), Vector3(0.14, 0.22, 0.05), MatLib.hazard_stripe(), self, false)  # breaker switch
+	_cyl_nc(Vector3(-16.5, y + 2.6, sz - 0.05), 0.04, 0.8, mgalv)                               # conduit up to the ceiling
+
+	# D) Safety notice, between the reel and the panel (x -18.7). Bolted placard, stencilled.
+	_box(Vector3(-18.7, y + 1.9, sz - 0.02), Vector3(0.5, 0.62, 0.04), mgalv, self, false)      # placard, flush
+	_plabel("EYE PROTECTION\nMUST BE WORN\nBEYOND THIS POINT", Vector3(-18.7, y + 1.9, sz - 0.05), 180, 9, Color(0.9, 0.78, 0.2))
+
+	# E) First-aid box on the south end of the WEST wall (interior face x -27.875), well
+	# clear of the tool-chest / cabinet line to the north. Flush cabinet, white cross.
+	var wx: float = -27.875
+	_box(Vector3(wx + 0.11, y + 1.55, -7.2), Vector3(0.22, 0.42, 0.34), MatLib.flat(Color(0.75, 0.12, 0.1)), self, false)  # box, flush to wall
+	_box(Vector3(wx + 0.225, y + 1.62, -7.2), Vector3(0.02, 0.24, 0.06), MatLib.flat(Color(0.95, 0.95, 0.92)), self, false)  # cross, vertical
+	_box(Vector3(wx + 0.225, y + 1.62, -7.2), Vector3(0.02, 0.06, 0.24), MatLib.flat(Color(0.95, 0.95, 0.92)), self, false)  # cross, horizontal
+
 func _decorate_pump_room() -> void:
 	var y: float = WET_Y
 	# A flashlight left on the dead pump — the pump room is unlit until power is back.
@@ -2108,7 +2164,13 @@ func _build_env_objects() -> void:
 	_takeable("rope", "Rope Coil", Vector3(17.2, DECK_Y + 0.01, -15.8), Vector3(0.45, 0.3, 0.45))
 	_takeable("prybar", "Prybar", Vector3(12.8, WET_Y + 1.81, -12.0), Vector3(0.15, 0.12, 0.9))
 	# 1. Oil drums — loose physics props, wet deck and topside.
-	for p in [Vector3(23.5, WET_Y + 0.6, -15.5), Vector3(24.4, WET_Y + 0.6, -14.6),
+	# The first two used to sit at (23.5,-15.5) and (24.4,-14.6): both fall inside the SE
+	# caisson-leg footprint (solid concrete, x19..25 z-15..-9), so as loose RigidBodies they
+	# spawned embedded in the pillar and settled jammed against its inner west face (the
+	# "items stuck in the concrete pillar" the player photographed). Moved onto clear open
+	# plating EAST of the leg (x>25, well inside the pontoon slab x8..30), beside the fire
+	# barrel, where they read as a fuel cache rather than deck geometry.
+	for p in [Vector3(27.5, WET_Y + 0.6, -13.0), Vector3(28.5, WET_Y + 0.6, -13.5),
 			Vector3(10.5, WET_Y + 0.6, -17.5), Vector3(6.5, DECK_Y + 0.6, -13.2),
 			Vector3(-2.5, DECK_Y + 0.6, -17.2)]:
 		EnvObjects.oil_drum(self, p)
@@ -2118,9 +2180,14 @@ func _build_env_objects() -> void:
 	EnvObjects.life_ring(self, Vector3(0, DECK_Y + 1.1, -19.9), 0.0)             # south rim, faces inboard (+Z)
 	EnvObjects.life_ring(self, Vector3(-20, DECK_Y + 1.1, 19.9), 180.0)          # north rim, faces inboard (-Z)
 	# 3. Fire barrel — warmth you don't need the grid for, out on the wet deck.
+	# Was at (23,-11), squarely INSIDE the SE caisson leg (solid concrete box x19..25
+	# z-15..-9): its barrel and coals stood buried in the pillar. Moved onto clear open
+	# plating east of the leg (x28.5, still 1.5m inside the pontoon edge at x30), an open
+	# gathering spot on the walk from the boat landing — clear of the leg, the doorways,
+	# and the SPHL exit corridor.
 	var barrel := EnvObjects.FireBarrel.new()
 	add_child(barrel)
-	barrel.global_position = Vector3(23, WET_Y + 0.01, -11)
+	barrel.global_position = Vector3(28.5, WET_Y + 0.01, -11)
 	# 4. Crane — hook swinging slow over the south deck.
 	var crane := EnvObjects.CraneHook.new()
 	add_child(crane)
@@ -2647,7 +2714,13 @@ func _arrival_dressing() -> void:
 	lamp.light_color = Color(1.0, 0.85, 0.62)
 	add_child(lamp)
 	lamp.position = Vector3(20.5, WET_Y + 3.0, -22.2)
-	# Mooring chain heaped at the caisson's foot.
+	# Mooring chain heaped at the caisson's foot — AGAINST the leg's south face (z -15),
+	# NOT inside the concrete. It used to heap at (19.6, -14.0): squarely inside the SE
+	# caisson column (solid footprint x19..25, z-15..-9), so three 0.84m links stood buried
+	# in the solid pillar — the "items stuck inside the concrete pillar" the player
+	# photographed. Re-seated on open plating just SOUTH of the leg (z ~ -15.85, links'
+	# north edge stops ~0.3m clear of the z-15 face), still heaped at its foot, clear of the
+	# column, the dock apron (z-21.4) and the SPHL corridor.
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 3131
 	for i in range(3):
@@ -2658,7 +2731,7 @@ func _arrival_dressing() -> void:
 		lm.material = MatLib.rusty_metal()
 		link.mesh = lm
 		add_child(link)
-		link.position = Vector3(19.6 + rng.randf_range(-0.4, 0.4), WET_Y + 0.06 + i * 0.1, -14.0 + rng.randf_range(-0.4, 0.4))
+		link.position = Vector3(22.0 + rng.randf_range(-1.1, 1.1), WET_Y + 0.06 + i * 0.1, -15.85 + rng.randf_range(-0.15, 0.15))
 		link.rotation.y = rng.randf() * TAU
 		link.rotation.x = deg_to_rad(90) + rng.randf_range(-0.2, 0.2)
 	# Painted walk lane from the dock toward the stair tower.

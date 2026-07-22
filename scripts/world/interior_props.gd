@@ -692,6 +692,19 @@ func _machine_shop_more() -> void:
 	_pc("steel_frame_shelves_02", Vector3(-27.55, y, -13.0), 90)
 	_p("oil_tin", Vector3(-27.55, y + 1.3, -13.3), 0)
 	_p("cleaner_tin_01", Vector3(-27.55, y + 1.3, -12.75), 0)
+	# ---- The bare SOUTH bulkhead (interior face z -6.125), dressed to match the worked-in
+	# rest of the shop. The steel wall shelf, fire-hose reel, gauge panel, safety placard and
+	# first-aid box are FLUSH CSG fixtures built in rig_builder._decorate_machine_shop; here we
+	# stock the shelf and hang the two glTF wall fittings a shop always carries.
+	# Tins ride the two shelf boards (tops y+1.17 / y+1.77); the settle pass rests them.
+	_p("oil_tin", Vector3(-25.6, y + 1.22, -6.30), 15)
+	_p("cleaner_tin_01", Vector3(-24.6, y + 1.22, -6.30), -20)
+	_p("can_rusted", Vector3(-25.1, y + 1.82, -6.30), 0)
+	_p("can_rusted", Vector3(-24.4, y + 1.82, -6.28), 40)
+	# Fire extinguisher on the south wall by the panel, clock high on the wall — both wall-hung
+	# (settle-exempt). Placed a hair proud of the z -6.125 face; the sonar pass verifies flush.
+	_pw("korean_fire_extinguisher_01", Vector3(-15.2, y + 1.0, -6.25), 180, 1.1)
+	_pw("wall_clock", Vector3(-23.0, y + 2.55, -6.14), 180)
 
 func _stack_more() -> void:
 	# Deck B cabins: plants and pictures.
