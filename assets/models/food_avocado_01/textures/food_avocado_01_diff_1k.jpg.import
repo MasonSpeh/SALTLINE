@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://clf4wqtragt5a"
 path.s3tc="res://.godot/imported/food_avocado_01_diff_1k.jpg-5e77e68806907788963ec42756d5bbca.s3tc.ctex"
-path.etc2="res://.godot/imported/food_avocado_01_diff_1k.jpg-5e77e68806907788963ec42756d5bbca.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/food_avocado_01/textures/food_avocado_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/food_avocado_01_diff_1k.jpg-5e77e68806907788963ec42756d5bbca.s3tc.ctex", "res://.godot/imported/food_avocado_01_diff_1k.jpg-5e77e68806907788963ec42756d5bbca.etc2.ctex"]
+dest_files=["res://.godot/imported/food_avocado_01_diff_1k.jpg-5e77e68806907788963ec42756d5bbca.s3tc.ctex"]
 
 [params]
 

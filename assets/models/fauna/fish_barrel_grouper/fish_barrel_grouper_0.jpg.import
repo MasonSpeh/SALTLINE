@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://du0uval3tblwl"
 path.s3tc="res://.godot/imported/fish_barrel_grouper_0.jpg-017eaaa9485a1180edf14900dea04226.s3tc.ctex"
-path.etc2="res://.godot/imported/fish_barrel_grouper_0.jpg-017eaaa9485a1180edf14900dea04226.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_barrel_grouper/fish_barrel_grouper_0.jpg"
-dest_files=["res://.godot/imported/fish_barrel_grouper_0.jpg-017eaaa9485a1180edf14900dea04226.s3tc.ctex", "res://.godot/imported/fish_barrel_grouper_0.jpg-017eaaa9485a1180edf14900dea04226.etc2.ctex"]
+dest_files=["res://.godot/imported/fish_barrel_grouper_0.jpg-017eaaa9485a1180edf14900dea04226.s3tc.ctex"]
 
 [params]
 

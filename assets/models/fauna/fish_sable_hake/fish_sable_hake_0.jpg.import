@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bjg1778y531jr"
 path.s3tc="res://.godot/imported/fish_sable_hake_0.jpg-803a5bb5ce65c3492844656d175ce59f.s3tc.ctex"
-path.etc2="res://.godot/imported/fish_sable_hake_0.jpg-803a5bb5ce65c3492844656d175ce59f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_sable_hake/fish_sable_hake_0.jpg"
-dest_files=["res://.godot/imported/fish_sable_hake_0.jpg-803a5bb5ce65c3492844656d175ce59f.s3tc.ctex", "res://.godot/imported/fish_sable_hake_0.jpg-803a5bb5ce65c3492844656d175ce59f.etc2.ctex"]
+dest_files=["res://.godot/imported/fish_sable_hake_0.jpg-803a5bb5ce65c3492844656d175ce59f.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://byrr8caoc4yxt"
 path.s3tc="res://.godot/imported/power_box_01_arm_1k.jpg-bdf4473d9b20a934ed26e787b690e745.s3tc.ctex"
-path.etc2="res://.godot/imported/power_box_01_arm_1k.jpg-bdf4473d9b20a934ed26e787b690e745.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/power_box_01/textures/power_box_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/power_box_01_arm_1k.jpg-bdf4473d9b20a934ed26e787b690e745.s3tc.ctex", "res://.godot/imported/power_box_01_arm_1k.jpg-bdf4473d9b20a934ed26e787b690e745.etc2.ctex"]
+dest_files=["res://.godot/imported/power_box_01_arm_1k.jpg-bdf4473d9b20a934ed26e787b690e745.s3tc.ctex"]
 
 [params]
 

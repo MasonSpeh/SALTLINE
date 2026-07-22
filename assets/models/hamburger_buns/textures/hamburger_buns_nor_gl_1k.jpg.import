@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dvhnffn1n0iq"
 path.s3tc="res://.godot/imported/hamburger_buns_nor_gl_1k.jpg-3642607b5b25b0b82628d7a354bbb666.s3tc.ctex"
-path.etc2="res://.godot/imported/hamburger_buns_nor_gl_1k.jpg-3642607b5b25b0b82628d7a354bbb666.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/hamburger_buns/textures/hamburger_buns_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/hamburger_buns_nor_gl_1k.jpg-3642607b5b25b0b82628d7a354bbb666.s3tc.ctex", "res://.godot/imported/hamburger_buns_nor_gl_1k.jpg-3642607b5b25b0b82628d7a354bbb666.etc2.ctex"]
+dest_files=["res://.godot/imported/hamburger_buns_nor_gl_1k.jpg-3642607b5b25b0b82628d7a354bbb666.s3tc.ctex"]
 
 [params]
 

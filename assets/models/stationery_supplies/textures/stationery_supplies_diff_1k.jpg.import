@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bh1ufyr7i5ak7"
 path.s3tc="res://.godot/imported/stationery_supplies_diff_1k.jpg-cb6a28aa423d08646bfb0188c98a1406.s3tc.ctex"
-path.etc2="res://.godot/imported/stationery_supplies_diff_1k.jpg-cb6a28aa423d08646bfb0188c98a1406.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/stationery_supplies/textures/stationery_supplies_diff_1k.jpg"
-dest_files=["res://.godot/imported/stationery_supplies_diff_1k.jpg-cb6a28aa423d08646bfb0188c98a1406.s3tc.ctex", "res://.godot/imported/stationery_supplies_diff_1k.jpg-cb6a28aa423d08646bfb0188c98a1406.etc2.ctex"]
+dest_files=["res://.godot/imported/stationery_supplies_diff_1k.jpg-cb6a28aa423d08646bfb0188c98a1406.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ccdu6y31dgfei"
 path.s3tc="res://.godot/imported/bleach_bottle_01_nor_gl_1k.jpg-55e95656e6c926b4d43291b05470112c.s3tc.ctex"
-path.etc2="res://.godot/imported/bleach_bottle_01_nor_gl_1k.jpg-55e95656e6c926b4d43291b05470112c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bleach_bottle/textures/bleach_bottle_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/bleach_bottle_01_nor_gl_1k.jpg-55e95656e6c926b4d43291b05470112c.s3tc.ctex", "res://.godot/imported/bleach_bottle_01_nor_gl_1k.jpg-55e95656e6c926b4d43291b05470112c.etc2.ctex"]
+dest_files=["res://.godot/imported/bleach_bottle_01_nor_gl_1k.jpg-55e95656e6c926b4d43291b05470112c.s3tc.ctex"]
 
 [params]
 

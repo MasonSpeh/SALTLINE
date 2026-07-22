@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b0k5gol73onrc"
 path.s3tc="res://.godot/imported/Rope001_1K-JPG_Color.jpg-898cb3be27872a0ed2911a10e9461805.s3tc.ctex"
-path.etc2="res://.godot/imported/Rope001_1K-JPG_Color.jpg-898cb3be27872a0ed2911a10e9461805.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/Rope001/Rope001_1K-JPG_Color.jpg"
-dest_files=["res://.godot/imported/Rope001_1K-JPG_Color.jpg-898cb3be27872a0ed2911a10e9461805.s3tc.ctex", "res://.godot/imported/Rope001_1K-JPG_Color.jpg-898cb3be27872a0ed2911a10e9461805.etc2.ctex"]
+dest_files=["res://.godot/imported/Rope001_1K-JPG_Color.jpg-898cb3be27872a0ed2911a10e9461805.s3tc.ctex"]
 
 [params]
 

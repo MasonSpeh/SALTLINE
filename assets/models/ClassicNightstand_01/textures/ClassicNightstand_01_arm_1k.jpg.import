@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://db6r4mavpjbsa"
 path.s3tc="res://.godot/imported/ClassicNightstand_01_arm_1k.jpg-b248750485691e04eb55c79be1ed5fa4.s3tc.ctex"
-path.etc2="res://.godot/imported/ClassicNightstand_01_arm_1k.jpg-b248750485691e04eb55c79be1ed5fa4.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ClassicNightstand_01/textures/ClassicNightstand_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/ClassicNightstand_01_arm_1k.jpg-b248750485691e04eb55c79be1ed5fa4.s3tc.ctex", "res://.godot/imported/ClassicNightstand_01_arm_1k.jpg-b248750485691e04eb55c79be1ed5fa4.etc2.ctex"]
+dest_files=["res://.godot/imported/ClassicNightstand_01_arm_1k.jpg-b248750485691e04eb55c79be1ed5fa4.s3tc.ctex"]
 
 [params]
 

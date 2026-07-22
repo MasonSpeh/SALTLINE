@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c05pjscpr3mci"
 path.s3tc="res://.godot/imported/drawer_cabinet_nor_gl_1k.jpg-5959d45e2d20e273fb39e548f5184e82.s3tc.ctex"
-path.etc2="res://.godot/imported/drawer_cabinet_nor_gl_1k.jpg-5959d45e2d20e273fb39e548f5184e82.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/drawer_cabinet/textures/drawer_cabinet_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/drawer_cabinet_nor_gl_1k.jpg-5959d45e2d20e273fb39e548f5184e82.s3tc.ctex", "res://.godot/imported/drawer_cabinet_nor_gl_1k.jpg-5959d45e2d20e273fb39e548f5184e82.etc2.ctex"]
+dest_files=["res://.godot/imported/drawer_cabinet_nor_gl_1k.jpg-5959d45e2d20e273fb39e548f5184e82.s3tc.ctex"]
 
 [params]
 

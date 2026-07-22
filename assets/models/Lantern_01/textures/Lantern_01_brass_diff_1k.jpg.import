@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cft2bkor50i1q"
 path.s3tc="res://.godot/imported/Lantern_01_brass_diff_1k.jpg-d6f2bdb9711d19cf0a90e768a9e42d7a.s3tc.ctex"
-path.etc2="res://.godot/imported/Lantern_01_brass_diff_1k.jpg-d6f2bdb9711d19cf0a90e768a9e42d7a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Lantern_01/textures/Lantern_01_brass_diff_1k.jpg"
-dest_files=["res://.godot/imported/Lantern_01_brass_diff_1k.jpg-d6f2bdb9711d19cf0a90e768a9e42d7a.s3tc.ctex", "res://.godot/imported/Lantern_01_brass_diff_1k.jpg-d6f2bdb9711d19cf0a90e768a9e42d7a.etc2.ctex"]
+dest_files=["res://.godot/imported/Lantern_01_brass_diff_1k.jpg-d6f2bdb9711d19cf0a90e768a9e42d7a.s3tc.ctex"]
 
 [params]
 

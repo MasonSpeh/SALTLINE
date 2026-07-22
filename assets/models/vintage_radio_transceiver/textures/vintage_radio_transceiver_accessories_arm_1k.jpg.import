@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://8cvji3ksjqup"
 path.s3tc="res://.godot/imported/vintage_radio_transceiver_accessories_arm_1k.jpg-66d7039754a1cade8071d05f3a849ebf.s3tc.ctex"
-path.etc2="res://.godot/imported/vintage_radio_transceiver_accessories_arm_1k.jpg-66d7039754a1cade8071d05f3a849ebf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/vintage_radio_transceiver/textures/vintage_radio_transceiver_accessories_arm_1k.jpg"
-dest_files=["res://.godot/imported/vintage_radio_transceiver_accessories_arm_1k.jpg-66d7039754a1cade8071d05f3a849ebf.s3tc.ctex", "res://.godot/imported/vintage_radio_transceiver_accessories_arm_1k.jpg-66d7039754a1cade8071d05f3a849ebf.etc2.ctex"]
+dest_files=["res://.godot/imported/vintage_radio_transceiver_accessories_arm_1k.jpg-66d7039754a1cade8071d05f3a849ebf.s3tc.ctex"]
 
 [params]
 

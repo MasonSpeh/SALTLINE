@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://yvit1qqr5ybi"
 path.s3tc="res://.godot/imported/the_looker_0.jpg-6618b1d49868dc3aa732eb7fbc1a312f.s3tc.ctex"
-path.etc2="res://.godot/imported/the_looker_0.jpg-6618b1d49868dc3aa732eb7fbc1a312f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/the_looker/the_looker_0.jpg"
-dest_files=["res://.godot/imported/the_looker_0.jpg-6618b1d49868dc3aa732eb7fbc1a312f.s3tc.ctex", "res://.godot/imported/the_looker_0.jpg-6618b1d49868dc3aa732eb7fbc1a312f.etc2.ctex"]
+dest_files=["res://.godot/imported/the_looker_0.jpg-6618b1d49868dc3aa732eb7fbc1a312f.s3tc.ctex"]
 
 [params]
 

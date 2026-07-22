@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://esktbdilquis"
 path.s3tc="res://.godot/imported/all_purpose_cleaner_nor_gl_1k.jpg-77267d08c283b473c9e1d37e766feace.s3tc.ctex"
-path.etc2="res://.godot/imported/all_purpose_cleaner_nor_gl_1k.jpg-77267d08c283b473c9e1d37e766feace.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/all_purpose_cleaner/textures/all_purpose_cleaner_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/all_purpose_cleaner_nor_gl_1k.jpg-77267d08c283b473c9e1d37e766feace.s3tc.ctex", "res://.godot/imported/all_purpose_cleaner_nor_gl_1k.jpg-77267d08c283b473c9e1d37e766feace.etc2.ctex"]
+dest_files=["res://.godot/imported/all_purpose_cleaner_nor_gl_1k.jpg-77267d08c283b473c9e1d37e766feace.s3tc.ctex"]
 
 [params]
 

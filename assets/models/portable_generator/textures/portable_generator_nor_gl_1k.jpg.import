@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b0khis3wja8ac"
 path.s3tc="res://.godot/imported/portable_generator_nor_gl_1k.jpg-04266472d8f0cad2497f334a8a2ec562.s3tc.ctex"
-path.etc2="res://.godot/imported/portable_generator_nor_gl_1k.jpg-04266472d8f0cad2497f334a8a2ec562.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/portable_generator/textures/portable_generator_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/portable_generator_nor_gl_1k.jpg-04266472d8f0cad2497f334a8a2ec562.s3tc.ctex", "res://.godot/imported/portable_generator_nor_gl_1k.jpg-04266472d8f0cad2497f334a8a2ec562.etc2.ctex"]
+dest_files=["res://.godot/imported/portable_generator_nor_gl_1k.jpg-04266472d8f0cad2497f334a8a2ec562.s3tc.ctex"]
 
 [params]
 

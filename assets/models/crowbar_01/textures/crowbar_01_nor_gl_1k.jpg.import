@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bhwfk76hc3k44"
 path.s3tc="res://.godot/imported/crowbar_01_nor_gl_1k.jpg-7109c0b150ecba6962f73c3f82438e99.s3tc.ctex"
-path.etc2="res://.godot/imported/crowbar_01_nor_gl_1k.jpg-7109c0b150ecba6962f73c3f82438e99.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/crowbar_01/textures/crowbar_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/crowbar_01_nor_gl_1k.jpg-7109c0b150ecba6962f73c3f82438e99.s3tc.ctex", "res://.godot/imported/crowbar_01_nor_gl_1k.jpg-7109c0b150ecba6962f73c3f82438e99.etc2.ctex"]
+dest_files=["res://.godot/imported/crowbar_01_nor_gl_1k.jpg-7109c0b150ecba6962f73c3f82438e99.s3tc.ctex"]
 
 [params]
 

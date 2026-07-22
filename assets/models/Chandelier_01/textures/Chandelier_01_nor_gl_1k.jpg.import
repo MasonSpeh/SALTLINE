@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dcubt6qeokvlj"
 path.s3tc="res://.godot/imported/Chandelier_01_nor_gl_1k.jpg-adb9bf209e22f5120e3a662810d17daa.s3tc.ctex"
-path.etc2="res://.godot/imported/Chandelier_01_nor_gl_1k.jpg-adb9bf209e22f5120e3a662810d17daa.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Chandelier_01/textures/Chandelier_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/Chandelier_01_nor_gl_1k.jpg-adb9bf209e22f5120e3a662810d17daa.s3tc.ctex", "res://.godot/imported/Chandelier_01_nor_gl_1k.jpg-adb9bf209e22f5120e3a662810d17daa.etc2.ctex"]
+dest_files=["res://.godot/imported/Chandelier_01_nor_gl_1k.jpg-adb9bf209e22f5120e3a662810d17daa.s3tc.ctex"]
 
 [params]
 

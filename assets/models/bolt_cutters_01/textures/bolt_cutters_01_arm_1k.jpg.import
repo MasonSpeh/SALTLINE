@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://yequsbixypbg"
 path.s3tc="res://.godot/imported/bolt_cutters_01_arm_1k.jpg-5d5628f9542f69ccf59eb4d05146e685.s3tc.ctex"
-path.etc2="res://.godot/imported/bolt_cutters_01_arm_1k.jpg-5d5628f9542f69ccf59eb4d05146e685.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bolt_cutters_01/textures/bolt_cutters_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/bolt_cutters_01_arm_1k.jpg-5d5628f9542f69ccf59eb4d05146e685.s3tc.ctex", "res://.godot/imported/bolt_cutters_01_arm_1k.jpg-5d5628f9542f69ccf59eb4d05146e685.etc2.ctex"]
+dest_files=["res://.godot/imported/bolt_cutters_01_arm_1k.jpg-5d5628f9542f69ccf59eb4d05146e685.s3tc.ctex"]
 
 [params]
 

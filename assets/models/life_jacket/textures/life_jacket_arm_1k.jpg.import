@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmlwfxhlcf2p2"
 path.s3tc="res://.godot/imported/life_jacket_arm_1k.jpg-8ccb435da9fb96cc632ba5e80e2a4eeb.s3tc.ctex"
-path.etc2="res://.godot/imported/life_jacket_arm_1k.jpg-8ccb435da9fb96cc632ba5e80e2a4eeb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/life_jacket/textures/life_jacket_arm_1k.jpg"
-dest_files=["res://.godot/imported/life_jacket_arm_1k.jpg-8ccb435da9fb96cc632ba5e80e2a4eeb.s3tc.ctex", "res://.godot/imported/life_jacket_arm_1k.jpg-8ccb435da9fb96cc632ba5e80e2a4eeb.etc2.ctex"]
+dest_files=["res://.godot/imported/life_jacket_arm_1k.jpg-8ccb435da9fb96cc632ba5e80e2a4eeb.s3tc.ctex"]
 
 [params]
 

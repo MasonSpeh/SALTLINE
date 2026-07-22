@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cr2ujkspxpear"
 path.s3tc="res://.godot/imported/pot_enamel_01_nor_gl_1k.jpg-f3975c4e44912432f6ab984d4384f901.s3tc.ctex"
-path.etc2="res://.godot/imported/pot_enamel_01_nor_gl_1k.jpg-f3975c4e44912432f6ab984d4384f901.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/pot_enamel_01/textures/pot_enamel_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/pot_enamel_01_nor_gl_1k.jpg-f3975c4e44912432f6ab984d4384f901.s3tc.ctex", "res://.godot/imported/pot_enamel_01_nor_gl_1k.jpg-f3975c4e44912432f6ab984d4384f901.etc2.ctex"]
+dest_files=["res://.godot/imported/pot_enamel_01_nor_gl_1k.jpg-f3975c4e44912432f6ab984d4384f901.s3tc.ctex"]
 
 [params]
 

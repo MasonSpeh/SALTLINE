@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://347mkm5kd7ds"
 path.s3tc="res://.godot/imported/ceramic_pot_diff_1k.jpg-7234f52545039523e1a8ef7db3472e6f.s3tc.ctex"
-path.etc2="res://.godot/imported/ceramic_pot_diff_1k.jpg-7234f52545039523e1a8ef7db3472e6f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ceramic_pot/textures/ceramic_pot_diff_1k.jpg"
-dest_files=["res://.godot/imported/ceramic_pot_diff_1k.jpg-7234f52545039523e1a8ef7db3472e6f.s3tc.ctex", "res://.godot/imported/ceramic_pot_diff_1k.jpg-7234f52545039523e1a8ef7db3472e6f.etc2.ctex"]
+dest_files=["res://.godot/imported/ceramic_pot_diff_1k.jpg-7234f52545039523e1a8ef7db3472e6f.s3tc.ctex"]
 
 [params]
 

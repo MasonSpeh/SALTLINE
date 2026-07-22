@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://gfj4qqv7qmyq"
 path.s3tc="res://.godot/imported/metal_stool_01_nor_gl_1k.jpg-7903491188f312be52b1b4b6a626eecc.s3tc.ctex"
-path.etc2="res://.godot/imported/metal_stool_01_nor_gl_1k.jpg-7903491188f312be52b1b4b6a626eecc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_stool_01/textures/metal_stool_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/metal_stool_01_nor_gl_1k.jpg-7903491188f312be52b1b4b6a626eecc.s3tc.ctex", "res://.godot/imported/metal_stool_01_nor_gl_1k.jpg-7903491188f312be52b1b4b6a626eecc.etc2.ctex"]
+dest_files=["res://.godot/imported/metal_stool_01_nor_gl_1k.jpg-7903491188f312be52b1b4b6a626eecc.s3tc.ctex"]
 
 [params]
 

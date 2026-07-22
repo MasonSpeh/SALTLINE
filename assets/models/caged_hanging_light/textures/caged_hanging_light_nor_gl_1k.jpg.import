@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dd81ou4tly27q"
 path.s3tc="res://.godot/imported/caged_hanging_light_nor_gl_1k.jpg-509780eb0a8a17604ff38d13b2545bd1.s3tc.ctex"
-path.etc2="res://.godot/imported/caged_hanging_light_nor_gl_1k.jpg-509780eb0a8a17604ff38d13b2545bd1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/caged_hanging_light/textures/caged_hanging_light_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/caged_hanging_light_nor_gl_1k.jpg-509780eb0a8a17604ff38d13b2545bd1.s3tc.ctex", "res://.godot/imported/caged_hanging_light_nor_gl_1k.jpg-509780eb0a8a17604ff38d13b2545bd1.etc2.ctex"]
+dest_files=["res://.godot/imported/caged_hanging_light_nor_gl_1k.jpg-509780eb0a8a17604ff38d13b2545bd1.s3tc.ctex"]
 
 [params]
 

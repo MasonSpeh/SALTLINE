@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ckmfpr8jd2du"
 path.s3tc="res://.godot/imported/dustpan_arm_1k.jpg-7290caaec17bdacf39010d9ee64da282.s3tc.ctex"
-path.etc2="res://.godot/imported/dustpan_arm_1k.jpg-7290caaec17bdacf39010d9ee64da282.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/dustpan/textures/dustpan_arm_1k.jpg"
-dest_files=["res://.godot/imported/dustpan_arm_1k.jpg-7290caaec17bdacf39010d9ee64da282.s3tc.ctex", "res://.godot/imported/dustpan_arm_1k.jpg-7290caaec17bdacf39010d9ee64da282.etc2.ctex"]
+dest_files=["res://.godot/imported/dustpan_arm_1k.jpg-7290caaec17bdacf39010d9ee64da282.s3tc.ctex"]
 
 [params]
 

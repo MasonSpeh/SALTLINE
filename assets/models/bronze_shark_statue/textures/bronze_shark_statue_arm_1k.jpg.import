@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1pilvqyo5vi6"
 path.s3tc="res://.godot/imported/bronze_shark_statue_arm_1k.jpg-dd1307137ed34116140abe10b30f130a.s3tc.ctex"
-path.etc2="res://.godot/imported/bronze_shark_statue_arm_1k.jpg-dd1307137ed34116140abe10b30f130a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bronze_shark_statue/textures/bronze_shark_statue_arm_1k.jpg"
-dest_files=["res://.godot/imported/bronze_shark_statue_arm_1k.jpg-dd1307137ed34116140abe10b30f130a.s3tc.ctex", "res://.godot/imported/bronze_shark_statue_arm_1k.jpg-dd1307137ed34116140abe10b30f130a.etc2.ctex"]
+dest_files=["res://.godot/imported/bronze_shark_statue_arm_1k.jpg-dd1307137ed34116140abe10b30f130a.s3tc.ctex"]
 
 [params]
 

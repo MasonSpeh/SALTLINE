@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bp4puav1n5ja1"
 path.s3tc="res://.godot/imported/vintage_day_bed_diff_1k.jpg-810e7c4071eda386e34306429d4e75c3.s3tc.ctex"
-path.etc2="res://.godot/imported/vintage_day_bed_diff_1k.jpg-810e7c4071eda386e34306429d4e75c3.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/vintage_day_bed/textures/vintage_day_bed_diff_1k.jpg"
-dest_files=["res://.godot/imported/vintage_day_bed_diff_1k.jpg-810e7c4071eda386e34306429d4e75c3.s3tc.ctex", "res://.godot/imported/vintage_day_bed_diff_1k.jpg-810e7c4071eda386e34306429d4e75c3.etc2.ctex"]
+dest_files=["res://.godot/imported/vintage_day_bed_diff_1k.jpg-810e7c4071eda386e34306429d4e75c3.s3tc.ctex"]
 
 [params]
 

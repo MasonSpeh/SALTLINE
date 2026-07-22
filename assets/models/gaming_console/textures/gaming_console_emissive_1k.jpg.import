@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bgk0isehao4o1"
 path.s3tc="res://.godot/imported/gaming_console_emissive_1k.jpg-d4c535b07d35578b3b6b410d16182a89.s3tc.ctex"
-path.etc2="res://.godot/imported/gaming_console_emissive_1k.jpg-d4c535b07d35578b3b6b410d16182a89.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/gaming_console/textures/gaming_console_emissive_1k.jpg"
-dest_files=["res://.godot/imported/gaming_console_emissive_1k.jpg-d4c535b07d35578b3b6b410d16182a89.s3tc.ctex", "res://.godot/imported/gaming_console_emissive_1k.jpg-d4c535b07d35578b3b6b410d16182a89.etc2.ctex"]
+dest_files=["res://.godot/imported/gaming_console_emissive_1k.jpg-d4c535b07d35578b3b6b410d16182a89.s3tc.ctex"]
 
 [params]
 

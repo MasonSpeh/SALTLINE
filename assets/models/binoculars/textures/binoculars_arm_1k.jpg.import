@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://djhce81p0giq6"
 path.s3tc="res://.godot/imported/binoculars_arm_1k.jpg-5ddc3cc33797ed1e494c50128a36190c.s3tc.ctex"
-path.etc2="res://.godot/imported/binoculars_arm_1k.jpg-5ddc3cc33797ed1e494c50128a36190c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/binoculars/textures/binoculars_arm_1k.jpg"
-dest_files=["res://.godot/imported/binoculars_arm_1k.jpg-5ddc3cc33797ed1e494c50128a36190c.s3tc.ctex", "res://.godot/imported/binoculars_arm_1k.jpg-5ddc3cc33797ed1e494c50128a36190c.etc2.ctex"]
+dest_files=["res://.godot/imported/binoculars_arm_1k.jpg-5ddc3cc33797ed1e494c50128a36190c.s3tc.ctex"]
 
 [params]
 

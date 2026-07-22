@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ddnvo44ct4210"
 path.s3tc="res://.godot/imported/concrete_cat_statue_nor_gl_1k.jpg-9f4185f76c6b04b6472a071e3e55017a.s3tc.ctex"
-path.etc2="res://.godot/imported/concrete_cat_statue_nor_gl_1k.jpg-9f4185f76c6b04b6472a071e3e55017a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/concrete_cat_statue/textures/concrete_cat_statue_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/concrete_cat_statue_nor_gl_1k.jpg-9f4185f76c6b04b6472a071e3e55017a.s3tc.ctex", "res://.godot/imported/concrete_cat_statue_nor_gl_1k.jpg-9f4185f76c6b04b6472a071e3e55017a.etc2.ctex"]
+dest_files=["res://.godot/imported/concrete_cat_statue_nor_gl_1k.jpg-9f4185f76c6b04b6472a071e3e55017a.s3tc.ctex"]
 
 [params]
 

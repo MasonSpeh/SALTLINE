@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c0t7o6en8k52g"
 path.s3tc="res://.godot/imported/long_life_food_nor_gl_1k.jpg-a1a0f5ab514ea4a745bc8d6dc9091175.s3tc.ctex"
-path.etc2="res://.godot/imported/long_life_food_nor_gl_1k.jpg-a1a0f5ab514ea4a745bc8d6dc9091175.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/long_life_food/textures/long_life_food_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/long_life_food_nor_gl_1k.jpg-a1a0f5ab514ea4a745bc8d6dc9091175.s3tc.ctex", "res://.godot/imported/long_life_food_nor_gl_1k.jpg-a1a0f5ab514ea4a745bc8d6dc9091175.etc2.ctex"]
+dest_files=["res://.godot/imported/long_life_food_nor_gl_1k.jpg-a1a0f5ab514ea4a745bc8d6dc9091175.s3tc.ctex"]
 
 [params]
 

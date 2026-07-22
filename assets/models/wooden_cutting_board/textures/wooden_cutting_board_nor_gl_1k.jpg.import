@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b78stt14q20fw"
 path.s3tc="res://.godot/imported/wooden_cutting_board_nor_gl_1k.jpg-526f8ab4b17c9a4b7fc72802b1885521.s3tc.ctex"
-path.etc2="res://.godot/imported/wooden_cutting_board_nor_gl_1k.jpg-526f8ab4b17c9a4b7fc72802b1885521.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/wooden_cutting_board/textures/wooden_cutting_board_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/wooden_cutting_board_nor_gl_1k.jpg-526f8ab4b17c9a4b7fc72802b1885521.s3tc.ctex", "res://.godot/imported/wooden_cutting_board_nor_gl_1k.jpg-526f8ab4b17c9a4b7fc72802b1885521.etc2.ctex"]
+dest_files=["res://.godot/imported/wooden_cutting_board_nor_gl_1k.jpg-526f8ab4b17c9a4b7fc72802b1885521.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://breri4mkjow7d"
 path.s3tc="res://.godot/imported/ocean_buoy_nor_gl_1k.jpg-37d9bf72fd7c881dbdb40ba3c9998fb1.s3tc.ctex"
-path.etc2="res://.godot/imported/ocean_buoy_nor_gl_1k.jpg-37d9bf72fd7c881dbdb40ba3c9998fb1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ocean_buoy/textures/ocean_buoy_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/ocean_buoy_nor_gl_1k.jpg-37d9bf72fd7c881dbdb40ba3c9998fb1.s3tc.ctex", "res://.godot/imported/ocean_buoy_nor_gl_1k.jpg-37d9bf72fd7c881dbdb40ba3c9998fb1.etc2.ctex"]
+dest_files=["res://.godot/imported/ocean_buoy_nor_gl_1k.jpg-37d9bf72fd7c881dbdb40ba3c9998fb1.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cwp7krwsuw7dj"
 path.s3tc="res://.godot/imported/filmstrip_projector_8mm_nor_gl_1k.jpg-cf5c3ab3961fb2c841443b69c13c6880.s3tc.ctex"
-path.etc2="res://.godot/imported/filmstrip_projector_8mm_nor_gl_1k.jpg-cf5c3ab3961fb2c841443b69c13c6880.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/filmstrip_projector_8mm/textures/filmstrip_projector_8mm_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/filmstrip_projector_8mm_nor_gl_1k.jpg-cf5c3ab3961fb2c841443b69c13c6880.s3tc.ctex", "res://.godot/imported/filmstrip_projector_8mm_nor_gl_1k.jpg-cf5c3ab3961fb2c841443b69c13c6880.etc2.ctex"]
+dest_files=["res://.godot/imported/filmstrip_projector_8mm_nor_gl_1k.jpg-cf5c3ab3961fb2c841443b69c13c6880.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://xr8af2howgqy"
 path.s3tc="res://.godot/imported/metal_tool_chest_diff_1k.jpg-84fe36cf52064029514a253015b7a7b9.s3tc.ctex"
-path.etc2="res://.godot/imported/metal_tool_chest_diff_1k.jpg-84fe36cf52064029514a253015b7a7b9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_tool_chest/textures/metal_tool_chest_diff_1k.jpg"
-dest_files=["res://.godot/imported/metal_tool_chest_diff_1k.jpg-84fe36cf52064029514a253015b7a7b9.s3tc.ctex", "res://.godot/imported/metal_tool_chest_diff_1k.jpg-84fe36cf52064029514a253015b7a7b9.etc2.ctex"]
+dest_files=["res://.godot/imported/metal_tool_chest_diff_1k.jpg-84fe36cf52064029514a253015b7a7b9.s3tc.ctex"]
 
 [params]
 

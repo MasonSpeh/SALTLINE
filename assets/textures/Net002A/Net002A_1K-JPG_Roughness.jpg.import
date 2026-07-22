@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://0sbmjg4d8lra"
 path.s3tc="res://.godot/imported/Net002A_1K-JPG_Roughness.jpg-e6ee47189977af165693ebfb2b32fe52.s3tc.ctex"
-path.etc2="res://.godot/imported/Net002A_1K-JPG_Roughness.jpg-e6ee47189977af165693ebfb2b32fe52.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/Net002A/Net002A_1K-JPG_Roughness.jpg"
-dest_files=["res://.godot/imported/Net002A_1K-JPG_Roughness.jpg-e6ee47189977af165693ebfb2b32fe52.s3tc.ctex", "res://.godot/imported/Net002A_1K-JPG_Roughness.jpg-e6ee47189977af165693ebfb2b32fe52.etc2.ctex"]
+dest_files=["res://.godot/imported/Net002A_1K-JPG_Roughness.jpg-e6ee47189977af165693ebfb2b32fe52.s3tc.ctex"]
 
 [params]
 

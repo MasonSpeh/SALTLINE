@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bl7mf7gshvhh7"
 path.s3tc="res://.godot/imported/cassette_player_tape_orangeblue_diff_1k.jpg-4ded3757b0d3c324e251475cc3792a98.s3tc.ctex"
-path.etc2="res://.godot/imported/cassette_player_tape_orangeblue_diff_1k.jpg-4ded3757b0d3c324e251475cc3792a98.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cassette_player/textures/cassette_player_tape_orangeblue_diff_1k.jpg"
-dest_files=["res://.godot/imported/cassette_player_tape_orangeblue_diff_1k.jpg-4ded3757b0d3c324e251475cc3792a98.s3tc.ctex", "res://.godot/imported/cassette_player_tape_orangeblue_diff_1k.jpg-4ded3757b0d3c324e251475cc3792a98.etc2.ctex"]
+dest_files=["res://.godot/imported/cassette_player_tape_orangeblue_diff_1k.jpg-4ded3757b0d3c324e251475cc3792a98.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c5n2e2f21acfn"
 path.s3tc="res://.godot/imported/ceramic_vase_04_diff_1k.jpg-60b79eb99486d73b4e254ff50204aae3.s3tc.ctex"
-path.etc2="res://.godot/imported/ceramic_vase_04_diff_1k.jpg-60b79eb99486d73b4e254ff50204aae3.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ceramic_vase_04/textures/ceramic_vase_04_diff_1k.jpg"
-dest_files=["res://.godot/imported/ceramic_vase_04_diff_1k.jpg-60b79eb99486d73b4e254ff50204aae3.s3tc.ctex", "res://.godot/imported/ceramic_vase_04_diff_1k.jpg-60b79eb99486d73b4e254ff50204aae3.etc2.ctex"]
+dest_files=["res://.godot/imported/ceramic_vase_04_diff_1k.jpg-60b79eb99486d73b4e254ff50204aae3.s3tc.ctex"]
 
 [params]
 

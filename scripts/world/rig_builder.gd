@@ -167,6 +167,39 @@ func _rail_slab(pos: Vector3, size: Vector3) -> void:
 	add_child(body)
 	body.position = pos
 
+## Guard rail round the pump-room roof vantage (top of the Roof Ladder). Fences the
+## three open edges in the yard's top-rail + toe-board grammar and leaves the EAST
+## edge open as the ladder step-off — the same "rail the open sides, keep the step-off
+## clear" pattern the stairwell-hole guard uses. Rails inset 0.13m so posts and the
+## one smooth collision slab per side land on solid plate; the ladder mantle and every
+## wet-deck walk-line were checked clear by sonar before this went in.
+func _pump_roof_guard() -> void:
+	var mat: Material = MatLib.rust_steel()
+	var rt: float = WET_Y + WALL_H + 0.125          # roof top surface (y 5.325)
+	# [along_x, centre(x,z), length] for the west, north, and south edges.
+	var edges := [
+		[false, Vector2(9.87, -10.0), 8.26],        # west  (runs in z)
+		[true,  Vector2(14.0, -5.88), 8.26],        # north (runs in x)
+		[true,  Vector2(14.0, -14.12), 8.26],       # south (runs in x)
+	]
+	for e in edges:
+		var ax: bool = e[0]
+		var c: Vector2 = e[1]
+		var ln: float = e[2]
+		var bar_sz: Vector3 = Vector3(ln, 0.06, 0.06) if ax else Vector3(0.06, 0.06, ln)
+		for h in [0.5, 0.95]:                        # mid rail + top rail
+			_dbox(Vector3(c.x, rt + h, c.y), bar_sz, mat)
+		# Toe board hard against the plate — the kick that stops a boot skating off.
+		var kick_sz: Vector3 = Vector3(ln, 0.14, 0.03) if ax else Vector3(0.03, 0.14, ln)
+		_dbox(Vector3(c.x, rt + 0.09, c.y), kick_sz, mat)
+		# One smooth full-height slab so the capsule meets a wall, not a lone waist bar.
+		var slab_sz: Vector3 = Vector3(ln, 1.25, 0.06) if ax else Vector3(0.06, 1.25, ln)
+		_rail_slab(Vector3(c.x, rt + 0.6, c.y), slab_sz)
+	# Corner posts at the four roof corners (the two east posts flank the ladder gap).
+	for p in [Vector2(9.87, -5.88), Vector2(9.87, -14.12),
+			Vector2(18.13, -5.88), Vector2(18.13, -14.12)]:
+		_dbox(Vector3(p.x, rt + 0.5, p.y), Vector3(0.08, 1.0, 0.08), mat)
+
 ## Build a stair flight with StairKit, then repair the two things in its COLLISION
 ## that a 0.4m-radius player capsule cannot get past. StairKit is shared code we do
 ## not own; every visual it builds is kept and only collision shapes are touched.
@@ -599,6 +632,8 @@ func _build_wet_deck() -> void:
 	_corner_posts([Vector3(10, 0, -14), Vector3(18, 0, -14), Vector3(10, 0, -6), Vector3(18, 0, -6)],
 		WET_Y, WALL_H, pr_mat)
 	_box(Vector3(14, WET_Y + WALL_H, -10), Vector3(8.5, 0.25, 8.5), pr_mat) # roof
+	# Fence the roof vantage — a 3.3m unguarded drop on every side until now.
+	_pump_roof_guard()
 	# Waterline stain band on the inner wall faces, at the old flood height (~knee).
 	var stain: Material = MatLib.tide_band()
 	_box(Vector3(10.2, WET_Y + 0.55, -10), Vector3(0.04, 0.42, 7.5), stain, self, false)   # west

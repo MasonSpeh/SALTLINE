@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bl1gk4m8qu74d"
 path.s3tc="res://.godot/imported/pliers_nor_gl_1k.jpg-08b5ee04f12aa09037df13dac73799ef.s3tc.ctex"
-path.etc2="res://.godot/imported/pliers_nor_gl_1k.jpg-08b5ee04f12aa09037df13dac73799ef.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/pliers/textures/pliers_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/pliers_nor_gl_1k.jpg-08b5ee04f12aa09037df13dac73799ef.s3tc.ctex", "res://.godot/imported/pliers_nor_gl_1k.jpg-08b5ee04f12aa09037df13dac73799ef.etc2.ctex"]
+dest_files=["res://.godot/imported/pliers_nor_gl_1k.jpg-08b5ee04f12aa09037df13dac73799ef.s3tc.ctex"]
 
 [params]
 

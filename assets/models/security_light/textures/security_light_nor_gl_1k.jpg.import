@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://blw5jdaxmq3rj"
 path.s3tc="res://.godot/imported/security_light_nor_gl_1k.jpg-cdf60bd0358857c2e3f01351f2a7aec2.s3tc.ctex"
-path.etc2="res://.godot/imported/security_light_nor_gl_1k.jpg-cdf60bd0358857c2e3f01351f2a7aec2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/security_light/textures/security_light_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/security_light_nor_gl_1k.jpg-cdf60bd0358857c2e3f01351f2a7aec2.s3tc.ctex", "res://.godot/imported/security_light_nor_gl_1k.jpg-cdf60bd0358857c2e3f01351f2a7aec2.etc2.ctex"]
+dest_files=["res://.godot/imported/security_light_nor_gl_1k.jpg-cdf60bd0358857c2e3f01351f2a7aec2.s3tc.ctex"]
 
 [params]
 

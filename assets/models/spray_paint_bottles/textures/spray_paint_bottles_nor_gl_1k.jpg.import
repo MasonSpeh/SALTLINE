@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cc7pqkio01424"
 path.s3tc="res://.godot/imported/spray_paint_bottles_nor_gl_1k.jpg-029bae835b279ee812102f390186e393.s3tc.ctex"
-path.etc2="res://.godot/imported/spray_paint_bottles_nor_gl_1k.jpg-029bae835b279ee812102f390186e393.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/spray_paint_bottles/textures/spray_paint_bottles_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/spray_paint_bottles_nor_gl_1k.jpg-029bae835b279ee812102f390186e393.s3tc.ctex", "res://.godot/imported/spray_paint_bottles_nor_gl_1k.jpg-029bae835b279ee812102f390186e393.etc2.ctex"]
+dest_files=["res://.godot/imported/spray_paint_bottles_nor_gl_1k.jpg-029bae835b279ee812102f390186e393.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b4bybqy5frutf"
 path.s3tc="res://.godot/imported/folding_wooden_stool_nor_gl_1k.jpg-054a3cef9958bd99818fc02e36ca7489.s3tc.ctex"
-path.etc2="res://.godot/imported/folding_wooden_stool_nor_gl_1k.jpg-054a3cef9958bd99818fc02e36ca7489.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/folding_wooden_stool/textures/folding_wooden_stool_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/folding_wooden_stool_nor_gl_1k.jpg-054a3cef9958bd99818fc02e36ca7489.s3tc.ctex", "res://.godot/imported/folding_wooden_stool_nor_gl_1k.jpg-054a3cef9958bd99818fc02e36ca7489.etc2.ctex"]
+dest_files=["res://.godot/imported/folding_wooden_stool_nor_gl_1k.jpg-054a3cef9958bd99818fc02e36ca7489.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://byxvgsbjqjo3m"
 path.s3tc="res://.godot/imported/flathead_screwdriver_nor_gl_1k.jpg-c651fc3aa87ee1a8d69bba96223236cf.s3tc.ctex"
-path.etc2="res://.godot/imported/flathead_screwdriver_nor_gl_1k.jpg-c651fc3aa87ee1a8d69bba96223236cf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/flathead_screwdriver/textures/flathead_screwdriver_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/flathead_screwdriver_nor_gl_1k.jpg-c651fc3aa87ee1a8d69bba96223236cf.s3tc.ctex", "res://.godot/imported/flathead_screwdriver_nor_gl_1k.jpg-c651fc3aa87ee1a8d69bba96223236cf.etc2.ctex"]
+dest_files=["res://.godot/imported/flathead_screwdriver_nor_gl_1k.jpg-c651fc3aa87ee1a8d69bba96223236cf.s3tc.ctex"]
 
 [params]
 

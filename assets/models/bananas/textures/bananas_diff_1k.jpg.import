@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://e66w5lleqgvc"
 path.s3tc="res://.godot/imported/bananas_diff_1k.jpg-3ffaca0268e65d3a6bceee85e2bea4ca.s3tc.ctex"
-path.etc2="res://.godot/imported/bananas_diff_1k.jpg-3ffaca0268e65d3a6bceee85e2bea4ca.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bananas/textures/bananas_diff_1k.jpg"
-dest_files=["res://.godot/imported/bananas_diff_1k.jpg-3ffaca0268e65d3a6bceee85e2bea4ca.s3tc.ctex", "res://.godot/imported/bananas_diff_1k.jpg-3ffaca0268e65d3a6bceee85e2bea4ca.etc2.ctex"]
+dest_files=["res://.godot/imported/bananas_diff_1k.jpg-3ffaca0268e65d3a6bceee85e2bea4ca.s3tc.ctex"]
 
 [params]
 

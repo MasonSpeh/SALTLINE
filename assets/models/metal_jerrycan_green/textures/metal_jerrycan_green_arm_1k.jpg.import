@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://280xnx7tnog2"
 path.s3tc="res://.godot/imported/metal_jerrycan_green_arm_1k.jpg-71fae4867986a4e22c2a8fda20a60145.s3tc.ctex"
-path.etc2="res://.godot/imported/metal_jerrycan_green_arm_1k.jpg-71fae4867986a4e22c2a8fda20a60145.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_jerrycan_green/textures/metal_jerrycan_green_arm_1k.jpg"
-dest_files=["res://.godot/imported/metal_jerrycan_green_arm_1k.jpg-71fae4867986a4e22c2a8fda20a60145.s3tc.ctex", "res://.godot/imported/metal_jerrycan_green_arm_1k.jpg-71fae4867986a4e22c2a8fda20a60145.etc2.ctex"]
+dest_files=["res://.godot/imported/metal_jerrycan_green_arm_1k.jpg-71fae4867986a4e22c2a8fda20a60145.s3tc.ctex"]
 
 [params]
 

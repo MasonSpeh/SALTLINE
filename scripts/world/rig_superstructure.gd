@@ -584,8 +584,13 @@ func _supports() -> void:
 			Vector3(0.35, B_Y - 0.3 - DECK_Y, 0.35), mat)
 
 # Ladder-well hatch bounds (NE corner of the shaft) — slabs open only here.
-const HX0: float = 25.7
-const HX1: float = 27.0
+# The east edge (HX1) used to sit on the east shaft wall's centreline (27.0), so
+# its inner face at 26.875 ate into the hole and left the climber facing east with
+# only 0.475 m of clear space to the wall — a capsule (0.4 r) all but scraping it.
+# Pulled the whole hatch west (24.9..26.5, 1.6 m wide) so the hole clears the wall
+# by ~0.375 m of slab and the centred ladder gets ~1.0 m of front clearance.
+const HX0: float = 24.9
+const HX1: float = 26.5
 const HZ0: float = 15.8
 const HZ1: float = 17.2
 
@@ -599,7 +604,9 @@ func _well_ladder(floor_y: float) -> void:
 	add_child(l)
 	# Freestanding mid-hatch so the climber's capsule clears the slab opening
 	# (climb position = base + face_dir * 0.45 must stay inside the hatch rect).
-	l.position = Vector3(25.95, floor_y, 16.5)
+	# Centred in the widened hatch: rails at x 25.11/25.59 clear both hole edges
+	# (24.9 / 26.5) and the latch at x 25.8 faces ~1.0 m of open air to the east wall.
+	l.position = Vector3(25.35, floor_y, 16.5)
 	l.rotation.y = deg_to_rad(-90)
 	var rail_mat := MatLib.flat(Interactable.COLOR_TAKEABLE)
 	var rung_mat := MatLib.flat(Color(0.75, 0.65, 0.15))

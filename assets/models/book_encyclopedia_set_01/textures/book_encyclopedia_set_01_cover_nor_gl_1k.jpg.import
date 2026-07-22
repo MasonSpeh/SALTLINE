@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cbobhidm3qq8b"
 path.s3tc="res://.godot/imported/book_encyclopedia_set_01_cover_nor_gl_1k.jpg-bea30014ef9bacc9d7dcfda44770d4bf.s3tc.ctex"
-path.etc2="res://.godot/imported/book_encyclopedia_set_01_cover_nor_gl_1k.jpg-bea30014ef9bacc9d7dcfda44770d4bf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/book_encyclopedia_set_01/textures/book_encyclopedia_set_01_cover_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/book_encyclopedia_set_01_cover_nor_gl_1k.jpg-bea30014ef9bacc9d7dcfda44770d4bf.s3tc.ctex", "res://.godot/imported/book_encyclopedia_set_01_cover_nor_gl_1k.jpg-bea30014ef9bacc9d7dcfda44770d4bf.etc2.ctex"]
+dest_files=["res://.godot/imported/book_encyclopedia_set_01_cover_nor_gl_1k.jpg-bea30014ef9bacc9d7dcfda44770d4bf.s3tc.ctex"]
 
 [params]
 

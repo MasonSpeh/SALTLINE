@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dwrf5pv3exc76"
 path.s3tc="res://.godot/imported/lamplight_crab_0.jpg-95623929ac1c6725775ca5039fad5804.s3tc.ctex"
-path.etc2="res://.godot/imported/lamplight_crab_0.jpg-95623929ac1c6725775ca5039fad5804.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/lamplight_crab/lamplight_crab_0.jpg"
-dest_files=["res://.godot/imported/lamplight_crab_0.jpg-95623929ac1c6725775ca5039fad5804.s3tc.ctex", "res://.godot/imported/lamplight_crab_0.jpg-95623929ac1c6725775ca5039fad5804.etc2.ctex"]
+dest_files=["res://.godot/imported/lamplight_crab_0.jpg-95623929ac1c6725775ca5039fad5804.s3tc.ctex"]
 
 [params]
 

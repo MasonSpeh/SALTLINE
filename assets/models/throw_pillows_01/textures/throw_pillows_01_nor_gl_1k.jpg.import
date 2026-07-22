@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bgf5uq5771ukt"
 path.s3tc="res://.godot/imported/throw_pillows_01_nor_gl_1k.jpg-54993a3b6251ab0233d0900ed76a7ad2.s3tc.ctex"
-path.etc2="res://.godot/imported/throw_pillows_01_nor_gl_1k.jpg-54993a3b6251ab0233d0900ed76a7ad2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/throw_pillows_01/textures/throw_pillows_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/throw_pillows_01_nor_gl_1k.jpg-54993a3b6251ab0233d0900ed76a7ad2.s3tc.ctex", "res://.godot/imported/throw_pillows_01_nor_gl_1k.jpg-54993a3b6251ab0233d0900ed76a7ad2.etc2.ctex"]
+dest_files=["res://.godot/imported/throw_pillows_01_nor_gl_1k.jpg-54993a3b6251ab0233d0900ed76a7ad2.s3tc.ctex"]
 
 [params]
 

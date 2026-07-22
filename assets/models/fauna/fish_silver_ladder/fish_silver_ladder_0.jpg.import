@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bo3fklyxpxt7r"
 path.s3tc="res://.godot/imported/fish_silver_ladder_0.jpg-23c0206ff316b9d9b5346b8603581334.s3tc.ctex"
-path.etc2="res://.godot/imported/fish_silver_ladder_0.jpg-23c0206ff316b9d9b5346b8603581334.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_silver_ladder/fish_silver_ladder_0.jpg"
-dest_files=["res://.godot/imported/fish_silver_ladder_0.jpg-23c0206ff316b9d9b5346b8603581334.s3tc.ctex", "res://.godot/imported/fish_silver_ladder_0.jpg-23c0206ff316b9d9b5346b8603581334.etc2.ctex"]
+dest_files=["res://.godot/imported/fish_silver_ladder_0.jpg-23c0206ff316b9d9b5346b8603581334.s3tc.ctex"]
 
 [params]
 

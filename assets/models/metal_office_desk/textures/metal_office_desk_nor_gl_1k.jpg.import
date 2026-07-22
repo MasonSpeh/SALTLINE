@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c6bsoyni28185"
 path.s3tc="res://.godot/imported/metal_office_desk_nor_gl_1k.jpg-8d6eeca7a6b9c521c0df0b420569ecc6.s3tc.ctex"
-path.etc2="res://.godot/imported/metal_office_desk_nor_gl_1k.jpg-8d6eeca7a6b9c521c0df0b420569ecc6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_office_desk/textures/metal_office_desk_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/metal_office_desk_nor_gl_1k.jpg-8d6eeca7a6b9c521c0df0b420569ecc6.s3tc.ctex", "res://.godot/imported/metal_office_desk_nor_gl_1k.jpg-8d6eeca7a6b9c521c0df0b420569ecc6.etc2.ctex"]
+dest_files=["res://.godot/imported/metal_office_desk_nor_gl_1k.jpg-8d6eeca7a6b9c521c0df0b420569ecc6.s3tc.ctex"]
 
 [params]
 

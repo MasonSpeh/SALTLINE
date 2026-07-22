@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dmhaxw2l3y5m0"
 path.s3tc="res://.godot/imported/drawer_cabinet_diff_1k.jpg-89c2a9bc13e758c44f1969e73fdc3db7.s3tc.ctex"
-path.etc2="res://.godot/imported/drawer_cabinet_diff_1k.jpg-89c2a9bc13e758c44f1969e73fdc3db7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/drawer_cabinet/textures/drawer_cabinet_diff_1k.jpg"
-dest_files=["res://.godot/imported/drawer_cabinet_diff_1k.jpg-89c2a9bc13e758c44f1969e73fdc3db7.s3tc.ctex", "res://.godot/imported/drawer_cabinet_diff_1k.jpg-89c2a9bc13e758c44f1969e73fdc3db7.etc2.ctex"]
+dest_files=["res://.godot/imported/drawer_cabinet_diff_1k.jpg-89c2a9bc13e758c44f1969e73fdc3db7.s3tc.ctex"]
 
 [params]
 

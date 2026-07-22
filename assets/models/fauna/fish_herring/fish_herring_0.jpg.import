@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dk5cqjgx7k53a"
 path.s3tc="res://.godot/imported/fish_herring_0.jpg-b0b9292f3ba5fb36677cb600e568810f.s3tc.ctex"
-path.etc2="res://.godot/imported/fish_herring_0.jpg-b0b9292f3ba5fb36677cb600e568810f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_herring/fish_herring_0.jpg"
-dest_files=["res://.godot/imported/fish_herring_0.jpg-b0b9292f3ba5fb36677cb600e568810f.s3tc.ctex", "res://.godot/imported/fish_herring_0.jpg-b0b9292f3ba5fb36677cb600e568810f.etc2.ctex"]
+dest_files=["res://.godot/imported/fish_herring_0.jpg-b0b9292f3ba5fb36677cb600e568810f.s3tc.ctex"]
 
 [params]
 

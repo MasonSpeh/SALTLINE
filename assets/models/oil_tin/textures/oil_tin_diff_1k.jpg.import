@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://4ng1d2g2l6wm"
 path.s3tc="res://.godot/imported/oil_tin_diff_1k.jpg-29a3128fe34d6f4ea493e3a0bf2effb9.s3tc.ctex"
-path.etc2="res://.godot/imported/oil_tin_diff_1k.jpg-29a3128fe34d6f4ea493e3a0bf2effb9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/oil_tin/textures/oil_tin_diff_1k.jpg"
-dest_files=["res://.godot/imported/oil_tin_diff_1k.jpg-29a3128fe34d6f4ea493e3a0bf2effb9.s3tc.ctex", "res://.godot/imported/oil_tin_diff_1k.jpg-29a3128fe34d6f4ea493e3a0bf2effb9.etc2.ctex"]
+dest_files=["res://.godot/imported/oil_tin_diff_1k.jpg-29a3128fe34d6f4ea493e3a0bf2effb9.s3tc.ctex"]
 
 [params]
 

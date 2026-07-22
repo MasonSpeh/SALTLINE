@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bqeld6lkvxs3s"
 path.s3tc="res://.godot/imported/lemon_nor_gl_1k.jpg-c02167c0826fce9090bf29cf6ecd7da5.s3tc.ctex"
-path.etc2="res://.godot/imported/lemon_nor_gl_1k.jpg-c02167c0826fce9090bf29cf6ecd7da5.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/lemon/textures/lemon_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/lemon_nor_gl_1k.jpg-c02167c0826fce9090bf29cf6ecd7da5.s3tc.ctex", "res://.godot/imported/lemon_nor_gl_1k.jpg-c02167c0826fce9090bf29cf6ecd7da5.etc2.ctex"]
+dest_files=["res://.godot/imported/lemon_nor_gl_1k.jpg-c02167c0826fce9090bf29cf6ecd7da5.s3tc.ctex"]
 
 [params]
 

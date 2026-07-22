@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://fgnnx7nkn1j8"
 path.s3tc="res://.godot/imported/dining_table_arm_1k.jpg-f0bd50d11b177092b50def9f6f3eb115.s3tc.ctex"
-path.etc2="res://.godot/imported/dining_table_arm_1k.jpg-f0bd50d11b177092b50def9f6f3eb115.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/dining_table/textures/dining_table_arm_1k.jpg"
-dest_files=["res://.godot/imported/dining_table_arm_1k.jpg-f0bd50d11b177092b50def9f6f3eb115.s3tc.ctex", "res://.godot/imported/dining_table_arm_1k.jpg-f0bd50d11b177092b50def9f6f3eb115.etc2.ctex"]
+dest_files=["res://.godot/imported/dining_table_arm_1k.jpg-f0bd50d11b177092b50def9f6f3eb115.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://1oqb3pkmyqpf"
 path.s3tc="res://.godot/imported/sweet_potato_diff_1k.jpg-534d12f88a26a4aaba17ed135eb0b9f8.s3tc.ctex"
-path.etc2="res://.godot/imported/sweet_potato_diff_1k.jpg-534d12f88a26a4aaba17ed135eb0b9f8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/sweet_potato/textures/sweet_potato_diff_1k.jpg"
-dest_files=["res://.godot/imported/sweet_potato_diff_1k.jpg-534d12f88a26a4aaba17ed135eb0b9f8.s3tc.ctex", "res://.godot/imported/sweet_potato_diff_1k.jpg-534d12f88a26a4aaba17ed135eb0b9f8.etc2.ctex"]
+dest_files=["res://.godot/imported/sweet_potato_diff_1k.jpg-534d12f88a26a4aaba17ed135eb0b9f8.s3tc.ctex"]
 
 [params]
 

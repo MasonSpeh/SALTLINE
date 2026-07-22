@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bscd427foeha8"
 path.s3tc="res://.godot/imported/vintage_electric_kettle_nor_gl_1k.jpg-59e2491de5c9511c63b1115f858b794f.s3tc.ctex"
-path.etc2="res://.godot/imported/vintage_electric_kettle_nor_gl_1k.jpg-59e2491de5c9511c63b1115f858b794f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/vintage_electric_kettle/textures/vintage_electric_kettle_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/vintage_electric_kettle_nor_gl_1k.jpg-59e2491de5c9511c63b1115f858b794f.s3tc.ctex", "res://.godot/imported/vintage_electric_kettle_nor_gl_1k.jpg-59e2491de5c9511c63b1115f858b794f.etc2.ctex"]
+dest_files=["res://.godot/imported/vintage_electric_kettle_nor_gl_1k.jpg-59e2491de5c9511c63b1115f858b794f.s3tc.ctex"]
 
 [params]
 

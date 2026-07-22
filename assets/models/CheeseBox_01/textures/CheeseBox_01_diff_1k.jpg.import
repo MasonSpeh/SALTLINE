@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://8endc1xhhek7"
 path.s3tc="res://.godot/imported/CheeseBox_01_diff_1k.jpg-c059cebbc90e9b3f724ce6b3b109d35c.s3tc.ctex"
-path.etc2="res://.godot/imported/CheeseBox_01_diff_1k.jpg-c059cebbc90e9b3f724ce6b3b109d35c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/CheeseBox_01/textures/CheeseBox_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/CheeseBox_01_diff_1k.jpg-c059cebbc90e9b3f724ce6b3b109d35c.s3tc.ctex", "res://.godot/imported/CheeseBox_01_diff_1k.jpg-c059cebbc90e9b3f724ce6b3b109d35c.etc2.ctex"]
+dest_files=["res://.godot/imported/CheeseBox_01_diff_1k.jpg-c059cebbc90e9b3f724ce6b3b109d35c.s3tc.ctex"]
 
 [params]
 

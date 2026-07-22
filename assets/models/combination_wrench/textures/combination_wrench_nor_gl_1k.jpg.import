@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://njm3jdtnb0lo"
 path.s3tc="res://.godot/imported/combination_wrench_nor_gl_1k.jpg-3e5ac29212d7f59c279529fef32ee18c.s3tc.ctex"
-path.etc2="res://.godot/imported/combination_wrench_nor_gl_1k.jpg-3e5ac29212d7f59c279529fef32ee18c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/combination_wrench/textures/combination_wrench_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/combination_wrench_nor_gl_1k.jpg-3e5ac29212d7f59c279529fef32ee18c.s3tc.ctex", "res://.godot/imported/combination_wrench_nor_gl_1k.jpg-3e5ac29212d7f59c279529fef32ee18c.etc2.ctex"]
+dest_files=["res://.godot/imported/combination_wrench_nor_gl_1k.jpg-3e5ac29212d7f59c279529fef32ee18c.s3tc.ctex"]
 
 [params]
 
