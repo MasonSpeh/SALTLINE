@@ -51,8 +51,17 @@ void start() {
 void process() {
 	CUSTOM.w += DELTA;
 	float age = CUSTOM.w;
+	// Per-drop character, constant over the drop's life (derived from the particle index,
+	// not stored — there is no spare CUSTOM channel and these are a few cheap hashes). A
+	// real downpour is not a wall of identical ticks: heavier drops fall faster and streak
+	// longer, and drops vary in brightness. This variation is what stops the sheet reading
+	// as a repeating screen-door pattern.
+	uint vs = (NUMBER + uint(7)) * uint(2654435761);
+	float v_len = 0.68 + 0.72 * rnd01(vs);     // 0.68 .. 1.40  streak length
+	float v_a = 0.45 + 0.55 * rnd01(vs);       // 0.45 .. 1.00  opacity
+	float v_spd = 0.84 + 0.34 * rnd01(vs);     // 0.84 .. 1.18  fall speed (drop mass)
 	vec3 pos = CUSTOM.xyz + wind_drift * age;
-	pos.y -= fall_speed * age;
+	pos.y -= fall_speed * v_spd * age;
 	TRANSFORM[3].xyz = pos;
 	VELOCITY = vec3(0.0);
 
@@ -65,8 +74,10 @@ void process() {
 			break;
 		}
 	}
+	// X/Z hold the drop's slender width; Y carries the per-drop streak length. billboard
+	// mode keeps these scales (billboard_keep_scale), so longer drops read as faster rain.
 	TRANSFORM[0].xyz = vec3(vis, 0.0, 0.0);
-	TRANSFORM[1].xyz = vec3(0.0, vis, 0.0);
+	TRANSFORM[1].xyz = vec3(0.0, vis * v_len, 0.0);
 	TRANSFORM[2].xyz = vec3(0.0, 0.0, vis);
-	COLOR = vec4(1.0, 1.0, 1.0, vis);
+	COLOR = vec4(1.0, 1.0, 1.0, vis * v_a);
 }

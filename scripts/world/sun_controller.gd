@@ -29,6 +29,9 @@ func _apply_sea_state() -> void:
 	var ss: float = lerpf(BASE_SEA_STATE, 1.0, storm_intensity)
 	for m in _ocean_mats:
 		m.set_shader_parameter("sea_state", ss)
+		# Rain dimpling/veil on the sea rides the storm intensity directly (0 when clear,
+		# so the shader's rain branch is skipped entirely outside a squall).
+		m.set_shader_parameter("rain_wet", storm_intensity)
 	# The CPU mirror of the wave math (floating debris, and main.gd's underwater test)
 	# has to run at the SAME sea state as the shader, or a squall raises the drawn
 	# water above the water everything else believes in.

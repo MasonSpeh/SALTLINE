@@ -27,6 +27,10 @@ uniform vec3 sky_tint : source_color = vec3(0.55, 0.66, 0.78);   // grazing sky 
 // reflection term has no idea whether it is noon or midnight.
 uniform float sky_energy : hint_range(0.0, 2.0) = 0.8;
 uniform float sea_state : hint_range(0.0, 1.0) = 0.4;   // 0 glassy calm .. 1 full storm
+// Rain hitting the water, driven by StormSystem via SunController (== storm_intensity).
+// Drives the fine impact-dimple stipple and the pale rain veil in fragment(). Zero when
+// it isn't raining, so the extra fragment work only exists during a squall.
+uniform float rain_wet : hint_range(0.0, 1.0) = 0.0;
 uniform bool vertex_waves = true;
 uniform float debug_flat = 0.0;   // TEMP: 1 = unshaded height, to check the geometry
 
@@ -207,10 +211,26 @@ void fragment() {
 	vec2 r2 = vec2(sin(p.x * 4.3 - t * 2.6 + sin(p.y * 2.9)), cos(p.y * 3.7 + t * 2.2 + sin(p.x * 3.1)));
 	float nrip = fbm(p * 0.6 + vec2(t * 0.4, -t * 0.3)) - 0.5;
 	float rip_amp = 0.05 + 0.09 * ss;
-	vec3 ripple = normalize(vec3((r1 + r2 * 0.5).x * rip_amp + nrip * 0.12, 1.0,
-			(r1 + r2 * 0.5).y * rip_amp - nrip * 0.1));
+	vec3 rip3 = vec3((r1 + r2 * 0.5).x * rip_amp + nrip * 0.12, 1.0,
+			(r1 + r2 * 0.5).y * rip_amp - nrip * 0.1);
+	// RAIN DIMPLES. Heavy rain stipples the surface with a fine, fast, near-isotropic
+	// impact texture — the "seething" look of a squall sea, quite different from the
+	// smooth wind ripple. Two fast fbm layers at a metre-and-under scale perturb the
+	// micro-normal only while it is actually raining (gated, so clear weather pays
+	// nothing). Kept off the crest folds slightly (fold masks it) so breaking water
+	// stays foam, not static.
+	if (rain_wet > 0.01) {
+		float rt = t * 2.7;
+		vec2 rp = p * 5.5;
+		float da = fbm(rp + vec2(rt, -rt * 0.6));
+		float db = fbm(rp * 1.9 + vec2(-rt * 0.7, rt * 0.9));
+		float amp = rain_wet * 0.55;
+		rip3.x += (da - db) * amp;
+		rip3.z += (db - da) * amp;
+	}
+	vec3 ripple = normalize(rip3);
 	NORMAL_MAP = ripple * 0.5 + 0.5;
-	NORMAL_MAP_DEPTH = 0.9;
+	NORMAL_MAP_DEPTH = 0.9 + rain_wet * 0.5;   // rain bite makes the dimples read deeper
 
 	// Base colour by wave HEIGHT: broad troughs stay deep and dark, crests lift toward
 	// the lighter shallow tint. This is what makes the swell read as 3-D relief even
@@ -261,6 +281,11 @@ void fragment() {
 	float foam = clamp(caps + streak * caps * 0.7 + streak * ss * ss * 0.2, 0.0, 1.0);
 	base = mix(base, foam_color.rgb, foam);
 
+	// Rain veil: a squall throws a fine scatter haze off the surface that pales the water
+	// toward the slate sky and mattes it — a downpour sea is hazy and diffuse, not a crisp
+	// mirror. Cheap (one mix), and zero when it isn't raining.
+	base = mix(base, sky_tint * 0.6, rain_wet * 0.12);
+
 	ALBEDO = base;
 	// Reflected sky radiance — the term that makes water read as water. Foam is a
 	// diffuse scatterer rather than a mirror, so it MASKS the reflection instead of
@@ -281,10 +306,22 @@ void fragment() {
 	// the water at your feet is sea or a hole.
 	vec3 upwell = mix(deep_color.rgb, shallow_color.rgb, hn * 0.6 + 0.28)
 			* sky_energy * 0.85 * (1.0 - fres * 0.7);
-	EMISSION = refl + foam_lit + upwell;
+	// Rain scatter: the sheet of impacts throws a faint diffuse glow off the whole surface
+	// so a downpour sea self-lights slightly even under a crushed storm sky.
+	vec3 rain_scatter = sky_tint * sky_energy * rain_wet * 0.06;
+	// Backlit crest translucency: the thin shoulder of a steep crest transmits light and
+	// glows jade where it lifts against the sky, the way a real wave lanterns just before
+	// it breaks. Keyed to crest height x up-facing normal, kept low so it reads as a rim
+	// rather than a lamp, and scaled by daylight so night crests stay dark. (Tunable — the
+	// 0.09 is the rim strength.)
+	float crest_lit = smoothstep(0.55, 1.0, hn) * smoothstep(0.35, 0.85, v_up);
+	vec3 crest_glow = shallow_color.rgb * crest_lit * sky_energy * 0.09 * (1.0 - foam);
+	EMISSION = refl + foam_lit + upwell + rain_scatter + crest_glow;
 	// Water is fairly smooth — a broad-but-not-mirror lobe gives the sun a glitter path
-	// across the chop instead of one hard aliasing dot. Foam is genuinely rough.
-	ROUGHNESS = mix(0.28, 0.46, fbm(p * 0.2 + t * 0.05)) - fres * 0.10 + foam * 0.45;
+	// across the chop instead of one hard aliasing dot. Foam is genuinely rough, and rain
+	// agitation mattes the micro-surface further.
+	ROUGHNESS = mix(0.28, 0.46, fbm(p * 0.2 + t * 0.05)) - fres * 0.10 + foam * 0.45
+			+ rain_wet * 0.13;
 	METALLIC = 0.0;
 	SPECULAR = 0.5;
 
