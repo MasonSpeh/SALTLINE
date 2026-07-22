@@ -377,10 +377,23 @@ func _fit_door(a: Vector3, b: Vector3, height: float, mat: Material, door_t: flo
 ## Square corner columns that swallow the seam where two centred walls meet, so
 ## corners read as one clean cast pilaster instead of a mitred notch. `corners`
 ## are floor-level XZ points; the post rises `height` from `y`.
+##
+## Z-FIGHTING THIS KILLS: `_wall` centres each wall on its line at thickness WALL_T,
+## so two walls sharing a corner point OVERLAP each other in a WALL_T/2-square sliver
+## at the join — and within that sliver both walls' TOP faces sit on the exact same
+## y = height plane, both facing +Y. A naive post (same height as the walls, footprint
+## == WALL_T) only adds a THIRD coincident top face and side faces exactly flush with
+## the walls' — three surfaces fighting for the same plane instead of one. CORNER_TALL
+## lifts the post CORNER_TALL above the wall top so that sliver is embedded inside the
+## post's solid body (below its own top face) rather than competing at the same depth,
+## and `post` being a few cm wider than WALL_T (see call sites) keeps the walls' side
+## faces embedded inside the post instead of flush with it.
+const CORNER_TALL: float = 0.03
 func _corner_posts(corners: Array, y: float, height: float, mat: Material, post: float = 0.42) -> void:
+	var h: float = height + CORNER_TALL
 	for c in corners:
 		var p: Vector3 = c
-		_box(Vector3(p.x, y + height * 0.5, p.z), Vector3(post, height, post), mat)
+		_box(Vector3(p.x, y + h * 0.5, p.z), Vector3(post, h, post), mat)
 
 func _ramp(from: Vector3, to: Vector3, width: float, mat: Material) -> void:
 	var dir: Vector3 = to - from
@@ -905,8 +918,11 @@ func _build_ops_room(fy: float) -> void:
 		_box(Vector3(xc, fy + par_h + glass_h * 0.5, cz), Vector3(0.06, glass_h, z1 - z0), glass)
 		_box(Vector3(xc, fy + par_h + glass_h + hdr_h * 0.5, cz), Vector3(wt, hdr_h, z1 - z0), steel)
 	# Corner mullions + a couple down each long side so the glass reads as panes.
+	# 0.26 used to sit only 0.005m proud of WALL_T (0.25) per side — technically
+	# non-coincident but thin enough to shimmer at grazing angles/float precision.
+	# 0.32 gives a clean 0.035m margin per side, matching the other corner posts.
 	_corner_posts([Vector3(x0, 0, z0), Vector3(x1, 0, z0), Vector3(x0, 0, z1), Vector3(x1, 0, z1)],
-		fy, wall_h, steel, 0.26)
+		fy, wall_h, steel, 0.32)
 	for mx in [23.0, 26.0, 29.0]:
 		_box(Vector3(mx, fy + par_h + glass_h * 0.5, z0), Vector3(0.12, glass_h, 0.12), steel)
 		_box(Vector3(mx, fy + par_h + glass_h * 0.5, z1), Vector3(0.12, glass_h, 0.12), steel)
@@ -1047,6 +1063,10 @@ func _build_bunkhouse() -> void:
 	for i in range(1, 3):
 		_wall(Vector3(xs[i], y, 4), Vector3(xs[i], y, 10), WALL_H, mat)
 		_wall(Vector3(xs[i], y, 12), Vector3(xs[i], y, 18), WALL_H, mat)
+	# The two interior T-junctions (cabin divider meeting each corridor wall) are the
+	# same overlapping-box seam as an L-corner, just with a third wall — same post fix.
+	_corner_posts([Vector3(xs[1], 0, 10), Vector3(xs[1], 0, 12),
+		Vector3(xs[2], 0, 10), Vector3(xs[2], 0, 12)], y, WALL_H, mat)
 	# Beds you can turn in on: made (neat) vs thrown-back (someone rose in a hurry).
 	# Heads to the wall — south row faces −Z, north row +Z. Each is a Bed you can SLEEP in.
 	var bed_specs := [
@@ -1129,6 +1149,11 @@ func _build_machine_shop() -> void:
 	# East wall: solid segments + window pane + locked door.
 	_wall(Vector3(-14, y, -18), Vector3(-14, y, -13), WALL_H, mat, 0.6)
 	_wall(Vector3(-14, y, -11), Vector3(-14, y, -6), WALL_H, mat)
+	# This room had no corner treatment at all — every one of its four corners was two
+	# bare _wall boxes overlapping directly, top faces coincident. Same fix as every
+	# other room shell.
+	_corner_posts([Vector3(-28, 0, -18), Vector3(-14, 0, -18), Vector3(-28, 0, -6), Vector3(-14, 0, -6)],
+		y, WALL_H, mat)
 	var pane := _box(Vector3(-14, y + 1.6, -12), Vector3(0.1, 1.4, 2.0), null)
 	var glass := StandardMaterial3D.new()
 	glass.albedo_color = Color(0.6, 0.75, 0.8, 0.25)
@@ -1419,6 +1444,9 @@ func _crane_cab(top: float) -> void:
 	_wall(Vector3(CAB_X0, top, CAB_Z1), Vector3(CAB_X1, top, CAB_Z1), CAB_H, steel, 0.5)  # door
 	_wall(Vector3(CAB_X0, top, CAB_Z0), Vector3(CAB_X1, top, CAB_Z0), CAB_H, steel)
 	_wall(Vector3(CAB_X1, top, CAB_Z0), Vector3(CAB_X1, top, CAB_Z1), CAB_H, steel)
+	# The two east corners (the only ones where two steel walls actually meet — west is
+	# glass) had no post, so the walls overlapped bare with coincident top faces.
+	_corner_posts([Vector3(CAB_X1, 0, CAB_Z0), Vector3(CAB_X1, 0, CAB_Z1)], top, CAB_H, steel, 0.32)
 	_box(Vector3((CAB_X0 + CAB_X1) * 0.5, top + CAB_H + 0.07, (CAB_Z0 + CAB_Z1) * 0.5),
 		Vector3(CAB_X1 - CAB_X0 + 0.3, 0.14, CAB_Z1 - CAB_Z0 + 0.3), steel)
 	# West face: kick panel under a full-height pane, so the driver can see the hook.
