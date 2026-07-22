@@ -63,6 +63,25 @@ const MIN_CLEAR: float = 1.2       ## required walking width past anything in a 
 func _ready() -> void:
 	var main: Node3D = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
+	# CRITICAL: audit the world the SETTLE PASS saw, not the post-batch world.
+	# rig_batcher.gd welds ~2950 decorative dressing meshes — room floor overlays (lino,
+	# tile, rubber, ~0.05 m proud of the structural slab), shelf boards, bench tops, linen
+	# bundles — into one MergedDressing mesh per material and then FREES the originals
+	# (n.free()). SupportIndex deliberately skips the merged mesh (its single multi-height
+	# AABB is a false flat surface). So a SupportIndex built AFTER the batcher runs is MISSING
+	# every surface the interior_props settle pass actually rested items onto: it saw 6702
+	# surfaces, a post-batch index sees ~3750. Every item then reads as "floating" by exactly
+	# the height of the decorative surface under it — a chair on a 5 cm lino floor reports
+	# gap 0.055, a bottle on a linen shelf reports gap 1.3 — none of which the player sees,
+	# because in-game the merged mesh re-renders that same geometry at the same place.
+	# Freeing the batcher before it welds keeps those surfaces in the tree, so this audit
+	# measures against exactly the geometry that renders in game. (Authored-Y edits cannot
+	# move a settled item anyway — settle re-rests every prop on the surface it finds — so a
+	# post-batch "float" is never an authoring bug to be fixed in coordinates; it is this
+	# measurement artefact.)
+	var batcher: Node = main.find_child("RigBatcher", true, false)
+	if batcher != null:
+		batcher.free()
 	await get_tree().process_frame
 	await get_tree().process_frame
 	# The dressing streams in a few props per frame and settles itself at the end of the

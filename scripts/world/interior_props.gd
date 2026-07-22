@@ -539,12 +539,13 @@ func _machine_shop() -> void:
 	_pc("tool_cart", Vector3(-22.5, y, -13.5), 0)   # the one mobile piece, mid-job
 	_pc("portable_welding_cart", Vector3(-25.5, y, -16.5), 20)
 	_pc("drawer_cabinet", Vector3(-27.55, y, -14.8), 90)
+	# Declutter pass (owner: "I like it but just a bit too much"): the SE drum cluster is
+	# thinned to one barrel + one jerry can — barrel_03 and a second oil can were the least
+	# characterful duplicates. The workbenches, tool wall, storage and welding rig all stay.
 	_pc("Barrel_01", Vector3(-20.5, y, -17.0), 0)
-	_pc("barrel_03", Vector3(-21.4, y, -16.6), 0)
 	_pc("metal_jerrycan_green", Vector3(-19.5, y, -16.6), 60)
 	# On the fitter's bench (top y+0.95).
 	_p("metal_toolbox", Vector3(-19.75, y + 0.96, -11.8), 0)
-	_p("small_oil_can_01", Vector3(-20.3, y + 0.96, -11.75), 0)
 	# A hand truck parked where "against the east wall" is actually true — leaned by
 	# the door pocket (east wall inner face x -14.125, door gap z -13..-11); the
 	# searchlight rides the shelf run, which now stands on the west wall proper.
@@ -677,15 +678,13 @@ func _machine_shop_more() -> void:
 	_p("crowbar_01", Vector3(-20.55, bench, -12.55), 60)
 	_p("bolt_cutters_01", Vector3(-19.05, bench, -11.7), -40)
 	_p("bench_vice_01", Vector3(-18.9, bench, -12.0), 0)
-	# More drums and a jerry can cluster; the shelf run FLUSH on the west wall
-	# (inner face -27.875) with its tins riding along — the whole line sat 1.3m
-	# off the wall before the sonar audit caught it.
-	_pc("Barrel_02", Vector3(-27.4, y, -17.2), 0)
-	_pc("metal_jerrycan", Vector3(-20.2, y, -16.2), -30)
+	# The shelf run FLUSH on the west wall (inner face -27.875) with its tins riding along —
+	# the whole line sat 1.3m off the wall before the sonar audit caught it. Declutter pass:
+	# the second west-corner drum, the loose jerry can and the third shelf tin were dropped
+	# (duplicate scatter) — the shelf keeps its oil tin and cleaner tin.
 	_pc("steel_frame_shelves_02", Vector3(-27.55, y, -13.0), 90)
 	_p("oil_tin", Vector3(-27.55, y + 1.3, -13.3), 0)
 	_p("cleaner_tin_01", Vector3(-27.55, y + 1.3, -12.75), 0)
-	_p("can_rusted", Vector3(-27.55, y + 1.3, -13.0), 0)
 
 func _stack_more() -> void:
 	# Deck B cabins: plants and pictures.
