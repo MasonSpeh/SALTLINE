@@ -735,7 +735,11 @@ func _build_stair_tower() -> void:
 	# platform lives in the wall-end POCKET the flight never occupies (x<XW to the west,
 	# x>XE to the east), so a flight's last tread meets flat plate at a clean seam instead
 	# of a slab cutting through the middle of the run. One flight = one story; repeats up.
-	var shell_h: float = OPS_Y - WET_Y
+	# 0.1 short of the ops floor TOP: the slab spans 37.7..38.0, so walls ending at
+	# 38.0 had their top faces exactly coplanar with the slab's walking surface — the
+	# lookout floor shimmered in 0.2m bands along every wall line. Topping out at 37.9
+	# buries the wall ends inside the slab with no shared face.
+	var shell_h: float = OPS_Y - WET_Y - 0.1
 	# Shell x22..30, z-6..2, rising to the ops floor. South wet-deck door; west deck door;
 	# north wall carries door gaps to the machinery (y6) + breaker (y10) annex rooms.
 	_wall(Vector3(22, WET_Y, -6), Vector3(30, WET_Y, -6), shell_h, mat, 0.2)   # south (wet-deck door)
@@ -1003,7 +1007,12 @@ func _build_ops_room(fy: float) -> void:
 func _room_north(a: Vector3, b: Vector3, mat: Material, door_t: float,
 		own_south_wall: bool = false) -> void:
 	var y: float = a.y
-	_box(Vector3((a.x + b.x) * 0.5, y - 0.15, (a.z + b.z) * 0.5), Vector3(b.x - a.x + 0.5, 0.3, b.z - a.z + 0.5), MatLib.deck_plate())
+	# Floor slab: +0.25 padding on north/east/west tucks it under those walls, but the
+	# SOUTH overhang used to reach z a.z-0.25 — under the shell wall and 0.25m out over
+	# the stair turn platform (STAIR_PZ1 = a.z), whose top is the same y. Two coplanar
+	# up-faces right in each annex doorway = the threshold flickered as you walked in.
+	# South edge now stops at a.z+0.05, still hidden inside the 0.25-thick shell wall.
+	_box(Vector3((a.x + b.x) * 0.5, y - 0.15, (a.z + b.z) * 0.5 + 0.15), Vector3(b.x - a.x + 0.5, 0.3, b.z - a.z + 0.2), MatLib.deck_plate())
 	if own_south_wall:
 		_wall(Vector3(a.x, y, a.z), Vector3(b.x, y, a.z), WALL_H, mat, door_t) # south wall w/ door
 	_wall(Vector3(a.x, y, b.z), Vector3(b.x, y, b.z), WALL_H, mat)

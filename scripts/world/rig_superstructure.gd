@@ -760,7 +760,9 @@ func _deck_b() -> void:
 	var rng := RandomNumberGenerator.new()
 	rng.seed = 5151
 	for i in range(8):
-		var paper := _dbox(Vector3(19.2 + rng.randf() * 3.2, y + 0.02, 6.8 + rng.randf() * 3.6),
+		# y+0.02 put these 5mm sheets INSIDE the lino overlay (y+0.02..0.05): eight
+		# scattered papers that never rendered. y+0.053 lays them ON the floor.
+		var paper := _dbox(Vector3(19.2 + rng.randf() * 3.2, y + 0.053, 6.8 + rng.randf() * 3.6),
 			Vector3(0.22, 0.005, 0.3), MatLib.flat(Color(0.88, 0.88, 0.82)))
 		paper.rotation.y = rng.randf() * TAU
 	_readable("cabin_b05_scrawl", "Scrawl on the Wall", Vector3(22.84, y + 1.5, 8.8), Vector3(0.05, 0.5, 0.7))
@@ -791,7 +793,10 @@ func _deck_b() -> void:
 	# Lounge / movie room (x 6..14): screen sized to the solid pier between the
 	# north-wall windows (centres x8 & x12) so the glass stays clear.
 	_dbox(Vector3(10, y + 1.7, 17.85), Vector3(2.1, 1.5, 0.08), MatLib.flat(Color(0.9, 0.9, 0.86)))
-	_dbox(Vector3(10, y + 1.7, 17.9), Vector3(2.3, 1.7, 0.05), MatLib.dark_metal())  # screen frame
+	# Screen frame: at z 17.9 its south face sat exactly on the wall's interior plane
+	# (17.875), so the whole visible rim z-fought with the bulkhead. 17.86 keeps the
+	# rim 3cm proud of the wall and still behind the screen surface.
+	_dbox(Vector3(10, y + 1.7, 17.86), Vector3(2.3, 1.7, 0.05), MatLib.dark_metal())  # screen frame
 	for rz in [14.2, 15.4]:
 		_box(Vector3(10, y + 0.25, rz), Vector3(5.0, 0.5, 0.55), MatLib.flat(Color(0.32, 0.28, 0.26)))
 	_dbox(Vector3(10, y + 1.1, 13.4), Vector3(0.5, 0.35, 0.6), MatLib.dark_metal())
@@ -1027,7 +1032,9 @@ func _deck_d() -> void:
 	bar.rotation.z = PI / 2
 	for side in [-0.85, 0.85]:
 		_dcyl(Vector3(10.5 + side, y + 1.0, 9.4), 0.22, 0.06, MatLib.dark_metal()).rotation.z = PI / 2
-	_dbox(Vector3(13, y + 0.02, 10.5), Vector3(1.8, 0.03, 1.2), MatLib.flat(Color(0.25, 0.35, 0.45)))
+	# Exercise mat: was authored at y+0.02, fully inside the gym's rubber-floor overlay
+	# (y+0.02..0.05) — an invisible mat. Raised so it lies on the floor it dressed.
+	_dbox(Vector3(13, y + 0.05, 10.5), Vector3(1.8, 0.03, 1.2), MatLib.flat(Color(0.25, 0.35, 0.45)))
 	_label("GYM", Vector3(11.5, y + 2.35, 13.16), 0, 28)
 	_light(Vector3(11.5, y + 2.85, 10.5), 0.45, 6.5)
 	# Laundry (x 15.5..23, z 8..13): washers, hanging line with sheets.
@@ -1300,18 +1307,30 @@ func _density_pass() -> void:
 	var y: float = B_Y
 	# --- Cabins: mugs, under-bunk boxes, wall hooks with slickers, bedside rugs.
 	var cabin_x := [0.5, 5.5, 10.5, 15.5, 20.5]
+	# Five lived-in cabins should not be five photocopies: each gets its own small
+	# yaw/offset for the box and rug (deterministic per cabin, not installed-parallel).
+	# The rugs also used to be authored at y+0.02 — the lino overlay spans y+0.02..0.05,
+	# so all five rugs were buried INSIDE the floor and never rendered. They now lie on it.
+	var box_yaw := [8.0, -14.0, 23.0, -7.0, 12.0]
+	var rug_yaw := [5.0, -9.0, 12.0, -4.0, 8.0]
+	var mug_dz := [0.0, 0.12, -0.08, 0.05, 0.15]
 	for i in range(5):
 		var cx: float = cabin_x[i]
-		_dcyl(Vector3(cx + 1.3, y + 0.86, 6.95), 0.05, 0.09, MatLib.flat(Color(0.9, 0.9, 0.86)))
-		_dbox(Vector3(cx - 0.9, y + 0.14, 8.3), Vector3(0.55, 0.28, 0.4), MatLib.flat(Color(0.35, 0.3, 0.24)))
-		_dbox(Vector3(cx - 1.3, y + 0.02, 7.4), Vector3(0.7, 0.015, 1.1), MatLib.flat(Color(0.42, 0.3, 0.24)))
+		_dcyl(Vector3(cx + 1.3, y + 0.86, 6.95 + mug_dz[i]), 0.05, 0.09, MatLib.flat(Color(0.9, 0.9, 0.86)))
+		var bx := _dbox(Vector3(cx - 0.9, y + 0.14, 8.3), Vector3(0.55, 0.28, 0.4), MatLib.flat(Color(0.35, 0.3, 0.24)))
+		bx.rotation.y = deg_to_rad(box_yaw[i])
+		var rug := _dbox(Vector3(cx - 1.3, y + 0.056, 7.4), Vector3(0.7, 0.015, 1.1), MatLib.flat(Color(0.42, 0.3, 0.24)))
+		rug.rotation.y = deg_to_rad(rug_yaw[i])
 		var hook_col := Color(0.85, 0.55, 0.15) if i % 2 == 0 else Color(0.3, 0.4, 0.5)
 		# Coat-hook board snapped to the solid pier by each cabin door — cabins sit on
 		# a 5m pitch, windows on 4m, so a fixed offset would land two boards on glass.
 		var hook_x: float = [-1.6, 2.8, 9.4, 13.4, 18.4][i]
 		_dbox(Vector3(hook_x, y + 1.5, 6.2), Vector3(0.4, 0.75, 0.1), MatLib.flat(hook_col))
-	# Corridor scuff strip + a second pipe + junction boxes.
-	_dbox(Vector3(12.5, y + 0.045, 12), Vector3(28, 0.01, 0.5), MatLib.flat(Color(0.4, 0.4, 0.4)))
+	# Corridor scuff strip + a second pipe + junction boxes. The strip's top used to
+	# land at y+0.05 — the exact top plane of the corridor lino overlay under it — so
+	# the whole 28m runner z-fought with the floor. It now stands 7mm proud, an actual
+	# wear strip rather than a coplanar sheet.
+	_dbox(Vector3(12.5, y + 0.052, 12), Vector3(28, 0.01, 0.5), MatLib.flat(Color(0.4, 0.4, 0.4)))
 	_pipe(Vector3(-1, y + 2.5, 12.35), Vector3(27, y + 2.5, 12.35), 0.04)
 	for jx in [3.0, 13.0, 21.0]:
 		_dbox(Vector3(jx, y + 2.3, 11.16), Vector3(0.3, 0.4, 0.12), MatLib.dark_metal())
@@ -1330,7 +1349,8 @@ func _density_pass() -> void:
 	for tx in [5.1, 5.6]:
 		_dbox(Vector3(tx, y + 1.4, 17.83), Vector3(0.3, 0.5, 0.05), MatLib.flat(Color(0.8, 0.82, 0.8)))
 	_dcyl(Vector3(-1.2, y + 0.15, 16.6), 0.16, 0.3, MatLib.galvanized())
-	_dbox(Vector3(0.5, y + 0.02, 14.4), Vector3(1.6, 0.03, 0.8), MatLib.wood())
+	# Duckboard: y+0.02 buried it inside the kitchen-tile overlay (y+0.02..0.05).
+	_dbox(Vector3(0.5, y + 0.05, 14.4), Vector3(1.6, 0.03, 0.8), MatLib.wood())
 
 	# --- Deck C additions.
 	y = C_Y

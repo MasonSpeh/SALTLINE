@@ -298,12 +298,19 @@ func _wet_deck() -> void:
 	_pc("vintage_day_bed", Vector3(14.3, y, -6.9), 180)          # cot, back to the north wall
 	_pc("worn_metal_rack", Vector3(10.38, y, -8.6), -90)         # rack flush on the west wall (face x 10.125)
 	_p("medical_tape", Vector3(10.38, y + 1.3, -8.5), 30)        # first-aid on the rack shelf
-	_p("plastic_container", Vector3(10.38, y + 0.75, -8.75), -15)
+	# Authored onto the rack shelf, but SupportIndex never sees the GLB's thin shelf
+	# boards, so settle dropped it to the deck INSIDE the rack frame — a tote visibly
+	# clipping through both rack rails (sonar overlap: 76% of its volume inside the
+	# rack's AABB). On the deck beside the rack it settles clean.
+	_p("plastic_container", Vector3(10.42, y + 0.02, -9.5), -37)
 	_p("vintage_flashlight", Vector3(13.3, y + 0.02, -7.6), 70)  # dropped by the cot
 	_pc("folding_wooden_stool", Vector3(15.9, y, -7.4), 30)      # pulled to the cot's foot
 	_pw("lifebuoy", Vector3(17.82, y + 1.7, -12.2), -90, 1.1)    # east wall, seen from the arch
 	_pw("life_jacket", Vector3(12.6, y + 1.5, -6.24), 180)       # hung over the cot
-	_lamp(Vector3(14.3, y + 1.9, -7.2), Color(1.0, 0.83, 0.5), 0.55, 4.5)
+	# The room light used to be a bare OmniLight floating 1m off the wall above the
+	# cot — warm light from empty air. Now a pipe lamp on the north wall carries it.
+	_pw("industrial_pipe_lamp", Vector3(14.3, y + 2.15, -6.3), 180)
+	_lamp(Vector3(14.3, y + 1.95, -6.75), Color(1.0, 0.83, 0.5), 0.55, 4.5)
 
 # ---- galley ----
 # Counter run: top y+1.0, x 1..11, z 16.4..17.6.  Mess tables: top y+0.49, 1.8 x 1.0, at

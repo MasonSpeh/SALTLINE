@@ -425,7 +425,11 @@ func _deck_paint() -> void:
 	for i in range(14):
 		var wx: float = _rng.randf_range(-28.0, -9.0)
 		var wz: float = _rng.randf_range(LANE_Z0 + 0.2, LANE_Z1 - 0.2)
-		var s := _bx(a, Vector3(wx, DECK_Y + 0.008, wz),
+		# Stagger each band's height by index: 14 random rectangles at one identical
+		# y overlap each other constantly, and every overlap was a coplanar-face
+		# z-fight patch flickering in the walk lane. 0.4mm per band is invisible as
+		# a step but guarantees no two bands ever share a plane.
+		var s := _bx(a, Vector3(wx, DECK_Y + 0.008 + float(i) * 0.0004, wz),
 			Vector3(_rng.randf_range(0.5, 1.6), 0.015, _rng.randf_range(0.4, 1.1)),
 			_wear_mat())
 		s.rotation.y = _rng.randf_range(0.0, TAU)
