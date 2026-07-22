@@ -1492,7 +1492,7 @@ func _build_sphl() -> void:
 		_box(Vector3((gap_w + gap_e) * 0.5, fy + hh + lint_h * 0.5, iz_n),
 			Vector3(hw + 0.2, lint_h, 0.16), grey, self, false)   # lintel
 	DOORFRAME.build(self, Vector3((gap_w + gap_e) * 0.5, fy, iz_n), true, hw, hh, 0.15,
-		MatLib.sphl_hi_vis(), false)
+		MatLib.sphl_grey(), false)
 
 	# --- hatch door: hinged at the west jamb, swings clear of the x=20 walk line ---
 	var hcw: float = DOORFRAME.clear_w(hw)
