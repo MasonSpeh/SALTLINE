@@ -41,6 +41,7 @@ var _lamp_mat: StandardMaterial3D
 var _lamp_light: OmniLight3D
 var _gait_t: float = 0.0
 var _last_pos: Vector3
+var _claw_loop_active: bool = false
 
 func _ready() -> void:
 	patrol_speed = PlayerState.tuning.get("crab_patrol_speed", 1.6)
@@ -48,20 +49,31 @@ func _ready() -> void:
 	detect_radius = PlayerState.tuning.get("crab_detect_radius", 6.0)
 	contact_radius = PlayerState.tuning.get("crab_contact_radius", 1.2)
 	_build_body()
-	# The claw-tick is a PROXIMITY warning, not a soundtrack. At 0.5 s / -4 dB / the
-	# night range doubler, three crabs clicked in overlapping half-second rounds all
-	# night, audible from anywhere on the rig — the "nonstop jingle" complaint. Now each
-	# crab ticks on its own slower beat (staggered so a pack never phase-locks), much
-	# quieter, and only while it is within 26 m of the player — you hear it coming
-	# through the deck when it is actually coming, and silence means you're clear.
-	_claw_timer = AudioDirector.attach_loop("claw", self,
-		2.1 + float(spawn_index) * 0.35, -14.0, 26.0)
+	# The claw-tick is a PROXIMITY warning, not a soundtrack — only active when the crab
+	# is actually hunting (PURSUE state). Three crabs ticking on overlapping schedules at
+	# 2.1–2.8 s intervals produces constant jingling even at -14 dB and within 26 m. Keeping
+	# the sound silent until threat state eliminates the background chatter; you hear claws
+	# only when the crab is actually coming for you.
 	GameClock.dawn.connect(_on_dawn)
 	_last_pos = global_position
 	add_to_group("hittable")   # craftable melee weapons can drive it off
 	# Stagger this crab's start along the wet-deck loop so a pack doesn't march in step.
 	if not z1_loop.is_empty():
 		_wp_index = spawn_index % z1_loop.size()
+
+## Start the claw-tick loop when entering PURSUE state (threat is near).
+func _start_claw_loop() -> void:
+	if not _claw_loop_active:
+		_claw_loop_active = true
+		_claw_timer = AudioDirector.attach_loop("claw", self,
+			2.1 + float(spawn_index) * 0.35, -14.0, 26.0)
+
+## Stop the claw-tick loop when leaving PURSUE state (threat cleared or night ended).
+func _stop_claw_loop() -> void:
+	if _claw_loop_active and _claw_timer:
+		_claw_loop_active = false
+		_claw_timer.stop()
+		_claw_timer = null
 
 ## Struck by a weapon (player_controller._melee_attack). Each hit staggers it and
 ## breaks off a pursuit; enough damage and it gives up the night and slides off
@@ -267,6 +279,7 @@ func _process(delta: float) -> void:
 				and not LightZone.point_is_safe(get_tree(), player.global_position):
 			_resume_state = state
 			state = State.PURSUE
+			_start_claw_loop()
 			return
 	# Patrol schedule ascends over the night (GDD 5.5).
 	var f: float = GameClock.phase_fraction()
@@ -343,11 +356,13 @@ func _step_toward(target: Vector3, speed: float, delta: float) -> bool:
 func _pursue(delta: float, player: Node3D) -> void:
 	if player == null or GameClock.current_phase != GameClock.Phase.NIGHT:
 		state = _resume_state
+		_stop_claw_loop()
 		return
 	var p: Vector3 = player.global_position
 	# It cannot enter powered light. It never attacks in light. (Canon.)
 	if LightZone.point_is_safe(get_tree(), p) or global_position.distance_to(p) > detect_radius * 2.0:
 		state = _resume_state
+		_stop_claw_loop()
 		return
 	var target := Vector3(p.x, global_position.y, p.z)
 	_step_toward(target, pursue_speed, delta)
@@ -361,6 +376,7 @@ func _on_dawn() -> void:
 	if state != State.GONE:
 		state = State.RETREAT
 		_wp_index = 0
+		_stop_claw_loop()
 
 func _retreat(delta: float) -> void:
 	# Visible exit: it slides off the Wet Deck edge into the sea (GDD 5.8).
