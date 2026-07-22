@@ -46,6 +46,7 @@ var _gull_t: float = -3.0                ## <0 = waiting to re-enter
 var _gull_speed: float = 22.0
 var _gull_y: float = 0.0
 var _menu: VBoxContainer                 ## the slot menu, repopulated on erase
+var _rig_node: Control                    ## the rig silhouette; beacon parents to it so both track resize
 var _gull_dir: float = 1.0
 
 func _ready() -> void:
@@ -291,7 +292,7 @@ func _soft_blob(col: Color, w: float, h: float) -> TextureRect:
 
 func _build_rig() -> void:
 	_reflection = _rig_body(true)    # water reflection first (drawn under)
-	_rig_body(false)                 # the rig itself on top
+	_rig_node = _rig_body(false)     # the rig itself on top (beacon anchors to this)
 
 ## Build the whole rig at the horizon; `mirror` flips it down into the water as a
 ## dim, wobbling reflection.
@@ -382,10 +383,15 @@ func _build_beacon() -> void:
 	# beacon of a dead rig, still turning. Polygon2D with vertex-colour fade: bright at the
 	# apex, transparent at the far end.
 	var view: Vector2 = get_viewport_rect().size
-	var tip := Vector2(view.x * 0.72 - 30.0, view.y * HORIZON - 95.0)
 	_beacon_pivot = Node2D.new()
-	_beacon_pivot.position = tip                  # over the sky (added after the rig)
-	add_child(_beacon_pivot)
+	# Parent the pivot to the rig silhouette at the mast tip (rig-local coords), so the
+	# beam stays glued to the mast when the window resizes / goes fullscreen. Previously
+	# it sat at an absolute pixel computed once, and drifted off the rig on resize.
+	_beacon_pivot.position = Vector2(-28.5, -94.0)
+	if is_instance_valid(_rig_node):
+		_rig_node.add_child(_beacon_pivot)
+	else:
+		add_child(_beacon_pivot)
 	var length: float = view.y * 0.85
 	var half_w: float = length * 0.055            # slim cone
 	var beam := Polygon2D.new()
@@ -443,7 +449,7 @@ void fragment() {
 	float seed = h11(c);
 	float speed = 0.7 + seed * 1.1;
 	float phase = seed * 20.0;
-	float y = uv.y * 9.0 + TIME * speed * 3.4 + phase;
+	float y = uv.y * 9.0 - TIME * speed * 3.4 + phase;   // -TIME so drops FALL (down), not up
 	float streak = fract(y);
 	// long, sharp-headed thin drop
 	float drop = smoothstep(0.0, 0.025, streak) * (1.0 - smoothstep(0.03, 0.55, streak));
@@ -572,15 +578,22 @@ func _center_region(a_top: float, a_bottom: float) -> CenterContainer:
 
 ## -- menu --------------------------------------------------------------------
 
+const MENU_MAIN_W: float = 300.0
+const MENU_ERASE_W: float = 84.0
+
 func _build_menu() -> void:
 	_menu = VBoxContainer.new()
-	_menu.add_theme_constant_override("separation", 12)
-	_center_region(0.66, 0.94).add_child(_menu)
+	_menu.add_theme_constant_override("separation", 14)
+	_menu.alignment = BoxContainer.ALIGNMENT_CENTER
+	# Sit the menu in the lower third but clear of the footer (was 0.66–0.94, which
+	# crowded QUIT into the beta-tips line).
+	_center_region(0.60, 0.90).add_child(_menu)
 	_populate_menu()
 
 ## (Re)build the slot list. Each of the three slots is Continue if it holds a save
-## (with a small ERASE to clear it) or New Expedition if empty. Called again after an
-## erase so the labels refresh in place.
+## (with a small ERASE to clear it) or New Expedition if empty. Every row reserves the
+## same erase-column width so the main buttons line up whether or not a slot is filled.
+## Called again after an erase so the labels refresh in place.
 func _populate_menu() -> void:
 	for c in _menu.get_children():
 		c.queue_free()
@@ -589,23 +602,35 @@ func _populate_menu() -> void:
 		var info: Dictionary = SaveManager.slot_info(slot)
 		var row := HBoxContainer.new()
 		row.add_theme_constant_override("separation", 8)
+		row.alignment = BoxContainer.ALIGNMENT_CENTER
 		_menu.add_child(row)
 		var main_btn: Button = _menu_button(row, "%d.  %s" % [slot, info.get("label", "New Expedition")])
-		main_btn.custom_minimum_size = Vector2(300.0, 46.0)
+		main_btn.custom_minimum_size = Vector2(MENU_MAIN_W, 46.0)
 		var s: int = slot
 		if bool(info.get("exists", false)):
 			main_btn.pressed.connect(func() -> void: _continue_slot(s))
 			var erase: Button = _menu_button(row, "ERASE")
-			erase.custom_minimum_size = Vector2(84.0, 46.0)
+			erase.custom_minimum_size = Vector2(MENU_ERASE_W, 46.0)
 			erase.add_theme_font_size_override("font_size", 14)
 			erase.pressed.connect(func() -> void:
 				SaveManager.erase_slot(s)
 				_populate_menu())
 		else:
 			main_btn.pressed.connect(func() -> void: _new_slot(s))
+			# Empty slot: hold the erase column open with an invisible spacer so this
+			# row is exactly as wide as a filled one and the main buttons stay aligned.
+			var spacer := Control.new()
+			spacer.custom_minimum_size = Vector2(MENU_ERASE_W, 46.0)
+			spacer.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			row.add_child(spacer)
 		if first == null:
 			first = main_btn
-	var quit: Button = _menu_button(_menu, "QUIT")
+	# QUIT sits on its own, matched to the main-button width so it lines up under them.
+	var quit_row := HBoxContainer.new()
+	quit_row.alignment = BoxContainer.ALIGNMENT_CENTER
+	_menu.add_child(quit_row)
+	var quit: Button = _menu_button(quit_row, "QUIT")
+	quit.custom_minimum_size = Vector2(MENU_MAIN_W, 46.0)
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	if first:
 		first.grab_focus()

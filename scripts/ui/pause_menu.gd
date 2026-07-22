@@ -95,6 +95,16 @@ func _label(text: String) -> Label:
 	l.add_theme_font_size_override("font_size", 13)
 	return l
 
+## Auto-pause when the window loses focus (alt-tab, click away). Without this the sim
+## keeps running while the player is "away" — hunger/thirst/warmth drain, which lowers
+## the stamina ceiling, so they come back walking slower for no visible reason. Pausing
+## on focus-out freezes the whole survival clock; they return to a PAUSED menu and resume
+## at exactly the speed they left.
+func _notification(what: int) -> void:
+	if what == NOTIFICATION_APPLICATION_FOCUS_OUT or what == NOTIFICATION_WM_WINDOW_FOCUS_OUT:
+		if is_instance_valid(panel) and not panel.visible:
+			toggle()
+
 func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		var hud: Node = get_tree().get_first_node_in_group("hud")

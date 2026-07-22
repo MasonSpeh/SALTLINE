@@ -1233,11 +1233,18 @@ func _build_floodlights() -> void:
 	# on the topside deck they may not be standing on. These are cheap cosmetic OmniLights
 	# (shadows off, gl_compat-safe), NOT a LightZone: the wet deck is deliberately still
 	# unsafe after dark (the crab climbs it), so lighting it must not create a safe zone.
-	# Caged worklamps over the boat landing, the mooring station, and the stair-tower door.
-	for wl in [Vector3(20, WET_Y + 3.4, -19.0), Vector3(12, WET_Y + 3.4, -21.5),
-			Vector3(24, WET_Y + 3.4, -7.5), Vector3(14, WET_Y + 3.4, -12.0)]:
-		_box(wl + Vector3(0, 0.28, 0), Vector3(0.3, 0.16, 0.3), MatLib.dark_metal())  # dead housing
-		var head := _box(wl, Vector3(0.34, 0.14, 0.34), MatLib.flat(Color(0.7, 0.65, 0.55), true, 0.0))
+	# Deck-standing worklamps by the boat landing, the mooring station, and central wet
+	# deck. Each is a real POST ON THE DECK (base plate + upright + a caged head at head
+	# height) — no more lamps hanging in mid-air — and the head stays DARK until the
+	# breaker closes, so nothing glows while the power is still off. (The stair-tower-door
+	# lamp was removed: it floated right in the doorway approach.)
+	for wl in [Vector3(20, WET_Y + 2.4, -19.0), Vector3(12, WET_Y + 2.4, -21.5),
+			Vector3(14, WET_Y + 2.4, -12.0)]:
+		var base := Vector3(wl.x, WET_Y + 0.03, wl.z)
+		_box(base, Vector3(0.26, 0.06, 0.26), MatLib.dark_metal())                                   # base plate on the deck
+		_box(Vector3(wl.x, (WET_Y + wl.y) * 0.5, wl.z), Vector3(0.09, wl.y - WET_Y, 0.09), MatLib.dark_metal())  # upright post
+		_box(wl + Vector3(0, 0.12, 0), Vector3(0.3, 0.16, 0.3), MatLib.dark_metal())                 # housing
+		var head := _box(wl, Vector3(0.34, 0.14, 0.34), MatLib.dark_metal())                         # lens: dark until powered
 		var wlamp := OmniLight3D.new()
 		wlamp.omni_range = 7.5
 		wlamp.light_energy = 2.2
@@ -1245,7 +1252,7 @@ func _build_floodlights() -> void:
 		wlamp.shadow_enabled = false                # gl_compat perf: no dynamic shadows
 		wlamp.visible = false                       # dead until the breaker closes
 		add_child(wlamp)
-		wlamp.global_position = wl - Vector3(0, 0.2, 0)
+		wlamp.global_position = wl - Vector3(0, 0.12, 0)
 		wlamp.add_to_group("wet_deck_worklights")
 		PowerGrid.circuit_powered.connect(func(id: String) -> void:
 			if id == "topside_floodlights" and is_instance_valid(wlamp):

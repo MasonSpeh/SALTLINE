@@ -268,7 +268,10 @@ static func medical_white() -> StandardMaterial3D:
 # ---------- unlit / special ----------
 
 static func flat(color: Color, emissive: bool = false, energy: float = 1.0) -> StandardMaterial3D:
-	var key: String = "flat_%s_%s" % [color.to_html(), emissive]
+	# Energy MUST be in the cache key: without it, flat(c, true, 0.0) and flat(c, true, 2.2)
+	# collided, so a light meant to be dark-until-powered could hand back the bright cached
+	# copy (the glowing box the player saw before the breaker was thrown).
+	var key: String = "flat_%s_%s_%.2f" % [color.to_html(), emissive, energy]
 	if _cache.has(key):
 		return _cache[key]
 	var m := StandardMaterial3D.new()
