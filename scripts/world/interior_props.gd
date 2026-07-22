@@ -449,29 +449,63 @@ func _galley() -> void:
 
 func _bunkhouse() -> void:
 	var y: float = DECK_Y
+	# Six single cabins (2 rows x 3): A/B/C west-to-east, south row (z4..10) and north
+	# row (z12..18). Each has its bunk on the WEST side against the head wall and a
+	# head-wall wardrobe (both built in rig_builder). This pass gives every cabin one
+	# distinct, wall-aligned piece on the EAST side against the divider it shares — so
+	# each reads as a different crew member's room, and nothing stands free in the middle.
+	# East-divider interior faces: A x-21.455 · B x-14.785 · C x-8.125.
 	var beds := [Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
 			Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5)]
-	# Personal effects on the footlockers at the foot of the beds.
-	var deck := ["binder_notebook", "vintage_flashlight", "modified_thermos",
-			"office_notepads", "plastic_thermos", "old_gas_mask"]
+
+	# --- A-S · the fitter: a work desk squared to the east divider, tools laid out. ---
+	_pc("metal_office_desk", Vector3(-21.85, y, 6.6), -90)
+	_pc("metal_stool_01", Vector3(-22.95, y, 6.6), 0)
+	_p("retro_multimeter", Vector3(-21.95, y + 0.83, 6.35), 20)
+	_p("binder_notebook", Vector3(-21.75, y + 0.83, 6.95), -25)
+
+	# --- B-S · the cook's mate: a side table with the kettle he brewed on. ---
+	_pc("small_wooden_table_01", Vector3(-15.15, y, 6.6), -90)
+	_pc("folding_wooden_stool", Vector3(-16.25, y, 6.7), 15)
+	_p("vintage_electric_kettle", Vector3(-15.2, y + 0.5, 6.35), 30)
+	_p("modified_thermos", Vector3(-15.0, y + 0.5, 6.95), -40)
+
+	# --- C-S · the young hand: a plant in the head/east corner, a stool and cassettes. ---
+	_pc("fern_02", Vector3(-8.6, y, 5.0), 0)
+	_pc("chinese_stool", Vector3(-8.55, y, 7.4), 0)
+	_p("cassette_player", Vector3(-8.55, y + 0.46, 7.4), 30)
+
+	# --- A-N · the reader: armchair angled to the corner, nightstand and books beside. ---
+	_pc("ArmChair_01", Vector3(-21.95, y, 13.3), 215)
+	_pc("ClassicNightstand_01", Vector3(-21.8, y, 14.7), -90)
+	_p("book_encyclopedia_set_01", Vector3(-21.8, y + 0.8, 14.7), 0)
+	_p("Lantern_01", Vector3(-21.95, y + 0.8, 14.25), 0)
+	_lamp(Vector3(-21.85, y + 1.0, 14.4), Color(1.0, 0.85, 0.55), 0.5, 4.0)
+
+	# --- B-N · the radio op: the set squared on a table against the east divider. ---
+	_pc("small_wooden_table_01", Vector3(-15.15, y, 15.0), -90)
+	_pc("WoodenChair_01", Vector3(-16.3, y, 15.0), 90)
+	_p("vintage_radio_transceiver", Vector3(-15.1, y + 0.5, 15.0), 200)
+
+	# --- C-N · the bosun: a sea chest against the divider, kit stowed on the lid. ---
+	_pc("drawer_cabinet", Vector3(-8.5, y, 15.0), -90)
+	_p("binoculars", Vector3(-8.55, y + 0.95, 15.25), 20)
+	_p("old_gas_mask", Vector3(-8.55, y + 0.95, 14.7), -30)
+
+	# Each crew member's few things on their head-wall wardrobe top (locker at bed.x+1.15,
+	# z 4.55 south / 17.45 north, top y+1.8) — now that the lockers sit where the comment
+	# always claimed, these land on a real surface instead of the old floating box.
+	var lock := ["ceramic_vase_01", "food_apple_01", "decorative_book_set_01",
+			"brass_goblets", "plastic_thermos", "round_spectacles"]
 	for i in range(beds.size()):
 		var p: Vector3 = beds[i]
-		_p(deck[i], p + Vector3(0.0, 0.7, 1.45), i * 47.0)   # footlocker top is y+0.4
-	# The shared table moved OUT of the hallway into the north-middle cabin, stood against
-	# the east divider with the radio on it — the room people actually sat in.
-	_pc("small_wooden_table_01", Vector3(-15.7, y, 13.3), 0)
-	_p("Lantern_01", Vector3(-15.95, y + 0.95, 13.3), 0)
-	_lamp(Vector3(-15.9, y + 1.1, 13.3), Color(1.0, 0.85, 0.55), 0.55, 4.5)
-	_p("vintage_radio_transceiver", Vector3(-15.45, y + 0.95, 13.3), 200)
-	# A folding stool against the south-west cabin's corridor wall.
-	_pc("folding_wooden_stool", Vector3(-22.0, y, 9.3), 20)
-	# Life jacket hung on the east bulkhead (interior face x -8.125).
-	_pw("life_jacket", Vector3(-8.25, y + 1.5, 6.2), -90)
-	# The hallway itself keeps only what hangs on its walls: a fire point on the south
-	# wall and a framed photograph on the north, both between cabin doors (which sit at
-	# x -24.67 / -18.0 / -11.33) and both clear of the 1.2m walking lane.
+		var lz: float = 4.55 if p.z < 11.0 else 17.45
+		_p(lock[i], Vector3(p.x + 1.15, y + 1.85, lz), i * 33.0)
+	# Corridor (z10..12) keeps only wall-hung items, between the cabin doors and clear of
+	# the 1.2m walk lane: a fire point and a framed photo. Life jacket by the C-S door.
 	_pw("korean_fire_extinguisher_01", Vector3(-15.0, y + 0.9, 10.2), 180, 1.1)
 	_pw("fancy_picture_frame_02", Vector3(-21.0, y + 1.6, 11.8), 0)
+	_pw("life_jacket", Vector3(-8.25, y + 1.5, 6.2), -90)
 
 # ---- rec room ----
 # Low table top y+0.32 (x 22.25..23.75, z 12.03..12.98). Couch top y+0.7 (x 21.8..24.2,
@@ -609,25 +643,15 @@ func _galley_more() -> void:
 
 func _bunkhouse_more() -> void:
 	var y: float = DECK_Y
-	# The sitting nook. It used to stand in the middle of the hallway — armchair,
-	# nightstand, lamp and all — so it now lives in the north-west cabin, chair angled
-	# into the corner and the nightstand square against the west bulkhead (x -27.875).
-	_pc("ArmChair_01", Vector3(-26.6, y, 12.9), 40)
-	_pc("ClassicNightstand_01", Vector3(-27.4, y, 14.0), 90)
-	_p("book_encyclopedia_set_01", Vector3(-27.4, y + 0.8, 13.9), 0)
-	# Second lantern on the north-east cabin's locker top (top y+1.8).
-	_p("Lantern_01", Vector3(-10.8, y + 2.1, 14.7), 0)
-	# Plants and pictures make the barracks a home; frames flush on real bulkheads.
-	_pc("fern_02", Vector3(-8.7, y, 8.8), 0)
-	_pw("fancy_picture_frame_01", Vector3(-27.8, y + 1.6, 7.0), 90)
-	_pw("fancy_picture_frame_02", Vector3(-8.2, y + 1.6, 14.2), -90)
-	# More personal effects, on the locker tops (locker top = bed + (1.2, 1.8, -0.8)).
-	var beds := [Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
-			Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5)]
-	var extra := ["ceramic_vase_01", "food_apple_01", "cassette_player",
-			"decorative_book_set_01", "binoculars", "brass_goblets"]
-	for i in range(beds.size()):
-		_p(extra[i], beds[i] + Vector3(1.2, 2.05, -0.8), i * 33.0)
+	# Finishing touches only — the cabins are furnished in _bunkhouse(); this hangs a
+	# framed picture on a real bulkhead in three of them and stands one plant in a
+	# corner, so six identical shells read as six lived-in homes. Everything is flush
+	# against a wall (west/head bulkheads) or tucked into a corner, nothing in a walk line.
+	_pw("fancy_picture_frame_01", Vector3(-27.8, y + 1.6, 7.0), 90)     # A-S, west bulkhead
+	_pw("fancy_picture_frame_02", Vector3(-8.2, y + 1.6, 16.0), -90)    # C-N, east bulkhead
+	_pw("fancy_picture_frame_01", Vector3(-18.8, y + 1.6, 4.15), 0)     # B-S, head wall
+	_pc("fern_02", Vector3(-27.4, y, 16.9), 0)                          # A-N, NW corner
+	_p("celandine_01", Vector3(-11.4, y + 1.85, 17.45), 0)             # C-N wardrobe-top sprig
 
 func _rec_room_more() -> void:
 	var y: float = DECK_Y
@@ -709,6 +733,15 @@ func _scatter_wetdeck() -> void:
 	_p("pot_enamel_01", Vector3(10.4, w + 0.85, -20.2), -15)
 	_p("can_rusted", Vector3(10.4, w + 1.55, -18.6), 0)
 	_p("wicker_basket_01", Vector3(14.6, w + 0.05, -20.6), 30)
+	# Store room completion — now that the east archway makes it a room people enter, it
+	# earns a proper stores load-out. All clear of the archway (x16, z -17.8..-19.2), the
+	# central crate (z-20), the SW kedge (x10.75) and the west shelf (x10.4).
+	_pc("Barrel_01", Vector3(15.3, w, -16.7), 0)          # barrels stacked in the NE corner
+	_pc("barrel_03", Vector3(14.3, w, -17.0), 20)
+	_pc("metal_jerrycan", Vector3(11.0, w, -16.7), 25)    # jerry cans by the west shelf head
+	_p("wooden_bucket_01", Vector3(13.7, w + 0.05, -21.4), 0)   # bucket against the south wall
+	_p("Lantern_01", Vector3(15.3, w + 1.05, -16.7), 0)   # lantern on the barrels = the room light
+	_lamp(Vector3(15.0, w + 1.2, -16.9), Color(1.0, 0.85, 0.55), 0.5, 4.5)
 	# SPHL interior — the survivor's few things on the aft benches (all west of x18).
 	_p("modified_thermos", Vector3(16.6, w + 0.75, -24.9), 10)
 	_p("round_spectacles", Vector3(16.0, w + 0.72, -23.1), -20)

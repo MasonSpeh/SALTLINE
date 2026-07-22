@@ -622,10 +622,30 @@ func _build_wet_deck() -> void:
 
 	# Loot room on the south edge.
 	var lr_mat: Material = MatLib.concrete()
-	_fit_door(Vector3(10, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat, 0.5, true, false, "Store Room")
+	# NORTH wall opens on the THIN VESTIBULE HALLWAY (the 2 m slot between this room and
+	# the pump/respawn room) with an always-open archway. The natural path from a respawn
+	# — south out of the pump room, across the hallway, straight ahead — now lands you in
+	# the store room. This wall used to carry a hinged door that read as sealed from the
+	# hallway side, so the room felt inaccessible even though the east archway (the
+	# dock-walk entrance) exists. Two rooms now genuinely open onto the one thin hallway.
+	_wall(Vector3(10, WET_Y, -16), Vector3(12.2, WET_Y, -16), WALL_H, lr_mat)
+	_wall(Vector3(13.8, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
+	_box(Vector3(13, WET_Y + 2.75, -16), Vector3(1.6, 0.9, 0.25), lr_mat)   # header over the arch
+	for jx in [12.2, 13.8]:
+		_box(Vector3(jx, WET_Y + 1.6, -16), Vector3(0.2, 3.2, 0.3), MatLib.rust_steel(), self, false)
+	_box(Vector3(13, WET_Y + 0.02, -16), Vector3(1.5, 0.06, 0.7), MatLib.checker_plate())
 	_wall(Vector3(10, WET_Y, -22), Vector3(16, WET_Y, -22), WALL_H, lr_mat)
 	_wall(Vector3(10, WET_Y, -22), Vector3(10, WET_Y, -16), WALL_H, lr_mat)
-	_wall(Vector3(16, WET_Y, -22), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
+	# East wall carries the STORE-ROOM ARCHWAY (z -17.8..-19.2) opening straight onto the
+	# main dock walk you cross coming up from the SPHL — the room's real front door. Its
+	# only opening used to be the north door into the cramped pump-room vestibule, which
+	# no player ever found. Always-open (jambs + header + threshold, no leaf to jam).
+	_wall(Vector3(16, WET_Y, -22), Vector3(16, WET_Y, -19.2), WALL_H, lr_mat)
+	_wall(Vector3(16, WET_Y, -17.8), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
+	_box(Vector3(16, WET_Y + 2.75, -18.5), Vector3(0.25, 0.9, 1.6), lr_mat)   # header over the arch
+	for jz in [-19.2, -17.8]:
+		_box(Vector3(16, WET_Y + 1.6, jz), Vector3(0.3, 3.2, 0.2), MatLib.rust_steel(), self, false)
+	_box(Vector3(16, WET_Y + 0.02, -18.5), Vector3(0.7, 0.06, 1.5), MatLib.checker_plate())
 	_corner_posts([Vector3(10, 0, -16), Vector3(16, 0, -16), Vector3(10, 0, -22), Vector3(16, 0, -22)],
 		WET_Y, WALL_H, lr_mat)
 	_box(Vector3(13, WET_Y + WALL_H, -19), Vector3(6.5, 0.25, 6.5), lr_mat)
@@ -1002,8 +1022,12 @@ func _build_bunkhouse() -> void:
 		var p: Vector3 = bed_specs[i][0]
 		var blanket_col: Color = Color(0.75, 0.78, 0.8) if i % 2 == 0 else Color(0.55, 0.58, 0.62)
 		_bed(p, bed_specs[i][1], i % 2 == 0, blanket_col)
-		# Lockers
-		_box(p + Vector3(1.2, 0.9, -0.8), Vector3(0.5, 1.8, 0.5), MatLib.painted_steel())
+		# Wardrobe locker flush against the HEAD wall beside the bunk. The old −0.8 z
+		# offset put the north-row lockers a metre into the room (toward the foot), which
+		# is the "block floating mid-cabin" the layout read as; anchoring to the head wall
+		# (z4 south / z18 north) tucks all six into the same tidy spot.
+		var lock_z: float = 4.55 if p.z < 11.0 else 17.45
+		_box(Vector3(p.x + 1.15, y + 0.9, lock_z), Vector3(0.5, 1.8, 0.5), MatLib.painted_steel())
 	_readable("crew_letter_1", "Unsent Letter", Vector3(-18.8, y + 0.75, 7.3), Vector3(0.3, 0.05, 0.4))
 	# Henrik's photo, taped inside the bunk frame — the boys, the small fish, "three weeks".
 	_readable("henrik_photo", "Photograph", Vector3(-18.4, y + 0.9, 6.5), Vector3(0.2, 0.24, 0.02))
@@ -1873,12 +1897,11 @@ func _decorate_pump_room() -> void:
 
 func _decorate_sphl() -> void:
 	var y: float = WET_Y
-	# Bench seats, a first-aid box, an overhead grab rail — the pod you woke up in.
+	# Bench seats and an overhead grab rail — the pod you woke up in. (The wall-mounted
+	# first-aid box was removed: it sat on the fwd bulkhead crowding the SALTLINE-0
+	# stencil and read as clutter over the sign.)
 	_box(Vector3(17.0, y + 0.42, -24.8), Vector3(3.5, 0.45, 0.45), MatLib.flat(Color(0.75, 0.4, 0.15)))
 	_box(Vector3(16.0, y + 0.42, -23.2), Vector3(1.8, 0.45, 0.45), MatLib.flat(Color(0.75, 0.4, 0.15)))
-	_box(Vector3(15.05, y + 1.3, -23.6), Vector3(0.12, 0.4, 0.5), MatLib.flat(Color(0.92, 0.92, 0.9)), self, false)
-	_box(Vector3(15.12, y + 1.3, -23.6), Vector3(0.02, 0.26, 0.08), MatLib.flat(Color(0.8, 0.15, 0.1)), self, false)
-	_box(Vector3(15.12, y + 1.3, -23.6), Vector3(0.02, 0.08, 0.26), MatLib.flat(Color(0.8, 0.15, 0.1)), self, false)
 	_cyl_nc(Vector3(17.5, y + 2.05, -24), 0.03, 4.0, MatLib.painted_steel()).rotation.z = deg_to_rad(90)
 
 func _decorate_electrical() -> void:
