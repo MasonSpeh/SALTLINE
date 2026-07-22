@@ -175,6 +175,9 @@ func _check_power_reachability(main: Node3D) -> void:
 		"breaker-room doorway is an open hole")
 
 func _run() -> void:
+	# Every save/load check below writes real files under user://. Redirect the slot stem
+	# to a throwaway so the suite can never overwrite the player's actual save slots.
+	SaveManager.slot_file_prefix = "saltline_test_"
 	var main: Node3D = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await get_tree().process_frame
@@ -919,3 +922,58 @@ func _run() -> void:
 			func(n: Node) -> bool: return bool(n.get("_is_baby"))).size()
 		_check(baby_after == baby_before,
 			"load recreates the baby snail(s) that existed at save time (got %d, want %d)" % [baby_after, baby_before])
+
+	# --- oxygen: a held breath underwater, not a fixed deep-death line -----------------
+	# The old instant deep-death is gone; drowning is now gated on PlayerState.oxygen.
+	PlayerState.oxygen = 1.5
+	_check(PlayerState.oxygen == 1.0, "oxygen clamps to a full breath at most")
+	PlayerState.oxygen = -0.5
+	_check(PlayerState.oxygen == 0.0, "oxygen clamps to empty, never negative")
+	var ox_signal: Array = [false]
+	var on_ox: Callable = func(_v: float) -> void: ox_signal[0] = true
+	PlayerState.oxygen_changed.connect(on_ox)
+	PlayerState.oxygen = 1.0
+	_check(ox_signal[0], "oxygen_changed fires so the HUD bar can track it")
+	PlayerState.oxygen_changed.disconnect(on_ox)
+	_check(player.has_method("_drown"), "player drowns via _drown when air runs out")
+	_check(not player.has_method("_deep_death"), "the fixed deep-death line is gone")
+	_check("swimming" in player, "player exposes swimming for the HUD oxygen gate")
+	_check(main.hud.oxygen_bar != null, "HUD has an oxygen bar")
+	await get_tree().process_frame
+	_check(not main.hud.oxygen_bar.visible,
+		"oxygen bar stays hidden on dry land at a full breath")
+
+	# --- three save slots + Continue --------------------------------------------------
+	# (slot_file_prefix is the test stem set at the top of _run, so none of this touches
+	# the player's real saltline_slot_*.json.)
+	_check(SaveManager.SLOT_COUNT == 3, "there are three save slots")
+	_check(SaveManager.slot_path(1) != SaveManager.slot_path(2)
+		and SaveManager.slot_path(2) != SaveManager.slot_path(3),
+		"each slot has its own file")
+	SaveManager.begin_new_game(2)
+	_check(SaveManager.active_slot == 2, "New Expedition makes its slot active")
+	_check(not SaveManager.consume_pending_load(), "a new game does not flag a load")
+	_check(not SaveManager.slot_info(2).get("exists"), "a fresh slot reads as empty")
+	GameClock.day_count = 5
+	SaveManager.save_game()
+	var i2: Dictionary = SaveManager.slot_info(2)
+	_check(bool(i2.get("exists")) and int(i2.get("day")) == 5, "slot 2 records its day on save")
+	_check(String(i2.get("label")).begins_with("Continue"), "a filled slot offers Continue")
+	SaveManager.begin_new_game(3)
+	GameClock.day_count = 9
+	SaveManager.save_game()
+	_check(int(SaveManager.slot_info(2).get("day")) == 5
+		and int(SaveManager.slot_info(3).get("day")) == 9, "slots stay isolated from each other")
+	SaveManager.begin_continue(2)
+	_check(SaveManager.consume_pending_load(), "Continue flags exactly one load")
+	_check(not SaveManager.consume_pending_load(), "the load flag is consumed once")
+	GameClock.day_count = 0
+	SaveManager.active_slot = 2
+	_check(SaveManager.load_game() and GameClock.day_count == 5, "loading slot 2 restores its day")
+	SaveManager.active_slot = 3
+	_check(SaveManager.load_game() and GameClock.day_count == 9, "loading slot 3 restores its day")
+	# leave no test files behind, and hand the stem back to real saves
+	for s in range(1, SaveManager.SLOT_COUNT + 1):
+		SaveManager.erase_slot(s)
+	SaveManager.slot_file_prefix = "saltline_slot_"
+	SaveManager.active_slot = 1

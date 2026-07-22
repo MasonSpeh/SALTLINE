@@ -1,7 +1,14 @@
 extends Node
-## JSON save/load of world + player state. Single autosave slot; autosaves at dawn/dusk.
+## JSON save/load of world + player state. THREE save slots; the active slot autosaves
+## at dawn/dusk. The start screen picks the slot (New Expedition / Continue), stashes the
+## choice here, and Main restores it on boot — see begin_new_game / begin_continue /
+## consume_pending_load. Before this, load_game() was never called at boot, so saves
+## wrote but never came back; the slot flow closes that gap.
 
-const SAVE_PATH: String = "user://saltline_autosave.json"
+const SLOT_COUNT: int = 3
+## Legacy single-slot path from before slots existed. Migrated into slot 1 on first run
+## so an existing player's CONTINUE keeps working.
+const LEGACY_PATH: String = "user://saltline_autosave.json"
 ## Format version. v1 = the original (plain hotbar/inventory string arrays, no
 ## container/dropped/structure persistence). v2 = stacks carry counts, and placed
 ## structures, container contents and dropped items all round-trip. Old (v1, or
@@ -11,6 +18,16 @@ const SAVE_VERSION: int = 2
 const TAKEABLE := preload("res://scripts/components/takeable.gd")
 const FAUNA := preload("res://scripts/world/bloom_fauna.gd")
 
+## Which slot (1..SLOT_COUNT) autosaves and loads. Set by the start screen; defaults to
+## 1 so a direct Main boot (tests, editor Play) still has a valid target.
+var active_slot: int = 1
+## Filename stem for slots. Tests point this at a throwaway stem so the suite's save/load
+## checks never clobber the player's real saltline_slot_*.json files.
+var slot_file_prefix: String = "saltline_slot_"
+## True when the start screen chose CONTINUE: Main consumes it after building the world
+## and calls load_game(). A New Expedition leaves it false so Main starts fresh.
+var _pending_load: bool = false
+
 ## Container contents pulled from the last load, keyed by a stable position key. Held
 ## so that containers which only exist AFTER the load call — structures rebuilt this
 ## frame, found lockers the world-storage scanner adopts seconds later — can claim
@@ -18,8 +35,78 @@ const FAUNA := preload("res://scripts/world/bloom_fauna.gd")
 var _pending_containers: Dictionary = {}
 
 func _ready() -> void:
+	_migrate_legacy()
 	GameClock.dawn.connect(save_game)
 	GameClock.dusk.connect(save_game)
+
+## Path for a slot number. Clamped so a bad caller can't write outside the slot set.
+func slot_path(slot: int) -> String:
+	var s: int = clampi(slot, 1, SLOT_COUNT)
+	return "user://%s%d.json" % [slot_file_prefix, s]
+
+## One-time move of the old single autosave into slot 1, if slot 1 is still empty.
+func _migrate_legacy() -> void:
+	if not FileAccess.file_exists(LEGACY_PATH):
+		return
+	if FileAccess.file_exists(slot_path(1)):
+		return
+	var src: FileAccess = FileAccess.open(LEGACY_PATH, FileAccess.READ)
+	if src == null:
+		return
+	var body: String = src.get_as_text()
+	src.close()
+	var dst: FileAccess = FileAccess.open(slot_path(1), FileAccess.WRITE)
+	if dst:
+		dst.store_string(body)
+		dst.close()
+
+# ---------------------------------------------------------------- slot selection
+# The start screen calls these. Nothing here touches the world — they only record the
+# choice; Main acts on it once the scene is up.
+
+## Menu metadata for one slot without committing to a load: does it exist, and if so
+## which day/phase it holds, plus a ready-made button label.
+func slot_info(slot: int) -> Dictionary:
+	var path: String = slot_path(slot)
+	if not FileAccess.file_exists(path):
+		return {"exists": false, "day": 0, "phase": 0, "label": "New Expedition"}
+	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
+	if f == null:
+		return {"exists": false, "day": 0, "phase": 0, "label": "New Expedition"}
+	var parsed: Variant = JSON.parse_string(f.get_as_text())
+	f.close()
+	if typeof(parsed) != TYPE_DICTIONARY:
+		return {"exists": false, "day": 0, "phase": 0, "label": "New Expedition"}
+	var day: int = int((parsed as Dictionary).get("day_count", 0))
+	var phase: int = int((parsed as Dictionary).get("phase", 0))
+	var names: Array = ["Dawn", "Day", "Dusk", "Night"]
+	var phase_name: String = names[phase] if phase >= 0 and phase < names.size() else "Day"
+	return {"exists": true, "day": day, "phase": phase,
+		"label": "Continue · Day %d, %s" % [day + 1, phase_name]}
+
+## Start a fresh run in a slot: make it active, wipe any old save there so nothing
+## bleeds through, and DON'T flag a load (Main builds the world clean).
+func begin_new_game(slot: int) -> void:
+	active_slot = clampi(slot, 1, SLOT_COUNT)
+	_pending_load = false
+	erase_slot(active_slot)
+
+## Resume a slot: make it active and flag the load for Main to consume.
+func begin_continue(slot: int) -> void:
+	active_slot = clampi(slot, 1, SLOT_COUNT)
+	_pending_load = true
+
+## Main calls this once after building the world; true means "load the active slot now".
+func consume_pending_load() -> bool:
+	var v: bool = _pending_load
+	_pending_load = false
+	return v
+
+## Delete a slot's save file (New Expedition over an occupied slot, or a menu erase).
+func erase_slot(slot: int) -> void:
+	var path: String = slot_path(slot)
+	if FileAccess.file_exists(path):
+		DirAccess.remove_absolute(path)
 
 func save_game() -> void:
 	var data: Dictionary = {
@@ -40,17 +127,25 @@ func save_game() -> void:
 		"dropped": _dropped_payload(),
 		"snails": FAUNA.snail_payload(get_tree()),
 	}
+	# Where the player stood at save time, so Continue resumes them there rather than
+	# back at the pod. Only written when a player is actually in the tree.
+	var pl: Node = get_tree().get_first_node_in_group("player")
+	if pl is Node3D:
+		var p: Vector3 = (pl as Node3D).global_position
+		data["player_pos"] = [p.x, p.y, p.z]
+		data["player_yaw"] = (pl as Node3D).rotation.y
 	# rest / comfort / camp_found live with the stats that feed them.
 	data.merge(PlayerState.comfort_payload())
-	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.WRITE)
+	var file: FileAccess = FileAccess.open(slot_path(active_slot), FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(data))
 		file.close()
 
 func load_game() -> bool:
-	if not FileAccess.file_exists(SAVE_PATH):
+	var path: String = slot_path(active_slot)
+	if not FileAccess.file_exists(path):
 		return false
-	var file: FileAccess = FileAccess.open(SAVE_PATH, FileAccess.READ)
+	var file: FileAccess = FileAccess.open(path, FileAccess.READ)
 	if not file:
 		return false
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
@@ -83,6 +178,17 @@ func load_game() -> bool:
 	var snails: Variant = data.get("snails", {})
 	if typeof(snails) == TYPE_DICTIONARY:
 		FAUNA.snail_restore(get_tree(), snails)
+	# Put the player back where they saved. Clear motion/water state so they don't
+	# resume mid-fall or flagged as swimming on dry footing.
+	var pl: Node = get_tree().get_first_node_in_group("player")
+	if pl is Node3D and typeof(data.get("player_pos")) == TYPE_ARRAY and (data["player_pos"] as Array).size() >= 3:
+		var a: Array = data["player_pos"]
+		(pl as Node3D).global_position = Vector3(float(a[0]), float(a[1]), float(a[2]))
+		(pl as Node3D).rotation.y = float(data.get("player_yaw", (pl as Node3D).rotation.y))
+		if pl is CharacterBody3D:
+			(pl as CharacterBody3D).velocity = Vector3.ZERO
+		if "swimming" in pl:
+			pl.set("swimming", false)
 	return true
 
 # --------------------------------------------------------------- base building

@@ -10,7 +10,6 @@ class_name StartScreen extends Control
 ## external art — all procedural, so it ships with zero deps.
 
 const MAIN_SCENE: String = "res://scenes/Main.tscn"
-const SAVE_PATH: String = "user://saltline_autosave.json"
 
 const HORIZON: float = 0.66
 const STAR_COUNT: int = 90
@@ -46,6 +45,7 @@ var _gull: Node2D                        ## the lone drifting gull
 var _gull_t: float = -3.0                ## <0 = waiting to re-enter
 var _gull_speed: float = 22.0
 var _gull_y: float = 0.0
+var _menu: VBoxContainer                 ## the slot menu, repopulated on erase
 var _gull_dir: float = 1.0
 
 func _ready() -> void:
@@ -573,17 +573,50 @@ func _center_region(a_top: float, a_bottom: float) -> CenterContainer:
 ## -- menu --------------------------------------------------------------------
 
 func _build_menu() -> void:
-	var menu := VBoxContainer.new()
-	menu.add_theme_constant_override("separation", 12)
-	_center_region(0.66, 0.94).add_child(menu)
-	var begin: Button = _menu_button(menu, "BEGIN")
-	begin.pressed.connect(_start_game)
-	if FileAccess.file_exists(SAVE_PATH):
-		var cont: Button = _menu_button(menu, "CONTINUE")
-		cont.pressed.connect(_start_game)   # Main restores the autosave itself.
-	var quit: Button = _menu_button(menu, "QUIT")
+	_menu = VBoxContainer.new()
+	_menu.add_theme_constant_override("separation", 12)
+	_center_region(0.66, 0.94).add_child(_menu)
+	_populate_menu()
+
+## (Re)build the slot list. Each of the three slots is Continue if it holds a save
+## (with a small ERASE to clear it) or New Expedition if empty. Called again after an
+## erase so the labels refresh in place.
+func _populate_menu() -> void:
+	for c in _menu.get_children():
+		c.queue_free()
+	var first: Button = null
+	for slot in range(1, SaveManager.SLOT_COUNT + 1):
+		var info: Dictionary = SaveManager.slot_info(slot)
+		var row := HBoxContainer.new()
+		row.add_theme_constant_override("separation", 8)
+		_menu.add_child(row)
+		var main_btn: Button = _menu_button(row, "%d.  %s" % [slot, info.get("label", "New Expedition")])
+		main_btn.custom_minimum_size = Vector2(300.0, 46.0)
+		var s: int = slot
+		if bool(info.get("exists", false)):
+			main_btn.pressed.connect(func() -> void: _continue_slot(s))
+			var erase: Button = _menu_button(row, "ERASE")
+			erase.custom_minimum_size = Vector2(84.0, 46.0)
+			erase.add_theme_font_size_override("font_size", 14)
+			erase.pressed.connect(func() -> void:
+				SaveManager.erase_slot(s)
+				_populate_menu())
+		else:
+			main_btn.pressed.connect(func() -> void: _new_slot(s))
+		if first == null:
+			first = main_btn
+	var quit: Button = _menu_button(_menu, "QUIT")
 	quit.pressed.connect(func() -> void: get_tree().quit())
-	begin.grab_focus()
+	if first:
+		first.grab_focus()
+
+func _new_slot(slot: int) -> void:
+	SaveManager.begin_new_game(slot)
+	_start_game()
+
+func _continue_slot(slot: int) -> void:
+	SaveManager.begin_continue(slot)
+	_start_game()
 
 func _start_game() -> void:
 	get_tree().change_scene_to_file(MAIN_SCENE)

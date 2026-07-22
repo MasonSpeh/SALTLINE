@@ -58,8 +58,8 @@ const DEEP_AMB := Color(0.04, 0.10, 0.15)
 const STORM_MURK := Color(0.13, 0.17, 0.12)   # stirred sediment, near the surface
 
 ## The depth-graded fog/ambient below (in _process) resolves fully across this many metres
-## of depth — matched to player_controller.DEEP_DEATH_M (~13), the water the player can
-## actually swim, rather than the seabed at -23 they never reach alive. Grading it over
+## of depth — the upper column the player actually swims on a breath (oxygen-gated now,
+## ~16m before the deep burns air fast), rather than the seabed at -23. Grading it over
 ## the seabed's full depth was the bug: the whole survivable column only ever covered
 ## the first ~60% of the curve, so it read as "the same shade no matter how deep you go".
 const REACHABLE_DEPTH_M: float = 13.0

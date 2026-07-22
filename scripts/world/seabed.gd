@@ -3,10 +3,10 @@ class_name Seabed extends Node3D
 ##
 ## DATUM: the silt sits at y = -23. That is where the existing leg-extension
 ## caissons (underwater_world.gd) already bottom out, so the legs plant flush into
-## the mud with zero edits to that file. It is also *below* the player's 13 m
-## deep-death line (player_controller: DEEP_DEATH_M = 13, wave line ~y 0), so the
-## true floor is set-dressing seen from above through fog — canon: "the deep is not
-## negotiable". Detail budget therefore goes into big silhouette (legs planting,
+## the mud with zero edits to that file. It is also far *below* the depth a breath of
+## oxygen lets the player reach (player_controller: air-gated swimming, wave line ~y 0),
+## so the true floor is set-dressing seen from above through fog — a hard breath-hold
+## dive can glimpse it, never linger. Detail budget therefore goes into big silhouette (legs planting,
 ## scour moats, riprap, chains, wreckage) rather than micro-detail nobody can reach.
 ##
 ## The floor is not a flat plane: broad silt swells + megaripples (in the shader) +

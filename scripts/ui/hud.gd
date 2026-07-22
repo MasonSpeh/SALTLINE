@@ -16,6 +16,8 @@ var thirst_bar: StatBar
 var warmth_bar: StatBar
 var _cold_hint_shown: bool = false   ## one-time "how to warm up" teach (see warmth hook)
 var rest_bar: StatBar
+var oxygen_bar: StatBar               ## only visible while in the water (see _process)
+var _player: Node = null              ## cached for the swimming read that gates oxygen_bar
 var comfort_label: Label
 var sick_chip: PanelContainer
 var reading_panel: Panel
@@ -79,6 +81,8 @@ func _ready() -> void:
 	if PlayerState.has_signal("rest_changed"):
 		PlayerState.connect("rest_changed", func(v: float) -> void: rest_bar.set_value(v))
 		_rest_bound = true
+	if PlayerState.has_signal("oxygen_changed"):
+		PlayerState.connect("oxygen_changed", func(v: float) -> void: oxygen_bar.set_value(v))
 	Journal.entry_added.connect(func(_id: String, _t: String) -> void: _update_journal_badge())
 	_refresh_hotbar()
 	hunger_bar.set_value(PlayerState.hunger)
@@ -100,6 +104,12 @@ func _process(_delta: float) -> void:
 		life_bar.set_value(_stat_value_or_full("life"))
 	if not _rest_bound:
 		rest_bar.set_value(_stat_value_or_full("rest"))
+	# Oxygen bar rides along only while you're in the water — in the sea it's always up,
+	# and it lingers a beat after you climb out so you watch the breath come back, then hides.
+	if not is_instance_valid(_player):
+		_player = get_tree().get_first_node_in_group("player")
+	var in_water: bool = is_instance_valid(_player) and bool(_player.get("swimming"))
+	oxygen_bar.visible = in_water or PlayerState.oxygen < 0.999
 
 ## Defensive read for stats another system may not have added yet.
 func _stat_value_or_full(prop: String) -> float:
@@ -248,6 +258,11 @@ func _build() -> void:
 	stats.add_child(warmth_bar)
 	rest_bar = StatBar.new("REST", Color(0.55, 0.5, 0.75))
 	stats.add_child(rest_bar)
+	# Oxygen: your held breath underwater. Hidden on dry land, shown the moment you're
+	# in the sea (see _process). Cold cyan so it reads as air/water, not a vital.
+	oxygen_bar = StatBar.new("OXYGEN", Color(0.4, 0.78, 0.95))
+	oxygen_bar.visible = false
+	stats.add_child(oxygen_bar)
 
 	# Comfort is never a bar and never a number — it's a line that shows up when
 	# the place you're standing in changes character, then gets out of the way.

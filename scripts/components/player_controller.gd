@@ -55,13 +55,22 @@ const FLY_SPRINT_MULT: float = 3.5
 const DOUBLE_TAP_MS: int = 320
 
 # Swimming (GDD §31: competent, not heroic). Buoyant at the surface, dive with
-# crouch, and the deep is not negotiable — past DEEP_DEATH_M the dark takes you.
+# crouch. You can go as deep as your breath allows — the sea no longer kills you at a
+# fixed line, your OWN AIR does. Surface to breathe; run the bar dry and you drown.
 const SWIM_SPEED: float = 2.3
 const SWIM_SPRINT_MULT: float = 1.5
 const FLOAT_DEPTH: float = 0.45        ## neutral float: this far under the swell, head above
 const SWIM_WARMTH_DRAIN: float = 0.016 ## the North Atlantic taxes you per second
-const DEEP_DEATH_M: float = 13.0
-const DEEP_GRACE_SEC: float = 1.6
+# Oxygen: a held breath, not a fixed death line. A full lungful lasts ~28s submerged;
+# the deep (past DEEP_UNEASE_M) burns it near twice as fast — pressure and dread — so
+# you CAN dive to glimpse what lives down there, but never linger. Surfacing (head above
+# the swell) refills fast; climbing out tops you off almost at once.
+const OXYGEN_DRAIN: float = 1.0 / 28.0     ## per second, head submerged, shallow
+const OXYGEN_DRAIN_DEEP: float = 1.0 / 16.0 ## per second, past the unease line
+const OXYGEN_RECOVER: float = 0.5          ## per second, breathing at the surface (~2s)
+const OXYGEN_RECOVER_LAND: float = 1.5     ## per second, out of the water entirely
+const DEEP_UNEASE_M: float = 16.0          ## below this the dark eats air faster
+const DROWN_GRACE_SEC: float = 1.2         ## flailing on an empty chest before the black
 
 @export var invert_y: bool = false
 @export var mouse_sensitivity_scale: float = 1.0
@@ -105,7 +114,8 @@ var _step_accum: float = 0.0
 var _fly: bool = false             ## dev noclip fly mode (double-tap F)
 var _last_f_ms: int = -10000       ## for double-tap F detection
 var swimming: bool = false         ## in the water, buoyant, mortal
-var _deep_t: float = 0.0           ## seconds spent past the deep-death line
+var _airless_t: float = 0.0        ## seconds spent on an empty lungful (see _swim_process)
+var _low_air_warned: bool = false  ## one-shot "surface now" toast per breath
 
 # Lying on a bed/bunk (Task: beds are lie-down-able any time). A scripted park like
 # sitting, but it reuses the controller's own PRONE posture so the eye line and stealth
@@ -778,7 +788,8 @@ func _dismount_clear(anchor: Vector3, into: Vector3, ef: float) -> void:
 	global_position = cands[0]   # nothing clear anywhere — take the intended spot
 
 ## Entering the water no longer teleports you out — you swim (GDD §31). The sea
-## takes warmth constantly, ladders are the way back up, and the deep is death.
+## takes warmth constantly, ladders are the way back up, and your breath (oxygen) is
+## the clock underwater. Out of the water this tops the breath back up.
 func _check_water() -> void:
 	if _drowning or _fly:
 		return
@@ -796,11 +807,16 @@ func _check_water() -> void:
 			hud.toast("Cold. Swim — find a ladder before the sea does the counting.")
 	swimming = now_swimming
 	if not swimming:
-		_deep_t = 0.0
+		# Out of the water: catch your breath fast, and clear the drown timers.
+		_airless_t = 0.0
+		_low_air_warned = false
+		if PlayerState.oxygen < 1.0:
+			PlayerState.oxygen = minf(PlayerState.oxygen + OXYGEN_RECOVER_LAND * get_physics_process_delta_time(), 1.0)
 
 ## Buoyant first-person swimming: look-direction drive, Space up, crouch dives,
 ## drifting toward a neutral float just under the swell. Cold drains warmth the
-## whole time, and past DEEP_DEATH_M the dark below starts counting.
+## whole time; submerging spends the breath in PlayerState.oxygen, and an empty
+## chest (past DROWN_GRACE_SEC) drowns you.
 func _swim_process(delta: float) -> void:
 	var wave_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), Gyre.water_time()) * 0.85
 	var input_dir: Vector2 = Vector2.ZERO
@@ -822,19 +838,34 @@ func _swim_process(delta: float) -> void:
 	move_and_slide()
 	PlayerState.warmth -= SWIM_WARMTH_DRAIN * delta
 	_update_posture(delta)   # keeps the capsule sane if a posture was held on entry
-	# The deep: light dies fast, and below the line something notices you.
+	# Breath. Your head under the swell spends air; at the surface you breathe. The deep
+	# burns it faster — you can dive to see what's down there, but you're racing your lungs.
 	var depth: float = wave_y - global_position.y
-	if depth > DEEP_DEATH_M:
-		_deep_t += delta
-		if _deep_t >= DEEP_GRACE_SEC:
-			_deep_death()
-			return
+	var head_submerged: bool = head.global_position.y < wave_y
+	if head_submerged:
+		var rate: float = OXYGEN_DRAIN_DEEP if depth > DEEP_UNEASE_M else OXYGEN_DRAIN
+		PlayerState.oxygen = maxf(PlayerState.oxygen - rate * delta, 0.0)
+		if PlayerState.oxygen <= 0.25 and not _low_air_warned:
+			_low_air_warned = true
+			var hud0: Node = get_tree().get_first_node_in_group("hud")
+			if hud0:
+				hud0.toast("Lungs burning. Get to the surface.")
+		if PlayerState.oxygen <= 0.0:
+			_airless_t += delta
+			if _airless_t >= DROWN_GRACE_SEC:
+				_drown()
+				return
 	else:
-		_deep_t = maxf(_deep_t - delta * 2.0, 0.0)
+		# Breathing at the surface: air comes back, and the drown timer resets.
+		PlayerState.oxygen = minf(PlayerState.oxygen + OXYGEN_RECOVER * delta, 1.0)
+		_airless_t = 0.0
+		if PlayerState.oxygen > 0.4:
+			_low_air_warned = false
 	_check_water()
 
-## Too deep, too long. No monster shown, no explanation given — canon.
-func _deep_death() -> void:
+## The breath ran out. Not a fixed depth line any more — you drowned. Same quiet
+## respawn as before: the sea returns you to the deck with no memory of surfacing.
+func _drown() -> void:
 	if _drowning:
 		return
 	_drowning = true
@@ -855,7 +886,9 @@ func _respawn() -> void:
 	velocity = Vector3.ZERO
 	swimming = false
 	_prone = false
-	_deep_t = 0.0
+	_airless_t = 0.0
+	_low_air_warned = false
+	PlayerState.oxygen = 1.0
 	PlayerState.warmth -= 0.3
 	PlayerState.life = maxf(PlayerState.life, 0.3)   # the sea returns you breathing
 	_drowning = false
@@ -889,6 +922,10 @@ func _respawn_from_death() -> void:
 	global_position = respawn_point
 	velocity = Vector3.ZERO
 	_prone = false
+	swimming = false
+	_airless_t = 0.0
+	_low_air_warned = false
+	PlayerState.oxygen = 1.0
 	PlayerState.life = 0.5
 	PlayerState.hunger = 0.4
 	PlayerState.thirst = 0.4
@@ -1214,7 +1251,7 @@ func _mantle_process(delta: float) -> void:
 		_mantling = false
 		_mantle_cd = 0.35
 		swimming = false     # a mantle out of the sea lands you dry on the deck
-		_deep_t = 0.0
+		_airless_t = 0.0
 
 ## A world-only ray (collision layer 1, excluding the player) as a plain hit Dictionary.
 func _mantle_ray(space: PhysicsDirectSpaceState3D, from: Vector3, to: Vector3) -> Dictionary:

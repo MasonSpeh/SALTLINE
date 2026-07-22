@@ -59,6 +59,21 @@ func _ready() -> void:
 	AudioDirector.play_one_shot("hiss", Vector3.ZERO, -6.0)
 	hud.set_objective("Surface pressure equalized. Open the hatch [E] and get out.")
 	rig.sphl_hatch.interacted.connect(_on_hatch_used)
+	# CONTINUE: the start screen flagged a load for this slot. Restore it now that the
+	# whole world, player and HUD exist. Deferred one frame so structures/containers
+	# rebuild after the scene has fully entered the tree.
+	if SaveManager.consume_pending_load():
+		call_deferred("_resume_saved_game")
+
+## Load the active slot and settle the player into the resumed run (not the cold open).
+func _resume_saved_game() -> void:
+	if not SaveManager.load_game():
+		return
+	_cold_open_active = false
+	if is_instance_valid(hud):
+		var names: Array = ["dawn", "day", "dusk", "night"]
+		var pi: int = clampi(GameClock.current_phase, 0, 3)
+		hud.set_objective("Day %d, %s. Back on the rig — carry on." % [GameClock.day_count + 1, names[pi]])
 
 func _spawn_props() -> void:
 	# Three loose things to physically handle on the way out of the pod. These used to be

@@ -7,6 +7,7 @@ signal hunger_changed(value: float)
 signal thirst_changed(value: float)
 signal warmth_changed(value: float)
 signal life_changed(value: float)
+signal oxygen_changed(value: float)
 signal rest_changed(value: float)
 signal comfort_changed(value: float)
 signal player_died
@@ -49,6 +50,10 @@ var hunger: float = 1.0 : set = set_hunger
 var thirst: float = 1.0 : set = set_thirst
 var warmth: float = 1.0 : set = set_warmth
 var life: float = 1.0 : set = set_life
+## Breath while submerged. Driven entirely by player_controller (drains under water,
+## refills at the surface / on land); NOT part of the depletion clock and NOT saved —
+## it always comes back full the moment you're breathing air.
+var oxygen: float = 1.0 : set = set_oxygen
 var rest: float = 1.0 : set = set_rest
 var comfort: float = 0.0 : set = set_comfort
 var hotbar: Array = [null, null, null, null]
@@ -155,6 +160,10 @@ func set_thirst(value: float) -> void:
 	thirst = clampf(value, 0.0, 1.0)
 	thirst_changed.emit(thirst)
 	_check_threshold("thirst", thirst, _thirst_was_low)
+
+func set_oxygen(value: float) -> void:
+	oxygen = clampf(value, 0.0, 1.0)
+	oxygen_changed.emit(oxygen)
 
 func set_rest(value: float) -> void:
 	rest = clampf(value, 0.0, 1.0)
