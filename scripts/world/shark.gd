@@ -10,7 +10,7 @@ enum SState { PATROL, CIRCLE, CHARGE, FLEE }
 const NOTICE_RADIUS: float = 9.0
 const BITE_RADIUS: float = 1.6
 const ATTACK_CHANCE: float = 0.7      # "3-4 out of 5"
-const BITE_DAMAGE: float = 0.35
+const BITE_DAMAGE: float = 0.5    # a hammerhead hit takes HALF the player's full health
 const PATROL_SPEED: float = 3.6
 const CHARGE_SPEED: float = 8.5
 const COOLDOWN_SEC_MIN: float = 12.0

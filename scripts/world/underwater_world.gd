@@ -117,14 +117,26 @@ func _kelp_forest() -> void:
 ## rig at z -30..-60; this is the CLOSE, immediate life on the steel itself, in the
 ## reachable band (roughly y -2..-11, well inside the 13 m death line).
 func _leg_reef_growth() -> void:
+	# The growth clinging to the caisson legs is most of what a player actually swims past
+	# up close, so it earns the widest species spread of anything underwater. Five more
+	# reef species join the original four — all decorative sessile fauna already modelled
+	# for the (unreachable) seabed reef in reef_life.gd, reused here where the player can
+	# actually see them. CIRRI suits the feather star's feeding sweep the same way it
+	# suited the tube worms; the coral fan and sea grass sway like the anemone; the brain
+	# coral and seastar get the same slow BREATHE swell as the sponge.
 	const SPECIES := [
 		["bloom_anemone", 0.4, 0.9, ANIM.Mode.SWAY, 0.08, Color(0.95, 0.45, 0.7)],
 		["bloom_sponge_cluster", 0.5, 1.1, ANIM.Mode.BREATHE, 0.03, Color(1.0, 0.62, 0.22)],
 		["bloom_tube_worms", 0.5, 0.9, ANIM.Mode.CIRRI, 0.05, Color(0.25, 0.95, 0.88)],
 		["bloom_urchin", 0.3, 0.55, ANIM.Mode.BREATHE, 0.04, Color(0.75, 0.55, 1.0)],
+		["bloom_coral_fan", 0.6, 1.3, ANIM.Mode.SWAY, 0.05, Color(1.0, 0.5, 0.55)],
+		["bloom_sea_grass", 0.5, 1.0, ANIM.Mode.SWAY, 0.10, Color(0.35, 0.85, 0.4)],
+		["bloom_feather_star", 0.35, 0.7, ANIM.Mode.CIRRI, 0.06, Color(0.9, 0.35, 0.6)],
+		["bloom_seastar", 0.3, 0.6, ANIM.Mode.BREATHE, 0.02, Color(0.95, 0.55, 0.2)],
+		["bloom_brain_coral", 0.5, 1.0, ANIM.Mode.BREATHE, 0.02, Color(0.6, 0.75, 0.4)],
 	]
 	for leg in LEGS:
-		for i in range(14):
+		for i in range(20):
 			var spec: Array = SPECIES[_rng.randi() % SPECIES.size()]
 			var slug: String = spec[0]
 			var size: float = _rng.randf_range(spec[1], spec[2])
@@ -201,16 +213,36 @@ func _rig_underlights() -> void:
 ## across their backs as they pass under the rig. From the deck or the shallows you
 ## mostly get moving silhouettes at the edge of the light, which is the point.
 func _deep_giants() -> void:
+	# The always-present residents on slow circuits under the rig: three original plus a
+	# second halibut and a lesser grouper on the shallow edge, so there is a spread of BIG
+	# shapes at different depths to catch at the edge of the light. (mantle_ray is kept OUT
+	# of this ambient roster on purpose — it is the special glowing night-bloom visitor
+	# elsewhere in the game, discovered as a one-off event; making it a routine deep
+	# patroller here would cheapen that encounter.)
 	var specs := [
 		# [slug, size_m, band_y, orbit_r, rate, phase]
 		["fish_barrel_grouper", 3.6, -17.0, 13.0, 0.05, 0.0],
 		["fish_barrel_grouper", 4.4, -24.0, 17.0, 0.038, 2.4],
 		["fish_fathom_halibut", 3.2, -29.0, 11.0, 0.045, 4.2],
+		["fish_fathom_halibut", 4.1, -20.0, 15.0, 0.033, 1.1],  # a second, larger halibut
+		["fish_barrel_grouper", 2.8, -14.0, 9.0, 0.060, 5.0],   # a lesser one on the shallow edge
 	]
 	for s in specs:
-		var host := DeepGiant.new(s[1], s[2], s[3], s[4], s[5])
+		# Size jitter so no two runs stamp the identical fish.
+		var sz: float = float(s[1]) * _rng.randf_range(0.9, 1.15)
+		var host := DeepGiant.new(sz, s[2], s[3], s[4], s[5])
 		host.slug = s[0]
 		add_child(host)
+	# THE LEVIATHAN. A rare colossal grouper — ~5x the residents, a slow shape the size of
+	# the escape pod itself — patrolling the deep dark below the death line. It is NOT on
+	# every dive: seeing one is meant to be an event, so ~45% of playthroughs get one.
+	# Deep (-36 m) on a tight orbit (radius 8) so its bulk stays clear of the caissons, and
+	# barely lit, so it reads as a moving wall at the very edge of the floodlight throw.
+	if _rng.randf() < 0.45:
+		var leviathan := DeepGiant.new(_rng.randf_range(16.0, 19.0), -36.0, 8.0, 0.024,
+			_rng.randf() * TAU)
+		leviathan.slug = "fish_barrel_grouper"
+		add_child(leviathan)
 
 ## One slow giant on a drifting circuit under the rig. Raw circular path — it lives
 ## 15+ m down in open water between the legs (orbit radii keep it clear of the caissons
@@ -259,8 +291,11 @@ class DeepGiant extends Node3D:
 ## Marine snow: slow drifting particulate that sells the water as a medium.
 func _marine_snow() -> void:
 	var snow := GPUParticles3D.new()
-	snow.amount = 1200               # headroom; amount_ratio scales the live count cheaply
-	snow.amount_ratio = 0.55         # calm baseline; storm ramps it toward 1.0
+	snow.amount = 1550               # headroom; amount_ratio scales the live count cheaply
+	snow.amount_ratio = 0.62         # calm baseline; storm ramps it toward 1.0 — a touch
+	# richer than before so the water reads as a genuinely suspended medium you are inside
+	# of, the single biggest "I am underwater" cue after the Snell window. Still light
+	# enough that it drifts as particulate and never fogs the near view into soup.
 	snow.lifetime = 14.0
 	snow.preprocess = 14.0
 	snow.local_coords = false
@@ -396,10 +431,17 @@ func _spawn_schools() -> void:
 		for i in range(int(school["count"])):
 			var f := Node3D.new()
 			root.add_child(f)
-			var gen: Dictionary = ANIM.attach(f, model_path, model_len, ANIM.Mode.UNDULATE,
+			# Per-member size spread: a real shoal is juveniles-to-adults, not one stamped
+			# size repeated N times. Most cluster around the school size; a few run notably
+			# bigger (the old breeders) or smaller (this year's fry). Skewed so the big ones
+			# are the minority they should be.
+			var roll: float = _rng.randf()
+			var sv: float = (0.62 + 0.5 * roll) if roll < 0.82 else (1.12 + 1.05 * (roll - 0.82) / 0.18)
+			var member_len: float = model_len * sv
+			var gen: Dictionary = ANIM.attach(f, model_path, member_len, ANIM.Mode.UNDULATE,
 				0.1, 2.2, glow, float(i) * 0.5)
 			if gen.is_empty():
-				_build_fish(f, shape, size, mat)   # no generated mesh yet — keep the silhouette
+				_build_fish(f, shape, size * sv, mat)   # no generated mesh yet — keep the silhouette
 			else:
 				for m in gen["mats"]:
 					(m as ShaderMaterial).set_shader_parameter("tint", tint)

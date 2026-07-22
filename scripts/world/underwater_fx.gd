@@ -115,7 +115,7 @@ func _build_light_shafts() -> void:
 		# Much fainter than before — the shafts read as suggestions of light in the water,
 		# not solid glowing bars. The shader now also breaks them into rays and fades them
 		# near the camera, so a low density here reads as subtle god-rays.
-		mat.set_shader_parameter("density", _rng.randf_range(0.04, 0.07))
+		mat.set_shader_parameter("density", _rng.randf_range(0.05, 0.085))
 		mat.set_shader_parameter("shaft_color", Vector3(0.24, 0.46, 0.48))
 		_shaft_mats.append(mat)
 		var yaw: float = _rng.randf_range(0, TAU)
