@@ -1,347 +1,341 @@
-class_name LamplightCrab extends Node3D
-## The night threat (GDD 5.5): one dog-sized crab, simple FSM on authored waypoints.
-## Avoids powered LightZones; pursues the player in darkness within detect radius;
-## contact = blackout + wake at dawn in the SPHL (handled by Main via EventBus).
-## Its audio is the real design — claw-steps audible through decks, long before sight.
+class_name GiantCrab extends Node3D
+## The night threat, remade (s11): a NATURALISTIC giant crab — no lamp, no glow.
+## By day the pack lives UNDERWATER, sidling slowly along the submerged pontoon faces
+## and the sunken dock plate, visible to anyone who leans over the deck edge or swims.
+## At night each crab climbs an authored emergence path over the wet-deck rim, patrols
+## the open deck, and CHASES the player in darkness. A bite costs 0.25 life and shoves.
+## Fightback: melee repel() (2 spear hits end its night) or a held light shone on it
+## for half a second sends it bolting back to the water. At dawn it visibly returns
+## over the rim. Its sound is honest: soft chitin taps ONLY while it is moving, near,
+## and actually visible — silence otherwise. No loops, no baseline hum, ever.
 
-enum State { PATROL_Z1, ASCEND, PATROL_TOP, PURSUE, RETREAT, GONE }
+enum State { ROOST, EMERGE, PATROL, PURSUE, FLEE, GONE }
 
-var z1_loop: Array = []
-var ascend_path: Array = []
-var z4_loop: Array = []
-var exit_point: Vector3
-
-## Multiple crabs share the same authored waypoints; these stagger them so a pack of
-## three doesn't stack or move in lockstep. spawn_index offsets the loop start and the
-## ascent timing; patrol_offset shifts the flat-patrol targets a metre or two sideways.
+## Authored routes, injected by the spawner (BloomFauna) — every point is validated
+## against the sonar scan of the rig (see s11 crab evidence table).
+var roost_loop: Array = []     ## underwater cling loop (pontoon face / dock plate)
+var emerge_path: Array = []    ## water -> rim -> deck; walked in reverse to go home
+var patrol_loop: Array = []    ## open wet-deck circuit
 var spawn_index: int = 0
-var patrol_offset: Vector3 = Vector3.ZERO
+var patrol_offset: Vector3 = Vector3.ZERO   ## fans the pack out on the shared loop
 
-var state: State = State.PATROL_Z1
+var state: State = State.ROOST
 var _wp_index: int = 0
-var _resume_state: State = State.PATROL_Z1
 var patrol_speed: float = 1.6
 var pursue_speed: float = 3.8
 var detect_radius: float = 6.0
 var contact_radius: float = 1.2
-var hp: float = 3.0             ## melee hits it can take before it quits the night
-var _recoil: float = 0.0        ## stagger timer after a weapon strike
-var _contact_fired: bool = false
-var _claw_timer: Timer
+var hp: float = 3.0                 ## melee hits it can take before it quits the night
 
-# Anatomy handles for the gait/menace animation.
+const ROOST_SPEED: float = 0.5      ## slow underwater sidle
+const BITE_DAMAGE: float = 0.25     ## PlayerState.life is normalized 0..1
+const BITE_COOLDOWN: float = 2.5
+const BITE_SHOVE: float = 6.0
+const GIVE_UP_DIST: float = 14.0    ## running away works: pursuit breaks beyond this
+const SCARE_TIME: float = 0.5       ## seconds of steady beam before it bolts
+const EMERGE_STAGGER: float = 7.0   ## seconds between pack members leaving the water
+
+var _resume_state: State = State.PATROL
+var _recoil: float = 0.0            ## stagger timer after a strike / bite lunge
+var _bite_cd: float = 0.0
+var _lit_t: float = 0.0             ## how long a player light has been on it
+var _scare_cd: float = 0.0          ## re-approach cooldown after a light scare
+var _night_wait: float = 0.0        ## emergence stagger countdown
+var _beaten: bool = false           ## repelled to zero hp: done for this night
+var _fleeing_home: bool = false     ## FLEE reached the water and is walking to roost
+
+# Anatomy / motion.
 const KIT := preload("res://scripts/world/creature_kit.gd")
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 const MOVE := preload("res://scripts/world/fauna_move.gd")
-var _legs: Array = []            ## [{hip: Node3D, knee: Node3D, phase: float, side: float}]
-var _claw_arms: Array = []       ## [Node3D] — rise when hunting
-var _pincers: Array = []         ## [Node3D] — idle open/close
-var _stalks: Array = []          ## eye stalks, tilt toward prey
-var _lamp_mat: StandardMaterial3D
-var _lamp_light: OmniLight3D
+const MODEL_PATH := "res://assets/models/fauna/giant_crab/giant_crab.glb"
+const NO_GLOW := Color(0, 0, 0)     ## naturalistic: rim/fresnel glow stays dark
+var _model: Node3D
+var _mats: Array = []
+var _legs: Array = []               ## procedural fallback only
+var _claw_arms: Array = []
+var _pincers: Array = []
 var _gait_t: float = 0.0
+var _bob_t: float = 0.0
 var _last_pos: Vector3
-var _claw_loop_active: bool = false
+var _speed: float = 0.0
+var _resting_pose: bool = true
+
+# Scuttle audio: one-shots on the footfall cadence, hard-gated on visibility.
+const SCUTTLE_SHOTS := ["scuttle_a", "scuttle_b", "scuttle_c"]
+const SCUTTLE_DB: float = -20.0
+const SCUTTLE_RANGE: float = 10.0
+var _step_accum: float = 0.0
+var _rng := RandomNumberGenerator.new()
+
+# Unstick guard: authored points are sonar-validated, but props move and players shove.
+const STUCK_EPS: float = 0.05
+const STUCK_TIME: float = 3.0
+var _guard_pos: Vector3
+var _guard_t: float = 0.0
 
 func _ready() -> void:
 	patrol_speed = PlayerState.tuning.get("crab_patrol_speed", 1.6)
 	pursue_speed = PlayerState.tuning.get("crab_pursue_speed", 3.8)
 	detect_radius = PlayerState.tuning.get("crab_detect_radius", 6.0)
 	contact_radius = PlayerState.tuning.get("crab_contact_radius", 1.2)
+	_rng.seed = hash("giant_crab") + spawn_index
 	_build_body()
-	# The claw-tick is a PROXIMITY warning, not a soundtrack — only active when the crab
-	# is actually hunting (PURSUE state). Three crabs ticking on overlapping schedules at
-	# 2.1–2.8 s intervals produces constant jingling even at -14 dB and within 26 m. Keeping
-	# the sound silent until threat state eliminates the background chatter; you hear claws
-	# only when the crab is actually coming for you.
+	add_to_group("hittable")     # craftable melee weapons can drive it off
+	add_to_group("giant_crab")
 	GameClock.dawn.connect(_on_dawn)
 	_last_pos = global_position
-	add_to_group("hittable")   # craftable melee weapons can drive it off
-	# Stagger this crab's start along the wet-deck loop so a pack doesn't march in step.
-	if not z1_loop.is_empty():
-		_wp_index = spawn_index % z1_loop.size()
+	_guard_pos = global_position
+	_night_wait = float(spawn_index) * EMERGE_STAGGER
+	if not roost_loop.is_empty():
+		_wp_index = spawn_index % roost_loop.size()
 
-## Start the claw-tick loop when entering PURSUE state (threat is near).
-func _start_claw_loop() -> void:
-	if not _claw_loop_active:
-		_claw_loop_active = true
-		_claw_timer = AudioDirector.attach_loop("claw", self,
-			2.1 + float(spawn_index) * 0.35, -14.0, 26.0)
-
-## Stop the claw-tick loop when leaving PURSUE state (threat cleared or night ended).
-func _stop_claw_loop() -> void:
-	if _claw_loop_active and _claw_timer:
-		_claw_loop_active = false
-		_claw_timer.stop()
-		_claw_timer = null
-
-## Struck by a weapon (player_controller._melee_attack). Each hit staggers it and
-## breaks off a pursuit; enough damage and it gives up the night and slides off
-## the deck. Its lamp flares hurt-red on the blow.
-func repel(from_pos: Vector3, damage: float) -> void:
-	if state == State.GONE or state == State.RETREAT:
-		return
-	hp -= damage
-	_recoil = 0.4
-	# Knock it back a step, away from the strike.
-	var away: Vector3 = global_position - from_pos
-	away.y = 0.0
-	if away.length() > 0.05:
-		global_position += away.normalized() * 0.55
-		look_at(global_position - away, Vector3.UP)   # face the threat as it backs off
-	if _lamp_mat:
-		_lamp_mat.emission = Color(1.0, 0.15, 0.1)
-		_lamp_mat.emission_energy_multiplier = 4.0
-	AudioDirector.play_one_shot("clang", global_position, -6.0)
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hp <= 0.0:
-		state = State.RETREAT
-		_wp_index = 0
-		if hud and hud.has_method("toast"):
-			hud.toast("It breaks and drops off the deck. Gone — for tonight.")
-	else:
-		# Staggered: drop the hunt and think twice before closing again.
-		_resume_state = State.PATROL_TOP
-		state = State.PURSUE   # keeps facing you, but the recoil holds it off this beat
-		if hud and hud.has_method("toast"):
-			hud.toast("You beat it back. It recoils, lamp flaring red.")
-
-## The night's face: an AI-generated deep-sea crab mesh (Meshy) carrying the Bloom's
-## bioluminescent rim glow. Meshy can't rig animals (humanoid-only pose estimation), so
-## the shell flexes via CreatureAnim's vertex shader and the glow rides the hunt state —
-## the AI, the lamp mechanic, and the combat are all untouched.
-const MODEL_PATH := "res://assets/models/fauna/lamplight_crab/lamplight_crab.glb"
-const GLOW := Color(0.25, 0.95, 0.88)
-var _model: Node3D
-var _mats: Array = []
-var _bob_t: float = 0.0
+## ---------- body ----------
 
 func _build_body() -> void:
-	# SCUTTLE: the shader finds the legs geometrically and walks them in a metachronal
-	# wave. Amp is generous because the legs are what should move, not the shell.
-	var gen: Dictionary = ANIM.attach(self, MODEL_PATH, 0.9, ANIM.Mode.SCUTTLE,
-		0.045, 1.4, GLOW)
-	if gen.is_empty():
-		# No generated asset — fall back to the original procedural crab.
-		var chitin: Material = KIT.mat(Color(0.24, 0.19, 0.15), 0.5)
-		var underside: Material = KIT.mat(Color(0.42, 0.36, 0.28), 0.7)
-		KIT.ball(self, Vector3(0, 0.5, 0), 0.52, chitin, Vector3(1.25, 0.55, 1.0))
-		KIT.ball(self, Vector3(0, 0.42, 0.3), 0.4, chitin, Vector3(1.05, 0.45, 0.8))
-		KIT.ball(self, Vector3(0, 0.36, 0), 0.44, underside, Vector3(1.05, 0.3, 0.85))
-		_build_legs()
-	else:
-		_model = gen["model"]
-		_mats = gen["mats"]
-
-	# Create the lamp light (both model and primitive paths share this).
-	_lamp_mat = KIT.mat(Color(0.25, 0.95, 0.88), 0.0, 1.0, 1.0)
-	var lamp_stalk := Node3D.new()
-	add_child(lamp_stalk)
-	lamp_stalk.position = Vector3(0, 0.66, -0.12)
-	KIT.limb(lamp_stalk, Vector3.ZERO, Vector3(0, 0.3, -0.14), 0.025, KIT.mat(Color(0.16, 0.13, 0.11), 0.55))
-	KIT.glow_spot(lamp_stalk, Vector3(0, 0.34, -0.17), 0.09, Color(0.25, 0.95, 0.88), 1.2)
-	_lamp_light = OmniLight3D.new()
-	_lamp_light.light_energy = 0.6
-	_lamp_light.omni_range = 4.0
-	_lamp_light.light_color = Color(0.25, 0.95, 0.88)
-	lamp_stalk.add_child(_lamp_light)
-	_lamp_light.position = Vector3(0, 0.34, -0.17)
-
-func _build_legs() -> void:
-	# Procedural legs for the fallback (model-based crab doesn't animate limbs yet).
-	var chitin_dark: Material = KIT.mat(Color(0.16, 0.13, 0.11), 0.55)
-	var chitin: Material = KIT.mat(Color(0.24, 0.19, 0.15), 0.5)
-	# Eight legs: hip pivot -> upper segment -> knee pivot -> lower segment.
+	# Procedural fallback body first (kept invisible under the generated mesh), then the
+	# Meshy giant crab swapped in over it. Naturalistic: glow colour black, energy 0.
+	var shell: Material = KIT.mat(Color(0.35, 0.42, 0.48), 0.55)      # mottled blue-grey
+	var limb: Material = KIT.mat(Color(0.78, 0.32, 0.16), 0.6)       # orange-red chitin
+	var pale: Material = KIT.mat(Color(0.85, 0.8, 0.68), 0.7)        # cream underside
+	KIT.ball(self, Vector3(0, 0.5, 0), 0.52, shell, Vector3(1.25, 0.55, 1.0))
+	KIT.ball(self, Vector3(0, 0.36, 0), 0.44, pale, Vector3(1.05, 0.3, 0.85))
 	for i in range(8):
 		var side: float = 1.0 if i < 4 else -1.0
 		var along: float = -0.38 + (i % 4) * 0.26
 		var hip := Node3D.new()
 		add_child(hip)
 		hip.position = Vector3(along, 0.42, side * 0.5)
-		KIT.limb(hip, Vector3.ZERO, Vector3(0, 0.28, side * 0.42), 0.045, chitin_dark)
+		KIT.limb(hip, Vector3.ZERO, Vector3(0, 0.28, side * 0.42), 0.045, limb)
 		var knee := Node3D.new()
 		hip.add_child(knee)
 		knee.position = Vector3(0, 0.28, side * 0.42)
-		KIT.limb(knee, Vector3.ZERO, Vector3(0, -0.68, side * 0.22), 0.035, chitin_dark)
-		_legs.append({"hip": hip, "knee": knee, "phase": (i % 4) * PI * 0.5 + (0.0 if side > 0 else PI * 0.25), "side": side})
-	# Claw arms: shoulder pivots forward, each ending in a two-part pincer.
+		KIT.limb(knee, Vector3.ZERO, Vector3(0, -0.68, side * 0.22), 0.035, limb)
+		_legs.append({"hip": hip, "knee": knee,
+			"phase": (i % 4) * PI * 0.5 + (0.0 if side > 0 else PI * 0.25), "side": side})
 	for side in [-1.0, 1.0]:
 		var arm := Node3D.new()
 		add_child(arm)
 		arm.position = Vector3(side * 0.34, 0.42, -0.42)
-		KIT.limb(arm, Vector3.ZERO, Vector3(side * 0.12, 0.0, -0.34), 0.06, chitin)
+		KIT.limb(arm, Vector3.ZERO, Vector3(side * 0.12, 0.0, -0.34), 0.06, limb)
 		var hand := Node3D.new()
 		arm.add_child(hand)
 		hand.position = Vector3(side * 0.12, 0.0, -0.34)
-		KIT.ball(hand, Vector3(0, 0, -0.1), 0.13, chitin, Vector3(0.8, 0.7, 1.2))
-		var upper := KIT.fin(hand, Vector3(0, 0.05, -0.22), Vector3(0.07, 0.05, 0.22), chitin_dark, Vector3(-90, 0, 0))
-		var lower := KIT.fin(hand, Vector3(0, -0.05, -0.22), Vector3(0.07, 0.05, 0.18), chitin_dark, Vector3(90, 0, 0))
+		KIT.ball(hand, Vector3(0, 0, -0.1), 0.13 if side > 0 else 0.17, pale,
+			Vector3(0.8, 0.7, 1.2))   # asymmetric pincers, like the reference
+		var upper: Node3D = KIT.fin(hand, Vector3(0, 0.05, -0.22), Vector3(0.07, 0.05, 0.22), shell, Vector3(-90, 0, 0))
+		var lower: Node3D = KIT.fin(hand, Vector3(0, -0.05, -0.22), Vector3(0.07, 0.05, 0.18), shell, Vector3(90, 0, 0))
 		_claw_arms.append(arm)
 		_pincers.append(upper)
 		_pincers.append(lower)
-	# Stalked eyes, faint teal — they find you before you find them.
-	for side in [-1.0, 1.0]:
-		var stalk := Node3D.new()
-		add_child(stalk)
-		stalk.position = Vector3(side * 0.16, 0.6, -0.4)
-		KIT.limb(stalk, Vector3.ZERO, Vector3(0, 0.16, -0.06), 0.02, chitin_dark)
-		KIT.glow_spot(stalk, Vector3(0, 0.18, -0.08), 0.045, Color(0.3, 0.95, 0.9), 1.6)
-		_stalks.append(stalk)
+	# The generated mesh replaces all of that visually. SCUTTLE walks the legs in a
+	# metachronal wave; the glow uniform is pinned dark — this crab does not shine.
+	var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 1.1, ANIM.Mode.SCUTTLE,
+		0.045, 1.4, NO_GLOW)
+	if not gen.is_empty():
+		_model = gen["model"]
+		_mats = gen["mats"]
 
-## Animate the crab: procedural gait if primitive, or simple bob/sway if using the model.
-## The lamp pulses with hunt state regardless.
-func _animate(delta: float) -> void:
-	var moved: float = global_position.distance_to(_last_pos)
-	_last_pos = global_position
-	var speed: float = moved / maxf(delta, 0.0001)
-	_gait_t += delta * clampf(speed * 3.2, 0.6, 9.0)
-	_bob_t += delta
+## ---------- fightback ----------
 
-	if not _model:
-		# Primitive fallback: full procedural gait.
-		for leg in _legs:
-			var swing: float = sin(_gait_t + leg["phase"])
-			var lift: float = maxf(sin(_gait_t + leg["phase"] + PI * 0.5), 0.0)
-			(leg["hip"] as Node3D).rotation.x = swing * 0.22 * clampf(speed, 0.15, 1.0)
-			(leg["knee"] as Node3D).rotation.z = leg["side"] * lift * 0.3 * clampf(speed, 0.15, 1.0)
-		var hunting: bool = state == State.PURSUE
-		var menace: float = 1.0 if hunting else 0.0
-		for arm in _claw_arms:
-			(arm as Node3D).rotation.x = lerpf((arm as Node3D).rotation.x, -0.7 * menace + sin(_gait_t * 0.7) * 0.06, delta * 4.0)
-		for i in range(_pincers.size()):
-			var open: float = (0.35 if hunting else 0.1) * absf(sin(_gait_t * (2.2 if hunting else 0.7) + i))
-			(_pincers[i] as Node3D).rotation.x += ((-open if i % 2 == 0 else open) - (_pincers[i] as Node3D).rotation.x) * delta * 6.0
-		var player: Node3D = get_tree().get_first_node_in_group("player")
-		for stalk in _stalks:
-			var target_tilt: float = 0.0
-			if hunting and player:
-				target_tilt = clampf((player.global_position.y - global_position.y) * 0.15, -0.3, 0.3)
-			(stalk as Node3D).rotation.x = lerpf((stalk as Node3D).rotation.x, target_tilt, delta * 3.0)
+## Struck by a melee weapon (player_controller._melee_attack). Each hit staggers it;
+## enough damage and it gives up the night and goes back over the rim into the sea.
+func repel(from_pos: Vector3, damage: float) -> void:
+	if state == State.GONE or state == State.FLEE:
+		return
+	hp -= damage
+	_recoil = 0.4
+	var away: Vector3 = global_position - from_pos
+	away.y = 0.0
+	if away.length() > 0.05:
+		global_position += away.normalized() * 0.55
+		_face_toward(global_position - away)
+	AudioDirector.play_one_shot("clang", global_position, -6.0)
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hp <= 0.0:
+		_beaten = true
+		_start_flee()
+		if hud and hud.has_method("toast"):
+			hud.toast("It breaks off and drops over the rim. Gone — for tonight.")
 	else:
-		# Generated mesh: a scuttling bob + lean, with the shell flex and the Bloom rim
-		# glow both quickening as it hunts.
-		var hunt: bool = state == State.PURSUE
-		if speed > 0.1:
-			_model.position.y = sin(_bob_t * 9.0) * 0.018 * clampf(speed, 0.2, 1.5)
-			_model.rotation.z = sin(_bob_t * 4.5) * 0.035
-		else:
-			_model.position.y = lerpf(_model.position.y, 0.0, delta * 3.0)
-			_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 2.0)
-		var rim: float = (0.5 + 0.5 * sin(_gait_t * (6.5 if hunt else 1.4)))
-		# The gait is driven by REAL ground speed, so it never moonwalks: standing still
-		# it settles to a slow idle shuffle, hunting it breaks into a scuttle.
-		var gait_hz: float = clampf(speed * 1.15, 0.35, 4.2)
-		ANIM.drive(_mats, gait_hz, lerpf(0.5, 2.6, rim) * (1.6 if hunt else 1.0),
-			lerpf(0.022, 0.055, clampf(speed * 0.5, 0.0, 1.0)))
+		_resume_state = State.PATROL
+		state = State.PURSUE     # faces you down, but the recoil holds it off this beat
+		if hud and hud.has_method("toast"):
+			hud.toast("You beat it back. It rears, claws high.")
 
-	# The lamp: resting heartbeat on patrol, quickening strobe on the hunt.
-	var hunting: bool = state == State.PURSUE
-	var pulse_rate: float = 6.5 if hunting else 1.4
-	var pulse: float = 0.5 + 0.5 * sin(_gait_t * pulse_rate)
-	var menace: float = 1.0 if hunting else 0.0
-	var energy: float = lerpf(0.9, 3.2, menace * 0.7 + pulse * 0.3) * (0.6 + 0.4 * pulse)
-	if _lamp_mat:
-		_lamp_mat.emission_energy_multiplier = energy
-	if _lamp_light:
-		_lamp_light.light_energy = 0.35 + energy * 0.25
+## A held light shone on it: recoil and bolt for the water (re-approach on a cooldown).
+func _light_scare() -> void:
+	_lit_t = 0.0
+	_scare_cd = _rng.randf_range(20.0, 40.0)
+	_recoil = 0.3
+	_start_flee()
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("toast"):
+		hud.toast("It flinches from the light and bolts for the water.")
+
+func _start_flee() -> void:
+	state = State.FLEE
+	_fleeing_home = false
+	_wp_index = maxi(emerge_path.size() - 1, 0)   # walk the emergence path backwards
+
+## ---------- the bite ----------
+
+func _try_bite(player: Node3D) -> void:
+	if _bite_cd > 0.0:
+		return
+	_bite_cd = BITE_COOLDOWN
+	_recoil = 0.5   # the lunge spends the crab for a beat — no stun-lock
+	PlayerState.life -= BITE_DAMAGE
+	AudioDirector.play_one_shot("crab_snap", global_position, -6.0)
+	# Shove: horizontal knockback away from the crab, with a little lift.
+	if player is CharacterBody3D:
+		var dir: Vector3 = player.global_position - global_position
+		dir.y = 0.0
+		if dir.length() > 0.05:
+			(player as CharacterBody3D).velocity += dir.normalized() * BITE_SHOVE + Vector3.UP * 2.0
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("toast"):
+		hud.toast("The claw catches you — get clear!")
+
+## ---------- state machine ----------
 
 func _process(delta: float) -> void:
 	_animate(delta)
-	# Staggered by a weapon strike: hold this beat, then shake it off.
+	_bite_cd = maxf(_bite_cd - delta, 0.0)
+	_scare_cd = maxf(_scare_cd - delta, 0.0)
 	if _recoil > 0.0:
 		_recoil -= delta
-		if _recoil <= 0.0 and _lamp_mat and state != State.GONE:
-			_lamp_mat.emission = Color(0.25, 0.95, 0.88)   # lamp back to its cold lure teal
-		if state != State.RETREAT and state != State.GONE:
+		if state != State.FLEE:
 			return
 	Journal.discover_if_near(self, "creature_lamplight_crab", 20.0)
 	var player: Node3D = get_tree().get_first_node_in_group("player")
+	_check_light_scare(delta, player)
+	_unstick_guard(delta)
 	match state:
 		State.GONE:
 			return
-		State.RETREAT:
-			_retreat(delta)
-			return
+		State.ROOST:
+			_roost(delta)
+		State.EMERGE:
+			_emerge(delta)
+		State.PATROL:
+			_patrol(delta, player)
 		State.PURSUE:
 			_pursue(delta, player)
-			return
-		_:
-			pass
-	# Detection: darkness only, same layer-ish height, never into powered light.
-	if player and GameClock.current_phase == GameClock.Phase.NIGHT:
-		var d: float = global_position.distance_to(player.global_position)
-		# Crouching halves how far the crab can sense the player (stealth).
-		var eff_radius: float = detect_radius
-		if player.has_method("detection_factor"):
-			eff_radius *= player.detection_factor()
-		if d < eff_radius \
-				and absf(player.global_position.y - global_position.y) < 2.5 \
-				and not LightZone.point_is_safe(get_tree(), player.global_position):
-			_resume_state = state
-			state = State.PURSUE
-			_start_claw_loop()
-			return
-	# Patrol schedule ascends over the night (GDD 5.5).
-	var f: float = GameClock.phase_fraction()
-	match state:
-		State.PATROL_Z1:
-			_follow_loop(z1_loop, delta)
-			# Stagger the climb so the pack files onto the switchback one at a time.
-			if f > 0.35 + spawn_index * 0.06:
-				state = State.ASCEND
-				_wp_index = 0
-		State.ASCEND:
-			if _follow_path(ascend_path, delta):
-				# Topside reached: patrol it only if it is dark territory (Rule 7).
-				if LightZone.point_is_safe(get_tree(), z4_loop[0]):
-					state = State.ASCEND    # loiter on the stairs — light holds the deck
-					_wp_index = maxi(ascend_path.size() - 4, 0)
-				else:
-					state = State.PATROL_TOP
-					_wp_index = 0
-		State.PATROL_TOP:
-			_follow_loop(z4_loop, delta)
+		State.FLEE:
+			_flee(delta)
 
-func _follow_loop(loop: Array, delta: float) -> void:
-	if loop.is_empty():
+## Day home: a slow sidle around the underwater loop. At night, after this crab's
+## stagger slot, it heads for its emergence point — unless beaten or freshly scared.
+func _roost(delta: float) -> void:
+	_follow_loop_free(roost_loop, ROOST_SPEED, delta)
+	if GameClock.current_phase == GameClock.Phase.NIGHT and not _beaten and _scare_cd <= 0.0:
+		_night_wait -= delta
+		if _night_wait <= 0.0:
+			state = State.EMERGE
+			_wp_index = 0
+
+## The visible climb: water -> rim -> deck, no teleporting. Direct (probe-free) motion —
+## the path is authored and sonar-validated; the deck-edge lip is WHAT it is climbing.
+func _emerge(delta: float) -> void:
+	if GameClock.current_phase != GameClock.Phase.NIGHT:
+		_start_flee()
 		return
-	# patrol_offset spreads the flat wet-deck / topside loops so the pack fans out; the
-	# ascent path is left un-offset so nobody walks off the switchback.
-	var target: Vector3 = loop[_wp_index % loop.size()] + patrol_offset
-	if _step_toward(target, patrol_speed, delta):
-		_wp_index = (_wp_index + 1) % loop.size()
+	if _follow_path_free(emerge_path, patrol_speed * 0.9, delta):
+		state = State.PATROL
+		_wp_index = _nearest_index(patrol_loop)
 
-func _follow_path(path: Array, delta: float) -> bool:
-	if _wp_index >= path.size():
-		return true
-	if _step_toward(path[_wp_index], patrol_speed, delta):
-		_wp_index += 1
-	return _wp_index >= path.size()
+func _patrol(delta: float, player: Node3D) -> void:
+	if GameClock.current_phase != GameClock.Phase.NIGHT:
+		_start_flee()    # dawn: visibly go home over the rim
+		return
+	_follow_loop_deck(patrol_loop, patrol_speed, delta)
+	# Detection: darkness only, same level, never into powered light. Crouching halves
+	# how far it can sense you.
+	if player == null:
+		return
+	var eff_radius: float = detect_radius
+	if player.has_method("detection_factor"):
+		eff_radius *= player.detection_factor()
+	if global_position.distance_to(player.global_position) < eff_radius \
+			and absf(player.global_position.y - global_position.y) < 2.5 \
+			and not LightZone.point_is_safe(get_tree(), player.global_position):
+		_resume_state = State.PATROL
+		state = State.PURSUE
 
-## Body half-width used for the obstruction probes. The crab is ~0.9m across, so it
-## sweeps its own shoulders, not just its centre line — a centre-only ray lets it clip
-## a barrel with half its shell.
+func _pursue(delta: float, player: Node3D) -> void:
+	if player == null or GameClock.current_phase != GameClock.Phase.NIGHT:
+		_start_flee()
+		return
+	var p: Vector3 = player.global_position
+	# It cannot enter powered light, and it gives up a chase you outrun.
+	if LightZone.point_is_safe(get_tree(), p) or global_position.distance_to(p) > GIVE_UP_DIST:
+		state = _resume_state
+		return
+	_step_deck(Vector3(p.x, global_position.y, p.z), pursue_speed, delta)
+	if global_position.distance_to(p) < contact_radius:
+		_try_bite(player)
+
+## Retreat to the water (dawn, a scare, or a beating), then sidle home to the roost.
+func _flee(delta: float) -> void:
+	if not _fleeing_home:
+		# Walk the emergence path backwards: deck -> rim -> water.
+		if _wp_index < 0 or emerge_path.is_empty():
+			_fleeing_home = true
+			return
+		if _step_free(emerge_path[_wp_index], pursue_speed * 0.8, delta):
+			_wp_index -= 1
+			if _wp_index < 0:
+				_fleeing_home = true
+				AudioDirector.play_one_shot("splash", global_position, -8.0)
+	else:
+		var home: Vector3 = roost_loop[0] if not roost_loop.is_empty() else global_position
+		if _step_free(home, ROOST_SPEED * 2.0, delta):
+			state = State.ROOST
+			_wp_index = 0
+			_night_wait = float(spawn_index) * EMERGE_STAGGER
+
+func _on_dawn() -> void:
+	_beaten = false
+	_night_wait = float(spawn_index) * EMERGE_STAGGER
+	if state == State.PATROL or state == State.PURSUE or state == State.EMERGE:
+		_start_flee()
+
+## ---------- light scare ----------
+
+func _check_light_scare(delta: float, player: Node3D) -> void:
+	if state != State.PATROL and state != State.PURSUE and state != State.EMERGE:
+		_lit_t = 0.0
+		return
+	if player and player.has_method("light_aimed_at") \
+			and player.light_aimed_at(global_position + Vector3(0, 0.3, 0)):
+		_lit_t += delta
+		if _lit_t >= SCARE_TIME:
+			_light_scare()
+	else:
+		_lit_t = 0.0
+
+## ---------- movement ----------
+
+## Deck states use the shared wall-respecting probe step (it cannot clip crates or
+## bulkheads); water/climb states move directly along authored, sonar-validated points.
 const BODY_R: float = 0.42
-const PROBE_H: float = 0.35        ## probe from shell height, above deck lips and cables
-const STALL_GIVE_UP: float = 2.5   ## seconds boxed in before it abandons the waypoint
-
+const PROBE_H: float = 0.35
+const STALL_GIVE_UP: float = 2.5
 var _stalled: float = 0.0
 
-## Move toward `target`, but STOP AT WALLS. The crab is a plain Node3D driven by direct
-## position assignment (its whole FSM depends on that), so nothing in the physics world
-## can push it — it used to walk straight through barrels, crates and bulkheads. Rather
-## than convert it to a CharacterBody3D and rewrite the state machine, the step itself is
-## collision-tested by the shared FaunaMove helper (the same wall-respecting step every
-## snail and deck gull now uses): probe the intended motion, slide along whatever blocks
-## it, and if it stays boxed in, give up the waypoint so it can never wedge itself.
-func _step_toward(target: Vector3, speed: float, delta: float) -> bool:
+func _face_toward(target: Vector3) -> void:
+	var flat := Vector3(target.x, global_position.y, target.z)
+	if global_position.distance_to(flat) > 0.05:
+		look_at(flat, Vector3.UP)
+
+func _step_deck(target: Vector3, speed: float, delta: float) -> bool:
 	var to_target: Vector3 = target - global_position
 	if to_target.length() < 0.25:
 		_stalled = 0.0
 		return true
 	var step: Vector3 = to_target.normalized() * speed * delta
 	var moved: Vector3 = MOVE.step(self, step, BODY_R, PROBE_H)
-	# Boxed in: bail out of this waypoint rather than grinding against geometry forever.
 	if moved.length() < step.length() * 0.25:
 		_stalled += delta
 		if _stalled > STALL_GIVE_UP:
@@ -349,46 +343,138 @@ func _step_toward(target: Vector3, speed: float, delta: float) -> bool:
 			return true
 	else:
 		_stalled = 0.0
-	if to_target.length_squared() > 0.04:
-		look_at(Vector3(target.x, global_position.y, target.z), Vector3.UP)
+	_face_toward(target)
 	return false
 
-func _pursue(delta: float, player: Node3D) -> void:
-	if player == null or GameClock.current_phase != GameClock.Phase.NIGHT:
-		state = _resume_state
-		_stop_claw_loop()
-		return
-	var p: Vector3 = player.global_position
-	# It cannot enter powered light. It never attacks in light. (Canon.)
-	if LightZone.point_is_safe(get_tree(), p) or global_position.distance_to(p) > detect_radius * 2.0:
-		state = _resume_state
-		_stop_claw_loop()
-		return
-	var target := Vector3(p.x, global_position.y, p.z)
-	_step_toward(target, pursue_speed, delta)
-	if global_position.distance_to(p) < contact_radius and not _contact_fired:
-		_contact_fired = true
-		EventBus.creature_contact.emit()
-		state = State.RETREAT
-		_wp_index = 0
+func _step_free(target: Vector3, speed: float, delta: float) -> bool:
+	var to_target: Vector3 = target - global_position
+	if to_target.length() < 0.2:
+		return true
+	global_position += to_target.normalized() * minf(speed * delta, to_target.length())
+	_face_toward(target)
+	return false
 
-func _on_dawn() -> void:
-	if state != State.GONE:
-		state = State.RETREAT
-		_wp_index = 0
-		_stop_claw_loop()
+func _follow_loop_free(loop: Array, speed: float, delta: float) -> void:
+	if loop.is_empty():
+		return
+	if _step_free(loop[_wp_index % loop.size()], speed, delta):
+		_wp_index = (_wp_index + 1) % loop.size()
 
-func _retreat(delta: float) -> void:
-	# Visible exit: it slides off the Wet Deck edge into the sea (GDD 5.8).
-	if _wp_index == 0:
-		if _step_toward(exit_point, pursue_speed * 0.8, delta):
-			_wp_index = 1
+func _follow_loop_deck(loop: Array, speed: float, delta: float) -> void:
+	if loop.is_empty():
+		return
+	if _step_deck(loop[_wp_index % loop.size()] + patrol_offset, speed, delta):
+		_wp_index = (_wp_index + 1) % loop.size()
+
+func _follow_path_free(path: Array, speed: float, delta: float) -> bool:
+	if _wp_index >= path.size():
+		return true
+	if _step_free(path[_wp_index], speed, delta):
+		_wp_index += 1
+	return _wp_index >= path.size()
+
+func _nearest_index(points: Array) -> int:
+	var best: int = 0
+	var best_d: float = INF
+	for i in range(points.size()):
+		var d: float = global_position.distance_to(points[i])
+		if d < best_d:
+			best_d = d
+			best = i
+	return best
+
+## Runtime unstick: authored points are validated, but if the crab is pinned mid-hunt
+## or mid-climb (shoved into a prop, geometry edit), relocate it to the nearest valid
+## authored waypoint rather than let it grind forever.
+func _unstick_guard(delta: float) -> void:
+	if state != State.PURSUE and state != State.EMERGE:
+		_guard_pos = global_position
+		_guard_t = 0.0
+		return
+	if global_position.distance_to(_guard_pos) < STUCK_EPS:
+		_guard_t += delta
+		if _guard_t >= STUCK_TIME:
+			var pool: Array = patrol_loop if state == State.PURSUE else emerge_path
+			if not pool.is_empty():
+				global_position = pool[_nearest_index(pool)]
+			_guard_t = 0.0
+			_guard_pos = global_position
 	else:
-		global_position.y -= delta * 1.2
-		global_position += (global_transform.basis * Vector3(0, 0, -1)) * delta * 0.6
-		if global_position.y < -1.5:
-			state = State.GONE
-			if _claw_timer:
-				_claw_timer.stop()
-			AudioDirector.play_one_shot("splash", global_position)
-			queue_free()
+		_guard_pos = global_position
+		_guard_t = 0.0
+
+## ---------- animation ----------
+
+## Gait is driven by REAL ground speed (no moonwalking): still = BREATHE, a slow
+## resting swell; moving = SCUTTLE at a rate locked to how fast it actually travels.
+func _animate(delta: float) -> void:
+	var moved: float = global_position.distance_to(_last_pos)
+	_last_pos = global_position
+	_speed = moved / maxf(delta, 0.0001)
+	_gait_t += delta * clampf(_speed * 3.2, 0.6, 9.0)
+	_bob_t += delta
+	if _model:
+		if _speed > 0.1:
+			_model.position.y = sin(_bob_t * 9.0) * 0.018 * clampf(_speed, 0.2, 1.5)
+			_model.rotation.z = sin(_bob_t * 4.5) * 0.035
+		else:
+			_model.position.y = lerpf(_model.position.y, 0.0, delta * 3.0)
+			_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 2.0)
+		var resting: bool = _speed < 0.15
+		if resting != _resting_pose:
+			_resting_pose = resting
+			for m in _mats:
+				(m as ShaderMaterial).set_shader_parameter("mode",
+					ANIM.Mode.BREATHE if resting else ANIM.Mode.SCUTTLE)
+		if resting:
+			ANIM.drive(_mats, 0.45, 0.0, 0.02)
+		else:
+			ANIM.drive(_mats, clampf(_speed * 1.15, 0.6, 4.2), 0.0,
+				lerpf(0.03, 0.055, clampf(_speed * 0.5, 0.0, 1.0)))
+	else:
+		# Primitive fallback: procedural gait.
+		for leg in _legs:
+			var swing: float = sin(_gait_t + leg["phase"])
+			var lift: float = maxf(sin(_gait_t + leg["phase"] + PI * 0.5), 0.0)
+			(leg["hip"] as Node3D).rotation.x = swing * 0.22 * clampf(_speed, 0.15, 1.0)
+			(leg["knee"] as Node3D).rotation.z = leg["side"] * lift * 0.3 * clampf(_speed, 0.15, 1.0)
+		var menace: float = 1.0 if state == State.PURSUE else 0.0
+		for arm in _claw_arms:
+			(arm as Node3D).rotation.x = lerpf((arm as Node3D).rotation.x,
+				-0.7 * menace + sin(_gait_t * 0.7) * 0.06, delta * 4.0)
+		for i in range(_pincers.size()):
+			var open: float = (0.35 if menace > 0.5 else 0.1) * absf(sin(_gait_t * (2.2 if menace > 0.5 else 0.7) + i))
+			(_pincers[i] as Node3D).rotation.x += ((-open if i % 2 == 0 else open) - (_pincers[i] as Node3D).rotation.x) * delta * 6.0
+
+## ---------- audio: the jingle is dead ----------
+
+## Soft chitin taps on the footfall cadence, and ONLY when every gate holds:
+## moving, within 10 m, inside the camera frustum, and unoccluded. Any gate false ->
+## complete silence. One-shots, never a loop; nothing plays on a timer.
+func _physics_process(delta: float) -> void:
+	if _speed > 0.3 and _audio_gate_open():
+		_step_accum += delta * clampf(_speed * 1.8, 0.9, 6.0)
+		if _step_accum >= 1.0:
+			_step_accum = fmod(_step_accum, 1.0)
+			AudioDirector.play_one_shot(SCUTTLE_SHOTS[_rng.randi() % SCUTTLE_SHOTS.size()],
+				global_position, SCUTTLE_DB)
+	else:
+		_step_accum = 0.0
+
+func _audio_gate_open() -> bool:
+	var player: Node3D = get_tree().get_first_node_in_group("player")
+	if player == null:
+		return false
+	if global_position.distance_to(player.global_position) > SCUTTLE_RANGE:
+		return false
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	if cam == null:
+		return false
+	var ear: Vector3 = global_position + Vector3(0, 0.35, 0)
+	if not cam.is_position_in_frustum(ear):
+		return false
+	# Occlusion: a clear line from the camera to the crab, or it stays silent.
+	var q := PhysicsRayQueryParameters3D.create(cam.global_position, ear)
+	if player is CollisionObject3D:
+		q.exclude = [(player as CollisionObject3D).get_rid()]
+	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()

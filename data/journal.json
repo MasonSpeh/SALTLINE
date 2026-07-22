@@ -44,9 +44,9 @@
   },
   "creature_lamplight_crab": {
     "cat": "creature",
-    "title": "The Lamplight Crab",
-    "body": "Dog-sized. Comes up from the waterline after dark, walking the decks like it owns them. It will not cross powered light — not afraid, more like… polite about it. In the dark it is not polite.",
-    "hint": "Stay inside the floodlight wash after nightfall. Listen for the claw-ticks through the deck."
+    "title": "The Giant Crab",
+    "body": "Dog-sized, blue-shelled, claws like bolt cutters held high. By day they cling below the waterline — lean over the east rim and you can watch them sidle along the pontoon faces. After dark they come up over the deck edge and walk the plate like they own it. They will not cross powered light, and a beam held on one sends it straight back over the rim. In the dark, though, that claw takes a piece of you.",
+    "hint": "Daylight: look over the east deck edge. Night: keep to the lit decks, keep a torch in hand, and if one closes — run; they quit a chase you outrun."
   },
   "creature_glow_worm": {
     "cat": "creature",

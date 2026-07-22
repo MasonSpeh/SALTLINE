@@ -27,8 +27,20 @@ STYLE = ("photoreal cinematic creature design, Avatar Pandora bioluminescent aes
          "neutral symmetrical pose, full body, single subject, plain background, "
          "no base, no ground plane")
 
+# Naturalistic style for real-world animals (the giant crab is NOT a Bloom creature —
+# no bioluminescence, no glow veins; it must read as a real animal).
+NATURAL_STYLE = ("photoreal, realistic detailed natural texture, neutral symmetrical pose, "
+                 "full body, single subject, plain background, no base, no ground plane")
+
 # (slug, prompt) in priority order — most screen time / gameplay weight first.
 BESTIARY: list[tuple[str, str]] = [
+    # s11 crab remake: naturalistic giant crab replacing the lamplight crab visual.
+    ("giant_crab",
+     "a giant crab with massive oversized asymmetric pincer claws held raised, bumpy "
+     "mottled blue-grey carapace with a spiked rim, segmented orange-red legs and claw "
+     "arms with pale cream undersides, claw tips and leg tips shading to dark blue-black, "
+     "small orange eyes on short stalks, " + NATURAL_STYLE),
+
     ("ultra_hammerhead",
      "a massive alien hammerhead shark, wide flat cephalofoil head with glowing teal "
      "sensory ridges along its edge, sleek muscular slate-blue body, iridescent scales, "

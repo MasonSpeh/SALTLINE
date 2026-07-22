@@ -205,7 +205,7 @@ func _process(delta: float) -> void:
 func _bite(player: Node3D) -> void:
 	PlayerState.life -= BITE_DAMAGE
 	PlayerState.warmth -= 0.1
-	AudioDirector.play_one_shot("claw", global_position, 2.0)
+	AudioDirector.play_one_shot("crab_snap", global_position, 2.0)   # hard bite crack
 	AudioDirector.play_one_shot("splash", global_position, -2.0)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:

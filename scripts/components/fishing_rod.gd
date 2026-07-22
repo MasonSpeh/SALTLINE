@@ -192,7 +192,7 @@ func _fight(delta: float, t: float) -> void:
 	# The float drags toward the fish's runs.
 	global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 - 0.2 * surge
 	if _tension >= 1.0:
-		AudioDirector.play_one_shot("claw", _hand_pos(), -16.0)
+		AudioDirector.play_one_shot("scuttle_a", _hand_pos(), -16.0)   # dry snap of parting line
 		_finish("The line parts. Gone.")
 		return
 	if _progress <= 0.0:

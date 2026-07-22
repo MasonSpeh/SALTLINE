@@ -7,15 +7,16 @@ extends Node3D
 ## Three things this harness has to get right, all learned the hard way:
 ##  * The rain emitter FOLLOWS THE PLAYER (StormSystem._follow_player), so a storm
 ##    shot must teleport the player to the camera or it photographs dry air.
-##  * force_phase(NIGHT) re-emits GameClock.night, and Main._on_night spawns a fresh
-##    pack of three crabs EVERY time. Shots are ordered day-first and the phase is
-##    only forced when it actually changes, so the night deck holds exactly 3 crabs.
+##  * The giant crabs are PERSISTENT (s11): BloomFauna spawns the pack of three once,
+##    underwater. Shots are still ordered day-first; at night the crabs climb out on
+##    their own emergence stagger, so the night shot may catch them mid-climb.
 ##  * Fauna WALK. A fixed camera aimed at a spawn point photographs empty deck, so
 ##    subject shots ("crab"/"snail") resolve the live creature at capture time and
 ##    frame it from an offset — and print its facing next to its direction of travel,
 ##    which proves head-first crawl far better than squinting at a still.
 
 const FAUNA := preload("res://scripts/world/bloom_fauna.gd")
+const CRAB := preload("res://scripts/world/crab.gd")   # by path: class cache lags renames
 
 var _cam: Camera3D
 var _player: Node3D
@@ -97,10 +98,7 @@ func _ready() -> void:
 		await get_tree().create_timer(1.6).timeout   # settle: presence fades, rain falls
 		get_viewport().get_texture().get_image().save_png("/tmp/ws_%s.png" % s[0])
 		print("shot: ", s[0])
-	var crabs := 0
-	for c in _main.get_children():
-		if c is LamplightCrab:
-			crabs += 1
+	var crabs: int = get_tree().get_nodes_in_group("giant_crab").size()
 	print("crab count at night: ", crabs)
 	get_tree().quit()
 
@@ -121,7 +119,7 @@ func _find_snail() -> Node3D:
 	return _nearest(FAUNA.RustSnail, Vector3(16.0, 2.06, -18.2))
 
 func _find_crab() -> Node3D:
-	return _nearest(LamplightCrab, Vector3(12.0, 2.6, -20.0))
+	return _nearest(CRAB, Vector3(24.0, 2.6, -13.0))   # night patrol circuit centre
 
 func _nearest(type, anchor: Vector3) -> Node3D:
 	var best: Node3D = null

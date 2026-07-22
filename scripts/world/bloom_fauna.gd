@@ -16,11 +16,55 @@ class_name BloomFauna extends Node3D
 ##   CorvidGull   — perched Bloom-intelligent gull that tracks the player (§26)
 
 const ANIMH := preload("res://scripts/world/creature_anim.gd")
+const CRAB := preload("res://scripts/world/crab.gd")   # by path: class cache lags new names
 const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
 const PEARL := Color(0.88, 0.94, 0.92)
 
+## --- Giant crabs (s11 remake): persistent, not night-spawned -------------------------
+## Day: underwater roosts on the SE pontoon faces and the sunken dock plate — visible
+## over the deck edge or while swimming. Night: each climbs its authored emergence path
+## over the wet-deck rim and patrols. Every point below is validated against the sonar
+## scan (.sonar-rig/rig_baked.glb): the SE pontoon is solid x16..28 z-16..-8 below y1.3,
+## the deck plating ends at x30.25 (top y2.0, no rim wall), the dock plate tops at -1.3.
+const CRAB_PATROL: Array = [
+	Vector3(18, 2.6, -19.0), Vector3(27, 2.6, -19.5), Vector3(27, 2.6, -8.5),
+	Vector3(20, 2.6, -8.5), Vector3(20, 2.6, -16.0), Vector3(18, 2.6, -16.5),
+]   # skirts the store room (x10-16) and the pump ready room (x10-18, z-14..-6)
+const CRAB_EMERGE_A: Array = [   # east edge at z=-18, beside the dock
+	Vector3(31.0, -0.5, -18.0), Vector3(30.6, 0.6, -18.0),
+	Vector3(30.5, 1.7, -18.0), Vector3(29.3, 2.6, -18.0),
+]
+const CRAB_EMERGE_B: Array = [   # east edge at z=-12 (z=-10 has a fender in the way)
+	Vector3(31.0, -0.5, -12.0), Vector3(30.6, 0.6, -12.0),
+	Vector3(30.5, 1.7, -12.0), Vector3(29.3, 2.6, -12.0),
+]
+const CRAB_ROOSTS: Array = [
+	# pontoon EAST face (x=28): a slow vertical sidle, seen from the deck edge above
+	[Vector3(28.7, -0.8, -14.0), Vector3(28.7, -0.8, -10.0),
+	 Vector3(28.7, -2.0, -10.0), Vector3(28.7, -2.0, -14.0)],
+	# pontoon SOUTH face (z=-16): seen from the dock and the water
+	[Vector3(25.0, -0.8, -16.7), Vector3(21.0, -0.8, -16.7),
+	 Vector3(21.0, -2.0, -16.7), Vector3(25.0, -2.0, -16.7)],
+	# sunken dock plate (top y-1.3, x10.5-22.5 z-21.5..-18.5), under the boat landing
+	[Vector3(13.0, -1.0, -19.6), Vector3(20.0, -1.0, -19.6)],
+]
+
+func _spawn_giant_crabs() -> void:
+	var paths: Array = [CRAB_EMERGE_A, CRAB_EMERGE_B, CRAB_EMERGE_A]
+	var offsets: Array = [Vector3.ZERO, Vector3(-1.6, 0, 1.2), Vector3(1.8, 0, -1.0)]
+	for i in range(3):
+		var crab: Node3D = CRAB.new()
+		crab.spawn_index = i
+		crab.roost_loop = CRAB_ROOSTS[i]
+		crab.emerge_path = paths[i]
+		crab.patrol_loop = CRAB_PATROL
+		crab.patrol_offset = offsets[i]
+		add_child(crab)
+		crab.global_position = CRAB_ROOSTS[i][0]
+
 func _ready() -> void:
+	_spawn_giant_crabs()
 	for i in range(5):
 		add_child(Gull.new(i))
 	for i in range(7):

@@ -54,11 +54,11 @@ func _run() -> void:
 	await _wait_for_phase(GameClock.Phase.NIGHT, 120.0)
 	_check(events.get("dusk", false), "dusk fired (PA beat path)")
 	await get_tree().create_timer(0.5).timeout
-	var crab: LamplightCrab = null
-	for c in main.get_children():
-		if c is LamplightCrab:
-			crab = c
-	_check(crab != null, "crab spawned at night")
+	var CrabS := preload("res://scripts/world/crab.gd")
+	var crab: Node3D = null
+	for c in get_tree().get_nodes_in_group("giant_crab"):
+		crab = c
+	_check(crab != null, "giant crab pack present at night")
 	_check(LightZone.point_is_safe(get_tree(), player.global_position), "player safe in lit zone")
 
 	# Ride out the night to the second dawn.
@@ -67,8 +67,9 @@ func _run() -> void:
 	_check(main._ending, "end sequence armed at dawn")
 	if crab:
 		await get_tree().create_timer(1.0).timeout
-		_check(crab.state == LamplightCrab.State.RETREAT or not is_instance_valid(crab),
-			"crab retreating (or gone) at dawn")
+		_check(not is_instance_valid(crab) or crab.state == CrabS.State.FLEE \
+			or crab.state == CrabS.State.ROOST or crab.state == CrabS.State.GONE,
+			"crab heading home (or home) at dawn")
 
 	# The 30s of peace runs on real time; then the card.
 	await get_tree().create_timer(31.5).timeout

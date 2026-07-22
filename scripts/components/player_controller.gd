@@ -131,7 +131,7 @@ var _mantle_cd: float = 0.0        ## brief lockout so a mantle can't instantly 
 const JUMP_BUFFER_TIME: float = 0.15
 
 ## How detectable the player is to creatures right now (1.0 standing, 0.5 crouched,
-## 0.3 flat on the deck). The Lamplight Crab multiplies its detect radius by this.
+## 0.3 flat on the deck). The giant crab multiplies its detect radius by this.
 func detection_factor() -> float:
 	match _posture:
 		POSTURE_PRONE:
@@ -614,6 +614,28 @@ func _update_flashlight() -> void:
 		return
 	var lit: bool = _flashlight_on and _selected_item_id() == "flashlight"
 	_flashlight.light_energy = FLASHLIGHT_ENERGY if lit else 0.0
+
+## Light-scare hook (s11 giant crab): true when a held light is genuinely ON a world
+## point right now. The flashlight counts as a BEAM — within ~8 m and ~30 degrees of
+## where the camera looks. The storm lantern is an omni pool, so it only counts up
+## close. Creatures accumulate this over time (~0.5 s) before they bolt.
+const LIGHT_SCARE_DIST: float = 8.0
+const LIGHT_SCARE_COS: float = 0.866   # cos(30 deg)
+const LANTERN_SCARE_DIST: float = 4.5
+
+func light_aimed_at(target: Vector3) -> bool:
+	if camera == null:
+		return false
+	var to: Vector3 = target - camera.global_position
+	var d: float = to.length()
+	if _flashlight_on and _selected_item_id() == "flashlight":
+		if d < LIGHT_SCARE_DIST and d > 0.05 \
+				and to.normalized().dot(-camera.global_transform.basis.z) > LIGHT_SCARE_COS:
+			return true
+	if _selected_item_id() == "storm_lantern" and PlayerState.has_item("storm_lantern"):
+		if d < LANTERN_SCARE_DIST:
+			return true
+	return false
 
 func _update_footsteps(_delta: float) -> void:
 	if not is_on_floor():

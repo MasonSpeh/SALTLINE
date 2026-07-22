@@ -9,7 +9,7 @@ const SLUGS := [
 	"ultra_hammerhead", "epic_four_eyed_whale", "mantle_ray", "corvid_gull",
 	"lamp_eel", "sea_gull", "tide_worm", "lamp_snail", "rust_snail", "glass_snail",
 	"jelly_drifter", "barnacle_cluster", "anchor_limpet", "glow_worm",
-	"harbor_seal", "bait_fish", "lamplight_crab",           # post-regen
+	"harbor_seal", "bait_fish", "lamplight_crab", "giant_crab",   # post-regen
 	"glow_kelp", "glow_creeper", "bloom_anemone",           # flora
 ]
 const ANIM := preload("res://scripts/world/creature_anim.gd")

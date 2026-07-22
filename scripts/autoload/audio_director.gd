@@ -22,7 +22,6 @@ const ONE_SHOTS: Dictionary = {
 	"thunder": "res://audio/thunder.wav",
 	"groan": "res://audio/groan.wav",
 	"gull": "res://audio/gull.wav",
-	"claw": "res://audio/claw.wav",
 	"pa_crackle": "res://audio/pa_crackle.wav",
 	"hiss": "res://audio/hiss.wav",
 	"clang": "res://audio/clang.wav",
@@ -31,6 +30,13 @@ const ONE_SHOTS: Dictionary = {
 	"splash": "res://audio/splash.wav",
 	"eat": "res://audio/eat.wav",
 	"step": "res://audio/step.wav",
+	# Giant crab (s11): soft chitin scuttle taps + the pincer snap. Fired as one-shots
+	# by the crab itself, hard-gated on movement + proximity + actual visibility —
+	# there is NO ambient or looping claw sound anymore.
+	"scuttle_a": "res://audio/scuttle_a.wav",
+	"scuttle_b": "res://audio/scuttle_b.wav",
+	"scuttle_c": "res://audio/scuttle_c.wav",
+	"crab_snap": "res://audio/crab_snap.wav",
 	# Ambience events (scripts/world/ambience.gd schedules these).
 	"deep_groan": "res://audio/deep_groan.wav",
 	"sheet_bang": "res://audio/sheet_bang.wav",
@@ -41,7 +47,6 @@ var _beds: Dictionary = {}       ## name -> AudioStreamPlayer
 var _streams: Dictionary = {}    ## name -> AudioStream (one-shots)
 var _groan_timer: Timer
 var _gull_timer: Timer
-var _tick_timer: Timer           ## dusk onward: distant claw ticks from below (GDD 5.5)
 var night_range_multiplier: float = 1.0
 
 ## AUDIO OPTIONS (pause menu). The rig was over-stimulating: too many competing sources
@@ -55,7 +60,7 @@ var wildlife_machinery_on: bool = true
 var atmosphere_on: bool = true
 
 ## Creature and machinery sources: animal calls and the idle plant hum.
-const WILDLIFE_MACHINERY: Array[String] = ["gull", "claw", "groan"]
+const WILDLIFE_MACHINERY: Array[String] = ["gull", "groan", "scuttle_a", "scuttle_b", "scuttle_c", "crab_snap"]
 ## The scored-feeling layer: randomized structural events.
 const ATMOSPHERE_EVENTS: Array[String] = ["deep_groan", "sheet_bang", "drip"]
 
@@ -96,10 +101,6 @@ func _ready() -> void:
 	_gull_timer.one_shot = true
 	add_child(_gull_timer)
 	_gull_timer.timeout.connect(_random_gull)
-	_tick_timer = Timer.new()
-	_tick_timer.one_shot = true
-	add_child(_tick_timer)
-	_tick_timer.timeout.connect(_distant_tick)
 
 	GameClock.phase_changed.connect(_on_phase_changed)
 	PowerGrid.circuit_powered.connect(func(_id: String) -> void: _update_hum())
@@ -133,12 +134,10 @@ func _on_phase_changed(phase: GameClock.Phase) -> void:
 		_schedule(_gull_timer, 12.0)
 	else:
 		_gull_timer.stop()
-	# The player should HEAR the crab for minutes before seeing it (GDD 5.5):
-	# from dusk on, faint claw ticks rise from the structure below.
-	if is_dusk or is_night:
-		_schedule(_tick_timer, 18.0 if is_dusk else 12.0)
-	else:
-		_tick_timer.stop()
+	# NOTE (s11): the old "distant claw ticks from below" generator is GONE. It fired
+	# claw.wav every 12-18 s all dusk and night regardless of any crab's state — the
+	# "constant jingling". Crab audio now comes only from the crabs themselves, and
+	# only when one is moving, near, and visible.
 
 func _update_hum() -> void:
 	var any_power: bool = not PowerGrid.powered_ids().is_empty()
@@ -192,16 +191,6 @@ func _random_groan() -> void:
 		play_one_shot("groan", player.global_position + offset)
 	_schedule(_groan_timer, 20.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 50.0)
 
-func _distant_tick() -> void:
-	# Two or three faint clicks somewhere below the player, through the steel.
-	var player: Node3D = get_tree().get_first_node_in_group("player")
-	if player:
-		var base: Vector3 = player.global_position + Vector3(randf_range(-14, 14), randf_range(-14, -6), randf_range(-14, 14))
-		for i in range(randi_range(2, 3)):
-			var t := get_tree().create_timer(i * 0.35)
-			t.timeout.connect(func() -> void: play_one_shot("claw", base, -14.0))
-	_schedule(_tick_timer, 18.0 if GameClock.current_phase == GameClock.Phase.DUSK else 12.0)
-
 func _random_gull() -> void:
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	if player:
@@ -232,24 +221,6 @@ func play_one_shot(shot_name: String, world_pos: Vector3, volume_db: float = 0.0
 		p3.finished.connect(p3.queue_free)
 		p3.play()
 
-## Looping spatial emitter attached to a moving node (crab claw-steps).
-## Repeating positional one-shot. `volume_db` is per-loop now — the claw loop used to
-## hardcode -4 dB here, which made every looping sound effect nearly full-volume.
-## `max_range` > 0 skips the shot entirely while the player is further away than that:
-## a repeating cue is a proximity warning, and a warning you can hear from anywhere on
-## the rig all night is just noise.
-func attach_loop(shot_name: String, parent: Node3D, interval: float,
-		volume_db: float = -4.0, max_range: float = 0.0) -> Timer:
-	var t := Timer.new()
-	t.wait_time = interval
-	parent.add_child(t)
-	t.timeout.connect(func() -> void:
-		if not is_instance_valid(parent):
-			return
-		if max_range > 0.0:
-			var player: Node = get_tree().get_first_node_in_group("player")
-			if player is Node3D and (player as Node3D).global_position.distance_to(parent.global_position) > max_range:
-				return
-		play_one_shot(shot_name, parent.global_position, volume_db))
-	t.start()
-	return t
+## NOTE (s11): attach_loop — the looping claw-step timer emitter — is deleted. Its only
+## caller was the old crab, and a repeating creature cue on a timer is exactly the
+## design that produced the constant jingling. Creature audio is one-shots, event-driven.

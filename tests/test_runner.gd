@@ -209,32 +209,75 @@ func _run() -> void:
 	PlayerState.use_hotbar(slot)
 	_check(PlayerState.hunger > before, "eating restores hunger")
 
-	# Night: crab spawns, pursues in darkness, respects light.
-	GameClock.force_phase(GameClock.Phase.NIGHT)
-	await get_tree().process_frame
-	var crab: LamplightCrab = null
-	for c in main.get_children():
-		if c is LamplightCrab:
-			crab = c
-	_check(crab != null, "crab spawns at night")
+	# Giant crabs (s11 remake): a persistent pack of three — underwater roosts by day,
+	# an authored climb over the deck rim at night, a 0.25-life bite, light-scare, and
+	# scuttle audio hard-gated on visibility.
+	var CrabS := preload("res://scripts/world/crab.gd")
+	var crabs: Array = get_tree().get_nodes_in_group("giant_crab")
+	_check(crabs.size() == 3, "three giant crabs live on the rig")
+	var all_under: bool = crabs.size() > 0
+	for cc in crabs:
+		if (cc as Node3D).global_position.y > 0.5:
+			all_under = false
+	_check(all_under, "crabs roost below the waterline by day")
+	var lamp_free: bool = crabs.size() > 0
+	for cc in crabs:
+		if not (cc as Node).find_children("*", "Light3D", true, false).is_empty():
+			lamp_free = false
+	_check(lamp_free, "no crab carries a lamp or any light node (naturalistic)")
+	var crab: Node3D = crabs[0] if crabs.size() > 0 else null
 	if crab:
-		crab.global_position = Vector3(20, 3, -10)
-		player.global_position = Vector3(21, 3, -10)   # dark wet deck, 1m away
+		# Night hunt: emerged crab + dark deck + player in reach -> PURSUE.
+		GameClock.force_phase(GameClock.Phase.NIGHT)
+		crab.state = CrabS.State.PATROL   # emerged (the staged climb is tested via FLEE below)
+		crab.global_position = Vector3(20, 2.6, -10)
+		player.global_position = Vector3(21, 2.6, -10)   # dark wet deck, 1m away
 		await get_tree().process_frame
 		await get_tree().process_frame
-		_check(crab.state == LamplightCrab.State.PURSUE or crab._contact_fired,
-			"crab pursues player in darkness")
-
-	# Contact stub: blackout -> SPHL -> dawn.
-	var start_day: int = GameClock.day_count
-	EventBus.creature_contact.emit()
-	await get_tree().create_timer(3.2).timeout
-	_check(player.global_position.distance_to(rig.sphl_interior) < 2.0, "contact returns player to SPHL")
-	_check(GameClock.day_count > start_day, "contact skips to dawn")
-	_check(GameClock.current_phase == GameClock.Phase.DAWN, "phase is dawn after contact")
-	# Open-ended survival: dawn must NOT arm the end sequence anymore — sleeping used to
-	# finish the whole game because every sleep skips to dawn.
-	_check(not main._ending, "dawn does not end the game (open-ended survival)")
+		_check(crab.state == CrabS.State.PURSUE, "crab hunts the player in darkness")
+		# The bite: 0.25 normalized life + a shove, on a cooldown — no blackout teleport.
+		PlayerState.life = 1.0
+		crab._bite_cd = 0.0
+		crab._try_bite(player)
+		_check(absf(PlayerState.life - 0.75) < 0.001, "a bite costs 0.25 life")
+		_check(crab._bite_cd > 0.0, "bites are on a cooldown")
+		# Light scare: a held torch beam on it for half a second sends it to the water.
+		PlayerState.add_item("flashlight")
+		var fslot: int = PlayerState.hotbar.find("flashlight")
+		_check(fslot != -1, "flashlight lands in the hotbar")
+		PlayerState.selected_hotbar = fslot
+		player._flashlight_on = true
+		crab.state = CrabS.State.PURSUE
+		crab._recoil = 0.0
+		var cam3: Camera3D = player.get_node("Head/Camera3D") as Camera3D
+		crab.global_position = cam3.global_position + (-cam3.global_transform.basis.z) * 3.0
+		_check(player.light_aimed_at(crab.global_position + Vector3(0, 0.3, 0)),
+			"a held flashlight beam reads as aimed at the crab")
+		crab._lit_t = 0.0
+		crab._check_light_scare(0.6, player)
+		_check(crab.state == CrabS.State.FLEE, "a beam-lit crab bolts for the water")
+		_check(crab._scare_cd > 0.0, "scared crab re-approaches on a cooldown")
+		PlayerState.remove_item("flashlight")
+		# Scuttle audio gate: silence unless the crab is near AND actually visible.
+		crab.global_position = player.global_position + Vector3(30, 0, 0)
+		_check(not crab._audio_gate_open(), "scuttle audio gated silent beyond 10 m")
+		crab.global_position = cam3.global_position + cam3.global_transform.basis.z * 3.0
+		_check(not crab._audio_gate_open(), "scuttle audio gated silent behind the camera")
+		player.global_position = Vector3(45, 60, -45)   # open air: nothing to occlude
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+		crab.global_position = cam3.global_position + (-cam3.global_transform.basis.z) * 4.0
+		_check(crab._audio_gate_open(), "scuttle audio opens when near, framed, and unoccluded")
+		# Dawn: deck crabs visibly head back over the rim (FLEE walks the climb reversed).
+		crab.state = CrabS.State.PATROL
+		GameClock.force_phase(GameClock.Phase.DAWN)
+		_check(crab.state == CrabS.State.FLEE, "dawn sends deck crabs back to the water")
+		_check(not main._ending, "dawn does not end the game (open-ended survival)")
+		# Put the crab back on its roost so later checks see the resting pack.
+		crab.state = CrabS.State.ROOST
+		crab._scare_cd = 0.0
+		if not crab.roost_loop.is_empty():
+			crab.global_position = crab.roost_loop[0]
 
 	# Build mode: B toggles, ghost rides aim, place consumes the kit into a structure.
 	GameClock.force_phase(GameClock.Phase.DAY)
@@ -541,22 +584,16 @@ func _run() -> void:
 		corvid.global_position = nest_node.global_position + Vector3(0, 0.6, 0)
 		corvid._theft(0.1)   # deposit
 		_check(nest_node.items.has("rope"), "stolen loot lands in the nest cache")
-	# Crab anatomy: the night threat has its eight legs and its lamp.
-	GameClock.force_phase(GameClock.Phase.NIGHT)
-	await get_tree().process_frame
-	var crab2: LamplightCrab = null
-	for c2 in main.get_children():
-		if c2 is LamplightCrab:
-			crab2 = c2
+	# Crab anatomy (s11): the persistent giant crab — generated mesh preferred, eight
+	# articulated procedural legs as the fallback. Naturalistic: no lamp (asserted above).
+	var crab2: Node3D = null
+	for c2 in get_tree().get_nodes_in_group("giant_crab"):
+		crab2 = c2
 	if crab2:
-		# The crab now prefers the generated mesh (animated by CreatureAnim's vertex
-		# shader) and only falls back to the eight procedural legs when that asset is
-		# missing — so assert it has ONE of the two bodies, not specifically the legs.
 		_check(crab2._model != null or crab2._legs.size() == 8,
 			"crab has a body: generated mesh or eight articulated legs")
 		if crab2._model != null:
 			_check(not crab2._mats.is_empty(), "generated crab is driven by the motion shader")
-		_check(crab2._lamp_mat != null, "the lamp lure organ exists")
 	GameClock.force_phase(GameClock.Phase.DAY)
 
 	# Save round-trip.

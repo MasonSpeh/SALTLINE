@@ -7,6 +7,7 @@ const ANIM := preload("res://scripts/world/creature_anim.gd")
 
 # slug, target size (m), shader mode, amp, rate, glow energy, [glow colour], [opacity]
 const SUBJECTS := [
+	["giant_crab", 1.1, 4, 0.045, 1.4, 0.0],   # naturalistic — no glow
 	["lamplight_crab", 0.9, 0, 0.012, 1.2, 1.4],
 	["ultra_hammerhead", 5.0, 0, 0.09, 1.1, 0.5],
 	["epic_four_eyed_whale", 14.0, 0, 0.22, 0.28, 1.2],

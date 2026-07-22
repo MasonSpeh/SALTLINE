@@ -11,7 +11,6 @@ var storm: StormSystem
 var _countdown: float = 0.0   # retained for the screenshot harness; no longer ticks
 var _cold_open_active: bool = true
 var _ending: bool = false
-var _contact_handled: bool = false
 var jelly := JellyGlow.new()
 
 func _ready() -> void:
@@ -41,7 +40,6 @@ func _ready() -> void:
 	GameClock.night.connect(_on_night)
 	GameClock.dawn.connect(_on_dawn)
 	PowerGrid.circuit_powered.connect(_on_circuit_powered)
-	EventBus.creature_contact.connect(_on_creature_contact)
 	# Drop a few loose grabbables on the wet deck — something to physically handle.
 	_spawn_props()
 	# Frame budget: drop sub-texel geometry out of the shadow cascades and give small
@@ -238,19 +236,9 @@ func _on_night() -> void:
 	if _ending:
 		return
 	hud.set_objective("Something's out there. Stay in the light until dawn.")
-	# A pack of three, staggered so they don't stack or move in lockstep — each keeps the
-	# full one-crab drama (repellable, blackout on contact) via its own independent FSM.
-	var offsets := [Vector3.ZERO, Vector3(-2.4, 0, 1.6), Vector3(2.2, 0, -1.4)]
-	for i in range(3):
-		var crab := LamplightCrab.new()
-		crab.spawn_index = i
-		crab.patrol_offset = offsets[i]
-		crab.z1_loop = rig.crab_z1_loop
-		crab.ascend_path = rig.crab_ascend_path
-		crab.z4_loop = rig.crab_z4_loop
-		crab.exit_point = rig.crab_exit_point
-		add_child(crab)
-		crab.global_position = rig.crab_spawn + offsets[i]
+	# The giant crabs are PERSISTENT now (s11 remake): they live underwater by day and
+	# climb the wet-deck rim at night on their own FSM. Spawned once by BloomFauna —
+	# nothing to do here beyond the objective text.
 
 func _on_dawn() -> void:
 	# The v0.1 slice ended the game at the first dawn — an end card and a paused tree.
@@ -261,27 +249,6 @@ func _on_dawn() -> void:
 	if GameClock.day_count == 1 and not _ending:
 		hud.set_objective("You made it through the first night.")
 		hud.toast("The sun is up. The rig is yours to live on.")
-
-func _on_creature_contact() -> void:
-	if _contact_handled:
-		return
-	_contact_handled = true
-	# Screen dark + scuffle + wake at dawn in the SPHL with penalties (GDD 5.5).
-	player.input_locked = true
-	AudioDirector.play_one_shot("splash", player.global_position, 2.0)
-	AudioDirector.play_one_shot("claw", player.global_position, 4.0)
-	var tw: Tween = hud.fade_to_black(0.5)
-	tw.tween_interval(2.0)
-	tw.tween_callback(func() -> void:
-		player.global_position = rig.sphl_interior
-		player.velocity = Vector3.ZERO
-		PlayerState.hunger -= 0.25
-		PlayerState.warmth -= 0.25
-		GameClock.skip_to_next_dawn()
-		player.input_locked = false
-		_contact_handled = false
-		hud.fade_from_black(3.0)
-		hud.toast("You wake in the lifeboat. Something carried you back."))
 
 # ---------- below the wave line: camera environment swap ----------
 

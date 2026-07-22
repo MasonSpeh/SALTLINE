@@ -84,7 +84,7 @@ func _tar_visual() -> Node3D:
 func _barnacle_crust() -> void:
 	var def := {
 		"tools": [], "speed": ["hammer_tool", "prybar"], "verb": "SCRAPE", "work": 2.2,
-		"sound": "claw", "regrow": 300.0, "risk": 0.02, "name": "Barnacle Crust",
+		"sound": "scuttle_c", "regrow": 300.0, "risk": 0.02, "name": "Barnacle Crust",
 		"yields": {"shell_grit": 1},
 		"hint": "", "start": "You get an edge under the crust.",
 		"done": "A palmful of broken shell comes away with it.",

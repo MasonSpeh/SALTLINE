@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """Synthesize placeholder audio for SALTLINE v0.1 (CC0-equivalent: generated).
-Beds: wind, sea, hum. One-shots: groan, gull, claw, pa_crackle, hiss, clang,
+Beds: wind, sea, hum. One-shots: groan, gull, pa_crackle, hiss, clang,
 breaker, hatch, splash, eat. 22.05 kHz mono 16-bit WAV."""
 import math
 import random
@@ -91,10 +91,7 @@ for i in range(n):
     gull.append(chirp * amp * 0.5)
 write_wav("gull", env_fade(gull))
 
-n = int(SR * 0.14)
-claw = [random.uniform(-1, 1) * math.exp(-i / SR * 90) for i in range(n)]
-claw = [c * 0.9 + 0.4 * math.sin(2 * math.pi * 900 * i / SR) * math.exp(-i / SR * 60) for i, c in enumerate(claw)]
-write_wav("claw", env_fade(claw, 0.02))
+# claw.wav removed (s11): the giant crab's scuttle taps live in gen_crab_audio.py.
 
 n = SR * 4
 pa = lowpass(noise(n), 0.25)

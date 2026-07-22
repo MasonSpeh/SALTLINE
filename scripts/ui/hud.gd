@@ -525,7 +525,7 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 · Three of your own structures around a bed or a fire make a [b]camp[/b]. Camps keep you.
 · Sit in a chair and watch the sea. It costs you almost nothing, and it isn't nothing.
 · When the gulls leave, you have one dusk of grace. Use it.
-· Listen. The claw-ticks through the deck are a countdown."""
+· The crabs live under the waterline by day. After dark, watch the deck rim east."""
 	help_panel.add_child(help_text)
 
 	# JOURNAL — discoveries, grouped; logs re-readable.
