@@ -21,20 +21,9 @@ var sphl_hatch: InteractDoor
 var sphl_interior: Vector3 = Vector3(16.5, WET_Y + 0.4, -24.0)
 var countdown_label: Label3D
 var pa_speaker_pos: Vector3 = Vector3(14, 21.0, 7)
-var crab_spawn: Vector3 = Vector3(12, WET_Y + 0.6, -20)
-var crab_z1_loop: Array = [
-	Vector3(11, 2.6, -20), Vector3(28, 2.6, -20), Vector3(28, 2.6, -8), Vector3(11, 2.6, -8),
-]
-var crab_ascend_path: Array = [
-	Vector3(24, 2.6, -4.5), Vector3(23, 2.6, -4.5), Vector3(29, 6.6, -4.5),
-	Vector3(29, 6.6, 0.5), Vector3(23, 10.6, 0.5), Vector3(23, 10.6, -4.5),
-	Vector3(29, 14.6, -4.5), Vector3(29, 14.6, 0.5), Vector3(23, 18.6, 0.5),
-	Vector3(20, 18.6, 0.5),
-]
-var crab_z4_loop: Array = [
-	Vector3(18, 18.6, -10), Vector3(-18, 18.6, -10), Vector3(-18, 18.6, 6), Vector3(18, 18.6, 6),
-]
-var crab_exit_point: Vector3 = Vector3(26, 2.6, -20)
+# (The old LamplightCrab patrol paths — crab_spawn / crab_z1_loop / crab_ascend_path /
+# crab_z4_loop / crab_exit_point — were retired with the s11 crab remake. The GiantCrab
+# routes now live as sonar-validated constants in bloom_fauna.gd, CRAB_PATROL et al.)
 
 func _ready() -> void:
 	_build_structure()
@@ -814,10 +803,14 @@ func _build_stair_tower() -> void:
 	_box(Vector3(27.7, 10.6, 3.6), Vector3(0.12, 0.12, 2.2), MatLib.dark_metal(), self, false)
 
 	# --- POWER-ROUTE STENCILS (a real player could not find the breaker room, or
-	# know cable came first). Every marking is painted on a solid wall the climber
-	# faces, amber like a live instruction. LANDING 1 (y6) north wall faces south.
-	_plabel("MACHINERY 1", Vector3(28.5, 6.0 + 2.0, 1.88), 180, 18, Color(0.95, 0.72, 0.2))
-	_plabel("CABLE STORES - TAKE THE SPOOL", Vector3(28.5, 6.0 + 1.62, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
+	# know cable came first). Painted as weathered stencil (the amber source colour only
+	# sets how faded the paint reads — _plabel routes every label through _paint_black, so
+	# it renders as dark charcoal like all rig signage, NOT a bright amber; it is content,
+	# not colour, that guides here). LANDING 1 (y6) north wall faces south. The machinery
+	# door is cut at x27.7..29.3, y6.0..8.4, so its two signs sit ABOVE the door header
+	# (y>8.4) on solid lintel wall, reading as a sign hung over the doorway.
+	_plabel("MACHINERY 1", Vector3(28.5, 9.05, 1.88), 180, 18, Color(0.95, 0.72, 0.2))
+	_plabel("CABLE STORES - TAKE THE SPOOL", Vector3(28.5, 8.62, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
 	_plabel("MAIN POWER: BREAKER 4-A - ONE LEVEL UP", Vector3(25.2, 6.0 + 2.0, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
 	# The spool itself, named where it sits so it is unmistakably the thing to grab.
 	_plabel("SPARE FEED CABLE", Vector3(27.0, 7.9, 5.6), 180, 12, Color(0.95, 0.72, 0.2))

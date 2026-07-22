@@ -44,12 +44,17 @@ const MAX_DROP: float = 2.5
 
 ## Subtrees that must never be indexed as scenery: they move. A fish swimming past is not
 ## a shelf. Matched against the node's script path.
-## Plus one subtree that does not move but must still not be indexed: mesh_batcher.gd's
-## welded output is a DUPLICATE of geometry already in this index. The batcher deliberately
-## leaves every source node in the tree (it only clears their render layer mask), so the
-## real surfaces are still counted from the originals; indexing the welds as well would add
-## one enormous merged AABB per bucket and let a mug rest on the convex hull of a hundred
-## scattered bolts. tests/placement_probe.gd reads this same list.
+## Plus one subtree that does not move but must still not be indexed: rig_batcher.gd's
+## welded dressing output (MeshInstance3D in group "merged_dressing", skipped at L99 below —
+## it carries no script, so SKIP_SCRIPTS cannot catch it). That weld is a DUPLICATE of
+## geometry already in this index; indexing it too would add one enormous merged AABB per
+## bucket and let a mug rest on the convex hull of a hundred scattered bolts.
+## CAUTION for anyone building a SupportIndex AFTER the rig has been batched: rig_batcher.gd
+## FREES its source nodes (rig_batcher.gd:139 n.free()) once it has welded them, so those
+## real surfaces are gone from the tree and a from-scratch index will UNDER-count them and
+## report false floaters. That is exactly why tests/placement_probe.gd frees RigBatcher
+## before it welds (placement_probe.gd:82) and audits the pre-batch tree. This SKIP list is
+## shared with tests/placement_probe.gd.
 const SKIP_SCRIPTS := [
 	"crab.gd", "shark.gd", "bloom_fauna.gd", "underwater_world.gd", "creature_kit.gd",
 	"creature_anim.gd", "jelly_glow.gd", "gyre.gd", "storm_system.gd", "fish_model_lib.gd",

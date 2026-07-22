@@ -4,5 +4,4 @@ extends Node
 
 signal cold_open_finished
 signal pa_crackle_triggered
-signal creature_contact
 signal slice_complete

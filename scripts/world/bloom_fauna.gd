@@ -52,7 +52,12 @@ const CRAB_ROOSTS: Array = [
 
 func _spawn_giant_crabs() -> void:
 	var paths: Array = [CRAB_EMERGE_A, CRAB_EMERGE_B, CRAB_EMERGE_A]
-	var offsets: Array = [Vector3.ZERO, Vector3(-1.6, 0, 1.2), Vector3(1.8, 0, -1.0)]
+	# Offsets fan the pack out on the shared loop. Each was re-validated as base+offset
+	# against every one of the 6 patrol waypoints (sonar scan .sonar-rig/rig_baked.glb):
+	# the old 1.6-1.8 m fan overshot the store/pump-room walls and the SE deck fixture
+	# (7 of 18 targets inside geometry / <0.72 m clearance). These stay <=0.62 m and lean
+	# INBOARD (-x), so worst-case lateral clearance across all 18 targets is 1.05 m.
+	var offsets: Array = [Vector3.ZERO, Vector3(-0.5, 0, 0.35), Vector3(-0.5, 0, -0.35)]
 	for i in range(3):
 		var crab: Node3D = CRAB.new()
 		crab.spawn_index = i

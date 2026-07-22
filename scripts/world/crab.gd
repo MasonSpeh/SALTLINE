@@ -387,14 +387,14 @@ func _nearest_index(points: Array) -> int:
 ## or mid-climb (shoved into a prop, geometry edit), relocate it to the nearest valid
 ## authored waypoint rather than let it grind forever.
 func _unstick_guard(delta: float) -> void:
-	if state != State.PURSUE and state != State.EMERGE:
+	if state != State.PURSUE and state != State.EMERGE and state != State.PATROL:
 		_guard_pos = global_position
 		_guard_t = 0.0
 		return
 	if global_position.distance_to(_guard_pos) < STUCK_EPS:
 		_guard_t += delta
 		if _guard_t >= STUCK_TIME:
-			var pool: Array = patrol_loop if state == State.PURSUE else emerge_path
+			var pool: Array = emerge_path if state == State.EMERGE else patrol_loop
 			if not pool.is_empty():
 				global_position = pool[_nearest_index(pool)]
 			_guard_t = 0.0

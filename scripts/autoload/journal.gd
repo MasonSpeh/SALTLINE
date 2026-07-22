@@ -28,7 +28,8 @@ func _ready() -> void:
 			data = parsed
 	# Signal-driven discoveries that need no call site:
 	PowerGrid.circuit_powered.connect(func(_id: String) -> void: discover("place_power"))
-	EventBus.creature_contact.connect(func() -> void: discover("creature_lamplight_crab"))
+	# (crab discovery is driven directly by GiantCrab via Journal.discover_if_near — the old
+	# EventBus.creature_contact signal was retired with the s11 crab remake.)
 	EventBus.cold_open_finished.connect(func() -> void: discover("place_sphl"))
 
 func discover(id: String) -> void:

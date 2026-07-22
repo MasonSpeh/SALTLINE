@@ -339,21 +339,20 @@ func _run() -> void:
 		if not crab.roost_loop.is_empty():
 			crab.global_position = crab.roost_loop[0]
 
-	# Lamp snails: gentle bioluminescent pools at night.
-	# Find all snail lights by searching for OmniLight3D nodes with warm teal color.
+	# Lamp snails: gentle bioluminescent pools at night. Identify the snails DIRECTLY by
+	# their group (not by light colour): a planter kit's glow light is an exact-match teal
+	# with the same shadow/range signature, so a colour probe would miscount if one is ever
+	# pre-placed. Each lamp snail owns exactly one shadow-off OmniLight3D in the range band.
 	var snail_lights: Array = []
-	var stack: Array[Node] = [main]
-	while not stack.is_empty():
-		var n: Node = stack.pop_back()
-		for c in n.get_children():
-			stack.append(c)
-		# Look for OmniLight3D with color close to warm teal (0.35, 0.95, 0.88)
-		# and shadows disabled — these are the snail lights we just added.
-		if n is OmniLight3D:
-			var col = n.light_color
-			if abs(col.r - 0.35) < 0.1 and abs(col.g - 0.95) < 0.1 and abs(col.b - 0.88) < 0.1:
-				if n.shadow_enabled == false:
-					snail_lights.append(n)
+	for snail in get_tree().get_nodes_in_group("snail_lamp"):
+		var stack: Array[Node] = [snail]
+		while not stack.is_empty():
+			var n: Node = stack.pop_back()
+			for c in n.get_children():
+				stack.append(c)
+			if n is OmniLight3D and n.shadow_enabled == false \
+					and n.omni_range >= 2.5 and n.omni_range <= 3.5:
+				snail_lights.append(n)
 	_check(snail_lights.size() == 6, "lamp snails have 6 bioluminescent lights")
 	# Check that lights have proper range (2.5-3.5m) and are shadows-off for gl_compatibility.
 	var snail_light_range_ok: bool = true

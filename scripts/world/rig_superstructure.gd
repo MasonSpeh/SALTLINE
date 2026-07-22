@@ -1033,8 +1033,9 @@ func _deck_d() -> void:
 	for side in [-0.85, 0.85]:
 		_dcyl(Vector3(10.5 + side, y + 1.0, 9.4), 0.22, 0.06, MatLib.dark_metal()).rotation.z = PI / 2
 	# Exercise mat: was authored at y+0.02, fully inside the gym's rubber-floor overlay
-	# (y+0.02..0.05) — an invisible mat. Raised so it lies on the floor it dressed.
-	_dbox(Vector3(13, y + 0.05, 10.5), Vector3(1.8, 0.03, 1.2), MatLib.flat(Color(0.25, 0.35, 0.45)))
+	# (y+0.02..0.05). A 0.03-thick box must sit its BOTTOM on the 0.05 overlay top, so its
+	# centre is y+0.065 (bottom 0.05, top 0.08) — y+0.05 left it half-sunk to its midline.
+	_dbox(Vector3(13, y + 0.065, 10.5), Vector3(1.8, 0.03, 1.2), MatLib.flat(Color(0.25, 0.35, 0.45)))
 	_label("GYM", Vector3(11.5, y + 2.35, 13.16), 0, 28)
 	_light(Vector3(11.5, y + 2.85, 10.5), 0.45, 6.5)
 	# Laundry (x 15.5..23, z 8..13): washers, hanging line with sheets.
@@ -1349,8 +1350,9 @@ func _density_pass() -> void:
 	for tx in [5.1, 5.6]:
 		_dbox(Vector3(tx, y + 1.4, 17.83), Vector3(0.3, 0.5, 0.05), MatLib.flat(Color(0.8, 0.82, 0.8)))
 	_dcyl(Vector3(-1.2, y + 0.15, 16.6), 0.16, 0.3, MatLib.galvanized())
-	# Duckboard: y+0.02 buried it inside the kitchen-tile overlay (y+0.02..0.05).
-	_dbox(Vector3(0.5, y + 0.05, 14.4), Vector3(1.6, 0.03, 0.8), MatLib.wood())
+	# Duckboard: y+0.02 buried it inside the kitchen-tile overlay (y+0.02..0.05). A 0.03-thick
+	# box seats its bottom on the 0.05 overlay top at centre y+0.065 (y+0.05 was half-sunk).
+	_dbox(Vector3(0.5, y + 0.065, 14.4), Vector3(1.6, 0.03, 0.8), MatLib.wood())
 
 	# --- Deck C additions.
 	y = C_Y

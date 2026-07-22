@@ -84,7 +84,6 @@ var _died: bool = false   ## player_died fires once; reset when life climbs back
 func _ready() -> void:
 	tuning = _load_json("res://data/tuning.json")
 	items = _load_json("res://data/items.json")
-	EventBus.creature_contact.connect(_on_creature_contact)
 	# The comfort layer rides along with the state it feeds. Living here (rather than
 	# in the level) means it survives scene reloads and needs no project.godot entry.
 	# Deferred load(), never preload(): comfort_furniture.gd names the PlayerState
@@ -96,9 +95,6 @@ func _mount_comfort() -> void:
 	var cf: GDScript = load("res://scripts/components/comfort_furniture.gd")
 	if cf:
 		add_child(cf.new())
-
-func _on_creature_contact() -> void:
-	life -= 0.2
 
 func _load_json(path: String) -> Dictionary:
 	var f: FileAccess = FileAccess.open(path, FileAccess.READ)
