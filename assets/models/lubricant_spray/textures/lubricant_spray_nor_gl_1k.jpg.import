@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://brytpljonpks"
 path.s3tc="res://.godot/imported/lubricant_spray_nor_gl_1k.jpg-72f6a76889a350b702dbb36651a78566.s3tc.ctex"
+path.etc2="res://.godot/imported/lubricant_spray_nor_gl_1k.jpg-72f6a76889a350b702dbb36651a78566.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/lubricant_spray/textures/lubricant_spray_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/lubricant_spray_nor_gl_1k.jpg-72f6a76889a350b702dbb36651a78566.s3tc.ctex"]
+dest_files=["res://.godot/imported/lubricant_spray_nor_gl_1k.jpg-72f6a76889a350b702dbb36651a78566.s3tc.ctex", "res://.godot/imported/lubricant_spray_nor_gl_1k.jpg-72f6a76889a350b702dbb36651a78566.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1ey1dnhdvdbt"
 path.s3tc="res://.godot/imported/caged_hanging_light_emissive_1k.jpg-a6dab7db23cf4e93835ad733293b24de.s3tc.ctex"
+path.etc2="res://.godot/imported/caged_hanging_light_emissive_1k.jpg-a6dab7db23cf4e93835ad733293b24de.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/caged_hanging_light/textures/caged_hanging_light_emissive_1k.jpg"
-dest_files=["res://.godot/imported/caged_hanging_light_emissive_1k.jpg-a6dab7db23cf4e93835ad733293b24de.s3tc.ctex"]
+dest_files=["res://.godot/imported/caged_hanging_light_emissive_1k.jpg-a6dab7db23cf4e93835ad733293b24de.s3tc.ctex", "res://.godot/imported/caged_hanging_light_emissive_1k.jpg-a6dab7db23cf4e93835ad733293b24de.etc2.ctex"]
 
 [params]
 

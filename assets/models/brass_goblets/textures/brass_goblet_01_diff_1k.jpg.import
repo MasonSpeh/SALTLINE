@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bibto7ofow47u"
 path.s3tc="res://.godot/imported/brass_goblet_01_diff_1k.jpg-7cab6a8b5c8615a28d97e24771574c08.s3tc.ctex"
+path.etc2="res://.godot/imported/brass_goblet_01_diff_1k.jpg-7cab6a8b5c8615a28d97e24771574c08.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/brass_goblets/textures/brass_goblet_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/brass_goblet_01_diff_1k.jpg-7cab6a8b5c8615a28d97e24771574c08.s3tc.ctex"]
+dest_files=["res://.godot/imported/brass_goblet_01_diff_1k.jpg-7cab6a8b5c8615a28d97e24771574c08.s3tc.ctex", "res://.godot/imported/brass_goblet_01_diff_1k.jpg-7cab6a8b5c8615a28d97e24771574c08.etc2.ctex"]
 
 [params]
 

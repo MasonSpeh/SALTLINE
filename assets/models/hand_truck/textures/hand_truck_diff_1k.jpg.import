@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dd1huxutwifmw"
 path.s3tc="res://.godot/imported/hand_truck_diff_1k.jpg-372daa9d27ec958bed82386d02c92dfe.s3tc.ctex"
+path.etc2="res://.godot/imported/hand_truck_diff_1k.jpg-372daa9d27ec958bed82386d02c92dfe.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/hand_truck/textures/hand_truck_diff_1k.jpg"
-dest_files=["res://.godot/imported/hand_truck_diff_1k.jpg-372daa9d27ec958bed82386d02c92dfe.s3tc.ctex"]
+dest_files=["res://.godot/imported/hand_truck_diff_1k.jpg-372daa9d27ec958bed82386d02c92dfe.s3tc.ctex", "res://.godot/imported/hand_truck_diff_1k.jpg-372daa9d27ec958bed82386d02c92dfe.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://s6erictvv7nx"
 path.s3tc="res://.godot/imported/cigarette_case_arm_1k.jpg-14f12e633be3ae328dae2eda619f6c15.s3tc.ctex"
+path.etc2="res://.godot/imported/cigarette_case_arm_1k.jpg-14f12e633be3ae328dae2eda619f6c15.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cigarette_case/textures/cigarette_case_arm_1k.jpg"
-dest_files=["res://.godot/imported/cigarette_case_arm_1k.jpg-14f12e633be3ae328dae2eda619f6c15.s3tc.ctex"]
+dest_files=["res://.godot/imported/cigarette_case_arm_1k.jpg-14f12e633be3ae328dae2eda619f6c15.s3tc.ctex", "res://.godot/imported/cigarette_case_arm_1k.jpg-14f12e633be3ae328dae2eda619f6c15.etc2.ctex"]
 
 [params]
 

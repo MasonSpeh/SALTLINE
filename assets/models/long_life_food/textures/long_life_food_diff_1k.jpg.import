@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cuoiv1jjacl0j"
 path.s3tc="res://.godot/imported/long_life_food_diff_1k.jpg-cf403582dfa32c16cba274eb6a9be6e6.s3tc.ctex"
+path.etc2="res://.godot/imported/long_life_food_diff_1k.jpg-cf403582dfa32c16cba274eb6a9be6e6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/long_life_food/textures/long_life_food_diff_1k.jpg"
-dest_files=["res://.godot/imported/long_life_food_diff_1k.jpg-cf403582dfa32c16cba274eb6a9be6e6.s3tc.ctex"]
+dest_files=["res://.godot/imported/long_life_food_diff_1k.jpg-cf403582dfa32c16cba274eb6a9be6e6.s3tc.ctex", "res://.godot/imported/long_life_food_diff_1k.jpg-cf403582dfa32c16cba274eb6a9be6e6.etc2.ctex"]
 
 [params]
 

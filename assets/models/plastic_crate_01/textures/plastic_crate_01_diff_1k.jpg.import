@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://q2aanjrpwrfe"
 path.s3tc="res://.godot/imported/plastic_crate_01_diff_1k.jpg-f9159d2100ca46a1826b462cf9f5a36d.s3tc.ctex"
+path.etc2="res://.godot/imported/plastic_crate_01_diff_1k.jpg-f9159d2100ca46a1826b462cf9f5a36d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/plastic_crate_01/textures/plastic_crate_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/plastic_crate_01_diff_1k.jpg-f9159d2100ca46a1826b462cf9f5a36d.s3tc.ctex"]
+dest_files=["res://.godot/imported/plastic_crate_01_diff_1k.jpg-f9159d2100ca46a1826b462cf9f5a36d.s3tc.ctex", "res://.godot/imported/plastic_crate_01_diff_1k.jpg-f9159d2100ca46a1826b462cf9f5a36d.etc2.ctex"]
 
 [params]
 

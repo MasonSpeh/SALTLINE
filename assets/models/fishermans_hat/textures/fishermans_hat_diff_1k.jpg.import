@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cgwoe5i5dixoq"
 path.s3tc="res://.godot/imported/fishermans_hat_diff_1k.jpg-50c8257d5acd651e16e2d803d3455235.s3tc.ctex"
+path.etc2="res://.godot/imported/fishermans_hat_diff_1k.jpg-50c8257d5acd651e16e2d803d3455235.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/fishermans_hat/textures/fishermans_hat_diff_1k.jpg"
-dest_files=["res://.godot/imported/fishermans_hat_diff_1k.jpg-50c8257d5acd651e16e2d803d3455235.s3tc.ctex"]
+dest_files=["res://.godot/imported/fishermans_hat_diff_1k.jpg-50c8257d5acd651e16e2d803d3455235.s3tc.ctex", "res://.godot/imported/fishermans_hat_diff_1k.jpg-50c8257d5acd651e16e2d803d3455235.etc2.ctex"]
 
 [params]
 

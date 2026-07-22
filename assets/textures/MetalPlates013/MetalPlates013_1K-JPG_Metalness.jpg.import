@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c7kby17u5ynk1"
 path.s3tc="res://.godot/imported/MetalPlates013_1K-JPG_Metalness.jpg-344117b4bdab0bf614152904e0ddb4f9.s3tc.ctex"
+path.etc2="res://.godot/imported/MetalPlates013_1K-JPG_Metalness.jpg-344117b4bdab0bf614152904e0ddb4f9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/MetalPlates013/MetalPlates013_1K-JPG_Metalness.jpg"
-dest_files=["res://.godot/imported/MetalPlates013_1K-JPG_Metalness.jpg-344117b4bdab0bf614152904e0ddb4f9.s3tc.ctex"]
+dest_files=["res://.godot/imported/MetalPlates013_1K-JPG_Metalness.jpg-344117b4bdab0bf614152904e0ddb4f9.s3tc.ctex", "res://.godot/imported/MetalPlates013_1K-JPG_Metalness.jpg-344117b4bdab0bf614152904e0ddb4f9.etc2.ctex"]
 
 [params]
 

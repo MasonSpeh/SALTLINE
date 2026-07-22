@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkd5rn8njug0x"
 path.s3tc="res://.godot/imported/metal_trash_can_rust_diff_1k.jpg-043f5d955019cb3267e42019094e76cf.s3tc.ctex"
+path.etc2="res://.godot/imported/metal_trash_can_rust_diff_1k.jpg-043f5d955019cb3267e42019094e76cf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_trash_can/textures/metal_trash_can_rust_diff_1k.jpg"
-dest_files=["res://.godot/imported/metal_trash_can_rust_diff_1k.jpg-043f5d955019cb3267e42019094e76cf.s3tc.ctex"]
+dest_files=["res://.godot/imported/metal_trash_can_rust_diff_1k.jpg-043f5d955019cb3267e42019094e76cf.s3tc.ctex", "res://.godot/imported/metal_trash_can_rust_diff_1k.jpg-043f5d955019cb3267e42019094e76cf.etc2.ctex"]
 
 [params]
 

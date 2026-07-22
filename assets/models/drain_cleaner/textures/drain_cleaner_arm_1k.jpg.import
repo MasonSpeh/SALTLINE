@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bd8m1katebss4"
 path.s3tc="res://.godot/imported/drain_cleaner_arm_1k.jpg-25f2aaf124e4eef3190773940740b97c.s3tc.ctex"
+path.etc2="res://.godot/imported/drain_cleaner_arm_1k.jpg-25f2aaf124e4eef3190773940740b97c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/drain_cleaner/textures/drain_cleaner_arm_1k.jpg"
-dest_files=["res://.godot/imported/drain_cleaner_arm_1k.jpg-25f2aaf124e4eef3190773940740b97c.s3tc.ctex"]
+dest_files=["res://.godot/imported/drain_cleaner_arm_1k.jpg-25f2aaf124e4eef3190773940740b97c.s3tc.ctex", "res://.godot/imported/drain_cleaner_arm_1k.jpg-25f2aaf124e4eef3190773940740b97c.etc2.ctex"]
 
 [params]
 

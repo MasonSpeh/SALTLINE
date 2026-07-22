@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bhn1tpvf7t1wv"
 path.s3tc="res://.godot/imported/anthurium_botany_01_diff_1k.jpg-c3450572c7a4104fff7ac3dcc4f7a3a1.s3tc.ctex"
+path.etc2="res://.godot/imported/anthurium_botany_01_diff_1k.jpg-c3450572c7a4104fff7ac3dcc4f7a3a1.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/anthurium_botany_01/textures/anthurium_botany_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/anthurium_botany_01_diff_1k.jpg-c3450572c7a4104fff7ac3dcc4f7a3a1.s3tc.ctex"]
+dest_files=["res://.godot/imported/anthurium_botany_01_diff_1k.jpg-c3450572c7a4104fff7ac3dcc4f7a3a1.s3tc.ctex", "res://.godot/imported/anthurium_botany_01_diff_1k.jpg-c3450572c7a4104fff7ac3dcc4f7a3a1.etc2.ctex"]
 
 [params]
 

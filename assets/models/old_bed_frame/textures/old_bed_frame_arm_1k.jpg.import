@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bg8n1a7axpjv"
 path.s3tc="res://.godot/imported/old_bed_frame_arm_1k.jpg-b942f41d08b71d80621bfe43ff2442c9.s3tc.ctex"
+path.etc2="res://.godot/imported/old_bed_frame_arm_1k.jpg-b942f41d08b71d80621bfe43ff2442c9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/old_bed_frame/textures/old_bed_frame_arm_1k.jpg"
-dest_files=["res://.godot/imported/old_bed_frame_arm_1k.jpg-b942f41d08b71d80621bfe43ff2442c9.s3tc.ctex"]
+dest_files=["res://.godot/imported/old_bed_frame_arm_1k.jpg-b942f41d08b71d80621bfe43ff2442c9.s3tc.ctex", "res://.godot/imported/old_bed_frame_arm_1k.jpg-b942f41d08b71d80621bfe43ff2442c9.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cnc0k0aapgsy2"
 path.s3tc="res://.godot/imported/bananas_nor_gl_1k.jpg-37e5858a8b88eddbe971f1f64621b112.s3tc.ctex"
+path.etc2="res://.godot/imported/bananas_nor_gl_1k.jpg-37e5858a8b88eddbe971f1f64621b112.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bananas/textures/bananas_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/bananas_nor_gl_1k.jpg-37e5858a8b88eddbe971f1f64621b112.s3tc.ctex"]
+dest_files=["res://.godot/imported/bananas_nor_gl_1k.jpg-37e5858a8b88eddbe971f1f64621b112.s3tc.ctex", "res://.godot/imported/bananas_nor_gl_1k.jpg-37e5858a8b88eddbe971f1f64621b112.etc2.ctex"]
 
 [params]
 

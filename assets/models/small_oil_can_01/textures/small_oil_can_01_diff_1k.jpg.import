@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bantcu3uiaf81"
 path.s3tc="res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.s3tc.ctex"
+path.etc2="res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/small_oil_can_01/textures/small_oil_can_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.s3tc.ctex"]
+dest_files=["res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.s3tc.ctex", "res://.godot/imported/small_oil_can_01_diff_1k.jpg-9b1c29121c905ae6c8da7e2c2a0a6f21.etc2.ctex"]
 
 [params]
 

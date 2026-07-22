@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://byk8sseb80eat"
 path.s3tc="res://.godot/imported/Rockingchair_01_diff_1k.jpg-b064b9e46fc541b63b89c0c2d4630170.s3tc.ctex"
+path.etc2="res://.godot/imported/Rockingchair_01_diff_1k.jpg-b064b9e46fc541b63b89c0c2d4630170.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Rockingchair_01/textures/Rockingchair_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/Rockingchair_01_diff_1k.jpg-b064b9e46fc541b63b89c0c2d4630170.s3tc.ctex"]
+dest_files=["res://.godot/imported/Rockingchair_01_diff_1k.jpg-b064b9e46fc541b63b89c0c2d4630170.s3tc.ctex", "res://.godot/imported/Rockingchair_01_diff_1k.jpg-b064b9e46fc541b63b89c0c2d4630170.etc2.ctex"]
 
 [params]
 

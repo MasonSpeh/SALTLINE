@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c87i6pxrttbr4"
 path.s3tc="res://.godot/imported/metal_detector_emissive_1k.jpg-130b20e4a52a313dd57d4877223fd916.s3tc.ctex"
+path.etc2="res://.godot/imported/metal_detector_emissive_1k.jpg-130b20e4a52a313dd57d4877223fd916.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_detector/textures/metal_detector_emissive_1k.jpg"
-dest_files=["res://.godot/imported/metal_detector_emissive_1k.jpg-130b20e4a52a313dd57d4877223fd916.s3tc.ctex"]
+dest_files=["res://.godot/imported/metal_detector_emissive_1k.jpg-130b20e4a52a313dd57d4877223fd916.s3tc.ctex", "res://.godot/imported/metal_detector_emissive_1k.jpg-130b20e4a52a313dd57d4877223fd916.etc2.ctex"]
 
 [params]
 

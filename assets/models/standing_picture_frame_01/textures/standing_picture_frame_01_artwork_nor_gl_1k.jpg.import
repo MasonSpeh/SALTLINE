@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bjn2mvx3qhrnr"
 path.s3tc="res://.godot/imported/standing_picture_frame_01_artwork_nor_gl_1k.jpg-2c54ba084f497e17cf9b3a7f18043503.s3tc.ctex"
+path.etc2="res://.godot/imported/standing_picture_frame_01_artwork_nor_gl_1k.jpg-2c54ba084f497e17cf9b3a7f18043503.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/standing_picture_frame_01/textures/standing_picture_frame_01_artwork_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/standing_picture_frame_01_artwork_nor_gl_1k.jpg-2c54ba084f497e17cf9b3a7f18043503.s3tc.ctex"]
+dest_files=["res://.godot/imported/standing_picture_frame_01_artwork_nor_gl_1k.jpg-2c54ba084f497e17cf9b3a7f18043503.s3tc.ctex", "res://.godot/imported/standing_picture_frame_01_artwork_nor_gl_1k.jpg-2c54ba084f497e17cf9b3a7f18043503.etc2.ctex"]
 
 [params]
 

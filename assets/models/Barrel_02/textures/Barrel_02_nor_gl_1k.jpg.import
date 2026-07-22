@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://3j5s6yvx03dr"
 path.s3tc="res://.godot/imported/Barrel_02_nor_gl_1k.jpg-c3272132df9746ef5e3f0eadba790411.s3tc.ctex"
+path.etc2="res://.godot/imported/Barrel_02_nor_gl_1k.jpg-c3272132df9746ef5e3f0eadba790411.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Barrel_02/textures/Barrel_02_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/Barrel_02_nor_gl_1k.jpg-c3272132df9746ef5e3f0eadba790411.s3tc.ctex"]
+dest_files=["res://.godot/imported/Barrel_02_nor_gl_1k.jpg-c3272132df9746ef5e3f0eadba790411.s3tc.ctex", "res://.godot/imported/Barrel_02_nor_gl_1k.jpg-c3272132df9746ef5e3f0eadba790411.etc2.ctex"]
 
 [params]
 

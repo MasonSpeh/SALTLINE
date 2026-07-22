@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cmdn232fnqwje"
 path.s3tc="res://.godot/imported/lifebuoy_diff_1k.jpg-3df8bc9efc9cfe0d651c4659c2a13845.s3tc.ctex"
+path.etc2="res://.godot/imported/lifebuoy_diff_1k.jpg-3df8bc9efc9cfe0d651c4659c2a13845.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/lifebuoy/textures/lifebuoy_diff_1k.jpg"
-dest_files=["res://.godot/imported/lifebuoy_diff_1k.jpg-3df8bc9efc9cfe0d651c4659c2a13845.s3tc.ctex"]
+dest_files=["res://.godot/imported/lifebuoy_diff_1k.jpg-3df8bc9efc9cfe0d651c4659c2a13845.s3tc.ctex", "res://.godot/imported/lifebuoy_diff_1k.jpg-3df8bc9efc9cfe0d651c4659c2a13845.etc2.ctex"]
 
 [params]
 

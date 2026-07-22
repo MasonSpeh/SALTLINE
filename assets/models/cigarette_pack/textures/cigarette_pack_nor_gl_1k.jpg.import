@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dsxj10o7mfrn0"
 path.s3tc="res://.godot/imported/cigarette_pack_nor_gl_1k.jpg-652829c525f32c16e8131f0e966ef565.s3tc.ctex"
+path.etc2="res://.godot/imported/cigarette_pack_nor_gl_1k.jpg-652829c525f32c16e8131f0e966ef565.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cigarette_pack/textures/cigarette_pack_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/cigarette_pack_nor_gl_1k.jpg-652829c525f32c16e8131f0e966ef565.s3tc.ctex"]
+dest_files=["res://.godot/imported/cigarette_pack_nor_gl_1k.jpg-652829c525f32c16e8131f0e966ef565.s3tc.ctex", "res://.godot/imported/cigarette_pack_nor_gl_1k.jpg-652829c525f32c16e8131f0e966ef565.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://1dnxhlebo8ry"
 path.s3tc="res://.godot/imported/industrial_wall_lamp_diff_1k.jpg-2559d44a9046ee3d38906711d390ac09.s3tc.ctex"
+path.etc2="res://.godot/imported/industrial_wall_lamp_diff_1k.jpg-2559d44a9046ee3d38906711d390ac09.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/industrial_wall_lamp/textures/industrial_wall_lamp_diff_1k.jpg"
-dest_files=["res://.godot/imported/industrial_wall_lamp_diff_1k.jpg-2559d44a9046ee3d38906711d390ac09.s3tc.ctex"]
+dest_files=["res://.godot/imported/industrial_wall_lamp_diff_1k.jpg-2559d44a9046ee3d38906711d390ac09.s3tc.ctex", "res://.godot/imported/industrial_wall_lamp_diff_1k.jpg-2559d44a9046ee3d38906711d390ac09.etc2.ctex"]
 
 [params]
 

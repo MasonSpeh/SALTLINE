@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cmh4r6ebtp7vd"
 path.s3tc="res://.godot/imported/croissant_nor_gl_1k.jpg-a3864261e5952d3b7413b3f55b1268e3.s3tc.ctex"
+path.etc2="res://.godot/imported/croissant_nor_gl_1k.jpg-a3864261e5952d3b7413b3f55b1268e3.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/croissant/textures/croissant_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/croissant_nor_gl_1k.jpg-a3864261e5952d3b7413b3f55b1268e3.s3tc.ctex"]
+dest_files=["res://.godot/imported/croissant_nor_gl_1k.jpg-a3864261e5952d3b7413b3f55b1268e3.s3tc.ctex", "res://.godot/imported/croissant_nor_gl_1k.jpg-a3864261e5952d3b7413b3f55b1268e3.etc2.ctex"]
 
 [params]
 

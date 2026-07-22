@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://drvq3b6fx0fow"
 path.s3tc="res://.godot/imported/brass_pan_01_nor_gl_1k.jpg-4d137c39c495d907cbe16d6c02f4f447.s3tc.ctex"
+path.etc2="res://.godot/imported/brass_pan_01_nor_gl_1k.jpg-4d137c39c495d907cbe16d6c02f4f447.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/brass_pan_01/textures/brass_pan_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/brass_pan_01_nor_gl_1k.jpg-4d137c39c495d907cbe16d6c02f4f447.s3tc.ctex"]
+dest_files=["res://.godot/imported/brass_pan_01_nor_gl_1k.jpg-4d137c39c495d907cbe16d6c02f4f447.s3tc.ctex", "res://.godot/imported/brass_pan_01_nor_gl_1k.jpg-4d137c39c495d907cbe16d6c02f4f447.etc2.ctex"]
 
 [params]
 
