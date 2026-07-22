@@ -682,3 +682,118 @@ func _run() -> void:
 	await get_tree().process_frame
 	_check(get_tree().get_nodes_in_group("built_structures").size() == 2,
 		"a second load does not duplicate the camp")
+
+	# --- Snail feeding + breeding + escargot ----------------------------------------
+	# Kelp Bundle is the existing greens item (already edible, already harvestable near
+	# the boat landing at wet_deck_detail.gd) — the "reachable without deep-death" greens
+	# source the spec asked for, so no new item was needed.
+	_check(_find_takeable(main, "kelp_bundle") != null, "kelp bundle is harvestable on the open deck")
+
+	var lamp_snails: Array = get_tree().get_nodes_in_group("snail_lamp")
+	_check(lamp_snails.size() == 6, "six lamp snails spawn before any breeding")
+	if lamp_snails.size() >= 3:
+		var sa: Node3D = lamp_snails[0]
+		var sb: Node3D = lamp_snails[1]
+		var sc: Node3D = lamp_snails[2]
+		sb.global_position = sa.global_position + Vector3(0.5, 0, 0)   # inside BREED_RADIUS
+		PlayerState.load_inventory([], [], [], [])
+		PlayerState.add_item("kelp_bundle")
+		PlayerState.add_item("kelp_bundle")
+		sa._feed(player)
+		_check(sa._fed, "feeding a lamp snail sets its fed flag")
+		sb._feed(player)
+		sb._process(0.016)   # the breed check runs continuously in _process, not in _feed
+		var babies: Array = get_tree().get_nodes_in_group("snail_lamp").filter(
+			func(n: Node) -> bool: return bool(n.get("_is_baby")))
+		_check(babies.size() == 1, "two fed lamp snails within range spawn exactly one permanent baby")
+		_check(not sa._fed and not sb._fed, "breeding resets both parents' fed flag")
+		if not babies.is_empty():
+			var baby: Node3D = babies[0]
+			_check(is_instance_valid(baby) and baby.get_parent() != null, "the baby is a live node in the tree")
+			baby.set("_grow_h", 999.0)
+			baby._process(0.016)
+			_check(not bool(baby.get("_is_baby")), "a baby fully grows into an adult after enough game-hours")
+		# COLLECT (crouch-gated in play; called directly here like every other private
+		# interaction method the suite exercises) removes the snail and yields snail_live.
+		PlayerState.load_inventory([], [], [], [])
+		sc._collect(player)
+		_check(PlayerState.has_item("snail_live"), "collecting a snail yields snail_live")
+		_check(sc.is_queued_for_deletion(), "the collected snail is removed from the world")
+		var stove3: Node = _find_class(main, "cook_stove")
+		if stove3:
+			PlayerState.hunger = 0.2
+			PlayerState.comfort = 0.0
+			stove3.interact("COOK", player)
+			_check(PlayerState.has_item("escargot"), "the stove sears snail_live into escargot")
+			_check(not PlayerState.has_item("snail_live"), "cooking consumes the raw snail")
+			var eslot: int = PlayerState.hotbar.find("escargot")
+			if eslot == -1:
+				PlayerState.add_item("escargot")
+				eslot = PlayerState.hotbar.find("escargot")
+			PlayerState.use_hotbar(eslot)
+			_check(PlayerState.hunger > 0.5, "eating escargot restores hunger")
+			_check(PlayerState.comfort > 0.0, "eating escargot gives a small comfort bonus")
+
+	# Rust and glass snails breed the same way; species never cross-breed (find_breed_partner
+	# matches on the exact script, so a fed lamp snail never pairs with a fed rust snail).
+	var rust_snails: Array = get_tree().get_nodes_in_group("snail_rust")
+	if rust_snails.size() >= 2:
+		var ra: Node3D = rust_snails[0]
+		var rb: Node3D = rust_snails[1]
+		rb.global_position = ra.global_position + Vector3(0.5, 0, 0)
+		PlayerState.load_inventory([], [], [], [])
+		PlayerState.add_item("kelp_bundle")
+		PlayerState.add_item("kelp_bundle")
+		ra._feed(player)
+		rb._feed(player)
+		rb._process(0.016)
+		var rust_babies: Array = get_tree().get_nodes_in_group("snail_rust").filter(
+			func(n: Node) -> bool: return bool(n.get("_is_baby")))
+		_check(rust_babies.size() == 1, "two fed rust snails within range spawn a baby")
+
+	var glass_snails: Array = get_tree().get_nodes_in_group("snail_glass")
+	if glass_snails.size() >= 2:
+		var ga: Node3D = glass_snails[0]
+		var gb: Node3D = glass_snails[1]
+		gb.global_position = ga.global_position + Vector3(0.5, 0, 0)
+		PlayerState.load_inventory([], [], [], [])
+		PlayerState.add_item("kelp_bundle")
+		PlayerState.add_item("kelp_bundle")
+		ga._feed(player)
+		gb._feed(player)
+		gb._process(0.016)
+		var glass_babies: Array = get_tree().get_nodes_in_group("snail_glass").filter(
+			func(n: Node) -> bool: return bool(n.get("_is_baby")))
+		_check(glass_babies.size() == 1, "two fed glass snails within range spawn a baby")
+
+	# Persistence: a fed flag and any standing babies survive a save/load round trip —
+	# additive to the existing SaveManager payload, same pattern as structures/containers.
+	# lamp_snails[0]/[1] already bred once above and that baby was grown to an adult in
+	# the growth-timer check, so breed a FRESH pair (indices 3/4) here — otherwise this
+	# test would trivially compare zero babies to zero babies and prove nothing.
+	if lamp_snails.size() >= 5:
+		var pa2: Node3D = lamp_snails[0]
+		pa2.set("_fed", true)
+		var pd: Node3D = lamp_snails[3]
+		var pe: Node3D = lamp_snails[4]
+		pe.global_position = pd.global_position + Vector3(0.5, 0, 0)
+		PlayerState.add_item("kelp_bundle")
+		PlayerState.add_item("kelp_bundle")
+		pd._feed(player)
+		pe._feed(player)
+		pe._process(0.016)
+		var baby_before: int = get_tree().get_nodes_in_group("snail_lamp").filter(
+			func(n: Node) -> bool: return bool(n.get("_is_baby"))).size()
+		_check(baby_before == 1, "a fresh pair breeds a second baby for the persistence check")
+		SaveManager.save_game()
+		pa2.set("_fed", false)
+		for n in get_tree().get_nodes_in_group("snail_lamp"):
+			if bool(n.get("_is_baby")) and is_instance_valid(n):
+				n.free()
+		_check(SaveManager.load_game(), "save reloads with snail breeding state in it")
+		await get_tree().process_frame
+		_check(bool(pa2.get("_fed")), "load restores a snail's fed flag")
+		var baby_after: int = get_tree().get_nodes_in_group("snail_lamp").filter(
+			func(n: Node) -> bool: return bool(n.get("_is_baby"))).size()
+		_check(baby_after == baby_before,
+			"load recreates the baby snail(s) that existed at save time (got %d, want %d)" % [baby_after, baby_before])

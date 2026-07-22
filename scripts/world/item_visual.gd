@@ -151,6 +151,18 @@ static func build(item_id: String) -> Node3D:
 				var frond := _box(root, Vector3(0.06, 0.42, 0.03),
 					Color(0.3, 0.75, 0.5), Vector3(-0.12 + i * 0.08, 0.22, 0.0), true, 1.4)
 				frond.rotation.z = deg_to_rad(-14 + i * 9)
+		"snail_live":
+			# A small coiled shell over a stub foot — glows faintly even out of the water.
+			_cyl(root, 0.1, 0.09, Color(0.12, 0.14, 0.16), Vector3(0, 0.05, 0))
+			_cyl(root, 0.05, 0.05, Color(0.2, 0.9, 0.85), Vector3(0.02, 0.11, 0), true, 1.2)
+			_box(root, Vector3(0.14, 0.03, 0.06), Color(0.18, 0.2, 0.22), Vector3(0, 0.015, 0.05))
+		"escargot":
+			# A shallow plate with three seared shells in their own butter-warm light.
+			_cyl(root, 0.14, 0.02, Color(0.75, 0.76, 0.72), Vector3(0, 0.01, 0))
+			for i in range(3):
+				var a4: float = i * TAU / 3.0
+				_cyl(root, 0.045, 0.045, Color(0.35, 0.24, 0.14),
+					Vector3(cos(a4) * 0.07, 0.045, sin(a4) * 0.07), true, 0.8)
 		"bloom_lamp_kit":
 			_box(root, Vector3(0.3, 0.3, 0.3), Color(0.3, 0.34, 0.36), Vector3(0, 0.16, 0))
 			_box(root, Vector3(0.16, 0.16, 0.16), Color(0.2, 0.9, 0.85), Vector3(0, 0.34, 0), true, 2.2)

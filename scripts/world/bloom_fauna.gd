@@ -211,6 +211,151 @@ static func is_dark_phase() -> bool:
 	return GameClock.current_phase == GameClock.Phase.NIGHT \
 		or GameClock.current_phase == GameClock.Phase.DUSK
 
+## --- Snail feeding + breeding (Codex §54e): feed any CRAWLING snail (lamp/rust/glass
+## — the anchor limpet never moves and keeps its own PRY -> shell mechanic) a greens
+## item, and two fed snails of the SAME species within BREED_RADIUS spawn a permanent
+## baby between them. Babies start at BABY_SCALE and grow to full size over GROW_HOURS
+## game-hours (hang_line.gd's game-hour-per-real-second trick). COLLECT (crouch near any
+## of the three species) takes the live animal for the pot as `snail_live`, which the
+## galley stove sears into `escargot` (cook_stove.gd EXTRA_COOK).
+const GREENS: Array[String] = ["kelp_bundle"]   # any greens item counts as feed
+const BREED_RADIUS: float = 4.0
+const BABY_SCALE: float = 0.4
+const GROW_HOURS: float = 48.0                  # ~2 game days to reach full size
+const SNAIL_GROUPS: Dictionary = {"lamp": "snail_lamp", "rust": "snail_rust", "glass": "snail_glass"}
+
+static func has_greens() -> bool:
+	for g in GREENS:
+		if PlayerState.has_item(g):
+			return true
+	return false
+
+## Spend one greens item, hotbar first (mirrors every other consumable). Returns false
+## (and takes nothing) when the player is carrying none.
+static func consume_greens() -> bool:
+	for g in GREENS:
+		if PlayerState.remove_item(g):
+			return true
+	return false
+
+## True while the player is crouching in reach — the deliberate gesture that means
+## COLLECT instead of the standing-default GRAB/FEED/HARVEST (the same idea as
+## GlowWorm's crouch-gated catch window, just steering a verb instead of a timer).
+static func player_crouching(host: Node) -> bool:
+	var p: Node = host.get_tree().get_first_node_in_group("player")
+	return p != null and bool(p.get("crouching"))
+
+## The other FED sibling of the same script class within `radius`, or null. "Same
+## species" is the script itself — lamp/rust/glass snails never cross-breed.
+static func find_breed_partner(self_node: Node3D, radius: float) -> Node3D:
+	var parent: Node = self_node.get_parent()
+	if parent == null:
+		return null
+	var script: Script = self_node.get_script()
+	for sib in parent.get_children():
+		if sib == self_node or not is_instance_valid(sib) or sib.get_script() != script:
+			continue
+		if sib.get("_fed") != true:
+			continue
+		if (sib as Node3D).global_position.distance_to(self_node.global_position) <= radius:
+			return sib
+	return null
+
+## One in-game hour, in real seconds — hang_line.gd's clock-plan trick, reused here so
+## baby growth agrees with the same day length raw fish rots by.
+static func game_hour_per_sec() -> float:
+	var day_sec: float = 0.0
+	for phase in GameClock.phase_durations_minutes:
+		day_sec += GameClock.phase_durations_minutes[phase] * 60.0
+	return 24.0 / maxf(day_sec, 1.0)
+
+## Wrap every current child of a freshly-built baby into a scaled pivot, so it reads
+## small without fighting SurfaceCrawler.orient(): that assigns `host.global_basis` to a
+## pure-rotation Basis every frame, which would silently strip any scale set directly on
+## the crawled node itself. FaunaTouch stays a direct child (grab_snail's
+## _snail_touch_solid walks get_children() looking for it), so it is excluded here.
+static func shrink_to_baby(host: Node3D, factor: float) -> Node3D:
+	var pivot := Node3D.new()
+	host.add_child(pivot)
+	for ch in host.get_children():
+		if ch == pivot or ch is FaunaTouch:
+			continue
+		host.remove_child(ch)
+		pivot.add_child(ch)
+	pivot.scale = Vector3.ONE * factor
+	return pivot
+
+## --- SaveManager hooks --------------------------------------------------------------
+## Every original adult's fed flag, keyed "species:idx" (idx never collides between an
+## original and a baby — see the 5000+ offset in each _breed_with), plus every BABY in
+## full (species + position + fed + growth): babies are not part of the deterministic
+## _ready() spawn list, so they must be recreated wholesale on load.
+static func snail_payload(tree: SceneTree) -> Dictionary:
+	var fed: Dictionary = {}
+	var babies: Array = []
+	for species in SNAIL_GROUPS:
+		for n in tree.get_nodes_in_group(SNAIL_GROUPS[species]):
+			if not is_instance_valid(n):
+				continue
+			if bool(n.get("_is_baby")):
+				var p: Vector3 = (n as Node3D).global_position
+				babies.append({
+					"species": species, "fed": bool(n.get("_fed")),
+					"grow_h": float(n.get("_grow_h")),
+					"pos": [p.x, p.y, p.z],
+				})
+			else:
+				fed["%s:%d" % [species, int(n.get("_idx"))]] = bool(n.get("_fed"))
+	return {"fed": fed, "babies": babies}
+
+## Reapply fed flags to the existing (deterministic) adults, clear any babies already
+## standing (a second load must not double them — restore_structures' own rule), and
+## spawn every saved baby fresh at its saved position/growth.
+static func snail_restore(tree: SceneTree, data: Dictionary) -> void:
+	var fed: Dictionary = data.get("fed", {}) if typeof(data.get("fed")) == TYPE_DICTIONARY else {}
+	var parent: Node = null
+	for species in SNAIL_GROUPS:
+		for n in tree.get_nodes_in_group(SNAIL_GROUPS[species]):
+			if not is_instance_valid(n):
+				continue
+			if parent == null:
+				parent = n.get_parent()
+			if bool(n.get("_is_baby")):
+				n.queue_free()
+				continue
+			var key: String = "%s:%d" % [species, int(n.get("_idx"))]
+			if fed.has(key):
+				n.set("_fed", bool(fed[key]))
+	if parent == null:
+		return
+	var babies: Variant = data.get("babies", [])
+	if typeof(babies) != TYPE_ARRAY:
+		return
+	for entry in babies:
+		if typeof(entry) != TYPE_DICTIONARY:
+			continue
+		var species: String = String(entry.get("species", ""))
+		var pos_a: Variant = entry.get("pos", [])
+		if not SNAIL_GROUPS.has(species) or typeof(pos_a) != TYPE_ARRAY or (pos_a as Array).size() < 3:
+			continue
+		var pos := Vector3(float(pos_a[0]), float(pos_a[1]), float(pos_a[2]))
+		var idx: int = 5000 + (randi() % 100000)
+		var baby: Node3D = null
+		match species:
+			"lamp":
+				baby = LampSnail.new(idx, pos)
+			"rust":
+				baby = RustSnail.new(idx, pos, pos + Vector3(1.4, 0, 0))
+			"glass":
+				baby = GlassSnail.new(idx, pos)
+		if baby == null:
+			continue
+		baby.set("_is_baby", true)
+		baby.set("_fed", bool(entry.get("fed", false)))
+		baby.set("_grow_h", float(entry.get("grow_h", 0.0)))
+		parent.add_child(baby)
+		baby.global_position = pos
+
 ## Pick up a whole snail like a normal deck item — an actual carry of the LIVE animal.
 ## The snail is NOT swapped for a box: it keeps its own shell, gut-glow and pedal
 ## animation, is held out in front of you, and when you set it down it resumes crawling
@@ -1542,6 +1687,10 @@ class LampSnail extends Node3D:
 	var _crawler: GroundCrawler       ## wall-aware wander around the leg base
 	var _carried_by: Node3D = null    ## set while the player is carrying this live snail
 	var _lamp_light: OmniLight3D      ## gentle bioluminescent pool of light
+	var _fed: bool = false            ## took a greens item; breeds when a fed sibling is close
+	var _is_baby: bool = false        ## spawned by breeding — permanent, ~0.4 scale, grows in
+	var _grow_h: float = 0.0          ## game-hours since birth (baby only)
+	var _body_pivot: Node3D = null    ## baby-only scale wrapper (see BloomFauna.shrink_to_baby)
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -1549,6 +1698,7 @@ class LampSnail extends Node3D:
 		_t = idx * 1.9
 
 	func _ready() -> void:
+		add_to_group("snail_lamp")
 		# Shell: a coiled dark dome.
 		var shell := MeshInstance3D.new()
 		var sm := SphereMesh.new()
@@ -1617,13 +1767,20 @@ class LampSnail extends Node3D:
 		_lamp_light.shadow_enabled = false
 		add_child(_lamp_light)
 		# The journal's promised beat: a gentle harvest takes the glow-mucus, leaves the
-		# animal. Only at night, and the constellation needs time to re-charge.
+		# animal. Only at night, and the constellation needs time to re-charge. Crouch
+		# near it and E means COLLECT instead (BloomFauna.player_crouching); standing,
+		# offering greens (FEED) takes precedence the same way HarborSeal's FEED beats
+		# PET, then HARVEST, then the GRAB fallback.
 		var touch := FaunaTouch.new("Lamp Snail", 0.85,
 			func() -> Array:
+				if BloomFauna.player_crouching(self):
+					return ["COLLECT"]
 				var night: bool = GameClock.current_phase == GameClock.Phase.NIGHT
 				var out: Array = ["GRAB"]
 				if night and _harvest_cd <= 0.0:
 					out.push_front("HARVEST")
+				if not _is_baby and not _fed and BloomFauna.has_greens():
+					out.push_front("FEED")
 				return out,
 			_touch_act)
 		add_child(touch)
@@ -1637,12 +1794,19 @@ class LampSnail extends Node3D:
 		# heads out, and when the caisson or a rail stops it, it turns and grazes on.
 		global_position = _base
 		_crawler = GroundCrawler.new(_base, 4.2, 0.13, 400 + _idx, 0.35, 0.2, _base.y)
+		if _is_baby:
+			_body_pivot = BloomFauna.shrink_to_baby(self, BloomFauna.BABY_SCALE)
 
 	func _touch_act(verb: String, player: Node3D) -> void:
-		if verb == "GRAB":
-			BloomFauna.grab_snail(self, player)
-			return
-		_harvest(verb, player)
+		match verb:
+			"GRAB":
+				BloomFauna.grab_snail(self, player)
+			"FEED":
+				_feed(player)
+			"COLLECT":
+				_collect(player)
+			_:
+				_harvest(verb, player)
 
 	func _harvest(_verb: String, _player: Node3D) -> void:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
@@ -1655,20 +1819,80 @@ class LampSnail extends Node3D:
 		if hud and hud.has_method("toast"):
 			hud.toast("You wipe a palmful of cold light off the shell. The snail never slows down.")
 
+	## Feed it a greens item. Fed reads as a brighter, faster pulse (_process); breeding
+	## itself is checked continuously in _process so a snail carried over to a second fed
+	## one (the natural way to actually pair them) breeds on arrival, not only at feed time.
+	func _feed(_player: Node3D) -> void:
+		if _is_baby or _fed or not BloomFauna.consume_greens():
+			return
+		_fed = true
+		Journal.discover("system_snail_breeding")
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("It takes the greens eagerly — the constellation brightens.")
+
+	## Two fed lamp snails in reach of each other: a permanent baby, half-grown light
+	## between them. Resets both parents so the next baby needs a fresh pair of feeds.
+	func _breed_with(partner: Node3D) -> void:
+		var mid: Vector3 = (global_position + partner.global_position) * 0.5
+		var baby := LampSnail.new(5000 + (randi() % 100000), mid)
+		baby._is_baby = true
+		get_parent().add_child(baby)
+		baby.global_position = mid
+		_fed = false
+		partner.set("_fed", false)
+		Journal.discover("creature_snail_baby")
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("Two fed lights lean together, and a third blinks on between them.")
+
+	## COLLECT: the whole animal, for the pot. Works on a baby or a grown one — a lamp
+	## snail leaving the deck dims the constellation by exactly one light, same as a
+	## harvest dims one shell, except this light does not come back.
+	func _collect(_player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if not PlayerState.add_item("snail_live"):
+			if hud and hud.has_method("toast"):
+				hud.toast("Hands full — it stays where it is.")
+			return
+		Journal.discover("item_snail_live")
+		if hud and hud.has_method("toast"):
+			hud.toast("Into the pack it goes, shell dimming, foot still working the air.")
+		queue_free()
+
 	func _process(delta: float) -> void:
 		_t += delta
+		# Baby growth: scale eases from BABY_SCALE to full over GROW_HOURS game-hours.
+		# Feeding (and so breeding) stays off-limits until it graduates (verbs_fn gates
+		# FEED on `not _is_baby`) — a still-growing snail cannot itself be a parent yet.
+		if _is_baby:
+			_grow_h += delta * GameClock.time_scale * BloomFauna.game_hour_per_sec()
+			if _body_pivot:
+				_body_pivot.scale = Vector3.ONE * lerpf(BloomFauna.BABY_SCALE, 1.0,
+					clampf(_grow_h / BloomFauna.GROW_HOURS, 0.0, 1.0))
+			if _grow_h >= BloomFauna.GROW_HOURS:
+				_is_baby = false
+		elif _fed:
+			# Checked every frame (not just at feed time) so carrying an already-fed
+			# snail over to a second one and setting it down close by breeds them too.
+			var partner: Node3D = BloomFauna.find_breed_partner(self, BloomFauna.BREED_RADIUS)
+			if partner:
+				_breed_with(partner)
 		_harvest_cd = maxf(_harvest_cd - delta, 0.0)
 		var night: bool = GameClock.current_phase == GameClock.Phase.NIGHT
 		var glow: float = 2.0 if night else 0.0
 		if _harvest_cd > 120.0:
 			glow *= 0.15   # freshly wiped — the constellation re-charges slowly
+		# Fed reads as visibly brighter and a touch faster — the "I fed it" feedback.
+		var pulse_rate: float = 1.05 if _fed else 0.8
+		var pulse_mul: float = 1.3 if _fed else 1.0
 		for i in range(_spots.size()):
 			# The constellation twinkles — each spot on its own slow beat.
 			_spots[i].emission_energy_multiplier = lerpf(_spots[i].emission_energy_multiplier,
-				glow * (0.55 + 0.45 * sin(_t * 0.8 + i * 1.3)), delta * 1.5)
+				glow * pulse_mul * (0.55 + 0.45 * sin(_t * pulse_rate + i * 1.3)), delta * 1.5)
 		# The lamp light pulses with the constellation, dimming when freshly harvested.
 		if _lamp_light:
-			var light_energy: float = glow * (0.55 + 0.45 * sin(_t * 0.8)) * 0.325
+			var light_energy: float = glow * pulse_mul * (0.55 + 0.45 * sin(_t * pulse_rate)) * 0.325
 			_lamp_light.light_energy = lerpf(_lamp_light.light_energy, light_energy, delta * 1.5)
 		visible = night or global_position.y > 0.0
 		# The pedal wave runs only while it is out crawling.
@@ -2055,6 +2279,10 @@ class RustSnail extends Node3D:
 	var _glow_mats: Array[StandardMaterial3D] = []
 	var _crawler: GroundCrawler       ## wall-aware patrol along the scoured seam
 	var _carried_by: Node3D = null    ## set while the player is carrying this live snail
+	var _fed: bool = false            ## took a greens item; breeds when a fed sibling is close
+	var _is_baby: bool = false        ## spawned by breeding — permanent, ~0.4 scale, grows in
+	var _grow_h: float = 0.0          ## game-hours since birth (baby only)
+	var _body_pivot: Node3D = null    ## baby-only scale wrapper (see BloomFauna.shrink_to_baby)
 
 	func _init(idx: int, from_p: Vector3, to_p: Vector3) -> void:
 		_idx = idx
@@ -2063,6 +2291,7 @@ class RustSnail extends Node3D:
 		_t = idx * 3.1
 
 	func _ready() -> void:
+		add_to_group("snail_rust")
 		var shell := MeshInstance3D.new()
 		var sm := SphereMesh.new()
 		sm.radius = 0.3
@@ -2105,14 +2334,77 @@ class RustSnail extends Node3D:
 		var mid: Vector3 = _from.lerp(_to, 0.5)
 		_crawler = GroundCrawler.new(mid, _from.distance_to(_to) * 0.5, 0.1, 700 + _idx,
 			0.2, 0.15, _from.y, _to - _from)
-		# Grab it like any other loose item — it comes off the rail into your hands.
-		var touch := FaunaTouch.new("Rust Snail", 0.5, func() -> Array: return ["GRAB"],
-			func(_verb: String, player: Node3D) -> void:
-				BloomFauna.grab_snail(self, player))
+		# Grab it like any other loose item — it comes off the rail into your hands. Crouch
+		# for COLLECT instead; carrying greens and unfed offers FEED first (same priority
+		# order as the lamp snail and HarborSeal's FEED-beats-PET precedent).
+		var touch := FaunaTouch.new("Rust Snail", 0.5,
+			func() -> Array:
+				if BloomFauna.player_crouching(self):
+					return ["COLLECT"]
+				var out: Array = ["GRAB"]
+				if not _is_baby and not _fed and BloomFauna.has_greens():
+					out.push_front("FEED")
+				return out,
+			_touch_act)
 		add_child(touch)
+		if _is_baby:
+			_body_pivot = BloomFauna.shrink_to_baby(self, BloomFauna.BABY_SCALE)
+
+	func _touch_act(verb: String, player: Node3D) -> void:
+		match verb:
+			"FEED":
+				_feed(player)
+			"COLLECT":
+				_collect(player)
+			_:
+				BloomFauna.grab_snail(self, player)
+
+	func _feed(_player: Node3D) -> void:
+		if _is_baby or _fed or not BloomFauna.consume_greens():
+			return
+		_fed = true
+		Journal.discover("system_snail_breeding")
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("It takes the greens — the whorls glow a little hotter.")
+
+	func _breed_with(partner: Node3D) -> void:
+		var mid: Vector3 = (global_position + partner.global_position) * 0.5
+		var baby := RustSnail.new(5000 + (randi() % 100000), mid, mid + Vector3(1.4, 0, 0))
+		baby._is_baby = true
+		get_parent().add_child(baby)
+		baby.global_position = mid
+		_fed = false
+		partner.set("_fed", false)
+		Journal.discover("creature_snail_baby")
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("Two fed shells lean together, and a smaller one is rasping between them.")
+
+	func _collect(_player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if not PlayerState.add_item("snail_live"):
+			if hud and hud.has_method("toast"):
+				hud.toast("Hands full — it stays where it is.")
+			return
+		Journal.discover("item_snail_live")
+		if hud and hud.has_method("toast"):
+			hud.toast("Into the pack it goes, still working the rail with its foot.")
+		queue_free()
 
 	func _process(delta: float) -> void:
 		_t += delta
+		if _is_baby:
+			_grow_h += delta * GameClock.time_scale * BloomFauna.game_hour_per_sec()
+			if _body_pivot:
+				_body_pivot.scale = Vector3.ONE * lerpf(BloomFauna.BABY_SCALE, 1.0,
+					clampf(_grow_h / BloomFauna.GROW_HOURS, 0.0, 1.0))
+			if _grow_h >= BloomFauna.GROW_HOURS:
+				_is_baby = false
+		elif _fed:
+			var partner: Node3D = BloomFauna.find_breed_partner(self, BloomFauna.BREED_RADIUS)
+			if partner:
+				_breed_with(partner)
 		if BloomFauna.snail_carry(self, _crawler, delta):
 			return
 		# Patrol the scoured seam, respecting whatever rail or bulkhead crosses it.
@@ -2121,9 +2413,12 @@ class RustSnail extends Node3D:
 		# handed to orient() as a body-local roll so it rides ON the surface frame: rasping
 		# up a vertical rail rocks across the rail, and the foot stays on the steel.
 		_crawler.orient(self, delta, 4.0, sin(_t * 2.4) * 0.06)
-		var heat: float = 0.8 + 0.5 * sin(_t * 0.7 + _idx)
+		# Fed reads as visibly hotter, faster-breathing vents — the "I fed it" feedback.
+		var heat_rate: float = 1.9 if _fed else 1.3
+		var heat_mul: float = 1.35 if _fed else 1.0
+		var heat: float = heat_mul * (0.8 + 0.5 * sin(_t * 0.7 + _idx))
 		for i in range(_glow_mats.size()):
-			_glow_mats[i].emission_energy_multiplier = heat * (0.7 + 0.3 * sin(_t * 1.3 + i))
+			_glow_mats[i].emission_energy_multiplier = heat * (0.7 + 0.3 * sin(_t * heat_rate + i))
 		# The foot wave keeps time with the rasping, and the shell heat breathes with it.
 		ANIM.drive(_gen_mats, 0.8, heat * 0.5)
 		Journal.discover_if_near(self, "creature_rust_snail", 9.0)
@@ -2144,6 +2439,10 @@ class GlassSnail extends Node3D:
 	var _interest: float = 0.0
 	var _crawler: GroundCrawler       ## wall-aware drift across the submerged plate
 	var _carried_by: Node3D = null    ## set while the player is carrying this live snail
+	var _fed: bool = false            ## took a greens item; breeds when a fed sibling is close
+	var _is_baby: bool = false        ## spawned by breeding — permanent, ~0.4 scale, grows in
+	var _grow_h: float = 0.0          ## game-hours since birth (baby only)
+	var _body_pivot: Node3D = null    ## baby-only scale wrapper (see BloomFauna.shrink_to_baby)
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -2151,6 +2450,7 @@ class GlassSnail extends Node3D:
 		_t = idx * 2.7
 
 	func _ready() -> void:
+		add_to_group("snail_glass")
 		var shell := MeshInstance3D.new()
 		var sm := SphereMesh.new()
 		sm.radius = 0.26
@@ -2195,19 +2495,84 @@ class GlassSnail extends Node3D:
 		global_position = _base
 		_crawler = GroundCrawler.new(_base, 3.0, 0.08, 900 + _idx, 0.18, 0.12, _base.y)
 		# Grab it like any other loose item — the curious one comes along easily too.
-		var touch := FaunaTouch.new("Glass Snail", 0.4, func() -> Array: return ["GRAB"],
-			func(_verb: String, player: Node3D) -> void:
-				BloomFauna.grab_snail(self, player))
+		# Crouch for COLLECT; carrying greens and unfed offers FEED first.
+		var touch := FaunaTouch.new("Glass Snail", 0.4,
+			func() -> Array:
+				if BloomFauna.player_crouching(self):
+					return ["COLLECT"]
+				var out: Array = ["GRAB"]
+				if not _is_baby and not _fed and BloomFauna.has_greens():
+					out.push_front("FEED")
+				return out,
+			_touch_act)
 		add_child(touch)
+		if _is_baby:
+			_body_pivot = BloomFauna.shrink_to_baby(self, BloomFauna.BABY_SCALE)
+
+	func _touch_act(verb: String, player: Node3D) -> void:
+		match verb:
+			"FEED":
+				_feed(player)
+			"COLLECT":
+				_collect(player)
+			_:
+				BloomFauna.grab_snail(self, player)
+
+	func _feed(_player: Node3D) -> void:
+		if _is_baby or _fed or not BloomFauna.consume_greens():
+			return
+		_fed = true
+		Journal.discover("system_snail_breeding")
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("It takes the greens without ever looking away from you.")
+
+	func _breed_with(partner: Node3D) -> void:
+		var mid: Vector3 = (global_position + partner.global_position) * 0.5
+		var baby := GlassSnail.new(5000 + (randi() % 100000), mid)
+		baby._is_baby = true
+		get_parent().add_child(baby)
+		baby.global_position = mid
+		_fed = false
+		partner.set("_fed", false)
+		Journal.discover("creature_snail_baby")
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("Two lit coils turn toward each other, and a third, smaller one, blinks on between them.")
+
+	func _collect(_player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if not PlayerState.add_item("snail_live"):
+			if hud and hud.has_method("toast"):
+				hud.toast("Hands full — it stays where it is.")
+			return
+		Journal.discover("item_snail_live")
+		if hud and hud.has_method("toast"):
+			hud.toast("Into the pack — the lit coil dims to nothing in the dark.")
+		queue_free()
 
 	func _process(delta: float) -> void:
 		_t += delta
+		if _is_baby:
+			_grow_h += delta * GameClock.time_scale * BloomFauna.game_hour_per_sec()
+			if _body_pivot:
+				_body_pivot.scale = Vector3.ONE * lerpf(BloomFauna.BABY_SCALE, 1.0,
+					clampf(_grow_h / BloomFauna.GROW_HOURS, 0.0, 1.0))
+			if _grow_h >= BloomFauna.GROW_HOURS:
+				_is_baby = false
+		elif _fed:
+			var partner: Node3D = BloomFauna.find_breed_partner(self, BloomFauna.BREED_RADIUS)
+			if partner:
+				_breed_with(partner)
 		# Curiosity, not fear: the closer you are, the harder its gut burns.
 		var player: Node3D = get_tree().get_first_node_in_group("player")
 		var near: bool = player != null and player.global_position.distance_to(global_position) < 7.0
 		_interest = move_toward(_interest, 1.0 if near else 0.0, delta * 0.8)
+		# Fed reads as a visibly brighter, slightly faster peristalsis down the coil.
+		var pulse_rate: float = 1.5 if _fed else 1.1
+		var pulse_mul: float = 1.3 if _fed else 1.0
 		for i in range(_gut_mats.size()):
-			var pulse: float = 0.6 + 0.4 * sin(_t * 1.1 - i * 0.7)   # peristalsis down the coil
+			var pulse: float = pulse_mul * (0.6 + 0.4 * sin(_t * pulse_rate - i * 0.7))   # peristalsis down the coil
 			_gut_mats[i].emission_energy_multiplier = pulse * lerpf(1.4, 4.0, _interest)
 		if _gen_mats.size() > 0:
 			ANIM.drive(_gen_mats, 0.6, lerpf(0.6, 2.2, _interest))

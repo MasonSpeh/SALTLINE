@@ -12,6 +12,7 @@ const FISH := preload("res://scripts/world/fish_table.gd")
 # Non-fish things the range also cooks — a caught sea-bird off the deck, and room to grow.
 const EXTRA_COOK := {
 	"raw_sea_bird": "cooked_sea_bird",
+	"snail_live": "escargot",
 }
 
 ## What a raw item cooks into ("" = not cookable). Fish come from the table; a few

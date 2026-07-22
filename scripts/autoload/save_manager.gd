@@ -9,6 +9,7 @@ const SAVE_PATH: String = "user://saltline_autosave.json"
 const SAVE_VERSION: int = 2
 
 const TAKEABLE := preload("res://scripts/components/takeable.gd")
+const FAUNA := preload("res://scripts/world/bloom_fauna.gd")
 
 ## Container contents pulled from the last load, keyed by a stable position key. Held
 ## so that containers which only exist AFTER the load call — structures rebuilt this
@@ -37,6 +38,7 @@ func save_game() -> void:
 		"structures": _structures_payload(),
 		"containers": _containers_payload(),
 		"dropped": _dropped_payload(),
+		"snails": FAUNA.snail_payload(get_tree()),
 	}
 	# rest / comfort / camp_found live with the stats that feed them.
 	data.merge(PlayerState.comfort_payload())
@@ -78,6 +80,9 @@ func load_game() -> bool:
 	restore_structures(data.get("structures", []))
 	_apply_pending_to_existing()
 	restore_dropped(data.get("dropped", []))
+	var snails: Variant = data.get("snails", {})
+	if typeof(snails) == TYPE_DICTIONARY:
+		FAUNA.snail_restore(get_tree(), snails)
 	return true
 
 # --------------------------------------------------------------- base building

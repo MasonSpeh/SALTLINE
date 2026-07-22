@@ -481,6 +481,10 @@ func use_hotbar(slot: int) -> void:
 		# Apply side effects (raw glow worm causes sickness)
 		if def.get("side_effect", "") == "sick":
 			sickness = 0.8
+		# A few cooked meals (escargot) also settle the nerves a little — the same
+		# comfort stat ComfortFurniture drives, just nudged directly.
+		if def.has("comfort"):
+			comfort += def.get("comfort", 0.0)
 		# Eat one off the stack. Only when the slot truly empties does it get refilled
 		# from the pack — a stack of five cans keeps five slots' worth in one slot.
 		var remaining: int = int(hotbar_counts[slot]) - 1

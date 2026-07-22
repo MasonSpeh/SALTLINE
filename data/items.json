@@ -257,6 +257,18 @@
     "name": "Limpet Shell",
     "use": "tool"
   },
+  "snail_live": {
+    "name": "Live Snail",
+    "use": "eat",
+    "hunger": 0.06,
+    "side_effect": "sick"
+  },
+  "escargot": {
+    "name": "Escargot",
+    "use": "eat",
+    "hunger": 0.5,
+    "comfort": 0.05
+  },
   "cooked_fish_copper_sprat": {
     "name": "Cooked Copper Sprat",
     "use": "eat",

@@ -581,5 +581,29 @@
     "title": "Anchor Limpets",
     "body": "A riveted iron cap welded into the splash zone, ringed underneath with a thin band of light. Walk toward one and it feels you through the plate long before you arrive — the shell settles, the ring goes out, and what is left is indistinguishable from the rig. The storm cannot move them. Neither can you.",
     "hint": "The light only returns if you stop moving. Patience is the whole trick with these."
+  },
+  "system_snail_breeding": {
+    "cat": "system",
+    "title": "Feeding the Snails",
+    "body": "Kelp does it. Any lamp, rust or glass snail takes a green offering and glows a shade brighter for it — and once, out on the SW pontoon, I fed two in the same evening and carried one over to sit beside the other. By morning there was a third light, small and pale, working the same patch. Nobody taught them that. They just do it, the way anything alive does it, given enough to eat and something else fed nearby.",
+    "hint": "FEED a crawling snail a green item. Two fed snails of the same kind, brought within a few metres of each other, breed — a permanent baby, no despawn, ever."
+  },
+  "creature_snail_baby": {
+    "cat": "creature",
+    "title": "A New Light",
+    "body": "Half the size of its parents and twice as restless, already crawling its own short patch of the leg base. The Bloom's little lights are multiplying because I fed them — not because anyone asked me to keep this rig alive, but I am, one fed snail at a time.",
+    "hint": "Babies grow to full size over a couple of days. They never starve and they never vanish."
+  },
+  "item_snail_live": {
+    "cat": "item",
+    "title": "Live Snail",
+    "body": "Collected whole — shell, foot, and the last of its light, going out slowly in the dark of the pack. It was crawling a minute ago. I try not to think about which ones I've fed.",
+    "hint": "Sears on the galley stove into escargot. Works on a baby the same as a grown one."
+  },
+  "item_escargot": {
+    "cat": "item",
+    "title": "Escargot",
+    "body": "Seared in its own shell, small and rich, the first genuinely good meal the rig has given me. It sits fine. I still think about the constellation being one light short tonight, and eat it anyway.",
+    "hint": "Solid hunger, a little comfort besides — the pot is kinder to you than the tide ever was."
   }
 }
