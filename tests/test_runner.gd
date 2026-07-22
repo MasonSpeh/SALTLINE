@@ -138,6 +138,42 @@ func _visual_aabb(n: Node3D) -> AABB:
 			acc = acc.merge(a)
 	return acc if not first else AABB()
 
+## Physics ray between two world points. True if it hits any static body.
+func _ray_blocked(main: Node3D, from: Vector3, to: Vector3) -> bool:
+	var space: PhysicsDirectSpaceState3D = main.get_world_3d().direct_space_state
+	var q := PhysicsRayQueryParameters3D.create(from, to)
+	q.collide_with_bodies = true
+	q.collide_with_areas = false
+	return not space.intersect_ray(q).is_empty()
+
+## A point the player can stand on: solid floor just below, ~1.8m headroom clear above.
+func _standable(main: Node3D, p: Vector3) -> bool:
+	var has_floor: bool = _ray_blocked(main, p + Vector3(0, 1.2, 0), p + Vector3(0, -0.6, 0))
+	var head_clear: bool = not _ray_blocked(main, p + Vector3(0, 0.3, 0), p + Vector3(0, 2.0, 0))
+	return has_floor and head_clear
+
+## The intended power route is physically walkable, and both annex doors are open holes.
+## The "can a real player REACH the breaker room" guard - geometry, not story.
+func _check_power_reachability(main: Node3D) -> void:
+	var route := {
+		"tower entry pad": Vector3(23.0, 2.0, -4.6),
+		"landing 1 (machinery)": Vector3(29.25, 6.0, -1.0),
+		"machinery floor (by spool)": Vector3(26.0, 6.0, 9.0),
+		"landing 2 (breaker)": Vector3(22.75, 10.0, -1.0),
+		"breaker floor (by panel)": Vector3(24.0, 10.0, 8.4),
+		"breaker floor (by cable gap)": Vector3(27.0, 10.0, 6.0),
+	}
+	var blocked: Array[String] = []
+	for label in route:
+		if not _standable(main, route[label]):
+			blocked.append(label)
+	_check(blocked.is_empty(),
+		"whole power route is walkable, floor + headroom (blocked: %s)" % str(blocked))
+	_check(not _ray_blocked(main, Vector3(28.5, 7.2, 0.8), Vector3(28.5, 7.2, 3.5)),
+		"machinery-room doorway is an open hole")
+	_check(not _ray_blocked(main, Vector3(23.5, 11.2, 0.8), Vector3(23.5, 11.2, 3.5)),
+		"breaker-room doorway is an open hole")
+
 func _run() -> void:
 	var main: Node3D = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
@@ -186,6 +222,20 @@ func _run() -> void:
 		elif c is LightZone:
 			zone = c
 	_check(cable != null and breaker != null and zone != null, "power chain nodes exist")
+	# A real player has to physically reach the breaker room before any of this matters.
+	# Let CSG collision finish baking before the reachability rays fly.
+	for _pf in range(8):
+		await get_tree().physics_frame
+	_check_power_reachability(main)
+	# The wet-deck notice that names the route + the on-panel order hint are both posted.
+	_check(Readable._texts.has("breaker_notice"), "wet-deck power notice text exists")
+	var wl_count: int = get_tree().get_nodes_in_group("wet_deck_worklights").size()
+	_check(wl_count >= 3, "wet-deck worklights placed (found %d)" % wl_count)
+	var wl_lit_before: int = 0
+	for w in get_tree().get_nodes_in_group("wet_deck_worklights"):
+		if (w as Light3D).visible:
+			wl_lit_before += 1
+	_check(wl_lit_before == 0, "wet-deck worklights start dark (unpowered)")
 	breaker.interact("OPERATE", player)
 	_check(not PowerGrid.is_powered("topside_floodlights"), "breaker refuses with burned cable")
 	cable.interact("CONNECT", player)
@@ -199,6 +249,16 @@ func _run() -> void:
 	_check(zone.is_lit(), "light zone lit")
 	_check(LightZone.point_is_safe(get_tree(), Vector3(0, 20, 0)), "topside center is safe")
 	_check(not LightZone.point_is_safe(get_tree(), Vector3(20, 3, -10)), "wet deck stays dark")
+	# PAYOFF: closing the master must produce an unmistakable, wired reaction.
+	var wl_lit_after: int = 0
+	for w in get_tree().get_nodes_in_group("wet_deck_worklights"):
+		if (w as Light3D).visible:
+			wl_lit_after += 1
+	_check(wl_lit_after == wl_count, "wet-deck worklights light up when powered")
+	_check(Journal.discovered.has("place_power"), "power-restored journal entry fires")
+	# The breaker's own toast/objective is the final word: it names the payoff (floodlights).
+	_check(main.hud.objective_label.text.to_lower().contains("floodlight"),
+		"objective updates to the power-on payoff")
 
 	# Inventory + eating.
 	PlayerState.add_item("canned_food")
@@ -696,13 +756,13 @@ func _run() -> void:
 		"bunkhouse + cabin lockers are real openable containers (got %d)" % found_lockers.size())
 	if not found_lockers.is_empty():
 		var test_locker: LootContainer = found_lockers[0]
-		var before: Array[String] = test_locker.items.duplicate()
+		var locker_before: Array[String] = test_locker.items.duplicate()
 		test_locker.items = ["rope"]
 		SaveManager.save_game()
 		test_locker.items = []   # simulate the world coming back empty before load
 		_check(SaveManager.load_game(), "save reloads with a stowed locker item in it")
 		_check(test_locker.items.has("rope"), "an item stowed in a found locker survives a reload")
-		test_locker.items = before   # leave the world as this test found it
+		test_locker.items = locker_before   # leave the world as this test found it
 
 	# --- a crafted storage bin holds items and survives a reload ---------------------
 	# storage_bin_kit is bench-craftable (recipes.json) and, via ComfortFurniture's

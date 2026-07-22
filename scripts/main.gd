@@ -214,7 +214,7 @@ func _end_cold_open() -> void:
 	AudioDirector.play_one_shot("hiss", rig.sphl_interior, 0.0)
 	rig.sphl_hatch.unlock()
 	hud.set_hint("")   # hand the prompt chip back to the interaction system
-	hud.set_objective("Get out. Find the cable spool and restore power before dark.")
+	hud.set_objective("Get out. Power's dead — up the stair tower: grab the cable spool (Lvl 1), then throw Breaker 4-A (Lvl 2).")
 	hud.toast("Cold air. You're on the rig.")
 	EventBus.cold_open_finished.emit()
 

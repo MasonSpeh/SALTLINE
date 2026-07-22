@@ -24,6 +24,10 @@
     "title": "TALLY BOOK PAGE — REC ROOM, UNDER THE DARTBOARD",
     "body": "Werner swears the crew on the end rig signed papers thick as a fist. Says his cousin worked the supply run — they offload at night, nobody on deck, crane does it all.\n\nKristjan asked the company man straight out at the safety brief: what's it called, the end platform. Man smiled and said 'that's a processing terminus.' Processing what? Smiled again.\n\nWe've started calling it the Quiet Rig. Feels wrong to even write it down.\n\nAnyway. Darts Thursday. Werner owes me a bottle."
   },
+  "breaker_notice": {
+    "title": "STATION NOTICE — MAIN POWER IS OFF",
+    "body": "POSTED AT THE STAIR HEAD — READ BEFORE DARK\n\nThe topside floodlights are DEAD. The master breaker for that circuit — 4-A — was thrown after an arc fault burned the feed line. Until someone restores it, the deck goes black at nightfall, and the deck is not safe black.\n\nTO BRING THE LIGHTS UP, climb the stair tower off this deck:\n\n  LEVEL 1  —  MACHINERY / CABLE STORES.  A spool of feed cable is racked here. TAKE IT.\n  LEVEL 2  —  BREAKER ROOM 4-A.  Splice the burned gap with the spool FIRST, then close Master 4-A.\n\nIn that order. The maintenance log on the panel spells it out. Do it before nightfall.\n\n— posted by the last watch"
+  },
   "breaker_log": {
     "title": "MAINTENANCE LOG — BREAKER ROOM 4-A",
     "body": "ELECTRICAL MAINTENANCE — RUNNING LOG\n\n04TH — Topside floodlight circuit tripping under load. Suspect corroded feed line in the stairwell corridor run. Flagged for splice.\n\n09TH — Splice postponed. Cable stock requisition DENIED, all spool inventory redirected 'down the line.' Down the line. Everything goes down the line now.\n\n11TH — Found scorch marks on the corridor run. Arc fault. Killed the whole circuit at the master rather than risk a fire. Topside's dark until we get spool stock.\n\nIf you need the deck lights: splice the corridor gap FIRST, then close the master here. In that order, unless you enjoy arc flash.\n\n— E.V., chief electrician"

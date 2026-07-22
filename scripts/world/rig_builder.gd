@@ -809,6 +809,23 @@ func _build_stair_tower() -> void:
 	_box(Vector3(27.7, 10.6, 8.4), Vector3(0.12, 0.12, 2.2), MatLib.dark_metal(), self, false)
 	_box(Vector3(27.7, 10.6, 3.6), Vector3(0.12, 0.12, 2.2), MatLib.dark_metal(), self, false)
 
+	# --- POWER-ROUTE STENCILS (a real player could not find the breaker room, or
+	# know cable came first). Every marking is painted on a solid wall the climber
+	# faces, amber like a live instruction. LANDING 1 (y6) north wall faces south.
+	_plabel("MACHINERY 1", Vector3(28.5, 6.0 + 2.0, 1.88), 180, 18, Color(0.95, 0.72, 0.2))
+	_plabel("CABLE STORES - TAKE THE SPOOL", Vector3(28.5, 6.0 + 1.62, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
+	_plabel("MAIN POWER: BREAKER 4-A - ONE LEVEL UP", Vector3(25.2, 6.0 + 2.0, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
+	# The spool itself, named where it sits so it is unmistakably the thing to grab.
+	_plabel("SPARE FEED CABLE", Vector3(27.0, 7.9, 5.6), 180, 12, Color(0.95, 0.72, 0.2))
+	# LANDING 2 (y10) north wall, over/beside the breaker-room door (x23.5).
+	_plabel("BREAKER ROOM 4-A", Vector3(25.4, 10.0 + 2.0, 1.88), 180, 18, Color(0.95, 0.72, 0.2))
+	# Inside the room: the ORDER, at a glance, right on the panel wall. The full
+	# maintenance log (why, and the arc-flash warning) is the readable beside it.
+	_plabel("1) SPLICE THE GAP", Vector3(25.2, 12.0, 9.85), 180, 13, Color(0.95, 0.72, 0.2))
+	_plabel("2) CLOSE THIS MASTER", Vector3(25.2, 11.65, 9.85), 180, 13, Color(0.95, 0.72, 0.2))
+	# At the burned gap on the east wall, facing back into the room (-x).
+	_plabel("BURNED FEED - SPLICE HERE", Vector3(27.82, 11.5, 6.0), -90, 11, Color(0.95, 0.72, 0.2))
+
 	# The lookout that the whole climb finally leads to.
 	_build_ops_room(OPS_Y)
 
@@ -1209,6 +1226,33 @@ func _build_floodlights() -> void:
 	heat.global_position = Vector3(11, DECK_Y + 1.5, 6.5)
 	# PA speaker on a pole (the dusk beat).
 	_box(Vector3(14, DECK_Y + 3.0, 7.4), Vector3(0.4, 0.3, 0.3), MatLib.dark_metal())
+	# WET-DECK WORKLIGHT POOLS: the payoff has to be unmistakable DOWN HERE, where the
+	# player throws the breaker's whole journey began and where they respawn — not only
+	# on the topside deck they may not be standing on. These are cheap cosmetic OmniLights
+	# (shadows off, gl_compat-safe), NOT a LightZone: the wet deck is deliberately still
+	# unsafe after dark (the crab climbs it), so lighting it must not create a safe zone.
+	# Caged worklamps over the boat landing, the mooring station, and the stair-tower door.
+	for wl in [Vector3(20, WET_Y + 3.4, -19.0), Vector3(12, WET_Y + 3.4, -21.5),
+			Vector3(24, WET_Y + 3.4, -7.5), Vector3(14, WET_Y + 3.4, -12.0)]:
+		_box(wl + Vector3(0, 0.28, 0), Vector3(0.3, 0.16, 0.3), MatLib.dark_metal())  # dead housing
+		var head := _box(wl, Vector3(0.34, 0.14, 0.34), MatLib.flat(Color(0.7, 0.65, 0.55), true, 0.0))
+		var wlamp := OmniLight3D.new()
+		wlamp.omni_range = 7.5
+		wlamp.light_energy = 2.2
+		wlamp.light_color = Color(1.0, 0.9, 0.7)   # warm = player-made safety (canon)
+		wlamp.shadow_enabled = false                # gl_compat perf: no dynamic shadows
+		wlamp.visible = false                       # dead until the breaker closes
+		add_child(wlamp)
+		wlamp.global_position = wl - Vector3(0, 0.2, 0)
+		wlamp.add_to_group("wet_deck_worklights")
+		PowerGrid.circuit_powered.connect(func(id: String) -> void:
+			if id == "topside_floodlights" and is_instance_valid(wlamp):
+				wlamp.visible = true
+				if is_instance_valid(head):
+					head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.2))
+		PowerGrid.circuit_lost.connect(func(id: String) -> void:
+			if id == "topside_floodlights" and is_instance_valid(wlamp):
+				wlamp.visible = false)
 
 # ---------- Z5: High Iron ----------
 

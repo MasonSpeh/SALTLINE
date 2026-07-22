@@ -438,6 +438,16 @@ func _stair_entry() -> void:
 	# Dead caged lamp over the door.
 	_dbox(Vector3(23.6, y + 3.2, -6.22), Vector3(0.22, 0.28, 0.14), MatLib.dark_metal())
 	_dcyl(Vector3(23.6, y + 3.2, -6.3), 0.08, 0.1, MatLib.glass(Color(0.8, 0.85, 0.8)))
+	# POWER WAYFINDING (players kept reaching nightfall never knowing the deck
+	# lights had to be restored, or that the way up is this same door). The tower
+	# door is the one funnel every player passes; the power story and the route
+	# up are posted right on it. Amber = a live instruction, distinct from the
+	# green escape signage next to it.
+	_plabel("MAIN POWER OFF", Vector3(26.8, y + 2.55 + GAP_FIX, -6.13), 180, 17, Color(0.95, 0.72, 0.2))
+	_plabel("BREAKER ROOM 4-A - TOWER LVL 2", Vector3(26.8, y + 2.15 + GAP_FIX, -6.13), 180, 12, Color(0.95, 0.72, 0.2))
+	# Steel notice board bolted beside the door, facing the deck - the full story.
+	_dbox(Vector3(27.9, y + 1.5, -6.12), Vector3(0.62, 0.82, 0.05), MatLib.galvanized())
+	_readable("breaker_notice", "Station Notice - Main Power", Vector3(27.9, y + 1.5, -6.16), Vector3(0.5, 0.66, 0.04))
 
 # ---------------------------------------------------------------- tide bands
 
