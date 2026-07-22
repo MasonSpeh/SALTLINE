@@ -1,17 +1,21 @@
 class_name StartScreen extends Control
 ## Branded start screen: a painted North-Sea night — smooth gradient sky with a low
-## Bloom-teal aurora, a hazed moon, a stark rig silhouette with lit windows and a
-## pulsing beacon, its reflection breaking on the swell, a drifting spore field and
-## a starfield overhead, a glowing letterspaced SALTLINE wordmark, and a minimal
-## keyboard-navigable menu. Everything is built in code; the .tscn is just this
-## script on a Control. No external art — all procedural, so it ships with zero deps.
+## Bloom-teal aurora, a hazed moon, drifting fog banks, fine wind-slanted rain, a stark
+## rig silhouette with flickering sodium windows and a slow rotating derrick beacon that
+## rims the structure as it passes, its reflection breaking on the swell, distant swell
+## glints, an occasional gull drifting the horizon, film grain + a corner vignette, a
+## glowing letterspaced SALTLINE wordmark, and a minimal keyboard-navigable menu.
+## Everything is built in code (two cheap canvas_item shaders + ColorRect/Polygon2D dressing,
+## trivially light on gl_compatibility); the .tscn is just this script on a Control. No
+## external art — all procedural, so it ships with zero deps.
 
 const MAIN_SCENE: String = "res://scenes/Main.tscn"
 const SAVE_PATH: String = "user://saltline_autosave.json"
 
 const HORIZON: float = 0.66
-const SPORE_COUNT: int = 34
 const STAR_COUNT: int = 90
+const FOG_COUNT: int = 5
+const GLINT_COUNT: int = 16
 
 const COL_SKY_TOP: Color = Color(0.015, 0.03, 0.05)
 const COL_SKY_MID: Color = Color(0.03, 0.06, 0.09)
@@ -22,13 +26,27 @@ const COL_TEAL: Color = Color(0.2, 0.9, 0.85)
 const COL_RIG: Color = Color(0.006, 0.016, 0.024)
 const COL_BEACON: Color = Color(0.95, 0.2, 0.18)
 const COL_WINDOW: Color = Color(0.95, 0.78, 0.42)   ## warm sodium light in the rig windows
+const COL_FOG: Color = Color(0.10, 0.19, 0.21)      ## cold charcoal-teal haze
 
-var _spores: Array[ColorRect] = []
-var _spore_speeds: Array[float] = []
 var _stars: Array[ColorRect] = []
 var _star_phase: Array[float] = []
-var _reflection: Control          ## the whole rig mirror, wobbled on the swell
+var _reflection: Control                 ## the whole rig mirror, wobbled on the swell
 var _glow_row: HBoxContainer
+var _fog: Array[TextureRect] = []
+var _fog_speed: Array[float] = []
+var _glints: Array[ColorRect] = []
+var _glint_phase: Array[float] = []
+var _glint_base: Array[float] = []       ## each glint's base alpha
+var _windows: Array[ColorRect] = []      ## the real rig's lit windows (flickering subset flagged)
+var _win_flick: Array[bool] = []
+var _win_phase: Array[float] = []
+var _beacon_pivot: Node2D                ## rotating derrick sweep
+var _rig_rim: ColorRect                  ## thin top-edge highlight the beacon brushes across
+var _gull: Node2D                        ## the lone drifting gull
+var _gull_t: float = -3.0                ## <0 = waiting to re-enter
+var _gull_speed: float = 22.0
+var _gull_y: float = 0.0
+var _gull_dir: float = 1.0
 
 func _ready() -> void:
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
@@ -38,9 +56,14 @@ func _ready() -> void:
 	_build_moon()
 	_build_stars()
 	_build_aurora()
+	_build_fog()
 	_build_rig()
-	_build_spores()
+	_build_glints()
+	_build_beacon()
+	_build_gull()
+	_build_rain()
 	_build_vignette()
+	_build_grain()
 	_build_title()
 	_build_menu()
 	_build_footer()
@@ -48,21 +71,63 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var view: Vector2 = get_viewport_rect().size
 	var t: float = Time.get_ticks_msec() * 0.001
-	for i in _spores.size():
-		var s: ColorRect = _spores[i]
-		s.position.y -= _spore_speeds[i] * delta
-		s.position.x += sin(t * 0.6 + float(i) * 1.7) * 5.0 * delta
-		if s.position.y < -6.0:
-			s.position.y = view.y + randf_range(0.0, 40.0)
-			s.position.x = randf() * view.x
 	# Stars breathe on their own slow clocks — a still starfield reads as a texture,
 	# a twinkling one reads as sky.
 	for i in _stars.size():
 		var star: ColorRect = _stars[i]
 		star.modulate.a = 0.35 + 0.45 * (0.5 + 0.5 * sin(t * 0.9 + _star_phase[i]))
+	# Fog banks drift slowly sideways and wrap, softening the horizon and the rig base.
+	for i in _fog.size():
+		var f: TextureRect = _fog[i]
+		f.position.x += _fog_speed[i] * delta
+		if _fog_speed[i] > 0.0 and f.position.x > view.x:
+			f.position.x = -f.size.x
+		elif _fog_speed[i] < 0.0 and f.position.x < -f.size.x:
+			f.position.x = view.x
+	# Sea swell glints shimmer and crawl — cold light broken on a long slow swell.
+	for i in _glints.size():
+		var g: ColorRect = _glints[i]
+		g.modulate.a = _glint_base[i] * (0.25 + 0.75 * pow(0.5 + 0.5 * sin(t * 1.3 + _glint_phase[i]), 3.0))
+		g.position.x += sin(t * 0.4 + _glint_phase[i]) * 6.0 * delta
+	# Sodium windows: a couple hold steady, the rest buzz and gutter like failing ballast.
+	for i in _windows.size():
+		if not _win_flick[i]:
+			continue
+		var ph: float = _win_phase[i]
+		var f2: float = 0.62 + 0.28 * sin(t * 8.0 + ph) + 0.10 * sin(t * 23.0 + ph * 2.3)
+		# occasional brown-out dip
+		if sin(t * 1.7 + ph) > 0.93:
+			f2 *= 0.25
+		_windows[i].modulate.a = clampf(f2, 0.08, 1.0)
 	# The reflection sways gently, as if the whole image is riding a long slow swell.
 	if _reflection:
 		_reflection.position.x = sin(t * 0.5) * 4.0
+	# Derrick beacon: a slow full rotation. The beam is brightest sweeping across the open
+	# sky toward the viewer and dims pointing away; when it passes the rig heading it brushes
+	# a faint rim across the silhouette's top edge.
+	if _beacon_pivot:
+		var ang: float = t * 0.6
+		_beacon_pivot.rotation = ang
+		# beam faces "down the page" at rotation ~PI/2 (Polygon2D built pointing +Y).
+		var facing: float = sin(ang)                       # 1.0 when sweeping toward viewer
+		_beacon_pivot.modulate.a = 0.10 + 0.55 * clampf(facing, 0.0, 1.0)
+		if _rig_rim:
+			# rim lights when the beam rakes left across the structure (rotation near PI)
+			var rake: float = maxf(0.0, -cos(ang))
+			_rig_rim.modulate.a = 0.04 + 0.5 * pow(rake, 3.0)
+	# Gull: a lone silhouette drifts the horizon now and then, wings slowly flexing.
+	_gull_t += delta
+	if _gull and _gull_t >= 0.0:
+		var gx: float = -60.0 + _gull_dir * _gull_speed * _gull_t
+		if _gull_dir < 0.0:
+			gx = view.x + 60.0 - _gull_speed * _gull_t
+		_gull.position = Vector2(gx, _gull_y + sin(t * 0.8) * 6.0)
+		_gull.scale.x = _gull_dir
+		# slow wing flap
+		var flap: float = 0.6 + 0.4 * sin(t * 3.2)
+		_gull.scale.y = flap
+		if gx < -80.0 or gx > view.x + 80.0:
+			_reset_gull(view)
 
 ## -- backdrop (smooth gradients, not banded rects) --------------------------
 
@@ -183,6 +248,45 @@ func _build_aurora() -> void:
 		glow.position = Vector2(view.x * float(spec[0]) - glow.size.x * 0.5,
 			view.y * HORIZON - glow.size.y * 0.62)
 
+## -- fog banks ---------------------------------------------------------------
+
+func _build_fog() -> void:
+	# Wide, soft, low-alpha charcoal-teal smears drifting across the horizon and low sky.
+	# A stretched radial reads as a torn cloud bank; several at different heights/speeds
+	# give parallax without a single hard edge.
+	var view: Vector2 = get_viewport_rect().size
+	for i in FOG_COUNT:
+		var w: float = randf_range(view.x * 0.5, view.x * 0.95)
+		var h: float = randf_range(70.0, 150.0)
+		var a: float = randf_range(0.05, 0.13)
+		var f := _soft_blob(Color(COL_FOG.r, COL_FOG.g, COL_FOG.b, a), w, h)
+		var yf: float = HORIZON - randf_range(-0.02, 0.20)   # hug the horizon, a few higher
+		f.position = Vector2(randf() * view.x, view.y * yf - h * 0.5)
+		_fog.append(f)
+		var spd: float = randf_range(5.0, 14.0)
+		_fog_speed.append(spd if randf() < 0.5 else -spd)
+
+## A soft-edged elliptical haze `w`x`h` px, brightest at centre.
+func _soft_blob(col: Color, w: float, h: float) -> TextureRect:
+	var grad := Gradient.new()
+	grad.offsets = PackedFloat32Array([0.0, 0.55, 1.0])
+	grad.colors = PackedColorArray([col, Color(col.r, col.g, col.b, col.a * 0.4),
+		Color(col.r, col.g, col.b, 0.0)])
+	var tex := GradientTexture2D.new()
+	tex.gradient = grad
+	tex.width = 128
+	tex.height = 128
+	tex.fill = GradientTexture2D.FILL_RADIAL
+	tex.fill_from = Vector2(0.5, 0.5)
+	tex.fill_to = Vector2(1.0, 0.5)
+	var tr := TextureRect.new()
+	tr.texture = tex
+	tr.stretch_mode = TextureRect.STRETCH_SCALE
+	tr.size = Vector2(w, h)
+	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(tr)
+	return tr
+
 ## -- rig silhouette + reflection --------------------------------------------
 
 func _build_rig() -> void:
@@ -221,10 +325,20 @@ func _rig_body(mirror: bool) -> Control:
 	# Lit windows — a few warm squares on the accommodation block. The one sign someone
 	# was here. Dimmer and cooler in the reflection.
 	var wcol: Color = COL_WINDOW if not mirror else Color(0.5, 0.4, 0.28)
+	var idx: int = 0
 	for w in [Vector2(-46.0, -50.0), Vector2(-40.0, -50.0), Vector2(-46.0, -42.0),
 			Vector2(-2.0, -40.0), Vector2(4.0, -40.0), Vector2(34.0, -36.0)]:
-		_rig_rect(rig, w, Vector2(3.0, 3.0), wcol)
+		var win: ColorRect = _rig_rect(rig, w, Vector2(3.0, 3.0), wcol)
+		if not mirror:
+			_windows.append(win)
+			# three of the six gutter; the rest hold.
+			_win_flick.append(idx == 1 or idx == 3 or idx == 5)
+			_win_phase.append(randf() * TAU)
+		idx += 1
 	if not mirror:
+		# Thin rim highlight along the superstructure/deck top edge that the beacon rakes.
+		_rig_rim = _rig_rect(rig, Vector2(-54.0, -57.0), Vector2(90.0, 1.5), COL_TEAL)
+		_rig_rim.modulate.a = 0.04
 		var beacon: ColorRect = _rig_rect(rig, Vector2(-31.0, -97.0), Vector2(5.0, 5.0), COL_BEACON)
 		var tw: Tween = create_tween().set_loops()
 		tw.tween_property(beacon, "modulate:a", 0.15, 0.8).set_trans(Tween.TRANS_SINE).set_ease(Tween.EASE_IN_OUT)
@@ -240,20 +354,116 @@ func _rig_rect(parent: Control, pos: Vector2, sz: Vector2, col: Color = COL_RIG)
 	parent.add_child(r)
 	return r
 
-## -- spores ------------------------------------------------------------------
+## -- sea swell glints --------------------------------------------------------
 
-func _build_spores() -> void:
+func _build_glints() -> void:
+	# Short bright horizontal dashes scattered across the water — cold moon/Bloom light
+	# catching the crests. They shimmer (alpha) and crawl a little on the swell.
 	var view: Vector2 = get_viewport_rect().size
-	for i in SPORE_COUNT:
-		var s := ColorRect.new()
-		var px: float = randf_range(1.5, 4.0)
-		s.size = Vector2(px, px)
-		s.color = Color(COL_TEAL.r, COL_TEAL.g, COL_TEAL.b, randf_range(0.12, 0.55))
-		s.position = Vector2(randf() * view.x, randf() * view.y)
-		s.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		add_child(s)
-		_spores.append(s)
-		_spore_speeds.append(randf_range(8.0, 32.0))
+	for i in GLINT_COUNT:
+		var g := ColorRect.new()
+		var w: float = randf_range(4.0, 16.0)
+		g.size = Vector2(w, randf_range(1.0, 1.6))
+		var warm: float = randf()
+		g.color = COL_PEARL.lerp(COL_TEAL, 0.3 + warm * 0.5)
+		# spread across the sea, denser near the horizon
+		var yf: float = HORIZON + pow(randf(), 1.7) * (0.9 - HORIZON) + 0.01
+		g.position = Vector2(randf() * view.x, yf * view.y)
+		g.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		add_child(g)
+		_glints.append(g)
+		_glint_phase.append(randf() * TAU)
+		_glint_base.append(randf_range(0.10, 0.32))
+
+## -- derrick beacon sweep ----------------------------------------------------
+
+func _build_beacon() -> void:
+	# A long, narrow, soft light wedge pivoting at the mast tip — the rotating aero-warning
+	# beacon of a dead rig, still turning. Polygon2D with vertex-colour fade: bright at the
+	# apex, transparent at the far end.
+	var view: Vector2 = get_viewport_rect().size
+	var tip := Vector2(view.x * 0.72 - 30.0, view.y * HORIZON - 95.0)
+	_beacon_pivot = Node2D.new()
+	_beacon_pivot.position = tip                  # over the sky (added after the rig)
+	add_child(_beacon_pivot)
+	var length: float = view.y * 0.85
+	var half_w: float = length * 0.055            # slim cone
+	var beam := Polygon2D.new()
+	beam.polygon = PackedVector2Array([
+		Vector2(0, 0), Vector2(-half_w, length), Vector2(half_w, length)])
+	beam.vertex_colors = PackedColorArray([
+		Color(0.72, 0.86, 0.9, 0.9), Color(0.72, 0.86, 0.9, 0.0), Color(0.72, 0.86, 0.9, 0.0)])
+	_beacon_pivot.add_child(beam)
+	_beacon_pivot.modulate.a = 0.0
+
+## -- gull --------------------------------------------------------------------
+
+func _build_gull() -> void:
+	var view: Vector2 = get_viewport_rect().size
+	_gull = Node2D.new()
+	_gull.z_index = 1
+	add_child(_gull)
+	# A shallow "M" of two wings, dark against the sky.
+	var wing := Line2D.new()
+	wing.points = PackedVector2Array([
+		Vector2(-11, 2), Vector2(-6, -3), Vector2(0, 1), Vector2(6, -3), Vector2(11, 2)])
+	wing.width = 2.0
+	# A faint pale-slate mark — a true black silhouette vanishes against the night sky.
+	wing.default_color = Color(0.5, 0.58, 0.6, 0.5)
+	wing.joint_mode = Line2D.LINE_JOINT_ROUND
+	wing.begin_cap_mode = Line2D.LINE_CAP_ROUND
+	wing.end_cap_mode = Line2D.LINE_CAP_ROUND
+	_gull.add_child(wing)
+	_reset_gull(view)
+
+func _reset_gull(view: Vector2) -> void:
+	_gull_t = -randf_range(4.0, 12.0)                       # a pause between passes
+	_gull_dir = 1.0 if randf() < 0.6 else -1.0
+	_gull_speed = randf_range(18.0, 30.0)
+	_gull_y = view.y * randf_range(0.30, 0.52)
+	_gull.position = Vector2(-999.0, _gull_y)               # park offscreen while waiting
+
+## -- rain (canvas shader) ----------------------------------------------------
+
+func _build_rain() -> void:
+	# Fine wind-slanted rain over the whole frame. A single full-screen canvas_item shader:
+	# no particles, no per-frame CPU — free on gl_compatibility.
+	var sh := Shader.new()
+	sh.code = """
+shader_type canvas_item;
+render_mode blend_add;
+uniform float wind = 0.22;
+uniform float intensity = 0.5;
+float h11(float x){ return fract(sin(x * 91.17) * 4271.53); }
+void fragment() {
+	vec2 uv = UV;
+	uv.x += uv.y * wind;                 // slant the whole field
+	float cols = 150.0;                  // many fine columns
+	float c = floor(uv.x * cols);
+	float seed = h11(c);
+	float speed = 0.7 + seed * 1.1;
+	float phase = seed * 20.0;
+	float y = uv.y * 9.0 + TIME * speed * 3.4 + phase;
+	float streak = fract(y);
+	// long, sharp-headed thin drop
+	float drop = smoothstep(0.0, 0.025, streak) * (1.0 - smoothstep(0.03, 0.55, streak));
+	float cx = fract(uv.x * cols);
+	float line = smoothstep(0.24, 0.10, abs(cx - 0.5));  // ~2px hairline
+	float active = step(0.55, h11(c + 3.1));             // sparse: fewer than half the columns
+	float a = drop * line * active * intensity;
+	a *= smoothstep(0.0, 0.12, UV.y);                    // ease in from the very top
+	COLOR = vec4(0.62, 0.74, 0.80, a * 0.34);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	var rect := ColorRect.new()
+	rect.color = Color(1, 1, 1, 1)
+	rect.material = mat
+	rect.anchor_right = 1.0
+	rect.anchor_bottom = 1.0
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(rect)
 
 ## -- vignette ----------------------------------------------------------------
 
@@ -277,6 +487,32 @@ func _build_vignette() -> void:
 	tr.anchor_bottom = 1.0
 	tr.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(tr)
+
+## -- film grain (canvas shader) ----------------------------------------------
+
+func _build_grain() -> void:
+	# A very subtle animated grain veil — enough to break the flat gradients into something
+	# that feels shot on stock, not rendered. One cheap hash per pixel.
+	var sh := Shader.new()
+	sh.code = """
+shader_type canvas_item;
+uniform float amount = 0.05;
+float h(vec2 p){ return fract(sin(dot(p, vec2(12.9898, 78.233))) * 43758.5453); }
+void fragment() {
+	vec2 p = FRAGCOORD.xy + vec2(fract(TIME) * 311.0, fract(TIME * 1.7) * 197.0);
+	float n = h(floor(p));
+	COLOR = vec4(vec3(n), (n - 0.5) * amount + amount * 0.15);
+}
+"""
+	var mat := ShaderMaterial.new()
+	mat.shader = sh
+	var rect := ColorRect.new()
+	rect.color = Color(1, 1, 1, 1)
+	rect.material = mat
+	rect.anchor_right = 1.0
+	rect.anchor_bottom = 1.0
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	add_child(rect)
 
 ## -- title -------------------------------------------------------------------
 

@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://loadscreen_shot_rig"]
+
+[ext_resource type="Script" path="res://tests/loadscreen_shot.gd" id="1"]
+
+[node name="LoadscreenShot" type="Node"]
+script = ExtResource("1")
