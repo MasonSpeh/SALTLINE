@@ -568,24 +568,41 @@ func _run() -> void:
 		player._toggle_fly()
 	player.global_position = Vector3(0, DECK_Y_TEST + 0.2, 12)
 
-	# Swimming: water is survivable now — buoyant, cold, and mortal at depth.
+	# Swimming: water is survivable now — buoyant, cold, and mortal only when your
+	# breath runs out. No fixed deep-death line: depth is free, air is the clock.
 	GameClock.force_phase(GameClock.Phase.DAY)
 	player.input_locked = false
 	player.global_position = Vector3(0, -1.5, -34)
 	player.velocity = Vector3.ZERO
+	PlayerState.oxygen = 1.0
 	player._check_water()
 	_check(player.swimming, "entering water starts swimming, not a respawn")
 	var warmth_before: float = PlayerState.warmth
 	player._swim_process(0.5)
 	_check(PlayerState.warmth < warmth_before, "cold water drains warmth")
 	_check(not player._drowning, "surface swimming does not black out")
-	player.global_position = Vector3(0, -16.0, -34)   # far past the deep-death line
-	player._swim_process(1.0)
-	player._swim_process(1.0)
+	# Diving deep is now allowed: past the old 13m line, a full breath does NOT kill you.
+	PlayerState.oxygen = 1.0
+	player.global_position = Vector3(0, -16.0, -34)
+	player.velocity = Vector3.ZERO
+	player._swim_process(0.5)
+	_check(not player._drowning, "diving deep on a full breath no longer drowns you")
+	_check(PlayerState.oxygen < 1.0, "submerging spends the breath (oxygen drains)")
+	# ...but an EMPTY breath held underwater does drown you, to the usual respawn.
+	PlayerState.oxygen = 0.0
+	player._airless_t = 0.0
+	player._drowning = false
+	for _i in range(24):
+		player.global_position = Vector3(0, -6.0, -34)   # hold them under the swell
+		player.velocity = Vector3.ZERO
+		player._swim_process(0.1)
+		if player._drowning:
+			break
 	_check(player._drowning or player.global_position.distance_to(player.respawn_point) < 3.0,
-		"the deep takes swimmers who go too far down")
+		"an empty breath underwater drowns you")
 	await get_tree().create_timer(2.0).timeout   # let the fade/respawn resolve
 	player.input_locked = false
+	PlayerState.oxygen = 1.0
 	_check(_find_ladder(main, "Dock Ladder") != null, "dock ladder gives a way out of the sea")
 
 	# Ultra Hammerhead: a charge that connects takes a bite of life.
