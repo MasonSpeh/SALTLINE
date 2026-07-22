@@ -279,6 +279,30 @@ func _run() -> void:
 		if not crab.roost_loop.is_empty():
 			crab.global_position = crab.roost_loop[0]
 
+	# Lamp snails: gentle bioluminescent pools at night.
+	# Find all snail lights by searching for OmniLight3D nodes with warm teal color.
+	var snail_lights: Array = []
+	var stack: Array[Node] = [main]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		# Look for OmniLight3D with color close to warm teal (0.35, 0.95, 0.88)
+		# and shadows disabled — these are the snail lights we just added.
+		if n is OmniLight3D:
+			var col = n.light_color
+			if abs(col.r - 0.35) < 0.1 and abs(col.g - 0.95) < 0.1 and abs(col.b - 0.88) < 0.1:
+				if n.shadow_enabled == false:
+					snail_lights.append(n)
+	_check(snail_lights.size() == 6, "lamp snails have 6 bioluminescent lights")
+	# Check that lights have proper range (2.5-3.5m) and are shadows-off for gl_compatibility.
+	var snail_light_range_ok: bool = true
+	for light in snail_lights:
+		if light.omni_range < 2.5 or light.omni_range > 3.5:
+			snail_light_range_ok = false
+			break
+	_check(snail_light_range_ok, "lamp snail light range is in expected band (2.5-3.5m)")
+
 	# Build mode: B toggles, ghost rides aim, place consumes the kit into a structure.
 	GameClock.force_phase(GameClock.Phase.DAY)
 	player.global_position = Vector3(0, DECK_Y_TEST + 0.2, 12)

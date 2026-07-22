@@ -1541,6 +1541,7 @@ class LampSnail extends Node3D:
 	var _harvest_cd: float = 0.0      ## regrowth time after a mucus harvest
 	var _crawler: GroundCrawler       ## wall-aware wander around the leg base
 	var _carried_by: Node3D = null    ## set while the player is carrying this live snail
+	var _lamp_light: OmniLight3D      ## gentle bioluminescent pool of light
 
 	func _init(idx: int, base: Vector3) -> void:
 		_idx = idx
@@ -1608,6 +1609,13 @@ class LampSnail extends Node3D:
 			var v: float = rng.randf_range(0.1, 0.95)
 			spot.position = Vector3(cos(u) * 0.42 * sqrt(1.0 - v * v), v * 0.42, sin(u) * 0.42 * sqrt(1.0 - v * v))
 			add_child(spot)
+		# A gentle pool of light cast on the deck plate — warm teal, soft attenuation, no shadow.
+		_lamp_light = OmniLight3D.new()
+		_lamp_light.light_energy = 0.65
+		_lamp_light.omni_range = 3.0
+		_lamp_light.light_color = Color(0.35, 0.95, 0.88)  # warm teal
+		_lamp_light.shadow_enabled = false
+		add_child(_lamp_light)
 		# The journal's promised beat: a gentle harvest takes the glow-mucus, leaves the
 		# animal. Only at night, and the constellation needs time to re-charge.
 		var touch := FaunaTouch.new("Lamp Snail", 0.85,
@@ -1658,6 +1666,10 @@ class LampSnail extends Node3D:
 			# The constellation twinkles — each spot on its own slow beat.
 			_spots[i].emission_energy_multiplier = lerpf(_spots[i].emission_energy_multiplier,
 				glow * (0.55 + 0.45 * sin(_t * 0.8 + i * 1.3)), delta * 1.5)
+		# The lamp light pulses with the constellation, dimming when freshly harvested.
+		if _lamp_light:
+			var light_energy: float = glow * (0.55 + 0.45 * sin(_t * 0.8)) * 0.325
+			_lamp_light.light_energy = lerpf(_lamp_light.light_energy, light_energy, delta * 1.5)
 		visible = night or global_position.y > 0.0
 		# The pedal wave runs only while it is out crawling.
 		ANIM.drive(_gen_mats, 0.55 if night else 0.0, glow * 0.35, 0.03 if night else 0.0)
