@@ -547,6 +547,19 @@ func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
 	preload("res://scripts/world/surface_snap.gd").attach(c)
 	return c
 
+## Wardrobe locker beside a bunk. Used to be a bare `_box()` — collision but no name
+## match and no Interactable, so it was pure scenery even though a "Note in a Locker"
+## readable sits right beside one. Now a real LootContainer: OPEN opens the same
+## crate <-> pack exchange every crate uses, and it saves via group "loot_container".
+func _wardrobe_locker(pos: Vector3) -> LootContainer:
+	var c := LootContainer.new()
+	c.display_name = "Wardrobe Locker"
+	add_child(c)
+	c.global_position = pos
+	c.build_box_visual(Vector3(0.5, 1.8, 0.5), Color(0.46, 0.47, 0.5), false, true,
+		MatLib.painted_steel())
+	return c
+
 func _ladder(pos: Vector3, height: float, facing_deg: float, name_: String = "Ladder", exit_fwd: float = 0.8) -> Ladder:
 	var l := Ladder.new()
 	l.height = height
@@ -1064,7 +1077,7 @@ func _build_bunkhouse() -> void:
 		# is the "block floating mid-cabin" the layout read as; anchoring to the head wall
 		# (z4 south / z18 north) tucks all six into the same tidy spot.
 		var lock_z: float = 4.55 if p.z < 11.0 else 17.45
-		_box(Vector3(p.x + 1.15, y + 0.9, lock_z), Vector3(0.5, 1.8, 0.5), MatLib.painted_steel())
+		_wardrobe_locker(Vector3(p.x + 1.15, y + 0.9, lock_z))
 	_readable("crew_letter_1", "Unsent Letter", Vector3(-18.8, y + 0.75, 7.3), Vector3(0.3, 0.05, 0.4))
 	# Henrik's photo, taped inside the bunk frame — the boys, the small fish, "three weeks".
 	_readable("henrik_photo", "Photograph", Vector3(-18.4, y + 0.9, 6.5), Vector3(0.2, 0.24, 0.02))

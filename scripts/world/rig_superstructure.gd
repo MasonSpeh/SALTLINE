@@ -552,11 +552,21 @@ func _bunk(pos: Vector3, messy: bool) -> void:
 	add_child(b)
 	b.global_position = pos + Vector3(0, 0.65, 0)
 
-func _locker(pos: Vector3, open: bool = false) -> void:
-	_box(pos + Vector3(0, 0.9, 0), Vector3(0.55, 1.8, 0.55), MatLib.painted_steel())
+## A cabin locker — used to be a decoration-only CSGBox3D (no name, no Interactable,
+## nothing world_storage.gd could ever match), so the player's own bunk locker did
+## nothing. Now a real LootContainer: OPEN brings up the same crate <-> pack exchange
+## every crate uses, and it joins group "loot_container" so its contents save.
+func _locker(pos: Vector3, open: bool = false) -> LootContainer:
+	var c := LootContainer.new()
+	c.display_name = "Steel Locker"
+	add_child(c)
+	c.position = pos + Vector3(0, 0.9, 0)
+	c.build_box_visual(Vector3(0.55, 1.8, 0.55), Color(0.46, 0.47, 0.5), false, true,
+		MatLib.painted_steel())
 	if open:
 		var d := _dbox(pos + Vector3(0.35, 0.9, 0.2), Vector3(0.04, 1.7, 0.5), MatLib.painted_steel())
 		d.rotation.y = 0.8
+	return c
 
 func _desk(pos: Vector3, yaw: float = 0.0) -> void:
 	var d := _box(pos + Vector3(0, 0.4, 0), Vector3(1.2, 0.8, 0.6), MatLib.wood())

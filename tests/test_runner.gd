@@ -683,6 +683,69 @@ func _run() -> void:
 	_check(get_tree().get_nodes_in_group("built_structures").size() == 2,
 		"a second load does not duplicate the camp")
 
+	# --- found lockers/cabinets are real, working, persistent containers ------------
+	# Bunkhouse "wardrobe" lockers and the Deck B cabin lockers used to be a bare
+	# collision box with no name match and no Interactable — pure scenery a player
+	# could stand next to forever and never open. rig_builder._wardrobe_locker and
+	# rig_superstructure._locker now hang a real LootContainer there.
+	var found_lockers: Array[LootContainer] = []
+	for c in get_tree().get_nodes_in_group("loot_container"):
+		if c is LootContainer and String((c as LootContainer).display_name).to_lower().contains("locker"):
+			found_lockers.append(c as LootContainer)
+	_check(found_lockers.size() >= 10,
+		"bunkhouse + cabin lockers are real openable containers (got %d)" % found_lockers.size())
+	if not found_lockers.is_empty():
+		var test_locker: LootContainer = found_lockers[0]
+		var before: Array[String] = test_locker.items.duplicate()
+		test_locker.items = ["rope"]
+		SaveManager.save_game()
+		test_locker.items = []   # simulate the world coming back empty before load
+		_check(SaveManager.load_game(), "save reloads with a stowed locker item in it")
+		_check(test_locker.items.has("rope"), "an item stowed in a found locker survives a reload")
+		test_locker.items = before   # leave the world as this test found it
+
+	# --- a crafted storage bin holds items and survives a reload ---------------------
+	# storage_bin_kit is bench-craftable (recipes.json) and, via ComfortFurniture's
+	# "storage" contract, gets a real LootContainer proxy — the same crate <-> pack
+	# exchange every other stash uses. Prove the whole chain: craft, stow, save, reload.
+	var bin: Node3D = Structures.build("storage_bin_kit", false)
+	get_tree().current_scene.add_child(bin)
+	bin.global_position = Vector3(13.0, 19.0, -4.0)
+	await get_tree().process_frame
+	await get_tree().create_timer(1.7).timeout   # ComfortFurniture's RESCAN_SEC sweep
+	var bin_box: LootContainer = null
+	for m in get_tree().get_nodes_in_group("comfort_furniture"):
+		if not is_instance_valid(m):
+			continue
+		if String((m as Node3D).get_meta("kind", "")) != "storage":
+			continue
+		if (m as Node3D).global_position.distance_to(bin.global_position) > 1.0:
+			continue
+		for ch in m.get_children():
+			if ch is LootContainer:
+				bin_box = ch as LootContainer
+	_check(bin_box != null, "a crafted storage bin gets a working container")
+	if bin_box:
+		bin_box.items = ["scrap_metal"]
+		SaveManager.save_game()
+		_check(SaveManager.load_game(), "save reloads with the crafted storage bin in it")
+		await get_tree().process_frame
+		var bin2: Node3D = null
+		for s in get_tree().get_nodes_in_group("built_structures"):
+			if String((s as Node3D).get_meta("kit", "")) == "storage_bin_kit":
+				bin2 = s as Node3D
+		_check(bin2 != null, "the crafted storage bin comes back after reload")
+		if bin2:
+			await get_tree().create_timer(1.7).timeout   # let the proxy re-attach
+			var bin2_box: LootContainer = null
+			for ch in bin2.get_children():
+				if ch is Node3D and (ch as Node3D).is_in_group("comfort_furniture"):
+					for gc in ch.get_children():
+						if gc is LootContainer:
+							bin2_box = gc as LootContainer
+			_check(bin2_box != null and bin2_box.items.has("scrap_metal"),
+				"crafted storage bin contents survive a reload")
+
 	# --- Snail feeding + breeding + escargot ----------------------------------------
 	# Kelp Bundle is the existing greens item (already edible, already harvestable near
 	# the boat landing at wet_deck_detail.gd) — the "reachable without deep-death" greens
