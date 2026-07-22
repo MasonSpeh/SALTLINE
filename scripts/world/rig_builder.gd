@@ -11,10 +11,12 @@ const WALL_H: float = 3.2
 const WALL_T: float = 0.25
 
 var player_spawn: Vector3 = Vector3(20.0, WET_Y + 0.2, -24.7)   # dead ahead of the hatch
-# Respawn INSIDE the pump ready room: roofed (storm shelter), reached through the
-# always-open east archway. Was (20, +0.6, -10) — bare deck in the rain beside a
-# closed door; waking up under a roof with your gear around you reads as a camp.
-var wet_deck_respawn: Vector3 = Vector3(15.0, WET_Y + 0.6, -10.5)
+# Respawn out on the OPEN WET DECK by the SPHL dock — a clear, obvious deck spot the
+# player is never boxed inside. The original (20, +0.6, -10) sat embedded in the solid
+# SE caisson leg (x19-25, z-9..-15); a later attempt in the pump room read as waking up
+# inside an enclosed concrete box. This spot is verified empty (3.9 m clearance all round,
+# plating directly below) and sheltered from rain by the topside deck 15 m overhead.
+var wet_deck_respawn: Vector3 = Vector3(20.0, WET_Y + 0.6, -19.0)
 var sphl_hatch: InteractDoor
 var sphl_interior: Vector3 = Vector3(16.5, WET_Y + 0.4, -24.0)
 var countdown_label: Label3D
@@ -670,30 +672,10 @@ func _build_wet_deck() -> void:
 
 	# Loot room on the south edge.
 	var lr_mat: Material = MatLib.concrete()
-	# NORTH wall opens on the THIN VESTIBULE HALLWAY (the 2 m slot between this room and
-	# the pump/respawn room) with an always-open archway. The natural path from a respawn
-	# — south out of the pump room, across the hallway, straight ahead — now lands you in
-	# the store room. This wall used to carry a hinged door that read as sealed from the
-	# hallway side, so the room felt inaccessible even though the east archway (the
-	# dock-walk entrance) exists. Two rooms now genuinely open onto the one thin hallway.
-	_wall(Vector3(10, WET_Y, -16), Vector3(12.2, WET_Y, -16), WALL_H, lr_mat)
-	_wall(Vector3(13.8, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
-	_box(Vector3(13, WET_Y + 2.75, -16), Vector3(1.6, 0.9, 0.25), lr_mat)   # header over the arch
-	for jx in [12.2, 13.8]:
-		_box(Vector3(jx, WET_Y + 1.6, -16), Vector3(0.2, 3.2, 0.3), MatLib.rust_steel(), self, false)
-	_box(Vector3(13, WET_Y + 0.02, -16), Vector3(1.5, 0.06, 0.7), MatLib.checker_plate())
+	_fit_door(Vector3(10, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat, 0.5, true, false, "Store Room")
 	_wall(Vector3(10, WET_Y, -22), Vector3(16, WET_Y, -22), WALL_H, lr_mat)
 	_wall(Vector3(10, WET_Y, -22), Vector3(10, WET_Y, -16), WALL_H, lr_mat)
-	# East wall carries the STORE-ROOM ARCHWAY (z -17.8..-19.2) opening straight onto the
-	# main dock walk you cross coming up from the SPHL — the room's real front door. Its
-	# only opening used to be the north door into the cramped pump-room vestibule, which
-	# no player ever found. Always-open (jambs + header + threshold, no leaf to jam).
-	_wall(Vector3(16, WET_Y, -22), Vector3(16, WET_Y, -19.2), WALL_H, lr_mat)
-	_wall(Vector3(16, WET_Y, -17.8), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
-	_box(Vector3(16, WET_Y + 2.75, -18.5), Vector3(0.25, 0.9, 1.6), lr_mat)   # header over the arch
-	for jz in [-19.2, -17.8]:
-		_box(Vector3(16, WET_Y + 1.6, jz), Vector3(0.3, 3.2, 0.2), MatLib.rust_steel(), self, false)
-	_box(Vector3(16, WET_Y + 0.02, -18.5), Vector3(0.7, 0.06, 1.5), MatLib.checker_plate())
+	_wall(Vector3(16, WET_Y, -22), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
 	_corner_posts([Vector3(10, 0, -16), Vector3(16, 0, -16), Vector3(10, 0, -22), Vector3(16, 0, -22)],
 		WET_Y, WALL_H, lr_mat)
 	_box(Vector3(13, WET_Y + WALL_H, -19), Vector3(6.5, 0.25, 6.5), lr_mat)
