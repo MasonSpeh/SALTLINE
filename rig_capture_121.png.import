@@ -2,21 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://lbusn2a0snu8"
-path.s3tc="res://.godot/imported/rig_capture_142.png-7c8ccfa2f19b30c7b1eebe26f34e9f17.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_142.png-7c8ccfa2f19b30c7b1eebe26f34e9f17.etc2.ctex"
+uid="uid://ib4oftpunpj8"
+path.s3tc="res://.godot/imported/rig_capture_121.png-7515a03506fc7aa5ecbddf53f81a0e09.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_121.png-7515a03506fc7aa5ecbddf53f81a0e09.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "664ee99eea06c607c184d98914a956e8"
+"md5": "38b4aed329e8c1b6129880964f207d38"
 }
 
 [deps]
 
-source_file="res://rig_capture_142.png"
-dest_files=["res://.godot/imported/rig_capture_142.png-7c8ccfa2f19b30c7b1eebe26f34e9f17.s3tc.ctex", "res://.godot/imported/rig_capture_142.png-7c8ccfa2f19b30c7b1eebe26f34e9f17.etc2.ctex"]
+source_file="res://rig_capture_121.png"
+dest_files=["res://.godot/imported/rig_capture_121.png-7515a03506fc7aa5ecbddf53f81a0e09.s3tc.ctex", "res://.godot/imported/rig_capture_121.png-7515a03506fc7aa5ecbddf53f81a0e09.etc2.ctex"]
 
 [params]
 
