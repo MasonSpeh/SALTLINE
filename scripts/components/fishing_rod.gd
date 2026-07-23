@@ -16,6 +16,13 @@ const CANCEL_DISTANCE: float = 6.0     # walk away and the line comes in
 const REEL_RATE: float = 0.14         # progress/sec while reeling
 const TENSION_DECAY: float = 0.8
 
+# Deep-drop rig (the crane hand-line): a straight-down, bait-gated line that pulls the
+# big, deep species. Every one of these only ever applies when _deep is true — the plain
+# surface rod path is byte-for-byte unchanged.
+const DEEP_CAST_LIFT: float = 0.5     # the lead-weighted line plunges; almost no arc
+const DEEP_BITE_FACTOR: float = 1.35  # the deep is patient — bites take longer to find the bait
+const BARREN_GIVEUP: float = 8.0      # a bare deep hook: how long before you give up on it
+
 # Species, conditions, and weights all live in data/fish.json via FishTable —
 # the same table the drop net, the stove, and the Angler's Notes read.
 const FISH := preload("res://scripts/world/fish_table.gd")
@@ -37,13 +44,30 @@ var _line: MeshInstance3D
 var _line_mesh: CylinderMesh
 var _cast_origin: Vector3
 var _rng := RandomNumberGenerator.new()
+var _deep: bool = false          # this cast is the deep-drop rig, not the surface rod
+var _bait_id: String = ""        # bait chosen for the hook this cast ("" = none found)
+var _barren: bool = false        # deep line with no bait — nothing down there will take it
+var _barren_t: float = 0.0
 
 func setup(player: Node3D, camera: Camera3D) -> void:
 	_player = player
 	_cast_origin = player.global_position
 	_rng.randomize()
+	# Which tool cast this line? The deep rig is live only when it's the selected hotbar
+	# item; anything else (the plain rod) fishes the surface exactly as before.
+	_deep = _is_deep_selected()
 	global_position = camera.global_position - camera.global_transform.basis.z * 0.5
-	_velocity = -camera.global_transform.basis.z * CAST_SPEED + Vector3(0, CAST_LIFT, 0)
+	# The deep rig is a weighted hand-line: it barely arcs, it drops. Aim out over the sea
+	# from the crane top and the lead takes it straight down into deep water. (It still
+	# reuses the in-flight structure-foul raycast, so a drop onto the deck reads "no open
+	# water there" — which teaches the player to fish it over the edge.)
+	var lift: float = DEEP_CAST_LIFT if _deep else CAST_LIFT
+	_velocity = -camera.global_transform.basis.z * CAST_SPEED + Vector3(0, lift, 0)
+	if _deep:
+		# Bait is chosen and locked now, at the cast. No bait, no deep bite.
+		_bait_id = _find_bait()
+		_barren = _bait_id == ""
+		_schedule_bite()   # re-roll at deep pace now that _deep is known (_ready ran surface-paced)
 
 func _ready() -> void:
 	# The float: red cap over white body — the classic, visible at range.
@@ -87,11 +111,45 @@ func _hand_pos() -> Vector3:
 		return _player.hand_tip_world()
 	return _player.global_position + Vector3(0, 1.25, 0)
 
+## The deep-drop rig is live only when its OWN item is the selected hotbar tool. The
+## plain fishing_rod is never deep — the surface game stays exactly as it was.
+func _is_deep_selected() -> bool:
+	var sel: int = PlayerState.selected_hotbar
+	if sel < 0 or sel >= PlayerState.HOTBAR_SIZE:
+		return false
+	var it: Variant = PlayerState.hotbar[sel]
+	return it != null and String(it) == "deep_rig_pole"
+
+## Find one bait in the pack: a live snail, or any fish flesh as cut bait (rotten chum
+## counts — a bare fish BONE does not). Cheapest-first, so a prize catch is never spent
+## baiting the next drop. Returns the item id, or "" when there's none.
+func _find_bait() -> String:
+	for want in ["snail_live", "fish_rotten"]:
+		if PlayerState.has_item(want):
+			return want
+	for entry in PlayerState.hotbar + PlayerState.inventory:
+		if entry != null and _is_cut_bait(String(entry)):
+			return String(entry)
+	return ""
+
+static func _is_cut_bait(id: String) -> bool:
+	return id.begins_with("fish_") and id != "fish_bone" and id != "fish_rotten"
+
+## Plain-words bait name for the water-read prompt.
+func _bait_name() -> String:
+	if _bait_id == "snail_live":
+		return "a live snail"
+	if _bait_id == "fish_rotten":
+		return "rotten chum"
+	return "cut bait"
+
 func _schedule_bite() -> void:
 	# The water read drives the wait: storms are a frenzy, feeding hours are
 	# brisk, dead calm afternoons make you earn it. Nibbles lie first.
 	var ctx: Dictionary = FISH.context(self, global_position)
 	var mean: float = 12.0 * FISH.bite_pace(ctx)
+	if _deep:
+		mean *= DEEP_BITE_FACTOR   # the deep is patient
 	_bite_timer = _rng.randf_range(mean * 0.45, mean * 1.5)
 	_nibbles = _rng.randi_range(0, 2)
 
@@ -122,26 +180,39 @@ func _physics_process(delta: float) -> void:
 				global_position.y = water_y + 0.02
 				AudioDirector.play_one_shot("splash", global_position, -14.0)
 				_state = State.DRIFT
-				# The water read: teach the variables by naming them every cast.
-				_prompt("Line's out — %s" % FISH.summary(FISH.context(self, global_position)))
+				if _deep:
+					if _barren:
+						_prompt("The weight plunges into the dark — but the hook's bare.")
+					else:
+						_prompt("The weight takes it down — deep water, %s on the hook." % _bait_name())
+				else:
+					# The water read: teach the variables by naming them every cast.
+					_prompt("Line's out — %s" % FISH.summary(FISH.context(self, global_position)))
 			elif global_position.distance_to(_hand_pos()) > MAX_RANGE:
 				_finish("")
 				return
 		State.DRIFT:
 			_ride_water(t, delta)
-			_bite_timer -= delta
-			if _bite_timer <= 0.0:
-				if _nibbles > 0:
-					_nibbles -= 1
-					_dip = 0.16   # a lying little tug
-					AudioDirector.play_one_shot("splash", global_position, -26.0)
-					_bite_timer = _rng.randf_range(1.8, 5.0)
-				else:
-					_state = State.BITE
-					_bite_window = BITE_WINDOW
-					_dip = 0.45
-					AudioDirector.play_one_shot("splash", global_position, -8.0)
-					_prompt("!!!  [LMB] STRIKE")
+			if _barren:
+				# A bare deep hook: the dark won't answer. A beat to feel it, then reel in.
+				_barren_t += delta
+				if _barren_t >= BARREN_GIVEUP:
+					_finish("Bare hook — the deep won't rise to nothing. Bait the line.")
+					return
+			else:
+				_bite_timer -= delta
+				if _bite_timer <= 0.0:
+					if _nibbles > 0:
+						_nibbles -= 1
+						_dip = 0.16   # a lying little tug
+						AudioDirector.play_one_shot("splash", global_position, -26.0)
+						_bite_timer = _rng.randf_range(1.8, 5.0)
+					else:
+						_state = State.BITE
+						_bite_window = BITE_WINDOW
+						_dip = 0.45
+						AudioDirector.play_one_shot("splash", global_position, -8.0)
+						_prompt("!!!  [LMB] STRIKE")
 		State.BITE:
 			_ride_water(t, delta)
 			_bite_window -= delta
@@ -164,12 +235,19 @@ func _ride_water(t: float, _delta: float) -> void:
 	global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 + 0.02 - _dip
 
 func _hook() -> void:
-	# Roll the species now, from the live conditions at THIS float, THIS moment —
-	# the fight character comes from what took the bait.
-	_fish = FISH.roll("rod", FISH.context(self, global_position), _rng)
+	# Roll the species now, from the live conditions at THIS float, THIS moment — the
+	# fight character comes from what took the bait. The deep rig draws its OWN pool
+	# (deep-flagged, bigger species) and spends a bait; the surface rod rolls "rod" as before.
+	var kind: String = "deep" if _deep else "rod"
+	_fish = FISH.roll(kind, FISH.context(self, global_position), _rng)
 	if _fish.is_empty():
 		_finish("Whatever it was, it's gone.")
 		return
+	if _deep:
+		# The bait's taken — spend one. (Re-found fresh in case the pack shifted.)
+		var spent: String = _find_bait()
+		if spent != "":
+			PlayerState.remove_item(spent)
 	_state = State.FIGHT
 	_tension = 0.3
 	_progress = 0.35

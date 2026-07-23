@@ -13,10 +13,16 @@ const FISH_TINT := {
 	"fish_ghost_sole": Color(0.8, 0.82, 0.88), "fish_glasspike": Color(0.7, 0.8, 0.82),
 	"fish_lodestone_bream": Color(0.5, 0.52, 0.6), "fish_drum_croaker": Color(0.55, 0.45, 0.4),
 	"fish_miller_flounder": Color(0.55, 0.5, 0.42), "fish_fathom_halibut": Color(0.4, 0.42, 0.45),
+	# Deep-drop rig species — the big ones from the dark.
+	"fish_gulper_eel": Color(0.28, 0.22, 0.3), "fish_bloom_dragon": Color(0.15, 0.35, 0.4),
+	"fish_fathom_sturgeon": Color(0.34, 0.36, 0.32), "fish_abyss_grenadier": Color(0.4, 0.38, 0.34),
 }
 const FISH_SIZE := {
 	"fish_barrel_grouper": 1.4, "fish_fathom_halibut": 1.6, "fish_copper_sprat": 0.6,
 	"fish_ribbon_eel": 1.2,
+	# Deep-drop rig species read heavy in the hand.
+	"fish_gulper_eel": 1.5, "fish_bloom_dragon": 1.3,
+	"fish_fathom_sturgeon": 1.8, "fish_abyss_grenadier": 1.4,
 }
 ## Real generated fish meshes (assets/models/fauna/<id>) when present; procedural
 ## silhouette when not. Preloaded — the class cache lags for this new file.
@@ -33,6 +39,15 @@ static func build(item_id: String) -> Node3D:
 		var size_mul: float = FISH_SIZE.get(species, 1.0)
 		var model: Node3D = FISH_MODEL.build(species, cooked, 0.42 * size_mul)
 		if model != null:
+			# Real fish meshes are authored nose-along-+Z (Meshy is viewer-facing) and
+			# creature_anim.load_model() does NOT apply the swim-facing yaw that live
+			# creatures get — so a held/dropped fish points END-ON at the camera and you
+			# see the nose, not the body. Yaw it -90° so the long axis lies across the
+			# view and a FLANK reads side-on (nose to -X, matching the procedural _fish()
+			# fallback). Y-only: a fish hung or laid flat stays level, just turned to show
+			# its side. The procedural fallback below is already built side-on, so this
+			# correction lives ONLY on the real-mesh branch.
+			model.rotation.y = deg_to_rad(-90)
 			root.add_child(model)
 			return root
 		_fish_body(root, species, cooked, size_mul)
@@ -193,6 +208,25 @@ static func build(item_id: String) -> Node3D:
 			tip.name = "hand_tip"
 			shaft.add_child(tip)
 			tip.position = Vector3(0, 0.75, 0)   # the shaft's own half-height: its far end
+		"deep_rig_pole":
+			# A heavy deep-drop hand-line, not a delicate rod: a short braced pole, a big
+			# lead-weighted line drum, and terminal tackle slung under the tip. Built up its
+			# own +Y like the rod so the "hand_tip" marker rides the working end and the
+			# fishing line anchors there (player_controller.hand_tip_world finds it by name).
+			var pole := _box(root, Vector3(0.055, 0.9, 0.055), Color(0.2, 0.22, 0.25), Vector3(0, 0.42, 0))
+			pole.rotation.z = deg_to_rad(8)
+			_box(root, Vector3(0.075, 0.3, 0.075), Color(0.3, 0.24, 0.16), Vector3(-0.06, 0.13, 0))    # taped grip
+			var drum := _cyl(root, 0.12, 0.14, Color(0.32, 0.34, 0.37), Vector3(-0.03, 0.32, 0.07))    # line drum
+			drum.rotation.x = deg_to_rad(90)
+			var wind := _cyl(root, 0.125, 0.07, Color(0.55, 0.4, 0.2), Vector3(-0.03, 0.32, 0.07))     # wound line
+			wind.rotation.x = deg_to_rad(90)
+			_cyl(root, 0.05, 0.13, Color(0.22, 0.23, 0.26), Vector3(0.08, 0.74, 0))                    # lead weight
+			var hk := _box(root, Vector3(0.03, 0.13, 0.03), Color(0.6, 0.62, 0.66), Vector3(0.11, 0.63, 0))
+			hk.rotation.z = deg_to_rad(-42)                                                            # hook
+			var dtip := Node3D.new()
+			dtip.name = "hand_tip"
+			pole.add_child(dtip)
+			dtip.position = Vector3(0, 0.47, 0)   # the pole's own far (working) end — line drops from here
 		"cooked_fish":
 			_box(root, Vector3(0.3, 0.06, 0.16), Color(0.62, 0.45, 0.26), Vector3(0, 0.05, 0))
 			_box(root, Vector3(0.24, 0.02, 0.12), Color(0.35, 0.22, 0.12), Vector3(0, 0.09, 0))

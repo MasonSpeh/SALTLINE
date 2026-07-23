@@ -1,5 +1,5 @@
 {
-  "_schema": "fish_id -> { name, rod, net, w:{dawn,day,dusk,night}, storm: ok|only|never|bonus, light: any|drawn, water: any|near|open, depth: surface|mid|deep, fight, pull, cooked_to, school:{count,size,tint:[r,g,b],active:phases}, note }. One source of truth: rod rolls, net rolls, stove map, visible schools, and the Angler's Notes readable are ALL generated from this table.",
+  "_schema": "fish_id -> { name, rod, net, deep:true (deep-drop RIG pool ONLY — bait-gated, never rolls on the surface rod/net), w:{dawn,day,dusk,night}, storm: ok|only|never|bonus, light: any|drawn, water: any|near|open, depth: surface|mid|deep, fight, pull, cooked_to, school:{count,size,tint:[r,g,b],active:phases}, note }. One source of truth: rod rolls, net rolls, deep-drop rolls, stove map, visible schools, and the Angler's Notes readable are ALL generated from this table.",
   "fish_copper_sprat": {
     "name": "Copper Sprat",
     "rod": true,
@@ -428,6 +428,7 @@
     "name": "Ribbon Eel",
     "rod": true,
     "net": false,
+    "deep": true,
     "w": {
       "dawn": 2,
       "day": 0,
@@ -460,6 +461,7 @@
     "name": "Barrel Grouper",
     "rod": true,
     "net": false,
+    "deep": true,
     "w": {
       "dawn": 4,
       "day": 3,
@@ -637,5 +639,125 @@
       "active": []
     },
     "note": "Any water, any hour, almost never. It is not kept. You'll understand at the rail."
+  },
+  "fish_gulper_eel": {
+    "name": "Gulper Eel",
+    "rod": false,
+    "net": false,
+    "deep": true,
+    "w": {
+      "dawn": 4,
+      "day": 2,
+      "dusk": 6,
+      "night": 13
+    },
+    "storm": "ok",
+    "light": "any",
+    "water": "any",
+    "depth": "deep",
+    "fight": 2.2,
+    "pull": 1.7,
+    "cooked_to": "cooked_fish_prime",
+    "school": {
+      "count": 0,
+      "size": 0,
+      "tint": [
+        0.28,
+        0.22,
+        0.3
+      ],
+      "active": []
+    },
+    "note": "Deep-drop rig only. All jaw and gut — it swallows things bigger than itself. Night water, off the bottom, on a baited hook."
+  },
+  "fish_bloom_dragon": {
+    "name": "Bloom Dragonfish",
+    "rod": false,
+    "net": false,
+    "deep": true,
+    "w": {
+      "dawn": 2,
+      "day": 1,
+      "dusk": 7,
+      "night": 14
+    },
+    "storm": "ok",
+    "light": "drawn",
+    "water": "any",
+    "depth": "deep",
+    "fight": 2.0,
+    "pull": 1.55,
+    "cooked_to": "cooked_fish_prime",
+    "school": {
+      "count": 0,
+      "size": 0,
+      "tint": [
+        0.15,
+        0.35,
+        0.4
+      ],
+      "active": []
+    },
+    "note": "Deep-drop rig only. Its own lure burns blue-green in the black. Rises harder to a baited hook when the worklights are on."
+  },
+  "fish_fathom_sturgeon": {
+    "name": "Fathom Sturgeon",
+    "rod": false,
+    "net": false,
+    "deep": true,
+    "w": {
+      "dawn": 7,
+      "day": 8,
+      "dusk": 7,
+      "night": 6
+    },
+    "storm": "bonus",
+    "light": "any",
+    "water": "any",
+    "depth": "deep",
+    "fight": 3.0,
+    "pull": 2.1,
+    "cooked_to": "cooked_fish_prime",
+    "school": {
+      "count": 0,
+      "size": 0,
+      "tint": [
+        0.34,
+        0.36,
+        0.32
+      ],
+      "active": []
+    },
+    "note": "Deep-drop rig only. Armoured, ancient, patient. The longest fight on any line; a storm stirs them up off the bottom. Feeds you for days."
+  },
+  "fish_abyss_grenadier": {
+    "name": "Abyss Grenadier",
+    "rod": false,
+    "net": false,
+    "deep": true,
+    "w": {
+      "dawn": 6,
+      "day": 11,
+      "dusk": 5,
+      "night": 3
+    },
+    "storm": "ok",
+    "light": "any",
+    "water": "open",
+    "depth": "deep",
+    "fight": 1.9,
+    "pull": 1.5,
+    "cooked_to": "cooked_fish_prime",
+    "school": {
+      "count": 0,
+      "size": 0,
+      "tint": [
+        0.4,
+        0.38,
+        0.34
+      ],
+      "active": []
+    },
+    "note": "Deep-drop rig only. A rattail that hangs nose-down over the deep in daylight. Open water, dropped straight below."
   }
 }
