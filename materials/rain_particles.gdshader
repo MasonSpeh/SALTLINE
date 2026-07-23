@@ -57,9 +57,19 @@ void process() {
 	// longer, and drops vary in brightness. This variation is what stops the sheet reading
 	// as a repeating screen-door pattern.
 	uint vs = (NUMBER + uint(7)) * uint(2654435761);
-	float v_len = 0.68 + 0.72 * rnd01(vs);     // 0.68 .. 1.40  streak length
-	float v_a = 0.45 + 0.55 * rnd01(vs);       // 0.45 .. 1.00  opacity
-	float v_spd = 0.84 + 0.34 * rnd01(vs);     // 0.84 .. 1.18  fall speed (drop mass)
+	// One shared "calibre" per drop drives length, width, fall speed AND brightness together,
+	// so each streak reads as a coherent drop: a fat near drop is long, wide, fast and bright;
+	// a fine far drop is short, thin, slow and faint. The old code drew length / opacity / speed
+	// as three INDEPENDENT randoms, which contradicted the note above ("heavier drops fall faster
+	// and streak longer") and let a stubby drop fall fast or a long drop crawl. A small extra
+	// jitter keeps opacity from locking rigidly to size. Two hashes now instead of three — the
+	// per-drop character is a touch cheaper to derive, with no loss of visible variety.
+	float m = rnd01(vs);                       // 0..1  drop calibre (drizzle .. fat drop)
+	float jitter = rnd01(vs);                  // 0..1  independent opacity flicker
+	float v_len = 0.72 + 0.70 * m;             // 0.72 .. 1.42  streak length
+	float v_wid = 0.86 + 0.40 * m;             // 0.86 .. 1.26  streak width (calibre)
+	float v_spd = 0.84 + 0.34 * m;             // 0.84 .. 1.18  fall speed (mass)
+	float v_a = 0.50 + 0.36 * m + 0.14 * jitter; // 0.50 .. 1.00  opacity (mostly calibre)
 	vec3 pos = CUSTOM.xyz + wind_drift * age;
 	pos.y -= fall_speed * v_spd * age;
 	TRANSFORM[3].xyz = pos;
@@ -74,10 +84,21 @@ void process() {
 			break;
 		}
 	}
-	// X/Z hold the drop's slender width; Y carries the per-drop streak length. billboard
-	// mode keeps these scales (billboard_keep_scale), so longer drops read as faster rain.
-	TRANSFORM[0].xyz = vec3(vis, 0.0, 0.0);
+	// X/Z hold the drop's slender width (now per-drop, via v_wid); Y carries the streak length.
+	// billboard_keep_scale preserves these, so longer/wider drops read as heavier, faster rain.
+	//
+	// The drop's CROSS-SECTION SHAPE — a soft rounded head tapering to a fine tail, with rounded
+	// rather than hard corners — cannot be produced from this file. A `shader_type particles`
+	// shader has no fragment stage; it only writes this per-instance transform and colour. Each
+	// drop's actual pixels come from the DRAW-PASS material — the untextured StandardMaterial3D
+	// on the billboarded QuadMesh built in storm_system.gd::_build_rain — whose alpha is flat
+	// across the whole quad, which is exactly why a drop renders as a hard-edged rectangle.
+	// Rounding it is a draw-pass change (out of this shader's ownership): give that material a
+	// drop-shaped alpha gradient (cf. mat_lib.soft_mote's radial GradientTexture, elongated and
+	// tapered) or a tiny spatial fragment shader — smoothstep on UV.x for the cross-axis and on
+	// UV.y for the head->tail falloff, matching the streak idiom already in start_screen.gd.
+	TRANSFORM[0].xyz = vec3(vis * v_wid, 0.0, 0.0);
 	TRANSFORM[1].xyz = vec3(0.0, vis * v_len, 0.0);
-	TRANSFORM[2].xyz = vec3(0.0, 0.0, vis);
+	TRANSFORM[2].xyz = vec3(0.0, 0.0, vis * v_wid);
 	COLOR = vec4(1.0, 1.0, 1.0, vis * v_a);
 }
