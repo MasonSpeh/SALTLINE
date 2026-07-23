@@ -12,12 +12,13 @@ signal phase_changed(phase: Phase)
 signal time_updated(phase_fraction: float) ## 0.0-1.0 fraction through current phase
 
 @export var phase_durations_minutes: Dictionary = {
-	Phase.DAWN: 3.0,
-	Phase.DAY: 22.0,
-	Phase.DUSK: 5.0,
-	Phase.NIGHT: 8.0,
+	Phase.DAWN: 8.0,
+	Phase.DAY: 55.0,
+	Phase.DUSK: 12.0,
+	Phase.NIGHT: 20.0,
 }
 
+## Always begins at first light so a full, unhurried day of daylight lies ahead.
 var current_phase: Phase = Phase.DAWN
 var day_count: int = 0 ## increments each time NIGHT completes (drives the end card)
 var time_scale: float = 1.0 ## testing/debug only — accelerates the day, never shipped >1
