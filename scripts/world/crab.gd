@@ -33,7 +33,9 @@ const BITE_COOLDOWN: float = 2.5
 const BITE_SHOVE: float = 6.0
 const GIVE_UP_DIST: float = 14.0    ## running away works: pursuit breaks beyond this
 const SCARE_TIME: float = 0.5       ## seconds of steady beam before it bolts
-const EMERGE_STAGGER: float = 7.0   ## seconds between pack members leaving the water
+const EMERGE_STAGGER: float = 4.0   ## seconds between pack members leaving the water (s12:
+## shorter now the pack is 6 — all surface within ~20 s of nightfall across their spread
+## rim-lanes, instead of the old 7 s trickle that stretched three crabs across half a minute)
 
 var _resume_state: State = State.PATROL
 var _recoil: float = 0.0            ## stagger timer after a strike / bite lunge

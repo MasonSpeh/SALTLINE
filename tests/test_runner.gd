@@ -272,12 +272,12 @@ func _run() -> void:
 	PlayerState.use_hotbar(slot)
 	_check(PlayerState.hunger > before, "eating restores hunger")
 
-	# Giant crabs (s11 remake): a persistent pack of three — underwater roosts by day,
-	# an authored climb over the deck rim at night, a 0.25-life bite, light-scare, and
-	# scuttle audio hard-gated on visibility.
+	# Giant crabs (s12): a persistent pack of six — underwater roosts by day, an authored
+	# climb over the EAST deck rim at night, a 0.25-life bite, light-scare, and scuttle
+	# audio hard-gated on visibility. (Pack size lives in BloomFauna.CRAB_COUNT.)
 	var CrabS := preload("res://scripts/world/crab.gd")
 	var crabs: Array = get_tree().get_nodes_in_group("giant_crab")
-	_check(crabs.size() == 3, "three giant crabs live on the rig")
+	_check(crabs.size() == 6, "six giant crabs live on the rig")
 	var all_under: bool = crabs.size() > 0
 	for cc in crabs:
 		if (cc as Node3D).global_position.y > 0.5:

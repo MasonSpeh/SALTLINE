@@ -21,52 +21,80 @@ const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
 const PEARL := Color(0.88, 0.94, 0.92)
 
-## --- Giant crabs (s11 remake): persistent, not night-spawned -------------------------
-## Day: underwater roosts on the SE pontoon faces and the sunken dock plate — visible
-## over the deck edge or while swimming. Night: each climbs its authored emergence path
-## over the wet-deck rim and patrols. Every point below is validated against the sonar
-## scan (.sonar-rig/rig_baked.glb): the SE pontoon is solid x16..28 z-16..-8 below y1.3,
-## the deck plating ends at x30.25 (top y2.0, no rim wall), the dock plate tops at -1.3.
-const CRAB_PATROL: Array = [
-	Vector3(18, 2.6, -19.0), Vector3(27, 2.6, -19.5), Vector3(27, 2.6, -8.5),
-	Vector3(20, 2.6, -8.5), Vector3(20, 2.6, -16.0), Vector3(18, 2.6, -16.5),
-]   # skirts the store room (x10-16) and the pump ready room (x10-18, z-14..-6)
-const CRAB_EMERGE_A: Array = [   # east edge at z=-18, beside the dock
-	Vector3(31.0, -0.5, -18.0), Vector3(30.6, 0.6, -18.0),
-	Vector3(30.5, 1.7, -18.0), Vector3(29.3, 2.6, -18.0),
+## --- Giant crabs (s12): the main night threat, now a pack the player actually MEETS ----
+## Six crabs (was three), spread so day and night both put them on the wet-deck routes.
+## DAY: each clings to a submerged SE face — pontoon east (x28), pontoon south (z-16) or
+## the sunken dock plate — a slow vertical sidle you catch by leaning over the rim. NIGHT:
+## on a staggered cue each climbs the EAST deck rim (x~30.25, the one clean water edge) and
+## patrols the open plating in two rings — a SOUTH ring across the spawn/SPHL flat and an
+## EAST ring up the corridor to the foot of the stair tower, right where the player walks.
+## Every point is validated against the sonar scan (.sonar-rig/rig_baked.glb) by down/up
+## raycasts + the known solids: the 4 caisson legs are 6x6 boxes at x=±22 z=±12 (the SE leg
+## fills x[19,25] z[-15,-9]); the SE pontoon is solid x16..28 z-16..-8 (top y0.95); rooms sit
+## at store x[10,16] z[-22,-16], pump x[10,18] z[-14,-6], SPHL x[12,21] z[-28,-21]; the deck
+## tops y2.0 and ends at the east rim x~30.25 and the south rim z~-22 (open water past both).
+const CRAB_COUNT: int = 6
+# Two deck patrol rings (y2.6; every corner clears legs/rooms/tower by >=1 m):
+const CRAB_PATROL_EAST: Array = [   # east corridor -> foot of the stair tower (z stays >-6.5)
+	Vector3(26, 2.6, -7.0), Vector3(29, 2.6, -7.0),
+	Vector3(29, 2.6, -16.0), Vector3(26, 2.6, -16.0),
 ]
-const CRAB_EMERGE_B: Array = [   # east edge at z=-12 (z=-10 has a fender in the way)
-	Vector3(31.0, -0.5, -12.0), Vector3(30.6, 0.6, -12.0),
-	Vector3(30.5, 1.7, -12.0), Vector3(29.3, 2.6, -12.0),
+const CRAB_PATROL_SOUTH: Array = [  # spawn/SPHL flat, south of the SE leg (z stays <-15)
+	Vector3(22, 2.6, -16.0), Vector3(29, 2.6, -16.0),
+	Vector3(29, 2.6, -22.0), Vector3(22, 2.6, -22.0),
 ]
+# Emergence: six climbs up the EAST rim, one depth-lane each, spaced along the whole water
+# edge the player faces (z-8..-22; each lip landing x29.3 sits inboard of the rim bollard).
+# Each path is built by _crab_climb(z): open water -> rim -> lip -> deck.
+const CRAB_EMERGE_Z: Array = [-8.0, -11.0, -14.0, -17.0, -20.0, -22.0]
+# Day roosts, one per crab, spread across the SE understructure — each ~0.7 m off a
+# submerged face so the crab reads as clinging to it, visible over the wet-deck rim:
 const CRAB_ROOSTS: Array = [
-	# pontoon EAST face (x=28): a slow vertical sidle, seen from the deck edge above
-	[Vector3(28.7, -0.8, -14.0), Vector3(28.7, -0.8, -10.0),
-	 Vector3(28.7, -2.0, -10.0), Vector3(28.7, -2.0, -14.0)],
-	# pontoon SOUTH face (z=-16): seen from the dock and the water
-	[Vector3(25.0, -0.8, -16.7), Vector3(21.0, -0.8, -16.7),
-	 Vector3(21.0, -2.0, -16.7), Vector3(25.0, -2.0, -16.7)],
-	# sunken dock plate (top y-1.3, x10.5-22.5 z-21.5..-18.5), under the boat landing
-	[Vector3(13.0, -1.0, -19.6), Vector3(20.0, -1.0, -19.6)],
+	# 0-2: pontoon EAST face (x28), three z-bands of a slow vertical sidle
+	[Vector3(28.7, -0.7, -8.5), Vector3(28.7, -0.7, -10.5),
+	 Vector3(28.7, -1.8, -10.5), Vector3(28.7, -1.8, -8.5)],
+	[Vector3(28.7, -0.7, -11.0), Vector3(28.7, -0.7, -13.0),
+	 Vector3(28.7, -1.8, -13.0), Vector3(28.7, -1.8, -11.0)],
+	[Vector3(28.7, -0.7, -13.5), Vector3(28.7, -0.7, -15.0),
+	 Vector3(28.7, -1.8, -15.0), Vector3(28.7, -1.8, -13.5)],
+	# 3-4: pontoon SOUTH face (z-16), east and west bands — seen from the dock/water
+	[Vector3(25.0, -0.7, -16.7), Vector3(21.5, -0.7, -16.7),
+	 Vector3(21.5, -1.8, -16.7), Vector3(25.0, -1.8, -16.7)],
+	[Vector3(20.5, -0.7, -16.7), Vector3(16.5, -0.7, -16.7),
+	 Vector3(16.5, -1.8, -16.7), Vector3(20.5, -1.8, -16.7)],
+	# 5: sunken dock plate (top y-1.3, x13.5-19.5 z-19.6), under the boat landing
+	[Vector3(13.5, -1.0, -19.6), Vector3(19.5, -1.0, -19.6)],
 ]
 
+## Build one emergence climb up the east deck rim at depth-lane z: open water beyond the
+## rim (x31) -> up the rim face -> onto the deck lip (x29.3, y2.6). Walked in reverse at
+## dawn / when scared, to go back over the side.
+func _crab_climb(z: float) -> Array:
+	return [Vector3(31.0, -0.5, z), Vector3(30.6, 0.6, z),
+		Vector3(30.3, 1.7, z), Vector3(29.3, 2.6, z)]
+
 func _spawn_giant_crabs() -> void:
-	var paths: Array = [CRAB_EMERGE_A, CRAB_EMERGE_B, CRAB_EMERGE_A]
-	# Offsets fan the pack out on the shared loop. Each was re-validated as base+offset
-	# against every one of the 6 patrol waypoints (sonar scan .sonar-rig/rig_baked.glb):
-	# the old 1.6-1.8 m fan overshot the store/pump-room walls and the SE deck fixture
-	# (7 of 18 targets inside geometry / <0.72 m clearance). These stay <=0.62 m and lean
-	# INBOARD (-x), so worst-case lateral clearance across all 18 targets is 1.05 m.
-	var offsets: Array = [Vector3.ZERO, Vector3(-0.5, 0, 0.35), Vector3(-0.5, 0, -0.35)]
-	for i in range(3):
+	# First three crabs work the EAST ring (roosting on the pontoon east face), the last
+	# three the SOUTH ring (pontoon south face + dock plate) — both rings stay manned and
+	# each crab's roost sits near the rim-lane it climbs, so the dawn/night treks stay short.
+	var patrols: Array = [CRAB_PATROL_EAST, CRAB_PATROL_EAST, CRAB_PATROL_EAST,
+		CRAB_PATROL_SOUTH, CRAB_PATROL_SOUTH, CRAB_PATROL_SOUTH]
+	# Small anti-overlap fan on the shared ring: each nudge <=0.4 m and pointed INBOARD /
+	# away from the nearest rim, so base+offset never leaves the open deck. The crab also
+	# wall-probes between waypoints and the unstick guard relocates it if a prop pins it.
+	var offsets: Array = [
+		Vector3.ZERO, Vector3(-0.4, 0, -0.4), Vector3(-0.4, 0, 0.3),
+		Vector3.ZERO, Vector3(-0.4, 0, 0.4), Vector3(-0.3, 0, 0.4),
+	]
+	for i in range(CRAB_COUNT):
 		var crab: Node3D = CRAB.new()
 		crab.spawn_index = i
-		crab.roost_loop = CRAB_ROOSTS[i]
-		crab.emerge_path = paths[i]
-		crab.patrol_loop = CRAB_PATROL
-		crab.patrol_offset = offsets[i]
+		crab.roost_loop = CRAB_ROOSTS[i % CRAB_ROOSTS.size()]
+		crab.emerge_path = _crab_climb(CRAB_EMERGE_Z[i % CRAB_EMERGE_Z.size()])
+		crab.patrol_loop = patrols[i % patrols.size()]
+		crab.patrol_offset = offsets[i % offsets.size()]
 		add_child(crab)
-		crab.global_position = CRAB_ROOSTS[i][0]
+		crab.global_position = CRAB_ROOSTS[i % CRAB_ROOSTS.size()][0]
 
 func _ready() -> void:
 	_spawn_giant_crabs()
@@ -2436,6 +2464,9 @@ class GlassSnail extends Node3D:
 	## turning its lit coil toward you like it wants a look back.
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL_PATH := "res://assets/models/fauna/glass_snail/glass_snail.glb"
+	# Transparent shader variant — the shared creature shader is opaque; only this species
+	# swaps to it so its shell stays see-through (see the swap in _ready).
+	const GLASS_SHADER := preload("res://materials/creature_swim_glass.gdshader")
 	var _gen_mats: Array = []
 	var _t: float
 	var _base: Vector3
@@ -2494,6 +2525,16 @@ class GlassSnail extends Node3D:
 			0.025, 0.6, BloomFauna.TEAL, 0.0, 0.35)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
+			# The shared creature shader is OPAQUE now (so lamp/rust snails stopped reading
+			# see-through). Glass is the one species that must stay translucent, so swap its
+			# generated surfaces to the transparent variant. ShaderMaterial keeps every
+			# parameter across a shader change (matched by name), so the PEDAL motion, PBR
+			# maps and authored facing all carry over; re-assert the 0.35 opacity that lets
+			# the lit gut-coil read through the shell.
+			for m in _gen_mats:
+				var gsm: ShaderMaterial = m
+				gsm.shader = GLASS_SHADER
+				gsm.set_shader_parameter("opacity", 0.35)
 			BloomFauna.ground_model(self, gen["model"])   # foot on the submerged plate
 		# Drifts the plate on a short leash so it stays on the steel, grounding every frame
 		# and turning back at the plate edge instead of hanging out over open water.
