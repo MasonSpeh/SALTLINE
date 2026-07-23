@@ -15,7 +15,10 @@ const BED_DEFS: Dictionary = {
 ## Running the flat versions underneath meant walking indoors ducked the situational
 ## wind while this one kept howling at full level — exactly the failure the new mix
 ## exists to remove. Silenced at the single chokepoint (_fade) so every existing call
-## site stays honest; "rain" is NOT handed over — it is still this node's to drive.
+## site stays honest. NOTE: "rain" is ALSO silenced in _fade now — scripts/world/rain_audio.gd
+## took over rain with cover-aware loops (rain_open/metal/far), so this flat rain bed must stay
+## quiet or it doubles up as a harsh wash. It keeps its bed id (StormSystem still calls
+## set_storm), but drives to -80 and contributes none; rain_loop.wav is a silent buffer too.
 const AMBIENCE_OWNED: Array[String] = ["wind", "sea", "hum"]
 
 const ONE_SHOTS: Dictionary = {
@@ -41,6 +44,26 @@ const ONE_SHOTS: Dictionary = {
 	"deep_groan": "res://audio/deep_groan.wav",
 	"sheet_bang": "res://audio/sheet_bang.wav",
 	"drip": "res://audio/drip.wav",
+}
+
+## MASTER ONE-SHOT MIX TRIM (dB), applied once at the playback chokepoint (play_one_shot).
+## The ~50 call sites across the codebase pass their own volume_db and are owned by other
+## files; this table is the single place to keep the whole one-shot layer from spiking when
+## the player runs system volume UP, without editing any of them. Attenuate-only (<= 0).
+## Absent id => 0. See scratchpad audio_mix_notes.md for the per-sound old->new reasoning.
+##   clang  : the metal-break (prying/breaking open) — also dulled + quieted in gen_audio.py.
+##   breaker: breaker_panel/cable play it at DEFAULT 0 dB over a near-full-scale sample.
+##   pa_crackle/thunder/crab_snap: their loudest call sites pass POSITIVE gain.
+const SHOT_TRIM: Dictionary = {
+	"clang": -6.0,
+	"breaker": -7.0,
+	"pa_crackle": -8.0,
+	"hiss": -5.0,
+	"groan": -5.0,
+	"splash": -4.0,
+	"thunder": -4.0,
+	"hatch": -4.0,
+	"crab_snap": -3.0,   # not our sample, but its shark-bite site passes +2 dB; keep it from peaking
 }
 
 var _beds: Dictionary = {}       ## name -> AudioStreamPlayer
@@ -175,8 +198,10 @@ func _fade(bed_name: String, target_db: float, duration: float = 2.5) -> void:
 	if p == null:
 		return
 	var want: float = target_db
-	if AMBIENCE_OWNED.has(bed_name):
-		want = -80.0   # see AMBIENCE_OWNED: Ambience carries these now
+	# wind/sea/hum -> Ambience; rain -> RainAudio. All four situational beds are mixed
+	# elsewhere now, so this node holds their ids but drives them to silence here.
+	if AMBIENCE_OWNED.has(bed_name) or bed_name == "rain":
+		want = -80.0
 	var tw: Tween = create_tween()
 	tw.tween_property(p, "volume_db", want, duration)
 
@@ -203,6 +228,8 @@ func play_one_shot(shot_name: String, world_pos: Vector3, volume_db: float = 0.0
 	var stream: AudioStream = _streams.get(shot_name)
 	if stream == null or not _shot_allowed(shot_name):
 		return
+	# Master mix trim: the single lever that tames every one-shot for volume-up play.
+	volume_db += float(SHOT_TRIM.get(shot_name, 0.0))
 	if world_pos == Vector3.ZERO:
 		var p := AudioStreamPlayer.new()
 		p.stream = stream

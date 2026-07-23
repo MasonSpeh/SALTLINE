@@ -45,6 +45,17 @@ def env_fade(samples, fade=0.05):
     return samples
 
 
+def norm_peak(samples, target=0.9):
+    """Scale a buffer so its loudest sample sits at `target` (0..1 full-scale).
+    Lets a synthesized one-shot be built for TIMBRE and then placed at a known,
+    non-peaking level regardless of how the layers happened to sum."""
+    pk = max((abs(s) for s in samples), default=0.0)
+    if pk <= 1e-9:
+        return list(samples)
+    g = target / pk
+    return [s * g for s in samples]
+
+
 # --- beds (loopable-ish; AudioDirector restarts on finish) ---
 n = SR * 8
 wind = lowpass(noise(n), 0.04)
@@ -108,16 +119,39 @@ hiss = lowpass(noise(n), 0.5)
 hiss = [h * math.exp(-i / SR * 1.4) * 0.6 for i, h in enumerate(hiss)]
 write_wav("hiss", env_fade(hiss, 0.02))
 
-n = SR * 2
+# clang -> METAL-BREAK: prying/breaking open a locked box, a hasp giving way. The old
+# clang was a BRIGHT RINGING clang (523/841 Hz partials, slow e^-2.8t decay, amp 0.8) —
+# the "too loud, too bright" sound the mix hated. This is a short, dull, weighty CLUNK:
+# a low body thud, a hint of metal killed fast so nothing rings, and a dry TEAR as the
+# hasp lets go, then two quiet debris ticks. Peak-normalized low so it never spikes.
+crng = random.Random(9021)   # LOCAL rng: leaves the global sequence (breaker..thunder) intact
+n = int(SR * 0.55)
+tear_lo = lowpass([crng.uniform(-1, 1) for _ in range(n)], 0.10)   # dull body of the tear
+tear_hi = lowpass([crng.uniform(-1, 1) for _ in range(n)], 0.38)   # drier grit of parting metal
 clang = []
 for i in range(n):
     t = i / SR
-    s = sum(
-        a * math.sin(2 * math.pi * f * t)
-        for f, a in [(210, 0.5), (317, 0.3), (523, 0.2), (841, 0.12)]
-    )
-    clang.append(s * math.exp(-t * 2.8) * 0.8)
-write_wav("clang", env_fade(clang, 0.01))
+    body = (
+        0.90 * math.sin(2 * math.pi * 76 * t)
+        + 0.50 * math.sin(2 * math.pi * 115 * t)
+        + 0.28 * math.sin(2 * math.pi * 152 * t)
+    ) * math.exp(-t * 23.0)                     # the weight of the lid letting go
+    metal = (
+        0.26 * math.sin(2 * math.pi * 236 * t)
+        + 0.16 * math.sin(2 * math.pi * 329 * t)
+    ) * math.exp(-t * 19.0)                     # a HINT of metal — decays too fast to ring
+    tremor = 0.55 + 0.45 * math.sin(2 * math.pi * 80 * t)   # reads as tearing, not hiss
+    grit = tear_hi[i] * math.exp(-t * 46.0)     # the hasp parts — brief and dry
+    thud_noise = tear_lo[i] * math.exp(-t * 30.0)
+    snap = (0.70 * grit + 0.50 * thud_noise) * tremor
+    clang.append(body + metal + snap)
+for tick_t, amp in [(0.17, 0.20), (0.30, 0.12)]:   # two quiet debris ticks settling after
+    ci = int(tick_t * SR)
+    for j in range(int(SR * 0.04)):
+        if ci + j < n:
+            clang[ci + j] += tear_hi[(ci + j) % n] * math.exp(-(j / SR) * 120.0) * amp
+clang = norm_peak(clang, 0.4)                   # ~-8 dB pre-fade -> ~-9.4 dB after the attack ramp
+write_wav("clang", env_fade(clang, 0.005))
 
 n = int(SR * 0.5)
 brk = [random.uniform(-1, 1) * math.exp(-i / SR * 30) for i in range(n)]
@@ -157,13 +191,13 @@ for i in range(n):
     thunder.append((c * 0.7 + body * 1.3) * math.exp(-t * 0.62) * 0.9)
 write_wav("thunder", env_fade(thunder, 0.02))
 
-# rain: a dense hiss bed (crude high-pass sparkle + low body), loopable.
-n = SR * 8
-rn = noise(n)
-hp = [rn[i] - (rn[i - 1] if i > 0 else 0.0) for i in range(n)]   # crude high-pass = patter
-body = lowpass(noise(n), 0.05)
-gust = lowpass(noise(n), 0.0006)
-rain = [(0.55 * hp[i] + 0.45 * body[i]) * (0.6 + 0.6 * abs(gust[i])) * 0.5 for i in range(n)]
-write_wav("rain_loop", env_fade(rain, 0.02))
+# rain bed: INTENTIONALLY SILENT. Rain is now owned by scripts/world/rain_audio.gd, which
+# crossfades cover-aware loops (rain_open / rain_metal / rain_far, from gen_rain_audio.py).
+# AudioDirector still holds a "rain" bed id and StormSystem still calls set_storm(), but this
+# flat bed must contribute NOTHING or it doubles up as a harsh wash over the cover-aware rain
+# (exactly the old bed rain_audio.gd replaced). Keep it a short silent buffer; AudioDirector
+# also hands "rain" to -80 dB in _fade as a second safeguard. (Must stay the LAST sound written
+# so removing its noise draws does not perturb the deterministic global RNG for earlier wavs.)
+write_wav("rain_loop", [0.0] * int(SR * 2))
 
 print("done")
