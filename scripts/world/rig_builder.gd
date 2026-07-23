@@ -1394,6 +1394,10 @@ func _build_high_iron() -> void:
 
 	_readable("lookout_note", "Weathered Notebook",
 		Vector3(CRANE_X - 1.4, CRANE_DECK_TOP + 0.03, CRANE_Z + 1.0), Vector3(0.3, 0.06, 0.4))
+	# The deep rig pole — the heavy hand-line for dropping straight down for the big deep
+	# fish — waits up here on the crane's machinery deck, a reward for making the climb.
+	_takeable("deep_rig_pole", "Deep Rig Pole",
+		Vector3(CRANE_X + 2.0, CRANE_DECK_TOP + 0.12, CRANE_Z - 1.4), Vector3(0.16, 0.14, 1.5))
 	# Osk's watch slate, propped on the drill floor by the finger rack — the night he first saw it.
 	_readable("osk_watch_slate", "Night Watch Slate", Vector3(5.8, DECK_Y + 0.62, -15.0), Vector3(0.34, 0.28, 0.04))
 

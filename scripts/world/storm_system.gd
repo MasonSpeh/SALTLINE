@@ -104,17 +104,39 @@ func _build_rain() -> void:
 	_rain_shader.set_shader_parameter("wind_drift", Vector3.ZERO)
 	_push_cover_boxes()
 	_rain.process_material = _rain_shader
-	# A thin bright streak, billboarded — reads as fast rain at any angle.
+	# A billboarded drop, shaped by a soft teardrop alpha mask so it reads as a real
+	# raindrop — rounded head, tapered tail, no hard rectangle corners — instead of a
+	# skinny box. The mask is a tiny generated texture (same trick MatLib.soft_mote uses
+	# for marine snow), so there is zero per-frame cost and it is gl_compat-safe.
 	var streak := QuadMesh.new()
-	streak.size = Vector2(0.025, 0.55)
+	streak.size = Vector2(0.05, 0.55)
 	var smat := StandardMaterial3D.new()
-	smat.albedo_color = Color(0.75, 0.82, 0.92, 0.55)
+	smat.albedo_color = Color(0.78, 0.85, 0.95, 0.62)
+	smat.albedo_texture = _raindrop_mask()
 	smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 	smat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
 	smat.billboard_keep_scale = true
 	streak.material = smat
 	_rain.draw_pass_1 = streak
+
+## A small teardrop alpha texture: pointed tail at the top, rounded fuller head at the
+## bottom, soft rounded cross-section. Built once at boot. White RGB (tinted by
+## albedo_color); only the alpha channel carries the shape.
+func _raindrop_mask() -> ImageTexture:
+	var w: int = 24
+	var h: int = 96
+	var img: Image = Image.create(w, h, false, Image.FORMAT_RGBA8)
+	for y in h:
+		var v: float = float(y) / float(h - 1)          # 0 = tail (top), 1 = head (bottom)
+		# Round BOTH ends (kills the sharp corners) and swell the width toward the head.
+		var ends: float = smoothstep(0.0, 0.12, v) * smoothstep(0.0, 0.16, 1.0 - v)
+		var half_w: float = 0.5 * lerpf(0.5, 1.0, smoothstep(0.12, 0.72, v))
+		for x in w:
+			var d: float = absf(float(x) / float(w - 1) - 0.5)
+			var cross: float = 1.0 - smoothstep(half_w * 0.55, half_w, d)
+			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, clampf(ends * cross, 0.0, 1.0)))
+	return ImageTexture.create_from_image(img)
 	add_child(_rain)
 
 ## Bake the roofed volumes into the shader's AABB uniform arrays (capacity 24).
