@@ -37,10 +37,10 @@ const COVER_BOXES: Array = [
 
 const RAMP_IN_SEC: float = 22.0
 const RAMP_OUT_SEC: float = 32.0
-const FIRST_DELAY_MIN: float = 70.0     # first squall comes fairly soon so it's seen
-const FIRST_DELAY_MAX: float = 150.0
-const CALM_MIN: float = 260.0           # clear spells between storms (~4.5–9 min)
-const CALM_MAX: float = 540.0
+const FIRST_DELAY_MIN: float = 45.0     # first squall within the first ~1 min so it's seen early
+const FIRST_DELAY_MAX: float = 100.0
+const CALM_MIN: float = 220.0           # clear spells between storms (~3.7–7.5 min)
+const CALM_MAX: float = 450.0
 const RAGE_MIN: float = 90.0            # a storm rages 1.5–3.5 min
 const RAGE_MAX: float = 210.0
 

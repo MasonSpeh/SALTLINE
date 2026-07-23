@@ -292,9 +292,59 @@ func _unhandled_input(event: InputEvent) -> void:
 			KEY_3: _hotbar_pressed(2)
 			KEY_4: _hotbar_pressed(3)
 			KEY_F: _f_pressed()
+			KEY_F9: _identify_looked_at()
 			KEY_B:
 				if not ui_locked and not _climbing:
 					build.toggle()
+
+## DEBUG (F9) — name whatever you are looking at, and say how far its underside sits
+## above the deck. Physics rays miss most dressing (it has no collider), so this walks
+## the drawn geometry and picks the nearest mesh the view ray actually crosses. Built to
+## pin down "that thing is floating" reports without guessing from screenshots.
+func _identify_looked_at() -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud == null:
+		return
+	var origin: Vector3 = camera.global_position
+	var dir: Vector3 = -camera.global_transform.basis.z
+	var best: Node3D = null
+	var best_d: float = 1.0e9
+	var best_box := AABB()
+	var stack: Array[Node] = [get_tree().current_scene]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		if n.is_in_group("player"):
+			continue
+		var vi := n as VisualInstance3D
+		if vi == null or not vi.is_inside_tree() or vi.get_aabb().size == Vector3.ZERO:
+			continue
+		var box: AABB = vi.global_transform * vi.get_aabb()
+		if box.size.x > 40.0 or box.size.z > 40.0:
+			continue                                  # skip decks/hull-scale slabs
+		var hit: Variant = box.intersects_ray(origin, dir)
+		if hit == null:
+			continue
+		var d: float = origin.distance_to(hit as Vector3)
+		if d < best_d and d < 25.0:
+			best_d = d
+			best = vi
+			best_box = box
+	if best == null:
+		hud.toast("F9: nothing in view within 25 m.")
+		return
+	var chain: String = String(best.name)
+	var p: Node = best.get_parent()
+	for i in 3:
+		if p == null or p == get_tree().current_scene:
+			break
+		chain = "%s/%s" % [p.name, chain]
+		p = p.get_parent()
+	var c2: Vector3 = best_box.get_center()
+	hud.toast("F9: %s  @(%.1f, %.1f, %.1f)  base_y=%.2f  %.1fm away" % [
+		chain, c2.x, c2.y, c2.z, best_box.position.y, best_d])
+	print("[F9] ", chain, "  centre=", c2, "  base_y=", best_box.position.y)
 
 ## Select-then-use: first press of a number selects the slot (item shows in hand),
 ## pressing the SAME number again uses it. Selecting an empty slot clears the hand.

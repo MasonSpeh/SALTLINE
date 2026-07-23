@@ -929,10 +929,8 @@ func _safety_locker() -> void:
 	_bx(a, Vector3(x - 0.02, DECK_Y + 1.05, z - 0.30), Vector3(0.10, 0.16, 0.06), steel)  # handles
 	_bx(a, Vector3(x + 0.02, DECK_Y + 1.05, z - 0.30), Vector3(0.10, 0.16, 0.06), steel)
 	_bx(a, Vector3(x, DECK_Y + 2.02, z), Vector3(1.04, 0.06, 0.56), steel)   # rain hood
-	_bx(a, Vector3(x, DECK_Y + 1.72, z - 0.29), Vector3(0.94, 0.22, 0.02),
-		MatLib.flat(Color(0.90, 0.88, 0.82)))
-	_paint(a, "SAFETY EQUIPMENT", Vector3(x, DECK_Y + 1.77, z - 0.31), 180.0, 0.0, 16,
-		Color(0.10, 0.10, 0.10, 0.95))
+	# (Removed the "SAFETY EQUIPMENT" label plate + text per playtest — the cabinet stays,
+	# unlabelled, so it just reads as a weathered locker instead of a signed sign.)
 	_solid(a, Vector3(x, DECK_Y + 1.0, z), Vector3(1.1, 2.0, 0.62))
 
 func _hose_reel_cabinet() -> void:
@@ -1681,8 +1679,6 @@ func _roof_signage() -> void:
 	var z: float = -6.5
 	_bx(a, Vector3(x, ROOF_Y + 0.03, z), Vector3(0.3, 0.06, 0.3), steel)
 	_cy(a, Vector3(x, ROOF_Y + 0.80, z), 0.04, 1.5, MatLib.flat(Color(0.55, 0.57, 0.56)))
-	_bx(a, Vector3(x, ROOF_Y + 1.45, z + 0.03), Vector3(1.02, 0.46, 0.03),
-		MatLib.flat(Color(0.80, 0.72, 0.18)))
-	_paint(a, "FALL HAZARD\n  CLIP ON", Vector3(x, ROOF_Y + 1.53, z + 0.05), 0.0, 0.0, 16,
-		Color(0.10, 0.10, 0.10, 0.95))
+	# (Removed the "FALL HAZARD / CLIP ON" sign board + text per playtest — it cluttered
+	# the roof-ladder head; the slim stanchion stays as a plain fall-arrest post.)
 	_solid(a, Vector3(x, ROOF_Y + 0.8, z), Vector3(0.12, 1.6, 0.12))

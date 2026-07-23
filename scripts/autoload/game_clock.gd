@@ -11,11 +11,14 @@ signal night
 signal phase_changed(phase: Phase)
 signal time_updated(phase_fraction: float) ## 0.0-1.0 fraction through current phase
 
+# Tuned to the middle: the original 38-min day felt rushed, the 95-min day dragged
+# on forever, so this ~60-min cycle sits between them — a real, unhurried day without
+# the endless wait. (DAY still dominates; NIGHT meaningful but not a slog.)
 @export var phase_durations_minutes: Dictionary = {
-	Phase.DAWN: 8.0,
-	Phase.DAY: 55.0,
-	Phase.DUSK: 12.0,
-	Phase.NIGHT: 20.0,
+	Phase.DAWN: 5.0,
+	Phase.DAY: 34.0,
+	Phase.DUSK: 8.0,
+	Phase.NIGHT: 13.0,
 }
 
 ## Always begins at first light so a full, unhurried day of daylight lies ahead.

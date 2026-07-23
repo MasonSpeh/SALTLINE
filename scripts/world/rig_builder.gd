@@ -773,8 +773,23 @@ func _build_stair_tower() -> void:
 		# smooth slab grammar — leaving the flight step-offs (z < -0.2) clear. West pockets
 		# face east (inner x = XW = 23.5), east pockets face west (inner x = XE = 28.5).
 		var inner_x: float = top_x   # the pocket edge that faces the shaft void
-		_box(Vector3(inner_x, y1 + 0.55, 1.0), Vector3(0.06, 0.9, 2.0), MatLib.rust_steel(), self, false)
-		_rail_slab(Vector3(inner_x, y1 + 0.5, 1.0), Vector3(0.07, 1.2, 2.0))
+		# EXCEPT the two landings whose annex DOOR sits on this very edge (machinery door
+		# x28.5 @ y6, breaker door x23.5 @ y10): the door is the way IN, so fencing this
+		# stretch walled the rooms off. Skip the fence there — the doorway owns the edge.
+		var door_landing: bool = (is_equal_approx(inner_x, 28.5) and is_equal_approx(y1, 6.0)) \
+			or (is_equal_approx(inner_x, 23.5) and is_equal_approx(y1, 10.0))
+		if not door_landing:
+			_box(Vector3(inner_x, y1 + 0.55, 1.0), Vector3(0.06, 0.9, 2.0), MatLib.rust_steel(), self, false)
+			_rail_slab(Vector3(inner_x, y1 + 0.5, 1.0), Vector3(0.07, 1.2, 2.0))
+		else:
+			# Carry the landing across the FULL door width. The pocket platform stops at the
+			# door's midline (inner_x), so the far half of a 1.6m doorway opened onto the
+			# shaft void — you could not walk in square. Butt a matching slab against the
+			# platform (no overlap, so the coplanar tops can't z-fight) reaching past the
+			# door jamb. East pockets extend west, west pockets extend east.
+			var ext_dir: float = -1.0 if is_equal_approx(top_x, STAIR_XE) else 1.0
+			_box(Vector3(inner_x + ext_dir * 0.6, y1 - 0.15, (STAIR_PZ0 + STAIR_PZ1) * 0.5),
+				Vector3(1.2, 0.3, STAIR_PZ1 - STAIR_PZ0), deck_mat)
 
 	# Exterior structure for the tall free-standing shaft above the deck: proud concrete
 	# bands wrap the four faces at two heights so it reads as a segmented tower, not a slab.
@@ -2310,9 +2325,13 @@ func _build_env_objects() -> void:
 ## the same power-gate the wet-deck worklights use. Then it warms on. Shadows off for
 ## gl_compat. These are the room lights that "come on" when the player restores power.
 func _mains_light(pos: Vector3, energy: float, rng: float) -> void:
-	_box(pos + Vector3(0, 0.12, 0), Vector3(0.5, 0.12, 0.22), MatLib.dark_metal(), self, false)  # housing
-	var lens: CSGBox3D = _box(pos, Vector3(0.44, 0.06, 0.16),
-		MatLib.flat(Color(0.85, 0.82, 0.72), false, 0.0), self, false)                          # dark lens
+	# `pos` is the CEILING underside: the fixture bolts flush to it and hangs just below,
+	# so it reads as mounted to the ceiling instead of floating in mid-air (the Beta1
+	# fixtures sat 0.1-1.4m below their ceilings with nothing holding them up).
+	_box(pos + Vector3(0, -0.03, 0), Vector3(0.52, 0.06, 0.26), MatLib.dark_metal(), self, false)  # flush ceiling plate
+	_box(pos + Vector3(0, -0.13, 0), Vector3(0.5, 0.14, 0.22), MatLib.dark_metal(), self, false)   # housing under the plate
+	var lens: CSGBox3D = _box(pos + Vector3(0, -0.22, 0), Vector3(0.44, 0.06, 0.16),
+		MatLib.flat(Color(0.85, 0.82, 0.72), false, 0.0), self, false)                             # dark lens
 	var lamp := OmniLight3D.new()
 	lamp.omni_range = rng
 	lamp.light_energy = energy
@@ -2320,7 +2339,7 @@ func _mains_light(pos: Vector3, energy: float, rng: float) -> void:
 	lamp.shadow_enabled = false
 	lamp.visible = false                       # dead until the breaker closes
 	add_child(lamp)
-	lamp.global_position = pos - Vector3(0, 0.15, 0)
+	lamp.global_position = pos - Vector3(0, 0.32, 0)
 	lamp.add_to_group("interior_mains")
 	PowerGrid.circuit_powered.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
@@ -2335,8 +2354,10 @@ func _mains_light(pos: Vector3, energy: float, rng: float) -> void:
 ## dead in the blackout, warm once power is restored. y20.8 = just under the topside
 ## ceiling (deck 18 + WALL_H 3.2); y4.8 = just under the wet-deck room ceiling.
 func _build_interior_lights() -> void:
-	var top: float = DECK_Y + WALL_H - 0.4      # 20.8
-	var wet: float = WET_Y + WALL_H - 0.4       # 4.8
+	# y = the ceiling underside of each room (floor + WALL_H - 0.13), so the fixtures
+	# bolt flush to the ceiling. Annex/ops rooms have their own floor heights.
+	var top: float = DECK_Y + WALL_H - 0.13     # 21.07 — topside room ceiling
+	var wet: float = WET_Y + WALL_H - 0.13      # 5.07 — wet-deck room ceiling
 	# Topside accommodation.
 	_mains_light(Vector3(-18, top, 7.5), 1.8, 8.0)     # bunkhouse, south cabins
 	_mains_light(Vector3(-18, top, 14.5), 1.8, 8.0)    # bunkhouse, north cabins
@@ -2346,11 +2367,11 @@ func _build_interior_lights() -> void:
 	# Wet-deck rooms.
 	_mains_light(Vector3(14, wet, -10), 1.8, 7.5)      # pump room
 	_mains_light(Vector3(13, wet, -19), 1.6, 6.5)      # store room
-	# Stair-tower annexes.
-	_mains_light(Vector3(27, 7.8, 6), 1.6, 6.5)        # machinery room (y6)
-	_mains_light(Vector3(24, 11.8, 6), 1.8, 7.0)       # breaker room (y10)
-	# Ops lookout — the watch station brightens too.
-	_mains_light(Vector3(28, OPS_Y + 2.4, -4), 1.8, 8.0)
+	# Stair-tower annexes (floor y6 / y10).
+	_mains_light(Vector3(27, 6.0 + WALL_H - 0.13, 6), 1.6, 6.5)    # machinery room ceiling (y9.07)
+	_mains_light(Vector3(24, 10.0 + WALL_H - 0.13, 6), 1.8, 7.0)   # breaker room ceiling (y13.07)
+	# Ops lookout — the watch station brightens too (roof at OPS_Y + 3.0).
+	_mains_light(Vector3(28, OPS_Y + 3.0 - 0.13, -4), 1.8, 8.0)
 
 ## Red emergency beacons for the blackout — a heartbeat the player can always steer by
 ## until the deck lamps come on. Well spaced: the crane head, the antenna mast, a LARGE
