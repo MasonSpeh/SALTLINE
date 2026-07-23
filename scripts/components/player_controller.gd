@@ -18,6 +18,16 @@ const HEAD_BOB_SPRINT_FREQ: float = 2.6
 const HEAD_BOB_AMPLITUDE: float = 0.03
 const WATER_LEVEL: float = 0.4
 
+# Fall damage (GDD A5: the deck is unforgiving). A fall is scored by the impact speed the
+# body carries into the ground, read back as the height it fell from (h = v^2 / 2g under our
+# own GRAVITY). A short drop or a normal jump (~0.9m) lands clean; past FALL_SAFE_HEIGHT life
+# bleeds in proportion, and a fall of FALL_LETHAL_HEIGHT or more empties the bar — routing
+# into the existing death/respawn blackout. NEVER applied while swimming, climbing, mantling,
+# flying, or on the buoyant water landing (the sea breaks the fall).
+const FALL_SAFE_HEIGHT: float = 3.5      ## drops shorter than this never hurt (a jump is ~0.9m)
+const FALL_LETHAL_HEIGHT: float = 11.5   ## a single landing from at/above this blacks you out
+const FALL_DAMAGE_AT_LETHAL: float = 1.0 ## life removed at exactly the lethal height (a full bar)
+
 # Postures: STAND (default), CROUCH (held on the crouch key), PRONE (Z toggle — lie
 # flat on the deck). Each is a capsule height, a collider y-offset, and an eye line.
 # Standing back up from a shorter posture is gated by a headroom check (_posture_fits).
@@ -107,6 +117,7 @@ var _head_bob_time: float = 0.0
 var _camera_base_y: float
 var _jump_buffer: float = 0.0      ## brief window after a jump press, so it still fires on landing
 var _jump_was_pressed: bool = false
+var _fall_peak_speed: float = 0.0  ## fastest downward speed (m/s) built up since leaving the floor; scores the landing
 var _climbing: Ladder = null
 var _climb_from_top: bool = false  ## climb grabbed near the top — hold, don't insta-mantle
 var _drowning: bool = false        ## shared blackout guard: water respawn OR life-out respawn
@@ -427,6 +438,12 @@ func _physics_process(delta: float) -> void:
 		_attack_cd -= delta
 	if _mantle_cd > 0.0:
 		_mantle_cd -= delta
+	# Fall damage is scored only in the normal locomotion path further down. Any special
+	# movement state — fly, mantle, lie, climb, or swimming (a splash into the sea) — clears
+	# the fall accumulator here, so a drop that ends by grabbing a ladder, mantling a lip, or
+	# hitting the water can never cash its speed in as damage on some unrelated later landing.
+	if _fly or _mantling or _lying or _climbing or swimming:
+		_fall_peak_speed = 0.0
 	if _fly:
 		_fly_process(delta)
 		return
@@ -446,8 +463,14 @@ func _physics_process(delta: float) -> void:
 	if swimming:
 		_swim_process(delta)
 		return
+	# Fall tracking: remember whether we were grounded coming into this frame, and while
+	# airborne accumulate the fastest downward speed reached — sampled after gravity so it is
+	# the speed the body carries into the ground on the frame it finally lands. That peak,
+	# read back as a fall height, scores the landing detected after move_and_slide() below.
+	var was_on_floor: bool = is_on_floor()
 	if not is_on_floor():
 		velocity.y -= GRAVITY * delta
+		_fall_peak_speed = maxf(_fall_peak_speed, -velocity.y)
 
 	_update_posture(delta)
 
@@ -491,6 +514,7 @@ func _physics_process(delta: float) -> void:
 	velocity.z = move_toward(velocity.z, target_velocity.z, ACCELERATION * delta * target_speed)
 
 	move_and_slide()
+	_update_fall_landing(was_on_floor)
 	_update_stamina(delta, wants_sprint and direction.length() > 0.0)
 	_update_head_bob(delta, direction.length() > 0.0, wants_sprint)
 	_update_footsteps(delta)
@@ -888,6 +912,7 @@ func _respawn() -> void:
 	_prone = false
 	_airless_t = 0.0
 	_low_air_warned = false
+	_fall_peak_speed = 0.0
 	PlayerState.oxygen = 1.0
 	PlayerState.warmth -= 0.3
 	PlayerState.life = maxf(PlayerState.life, 0.3)   # the sea returns you breathing
@@ -925,6 +950,7 @@ func _respawn_from_death() -> void:
 	swimming = false
 	_airless_t = 0.0
 	_low_air_warned = false
+	_fall_peak_speed = 0.0
 	PlayerState.oxygen = 1.0
 	PlayerState.life = 0.5
 	PlayerState.hunger = 0.4
@@ -935,6 +961,42 @@ func _respawn_from_death() -> void:
 	if hud:
 		hud.fade_from_black(1.5)
 		hud.toast("You blacked out. The rig gave you back.")
+
+## Landing check, run right after move_and_slide(): if we just touched down (grounded now,
+## airborne last frame) a fast enough arrival hurts. Grounded frames keep the accumulator
+## zeroed, so only a genuine fall carries speed into the next landing. Skipped during a
+## cutscene lock or the death fade, and when the sea broke the fall (a buoyant water landing).
+func _update_fall_landing(was_on_floor: bool) -> void:
+	if is_on_floor():
+		if not was_on_floor and not input_locked and not _drowning and not _landing_in_water():
+			_apply_fall_damage(_fall_peak_speed)
+		_fall_peak_speed = 0.0
+
+## True when the spot we just landed on sits under the swell — the water cushioned the fall,
+## so it is a buoyant water landing, not a hard deck impact. Mirrors _check_water's swim line
+## so "the sea broke your fall" means exactly "you are in swimming water".
+func _landing_in_water() -> bool:
+	var wave_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), Gyre.water_time()) * 0.85
+	return global_position.y < wave_y - 0.15
+
+## A hard landing bleeds life in proportion to the drop. The tracked impact speed is read
+## back as a fall height (h = v^2 / 2g under our own GRAVITY): under FALL_SAFE_HEIGHT you land
+## clean; above it damage climbs, reaching a full bar at FALL_LETHAL_HEIGHT and beyond — which
+## zeroes life through PlayerState.set_life and fires player_died -> _on_player_died, the same
+## blackout/respawn the drown and life-out paths use. Reuses the "groan" one-shot (the game's
+## existing pained-body cue, as in _drown) as the grunt of impact, louder the harder you hit.
+func _apply_fall_damage(peak_speed: float) -> void:
+	var fall_h: float = (peak_speed * peak_speed) / (2.0 * GRAVITY)
+	if fall_h <= FALL_SAFE_HEIGHT:
+		return   # a short step-down or a normal jump — landed clean, no cost
+	var over: float = (fall_h - FALL_SAFE_HEIGHT) / maxf(0.01, FALL_LETHAL_HEIGHT - FALL_SAFE_HEIGHT)
+	PlayerState.life -= over * FALL_DAMAGE_AT_LETHAL   # >= a full bar past lethal -> blackout
+	AudioDirector.play_one_shot("groan", global_position, lerpf(-16.0, -2.0, clampf(over, 0.0, 1.0)))
+	# A word on the survivable hits; the lethal one hands off to the death flow's own toast.
+	if PlayerState.life > 0.0:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("You hit the deck hard. That one cost you.")
 
 func _update_stamina(delta: float, is_sprinting: bool) -> void:
 	if is_sprinting:
