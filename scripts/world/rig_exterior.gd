@@ -470,11 +470,8 @@ func _obs_platform() -> void:
 	for sz in [-13.0, -9.0]:
 		_member(Vector3(-33.5, DECK_Y - 0.8, sz), Vector3(-29.5, DECK_Y - 4.5, sz), 0.24, MatLib.rust_steel())
 	_box(Vector3(-33.3, DECK_Y - 0.25, -11), Vector3(0.5, 0.4, 2.2), MatLib.wood(), false)   # bench plank
-	# Painted FLAT on the platform plating (pitch -90). It used to stand upright at
-	# y+1.5, two metres above the deck it names, on a cantilevered platform that has
-	# no wall or post anywhere near it for a sign to be fixed to.
-	_plabel("WEST LOOKOUT", Vector3(-32.9, DECK_Y - 0.44, -10.6), 0, 20,
-		Color(0.75, 0.72, 0.55), -90.0)
+	# (The "WEST LOOKOUT" deck stencil was removed: laid flat on the platform plating it
+	# read as stray text lying on the ground behind the machine shop, not as signage.)
 
 # ---------------------------------------------------------------- west stairs
 

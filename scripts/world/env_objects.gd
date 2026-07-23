@@ -163,50 +163,96 @@ class FireBarrel extends Node3D:
 		_light.light_energy = flicker
 		_coals.emission_energy_multiplier = flicker * 0.9
 
-## 4. Crane — mast, jib out over the deck, and a hook that swings in the wind.
+## 4. Crane — mast, jib out over the deck, and a hook block that swings in the wind.
+## The mast/jib used to be plain boxes and the "hook" a single 0.5x0.7x0.3 block on a
+## square cable — pure greybox. Now the mast is a tapered tube with a tie-back strut, the
+## jib tip carries a real grooved SHEAVE between cheek plates, the fall is round rope, and
+## the hook is a segmented block-and-hook (swivel, cheeks, pin, and a curved point).
 class CraneHook extends Node3D:
 	var _pivot: Node3D
 	var _t: float = 0.0
 
+	static func _mesh(parent: Node3D, mesh: Mesh, pos: Vector3) -> MeshInstance3D:
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		parent.add_child(mi)
+		mi.position = pos
+		return mi
+
+	static func _cyl(r: float, h: float, mat: Material) -> CylinderMesh:
+		var m := CylinderMesh.new()
+		m.top_radius = r
+		m.bottom_radius = r
+		m.height = h
+		m.material = mat
+		return m
+
+	static func _box_mesh(size: Vector3, mat: Material) -> BoxMesh:
+		var m := BoxMesh.new()
+		m.size = size
+		m.material = mat
+		return m
+
 	func _ready() -> void:
-		var mast := MeshInstance3D.new()
-		var mm := BoxMesh.new()
-		mm.size = Vector3(0.8, 9.0, 0.8)
-		mm.material = MatLib.rust_steel()
-		mast.mesh = mm
-		add_child(mast)
-		mast.position.y = 4.5
-		var jib := MeshInstance3D.new()
-		var jm := BoxMesh.new()
-		jm.size = Vector3(0.5, 0.5, 9.0)
-		jm.material = MatLib.rust_steel()
-		jib.mesh = jm
-		add_child(jib)
-		jib.position = Vector3(0, 8.8, -4.2)
-		# The swinging assembly hangs from the jib tip.
+		var steel: Material = MatLib.rust_steel()
+		var dark: Material = MatLib.dark_metal()
+		var galv: Material = MatLib.galvanized()
+		# Mast: a tapered tube (was a square 0.8m box), on a small base plate.
+		var mm := CylinderMesh.new()
+		mm.top_radius = 0.26
+		mm.bottom_radius = 0.36
+		mm.height = 9.0
+		mm.material = steel
+		_mesh(self, mm, Vector3(0, 4.5, 0))
+		_mesh(self, _box_mesh(Vector3(1.0, 0.2, 1.0), dark), Vector3(0, 0.1, 0))
+		# Jib out over the deck, with a diagonal tie back to the mast head so it reads as
+		# a braced boom rather than one floating bar.
+		_mesh(self, _box_mesh(Vector3(0.34, 0.34, 9.0), steel), Vector3(0, 8.8, -4.2))
+		var tie := _mesh(self, _box_mesh(Vector3(0.14, 0.14, 5.6), dark), Vector3(0, 9.5, -3.0))
+		tie.rotation.x = deg_to_rad(28.0)
+		# --- sheave at the jib tip: two cheek plates and a grooved wheel between them ---
+		var tip := Vector3(0, 8.6, -8.2)
+		for s in [-0.12, 0.12]:
+			_mesh(self, _box_mesh(Vector3(0.06, 0.7, 0.6), dark), tip + Vector3(s, 0, 0))
+		var wheel := MeshInstance3D.new()
+		var wm := TorusMesh.new()
+		wm.inner_radius = 0.16
+		wm.outer_radius = 0.28
+		wm.material = galv
+		wheel.mesh = wm
+		add_child(wheel)
+		wheel.position = tip
+		wheel.rotation.y = deg_to_rad(90)   # wheel plane faces along the jib (swings in Z)
+		# --- the swinging block-and-hook, hung from the sheave on a round fall ---
 		_pivot = Node3D.new()
 		add_child(_pivot)
-		_pivot.position = Vector3(0, 8.5, -8.0)
-		var cable := MeshInstance3D.new()
-		var cbm := BoxMesh.new()
-		cbm.size = Vector3(0.06, 4.5, 0.06)
-		cbm.material = MatLib.dark_metal()
-		cable.mesh = cbm
-		_pivot.add_child(cable)
-		cable.position.y = -2.25
+		_pivot.position = tip
+		_mesh(_pivot, _cyl(0.03, 4.2, dark), Vector3(0, -2.1, 0))          # wire rope fall
+		var block_y: float = -4.2
+		_mesh(_pivot, _box_mesh(Vector3(0.34, 0.42, 0.26), dark), Vector3(0, block_y, 0))  # hook block cheeks
+		var pin := _mesh(_pivot, _cyl(0.14, 0.4, galv), Vector3(0, block_y, 0))            # sheave pin
+		pin.rotation.z = deg_to_rad(90)
+		# Swivel + shank down to the throat.
+		_mesh(_pivot, _cyl(0.05, 0.22, galv), Vector3(0, block_y - 0.32, 0))
 		var hook_body := StaticBody3D.new()
 		_pivot.add_child(hook_body)
-		hook_body.position.y = -4.7
-		var hook := MeshInstance3D.new()
-		var hm := BoxMesh.new()
-		hm.size = Vector3(0.5, 0.7, 0.3)
-		hm.material = MatLib.dark_metal()
-		hook.mesh = hm
-		hook_body.add_child(hook)
+		hook_body.position = Vector3(0, block_y - 0.55, 0)
+		_mesh(hook_body, _cyl(0.06, 0.4, galv), Vector3(0, 0.1, 0))        # shank
+		# The curved point, swept from three short segments back up to a tip.
+		var bend := [
+			[Vector3(0.0, -0.14, 0.0), 0.0],
+			[Vector3(0.11, -0.24, 0.0), 55.0],
+			[Vector3(0.24, -0.20, 0.0), 110.0],
+			[Vector3(0.30, -0.08, 0.0), 150.0],
+		]
+		for seg in bend:
+			var m := _mesh(hook_body, _box_mesh(Vector3(0.09, 0.16, 0.09), galv), seg[0])
+			m.rotation.z = deg_to_rad(seg[1])
 		var col := CollisionShape3D.new()
 		var shape := BoxShape3D.new()
-		shape.size = Vector3(0.5, 0.7, 0.3)
+		shape.size = Vector3(0.42, 0.7, 0.3)
 		col.shape = shape
+		col.position = Vector3(0.1, -0.1, 0)
 		hook_body.add_child(col)
 
 	func _process(delta: float) -> void:
@@ -301,3 +347,87 @@ class VentFan extends Node3D:
 
 	func _process(delta: float) -> void:
 		_blades.rotation.y += _speed * delta
+
+## 7. Emergency red flasher — a battery beacon that PULSES while the grid is dead, so a
+## player in the blackout always has a red heartbeat to steer by. When mains power comes
+## back it drops to a steady dim standby (the deck lamps take over). NOT a LightZone: the
+## dark stays dangerous, this only gives the player something to see BY. Cheap OmniLight,
+## shadows off (gl_compat). Call setup() BEFORE add_child (which fires _ready).
+class RedFlasher extends Node3D:
+	var _light: OmniLight3D
+	var _lens: StandardMaterial3D
+	var _t: float = 0.0
+	var _powered: bool = false
+	var _rng: float = 8.0
+	var _peak: float = 3.0
+	var _scale: float = 1.0
+	var _period: float = 1.3
+
+	## rng = light range, peak = flash energy, sz = housing scale, period = seconds/flash.
+	func setup(rng: float, peak: float, sz: float = 1.0, period: float = 1.3) -> void:
+		_rng = rng
+		_peak = peak
+		_scale = sz
+		_period = period
+
+	func _ready() -> void:
+		# Dark housing can on a short stalk, a red lens dome, and a small guard cage.
+		var housing := MeshInstance3D.new()
+		var hm := CylinderMesh.new()
+		hm.top_radius = 0.13 * _scale
+		hm.bottom_radius = 0.15 * _scale
+		hm.height = 0.16 * _scale
+		hm.material = MatLib.dark_metal()
+		housing.mesh = hm
+		add_child(housing)
+		housing.position.y = 0.08 * _scale
+		_lens = StandardMaterial3D.new()
+		_lens.albedo_color = Color(0.7, 0.06, 0.05)
+		_lens.emission_enabled = true
+		_lens.emission = Color(1.0, 0.12, 0.08)
+		_lens.emission_energy_multiplier = 5.0
+		var lens := MeshInstance3D.new()
+		var lm := SphereMesh.new()
+		lm.radius = 0.12 * _scale
+		lm.height = 0.2 * _scale
+		lm.material = _lens
+		lens.mesh = lm
+		add_child(lens)
+		lens.position.y = 0.2 * _scale
+		# Guard ribs over the lens.
+		for i in range(3):
+			var rib := MeshInstance3D.new()
+			var rm := BoxMesh.new()
+			rm.size = Vector3(0.015 * _scale, 0.24 * _scale, 0.015 * _scale)
+			rm.material = MatLib.dark_metal()
+			rib.mesh = rm
+			add_child(rib)
+			var a: float = i * PI / 3.0
+			rib.position = Vector3(cos(a) * 0.13 * _scale, 0.2 * _scale, sin(a) * 0.13 * _scale)
+		_light = OmniLight3D.new()
+		_light.light_color = Color(1.0, 0.14, 0.1)
+		_light.omni_range = _rng
+		_light.light_energy = _peak
+		_light.shadow_enabled = false
+		_light.light_volumetric_fog_energy = 1.4
+		add_child(_light)
+		_light.position.y = 0.2 * _scale
+		PowerGrid.circuit_powered.connect(func(id: String) -> void:
+			if id == "topside_floodlights":
+				_powered = true)
+		PowerGrid.circuit_lost.connect(func(id: String) -> void:
+			if id == "topside_floodlights":
+				_powered = false)
+
+	func _process(delta: float) -> void:
+		_t += delta
+		if _powered:
+			# Steady dim standby once the deck is lit.
+			_light.light_energy = 0.35
+			_lens.emission_energy_multiplier = 0.8
+			return
+		# A double-blink heartbeat: bright on the first third of the period.
+		var ph: float = fmod(_t, _period)
+		var on: bool = ph < _period * 0.28
+		_light.light_energy = _peak if on else 0.0
+		_lens.emission_energy_multiplier = 6.0 if on else 0.35

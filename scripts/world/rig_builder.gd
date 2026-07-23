@@ -37,6 +37,11 @@ func _ready() -> void:
 	_build_access()
 	_decorate_interiors()
 	_build_env_objects()
+	# Beta1 structure: mains room lights that wake with the breaker, red emergency
+	# beacons for the blackout, and the survival craft in its davits.
+	_build_interior_lights()
+	_build_emergency_beacons()
+	_build_lifeboat()
 	_industrial_dressing()
 	_more_industry()   # triple the piping: valves, gauges, bolted flanges, cable trays, welds
 	# _surface_grime() DISABLED: the custom decal-sticker materials (MUL blend + runtime
@@ -762,6 +767,14 @@ func _build_stair_tower() -> void:
 		# 0.1m gap along the plate that a capsule's foot slides into and jams against.
 		_box(Vector3(px_c, y1 + 0.55, STAIR_PZ0 + 0.06), Vector3(px_s, 0.9, 0.06), MatLib.rust_steel(), self, false)
 		_rail_slab(Vector3(px_c, y1 + 0.5, STAIR_PZ0 + 0.06), Vector3(px_s, 1.2, 0.07))
+		# The platform's SHAFT-INTERIOR long edge was the other open drop: the two flight
+		# lanes (ZS -2.9, ZN -1.1) connect at that edge, but the NORTH stretch of it (z0..2)
+		# has no flight and fell straight into the shaft. Fence that stretch — same bar +
+		# smooth slab grammar — leaving the flight step-offs (z < -0.2) clear. West pockets
+		# face east (inner x = XW = 23.5), east pockets face west (inner x = XE = 28.5).
+		var inner_x: float = top_x   # the pocket edge that faces the shaft void
+		_box(Vector3(inner_x, y1 + 0.55, 1.0), Vector3(0.06, 0.9, 2.0), MatLib.rust_steel(), self, false)
+		_rail_slab(Vector3(inner_x, y1 + 0.5, 1.0), Vector3(0.07, 1.2, 2.0))
 
 	# Exterior structure for the tall free-standing shaft above the deck: proud concrete
 	# bands wrap the four faces at two heights so it reads as a segmented tower, not a slab.
@@ -783,7 +796,9 @@ func _build_stair_tower() -> void:
 	breaker.circuit_id = "topside_floodlights"
 	add_child(breaker)
 	breaker.global_position = Vector3(23, 11.4, 9.5)
-	breaker.build_box_visual(Vector3(1.0, 1.4, 0.3), Interactable.COLOR_OPERABLE)
+	# Emissive: a self-lit red panel is a can't-miss marker in the blackout — the whole
+	# point of the puzzle is you can find and throw it before the lights exist.
+	breaker.build_box_visual(Vector3(1.0, 1.4, 0.3), Interactable.COLOR_OPERABLE, true)
 	_readable("breaker_log", "Maintenance Log", Vector3(24.6, 11.2, 9.55), Vector3(0.35, 0.45, 0.06))
 	# E.V.'s last note pinned to the panel — the reward for restoring power, and "made polite".
 	_readable("ev_last_splice", "Note on the Panel", Vector3(23.4, 11.5, 9.5), Vector3(0.28, 0.34, 0.03))
@@ -801,6 +816,15 @@ func _build_stair_tower() -> void:
 	# Cosmetic cable runs to and from the gap.
 	_box(Vector3(27.7, 10.6, 8.4), Vector3(0.12, 0.12, 2.2), MatLib.dark_metal(), self, false)
 	_box(Vector3(27.7, 10.6, 3.6), Vector3(0.12, 0.12, 2.2), MatLib.dark_metal(), self, false)
+	# CAN'T-MISS MARKER on the master breaker: a hazard placard, a SELF-LIT amber bar (it
+	# glows even in the blackout, so the eye is pulled straight to the panel), and a down
+	# chevron right above it. The breaker sits at z9.5 facing the room (-z); this rides on
+	# the north wall inner face (z9.82) directly over it.
+	_box(Vector3(23, 12.55, 9.82), Vector3(1.3, 0.5, 0.05), MatLib.hazard_stripe(), self, false)
+	_box(Vector3(23, 12.58, 9.79), Vector3(1.05, 0.16, 0.03),
+		MatLib.flat(Color(1.0, 0.72, 0.16), true, 2.4), self, false)
+	_plabel("MASTER BREAKER 4-A", Vector3(23, 12.58, 9.78), 180, 13, Color(0.05, 0.05, 0.05))
+	_plabel("v  THIS PANEL  v", Vector3(23, 12.28, 9.78), 180, 12, Color(0.05, 0.05, 0.05))
 
 	# --- POWER-ROUTE STENCILS (a real player could not find the breaker room, or
 	# know cable came first). Painted as weathered stencil (the amber source colour only
@@ -814,8 +838,17 @@ func _build_stair_tower() -> void:
 	_plabel("MAIN POWER: BREAKER 4-A - ONE LEVEL UP", Vector3(25.2, 6.0 + 2.0, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
 	# The spool itself, named where it sits so it is unmistakably the thing to grab.
 	_plabel("SPARE FEED CABLE", Vector3(27.0, 7.9, 5.6), 180, 12, Color(0.95, 0.72, 0.2))
-	# LANDING 2 (y10) north wall, over/beside the breaker-room door (x23.5).
-	_plabel("BREAKER ROOM 4-A", Vector3(25.4, 10.0 + 2.0, 1.88), 180, 18, Color(0.95, 0.72, 0.2))
+	# LANDING 2 (y10) north wall, over/beside the breaker-room door (x23.5). Made
+	# unmistakable: a big name over the door, a "THIS ROOM / LEVEL 2" line, a self-lit
+	# amber marker so it reads in the dark, and an arrow painted on the landing floor.
+	_plabel("MASTER BREAKER 4-A", Vector3(23.5, 12.4, 1.88), 180, 20, Color(0.95, 0.72, 0.2))
+	_plabel("THIS ROOM  -  STAIR LEVEL 2", Vector3(23.5, 12.05, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
+	_box(Vector3(23.5, 12.62, 1.9), Vector3(1.1, 0.1, 0.03),
+		MatLib.flat(Color(1.0, 0.72, 0.16), true, 2.2), self, false)   # self-lit marker over the door
+	# Arrow on the landing-2 platform floor, aimed north at the breaker door.
+	_box(Vector3(23.2, 10.02, 0.4), Vector3(0.3, 0.02, 0.9), MatLib.flat(Color(0.9, 0.7, 0.15)), self, false)
+	_box(Vector3(23.2, 10.02, 0.95), Vector3(0.55, 0.02, 0.3), MatLib.flat(Color(0.9, 0.7, 0.15)), self, false)
+	_plabel("BREAKER 4-A", Vector3(22.6, 10.02, -0.4), 90, 12, Color(0.9, 0.7, 0.15), -90.0)
 	# Inside the room: the ORDER, at a glance, right on the panel wall. The full
 	# maintenance log (why, and the arc-flash warning) is the readable beside it.
 	_plabel("1) SPLICE THE GAP", Vector3(25.2, 12.0, 9.85), 180, 13, Color(0.95, 0.72, 0.2))
@@ -974,6 +1007,15 @@ func _build_ops_room(fy: float) -> void:
 	_box(Vector3(30.4, fy + 1.12, 3.2), Vector3(0.7, 0.4, 0.5), MatLib.rust_steel())
 	_box(Vector3(30.4, fy + 1.4, 3.4), Vector3(0.02, 0.02, 0.6), steel)  # antenna whip
 	_readable("radio_log", "Radio Log", Vector3(29.4, fy + 0.86, 3.3), Vector3(0.3, 0.04, 0.34))
+	# REDIRECT for a player who climbed all the way up here looking for the switch: the
+	# watch console is NOT the master breaker. A placard on the console face and a floor
+	# stencil by the stairwell hole send them back DOWN to Landing 2.
+	_box(Vector3(26.0, fy + 0.55, 2.83), Vector3(2.2, 0.34, 0.04), MatLib.hazard_stripe(), self, false)
+	_plabel("WATCH CONSOLE - NOT THE BREAKER", Vector3(26.0, fy + 0.62, 2.81), 180, 12, Color(0.05, 0.05, 0.05))
+	_plabel("MASTER BREAKER 4-A: DOWN THE STAIR, LANDING 2", Vector3(26.0, fy + 0.45, 2.81), 180, 10, Color(0.05, 0.05, 0.05))
+	# On the deck at the north lip of the stairwell hole, laid flat, pointing down the shaft.
+	_plabel("v  POWER: DOWN TO LANDING 2  v", Vector3(25.7, fy + 0.02, -1.15), 0, 16,
+		Color(0.9, 0.7, 0.15), -90.0)
 	# A watch stool, and binoculars on a stand at the south glass looking out to sea.
 	_cyl(Vector3(28.0, fy + 0.35, 3.0), 0.22, 0.7, MatLib.rust_steel())
 	_cyl(Vector3(26.0, fy + 0.6, -7.2), 0.06, 1.2, steel)
@@ -1200,10 +1242,13 @@ func _build_floodlights() -> void:
 	zone.zone_extents = Vector3(38, 9, 20)
 	add_child(zone)
 	zone.global_position = Vector3(0, DECK_Y + 2.5, -1)
-	for pole_pos in [Vector3(-14, 0, -8), Vector3(14, 0, -8), Vector3(-14, 0, 7), Vector3(14, 0, 7)]:
+	# Pole footings. The SW pole used to stand at (-14,-8) — dead ON the machine-shop east
+	# wall (x-14, z-6..-11), its post buried in the concrete; and the NW pole at (-14,7)
+	# stood INSIDE a bunk cabin (bunkhouse x-28..-8). Both are moved onto clear open deck
+	# just clear of those shells; the two east poles were already on open plating.
+	for pole_pos in [Vector3(-10.5, 0, -8), Vector3(14, 0, -8), Vector3(-6, 0, 7), Vector3(14, 0, 7)]:
 		var p: Vector3 = Vector3(pole_pos.x, DECK_Y, pole_pos.z)
-		_box(p + Vector3(0, 1.75, 0), Vector3(0.25, 3.5, 0.25), MatLib.painted_steel())
-		var head := _box(p + Vector3(0, 3.6, 0), Vector3(0.7, 0.4, 0.7), MatLib.flat(Color(0.9, 0.85, 0.7), true, 0.0))
+		var head: CSGBox3D = _floodlight_fixture(p)
 		var spot := SpotLight3D.new()
 		spot.spot_range = 18.0
 		spot.spot_angle = 55.0
@@ -1212,12 +1257,12 @@ func _build_floodlights() -> void:
 		spot.light_color = Color(1.0, 0.9, 0.7)   # warm light is player-made safety (canon)
 		spot.shadow_enabled = true
 		zone.add_light(spot)
-		spot.global_position = p + Vector3(0, 3.4, 0)
+		spot.global_position = p + Vector3(0, 3.55, 0)
 		spot.rotation.x = deg_to_rad(-90)
-		# Emissive head turns on with the circuit.
+		# Emissive lens turns on with the circuit.
 		PowerGrid.circuit_powered.connect(func(id: String) -> void:
 			if id == "topside_floodlights" and is_instance_valid(head):
-				head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.0))
+				head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.4))
 	# Space heater near the galley south wall — warmth restored in the powered zone.
 	_box(Vector3(11, DECK_Y + 0.5, 6.5), Vector3(0.9, 1.0, 0.5), MatLib.flat(Color(0.65, 0.3, 0.15)))
 	var heat := WarmthZone.new()
@@ -1262,6 +1307,30 @@ func _build_floodlights() -> void:
 		PowerGrid.circuit_lost.connect(func(id: String) -> void:
 			if id == "topside_floodlights" and is_instance_valid(wlamp):
 				wlamp.visible = false)
+
+## A deck floodlight standard: tapered pole, top bracket, a real drum housing with a
+## hood/brim and a guard cage over a down-facing lens. Returns the lens CSGBox so the
+## caller can make it glow when the circuit closes. (The old fixture was a bare 0.7m
+## cube on a square post — the "blocky lamp" the owner flagged.)
+func _floodlight_fixture(p: Vector3) -> CSGBox3D:
+	var steel: Material = MatLib.painted_steel()
+	var dark: Material = MatLib.dark_metal()
+	var top: Vector3 = p + Vector3(0, 3.6, 0)
+	_box(p + Vector3(0, 0.05, 0), Vector3(0.5, 0.1, 0.5), dark)          # base plate on the deck
+	_cyl(p + Vector3(0, 1.78, 0), 0.12, 3.5, steel)                      # tapered-ish tube pole
+	_box(p + Vector3(0, 3.45, 0), Vector3(0.16, 0.5, 0.16), dark, self, false)   # top yoke
+	_box(top, Vector3(0.72, 0.34, 0.56), dark, self, false)             # drum housing
+	# Hood/brim ringing the mouth so it reads as a shaded floodlight, not a die.
+	_box(top + Vector3(0, -0.2, 0.31), Vector3(0.8, 0.06, 0.06), dark, self, false)
+	_box(top + Vector3(0, -0.2, -0.31), Vector3(0.8, 0.06, 0.06), dark, self, false)
+	_box(top + Vector3(0.39, -0.2, 0), Vector3(0.06, 0.06, 0.68), dark, self, false)
+	_box(top + Vector3(-0.39, -0.2, 0), Vector3(0.06, 0.06, 0.68), dark, self, false)
+	# Down-facing lens (glows when powered) + a guard cage across it.
+	var lens: CSGBox3D = _box(p + Vector3(0, 3.42, 0), Vector3(0.56, 0.05, 0.42),
+		MatLib.flat(Color(0.9, 0.85, 0.7), true, 0.0), self, false)
+	for bx in [-0.18, 0.0, 0.18]:
+		_box(p + Vector3(bx, 3.38, 0), Vector3(0.03, 0.03, 0.46), dark, self, false)
+	return lens
 
 # ---------- Z5: High Iron ----------
 
@@ -2203,6 +2272,152 @@ func _build_env_objects() -> void:
 		var fan := EnvObjects.VentFan.new()
 		add_child(fan)
 		fan.global_position = p
+
+# ---------- Beta1: mains lighting, emergency beacons, survival craft ----------
+
+## One mains ceiling fixture: a small emissive lens in a dark housing, and an OmniLight
+## that is DEAD (invisible, lens unlit) until the breaker closes the topside circuit —
+## the same power-gate the wet-deck worklights use. Then it warms on. Shadows off for
+## gl_compat. These are the room lights that "come on" when the player restores power.
+func _mains_light(pos: Vector3, energy: float, rng: float) -> void:
+	_box(pos + Vector3(0, 0.12, 0), Vector3(0.5, 0.12, 0.22), MatLib.dark_metal(), self, false)  # housing
+	var lens: CSGBox3D = _box(pos, Vector3(0.44, 0.06, 0.16),
+		MatLib.flat(Color(0.85, 0.82, 0.72), false, 0.0), self, false)                          # dark lens
+	var lamp := OmniLight3D.new()
+	lamp.omni_range = rng
+	lamp.light_energy = energy
+	lamp.light_color = Color(1.0, 0.93, 0.78)
+	lamp.shadow_enabled = false
+	lamp.visible = false                       # dead until the breaker closes
+	add_child(lamp)
+	lamp.global_position = pos - Vector3(0, 0.15, 0)
+	lamp.add_to_group("interior_mains")
+	PowerGrid.circuit_powered.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = true
+			if is_instance_valid(lens):
+				lens.material = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0))
+	PowerGrid.circuit_lost.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = false)
+
+## Interior room lighting that wakes with the breaker — every enclosed room on the rig,
+## dead in the blackout, warm once power is restored. y20.8 = just under the topside
+## ceiling (deck 18 + WALL_H 3.2); y4.8 = just under the wet-deck room ceiling.
+func _build_interior_lights() -> void:
+	var top: float = DECK_Y + WALL_H - 0.4      # 20.8
+	var wet: float = WET_Y + WALL_H - 0.4       # 4.8
+	# Topside accommodation.
+	_mains_light(Vector3(-18, top, 7.5), 1.8, 8.0)     # bunkhouse, south cabins
+	_mains_light(Vector3(-18, top, 14.5), 1.8, 8.0)    # bunkhouse, north cabins
+	_mains_light(Vector3(6, top, 13), 2.0, 8.5)        # galley
+	_mains_light(Vector3(23, top, 13), 1.8, 7.5)       # rec room
+	_mains_light(Vector3(-21, top, -12), 1.6, 7.5)     # machine shop (locked, lit through the pane)
+	# Wet-deck rooms.
+	_mains_light(Vector3(14, wet, -10), 1.8, 7.5)      # pump room
+	_mains_light(Vector3(13, wet, -19), 1.6, 6.5)      # store room
+	# Stair-tower annexes.
+	_mains_light(Vector3(27, 7.8, 6), 1.6, 6.5)        # machinery room (y6)
+	_mains_light(Vector3(24, 11.8, 6), 1.8, 7.0)       # breaker room (y10)
+	# Ops lookout — the watch station brightens too.
+	_mains_light(Vector3(28, OPS_Y + 2.4, -4), 1.8, 8.0)
+
+## Red emergency beacons for the blackout — a heartbeat the player can always steer by
+## until the deck lamps come on. Well spaced: the crane head, the antenna mast, a LARGE
+## one hung in the stair shaft, and one at the breaker landing so the puzzle room itself
+## is never pitch black. Each dims to steady standby once the grid is live (they do NOT
+## make a safe LightZone — the dark still belongs to the crabs).
+func _build_emergency_beacons() -> void:
+	# [pos, range, peak, housing scale, flash period]
+	var specs := [
+		[GANTRY_APEX + Vector3(0, 0.35, 0), 14.0, 4.0, 1.6, 1.6],   # crane gantry apex — highest landmark
+		[Vector3(-16.8, 25.1, 8.4), 9.0, 3.0, 1.0, 1.2],           # antenna mast tip (on the array)
+		[Vector3(26.0, 21.0, -5.75), 14.0, 3.8, 2.0, 1.5],         # LARGE, in the stair shaft (south wall)
+		[Vector3(25.5, 12.6, 6.0), 8.0, 2.6, 1.0, 1.1],            # breaker landing (find the panel)
+	]
+	for s in specs:
+		var b := EnvObjects.RedFlasher.new()
+		b.setup(float(s[1]), float(s[2]), float(s[3]), float(s[4]))
+		add_child(b)
+		b.global_position = s[0]
+
+## LIFEBOAT 1 — the enclosed free-fall survival craft (TEMPSC), still hung in its davits
+## at the south muster edge. Lifeboat 2's davits nearby stand empty ("BOAT AWAY"); this is
+## the one the player can walk up to and point at. International-orange GRP hull, canopy,
+## coxswain dome, keel skeg, on falls from two davit arms. Readable as THE lifeboat.
+func _build_lifeboat() -> void:
+	var steel: Material = MatLib.painted_steel()
+	var dark: Material = MatLib.dark_metal()
+	var orange: Material = MatLib.sphl_orange()
+	var cx: float = -3.5
+	var cz: float = -18.2
+	var hull_y: float = DECK_Y + 1.35
+	# --- davit posts + arcing arms + falls, framing the boat ---
+	for s in [-1.0, 1.0]:
+		var px: float = cx + s * 2.7
+		_box(Vector3(px, DECK_Y + 1.1, -19.4), Vector3(0.22, 2.4, 0.22), steel)         # post
+		var arm := _box(Vector3(px, DECK_Y + 2.5, -18.7), Vector3(0.16, 0.16, 2.0), steel, self, false)
+		arm.rotation.x = deg_to_rad(24.0)                                               # arm arcs out over the boat
+		_dcyl(Vector3(px, DECK_Y + 1.9, cz + 0.2), 0.02, 1.4, dark)                     # fall (wire)
+		# Cradle chock under the hull.
+		var chock := _box(Vector3(cx + s * 1.7, DECK_Y + 0.35, cz), Vector3(0.3, 0.6, 1.4), dark, self, false)
+		chock.rotation.z = s * 0.28
+	# --- hull: one clean orange CSG shell (no collision on the CSG; a box body carries it) ---
+	var hull := CSGCombiner3D.new()
+	hull.use_collision = false
+	add_child(hull)
+	hull.position = Vector3(cx, hull_y, cz)
+	var body := CSGCylinder3D.new()
+	body.radius = 0.95
+	body.height = 4.6
+	body.material = orange
+	body.rotation.z = deg_to_rad(90)
+	hull.add_child(body)
+	for ex in [-2.3, 2.3]:
+		var cap := CSGSphere3D.new()
+		cap.radius = 0.95
+		cap.material = orange
+		hull.add_child(cap)
+		cap.position = Vector3(ex, 0, 0)
+	# Canopy ridge along the crown + a coxswain dome, in a darker orange-grey.
+	var canopy := CSGBox3D.new()
+	canopy.size = Vector3(3.4, 0.5, 0.7)
+	canopy.material = orange
+	hull.add_child(canopy)
+	canopy.position = Vector3(0, 0.75, 0)
+	# Rubbing strake / hi-vis band round the waterline.
+	var band := CSGCylinder3D.new()
+	band.radius = 1.0
+	band.height = 0.28
+	band.material = MatLib.hazard_stripe()
+	band.rotation.z = deg_to_rad(90)
+	hull.add_child(band)
+	band.position = Vector3(0, -0.55, 0)
+	# Coxswain hatch dome + keel skeg (outside the combiner so they read as fittings).
+	_cyl_nc(Vector3(cx + 1.5, hull_y + 1.15, cz), 0.34, 0.5, dark)
+	_cyl_nc(Vector3(cx + 1.5, hull_y + 1.42, cz), 0.3, 0.1, MatLib.glass(Color(0.5, 0.6, 0.62)))
+	_box(Vector3(cx, hull_y - 1.05, cz), Vector3(3.0, 0.5, 0.2), dark, self, false)     # keel skeg
+	# Two grab rails along the flank.
+	for rz in [-0.5, 0.5]:
+		_dcyl(Vector3(cx, hull_y + 0.35, cz + rz), 0.03, 3.6, MatLib.galvanized()).rotation.z = deg_to_rad(90)
+	# Lifting hooks the falls clip to.
+	for s2 in [-1.4, 1.4]:
+		_box(Vector3(cx + s2, hull_y + 1.0, cz), Vector3(0.1, 0.3, 0.1), MatLib.galvanized(), self, false)
+	# Collision so you can't walk through it.
+	var sb := StaticBody3D.new()
+	add_child(sb)
+	sb.global_position = Vector3(cx, hull_y, cz)
+	var col := CollisionShape3D.new()
+	var shape := BoxShape3D.new()
+	shape.size = Vector3(4.6, 2.0, 1.9)
+	col.shape = shape
+	sb.add_child(col)
+	# Stencils: the name, big, on the flank facing the deck (+Z), and the craft type.
+	_plabel("LIFEBOAT 1", Vector3(cx, hull_y + 0.15, cz + 0.98), 0, 30, Color(0.1, 0.09, 0.08))
+	_plabel("TEMPSC — SALTLINE-1 · 24 P", Vector3(cx, hull_y - 0.32, cz + 0.98), 0, 12, Color(0.12, 0.1, 0.09))
+	# Muster berth painted flat on the plating in front of it.
+	_plabel("MUSTER — LIFEBOAT 1", Vector3(cx, DECK_Y + 0.012, cz + 1.9), 0, 26,
+		Color(0.75, 0.72, 0.55), -90.0)
 
 # ---------- Horizon ----------
 
