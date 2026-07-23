@@ -223,6 +223,30 @@
     "hunger": 0.08,
     "side_effect": "sick"
   },
+  "fish_gulper_eel": {
+    "name": "Gulper Eel",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_bloom_dragon": {
+    "name": "Bloom Dragonfish",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_fathom_sturgeon": {
+    "name": "Fathom Sturgeon",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_abyss_grenadier": {
+    "name": "Abyss Grenadier",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
   "dried_fish": {
     "name": "Dried Fish",
     "use": "eat",
