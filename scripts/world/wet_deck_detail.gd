@@ -90,6 +90,16 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
 ## real object rather than floating. Pass the same yaw/pitch you would pass _plabel.
 func _signplate(text: String, pos: Vector3, yaw_deg: float, font_size: int, color: Color,
 		w: float, h: float, pitch_deg: float = 0.0) -> void:
+	# SIGNAGE RULE: the passed w/h are MINIMUMS — the plate is grown to fit the text plus
+	# margins so the wording never clips or overflows the plate. 0.58 is a safe upper-bound
+	# average glyph advance for the default font at pixel_size 0.01; 1.35 is line height.
+	var lines: PackedStringArray = text.split("\n")
+	var max_chars: int = 1
+	for ln in lines:
+		max_chars = maxi(max_chars, ln.length())
+	var fpx: float = float(font_size) * 0.01
+	w = maxf(w, max_chars * fpx * 0.58 + 0.12)
+	h = maxf(h, lines.size() * fpx * 1.35 + 0.10)
 	var b := Basis.from_euler(Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg), 0.0))
 	var back: Vector3 = -b.z.normalized()
 	var mi := MeshInstance3D.new()

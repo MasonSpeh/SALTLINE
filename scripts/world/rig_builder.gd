@@ -1263,8 +1263,10 @@ func _build_floodlights() -> void:
 		PowerGrid.circuit_powered.connect(func(id: String) -> void:
 			if id == "topside_floodlights" and is_instance_valid(head):
 				head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.4))
-	# Space heater near the galley south wall — warmth restored in the powered zone.
-	_box(Vector3(11, DECK_Y + 0.5, 6.5), Vector3(0.9, 1.0, 0.5), MatLib.flat(Color(0.65, 0.3, 0.15)))
+	# Space heater near the galley south wall — a real barrel stove (was a flat brown
+	# placeholder block that read as a floating slab). Grounded flush by the settle pass.
+	var stove: Node3D = PropLib.spawn("barrel_stove", self, Vector3(11, DECK_Y + 0.02, 6.5), 0.0, 1.0, true)
+	stove.add_to_group("settle_me")
 	var heat := WarmthZone.new()
 	heat.mode = 1
 	heat.requires_circuit = "topside_floodlights"
@@ -2045,10 +2047,13 @@ func _decorate_machine_shop() -> void:
 	_takeable_custom("hand_file", "Hand File", Vector3(-18.8, bench_top, -12.4), _file_visual(), -30, 0.3)
 	_takeable_custom("hacksaw", "Hacksaw", Vector3(-20.9, bench_top, -11.55), _hacksaw_visual(), 12, 0.38)
 
-	# Parts bins along the wall.
+	# Parts bins along the wall — real crate/box models (were three flat solid-colour
+	# placeholder blocks). Colliding, and grounded flush by the interior settle pass.
+	var bin_ids := ["plastic_crate_02", "utility_box_02", "plastic_crate_01"]
 	for i in range(3):
-		_box(Vector3(-26.5, y + 0.2, -14.5 + i * 1.4), Vector3(0.8, 0.4, 1.0),
-			MatLib.flat([Color(0.55, 0.25, 0.2), Color(0.25, 0.35, 0.5), Color(0.45, 0.45, 0.4)][i]))
+		var bin: Node3D = PropLib.spawn(bin_ids[i], self, Vector3(-26.5, y + 0.02, -14.5 + i * 1.4),
+			90.0 + i * 7.0, 1.0, true)
+		bin.add_to_group("settle_me")
 	# The bench worklight — hung from the ceiling on a conduit (was an industrial_wall_lamp
 	# prop floating in mid-room over the bench with no wall behind it and nothing above it).
 	_worklight_ceiling(Vector3(-19.85, y + 2.35, -12.05), y + WALL_H - 0.12,
@@ -2099,9 +2104,10 @@ func _decorate_machine_shop() -> void:
 		_box(Vector3(bx2, y + 1.45, sz - 0.10), Vector3(0.14, 0.22, 0.05), MatLib.hazard_stripe(), self, false)  # breaker switch
 	_cyl_nc(Vector3(-16.5, y + 2.6, sz - 0.05), 0.04, 0.8, mgalv)                               # conduit up to the ceiling
 
-	# D) Safety notice, between the reel and the panel (x -18.7). Bolted placard, stencilled.
-	_box(Vector3(-18.7, y + 1.9, sz - 0.02), Vector3(0.5, 0.62, 0.04), mgalv, self, false)      # placard, flush
-	_plabel("EYE PROTECTION\nMUST BE WORN\nBEYOND THIS POINT", Vector3(-18.7, y + 1.9, sz - 0.05), 180, 9, Color(0.9, 0.78, 0.2))
+	# D) Safety notice, between the reel and the panel (x -18.7). Auto-sized bolted sign:
+	# the plate is fitted to the stencilled text (was a fixed 0.5m placard the wording
+	# overflowed on every side). See _sign() for the fit rule.
+	_sign("EYE PROTECTION\nMUST BE WORN\nBEYOND THIS POINT", Vector3(-18.7, y + 1.9, sz - 0.05), 180, 11, Color(0.9, 0.78, 0.2))
 
 	# E) First-aid box on the south end of the WEST wall (interior face x -27.875), well
 	# clear of the tool-chest / cabinet line to the north. Flush cabinet, white cross.
@@ -2131,13 +2137,33 @@ func _decorate_pump_room() -> void:
 	for gx in [11.6, 12.4]:
 		_cyl_nc(Vector3(gx, y + 1.9, -11.2), 0.11, 0.04, MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
 
+## A moulded survival-pod bench: grey GRP shell flush on the pod floor, a hi-vis orange
+## nosing along the top front edge, a dark anti-slip seat pad, and two kick recesses at
+## the base so it reads as a real seat rather than the flat orange block it replaced.
+## `floor_center.y` is the FLOOR — the shell rests on it; `depth` runs along Z.
+func _sphl_bench(floor_center: Vector3, length: float, depth: float) -> void:
+	var seat_h: float = 0.47
+	var grey: Material = MatLib.sphl_grey()
+	var hv: Material = MatLib.sphl_hi_vis()
+	var dark: Material = MatLib.dark_metal()
+	_box(floor_center + Vector3(0, seat_h * 0.5, 0), Vector3(length, seat_h, depth), grey)        # shell, colliding
+	_box(floor_center + Vector3(0, seat_h - 0.03, depth * 0.5 - 0.02),
+		Vector3(length, 0.06, 0.04), hv, self, false)                                            # hi-vis nosing
+	_box(floor_center + Vector3(0, seat_h + 0.008, 0),
+		Vector3(length - 0.1, 0.02, depth - 0.08), dark, self, false)                             # anti-slip pad
+	for sx in [-length * 0.28, length * 0.28]:
+		_box(floor_center + Vector3(sx, 0.09, depth * 0.5 - 0.03),
+			Vector3(length * 0.2, 0.16, 0.03), dark, self, false)                                 # kick recess shadow
+
 func _decorate_sphl() -> void:
 	var y: float = WET_Y
 	# Bench seats and an overhead grab rail — the pod you woke up in. (The wall-mounted
 	# first-aid box was removed: it sat on the fwd bulkhead crowding the SALTLINE-0
-	# stencil and read as clutter over the sign.)
-	_box(Vector3(17.0, y + 0.42, -24.8), Vector3(3.5, 0.45, 0.45), MatLib.flat(Color(0.75, 0.4, 0.15)))
-	_box(Vector3(16.0, y + 0.42, -23.2), Vector3(1.8, 0.45, 0.45), MatLib.flat(Color(0.75, 0.4, 0.15)))
+	# stencil and read as clutter over the sign.) The seats were two flat orange
+	# placeholder boxes floating 0.2m off the pod floor; now real moulded GRP benches,
+	# flush on the deck.
+	_sphl_bench(Vector3(17.0, y, -24.8), 3.5, 0.45)
+	_sphl_bench(Vector3(16.0, y, -23.2), 1.8, 0.45)
 	_cyl_nc(Vector3(17.5, y + 2.05, -24), 0.03, 4.0, MatLib.painted_steel()).rotation.z = deg_to_rad(90)
 
 func _decorate_electrical() -> void:
@@ -2831,6 +2857,56 @@ static func _paint_black(src: Color) -> Color:
 	var wear: float = clampf((src.r + src.g + src.b) / 3.0, 0.0, 1.0)
 	var k: float = lerpf(0.06, 0.17, wear)
 	return Color(k, k, k * 1.08, minf(src.a, 0.9))
+
+## Rendered extent (metres) of Label3D text at `font_size` and pixel_size 0.01, from the
+## longest line and the line count. 0.58 is a safe upper-bound average glyph advance for
+## the default font (over-estimating widens the plate rather than clipping); 1.35 is the
+## line-height factor. Returns Vector2(width, height).
+static func _text_extent(text: String, font_size: int) -> Vector2:
+	var lines: PackedStringArray = text.split("\n")
+	var max_chars: int = 1
+	for ln in lines:
+		max_chars = maxi(max_chars, ln.length())
+	var fpx: float = float(font_size) * 0.01
+	return Vector2(max_chars * fpx * 0.58, lines.size() * fpx * 1.35)
+
+## SIGNAGE RULE. A bolted, stencilled placard whose backing plate is AUTO-SIZED to the
+## text plus margins, so the wording is always well-spaced inside the plate and never
+## clips or overflows (the fault the fixed-size eye-protection placard had). `pos` is the
+## front face of the plate; text faces along `yaw_deg` (180 = faces -Z). This is the path
+## every readable plate-backed sign should use instead of hand-sizing a box behind a label.
+func _sign(text: String, pos: Vector3, yaw_deg: float, font_size: int = 12,
+		color: Color = Color(0.9, 0.78, 0.2), margin: float = 0.07) -> void:
+	var fs: int = maxi(8, font_size)
+	var ext: Vector2 = _text_extent(text, fs)
+	var w: float = ext.x + margin * 2.0
+	var h: float = ext.y + margin * 2.0
+	var back: Vector3 = -Basis.from_euler(Vector3(0, deg_to_rad(yaw_deg), 0)).z.normalized()
+	# Backing plate, fitted to the text, tucked just behind the label face.
+	var mi := MeshInstance3D.new()
+	var bm := BoxMesh.new()
+	bm.size = Vector3(w, h, 0.04)
+	bm.material = MatLib.galvanized()
+	mi.mesh = bm
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(mi)
+	mi.position = pos + back * 0.025
+	mi.rotation.y = deg_to_rad(yaw_deg)
+	# The stencilled label, centred on the plate.
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = fs
+	l.pixel_size = 0.01
+	l.modulate = _paint_black(color)
+	l.outline_size = 0
+	l.shaded = true
+	l.double_sided = false
+	l.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	add_child(l)
+	l.position = pos
+	l.rotation.y = deg_to_rad(yaw_deg)
 
 ## The failed span toward SALTLINE-2: five solid sections off the deck's east edge,
 ## railed, then torn steel and a long drop. A vista, a warning, and a promise.
