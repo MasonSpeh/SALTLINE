@@ -272,17 +272,26 @@ func _run() -> void:
 	PlayerState.use_hotbar(slot)
 	_check(PlayerState.hunger > before, "eating restores hunger")
 
-	# Giant crabs (s12): a persistent pack of six — underwater roosts by day, an authored
-	# climb over the EAST deck rim at night, a 0.25-life bite, light-scare, and scuttle
-	# audio hard-gated on visibility. (Pack size lives in BloomFauna.CRAB_COUNT.)
+	# Giant crabs (s12): a persistent pack — underwater roosts by day, an authored climb
+	# over the EAST deck rim at night, a 0.25-life bite, light-scare, and scuttle audio
+	# hard-gated on visibility. (Pack size lives in BloomFauna.CRAB_COUNT.)
+	# s13: the pack is SEVEN. Six still roost underwater, but one keeps its day station on
+	# the wet deck. An all-underwater pack meant a player who never dived and never played
+	# the 47 minutes to nightfall could finish a session without meeting a crab at all —
+	# which is exactly what was reported. So the assertion is no longer "all of them are
+	# under water"; it is "the night pack is under water AND exactly one is up on the deck".
 	var CrabS := preload("res://scripts/world/crab.gd")
 	var crabs: Array = get_tree().get_nodes_in_group("giant_crab")
-	_check(crabs.size() == 6, "six giant crabs live on the rig")
-	var all_under: bool = crabs.size() > 0
+	_check(crabs.size() == 7, "seven giant crabs live on the rig")
+	var under: int = 0
+	var on_deck: int = 0
 	for cc in crabs:
 		if (cc as Node3D).global_position.y > 0.5:
-			all_under = false
-	_check(all_under, "crabs roost below the waterline by day")
+			on_deck += 1
+		else:
+			under += 1
+	_check(under == 6, "the night pack roosts below the waterline by day (%d)" % under)
+	_check(on_deck == 1, "exactly one crab is visible on the wet deck by day (%d)" % on_deck)
 	var lamp_free: bool = crabs.size() > 0
 	for cc in crabs:
 		if not (cc as Node).find_children("*", "Light3D", true, false).is_empty():

@@ -33,7 +33,26 @@ const PEARL := Color(0.88, 0.94, 0.92)
 ## fills x[19,25] z[-15,-9]); the SE pontoon is solid x16..28 z-16..-8 (top y0.95); rooms sit
 ## at store x[10,16] z[-22,-16], pump x[10,18] z[-14,-6], SPHL x[12,21] z[-28,-21]; the deck
 ## tops y2.0 and ends at the east rim x~30.25 and the south rim z~-22 (open water past both).
-const CRAB_COUNT: int = 6
+const CRAB_COUNT: int = 7
+## The DAY crab. The other six roost underwater until dark, which is honest but means a
+## player never meets the animal the night is built around: NIGHT is 13 minutes of a
+## 60-minute cycle and arrives 47 minutes in, so a normal session ends without one ever
+## surfacing. This one keeps its day station ON the wet deck, working the open south flat
+## between the boat landing and the SE leg — the plating you cross walking in from spawn.
+## After dark it emerges and patrols with the rest of the pack.
+## Sonar-checked clear: south of the SE leg (x19..25, z-15..-9), east of the SPHL
+## (x12..21, z-28..-21), inboard of the south rim (z-22) and the east rim (x30.25), and
+## clear of the rigging bench and its clutter around x25, z-17.5.
+const CRAB_DAY_ROOST: Array = [
+	Vector3(24.0, 2.6, -19.4), Vector3(27.6, 2.6, -19.4),
+	Vector3(27.6, 2.6, -20.8), Vector3(24.0, 2.6, -20.8),
+]
+## Its "emergence" is a couple of steps out onto the flat, not a climb from the sea. FLEE
+## walks this path backwards at dawn and after a scare, so keeping both ends on the deck
+## is what stops the day crab swimming off at first light and never coming back.
+const CRAB_DAY_EMERGE: Array = [
+	Vector3(23.4, 2.6, -20.8), Vector3(24.6, 2.6, -19.8),
+]
 # Two deck patrol rings (y2.6; every corner clears legs/rooms/tower by >=1 m):
 const CRAB_PATROL_EAST: Array = [   # east corridor -> foot of the stair tower (z stays >-6.5)
 	Vector3(26, 2.6, -7.0), Vector3(29, 2.6, -7.0),
@@ -89,12 +108,19 @@ func _spawn_giant_crabs() -> void:
 	for i in range(CRAB_COUNT):
 		var crab: Node3D = CRAB.new()
 		crab.spawn_index = i
-		crab.roost_loop = CRAB_ROOSTS[i % CRAB_ROOSTS.size()]
-		crab.emerge_path = _crab_climb(CRAB_EMERGE_Z[i % CRAB_EMERGE_Z.size()])
-		crab.patrol_loop = patrols[i % patrols.size()]
-		crab.patrol_offset = offsets[i % offsets.size()]
+		if i == CRAB_COUNT - 1:
+			# The day crab: deck roost, deck "emergence", south ring after dark.
+			crab.roost_loop = CRAB_DAY_ROOST
+			crab.emerge_path = CRAB_DAY_EMERGE
+			crab.patrol_loop = CRAB_PATROL_SOUTH
+			crab.patrol_offset = Vector3(0.3, 0, -0.3)
+		else:
+			crab.roost_loop = CRAB_ROOSTS[i % CRAB_ROOSTS.size()]
+			crab.emerge_path = _crab_climb(CRAB_EMERGE_Z[i % CRAB_EMERGE_Z.size()])
+			crab.patrol_loop = patrols[i % patrols.size()]
+			crab.patrol_offset = offsets[i % offsets.size()]
 		add_child(crab)
-		crab.global_position = CRAB_ROOSTS[i % CRAB_ROOSTS.size()][0]
+		crab.global_position = crab.roost_loop[0]
 
 func _ready() -> void:
 	_spawn_giant_crabs()
