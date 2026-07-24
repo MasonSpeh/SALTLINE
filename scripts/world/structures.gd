@@ -277,7 +277,8 @@ static func drop_net(ghost: bool) -> Node3D:
 	var winch: Interactable = DROP_NET.new()
 	root.add_child(winch)
 	winch.position = Vector3(0, 0.45, -0.55)
-	winch.build_box_visual(Vector3(0.6, 0.9, 0.55), Interactable.COLOR_OPERABLE, false, true)
+	winch.build_box_visual(Vector3(0.6, 0.9, 0.55), Interactable.COLOR_OPERABLE, false, true,
+		MatLib.painted_steel())   # textured, not a flat red placeholder slab
 	winch.net = net
 	winch.rope_pivot = rope_pivot
 	return root

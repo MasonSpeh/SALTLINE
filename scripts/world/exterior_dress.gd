@@ -475,7 +475,7 @@ func _shop_wall_line() -> void:
 		_cy(jb, Vector3(jx, DECK_Y + 1.30, zf + 0.08), 0.035, 0.55, dark)
 
 	# Drain downpipes off the roof lip, with a shoe that spits onto the deck.
-	for dx in [-27.6, -14.5]:
+	for dx in [-27.6, -17.4]:   # -14.5 ran its clips into the roof ladder's stiles
 		var dp := _wall_asm("ShopDownpipe")
 		_cy(dp, Vector3(dx, DECK_Y + 1.72, zf + 0.14), 0.085, 3.35, galv)
 		for cy in [0.5, 1.7, 2.9]:
@@ -893,22 +893,25 @@ func _roof_ladder() -> void:
 		for side2 in [-0.24, 0.24]:
 			_bx(a, Vector3(x + side2, DECK_Y + by, z - 0.16), Vector3(0.06, 0.06, 0.33), steel)
 		_bx(a, Vector3(x, DECK_Y + by, z - 0.32), Vector3(0.62, 0.10, 0.04), steel)
-	# Safety hoops.
+	# Safety hoops. Centered z+0.42: at the old z+0.14 the torus back-arc crossed the
+	# rung plane right at the stiles, so the "cage" read as rusty rings stabbed through
+	# the ladder. At +0.42 the whole circle stays proud of the climb line and the
+	# climber is inside it, which is what a cage is.
 	for hy in [1.95, 2.60, 3.25]:
-		_ring(a, Vector3(x, DECK_Y + hy, z + 0.14), 0.36, 0.40, steel, Vector3(90, 0, 0))
+		_ring(a, Vector3(x, DECK_Y + hy, z + 0.42), 0.36, 0.40, steel, Vector3(90, 0, 0))
 	for sx in [-0.34, 0.0, 0.34]:
-		_bx(a, Vector3(x + sx, DECK_Y + 2.6, z + 0.46), Vector3(0.04, 1.5, 0.04), steel)
+		_bx(a, Vector3(x + sx, DECK_Y + 2.6, z + 0.80), Vector3(0.04, 1.5, 0.04), steel)
 	# Climb-out grab rails standing proud of the roof edge.
 	for side3 in [-0.42, 0.42]:
 		_bx(a, Vector3(x + side3, ROOF_Y + 0.55, z - 0.05), Vector3(0.06, 1.1, 0.06), steel)
 	_bx(a, Vector3(x, ROOF_Y + 1.08, z - 0.05), Vector3(0.9, 0.055, 0.055), steel)
 	for side4 in [-0.42, 0.42]:
-		var kb := _bx(a, Vector3(x + side4, ROOF_Y + 0.35, z - 0.35), Vector3(0.05, 0.85, 0.05), steel)
-		kb.rotation.x = deg_to_rad(40)
+		var kb := _bx(a, Vector3(x + side4, ROOF_Y + 0.35, z - 0.26), Vector3(0.05, 0.85, 0.05), steel)
+		kb.rotation.x = deg_to_rad(40)   # z-0.26 keeps the brace proud of the wall face
 	# Warning plate at eye height on the wall beside the stile.
-	_bx(a, Vector3(x + 0.72, DECK_Y + 1.75, SHOP_WALL_Z + 0.05), Vector3(1.0, 0.40, 0.03),
+	_bx(a, Vector3(x - 0.95, DECK_Y + 1.75, SHOP_WALL_Z + 0.05), Vector3(1.0, 0.40, 0.03),
 		MatLib.flat(Color(0.80, 0.72, 0.18)))
-	_paint(a, "ROOF ACCESS\n  HARNESS", Vector3(x + 0.72, DECK_Y + 1.81, SHOP_WALL_Z + 0.07),
+	_paint(a, "ROOF ACCESS\n  HARNESS", Vector3(x - 0.95, DECK_Y + 1.81, SHOP_WALL_Z + 0.07),
 		0.0, 0.0, 16, Color(0.10, 0.10, 0.10, 0.95))
 
 # ============================================================ ALLEY: north band

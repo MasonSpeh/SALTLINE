@@ -845,24 +845,40 @@ func _build_stair_tower() -> void:
 
 	# Machinery room (y=6) off landing 1 — holds the cable spool. Outer (far) edge grows
 	# with the shell; near edge (door side) is untouched so nothing inside it moves.
-	_room_north(Vector3(24, 6.0, 2), Vector3(TOWER_X1, 6.0, 10), MatLib.concrete(), 0.75)
+	_room_north(Vector3(24, 6.0, 2), Vector3(TOWER_X1, 6.0, 8.8), MatLib.concrete(), 0.75)
 	_box(Vector3(27, 6.0 + 0.5, 6), Vector3(2.2, 1.0, 1.2), MatLib.dark_metal()) # dead machinery
 	_takeable("cable_spool", "Cable Spool", Vector3(27, 7.01, 6), Vector3(0.5, 0.5, 0.5))
 
 	# Breaker Room 4-A (y=10) off landing 2 — the power puzzle centerpiece. Near (outer,
 	# west) edge grows with the shell; far edge (door side, x28) untouched.
-	_room_north(Vector3(TOWER_X0, 10.0, 2), Vector3(28, 10.0, 10), MatLib.concrete(), 0.25)
+	# BOTH annexes stop at z8.8: the NE caisson leg is a solid 6x6 column (x19..25,
+	# z9..15, rising past y17) and the old z10 rooms wrapped around it — the breaker
+	# panel at z9.5 was buried whole inside its concrete, which is why no player ever
+	# saw a breaker, and the leg's east face was the plane cutting the wall stencils.
+	_room_north(Vector3(TOWER_X0, 10.0, 2), Vector3(28, 10.0, 8.8), MatLib.concrete(), 0.25)
 	var breaker := BreakerPanel.new()
 	breaker.display_name = "Master Breaker 4-A"
 	breaker.circuit_id = "topside_floodlights"
 	add_child(breaker)
-	breaker.global_position = Vector3(23, 11.4, 9.5)
-	# Emissive: a self-lit red panel is a can't-miss marker in the blackout — the whole
-	# point of the puzzle is you can find and throw it before the lights exist.
-	breaker.build_box_visual(Vector3(1.0, 1.4, 0.3), Interactable.COLOR_OPERABLE, true)
-	_readable("breaker_log", "Maintenance Log", Vector3(24.6, 11.2, 9.55), Vector3(0.35, 0.45, 0.06))
+	breaker.global_position = Vector3(23, 11.4, 8.5)
+	# A REAL cabinet now, not a flat red slab (owner: "blank colored boxes... only
+	# realistic graphics should remain"). The interactable keeps its box collider via
+	# build_box_visual, but the visible body is textured painted steel, dressed with a
+	# recessed red door, hinges, a throw lever and a small self-lit status lamp — the
+	# lamp (plus the amber bar above) is what stays can't-miss in the blackout.
+	breaker.build_box_visual(Vector3(1.0, 1.4, 0.3), Interactable.COLOR_OPERABLE,
+		false, false, MatLib.painted_steel())
+	_box(Vector3(23, 11.42, 8.33), Vector3(0.78, 1.06, 0.05), MatLib.red_paint(), self, false)  # door
+	for hy in [11.86, 11.0]:                                                     # hinges
+		_box(Vector3(23.36, hy, 8.33), Vector3(0.05, 0.14, 0.07), MatLib.dark_metal(), self, false)
+	_box(Vector3(22.56, 11.35, 8.36), Vector3(0.07, 0.34, 0.09), MatLib.dark_metal(), self, false)  # lever base
+	_box(Vector3(22.56, 11.62, 8.33), Vector3(0.05, 0.24, 0.05), MatLib.red_paint(), self, false)   # lever grip
+	_box(Vector3(23, 12.0, 8.32), Vector3(0.1, 0.1, 0.04),
+		MatLib.flat(Color(1.0, 0.22, 0.15), true, 2.2), self, false)             # status lamp
+	_plabel("4-A", Vector3(23, 11.28, 8.29), 180, 26, Color(0.92, 0.9, 0.86))
+	_readable("breaker_log", "Maintenance Log", Vector3(24.6, 11.2, 8.62), Vector3(0.35, 0.45, 0.06))
 	# E.V.'s last note pinned to the panel — the reward for restoring power, and "made polite".
-	_readable("ev_last_splice", "Note on the Panel", Vector3(23.4, 11.5, 9.5), Vector3(0.28, 0.34, 0.03))
+	_readable("ev_last_splice", "Note on the Panel", Vector3(23.4, 11.5, 8.33), Vector3(0.28, 0.34, 0.03))
 	# The burned cable gap, on the room's east wall run.
 	var cable := CableSegment.new()
 	cable.display_name = "Burned Cable Gap"
@@ -872,20 +888,34 @@ func _build_stair_tower() -> void:
 	# A cable run is routed along the wall; there is no floor under it and there is not
 	# meant to be, so it is not a dropped prop the placement audit should be seating.
 	cable.add_to_group("placement_exempt")
-	cable.build_box_visual(Vector3(0.4, 0.5, 2.2), Color(0.12, 0.08, 0.06))
+	# The gap reads as WHAT IT IS now: a scorched backboard, two conduit stubs ending
+	# in burnt drooping tails, and a soot smudge across the wall — not an anonymous
+	# near-black slab. The thin backboard keeps the interact collider.
+	cable.build_box_visual(Vector3(0.1, 0.55, 2.3), Color(0.12, 0.08, 0.06),
+		false, false, MatLib.dark_metal())
 	breaker.set_cable(cable)
-	# Cosmetic cable runs to and from the gap.
-	_box(Vector3(27.7, 10.6, 8.4), Vector3(0.12, 0.12, 2.2), MatLib.dark_metal(), self, false)
+	_box(Vector3(27.82, 10.9, 6.0), Vector3(0.03, 0.85, 1.3),
+		MatLib.flat(Color(0.05, 0.045, 0.04)), self, false)                      # soot fan
+	var stub_n := _cyl_nc(Vector3(27.76, 10.9, 4.62), 0.05, 0.9, MatLib.galvanized())
+	stub_n.rotation.x = deg_to_rad(90)                                            # conduit, north run
+	var stub_s := _cyl_nc(Vector3(27.76, 10.9, 7.38), 0.05, 0.9, MatLib.galvanized())
+	stub_s.rotation.x = deg_to_rad(90)                                            # conduit, south run
+	for tail in [[5.14, 1.0], [6.86, -1.0]]:                                      # burnt tails droop
+		var t := _box(Vector3(27.76, 10.78, tail[0]), Vector3(0.07, 0.07, 0.34),
+			MatLib.flat(Color(0.08, 0.06, 0.05)), self, false)
+		t.rotation.x = deg_to_rad(28.0 * tail[1])
+	# Cosmetic cable runs onward from the stubs.
+	_box(Vector3(27.7, 10.6, 7.85), Vector3(0.12, 0.12, 1.5), MatLib.dark_metal(), self, false)
 	_box(Vector3(27.7, 10.6, 3.6), Vector3(0.12, 0.12, 2.2), MatLib.dark_metal(), self, false)
 	# CAN'T-MISS MARKER on the master breaker: a hazard placard, a SELF-LIT amber bar (it
 	# glows even in the blackout, so the eye is pulled straight to the panel), and a down
-	# chevron right above it. The breaker sits at z9.5 facing the room (-z); this rides on
-	# the north wall inner face (z9.82) directly over it.
-	_box(Vector3(23, 12.55, 9.82), Vector3(1.3, 0.5, 0.05), MatLib.hazard_stripe(), self, false)
-	_box(Vector3(23, 12.58, 9.79), Vector3(1.05, 0.16, 0.03),
+	# chevron right above it. The breaker sits at z8.5 facing the room (-z); this rides on
+	# the north wall inner face (z8.675) directly over it.
+	_box(Vector3(23, 12.55, 8.62), Vector3(1.3, 0.5, 0.05), MatLib.hazard_stripe(), self, false)
+	_box(Vector3(23, 12.58, 8.59), Vector3(1.05, 0.16, 0.03),
 		MatLib.flat(Color(1.0, 0.72, 0.16), true, 2.4), self, false)
-	_plabel("MASTER BREAKER 4-A", Vector3(23, 12.58, 9.78), 180, 13, Color(0.05, 0.05, 0.05))
-	_plabel("v  THIS PANEL  v", Vector3(23, 12.28, 9.78), 180, 12, Color(0.05, 0.05, 0.05))
+	_plabel("MASTER BREAKER 4-A", Vector3(23, 12.58, 8.58), 180, 13, Color(0.05, 0.05, 0.05))
+	_plabel("v  THIS PANEL  v", Vector3(23, 12.28, 8.58), 180, 12, Color(0.05, 0.05, 0.05))
 
 	# --- POWER-ROUTE STENCILS (a real player could not find the breaker room, or
 	# know cable came first). Painted as weathered stencil (the amber source colour only
@@ -912,8 +942,8 @@ func _build_stair_tower() -> void:
 	_plabel("BREAKER 4-A", Vector3(22.6, 10.02, -0.4), 90, 12, Color(0.9, 0.7, 0.15), -90.0)
 	# Inside the room: the ORDER, at a glance, right on the panel wall. The full
 	# maintenance log (why, and the arc-flash warning) is the readable beside it.
-	_plabel("1) SPLICE THE GAP", Vector3(25.2, 12.0, 9.85), 180, 13, Color(0.95, 0.72, 0.2))
-	_plabel("2) CLOSE THIS MASTER", Vector3(25.2, 11.65, 9.85), 180, 13, Color(0.95, 0.72, 0.2))
+	_plabel("1) SPLICE THE GAP", Vector3(25.2, 12.0, 8.65), 180, 13, Color(0.95, 0.72, 0.2))
+	_plabel("2) CLOSE THIS MASTER", Vector3(25.2, 11.65, 8.65), 180, 13, Color(0.95, 0.72, 0.2))
 	# At the burned gap on the east wall, facing back into the room (-x).
 	_plabel("BURNED FEED - SPLICE HERE", Vector3(27.82, 11.5, 6.0), -90, 11, Color(0.95, 0.72, 0.2))
 
@@ -1348,7 +1378,11 @@ func _build_floodlights() -> void:
 	# height) — no more lamps hanging in mid-air — and the head stays DARK until the
 	# breaker closes, so nothing glows while the power is still off. (The stair-tower-door
 	# lamp was removed: it floated right in the doorway approach.)
-	for wl in [Vector3(20, WET_Y + 2.4, -19.0), Vector3(12, WET_Y + 2.4, -21.5),
+	# The first post used to stand at (20, -19.0) — the EXACT respawn point
+	# (wet_deck_respawn, rig_builder.gd top): the player woke up with the pole through
+	# their capsule and the fixture z-fighting the camera. Moved 2.2m west onto clear
+	# plating; it still pools light over the respawn without impaling it.
+	for wl in [Vector3(17.8, WET_Y + 2.4, -19.0), Vector3(12, WET_Y + 2.4, -21.5),
 			Vector3(14, WET_Y + 2.4, -12.0)]:
 		var base := Vector3(wl.x, WET_Y + 0.03, wl.z)
 		_box(base, Vector3(0.26, 0.06, 0.26), MatLib.dark_metal())                                   # base plate on the deck
@@ -2234,11 +2268,12 @@ func _decorate_sphl() -> void:
 	_cyl_nc(Vector3(17.5, y + 2.05, -24), 0.03, 4.0, MatLib.painted_steel()).rotation.z = deg_to_rad(90)
 
 func _decorate_electrical() -> void:
-	# Breaker Room 4-A: conduit drop and a hazard strip underfoot.
-	_box(Vector3(23, 10.35, 9.55), Vector3(0.08, 0.7, 0.08), MatLib.dark_metal(), self, false)
-	_box(Vector3(23, 10.02, 9.0), Vector3(1.6, 0.02, 0.8), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
+	# Breaker Room 4-A: conduit drop under the panel. (The painted hazard plate that sat
+	# underfoot here is gone — flat saturated paint rectangles read as glitch quads, and
+	# this one was half-buried in the NE caisson leg besides.)
+	_box(Vector3(23, 10.35, 8.35), Vector3(0.08, 0.7, 0.08), MatLib.dark_metal(), self, false)
 	# Machinery room: pipe run + a gauge on the dead machine.
-	var pipe := _cyl_nc(Vector3(29.6, 8.2, 6), 0.1, 7.0, MatLib.rusty_metal())
+	var pipe := _cyl_nc(Vector3(29.6, 8.2, 5.7), 0.1, 5.4, MatLib.rusty_metal())
 	pipe.rotation.x = deg_to_rad(90)
 	_cyl_nc(Vector3(27, 7.1, 5.35), 0.1, 0.04, MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
 
@@ -2593,13 +2628,10 @@ func _add_wall_details() -> void:
 	var g3 := _cyl_nc(Vector3(-13.85, DECK_Y + 1.9, -8.5), 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82)))
 	g3.rotation.z = deg_to_rad(90)   # machine shop east face
 
-	# Hazard strips painted on real floors: stair tower entrance + pump room door.
-	_box(Vector3(26, WET_Y + 0.02, -6.8), Vector3(2.2, 0.02, 1.0), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
-	_box(Vector3(14, WET_Y + 0.02, -14.7), Vector3(1.6, 0.02, 0.9), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
-
-	# Painted directional arrows on the wet deck (toward the stair tower).
-	_box(Vector3(16, WET_Y + 0.03, -18), Vector3(0.6, 0.01, 0.3), MatLib.flat(Color(0.3, 0.6, 0.9)), self, false)
-	_box(Vector3(20, WET_Y + 0.03, -15), Vector3(0.3, 0.01, 0.6), MatLib.flat(Color(0.3, 0.6, 0.9)), self, false)
+	# (The painted wet-deck floor markings are GONE — the flat saturated yellow hazard
+	# strips at the stair entrance and pump door, and the blue directional arrows. On the
+	# textured plating they read as untextured glitch rectangles hovering on the floor,
+	# not as paint. The stencilled wall signage carries the wayfinding on its own.)
 
 	# Grab rails running ALONG their walls (cylinder axis along the wall direction).
 	var r1 := _cyl_nc(Vector3(6, DECK_Y + 1.1, 7.82), 0.04, 3.0, MatLib.painted_steel())
@@ -3033,8 +3065,8 @@ func _build_broken_bridge(u: Vector3) -> void:
 	plate.rotation.y = yaw
 	_plabel("SPAN OUT — SALTLINE-2", bar_pos + Vector3(0, 1.45, 0) - u * 0.18,
 		rad_to_deg(yaw) - 90.0, 26, Color(0.2, 0.18, 0.12))   # faces back toward the rig
-	# Hazard paint where the bridge leaves the deck.
-	_box(Vector3(29.2, DECK_Y + 0.02, 14.0), Vector3(1.6, 0.02, 2.4), MatLib.flat(Color(0.8, 0.7, 0.1)), self, false)
+	# (Hazard paint at the bridge exit removed with the other flat painted floor
+	# rectangles — the sign plate above carries the warning.)
 
 # ---------- Phase 3: the arrival ----------
 
@@ -3068,16 +3100,10 @@ func _arrival_dressing() -> void:
 	_plabel("SALTLINE-1 · CAISSON SE-3", Vector3(22, 13.2, -15.12), 180, 42, Color(0.7, 0.6, 0.42))
 	# The rig's name on the deck rim girder, read from the dock looking straight up.
 	_plabel("S A L T L I N E - 1", Vector3(17, 17.55, -20.3), 180, 110, Color(0.72, 0.6, 0.4))
-	# Warm battery lamp on a gooseneck over the dock — the SPHL keeps its own light.
-	_box(Vector3(22.4, WET_Y + 1.7, -22.2), Vector3(0.14, 3.4, 0.14), dark)
-	_box(Vector3(21.4, WET_Y + 3.38, -22.2), Vector3(2.0, 0.1, 0.1), dark, self, false)
-	_box(Vector3(20.5, WET_Y + 3.2, -22.2), Vector3(0.4, 0.25, 0.4), MatLib.flat(Color(0.95, 0.85, 0.6), true, 1.2), self, false)
-	var lamp := OmniLight3D.new()
-	lamp.light_energy = 0.9
-	lamp.omni_range = 9.0
-	lamp.light_color = Color(1.0, 0.85, 0.62)
-	add_child(lamp)
-	lamp.position = Vector3(20.5, WET_Y + 3.0, -22.2)
+	# (The dock gooseneck lamp is GONE. Its head and light hung at (20.5, y+3.0, -22.2) —
+	# directly on the SPHL-hatch respawn point, so the player woke up inside the fixture
+	# and it z-fought/glitched against the camera. The SPHL keeps its own interior light,
+	# and the bench worklight still covers the dock approach, so nothing replaces it.)
 	# Mooring chain heaped at the caisson's foot — AGAINST the leg's south face (z -15),
 	# NOT inside the concrete. It used to heap at (19.6, -14.0): squarely inside the SE
 	# caisson column (solid footprint x19..25, z-15..-9), so three 0.84m links stood buried
