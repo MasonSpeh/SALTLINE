@@ -775,7 +775,7 @@ func _scatter_wetdeck() -> void:
 	_p("round_spectacles", Vector3(16.0, w + 0.72, -23.1), -20)
 	_p("Camera_01", Vector3(15.8, w + 0.75, -23.2), 40)
 	_p("wooden_bowl_02", Vector3(17.1, w + 0.72, -24.9), 0)
-	# Stair-tower machinery room (y6) beside the spool + NW corner.
+	# Stair-tower machinery room (y6) — left-behind oddments (the spool moved to the pump room).
 	_p("oil_tin", Vector3(27.4, 6.0 + 1.15, 6.2), 20)
 	_p("garden_gloves_01", Vector3(25.0, 6.0 + 0.05, 8.6), -10)
 	# Breaker Room 4-A (y10) — utilitarian floor corners.

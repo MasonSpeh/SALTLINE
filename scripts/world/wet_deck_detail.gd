@@ -459,6 +459,10 @@ func _stair_entry() -> void:
 	# Steel notice board bolted beside the door, facing the deck - the full story.
 	_dbox(Vector3(27.9, y + 1.5, -6.12), Vector3(0.62, 0.82, 0.05), MatLib.galvanized())
 	_readable("breaker_notice", "Station Notice - Main Power", Vector3(27.9, y + 1.5, -6.16), Vector3(0.5, 0.66, 0.04))
+	# THE FEED-CABLE SPOOL — moved here from the stair-tower machinery room so the player
+	# finds it down low, near spawn, and carries it UP to Breaker 4-A. Racked on the floor
+	# beside the dead pump (pump at x12 z-12; this sits clear of it and the z-14 door).
+	_takeable("cable_spool", "Cable Spool", Vector3(15.4, y + 0.05, -9.6))
 
 # ---------------------------------------------------------------- tide bands
 

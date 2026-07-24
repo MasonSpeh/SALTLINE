@@ -158,7 +158,7 @@ func _check_power_reachability(main: Node3D) -> void:
 	var route := {
 		"tower entry pad": Vector3(23.0, 2.0, -4.6),
 		"landing 1 (machinery)": Vector3(29.25, 6.0, -1.0),
-		"machinery floor (by spool)": Vector3(26.0, 6.0, 7.5),
+		"machinery floor": Vector3(26.0, 6.0, 7.5),
 		"landing 2 (breaker)": Vector3(22.75, 10.0, -1.0),
 		"breaker floor (by panel)": Vector3(24.0, 10.0, 7.9),
 		"breaker floor (by cable gap)": Vector3(27.0, 10.0, 6.0),

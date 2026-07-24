@@ -859,7 +859,9 @@ func _build_stair_tower() -> void:
 	# with the shell; near edge (door side) is untouched so nothing inside it moves.
 	_room_north(Vector3(24, 6.0, 2), Vector3(TOWER_X1, 6.0, 8.8), MatLib.concrete(), 0.75)
 	_box(Vector3(27, 6.0 + 0.5, 6), Vector3(2.2, 1.0, 1.2), MatLib.dark_metal()) # dead machinery
-	_takeable("cable_spool", "Cable Spool", Vector3(27, 7.01, 6), Vector3(0.5, 0.5, 0.5))
+	# (The cable spool no longer lives here — moved to the PUMP ROOM on the wet deck, so
+	# the player finds the cable down low near spawn and carries it UP to the breaker,
+	# instead of it sitting one landing below the panel. Placed in _wet_deck-side dressing.)
 
 	# Breaker Room 4-A (y=10) off landing 2 — the power puzzle centerpiece. Near (outer,
 	# west) edge grows with the shell; far edge (door side, x28) untouched.
@@ -937,10 +939,8 @@ func _build_stair_tower() -> void:
 	# door is cut at x27.7..29.3, y6.0..8.4, so its two signs sit ABOVE the door header
 	# (y>8.4) on solid lintel wall, reading as a sign hung over the doorway.
 	_plabel("MACHINERY 1", Vector3(28.5, 9.05, 1.88), 180, 18, Color(0.95, 0.72, 0.2))
-	_plabel("CABLE STORES - TAKE THE SPOOL", Vector3(28.5, 8.62, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
+	_plabel("FEED CABLE: PUMP ROOM, WET DECK", Vector3(28.5, 8.62, 1.88), 180, 11, Color(0.95, 0.72, 0.2))
 	_plabel("MAIN POWER: BREAKER 4-A - ONE LEVEL UP", Vector3(25.2, 6.0 + 2.0, 1.88), 180, 12, Color(0.95, 0.72, 0.2))
-	# The spool itself, named where it sits so it is unmistakably the thing to grab.
-	_plabel("SPARE FEED CABLE", Vector3(27.0, 7.9, 5.6), 180, 12, Color(0.95, 0.72, 0.2))
 	# LANDING 2 (y10) north wall, over/beside the breaker-room door (x23.5). Made
 	# unmistakable: a big name over the door, a "THIS ROOM / LEVEL 2" line, a self-lit
 	# amber marker so it reads in the dark, and an arrow painted on the landing floor.
@@ -2467,6 +2467,45 @@ func _build_interior_lights() -> void:
 	_mains_light(Vector3(24, 10.0 + WALL_H - 0.13, 6), 1.8, 7.0)   # breaker room ceiling (y13.07)
 	# Ops lookout — the watch station brightens too (roof at OPS_Y + 3.0).
 	_mains_light(Vector3(28, OPS_Y + 3.0 - 0.13, -4), 1.8, 8.0)
+	# THE STAIRWELL. The one central space with no powered light — only the red emergency
+	# beacon in the blackout. When the breaker closes, the whole climb should light up
+	# like the power came back on: a bulkhead light at every switchback landing, mounted
+	# flush on the north shaft wall (inner face z1.9) and gated on the same circuit.
+	for ly in [6.0, 10.0, 14.0, 18.0, 22.0, 26.0, 30.0, 34.0]:
+		# landings alternate east/west pockets up the switchback; put the light over the
+		# pocket a flight tops into so it pools on the tread you arrive on.
+		var east: bool = int(ly / 4.0) % 2 == 0
+		var lx: float = 29.4 if east else 22.6
+		_stair_bulkhead(Vector3(lx, ly + 2.35, 1.86), 1.4, 6.5)
+	# One low in the shaft foot by the wet-deck door, so the bottom of the climb lights too.
+	_stair_bulkhead(Vector3(26.0, WET_Y + 2.6, 1.86), 1.6, 7.0)
+
+## A bulkhead light mounted flush on the stair-shaft north wall, dead until the breaker
+## closes — same gate as _mains_light, but a wall fixture (caged lens on a backplate)
+## instead of a ceiling hang, since the shaft has no per-landing ceiling.
+func _stair_bulkhead(pos: Vector3, energy: float, rng: float) -> void:
+	_box(pos + Vector3(0, 0, 0.04), Vector3(0.34, 0.24, 0.06), MatLib.dark_metal(), self, false)  # backplate
+	var lens: CSGBox3D = _box(pos + Vector3(0, 0, -0.02), Vector3(0.26, 0.16, 0.05),
+		MatLib.flat(Color(0.85, 0.82, 0.72), false, 0.0), self, false)                            # dark lens
+	for gx in [-0.09, 0.0, 0.09]:                                                                  # guard ribs
+		_box(pos + Vector3(gx, 0, -0.05), Vector3(0.02, 0.17, 0.04), MatLib.dark_metal(), self, false)
+	var lamp := OmniLight3D.new()
+	lamp.omni_range = rng
+	lamp.light_energy = energy
+	lamp.light_color = Color(1.0, 0.93, 0.78)
+	lamp.shadow_enabled = false
+	lamp.visible = false
+	add_child(lamp)
+	lamp.global_position = pos - Vector3(0, 0, 0.5)   # cast out into the shaft (-z)
+	lamp.add_to_group("interior_mains")
+	PowerGrid.circuit_powered.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = true
+			if is_instance_valid(lens):
+				lens.material = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0))
+	PowerGrid.circuit_lost.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = false)
 
 ## Red emergency beacons for the blackout — a heartbeat the player can always steer by
 ## until the deck lamps come on. Well spaced: the crane head, the antenna mast, a LARGE
