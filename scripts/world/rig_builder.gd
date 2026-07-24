@@ -258,18 +258,27 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 				cs.position.y -= overshoot   # the sloped walking surface, set flush
 			elif cs.position.z > run * 0.5:
 				cs.position.z = run + 0.22   # the top lip, slid clear of the slope
+	# 3. THE FOOT. The guard stops short of the bottom step. A slab running the flight's
+	#    full length walls it off from the side, and a stair is not always entered along
+	#    its axis: the tower's first flight is stepped onto SIDEWAYS off the wet-deck
+	#    entry pad, and a full-length slab made it unreachable (StairWalkProbe stalled at
+	#    z-4.26 against a z-facing wall, 1.4m short of the foot). Real stairs are open at
+	#    the bottom newel for the same reason. Only the foot end moves — the top, where
+	#    the drop beside the flight is worst, keeps its guard.
+	var foot_gap: float = minf(1.2, slope_len * 0.35)
 	for side in [[rail_left, -1.0], [rail_right, 1.0]]:
 		if not bool(side[0]):
 			continue
 		var guard := StaticBody3D.new()
 		var shape := CollisionShape3D.new()
 		var box := BoxShape3D.new()
-		box.size = Vector3(0.08, 1.6, slope_len + 0.2)
+		box.size = Vector3(0.08, 1.6, slope_len + 0.2 - foot_gap)
 		shape.shape = box
 		guard.add_child(shape)
 		root.add_child(guard)
 		guard.position = Vector3(float(side[1]) * (width * 0.5 + 0.02),
-			rise * 0.5 + 0.5, run * 0.5)
+			rise * 0.5 + 0.5 + foot_gap * 0.5 * sin(angle),
+			run * 0.5 + foot_gap * 0.5 * cos(angle))
 		guard.rotation.x = -angle
 
 const DOORFRAME := preload("res://scripts/world/door_frame.gd")   # by path: class cache lags
@@ -719,6 +728,9 @@ const STAIR_ZS: float = -2.9      # south lane — odd flights climb W->E
 const STAIR_ZN: float = -1.1      # north lane — even flights climb E->W
 const STAIR_PZ0: float = -4.0     # turn-platform south edge
 const STAIR_PZ1: float = 2.0      # turn-platform north edge (reaches the annex doors at z2)
+const STAIR_APRON_Z0: float = 0.0 # door-landing extension starts here — NORTH of both
+                                  # flight lanes (south -3.8..-2.0, north -2.0..-0.2), so
+                                  # the extension can never overhang a run below it
 const OPS_Y: float = WET_Y + STAIR_N * STAIR_RISE   # 38.0 — the lookout floor
 
 func _build_stair_tower() -> void:
@@ -754,7 +766,13 @@ func _build_stair_tower() -> void:
 		var foot_x: float = STAIR_XW if odd else STAIR_XE
 		var top_x: float = STAIR_XE if odd else STAIR_XW
 		var lane_z: float = STAIR_ZS if odd else STAIR_ZN
-		_stair_run(Vector3(foot_x, y0, lane_z), Vector3(top_x, y1, lane_z), STAIR_WID)
+		# Railed BOTH sides, every flight. This is 36m of climb in an open shaft and the
+		# player takes fall damage: the outboard side of each lane is a straight drop to
+		# the wet deck, and the inboard side drops onto whichever flight is passing below.
+		# _stair_run keeps StairKit's visual rail but swaps its collider for one smooth
+		# sloped slab, which is what stops a capsule wedging between the posts.
+		_stair_run(Vector3(foot_x, y0, lane_z), Vector3(top_x, y1, lane_z), STAIR_WID,
+			true, true)
 		if k == STAIR_N:
 			break   # the top flight lands in the ops-room floor, built below
 		# Turn platform in the wall-end pocket the flight tops into (never under the run).
@@ -787,9 +805,18 @@ func _build_stair_tower() -> void:
 			# shaft void — you could not walk in square. Butt a matching slab against the
 			# platform (no overlap, so the coplanar tops can't z-fight) reaching past the
 			# door jamb. East pockets extend west, west pockets extend east.
+			#
+			# It spans only the APRON in front of the door, z 0..2. It used to run the
+			# platform's whole 6m depth (z -4..2), which pushed 1.2m of slab out over the
+			# stair lane at 0.3m below landing height — a wall square across the flight
+			# climbing to this very landing. StairJamProbe caught the capsule dead against
+			# its west face at x27.29 on flight 1, 1.2m short of the top, head jammed under
+			# the overhang: that is the "platform doesn't line up, you have to jump over it".
+			# Jumping ONTO the slab was the only way up, which is exactly what was reported.
 			var ext_dir: float = -1.0 if is_equal_approx(top_x, STAIR_XE) else 1.0
-			_box(Vector3(inner_x + ext_dir * 0.6, y1 - 0.15, (STAIR_PZ0 + STAIR_PZ1) * 0.5),
-				Vector3(1.2, 0.3, STAIR_PZ1 - STAIR_PZ0), deck_mat)
+			_box(Vector3(inner_x + ext_dir * 0.6, y1 - 0.15,
+					(STAIR_APRON_Z0 + STAIR_PZ1) * 0.5),
+				Vector3(1.2, 0.3, STAIR_PZ1 - STAIR_APRON_Z0), deck_mat)
 
 	# Exterior structure for the tall free-standing shaft above the deck: proud concrete
 	# bands wrap the four faces at two heights so it reads as a segmented tower, not a slab.
