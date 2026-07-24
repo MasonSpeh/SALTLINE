@@ -119,6 +119,7 @@ func _build_rain() -> void:
 	smat.billboard_keep_scale = true
 	streak.material = smat
 	_rain.draw_pass_1 = streak
+	add_child(_rain)
 
 ## A small teardrop alpha texture: pointed tail at the top, rounded fuller head at the
 ## bottom, soft rounded cross-section. Built once at boot. White RGB (tinted by
@@ -137,7 +138,6 @@ func _raindrop_mask() -> ImageTexture:
 			var cross: float = 1.0 - smoothstep(half_w * 0.55, half_w, d)
 			img.set_pixel(x, y, Color(1.0, 1.0, 1.0, clampf(ends * cross, 0.0, 1.0)))
 	return ImageTexture.create_from_image(img)
-	add_child(_rain)
 
 ## Bake the roofed volumes into the shader's AABB uniform arrays (capacity 24).
 ## The boxes are hand-measured approximations of the built geometry, so they get a
