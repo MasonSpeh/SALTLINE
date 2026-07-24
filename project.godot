@@ -32,7 +32,6 @@ WorldStorage="*res://scripts/components/world_storage.gd"
 
 window/size/viewport_width=1280
 window/size/viewport_height=720
-window/size/resizable=true
 window/stretch/mode="canvas_items"
 window/stretch/aspect="expand"
 
@@ -82,11 +81,12 @@ crouch={
 [physics]
 
 3d/physics_engine="JoltPhysics3D"
+common/physics_ticks_per_second=30
 
 [rendering]
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
-limits/opengl/max_lights_per_object=16
 limits/opengl/max_renderable_lights=160
+limits/opengl/max_lights_per_object=16

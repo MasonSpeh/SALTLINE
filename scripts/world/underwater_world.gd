@@ -266,13 +266,29 @@ func _open_water_rays() -> void:
 			float(spec[3]), float(spec[4]))
 		add_child(ray)
 
-## A mantle ray gliding a slow banked circuit in open water around the rig. Wing-beat
-## animation (Mode.WING), a gentle roll into the turn, and a shallow bob — the same glb
-## the aerial night-visitor uses, but here it lives in the water where it can be watched.
-## Orbit radii (16-25) keep the span clear of the caissons at +-22/+-12.
+## A mantle ray gliding open water around the rig. Wing-beat animation (Mode.WING), the
+## same glb the aerial night-visitor uses, living down where it can be watched.
+##
+## MOVEMENT MODEL (rewritten). The old ray tracked a perfect flat circle and held a fixed
+## 23° lean the whole way round — it never actually swam level, and every ray banked the
+## same amount forever. The new model steers like a real batoid: it CRUISES LEVEL by
+## default, and BANK IS EARNED — it rolls only as hard as it is actually turning, then
+## rights itself on the straights. A lazy multi-octave weave layered over a soft orbit
+## tether makes the heading wander, so the ray carves long sweeping banked turns (wings
+## tipping past 60° on the deep ones) and levels back out between them. Pitch follows its
+## own gentle climb/dive. The orbit tether + a hard radial clamp keep the span clear of
+## the caissons (legs at ±22 / ±12); orbit radii 16-25 as before.
 class GliderRay extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL := "res://assets/models/fauna/mantle_ray/mantle_ray.glb"
+	# --- swim tuning (dial the drama here) --------------------------------------------
+	const TURN_RATE_MAX: float = 0.55   ## rad/s ceiling on heading change — caps how tight
+	const BANK_GAIN: float = 2.9        ## roll radians per rad/s of turn (bank into corners)
+	const BANK_MAX: float = 1.2         ## ~69°: wings well past vertical on the deep banks
+	const BANK_RESP: float = 2.0        ## how fast the roll eases toward its target
+	const PITCH_LOOK: float = 0.55      ## how much it noses toward its climb/dive
+	const RADIAL_HOLD: float = 0.06     ## gentle pull back toward the orbit radius
+	const RADIAL_CLAMP: float = 2.6     ## hard cap on how far off the orbit it may stray (m)
 	var _span: float
 	var _band_y: float
 	var _r: float
@@ -281,6 +297,12 @@ class GliderRay extends Node3D:
 	var _t: float = 0.0
 	var _mats: Array = []
 	var _model: Node3D
+	var _heading: float = 0.0    ## yaw of travel, integrated (not derived from a fixed circle)
+	var _speed: float = 1.0      ## lazy glide speed, m/s
+	var _dir: float = 1.0        ## orbit sense: +1 CCW, -1 CW
+	var _depth: float = 0.0
+	var _prev_depth: float = 0.0
+	var _roll: float = 0.0
 
 	func _init(span: float, band_y: float, r: float, rate: float, ph: float) -> void:
 		_span = span
@@ -299,19 +321,67 @@ class GliderRay extends Node3D:
 		_mats = gen["mats"]
 		ANIM.drive(_mats, 0.5, 0.05)     # slow wing-beat, faint sheen — not a lantern
 		_t = _ph * 20.0
+		# Keep the original pacing (tangential speed ~= rate*radius), floored so a big slow
+		# orbit still glides at a believable clip rather than crawling.
+		_speed = maxf(_rate * _r, 0.9)
+		_dir = 1.0 if fmod(_ph, TAU) < PI else -1.0   # spread the three rays both ways round
+		_heading = _ph
+		_depth = _band_y
+		_prev_depth = _band_y
+		global_position = Vector3(cos(_ph) * _r, _band_y, sin(_ph) * _r)
 
 	func _process(delta: float) -> void:
 		_t += delta
-		var a: float = _t * _rate + _ph
-		var next := Vector3(cos(a) * _r, _band_y + sin(_t * 0.13 + _ph) * 1.1, sin(a) * _r)
-		var vel: Vector3 = next - global_position
-		global_position = next
-		var flat := Vector3(vel.x, 0.0, vel.z)
-		if flat.length_squared() > 0.00001:
-			look_at(next + flat, Vector3.UP)
-			# Bank into the turn — a ray rolls its wings as it corners.
-			if _model:
-				_model.rotation.z = lerp_angle(_model.rotation.z, -0.4, clampf(delta * 2.0, 0.0, 1.0))
+		var pos: Vector3 = global_position
+		# --- depth: a slow independent vertical wander within the band ---------------------
+		_prev_depth = _depth
+		var target_depth: float = _band_y + sin(_t * 0.06 + _ph) * 2.0 + sin(_t * 0.021 + _ph * 1.7) * 1.0
+		_depth = lerpf(_depth, target_depth, clampf(delta * 0.6, 0.0, 1.0))
+		# --- steering: orbit tangent + gentle radial tether, then a lazy multi-octave weave.
+		# The weave is what turns a dead circle into natural roaming: the ray leans left,
+		# then right, carving banked sweeps. Its heading CHASES this target at a capped rate,
+		# so the turn rate (hence the bank) rises and falls instead of sitting at a constant.
+		var flat := Vector2(pos.x, pos.z)
+		var dist: float = maxf(flat.length(), 0.001)
+		var radial := flat / dist                       # unit vector pointing outward
+		var tangent := Vector2(-radial.y, radial.x) * _dir
+		var err: float = dist - _r                       # +ve = drifted too far out
+		var steer := (tangent - radial * clampf(err * RADIAL_HOLD, -0.9, 0.9)).normalized()
+		var base_heading: float = atan2(steer.x, steer.y)
+		var weave: float = sin(_t * 0.16 + _ph) * 0.6 \
+			+ sin(_t * 0.05 + _ph * 2.3) * 0.45 \
+			+ sin(_t * 0.027 + _ph * 3.7) * 0.7
+		var desired: float = base_heading + weave
+		# Turn toward the desired heading, rate-limited. The applied step IS the turn rate.
+		var dh: float = wrapf(desired - _heading, -PI, PI)
+		var applied: float = clampf(dh, -TURN_RATE_MAX * delta, TURN_RATE_MAX * delta)
+		_heading += applied
+		var turn_rate: float = applied / maxf(delta, 0.0001)
+		# --- advance along the heading, then clamp the orbit so the span clears the legs ---
+		var fwd := Vector3(sin(_heading), 0.0, cos(_heading))
+		var np: Vector3 = pos + fwd * (_speed * delta)
+		var nd: float = Vector2(np.x, np.z).length()
+		var cd: float = clampf(nd, _r - RADIAL_CLAMP, _r + RADIAL_CLAMP)
+		if not is_equal_approx(cd, nd) and nd > 0.001:
+			var rn := Vector2(np.x, np.z) / nd * cd
+			np.x = rn.x
+			np.z = rn.y
+		np.y = _depth
+		global_position = np
+		# --- orientation: yaw + a gentle pitch toward the climb on the HOST (level roll),
+		# and the bank as a local roll on the MODEL (whose -0.4 convention we inherit). ----
+		var climb: float = (_depth - _prev_depth) / maxf(delta, 0.0001)
+		var look_tgt: Vector3 = np + fwd + Vector3(0.0, clampf(climb * PITCH_LOOK, -0.5, 0.5), 0.0)
+		if (look_tgt - np).length_squared() > 0.000001:
+			look_at(look_tgt, Vector3.UP)
+		# Bank proportional to how hard it is turning: near-level on the straights, wings
+		# well over on the deep sweeps. Sign matches the old constant lean (CCW turn -> -z).
+		var roll_target: float = clampf(-turn_rate * BANK_GAIN, -BANK_MAX, BANK_MAX)
+		_roll = lerp_angle(_roll, roll_target, clampf(delta * BANK_RESP, 0.0, 1.0))
+		if _model:
+			_model.rotation.z = _roll
+		# Wings work a touch harder through a hard bank.
+		ANIM.drive(_mats, 0.5 + absf(_roll) * 0.22, 0.05)
 
 ## One slow giant on a drifting circuit under the rig. Raw circular path — it lives
 ## 15+ m down in open water between the legs (orbit radii keep it clear of the caissons

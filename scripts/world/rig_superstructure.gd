@@ -35,6 +35,7 @@ func _ready() -> void:
 	_exterior_dressing()
 	_deck_a_signage()
 	_density_pass()
+	_stack_mains()          # powered corridor + per-room lights that wake with the breaker
 
 # ============================================================ helpers
 
@@ -334,6 +335,67 @@ func _light(pos: Vector3, energy: float = 0.55, range_: float = 7.0) -> void:
 	l.position = pos
 	# Dead ceiling fixture under it.
 	_dbox(pos + Vector3(0, 0.35, 0), Vector3(0.7, 0.08, 0.24), MatLib.dark_metal())
+
+## A MAINS ceiling light for the accommodation stack — the powered counterpart to _light.
+## _light fixtures track the SUN (spill_lights): they glow by day and die at night, so the
+## whole stack — corridors and cabins — went black after dark with no way to light it.
+## These wake with the BREAKER instead (topside circuit): dead and dark in the blackout,
+## warm once the player restores power. `pos` is the ceiling underside; the fixture bolts
+## flush and the omni hangs just below. Shadows off for gl_compat.
+func _powered_ceiling(pos: Vector3, energy: float = 1.6, rng: float = 5.5) -> void:
+	_dbox(pos + Vector3(0, -0.02, 0), Vector3(0.5, 0.06, 0.22), MatLib.dark_metal())   # flush plate
+	var lens := _dbox(pos + Vector3(0, -0.1, 0), Vector3(0.42, 0.06, 0.16),
+		MatLib.flat(Color(0.85, 0.82, 0.72), false, 0.0))                              # dark lens
+	var lamp := OmniLight3D.new()
+	lamp.omni_range = rng
+	lamp.light_energy = energy
+	lamp.light_color = Color(1.0, 0.93, 0.78)
+	lamp.shadow_enabled = false
+	lamp.visible = false             # dead until the breaker closes
+	add_child(lamp)
+	lamp.global_position = pos - Vector3(0, 0.28, 0)
+	lamp.add_to_group("interior_mains")
+	PowerGrid.circuit_powered.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = true
+			if is_instance_valid(lens):
+				lens.material_override = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0))
+	PowerGrid.circuit_lost.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = false)
+
+## Mains lighting for the whole accommodation stack (Deck B quarters, Deck C control, Deck
+## D works, roof hut) — internal HALLWAY runs plus one fixture in every room — all gated on
+## the breaker so the stack lights up when the player restores power, matching the topside
+## rooms. Ceiling underside = floor + WH(3.2) - 0.13. Coordinates mirror the room labels in
+## _deck_b/_deck_c/_deck_d, kept deliberately simple (one warm omni per space).
+func _stack_mains() -> void:
+	# ---- Deck B — quarters (floor 21.6) ----
+	var cb: float = B_Y + WH - 0.13
+	for hx in [0.0, 6.0, 12.0, 18.0, 24.0]:                 # corridor run (z12)
+		_powered_ceiling(Vector3(hx, cb, 12.0))
+	for cx in [0.5, 5.5, 10.5, 15.5, 20.5]:                 # south cabins B-01..B-05
+		_powered_ceiling(Vector3(cx, cb, 8.0))
+	_powered_ceiling(Vector3(25.5, cb, 8.5))               # linen store
+	for r in [Vector3(2, cb, 15.5), Vector3(10, cb, 15.5), # wash room, crew lounge,
+			Vector3(16.5, cb, 15.5), Vector3(21, cb, 15.5)]:  # cabin B-06, muster stores
+		_powered_ceiling(r)
+	# ---- Deck C — control (floor 25.1) ----
+	var cc: float = C_Y + WH - 0.13
+	for hx in [6.0, 14.0, 22.0]:                            # corridor run (z13)
+		_powered_ceiling(Vector3(hx, cc, 13.0))
+	for r in [Vector3(9.5, cc, 8.5), Vector3(15.5, cc, 8.5), Vector3(20.5, cc, 8.5),
+			Vector3(25.5, cc, 8.5), Vector3(8.5, cc, 16.0), Vector3(18.0, cc, 16.0)]:
+		_powered_ceiling(r)                                # control, office, med bay, stores, radio, mud log
+	# ---- Deck D — works (floor 28.6) ----
+	var cd: float = D_Y + WH - 0.13
+	for hx in [8.0, 15.0, 22.0]:                            # corridor run (z13.5)
+		_powered_ceiling(Vector3(hx, cd, 13.5))
+	for r in [Vector3(11.5, cd, 9.0), Vector3(19.0, cd, 9.0),   # gym, laundry
+			Vector3(11.5, cd, 16.0), Vector3(19.0, cd, 16.0)]:    # stores, workshop
+		_powered_ceiling(r)
+	# ---- roof hut (floor 32.1) ----
+	_powered_ceiling(Vector3(SX0 + 2.0, ROOF_Y + 2.6, (SZ0 + SZ1) * 0.5))
 
 ## Horizontal pipe along X or Z, with elbow spheres at both ends.
 func _pipe(a: Vector3, b: Vector3, radius: float = 0.09) -> void:

@@ -40,6 +40,8 @@ func _ready() -> void:
 	# Beta1 structure: mains room lights that wake with the breaker, red emergency
 	# beacons for the blackout, and the survival craft in its davits.
 	_build_interior_lights()
+	_build_crane_lights()      # floods up the high iron: machinery deck, gantry, boom
+	_build_lamps()             # portable lamps the player can switch on once power is up
 	_build_emergency_beacons()
 	_build_lifeboat()
 	_industrial_dressing()
@@ -2465,8 +2467,14 @@ func _build_interior_lights() -> void:
 	# Stair-tower annexes (floor y6 / y10).
 	_mains_light(Vector3(27, 6.0 + WALL_H - 0.13, 6), 1.6, 6.5)    # machinery room ceiling (y9.07)
 	_mains_light(Vector3(24, 10.0 + WALL_H - 0.13, 6), 1.8, 7.0)   # breaker room ceiling (y13.07)
-	# Ops lookout — the watch station brightens too (roof at OPS_Y + 3.0).
-	_mains_light(Vector3(28, OPS_Y + 3.0 - 0.13, -4), 1.8, 8.0)
+	# Ops lookout — the glass watch room capping the tower (x21..31, z-7..3). One lamp
+	# left it half in shadow; a four-fixture grid lights the whole floor so the climb
+	# tops out somewhere that reads plainly as "lit and manned" once power is restored.
+	var ops_ceil: float = OPS_Y + 3.0 - 0.13
+	_mains_light(Vector3(28, ops_ceil, -4), 1.8, 8.0)
+	_mains_light(Vector3(24, ops_ceil, -4), 1.8, 8.0)
+	_mains_light(Vector3(28, ops_ceil, 0), 1.8, 8.0)
+	_mains_light(Vector3(24, ops_ceil, 0), 1.8, 8.0)
 	# THE STAIRWELL. The one central space with no powered light — only the red emergency
 	# beacon in the blackout. When the breaker closes, the whole climb should light up
 	# like the power came back on: a bulkhead light at every switchback landing, mounted
@@ -2506,6 +2514,117 @@ func _stair_bulkhead(pos: Vector3, energy: float, rng: float) -> void:
 	PowerGrid.circuit_lost.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
 			lamp.visible = false)
+
+## A bare gated OmniLight in a small dark housing whose lens goes emissive when the
+## breaker closes — the general-purpose "wakes with the power" fixture for spots that
+## aren't a flush room ceiling (crane iron, open structure). Returns the light.
+func _powered_omni(pos: Vector3, energy: float, rng: float,
+		color: Color = Color(1.0, 0.93, 0.78)) -> OmniLight3D:
+	var lens: CSGBox3D = _box(pos + Vector3(0, 0.09, 0), Vector3(0.28, 0.1, 0.28),
+		MatLib.flat(Color(0.85, 0.82, 0.72), false, 0.0), self, false)   # dark lens
+	var lamp := OmniLight3D.new()
+	lamp.omni_range = rng
+	lamp.light_energy = energy
+	lamp.light_color = color
+	lamp.shadow_enabled = false     # gl_compat perf: no dynamic shadows
+	lamp.visible = false            # dead until the breaker closes
+	add_child(lamp)
+	lamp.global_position = pos
+	lamp.add_to_group("interior_mains")
+	PowerGrid.circuit_powered.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = true
+			if is_instance_valid(lens):
+				lens.material = MatLib.flat(color, true, 2.2))
+	PowerGrid.circuit_lost.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = false)
+	return lamp
+
+## A gated SpotLight flood, dead until the breaker closes. `pitch_deg` tips it about local
+## X (-90 = straight down, the SpotLight's default aim is -Z); `yaw_deg` swings it first.
+## Used up the high iron where a downward wash reads better than a bare bulb.
+func _powered_spot(pos: Vector3, pitch_deg: float, energy: float, rng: float,
+		angle: float, yaw_deg: float = 0.0) -> void:
+	var head: CSGBox3D = _box(pos, Vector3(0.32, 0.2, 0.32), MatLib.dark_metal(), self, false)
+	var spot := SpotLight3D.new()
+	spot.spot_range = rng
+	spot.spot_angle = angle
+	spot.light_energy = energy
+	spot.light_color = Color(1.0, 0.92, 0.74)
+	spot.light_volumetric_fog_energy = 2.0     # a visible cone in night air / sea haze
+	spot.shadow_enabled = false
+	spot.visible = false
+	add_child(spot)
+	spot.global_position = pos
+	spot.rotation = Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg), 0.0)
+	spot.add_to_group("interior_mains")
+	PowerGrid.circuit_powered.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(spot):
+			spot.visible = true
+			if is_instance_valid(head):
+				head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.2))
+	PowerGrid.circuit_lost.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(spot):
+			spot.visible = false)
+
+## Floodlighting for THE HIGH IRON — the crane. Dark in the blackout; when the breaker
+## closes, the machinery deck, the gantry A-frame apex and the boom all light so the
+## tallest thing on the rig reads as powered from anywhere on the water. Same gate as the
+## deck floods (topside circuit).
+func _build_crane_lights() -> void:
+	# Two downward floods on the gantry legs, washing the machinery-deck slab (y34.15).
+	for sx in [-1.9, 1.9]:
+		_powered_spot(Vector3(CRANE_X + sx, CRANE_DECK_TOP + 3.4, CRANE_Z + 0.4), -90.0, 6.0, 12.0, 48.0)
+	# A worklamp on the machinery deck itself, at head height by the slew ring.
+	_powered_omni(Vector3(CRANE_X, CRANE_DECK_TOP + 2.4, CRANE_Z - 1.2), 2.4, 10.0)
+	# The gantry apex — the highest point on the rig. A bright omni haloes the whole A-frame,
+	# tucked just under the apex cap box so it reads as a fixture, not a floating bulb.
+	_powered_omni(GANTRY_APEX + Vector3(0, -0.5, 0), 3.0, 16.0)
+	# Two down-floods stepping out along the boom toward the tip (the boom reaches past the
+	# deck edge to BOOM_TIP), so the reach over the water is lit, not just the head.
+	_powered_spot(GANTRY_APEX.lerp(BOOM_TIP, 0.34) + Vector3(0, -0.4, 0), -68.0, 5.0, 14.0, 46.0)
+	_powered_spot(GANTRY_APEX.lerp(BOOM_TIP, 0.66) + Vector3(0, -0.4, 0), -68.0, 5.0, 14.0, 46.0)
+
+## A portable work lamp the crew left behind: weighted base, stem, a caged bulb. Built as
+## a LightSwitch (OPERATE) — dead in the blackout ("nothing hums"), and once the breaker is
+## closed the player can click it on and off. The bulb is its toggled light; the shade
+## brightens with it. Placed on clear floor / desks, out of the walk lanes.
+func _lamp(pos: Vector3, name_: String = "Work Lamp") -> void:
+	var sw := LightSwitch.new()
+	sw.display_name = name_
+	sw.circuit_id = "topside_floodlights"
+	add_child(sw)
+	sw.global_position = pos
+	sw.build_box_visual(Vector3(0.22, 0.36, 0.22), Interactable.COLOR_OPERABLE,
+		false, false, MatLib.painted_steel())                                              # body/housing (collider)
+	_box(pos + Vector3(0, -0.19, 0), Vector3(0.3, 0.05, 0.3), MatLib.dark_metal(), self, false)  # weighted base
+	_cyl(pos + Vector3(0, 0.28, 0), 0.025, 0.36, MatLib.galvanized(), self)                       # gooseneck stem
+	var shade: CSGBox3D = _box(pos + Vector3(0, 0.5, 0), Vector3(0.2, 0.14, 0.2),
+		MatLib.flat(Color(0.82, 0.8, 0.72)), self, false)                                          # caged head
+	var bulb := OmniLight3D.new()
+	bulb.omni_range = 5.5
+	bulb.light_energy = 2.4
+	bulb.light_color = Color(1.0, 0.92, 0.76)
+	bulb.shadow_enabled = false
+	add_child(bulb)
+	bulb.global_position = pos + Vector3(0, 0.5, 0)
+	sw.add_light(bulb)     # starts hidden; OPERATE toggles it — but only once power is live
+	# Keep the shade's lit look in sync with the bulb (LightSwitch toggles bulb.visible).
+	bulb.visibility_changed.connect(func() -> void:
+		if is_instance_valid(shade):
+			shade.material = MatLib.flat(Color(1.0, 0.95, 0.82), true, 2.3) if bulb.visible \
+				else MatLib.flat(Color(0.82, 0.8, 0.72)))
+
+## Portable lamps the player can switch on once the grid is live — one in each main living
+## space plus the ops lookout. Deck B/C/D floors come from RigSuperstructure (B=21.6).
+func _build_lamps() -> void:
+	_lamp(Vector3(-26.4, DECK_Y + 0.19, 9.4), "Bunk Lamp")        # bunkhouse, SW cabin floor
+	_lamp(Vector3(-9.4, DECK_Y + 0.19, 15.6), "Bunk Lamp")        # bunkhouse, NE cabin floor
+	_lamp(Vector3(1.2, DECK_Y + 0.19, 16.6), "Galley Lamp")       # galley, north wall
+	_lamp(Vector3(26.6, DECK_Y + 0.19, 9.2), "Rec Room Lamp")     # rec room, SE corner
+	_lamp(Vector3(4.4, 21.6 + 0.19, 9.9), "Cabin Lamp")           # Deck B cabin B-02 floor
+	_lamp(Vector3(29.2, OPS_Y + 0.19, 1.6), "Watch Lamp")         # ops lookout, NE corner
 
 ## Red emergency beacons for the blackout — a heartbeat the player can always steer by
 ## until the deck lamps come on. Well spaced: the crane head, the antenna mast, a LARGE

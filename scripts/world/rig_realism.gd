@@ -140,11 +140,16 @@ func _windsock() -> void:
 	var sock := _cy(a, Vector3(0.85, DECK_Y + 5.28, 0), 0.16, 1.15, MatLib.red_paint(), Vector3(0, 0, 90), 0.07)
 	sock.rotation.z = deg_to_rad(90)
 
-## Small dish + bracket on the galley roof, aimed at the horizon like a real VSAT.
+## Small dish + bracket on the BUNKHOUSE roof, aimed at the horizon like a real VSAT.
+## It used to sit at (4, ·, 12) "on the galley roof" — but the accommodation stack (Deck
+## B) was later built on top of the galley at y21.6, so this VSAT ended up poking up
+## through the Deck B floor, standing in the corridor right in front of cabin B-02. The
+## bunkhouse roof (x-28..-8, top y21.33) is genuine open sky — same plate the comms
+## antenna and vent fans already stand on — so the dish reads correctly up there.
 func _sat_dish() -> void:
 	var a := _asm("SatDish")
-	a.position = Vector3(4.0, 0, 12.0)
-	var y: float = 21.35
+	a.position = Vector3(-22.0, 0, 11.5)
+	var y: float = 21.33   # bunkhouse roof top surface (DECK_Y 18 + WALL_H 3.2 + 0.13)
 	_bx(a, Vector3(0, y + 0.25, 0), Vector3(0.7, 0.5, 0.7), MatLib.painted_steel())
 	_cy(a, Vector3(0, y + 0.75, 0), 0.05, 0.6, MatLib.galvanized())
 	var dish := _cy(a, Vector3(0.1, y + 1.1, 0), 0.55, 0.1, MatLib.dirty_white_panel(), Vector3.ZERO, 0.18)
