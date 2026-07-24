@@ -1,6 +1,6 @@
 # RIG ATLAS — SALTLINE main rig, sonar scan briefing
 
-*Generated 2026-07-22 02:28 · 666,631 tris · 468 manifest props · regenerate with `~/SALTLINE/tools/export_rig.sh`*
+*Generated 2026-07-23 21:31 · 683,543 tris · 483 manifest props · regenerate with `~/SALTLINE/tools/export_rig.sh`*
 
 ## Coordinate contract (verified exact)
 
@@ -10,7 +10,7 @@ sonar (X, Y, Z) mm      →  godot (X/1000, Z/1000, −Y/1000) m
 ```
 Sonar frame is Z-up right-handed millimeters. Top of ASCII plans = godot −z (north).
 
-Scan bounds (mm): x[-41839,60532] y[-23276,37540] z[-3050,51720]
+Scan bounds (mm): x[-41839,60532] y[-23276,37540] z[-92000,51720]
 
 ## Deck elevations (godot y / sonar z)
 
@@ -34,7 +34,7 @@ Scan bounds (mm): x[-41839,60532] y[-23276,37540] z[-3050,51720]
 | rec_room | [18,28] | [8,18] | [18.0,21.2] | 43 |
 | ops_lookout | [21,31] | [-7,3] | [36.0,41.0] | 0 |
 | galley | [-2,14] | [8,18] | [18.0,21.2] | 63 |
-| machine_shop | [-28,-14] | [-18,-6] | [18.0,21.2] | 25 |
+| machine_shop | [-28,-14] | [-18,-6] | [18.0,21.2] | 34 |
 | bunkhouse | [-28,-8] | [4,18] | [18.0,21.2] | 82 |
 | deck_d_cabins | [8,30] | [4,19] | [28.6,32.0] | 38 |
 | stair_tower | [22,30] | [-6,2] | [2.0,21.2] | 0 |
@@ -43,7 +43,7 @@ Scan bounds (mm): x[-41839,60532] y[-23276,37540] z[-3050,51720]
 | stack_roof | [-2,30] | [4,19] | [32.1,36.0] | 3 |
 | wet_deck | [6,32] | [-28,-4] | [1.0,6.5] | 80 |
 | boat_landing | [6,34] | [-30,0] | [-3.5,1.0] | 2 |
-| topside_deck | [-30,30] | [-20,20] | [17.5,21.4] | 223 |
+| topside_deck | [-30,30] | [-20,20] | [17.5,21.4] | 234 |
 | high_iron | [-12,12] | [-12,12] | [32.0,52.0] | 0 |
 
 ## Key locations (godot meters)
