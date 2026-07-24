@@ -21,8 +21,13 @@ signal time_updated(phase_fraction: float) ## 0.0-1.0 fraction through current p
 	Phase.NIGHT: 13.0,
 }
 
-## Always begins at first light so a full, unhurried day of daylight lies ahead.
-var current_phase: Phase = Phase.DAWN
+## Begins in DAY, sun already up, so a full unhurried day of daylight lies ahead.
+## It used to start at DAWN with the phase fraction at 0, and DAWN starts BEFORE
+## sunrise: SunController maps (DAWN, f=0) to a sun elevation of −8° with a full
+## night ambient, so the first minutes of a new game were visually night — stars
+## out, sun energy clamped to zero. DAY at f=0 puts the sun at 16° and drops the
+## night mix to zero immediately, which is what "morning" is supposed to look like.
+var current_phase: Phase = Phase.DAY
 var day_count: int = 0 ## increments each time NIGHT completes (drives the end card)
 var time_scale: float = 1.0 ## testing/debug only — accelerates the day, never shipped >1
 var _phase_elapsed_sec: float = 0.0
