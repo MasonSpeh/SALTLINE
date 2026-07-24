@@ -483,11 +483,20 @@ func _bunkhouse() -> void:
 	_p("cassette_player", Vector3(-8.55, y + 0.46, 7.4), 30)
 
 	# --- A-N · the reader: armchair angled to the corner, nightstand and books beside. ---
+	# Sonar-measured nightstand top: x -21.982..-21.618, z 14.457..14.943, surface y+0.655.
+	# The lantern used to sit at z 14.25 — 0.21m clear of the stand's front edge — so it
+	# settled onto the deck while its lamp stayed up at y+1.0, which is the "floating fire"
+	# beside the armchair. The book set anchors at its WEST end and runs +0.34m east, so
+	# anchoring it at the stand's centre hung nine of its volumes over the far edge (sonar:
+	# gap 0.61m). Both now sit inside the measured top, and the lamp sits INSIDE the lantern
+	# body (top y+1.005) so the glow has a visible source. The book anchor keeps ~2cm of
+	# margin from the stand's west edge because SurfaceSnap probes a single ray straight
+	# down from the ORIGIN — an anchor flush to the edge can miss the top and drop the set.
 	_pc("ArmChair_01", Vector3(-21.95, y, 13.3), 215)
 	_pc("ClassicNightstand_01", Vector3(-21.8, y, 14.7), -90)
-	_p("book_encyclopedia_set_01", Vector3(-21.8, y + 0.8, 14.7), 0)
-	_p("Lantern_01", Vector3(-21.95, y + 0.8, 14.25), 0)
-	_lamp(Vector3(-21.85, y + 1.0, 14.4), Color(1.0, 0.85, 0.55), 0.5, 4.0)
+	_p("book_encyclopedia_set_01", Vector3(-21.96, y + 0.72, 14.80), 0)
+	_p("Lantern_01", Vector3(-21.80, y + 0.72, 14.58), 0)
+	_lamp(Vector3(-21.80, y + 0.95, 14.58), Color(1.0, 0.85, 0.55), 0.5, 4.0)
 
 	# --- B-N · the radio op: the set squared on a table against the east divider. ---
 	_pc("small_wooden_table_01", Vector3(-15.15, y, 15.0), -90)
