@@ -65,6 +65,10 @@ func _apply_sky_reflection(sun_h: float, night: float, storm: float) -> void:
 ## Re-runs the light tick so the change takes immediately.
 func set_storm(intensity: float) -> void:
 	storm_intensity = clampf(intensity, 0.0, 1.0)
+
+var fog_intensity: float = 0.0   ## post-squall sea fog, fed by StormSystem
+func set_fog(v: float) -> void:
+	fog_intensity = clampf(v, 0.0, 1.0)
 	_apply_sea_state()
 	_on_tick(_last_f)
 
@@ -173,8 +177,11 @@ func _on_tick(f: float) -> void:
 	env.ambient_light_energy = lerpf(lerpf(clampf(sun.light_energy * 0.55, 0.22, 0.65), 0.16, night), 0.14, storm)
 	env.fog_light_color = env.ambient_light_color.darkened(0.25)
 	env.volumetric_fog_albedo = Color(0.85, 0.88, 0.92).lerp(Color(0.5, 0.58, 0.7), night).lerp(Color(0.4, 0.42, 0.46), storm)
-	env.volumetric_fog_density = lerpf(0.012, 0.05, storm)   # squall haze
-	env.fog_density = lerpf(0.0008, 0.004, storm)
+	env.volumetric_fog_density = lerpf(0.012, 0.05, storm) + 0.05 * fog_intensity
+	# Sea fog is DENSER than squall haze — a bank you watch swallow the far derrick —
+	# and it mutes the sun the way squall cloud does, just without the darkening.
+	env.fog_density = lerpf(0.0008, 0.004, storm) + 0.0068 * fog_intensity
+	sun.light_energy *= 1.0 - 0.38 * fog_intensity
 
 	# Interior daylight-spill lights track the sun; interiors go black at night (Rule 7)
 	# unless the player flips the switches they earned.

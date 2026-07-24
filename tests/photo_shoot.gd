@@ -26,33 +26,37 @@ var _player: Node3D
 var _main: Node3D
 var _storm: Node
 
-# name, phase, fraction-through-phase, eye, aim, fov, flags("storm"/"power")
+# name, phase, fraction-through-phase, eye, aim, fov, flags("storm"/"power"/"fog"/"dive")
 const SHOTS := [
 	# ---------------------------------------------------------------- first light
 	["01_arrival_dawn",     "dawn", 0.72, Vector3(78, 9, -58),  Vector3(6, 20, -4),   50.0, ""],
 	["02_silhouette_dawn",  "dawn", 0.55, Vector3(-72, 15, 44), Vector3(0, 24, 0),    45.0, ""],
-	["03_legs_dawn",        "dawn", 0.85, Vector3(34, 3.2, -44), Vector3(12, 22, -12), 62.0, ""],
+	# ---------------------------------------------------------------- below the waterline
+	# Underwater frames carry the player at the lens ("dive"): the depth-graded water,
+	# Snell window and shafts all read the PLAYER's depth, not the camera's.
+	["03_fish_shoal",       "day",  0.45, Vector3(31.0, -5.5, 16.5), Vector3(18.5, -9.5, 8.0), 64.0, "dive"],
+	["04_fish_dock",        "day",  0.55, Vector3(10.5, -4.0, -27.5), Vector3(19.0, -2.5, -18.5), 64.0, "dive"],
 	# ---------------------------------------------------------------- full daylight
-	["04_broadside_day",    "day",  0.50, Vector3(96, 31, 4),   Vector3(0, 22, 0),    40.0, ""],
-	["05_derrick_up",       "day",  0.42, Vector3(1, 19.2, 7),  Vector3(0, 46, -2),   72.0, ""],
-	["06_stack_terrace",    "day",  0.38, Vector3(-15, 19.6, -7), Vector3(14, 26, 9), 60.0, ""],
-	["07_ops_lookout",      "day",  0.55, Vector3(13, 41, -15), Vector3(26, 39, -2),  55.0, ""],
+	["05_broadside_day",    "day",  0.50, Vector3(96, 31, 4),   Vector3(0, 22, 0),    40.0, ""],
+	["06_derrick_up",       "day",  0.42, Vector3(1, 19.2, 7),  Vector3(0, 46, -2),   72.0, ""],
+	["07_stack_terrace",    "day",  0.38, Vector3(-15, 19.6, -7), Vector3(14, 26, 9), 60.0, ""],
 	["08_from_the_lookout", "day",  0.48, Vector3(25.5, 40, -1.5), Vector3(-6, 20, 7), 74.0, ""],
-	["09_stair_tower",      "day",  0.60, Vector3(38, 13, -13), Vector3(26, 22, -2),  55.0, ""],
-	["10_wet_deck",         "day",  0.45, Vector3(29, 4.6, -21), Vector3(12, 2.6, -10), 70.0, ""],
-	["11_boat_landing",     "day",  0.52, Vector3(27, 5.2, -27), Vector3(16, 2.6, -23), 62.0, ""],
-	["12_crane_deck",       "day",  0.35, Vector3(-4, 20.4, -6), Vector3(18, 19, -16), 66.0, ""],
+	["09_working_deck",     "day",  0.55, Vector3(12, 21.6, -17), Vector3(2, 18.7, -8), 64.0, ""],
+	["10_stair_tower",      "day",  0.60, Vector3(38, 13, -13), Vector3(26, 22, -2),  55.0, ""],
+	["11_wet_deck",         "day",  0.45, Vector3(29, 4.6, -21), Vector3(12, 2.6, -10), 70.0, ""],
+	["12_boat_landing",     "day",  0.52, Vector3(27, 5.2, -27), Vector3(16, 2.6, -23), 62.0, ""],
 	# ---------------------------------------------------------------- golden hour
 	["13_golden_wide",      "dusk", 0.28, Vector3(-84, 21, -52), Vector3(0, 22, 0),   45.0, ""],
 	["14_golden_deck",      "dusk", 0.34, Vector3(-21, 19.6, 15), Vector3(16, 22, 1), 65.0, ""],
-	# ---------------------------------------------------------------- the squall
-	["15_storm_approach",   "day",  0.30, Vector3(72, 17, -47), Vector3(0, 22, 0),    50.0, "storm"],
-	["16_storm_deck",       "day",  0.30, Vector3(11, 20.6, -7), Vector3(-15, 19, -15), 70.0, "storm"],
-	["17_storm_wet_deck",   "day",  0.30, Vector3(25, 4.9, -13), Vector3(13, 2.4, -19), 72.0, "storm"],
-	["18_storm_tower",      "dusk", 0.20, Vector3(40, 21, -15), Vector3(26, 27, -2),  55.0, "storm"],
-	# ---------------------------------------------------------------- after dark
-	["19_night_lit",        "night", 0.5, Vector3(62, 21, -42), Vector3(0, 20, 0),    50.0, "power"],
-	["20_night_storm",      "night", 0.5, Vector3(56, 15, -39), Vector3(0, 21, 0),    50.0, "storm,power"],
+	# ---------------------------------------------------------------- weather
+	["15_fog_bank",         "day",  0.62, Vector3(64, 13, -40), Vector3(0, 23, 0),    48.0, "fog"],
+	["16_storm_approach",   "day",  0.30, Vector3(72, 17, -47), Vector3(0, 22, 0),    50.0, "storm"],
+	["17_storm_deck",       "day",  0.30, Vector3(11, 20.6, -7), Vector3(-15, 19, -15), 70.0, "storm"],
+	["18_storm_wet_deck",   "day",  0.30, Vector3(25, 4.9, -13), Vector3(13, 2.4, -19), 72.0, "storm"],
+	# ---------------------------------------------------------------- after dark, far out
+	# Deep night, EVERY circuit lit — the rig as a lone lit thing in black water.
+	["19_night_beacon",     "night", 0.5, Vector3(112, 30, -72), Vector3(0, 20, 0),   34.0, "power"],
+	["20_night_storm_far",  "night", 0.5, Vector3(88, 20, -58), Vector3(0, 21, 0),    40.0, "storm,power"],
 ]
 
 func _all_nodes(root: Node) -> Array:
@@ -64,6 +68,22 @@ func _all_nodes(root: Node) -> Array:
 		for c in n.get_children():
 			stack.append(c)
 	return out
+
+var _dive_env_cache: Environment = null
+func _dive_env() -> Environment:
+	if _dive_env_cache:
+		return _dive_env_cache
+	var e := Environment.new()
+	e.background_mode = Environment.BG_COLOR
+	e.background_color = Color(0.05, 0.22, 0.26)
+	e.fog_enabled = true
+	e.fog_light_color = Color(0.10, 0.34, 0.38)
+	e.fog_density = 0.055
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.16, 0.38, 0.42)
+	e.ambient_light_energy = 1.1
+	_dive_env_cache = e
+	return e
 
 func _phase_id(name_: String) -> int:
 	match name_:
@@ -99,6 +119,13 @@ func _ready() -> void:
 
 	_player = get_tree().get_first_node_in_group("player")
 	if _player:
+		# Share the PLAYER camera's Environment resource. UnderwaterFX depth-grades that
+		# environment in place every frame, so borrowing the same resource is what makes
+		# a dive frame read as deep teal water instead of washed-out grey void.
+		var pcam := _player.get("camera") as Camera3D
+		if pcam:
+			_cam.environment = pcam.environment
+			_cam.attributes = pcam.attributes
 		# Frozen: we drive it as the rain emitter's anchor, and a live CharacterBody3D
 		# would fall out of every position we put it in.
 		_player.set_physics_process(false)
@@ -129,12 +156,16 @@ func _ready() -> void:
 		var flags: String = String(s[6])
 		var storming: bool = flags.contains("storm")
 		var powered: bool = flags.contains("power")
+		var foggy: bool = flags.contains("fog")
+		var diving: bool = flags.contains("dive")
 
-		# Power gates the floodlights, the mains fixtures and the deck's LightZones.
-		if powered:
-			PowerGrid.power_circuit("topside_floodlights")
-		else:
-			PowerGrid.lose_circuit("topside_floodlights")
+		# "power" means ALL of it — floodlights, mains, bloom lamps, standing fires:
+		# the far night frames want the rig lit like the lone worked thing it is.
+		for circuit in ["topside_floodlights", "bloom_lamps", "built_fires"]:
+			if powered:
+				PowerGrid.power_circuit(circuit)
+			else:
+				PowerGrid.lose_circuit(circuit)
 
 		_set_time(String(s[1]), float(s[2]))
 		if String(s[1]) != last_phase:
@@ -143,14 +174,28 @@ func _ready() -> void:
 
 		if _storm:
 			# RAGING(2) / CLEAR(0) — set directly so the squall is at full strength for
-			# the frame instead of ramping in over its authored 22 s.
+			# the frame instead of ramping in over its authored 22 s. The fog bank is
+			# seeded the same way: hold + level pushed straight to SunController.
 			_storm.set("_intensity", 1.0 if storming else 0.0)
 			_storm.set("_phase", 2 if storming else 0)
+			_storm.set("_fog_hold", 500.0 if foggy else 0.0)
+			_storm.set("_fog", 0.85 if foggy else 0.0)
 
 		var eye: Vector3 = s[3]
 		var aim: Vector3 = s[4]
-		if _player and storming:
-			_player.global_position = eye     # the rain box rides the player
+		if _player and (storming or diving):
+			_player.global_position = eye     # rain box AND underwater FX ride the player
+		# Underwater grading: borrow the player camera's environment if main has put one
+		# there by now (it mutates live with depth); otherwise fall back to a synthetic
+		# water env so a dive frame can never come out as washed-out grey void.
+		if diving:
+			var pcam2 := (_player.get("camera") as Camera3D) if _player else null
+			if pcam2 and pcam2.environment:
+				_cam.environment = pcam2.environment
+			else:
+				_cam.environment = _dive_env()
+		else:
+			_cam.environment = null
 		_cam.global_position = eye
 		_cam.look_at(aim, Vector3.UP)
 		_cam.fov = float(s[5])
@@ -161,6 +206,6 @@ func _ready() -> void:
 		var path: String = "%s/%s.png" % [OUT_DIR, String(s[0])]
 		img.save_png(path)
 		print("[%2d/20] %-20s %s  %s%s" % [shot_no, String(s[0]), String(s[1]),
-			"storm " if storming else "", "lit" if powered else ""])
+			("storm " if storming else "") + ("fog " if foggy else "") + ("dive " if diving else ""), "lit" if powered else ""])
 	print("photoshoot complete -> %s" % OUT_DIR)
 	get_tree().quit()

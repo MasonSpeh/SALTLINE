@@ -66,6 +66,10 @@ func _ready() -> void:
 	# coordinates from the machine shop / bunkhouse / topside deck built above.
 	# Preloaded by path — the global class cache may not know the new file yet.
 	add_child(preload("res://scripts/world/exterior_dress.gd").new())
+	# Release dressing: fills the sonar-measured EMPTY cells with real-rig furniture
+	# (pipe racks, cargo baskets, life-raft canisters, vents, risers, HVAC) so the
+	# whole platform reads evenly worked. Non-structural, off every walk lane.
+	add_child(preload("res://scripts/world/rig_realism.gd").new())
 
 ## Daylight spill for interiors (greybox stand-in for door/window light shafts).
 ## Grouped so SunController scales them with the sun — interiors go dark at night.

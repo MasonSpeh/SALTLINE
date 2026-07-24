@@ -1542,10 +1542,12 @@ class HarborSeal extends Node3D:
 	var _flippers: Array = []
 	var _hauled: bool = false            ## day rest on the dock corner
 	var _haul_timer: float = 0.0
-	const HAUL_SPOT := Vector3(24.2, 2.25, -19.2)   # tide-line corner of the wet deck
-## Moved off (25.8, -20.6): the seal's head rides ~1 m forward of its origin, which put
-## it inside the rusted drum at (26.0, -21.4) whenever it hauled out facing the water.
-## Here the nearest drum is ~2.4 m clear and it still rests on the same tide-line corner.
+	const HAUL_SPOT := Vector3(9.0, 2.25, -21.2)    # SW tide-line corner, off the walk lanes
+## Twice moved, now settled: (25.8,-20.6) put its head inside a rusted drum, and
+## (24.2,-19.2) parked it in the respawn->stairs walk lane where players tripped over
+## it. The south-west corner by the deck edge is off every route (dock gangplank lands
+## x19.5, stairs are x23.6, stores door faces north) and its head hangs over open
+## water at the rim, which is exactly where a hauled-out seal would point.
 
 	func _ready() -> void:
 		_t = randf() * 10.0

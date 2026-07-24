@@ -64,6 +64,13 @@ var _audio_cd: float = 0.0
 ## through windows) — they only shape the rain AUDIO.
 var _roof_dist: float = 1.0e9   ## metres up to the nearest roof overhead (huge = open sky)
 var _cover_frac: float = 0.0    ## fraction of the upward probe cone that is roofed
+## Sea fog: some squalls leave a bank of it behind as they clear — cold rain on warmer
+## water. Rolled when RAGING hands over to RAMP_OUT, held for a few minutes, then lifts.
+const FOG_CHANCE: float = 0.55
+const FOG_HOLD_MIN: float = 120.0
+const FOG_HOLD_MAX: float = 260.0
+var _fog: float = 0.0           ## eased 0..1, pushed to SunController like storm
+var _fog_hold: float = 0.0      ## seconds of fog bank left
 
 func setup(sun_controller: SunController) -> void:
 	sun_ctl = sun_controller
@@ -113,7 +120,7 @@ func _build_rain() -> void:
 	var streak := QuadMesh.new()
 	streak.size = Vector2(0.05, 0.55)
 	var smat := StandardMaterial3D.new()
-	smat.albedo_color = Color(0.78, 0.85, 0.95, 0.45)   # soft: streaks read, don't glare
+	smat.albedo_color = Color(0.78, 0.85, 0.95, 0.34)   # soft: streaks read, don't glare
 	smat.albedo_texture = _raindrop_mask()
 	smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
@@ -171,6 +178,7 @@ func _build_flash() -> void:
 
 func _process(delta: float) -> void:
 	_advance_schedule(delta)
+	_advance_fog(delta)
 	_update_shelter()
 	_apply_intensity()
 	_follow_player()
@@ -233,11 +241,26 @@ func _advance_schedule(delta: float) -> void:
 			if _timer <= 0.0:
 				_phase = StormPhase.RAMP_OUT
 				_timer = RAMP_OUT_SEC
+				if _rng.randf() < FOG_CHANCE:
+					_fog_hold = _rng.randf_range(FOG_HOLD_MIN, FOG_HOLD_MAX)
 		StormPhase.RAMP_OUT:
 			_intensity = move_toward(_intensity, 0.0, delta / RAMP_OUT_SEC)
 			if _timer <= 0.0:
 				_phase = StormPhase.CLEAR
 				_timer = _rng.randf_range(CALM_MIN, CALM_MAX)
+
+## The fog bank breathes on its own clock: builds while the rain is still ramping out,
+## sits, then lifts slowly — fog that snaps off with the last raindrop reads as a
+## graphics setting, not weather.
+func _advance_fog(delta: float) -> void:
+	_fog_hold = maxf(_fog_hold - delta, 0.0)
+	var target: float = 1.0 if _fog_hold > 0.0 else 0.0
+	_fog = move_toward(_fog, target, delta * (0.05 if target > _fog else 0.02))
+	if sun_ctl:
+		sun_ctl.set_fog(_fog)
+
+func fog_level() -> float:
+	return _fog
 
 func _apply_intensity() -> void:
 	var i: float = _intensity
