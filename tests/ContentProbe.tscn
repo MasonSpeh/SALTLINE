@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://content_probe"]
+[ext_resource type="Script" path="res://tests/content_probe.gd" id="1"]
+[node name="ContentProbe" type="Node"]
+script = ExtResource("1")
