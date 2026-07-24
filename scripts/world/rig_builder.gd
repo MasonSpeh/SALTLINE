@@ -733,6 +733,15 @@ const STAIR_APRON_Z0: float = 0.0 # door-landing extension starts here — NORTH
                                   # the extension can never overhang a run below it
 const OPS_Y: float = WET_Y + STAIR_N * STAIR_RISE   # 38.0 — the lookout floor
 
+# Shell footprint. Was x22..30 (8m) — the flight endpoints (STAIR_XW/XE) only left a
+# 1.5m pocket beyond each one for the turn platform to occupy, which read as a slot, not
+# a landing. Widened 1m per side; STAIR_XW/XE (the flights themselves) are untouched, so
+# this only grows the pocket the platform sits in, on both sides of an unchanged climb.
+# Symmetric about the same centre (26.0) the door mullions and exterior bands already
+# assume, so nothing north/south of the tower needed to move.
+const TOWER_X0: float = 21.0      # was 22.0
+const TOWER_X1: float = 31.0      # was 30.0
+
 func _build_stair_tower() -> void:
 	var mat: Material = MatLib.concrete()
 	var deck_mat: Material = MatLib.deck_plate()
@@ -746,13 +755,18 @@ func _build_stair_tower() -> void:
 	# lookout floor shimmered in 0.2m bands along every wall line. Topping out at 37.9
 	# buries the wall ends inside the slab with no shared face.
 	var shell_h: float = OPS_Y - WET_Y - 0.1
-	# Shell x22..30, z-6..2, rising to the ops floor. South wet-deck door; west deck door;
-	# north wall carries door gaps to the machinery (y6) + breaker (y10) annex rooms.
-	_wall(Vector3(22, WET_Y, -6), Vector3(30, WET_Y, -6), shell_h, mat, 0.2)   # south (wet-deck door)
+	# Shell TOWER_X0..TOWER_X1, z-6..2, rising to the ops floor. South wet-deck door; west
+	# deck door; north wall carries door gaps to the machinery (y6) + breaker (y10) annex
+	# rooms. South door_t is 0.26, not the round 0.2 the old 8m-wide wall used — it holds
+	# the door at the SAME x23.6 on the new 10m wall, because wet_deck_detail.gd hangs a
+	# sign, a lamp and a floor decal on that exact point; moving the door without moving
+	# them would un-align working signage for no reason.
+	_wall(Vector3(TOWER_X0, WET_Y, -6), Vector3(TOWER_X1, WET_Y, -6), shell_h, mat, 0.26)  # south (wet-deck door)
 	_north_wall_with_room_doors(mat, shell_h)                                  # north (+2 room doors)
-	_wall(Vector3(30, WET_Y, -6), Vector3(30, WET_Y, 2), shell_h, mat)         # east
+	_wall(Vector3(TOWER_X1, WET_Y, -6), Vector3(TOWER_X1, WET_Y, 2), shell_h, mat)  # east
 	_west_wall_with_deck_door(mat, shell_h)                                    # west (deck door cut in)
-	_corner_posts([Vector3(22, 0, -6), Vector3(30, 0, -6), Vector3(22, 0, 2), Vector3(30, 0, 2)],
+	_corner_posts([Vector3(TOWER_X0, 0, -6), Vector3(TOWER_X1, 0, -6),
+			Vector3(TOWER_X0, 0, 2), Vector3(TOWER_X1, 0, 2)],
 		WET_Y, shell_h, mat, 0.5)
 
 	# Entry pad from the south wet-deck door to the foot of flight 1 (at XW, z_S).
@@ -776,8 +790,10 @@ func _build_stair_tower() -> void:
 		if k == STAIR_N:
 			break   # the top flight lands in the ops-room floor, built below
 		# Turn platform in the wall-end pocket the flight tops into (never under the run).
-		var px_s: float = (30.0 - STAIR_XE) if top_x == STAIR_XE else (STAIR_XW - 22.0)
-		var px_c: float = (STAIR_XE + 30.0) * 0.5 if top_x == STAIR_XE else (22.0 + STAIR_XW) * 0.5
+		# Pocket depth is the shell wall out to the fixed flight endpoint — widening
+		# TOWER_X0/X1 grows the landing without touching the climb itself.
+		var px_s: float = (TOWER_X1 - STAIR_XE) if top_x == STAIR_XE else (STAIR_XW - TOWER_X0)
+		var px_c: float = (STAIR_XE + TOWER_X1) * 0.5 if top_x == STAIR_XE else (TOWER_X0 + STAIR_XW) * 0.5
 		_box(Vector3(px_c, y1 - 0.15, (STAIR_PZ0 + STAIR_PZ1) * 0.5),
 			Vector3(px_s, 0.3, STAIR_PZ1 - STAIR_PZ0), deck_mat)
 		# A guard rail along the platform's open (south) edge so the drop is fenced.
@@ -820,19 +836,22 @@ func _build_stair_tower() -> void:
 
 	# Exterior structure for the tall free-standing shaft above the deck: proud concrete
 	# bands wrap the four faces at two heights so it reads as a segmented tower, not a slab.
+	var tower_w: float = TOWER_X1 - TOWER_X0
 	for band_y in [DECK_Y + 4.0, DECK_Y + 12.0]:
-		_box(Vector3(26, band_y, -6.07), Vector3(8.7, 0.5, 0.14), mat, self, false)   # south face
-		_box(Vector3(26, band_y, 2.07), Vector3(8.7, 0.5, 0.14), mat, self, false)    # north face
-		_box(Vector3(21.93, band_y, -2), Vector3(0.14, 0.5, 8.3), mat, self, false)   # west face
-		_box(Vector3(30.07, band_y, -2), Vector3(0.14, 0.5, 8.3), mat, self, false)   # east face
+		_box(Vector3(26, band_y, -6.07), Vector3(tower_w + 0.7, 0.5, 0.14), mat, self, false)   # south face
+		_box(Vector3(26, band_y, 2.07), Vector3(tower_w + 0.7, 0.5, 0.14), mat, self, false)    # north face
+		_box(Vector3(TOWER_X0 - 0.07, band_y, -2), Vector3(0.14, 0.5, 8.3), mat, self, false)   # west face
+		_box(Vector3(TOWER_X1 + 0.07, band_y, -2), Vector3(0.14, 0.5, 8.3), mat, self, false)   # east face
 
-	# Machinery room (y=6) off landing 1 — holds the cable spool.
-	_room_north(Vector3(24, 6.0, 2), Vector3(30, 6.0, 10), MatLib.concrete(), 0.75)
+	# Machinery room (y=6) off landing 1 — holds the cable spool. Outer (far) edge grows
+	# with the shell; near edge (door side) is untouched so nothing inside it moves.
+	_room_north(Vector3(24, 6.0, 2), Vector3(TOWER_X1, 6.0, 10), MatLib.concrete(), 0.75)
 	_box(Vector3(27, 6.0 + 0.5, 6), Vector3(2.2, 1.0, 1.2), MatLib.dark_metal()) # dead machinery
 	_takeable("cable_spool", "Cable Spool", Vector3(27, 7.01, 6), Vector3(0.5, 0.5, 0.5))
 
-	# Breaker Room 4-A (y=10) off landing 2 — the power puzzle centerpiece.
-	_room_north(Vector3(22, 10.0, 2), Vector3(28, 10.0, 10), MatLib.concrete(), 0.25)
+	# Breaker Room 4-A (y=10) off landing 2 — the power puzzle centerpiece. Near (outer,
+	# west) edge grows with the shell; far edge (door side, x28) untouched.
+	_room_north(Vector3(TOWER_X0, 10.0, 2), Vector3(28, 10.0, 10), MatLib.concrete(), 0.25)
 	var breaker := BreakerPanel.new()
 	breaker.display_name = "Master Breaker 4-A"
 	breaker.circuit_id = "topside_floodlights"
@@ -901,7 +920,7 @@ func _build_stair_tower() -> void:
 	# The lookout that the whole climb finally leads to.
 	_build_ops_room(OPS_Y)
 
-## West wall of the stair tower (x=22, z -6..2), solid except a deck-level doorway
+## West wall of the stair tower (x=TOWER_X0, z -6..2), solid except a deck-level doorway
 ## at z -0.4..1.4 (y 18..20.4) so the climb spills out onto the topside deck. Cut as
 ## one CSG subtraction so the opening is a clean hole, not overlaid jamb boxes.
 func _west_wall_with_deck_door(mat: Material, shell_h: float) -> void:
@@ -912,7 +931,7 @@ func _west_wall_with_deck_door(mat: Material, shell_h: float) -> void:
 	wall.size = Vector3(WALL_T, shell_h, 8.0)          # spans z -6..2
 	wall.material = mat
 	comb.add_child(wall)
-	wall.position = Vector3(22, WET_Y + shell_h * 0.5, -2)
+	wall.position = Vector3(TOWER_X0, WET_Y + shell_h * 0.5, -2)
 	# The opening rect, declared ONCE and used for both the cut and the casing.
 	var ow: float = 1.8
 	var oh: float = 2.4
@@ -921,21 +940,21 @@ func _west_wall_with_deck_door(mat: Material, shell_h: float) -> void:
 	door.size = Vector3(WALL_T + 0.8, oh, ow)
 	door.operation = CSGShape3D.OPERATION_SUBTRACTION
 	comb.add_child(door)
-	door.position = Vector3(22, DECK_Y + oh * 0.5, oz)     # y 18..20.4, z -0.4..1.4
-	DOORFRAME.build(self, Vector3(22, DECK_Y, oz), false, ow, oh, WALL_T, MatLib.rust_steel())
+	door.position = Vector3(TOWER_X0, DECK_Y + oh * 0.5, oz)     # y 18..20.4, z -0.4..1.4
+	DOORFRAME.build(self, Vector3(TOWER_X0, DECK_Y, oz), false, ow, oh, WALL_T, MatLib.rust_steel())
 
-## North shell wall (z=2, x22..30), solid except door gaps onto the machinery room
-## (y6, door at x28.5) and the breaker room (y10, door at x23.5). Without these the
-## annexes sat behind a solid wall — the breaker puzzle room was unreachable.
+## North shell wall (z=2, x TOWER_X0..TOWER_X1), solid except door gaps onto the
+## machinery room (y6, door at x28.5) and the breaker room (y10, door at x23.5). Without
+## these the annexes sat behind a solid wall — the breaker puzzle room was unreachable.
 func _north_wall_with_room_doors(mat: Material, shell_h: float) -> void:
 	var comb := CSGCombiner3D.new()
 	comb.use_collision = true
 	add_child(comb)
 	var wall := CSGBox3D.new()
-	wall.size = Vector3(8.0, shell_h, WALL_T)          # spans x22..30
+	wall.size = Vector3(TOWER_X1 - TOWER_X0, shell_h, WALL_T)   # spans TOWER_X0..TOWER_X1
 	wall.material = mat
 	comb.add_child(wall)
-	wall.position = Vector3(26, WET_Y + shell_h * 0.5, 2)
+	wall.position = Vector3((TOWER_X0 + TOWER_X1) * 0.5, WET_Y + shell_h * 0.5, 2)
 	var steel: Material = MatLib.rust_steel()
 	var ow: float = 1.6
 	var oh: float = 2.4
@@ -1113,7 +1132,9 @@ func _build_topside() -> void:
 	comb.add_child(deck)
 	deck.position = Vector3(0, DECK_Y - 0.5, 0)
 	var hole := CSGBox3D.new()
-	hole.size = Vector3(8.2, 2.0, 8.2)
+	# x matches the widened tower shell (TOWER_X1-TOWER_X0) + 0.2m clearance; z is
+	# untouched since the shell's z-span (-6..2, 8.0) never changed.
+	hole.size = Vector3(TOWER_X1 - TOWER_X0 + 0.2, 2.0, 8.2)
 	hole.operation = CSGShape3D.OPERATION_SUBTRACTION
 	comb.add_child(hole)
 	hole.position = Vector3(26, DECK_Y - 0.5, -2)
@@ -2567,7 +2588,7 @@ func _add_wall_details() -> void:
 	# pierces the wall: axis along Z -> rotation.x, axis along X -> rotation.z).
 	var g1 := _cyl_nc(Vector3(13, WET_Y + 1.9, -5.85), 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82)))
 	g1.rotation.x = deg_to_rad(90)   # pump room north face
-	var g2 := _cyl_nc(Vector3(21.85, DECK_Y + 1.7, -1.5), 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82)))
+	var g2 := _cyl_nc(Vector3(TOWER_X0 - 0.15, DECK_Y + 1.7, -1.5), 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82)))
 	g2.rotation.z = deg_to_rad(90)   # stair tower west face
 	var g3 := _cyl_nc(Vector3(-13.85, DECK_Y + 1.9, -8.5), 0.12, 0.05, MatLib.flat(Color(0.88, 0.88, 0.82)))
 	g3.rotation.z = deg_to_rad(90)   # machine shop east face
@@ -2594,7 +2615,7 @@ func _add_wall_details() -> void:
 	# Maintenance plaques flush on wall faces (thin axis = wall normal).
 	_box(Vector3(15, WET_Y + 2.2, -5.86), Vector3(0.4, 0.25, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
 	_box(Vector3(24.8, 11.6, 9.86), Vector3(0.5, 0.3, 0.03), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
-	_box(Vector3(21.86, DECK_Y + 2.2, 0.5), Vector3(0.03, 0.15, 0.8), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
+	_box(Vector3(TOWER_X0 - 0.14, DECK_Y + 2.2, 0.5), Vector3(0.03, 0.15, 0.8), MatLib.flat(Color(0.15, 0.15, 0.15)), self, false)
 
 # ---------- Industrial dressing: beams, pipes, wiring ----------
 
@@ -2659,10 +2680,10 @@ func _industrial_dressing() -> void:
 	_wire(Vector3(10.5, WET_Y + 2.4, -14.6), Vector3(18.0, WET_Y + 2.4, -14.6), 0.07, pipe_mat)
 	# Power story in copper and rubber: a cable drop climbs the stair tower's west
 	# face from the wet deck to the breaker floor, then wiring hops pole to pole.
-	_wire(Vector3(21.85, WET_Y + 0.4, 1.4), Vector3(21.85, 19.4, 1.4), 0.05, dark)
-	_box(Vector3(21.82, 6.4, 1.4), Vector3(0.14, 0.5, 0.35), dark, self, false)   # junction boxes
-	_box(Vector3(21.82, 10.4, 1.4), Vector3(0.14, 0.5, 0.35), dark, self, false)
-	_wire(Vector3(21.9, 19.4, 1.4), Vector3(14, DECK_Y + 3.5, 7), 0.025, dark)
+	_wire(Vector3(TOWER_X0 - 0.15, WET_Y + 0.4, 1.4), Vector3(TOWER_X0 - 0.15, 19.4, 1.4), 0.05, dark)
+	_box(Vector3(TOWER_X0 - 0.18, 6.4, 1.4), Vector3(0.14, 0.5, 0.35), dark, self, false)   # junction boxes
+	_box(Vector3(TOWER_X0 - 0.18, 10.4, 1.4), Vector3(0.14, 0.5, 0.35), dark, self, false)
+	_wire(Vector3(TOWER_X0 - 0.1, 19.4, 1.4), Vector3(14, DECK_Y + 3.5, 7), 0.025, dark)
 	_wire(Vector3(-14, DECK_Y + 3.5, -8), Vector3(14, DECK_Y + 3.5, -8), 0.022, dark)
 	_wire(Vector3(-14, DECK_Y + 3.5, 7), Vector3(14, DECK_Y + 3.5, 7), 0.022, dark)
 	_wire(Vector3(-14, DECK_Y + 3.5, -8), Vector3(-14, DECK_Y + 3.5, 7), 0.022, dark)
@@ -2821,12 +2842,12 @@ func _more_industry() -> void:
 		_valve_wheel(Vector3(18.3, WET_Y + 1.3, rz), "y", pipe)
 	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -13.0), Vector3(18.3, WET_Y + 0.3, -11.1), 0.11, "z", pipe, true, true)
 	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -8.9), Vector3(18.3, WET_Y + 0.3, -7.0), 0.11, "z", pipe, true, true)
-	# Loot room north face (z=-16.1) and stair tower west face (x=21.85).
+	# Loot room north face (z=-16.1) and stair tower west face (x=TOWER_X0-0.15).
 	for spec2 in [[1.4, 0.09], [1.75, 0.07]]:
 		_pipe_fitted(Vector3(10.3, WET_Y + spec2[0], -16.1), Vector3(15.7, WET_Y + spec2[0], -16.1), spec2[1], "x", pipe, false, false)
 	for spec3 in [[1.2, 0.1, true], [1.6, 0.08, false], [2.0, 0.06, false]]:
-		_pipe_fitted(Vector3(21.85, WET_Y + spec3[0], -5.6), Vector3(21.85, WET_Y + spec3[0], 1.6), spec3[1], "z", pipe, spec3[2], false)
-	_gauge(Vector3(21.7, WET_Y + 1.2, -3.0), "x")
+		_pipe_fitted(Vector3(TOWER_X0 - 0.15, WET_Y + spec3[0], -5.6), Vector3(TOWER_X0 - 0.15, WET_Y + spec3[0], 1.6), spec3[1], "z", pipe, spec3[2], false)
+	_gauge(Vector3(TOWER_X0 - 0.3, WET_Y + 1.2, -3.0), "x")
 
 	# --- Under-deck: a riser + cable bundle up every leg, tied by a distribution ring ---
 	for leg in [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]:

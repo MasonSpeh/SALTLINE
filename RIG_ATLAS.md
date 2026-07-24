@@ -1,6 +1,6 @@
 # RIG ATLAS — SALTLINE main rig, sonar scan briefing
 
-*Generated 2026-07-23 21:31 · 683,543 tris · 483 manifest props · regenerate with `~/SALTLINE/tools/export_rig.sh`*
+*Generated 2026-07-23 21:51 · 683,543 tris · 483 manifest props · regenerate with `~/SALTLINE/tools/export_rig.sh`*
 
 ## Coordinate contract (verified exact)
 
@@ -37,7 +37,7 @@ Scan bounds (mm): x[-41839,60532] y[-23276,37540] z[-92000,51720]
 | machine_shop | [-28,-14] | [-18,-6] | [18.0,21.2] | 34 |
 | bunkhouse | [-28,-8] | [4,18] | [18.0,21.2] | 82 |
 | deck_d_cabins | [8,30] | [4,19] | [28.6,32.0] | 38 |
-| stair_tower | [22,30] | [-6,2] | [2.0,21.2] | 0 |
+| stair_tower | [21,31] | [-6,2] | [2.0,21.2] | 0 |
 | deck_b_cabins | [-2,30] | [4,19] | [21.6,25.0] | 54 |
 | deck_c_cabins | [-2,30] | [4,19] | [25.1,28.5] | 42 |
 | stack_roof | [-2,30] | [4,19] | [32.1,36.0] | 3 |
