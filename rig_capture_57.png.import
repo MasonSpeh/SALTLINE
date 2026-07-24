@@ -2,21 +2,21 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://duxe78y8v6ikf"
-path.s3tc="res://.godot/imported/rig_capture__orm11.png-a9059ec1cbde0788cdaa267c44204653.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture__orm11.png-a9059ec1cbde0788cdaa267c44204653.etc2.ctex"
+uid="uid://dhnot0ci4ypnj"
+path.s3tc="res://.godot/imported/rig_capture_57.png-20d58470bb61a1d3c50c8b0d6117129c.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_57.png-20d58470bb61a1d3c50c8b0d6117129c.etc2.ctex"
 metadata={
 "imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
-"md5": "77d3a570617b492222735d33db7a37f6"
+"md5": "ff7f298c60b9f7f0f3f351354ef6ba68"
 }
 
 [deps]
 
-source_file="res://rig_capture__orm11.png"
-dest_files=["res://.godot/imported/rig_capture__orm11.png-a9059ec1cbde0788cdaa267c44204653.s3tc.ctex", "res://.godot/imported/rig_capture__orm11.png-a9059ec1cbde0788cdaa267c44204653.etc2.ctex"]
+source_file="res://rig_capture_57.png"
+dest_files=["res://.godot/imported/rig_capture_57.png-20d58470bb61a1d3c50c8b0d6117129c.s3tc.ctex", "res://.godot/imported/rig_capture_57.png-20d58470bb61a1d3c50c8b0d6117129c.etc2.ctex"]
 
 [params]
 
@@ -30,8 +30,8 @@ compress/normal_map=0
 compress/channel_pack=0
 mipmaps/generate=true
 mipmaps/limit=-1
-roughness/mode=8
-roughness/src_normal="res://rig_capture_Fabric062_1K-JPG_NormalGL4.png"
+roughness/mode=0
+roughness/src_normal=""
 process/channel_remap/red=0
 process/channel_remap/green=1
 process/channel_remap/blue=2
