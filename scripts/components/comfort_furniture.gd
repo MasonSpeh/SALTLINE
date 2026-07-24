@@ -518,6 +518,21 @@ class Hearth extends Interactable:
 	var _flame: MeshInstance3D = null
 	var _hour_per_sec: float = 0.0
 	var _flicker: float = 0.0
+	var _owns_light: bool = true       ## false when we adopted the structure's own light
+
+	## The OmniLight already sitting in this brazier, if any — structures.gd builds one
+	## for the brazier kit. Searched from our parent and distance-gated so we adopt the
+	## light in THIS fire basket, never a neighbouring fixture.
+	func _find_structure_light() -> OmniLight3D:
+		var host: Node = get_parent()
+		if host == null:
+			return null
+		for n in host.find_children("*", "OmniLight3D", true, false):
+			var l := n as OmniLight3D
+			if l != null and is_instance_valid(l) \
+					and l.global_position.distance_to(global_position) < 2.0:
+				return l
+		return null
 
 	func _init() -> void:
 		display_name = "Brazier"
@@ -587,14 +602,24 @@ class Hearth extends Interactable:
 			_zone.setup(Vector3(5.0, 3.0, 5.0))
 			add_child(_zone)
 			_zone.position = Vector3(0.0, 0.6, 0.0)
-			_light = OmniLight3D.new()
-			_light.light_color = Color(1.0, 0.62, 0.3)
-			_light.omni_range = 8.0
-			_light.light_energy = 2.1
-			_light.light_volumetric_fog_energy = 1.2
-			_light.shadow_enabled = true
-			add_child(_light)
-			_light.position = Vector3(0.0, 0.5, 0.0)
+			# ADOPT the structure's own light rather than adding a second one. A built
+			# brazier already carries a flickering shadow-casting OmniLight from
+			# structures.gd; lighting the Hearth used to stack another 0.45 m away, so
+			# one brazier burned TWO shadow lights on the same small mesh. Under
+			# gl_compatibility each mesh keeps only its nearest N lights, so the fire was
+			# competing with itself for those slots — which is why the FIREPLACE in
+			# particular winked out as the camera turned.
+			_light = _find_structure_light()
+			_owns_light = _light == null
+			if _owns_light:
+				_light = OmniLight3D.new()
+				_light.light_color = Color(1.0, 0.62, 0.3)
+				_light.omni_range = 8.0
+				_light.light_energy = 2.1
+				_light.light_volumetric_fog_energy = 1.2
+				_light.shadow_enabled = true
+				add_child(_light)
+				_light.position = Vector3(0.0, 0.5, 0.0)
 			# A tapered cone, not a cube. gl_compatibility has no glow pass, so an
 			# emission multiplier of 3 does not bloom — it just clips every channel to
 			# white and the fire photographs as a lightbulb in a drum. Keep the energy
@@ -627,8 +652,8 @@ class Hearth extends Interactable:
 			_flame.position = Vector3(0.0, 0.30, 0.0)
 		else:
 			_kill_heat()
-			if is_instance_valid(_light):
-				_light.queue_free()
+			if _owns_light and is_instance_valid(_light):
+				_light.queue_free()   # a structure's own light is not ours to free
 			if is_instance_valid(_flame):
 				_flame.queue_free()
 			_light = null
