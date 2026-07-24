@@ -13,17 +13,19 @@ const RAIN_SHADER: String = "res://materials/rain_particles.gdshader"
 ## Solid roofed volumes (world space) baked from the rig geometry: any rain drop
 ## whose position lands inside one is scaled invisible by the particle shader, so
 ## rooms stay dry while rain still falls past every window and open edge. Each row
-## is [min_x, min_y, min_z, max_x, max_y, max_z]. Box #4 (the wet-deck strip) is
-## roofed by the topside slab ~15 m up but OPEN on every side — as an AABB it
-## suppresses rain over the sheltered floor while leaving it visible past the lip.
+## is [min_x, min_y, min_z, max_x, max_y, max_z]. Box #4 is the whole shadow of the
+## topside plate (a single solid 60x40 slab at y17..18): everything under it — wet
+## deck, boat approach lanes, the pontoon walkway below — is genuinely roofed, and
+## the old SE-strip box covered barely a fifth of it, so rain fell indoors across
+## the west half of the rig and dripped through to under the structure.
 const COVER_BOXES: Array = [
 	[14.9, 2.0, -25.3, 21.1, 4.2, -22.9],   # SPHL pod interior
 	[10.0, 2.0, -14.0, 18.0, 5.2, -6.0],    # pump room (flooded)
 	[10.0, 2.0, -22.0, 16.0, 5.2, -16.0],   # loot / storage room
-	[8.0, 2.0, -20.0, 30.0, 17.0, 2.0],     # covered wet-deck strip (open-sided)
-	[22.0, 2.0, -6.0, 30.0, 38.0, 2.0],     # stair tower shaft
-	[24.0, 6.0, 2.0, 30.0, 9.2, 10.0],      # machinery room
-	[22.0, 10.0, 2.0, 28.0, 13.2, 10.0],    # breaker room 4-A
+	[-30.0, -1.5, -20.0, 30.0, 17.0, 20.0], # EVERYTHING under the topside plate (one solid 60x40 slab at y17..18 roofs its whole shadow, wet deck and pontoon walkway included)
+	[21.0, 2.0, -6.0, 31.0, 38.0, 2.0],     # stair tower shaft (widened shell x21..31)
+	[24.0, 6.0, 2.0, 31.0, 9.2, 8.8],       # machinery room (annexes end at z8.8 now)
+	[21.0, 10.0, 2.0, 28.0, 13.2, 8.8],     # breaker room 4-A
 	[20.0, 38.0, -8.0, 32.0, 41.0, 4.0],    # ops lookout
 	[-28.0, 18.0, 4.0, -8.0, 21.2, 18.0],   # bunkhouse
 	[-2.0, 18.0, 8.0, 14.0, 21.2, 18.0],    # galley
@@ -111,7 +113,7 @@ func _build_rain() -> void:
 	var streak := QuadMesh.new()
 	streak.size = Vector2(0.05, 0.55)
 	var smat := StandardMaterial3D.new()
-	smat.albedo_color = Color(0.78, 0.85, 0.95, 0.62)
+	smat.albedo_color = Color(0.78, 0.85, 0.95, 0.45)   # soft: streaks read, don't glare
 	smat.albedo_texture = _raindrop_mask()
 	smat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 	smat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
