@@ -279,7 +279,7 @@ func _run() -> void:
 	# owner spec: by day the whole pack hides under water at the legs.)
 	var CrabS := preload("res://scripts/world/crab.gd")
 	var crabs: Array = get_tree().get_nodes_in_group("giant_crab")
-	_check(crabs.size() == 10, "ten giant crabs live on the rig")
+	_check(crabs.size() == 14, "fourteen giant crabs live on the rig")
 	var under: int = 0
 	var on_deck: int = 0
 	var at_legs: int = 0
@@ -291,9 +291,9 @@ func _run() -> void:
 			under += 1
 		if absf(absf(cp.x) - 22.0) < 5.0 and absf(absf(cp.z) - 12.0) < 5.0:
 			at_legs += 1
-	_check(under == 10, "the whole pack roosts below the waterline by day (%d)" % under)
+	_check(under == crabs.size(), "the whole pack roosts below the waterline by day (%d)" % under)
 	_check(on_deck == 0, "no crab is up on deck in daylight — night is their hour (%d)" % on_deck)
-	_check(at_legs == 10, "every day roost clings to a caisson leg (%d/10)" % at_legs)
+	_check(at_legs == crabs.size(), "every day roost clings to a caisson leg (%d/%d)" % [at_legs, crabs.size()])
 	var lamp_free: bool = crabs.size() > 0
 	for cc in crabs:
 		if not (cc as Node).find_children("*", "Light3D", true, false).is_empty():
@@ -708,8 +708,13 @@ func _run() -> void:
 			"crab has a body: generated mesh or eight articulated legs")
 		if crab2._model != null:
 			_check(not crab2._mats.is_empty(), "generated crab is driven by the motion shader")
-	_check(crab2._claw_arms.size() == 2 and crab2._pincers.size() == 2,
-		"crab carries a VISIBLE two-claw overlay with moving jaws")
+	var overlay_hidden: bool = true
+	for leg in crab2._legs:
+		for m in (leg["hip"] as Node3D).get_children():
+			if m is MeshInstance3D and (m as MeshInstance3D).visible:
+				overlay_hidden = false
+	_check(overlay_hidden,
+		"the procedural fallback limbs stay hidden under the generated shell")
 	GameClock.force_phase(GameClock.Phase.DAY)
 
 	# Save round-trip.

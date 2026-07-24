@@ -21,7 +21,7 @@ const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
 const PEARL := Color(0.88, 0.94, 0.92)
 
-## --- Giant crabs (s14): TEN of them, spread around the four caisson legs -----------
+## --- Giant crabs (s15): FOURTEEN, spread around the four caisson legs --------------
 ## DAY: every crab clings to a submerged face of one of the 4 caisson legs (6x6 boxes at
 ## x=±22 z=±12 — SE fills x[19,25] z[-15,-9]), sidling its cling loop — visible to anyone
 ## who leans over a rim or swims. The crab carries a snail-style surface frame now
@@ -31,7 +31,7 @@ const PEARL := Color(0.88, 0.94, 0.92)
 ## edge), climbs an authored lane, and patrols the open plating in two rings — a SOUTH
 ## ring across the spawn/SPHL flat and an EAST ring up the corridor to the stair tower,
 ## right where the player walks. Waypoint heights are advisory; the seat owns the floor.
-const CRAB_COUNT: int = 10
+const CRAB_COUNT: int = 14
 # Two deck patrol rings (every corner clears legs/rooms/tower by >=1 m):
 const CRAB_PATROL_EAST: Array = [   # east corridor -> foot of the stair tower (z stays >-6.5)
 	Vector3(26, 2.6, -7.0), Vector3(29, 2.6, -7.0),
@@ -91,8 +91,12 @@ func _spawn_giant_crabs() -> void:
 		Vector3.ZERO, Vector3(-0.4, 0, -0.4), Vector3(-0.4, 0, 0.3),
 		Vector3(0.3, 0, -0.3), Vector3(-0.4, 0, 0.4), Vector3(-0.3, 0, 0.4),
 		Vector3(0.2, 0, 0.4), Vector3(-0.2, 0, -0.45), Vector3(0.4, 0, 0.2),
-		Vector3(0.45, 0, -0.15),
+		Vector3(0.45, 0, -0.15), Vector3(-0.45, 0, 0.15), Vector3(0.15, 0, -0.45),
+		Vector3(-0.15, 0, 0.45), Vector3(0.35, 0, 0.35),
 	]
+	# 14 crabs over 10 authored cling loops: the modulo doubles four of them up. A
+	# lane-mate offset walks the second crab a couple of metres along its loop so the
+	# pair reads as two animals sharing a leg face, not one crab drawn twice.
 	for i in range(CRAB_COUNT):
 		var crab: Node3D = CRAB.new()
 		crab.spawn_index = i
@@ -118,7 +122,11 @@ func _spawn_giant_crabs() -> void:
 		crab.patrol_loop = CRAB_PATROL_EAST if (i % 2) == 0 else CRAB_PATROL_SOUTH
 		crab.patrol_offset = offsets[i % offsets.size()]
 		add_child(crab)
-		crab.global_position = crab.roost_loop[0]
+		var seat: Vector3 = crab.roost_loop[0]
+		if i >= CRAB_ROOSTS.size():
+			var loop: Array = crab.roost_loop
+			seat = (loop[0] as Vector3).lerp(loop[1] as Vector3, 0.55)
+		crab.global_position = seat
 
 func _ready() -> void:
 	_spawn_giant_crabs()
@@ -1534,7 +1542,10 @@ class HarborSeal extends Node3D:
 	var _flippers: Array = []
 	var _hauled: bool = false            ## day rest on the dock corner
 	var _haul_timer: float = 0.0
-	const HAUL_SPOT := Vector3(25.8, 2.25, -20.6)   # tide-line corner of the wet deck
+	const HAUL_SPOT := Vector3(24.2, 2.25, -19.2)   # tide-line corner of the wet deck
+## Moved off (25.8, -20.6): the seal's head rides ~1 m forward of its origin, which put
+## it inside the rusted drum at (26.0, -21.4) whenever it hauled out facing the water.
+## Here the nearest drum is ~2.4 m clear and it still rests on the same tide-line corner.
 
 	func _ready() -> void:
 		_t = randf() * 10.0
@@ -1762,7 +1773,10 @@ class LampSnail extends Node3D:
 		sm.radius = 0.45
 		sm.height = 0.7
 		sm.is_hemisphere = true
-		sm.material = BloomFauna.glow_mat(Color(0.1, 0.12, 0.14), 0.0)
+		# The dome carries a dim teal bioluminescence of its own — at energy 0.0 the shell
+		# was matte black and only the pin-prick spots lit, so the "lamp" snail read as a
+		# dark lump with sparkles instead of a glowing animal.
+		sm.material = BloomFauna.glow_mat(Color(0.09, 0.30, 0.30), 0.55)
 		shell.mesh = sm
 		add_child(shell)
 		# The foot beneath.
@@ -1770,7 +1784,8 @@ class LampSnail extends Node3D:
 		var fm := CapsuleMesh.new()
 		fm.radius = 0.2
 		fm.height = 0.9
-		fm.material = BloomFauna.glow_mat(Color(0.18, 0.2, 0.22), 0.0)
+		# The foot glows fainter than the dome — light bleeding through soft tissue.
+		fm.material = BloomFauna.glow_mat(Color(0.10, 0.24, 0.24), 0.30)
 		foot.mesh = fm
 		foot.rotation.x = deg_to_rad(90)
 		foot.position.y = -0.15

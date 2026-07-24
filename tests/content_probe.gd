@@ -105,7 +105,7 @@ func _check_crabs() -> void:
 			stack.append(c)
 		if n is GiantCrab:
 			crabs.append(n)
-	_check("the full crab pack spawned", crabs.size() >= 10, "%d crabs" % crabs.size())
+	_check("the full crab pack spawned", crabs.size() >= 14, "%d crabs" % crabs.size())
 	var under: int = 0
 	var at_legs: int = 0
 	var claws: int = 0
@@ -115,14 +115,22 @@ func _check_crabs() -> void:
 			under += 1
 		if absf(absf(pos.x) - 22.0) < 5.0 and absf(absf(pos.z) - 12.0) < 5.0:
 			at_legs += 1
-		if (c as GiantCrab)._claw_arms.size() == 2:
+		# No procedural limb overlay may be VISIBLE on top of the generated shell —
+		# that is what put phantom jaws in front of the crab's own sculpted claws.
+		var stray: bool = false
+		for leg in (c as GiantCrab)._legs:
+			for n in [leg["hip"], leg["knee"]]:
+				for m in (n as Node3D).get_children():
+					if m is MeshInstance3D and (m as MeshInstance3D).visible:
+						stray = true
+		if not stray:
 			claws += 1
 	_check("every crab hides under water in daylight", under == crabs.size(),
 		"%d of %d below y0.5" % [under, crabs.size()])
 	_check("the pack is spread around the caisson legs", at_legs == crabs.size(),
 		"%d of %d within a leg footprint" % [at_legs, crabs.size()])
-	_check("every crab carries the animated claw overlay", claws == crabs.size(),
-		"%d of %d" % [claws, crabs.size()])
+	_check("no phantom limb geometry floats over the generated shell",
+		claws == crabs.size(), "%d of %d clean" % [claws, crabs.size()])
 
 ## Breaker 4-A: walk from the y10 landing, through the annex door, to within the
 ## interaction ray's reach of the panel — the reported symptom was that no prompt ever
