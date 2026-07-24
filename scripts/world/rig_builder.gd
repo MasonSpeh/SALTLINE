@@ -3132,10 +3132,10 @@ func _arrival_dressing() -> void:
 		link.position = Vector3(22.0 + rng.randf_range(-1.1, 1.1), WET_Y + 0.06 + i * 0.1, -15.85 + rng.randf_range(-0.15, 0.15))
 		link.rotation.y = rng.randf() * TAU
 		link.rotation.x = deg_to_rad(90) + rng.randf_range(-0.2, 0.2)
-	# Painted walk lane from the dock toward the stair tower.
-	for i in range(4):
-		_box(Vector3(21.0 + i * 2.0, WET_Y + 0.02, -19.5 + i * 0.9), Vector3(1.0, 0.01, 0.3),
-			MatLib.flat(Color(0.75, 0.65, 0.15)), self, false)
+	# (The painted walk lane from the dock to the stair tower is GONE — four flat yellow
+	# dashes on the plating, the last of the untextured floor decals. Promo shot 17
+	# caught them still reading as glitch quads lying on the deck after the rest were
+	# pulled; the wall stencils carry the route on their own.)
 
 ## Deck A + wet deck density: stools, pots, footlockers, hose reels — the
 ## second half of "double the interior detail".

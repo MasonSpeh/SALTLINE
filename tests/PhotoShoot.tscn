@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://photo_shoot"]
+[ext_resource type="Script" path="res://tests/photo_shoot.gd" id="1"]
+[node name="PhotoShoot" type="Node3D"]
+script = ExtResource("1")
