@@ -102,6 +102,11 @@ func _build_rain() -> void:
 	_rain.lifetime = 1.3
 	_rain.preprocess = 1.3
 	_rain.local_coords = false
+	# Pin the sim to 30fps + interpolate: the 5000-drop x 16-AABB cull loop no longer
+	# re-runs every rendered frame, so rain stops taxing high-refresh framerates. The
+	# drops still MOVE every frame (interpolation), so the look is unchanged.
+	_rain.fixed_fps = 30
+	_rain.interpolate = true
 	_rain.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 80, 80))
 	_rain.emitting = false
 	# A custom particles shader replaces ParticleProcessMaterial: it falls the drops
