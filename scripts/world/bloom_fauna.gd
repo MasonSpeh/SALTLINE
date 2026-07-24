@@ -50,29 +50,29 @@ const CRAB_EMERGE_Z: Array = [-8.0, -11.0, -14.0, -17.0, -20.0, -22.0]
 # the feet onto the concrete) and the OUTWARD normal of that face as `up`.
 const CRAB_ROOSTS: Array = [
 	# SE leg (x19..25, z-15..-9) — the leg by the spawn, 3 crabs
-	{"up": Vector3(1, 0, 0), "loop": [Vector3(25.3, -0.6, -10.0), Vector3(25.3, -0.6, -14.0),
-		Vector3(25.3, -1.8, -14.0), Vector3(25.3, -1.8, -10.0)]},
-	{"up": Vector3(0, 0, -1), "loop": [Vector3(24.0, -0.6, -15.3), Vector3(20.0, -0.6, -15.3),
-		Vector3(20.0, -1.8, -15.3), Vector3(24.0, -1.8, -15.3)]},
-	{"up": Vector3(-1, 0, 0), "loop": [Vector3(18.7, -0.6, -14.0), Vector3(18.7, -0.6, -10.0),
-		Vector3(18.7, -1.8, -10.0), Vector3(18.7, -1.8, -14.0)]},
+	{"up": Vector3(1, 0, 0), "loop": [Vector3(25.3, -0.35, -10.0), Vector3(25.3, -0.35, -14.0),
+		Vector3(25.3, -1.35, -14.0), Vector3(25.3, -1.35, -10.0)]},
+	{"up": Vector3(0, 0, -1), "loop": [Vector3(24.0, -0.35, -15.3), Vector3(20.0, -0.35, -15.3),
+		Vector3(20.0, -1.35, -15.3), Vector3(24.0, -1.35, -15.3)]},
+	{"up": Vector3(-1, 0, 0), "loop": [Vector3(18.7, -0.35, -14.0), Vector3(18.7, -0.35, -10.0),
+		Vector3(18.7, -1.35, -10.0), Vector3(18.7, -1.35, -14.0)]},
 	# NE leg (x19..25, z9..15) — 2 crabs
-	{"up": Vector3(1, 0, 0), "loop": [Vector3(25.3, -0.6, 10.0), Vector3(25.3, -0.6, 14.0),
-		Vector3(25.3, -1.8, 14.0), Vector3(25.3, -1.8, 10.0)]},
-	{"up": Vector3(0, 0, 1), "loop": [Vector3(20.0, -0.6, 15.3), Vector3(24.0, -0.6, 15.3),
-		Vector3(24.0, -1.8, 15.3), Vector3(20.0, -1.8, 15.3)]},
+	{"up": Vector3(1, 0, 0), "loop": [Vector3(25.3, -0.35, 10.0), Vector3(25.3, -0.35, 14.0),
+		Vector3(25.3, -1.35, 14.0), Vector3(25.3, -1.35, 10.0)]},
+	{"up": Vector3(0, 0, 1), "loop": [Vector3(20.0, -0.35, 15.3), Vector3(24.0, -0.35, 15.3),
+		Vector3(24.0, -1.35, 15.3), Vector3(20.0, -1.35, 15.3)]},
 	# SW leg (x-25..-19, z-15..-9) — 3 crabs
-	{"up": Vector3(0, 0, -1), "loop": [Vector3(-20.0, -0.6, -15.3), Vector3(-24.0, -0.6, -15.3),
-		Vector3(-24.0, -1.8, -15.3), Vector3(-20.0, -1.8, -15.3)]},
-	{"up": Vector3(-1, 0, 0), "loop": [Vector3(-25.3, -0.6, -14.0), Vector3(-25.3, -0.6, -10.0),
-		Vector3(-25.3, -1.8, -10.0), Vector3(-25.3, -1.8, -14.0)]},
-	{"up": Vector3(1, 0, 0), "loop": [Vector3(-18.7, -0.6, -10.0), Vector3(-18.7, -0.6, -14.0),
-		Vector3(-18.7, -1.8, -14.0), Vector3(-18.7, -1.8, -10.0)]},
+	{"up": Vector3(0, 0, -1), "loop": [Vector3(-20.0, -0.35, -15.3), Vector3(-24.0, -0.35, -15.3),
+		Vector3(-24.0, -1.35, -15.3), Vector3(-20.0, -1.35, -15.3)]},
+	{"up": Vector3(-1, 0, 0), "loop": [Vector3(-25.3, -0.35, -14.0), Vector3(-25.3, -0.35, -10.0),
+		Vector3(-25.3, -1.35, -10.0), Vector3(-25.3, -1.35, -14.0)]},
+	{"up": Vector3(1, 0, 0), "loop": [Vector3(-18.7, -0.35, -10.0), Vector3(-18.7, -0.35, -14.0),
+		Vector3(-18.7, -1.35, -14.0), Vector3(-18.7, -1.35, -10.0)]},
 	# NW leg (x-25..-19, z9..15) — 2 crabs
-	{"up": Vector3(-1, 0, 0), "loop": [Vector3(-25.3, -0.6, 10.0), Vector3(-25.3, -0.6, 14.0),
-		Vector3(-25.3, -1.8, 14.0), Vector3(-25.3, -1.8, 10.0)]},
-	{"up": Vector3(0, 0, 1), "loop": [Vector3(-24.0, -0.6, 15.3), Vector3(-20.0, -0.6, 15.3),
-		Vector3(-20.0, -1.8, 15.3), Vector3(-24.0, -1.8, 15.3)]},
+	{"up": Vector3(-1, 0, 0), "loop": [Vector3(-25.3, -0.35, 10.0), Vector3(-25.3, -0.35, 14.0),
+		Vector3(-25.3, -1.35, 14.0), Vector3(-25.3, -1.35, 10.0)]},
+	{"up": Vector3(0, 0, 1), "loop": [Vector3(-24.0, -0.35, 15.3), Vector3(-20.0, -0.35, 15.3),
+		Vector3(-20.0, -1.35, 15.3), Vector3(-24.0, -1.35, 15.3)]},
 ]
 
 ## Build one emergence climb up the east deck rim at depth-lane z: open water beyond the
@@ -246,9 +246,9 @@ func _ready() -> void:
 		["glow_kelp", Vector3(20.8, -4.2, 13.2), 3.6, ANIMH.Mode.SWAY, 0.28, 0.15, 0.7],
 		["glow_kelp", Vector3(23.5, -4.0, -9.8), 3.2, ANIMH.Mode.SWAY, 0.26, 0.2, 0.7],
 		["glow_kelp", Vector3(14.5, -4.2, -20.5), 3.8, ANIMH.Mode.SWAY, 0.3, 0.17, 0.7],
-		["bloom_anemone", Vector3(-19.2, -0.6, -11.8), 0.9, ANIMH.Mode.CIRRI, 0.03, 0.3, 1.1],
+		["bloom_anemone", Vector3(-19.2, -0.35, -11.8), 0.9, ANIMH.Mode.CIRRI, 0.03, 0.3, 1.1],
 		["bloom_anemone", Vector3(19.2, -0.5, 11.9), 0.8, ANIMH.Mode.CIRRI, 0.03, 0.33, 1.1],
-		["bloom_anemone", Vector3(25.0, -0.6, -11.7), 0.9, ANIMH.Mode.CIRRI, 0.03, 0.27, 1.1],
+		["bloom_anemone", Vector3(25.0, -0.35, -11.7), 0.9, ANIMH.Mode.CIRRI, 0.03, 0.27, 1.1],
 	]
 	for f in flora:
 		var patch := FloraPatch.new(f[0], f[2], f[3], f[4], f[5], f[6])
