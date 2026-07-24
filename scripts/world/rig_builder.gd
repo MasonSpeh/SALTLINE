@@ -769,6 +769,14 @@ func _build_stair_tower() -> void:
 			Vector3(TOWER_X0, 0, 2), Vector3(TOWER_X1, 0, 2)],
 		WET_Y, shell_h, mat, 0.5)
 
+	# BUMPOUT under the tower's east overhang. The main wet-deck slab stops at x30
+	# (centre 19, size 22), but widening the shell to TOWER_X1=31 pushed the tower's
+	# east metre out over open water: a 1 x 8 m strip of stairwell floor with nothing
+	# under it. Decked flush with the main slab (top y = WET_Y) and run 0.2 m past the
+	# wall line so there is no seam at the join.
+	_box(Vector3((30.0 + TOWER_X1 + 0.2) * 0.5, WET_Y - 0.25, -2.0),
+		Vector3(TOWER_X1 + 0.2 - 30.0, 0.5, 8.0), MatLib.checker_plate())
+
 	# Entry pad from the south wet-deck door to the foot of flight 1 (at XW, z_S).
 	_box(Vector3(23.0, WET_Y - 0.1, -4.6), Vector3(3.6, 0.2, 3.4), MatLib.checker_plate())
 
