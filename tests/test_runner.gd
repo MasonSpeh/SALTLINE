@@ -158,9 +158,9 @@ func _check_power_reachability(main: Node3D) -> void:
 	var route := {
 		"tower entry pad": Vector3(23.0, 2.0, -4.6),
 		"landing 1 (machinery)": Vector3(29.25, 6.0, -1.0),
-		"machinery floor (by spool)": Vector3(26.0, 6.0, 9.0),
+		"machinery floor (by spool)": Vector3(26.0, 6.0, 7.5),
 		"landing 2 (breaker)": Vector3(22.75, 10.0, -1.0),
-		"breaker floor (by panel)": Vector3(24.0, 10.0, 8.4),
+		"breaker floor (by panel)": Vector3(24.0, 10.0, 7.9),
 		"breaker floor (by cable gap)": Vector3(27.0, 10.0, 6.0),
 	}
 	var blocked: Array[String] = []
@@ -272,26 +272,28 @@ func _run() -> void:
 	PlayerState.use_hotbar(slot)
 	_check(PlayerState.hunger > before, "eating restores hunger")
 
-	# Giant crabs (s12): a persistent pack — underwater roosts by day, an authored climb
-	# over the EAST deck rim at night, a 0.25-life bite, light-scare, and scuttle audio
-	# hard-gated on visibility. (Pack size lives in BloomFauna.CRAB_COUNT.)
-	# s13: the pack is SEVEN. Six still roost underwater, but one keeps its day station on
-	# the wet deck. An all-underwater pack meant a player who never dived and never played
-	# the 47 minutes to nightfall could finish a session without meeting a crab at all —
-	# which is exactly what was reported. So the assertion is no longer "all of them are
-	# under water"; it is "the night pack is under water AND exactly one is up on the deck".
+	# Giant crabs (s14): a pack of TEN spread around the four caisson legs — underwater
+	# cling roosts by day (surface-frame seated on the leg faces, no hover), an authored
+	# climb over the EAST deck rim at night, a 0.2-life bite, light-scare, animated claw
+	# overlay, and scuttle audio hard-gated on visibility. (The s13 "day crab" is gone —
+	# owner spec: by day the whole pack hides under water at the legs.)
 	var CrabS := preload("res://scripts/world/crab.gd")
 	var crabs: Array = get_tree().get_nodes_in_group("giant_crab")
-	_check(crabs.size() == 7, "seven giant crabs live on the rig")
+	_check(crabs.size() == 10, "ten giant crabs live on the rig")
 	var under: int = 0
 	var on_deck: int = 0
+	var at_legs: int = 0
 	for cc in crabs:
-		if (cc as Node3D).global_position.y > 0.5:
+		var cp: Vector3 = (cc as Node3D).global_position
+		if cp.y > 0.5:
 			on_deck += 1
 		else:
 			under += 1
-	_check(under == 6, "the night pack roosts below the waterline by day (%d)" % under)
-	_check(on_deck == 1, "exactly one crab is visible on the wet deck by day (%d)" % on_deck)
+		if absf(absf(cp.x) - 22.0) < 5.0 and absf(absf(cp.z) - 12.0) < 5.0:
+			at_legs += 1
+	_check(under == 10, "the whole pack roosts below the waterline by day (%d)" % under)
+	_check(on_deck == 0, "no crab is up on deck in daylight — night is their hour (%d)" % on_deck)
+	_check(at_legs == 10, "every day roost clings to a caisson leg (%d/10)" % at_legs)
 	var lamp_free: bool = crabs.size() > 0
 	for cc in crabs:
 		if not (cc as Node).find_children("*", "Light3D", true, false).is_empty():
@@ -311,7 +313,7 @@ func _run() -> void:
 		PlayerState.life = 1.0
 		crab._bite_cd = 0.0
 		crab._try_bite(player)
-		_check(absf(PlayerState.life - 0.75) < 0.001, "a bite costs 0.25 life")
+		_check(absf(PlayerState.life - 0.8) < 0.001, "a bite costs 0.2 life")
 		_check(crab._bite_cd > 0.0, "bites are on a cooldown")
 		# Light scare: a held torch beam on it for half a second sends it to the water.
 		PlayerState.add_item("flashlight")
@@ -706,6 +708,8 @@ func _run() -> void:
 			"crab has a body: generated mesh or eight articulated legs")
 		if crab2._model != null:
 			_check(not crab2._mats.is_empty(), "generated crab is driven by the motion shader")
+	_check(crab2._claw_arms.size() == 2 and crab2._pincers.size() == 2,
+		"crab carries a VISIBLE two-claw overlay with moving jaws")
 	GameClock.force_phase(GameClock.Phase.DAY)
 
 	# Save round-trip.

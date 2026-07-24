@@ -21,39 +21,18 @@ const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
 const PEARL := Color(0.88, 0.94, 0.92)
 
-## --- Giant crabs (s12): the main night threat, now a pack the player actually MEETS ----
-## Six crabs (was three), spread so day and night both put them on the wet-deck routes.
-## DAY: each clings to a submerged SE face — pontoon east (x28), pontoon south (z-16) or
-## the sunken dock plate — a slow vertical sidle you catch by leaning over the rim. NIGHT:
-## on a staggered cue each climbs the EAST deck rim (x~30.25, the one clean water edge) and
-## patrols the open plating in two rings — a SOUTH ring across the spawn/SPHL flat and an
-## EAST ring up the corridor to the foot of the stair tower, right where the player walks.
-## Every point is validated against the sonar scan (.sonar-rig/rig_baked.glb) by down/up
-## raycasts + the known solids: the 4 caisson legs are 6x6 boxes at x=±22 z=±12 (the SE leg
-## fills x[19,25] z[-15,-9]); the SE pontoon is solid x16..28 z-16..-8 (top y0.95); rooms sit
-## at store x[10,16] z[-22,-16], pump x[10,18] z[-14,-6], SPHL x[12,21] z[-28,-21]; the deck
-## tops y2.0 and ends at the east rim x~30.25 and the south rim z~-22 (open water past both).
-const CRAB_COUNT: int = 7
-## The DAY crab. The other six roost underwater until dark, which is honest but means a
-## player never meets the animal the night is built around: NIGHT is 13 minutes of a
-## 60-minute cycle and arrives 47 minutes in, so a normal session ends without one ever
-## surfacing. This one keeps its day station ON the wet deck, working the open south flat
-## between the boat landing and the SE leg — the plating you cross walking in from spawn.
-## After dark it emerges and patrols with the rest of the pack.
-## Sonar-checked clear: south of the SE leg (x19..25, z-15..-9), east of the SPHL
-## (x12..21, z-28..-21), inboard of the south rim (z-22) and the east rim (x30.25), and
-## clear of the rigging bench and its clutter around x25, z-17.5.
-const CRAB_DAY_ROOST: Array = [
-	Vector3(24.0, 2.6, -19.4), Vector3(27.6, 2.6, -19.4),
-	Vector3(27.6, 2.6, -20.8), Vector3(24.0, 2.6, -20.8),
-]
-## Its "emergence" is a couple of steps out onto the flat, not a climb from the sea. FLEE
-## walks this path backwards at dawn and after a scare, so keeping both ends on the deck
-## is what stops the day crab swimming off at first light and never coming back.
-const CRAB_DAY_EMERGE: Array = [
-	Vector3(23.4, 2.6, -20.8), Vector3(24.6, 2.6, -19.8),
-]
-# Two deck patrol rings (y2.6; every corner clears legs/rooms/tower by >=1 m):
+## --- Giant crabs (s14): TEN of them, spread around the four caisson legs -----------
+## DAY: every crab clings to a submerged face of one of the 4 caisson legs (6x6 boxes at
+## x=±22 z=±12 — SE fills x[19,25] z[-15,-9]), sidling its cling loop — visible to anyone
+## who leans over a rim or swims. The crab carries a snail-style surface frame now
+## (crab.gd `up` + per-frame seat), so each loop names the FACE NORMAL it clings to and
+## the seat pins the feet to the real concrete: no more hovering at hand-typed heights.
+## NIGHT: on a staggered cue each crosses to the EAST rim (x~30.25, the one clean water
+## edge), climbs an authored lane, and patrols the open plating in two rings — a SOUTH
+## ring across the spawn/SPHL flat and an EAST ring up the corridor to the stair tower,
+## right where the player walks. Waypoint heights are advisory; the seat owns the floor.
+const CRAB_COUNT: int = 10
+# Two deck patrol rings (every corner clears legs/rooms/tower by >=1 m):
 const CRAB_PATROL_EAST: Array = [   # east corridor -> foot of the stair tower (z stays >-6.5)
 	Vector3(26, 2.6, -7.0), Vector3(29, 2.6, -7.0),
 	Vector3(29, 2.6, -16.0), Vector3(26, 2.6, -16.0),
@@ -62,27 +41,38 @@ const CRAB_PATROL_SOUTH: Array = [  # spawn/SPHL flat, south of the SE leg (z st
 	Vector3(22, 2.6, -16.0), Vector3(29, 2.6, -16.0),
 	Vector3(29, 2.6, -22.0), Vector3(22, 2.6, -22.0),
 ]
-# Emergence: six climbs up the EAST rim, one depth-lane each, spaced along the whole water
-# edge the player faces (z-8..-22; each lip landing x29.3 sits inboard of the rim bollard).
-# Each path is built by _crab_climb(z): open water -> rim -> lip -> deck.
+# Emergence: climbs up the EAST rim, one depth-lane each, spaced along the whole water
+# edge the player faces (z-8..-22; each lip landing x29.3 sits inboard of the rim
+# bollard). Ten crabs share the six lanes; the emergence stagger keeps lane-mates apart.
 const CRAB_EMERGE_Z: Array = [-8.0, -11.0, -14.0, -17.0, -20.0, -22.0]
-# Day roosts, one per crab, spread across the SE understructure — each ~0.7 m off a
-# submerged face so the crab reads as clinging to it, visible over the wet-deck rim:
+# Day roosts: one cling loop per crab on a caisson-leg face, 3+2+3+2 around the four
+# legs. Each entry names the face plane it crawls (points ~0.3 m proud — the seat pulls
+# the feet onto the concrete) and the OUTWARD normal of that face as `up`.
 const CRAB_ROOSTS: Array = [
-	# 0-2: pontoon EAST face (x28), three z-bands of a slow vertical sidle
-	[Vector3(28.7, -0.7, -8.5), Vector3(28.7, -0.7, -10.5),
-	 Vector3(28.7, -1.8, -10.5), Vector3(28.7, -1.8, -8.5)],
-	[Vector3(28.7, -0.7, -11.0), Vector3(28.7, -0.7, -13.0),
-	 Vector3(28.7, -1.8, -13.0), Vector3(28.7, -1.8, -11.0)],
-	[Vector3(28.7, -0.7, -13.5), Vector3(28.7, -0.7, -15.0),
-	 Vector3(28.7, -1.8, -15.0), Vector3(28.7, -1.8, -13.5)],
-	# 3-4: pontoon SOUTH face (z-16), east and west bands — seen from the dock/water
-	[Vector3(25.0, -0.7, -16.7), Vector3(21.5, -0.7, -16.7),
-	 Vector3(21.5, -1.8, -16.7), Vector3(25.0, -1.8, -16.7)],
-	[Vector3(20.5, -0.7, -16.7), Vector3(16.5, -0.7, -16.7),
-	 Vector3(16.5, -1.8, -16.7), Vector3(20.5, -1.8, -16.7)],
-	# 5: sunken dock plate (top y-1.3, x13.5-19.5 z-19.6), under the boat landing
-	[Vector3(13.5, -1.0, -19.6), Vector3(19.5, -1.0, -19.6)],
+	# SE leg (x19..25, z-15..-9) — the leg by the spawn, 3 crabs
+	{"up": Vector3(1, 0, 0), "loop": [Vector3(25.3, -0.6, -10.0), Vector3(25.3, -0.6, -14.0),
+		Vector3(25.3, -1.8, -14.0), Vector3(25.3, -1.8, -10.0)]},
+	{"up": Vector3(0, 0, -1), "loop": [Vector3(24.0, -0.6, -15.3), Vector3(20.0, -0.6, -15.3),
+		Vector3(20.0, -1.8, -15.3), Vector3(24.0, -1.8, -15.3)]},
+	{"up": Vector3(-1, 0, 0), "loop": [Vector3(18.7, -0.6, -14.0), Vector3(18.7, -0.6, -10.0),
+		Vector3(18.7, -1.8, -10.0), Vector3(18.7, -1.8, -14.0)]},
+	# NE leg (x19..25, z9..15) — 2 crabs
+	{"up": Vector3(1, 0, 0), "loop": [Vector3(25.3, -0.6, 10.0), Vector3(25.3, -0.6, 14.0),
+		Vector3(25.3, -1.8, 14.0), Vector3(25.3, -1.8, 10.0)]},
+	{"up": Vector3(0, 0, 1), "loop": [Vector3(20.0, -0.6, 15.3), Vector3(24.0, -0.6, 15.3),
+		Vector3(24.0, -1.8, 15.3), Vector3(20.0, -1.8, 15.3)]},
+	# SW leg (x-25..-19, z-15..-9) — 3 crabs
+	{"up": Vector3(0, 0, -1), "loop": [Vector3(-20.0, -0.6, -15.3), Vector3(-24.0, -0.6, -15.3),
+		Vector3(-24.0, -1.8, -15.3), Vector3(-20.0, -1.8, -15.3)]},
+	{"up": Vector3(-1, 0, 0), "loop": [Vector3(-25.3, -0.6, -14.0), Vector3(-25.3, -0.6, -10.0),
+		Vector3(-25.3, -1.8, -10.0), Vector3(-25.3, -1.8, -14.0)]},
+	{"up": Vector3(1, 0, 0), "loop": [Vector3(-18.7, -0.6, -10.0), Vector3(-18.7, -0.6, -14.0),
+		Vector3(-18.7, -1.8, -14.0), Vector3(-18.7, -1.8, -10.0)]},
+	# NW leg (x-25..-19, z9..15) — 2 crabs
+	{"up": Vector3(-1, 0, 0), "loop": [Vector3(-25.3, -0.6, 10.0), Vector3(-25.3, -0.6, 14.0),
+		Vector3(-25.3, -1.8, 14.0), Vector3(-25.3, -1.8, 10.0)]},
+	{"up": Vector3(0, 0, 1), "loop": [Vector3(-24.0, -0.6, 15.3), Vector3(-20.0, -0.6, 15.3),
+		Vector3(-20.0, -1.8, 15.3), Vector3(-24.0, -1.8, 15.3)]},
 ]
 
 ## Build one emergence climb up the east deck rim at depth-lane z: open water beyond the
@@ -93,32 +83,40 @@ func _crab_climb(z: float) -> Array:
 		Vector3(30.3, 1.7, z), Vector3(29.3, 2.6, z)]
 
 func _spawn_giant_crabs() -> void:
-	# First three crabs work the EAST ring (roosting on the pontoon east face), the last
-	# three the SOUTH ring (pontoon south face + dock plate) — both rings stay manned and
-	# each crab's roost sits near the rim-lane it climbs, so the dawn/night treks stay short.
-	var patrols: Array = [CRAB_PATROL_EAST, CRAB_PATROL_EAST, CRAB_PATROL_EAST,
-		CRAB_PATROL_SOUTH, CRAB_PATROL_SOUTH, CRAB_PATROL_SOUTH]
-	# Small anti-overlap fan on the shared ring: each nudge <=0.4 m and pointed INBOARD /
-	# away from the nearest rim, so base+offset never leaves the open deck. The crab also
-	# wall-probes between waypoints and the unstick guard relocates it if a prop pins it.
+	# Ring assignment alternates so both rings stay manned all night; the offsets fan
+	# the shared loops. Each nudge <=0.4 m and pointed INBOARD / away from the nearest
+	# rim, so base+offset never leaves the open deck. The crab also wall-probes between
+	# waypoints and the unstick guard relocates it if a prop pins it.
 	var offsets: Array = [
 		Vector3.ZERO, Vector3(-0.4, 0, -0.4), Vector3(-0.4, 0, 0.3),
-		Vector3.ZERO, Vector3(-0.4, 0, 0.4), Vector3(-0.3, 0, 0.4),
+		Vector3(0.3, 0, -0.3), Vector3(-0.4, 0, 0.4), Vector3(-0.3, 0, 0.4),
+		Vector3(0.2, 0, 0.4), Vector3(-0.2, 0, -0.45), Vector3(0.4, 0, 0.2),
+		Vector3(0.45, 0, -0.15),
 	]
 	for i in range(CRAB_COUNT):
 		var crab: Node3D = CRAB.new()
 		crab.spawn_index = i
-		if i == CRAB_COUNT - 1:
-			# The day crab: deck roost, deck "emergence", south ring after dark.
-			crab.roost_loop = CRAB_DAY_ROOST
-			crab.emerge_path = CRAB_DAY_EMERGE
-			crab.patrol_loop = CRAB_PATROL_SOUTH
-			crab.patrol_offset = Vector3(0.3, 0, -0.3)
-		else:
-			crab.roost_loop = CRAB_ROOSTS[i % CRAB_ROOSTS.size()]
-			crab.emerge_path = _crab_climb(CRAB_EMERGE_Z[i % CRAB_EMERGE_Z.size()])
-			crab.patrol_loop = patrols[i % patrols.size()]
-			crab.patrol_offset = offsets[i % offsets.size()]
+		var roost: Dictionary = CRAB_ROOSTS[i % CRAB_ROOSTS.size()]
+		crab.roost_loop = roost["loop"]
+		crab.roost_up = roost["up"]
+		# Transit legs: the climb lanes are all on the EAST rim, so crabs roosting on
+		# the west and north legs get authored swim waypoints routing them AROUND the
+		# solid pontoon (x16..28, z-16..-8) and the deck structures instead of straight
+		# through them — the emergence is direct (probe-free) motion, so without these
+		# a NW crab would swim through 40m of concrete on its way to the rim. FLEE walks
+		# the same list backwards, so the retreat retraces the same honest route home.
+		var lead: Array = []
+		var rk: int = i % CRAB_ROOSTS.size()
+		if rk in [3, 4]:        # NE leg: east around the rim, outside x30.25
+			lead = [Vector3(30.8, -1.2, 4.0)]
+		elif rk in [5, 6, 7]:   # SW leg: south of the pontoon, along the dock lane
+			lead = [Vector3(-22.0, -1.2, -18.5), Vector3(0.0, -1.4, -19.8),
+				Vector3(22.0, -1.2, -20.5)]
+		elif rk in [8, 9]:      # NW leg: across the north face, then down the east rim
+			lead = [Vector3(0.0, -1.2, 17.0), Vector3(30.8, -1.2, 4.0)]
+		crab.emerge_path = lead + _crab_climb(CRAB_EMERGE_Z[i % CRAB_EMERGE_Z.size()])
+		crab.patrol_loop = CRAB_PATROL_EAST if (i % 2) == 0 else CRAB_PATROL_SOUTH
+		crab.patrol_offset = offsets[i % offsets.size()]
 		add_child(crab)
 		crab.global_position = crab.roost_loop[0]
 

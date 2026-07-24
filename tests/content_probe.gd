@@ -92,8 +92,10 @@ func _check_rain() -> void:
 		_check("rain has a process material and a draw pass",
 			rain.process_material != null and rain.draw_pass_1 != null)
 
-## At least one crab must be standing on the wet deck in daylight. The pack roosts
-## underwater by day, so before the day crab was added this was zero on a fresh start.
+## s14 crab spec: TEN crabs, all hiding under water in daylight, clinging spread
+## around the four caisson legs (visible by leaning over a rim or diving) — none up on
+## the plating until night. Their bodies must also be SEATED near their authored cling
+## bands, not hovering at hand-typed heights (the old pack floated 0.6 m off the deck).
 func _check_crabs() -> void:
 	var crabs: Array = []
 	var stack: Array = [get_tree().root]
@@ -103,21 +105,24 @@ func _check_crabs() -> void:
 			stack.append(c)
 		if n is GiantCrab:
 			crabs.append(n)
-	_check("the crab pack spawned", crabs.size() >= 6, "%d crabs" % crabs.size())
-	var on_deck: Array = []
+	_check("the full crab pack spawned", crabs.size() >= 10, "%d crabs" % crabs.size())
+	var under: int = 0
+	var at_legs: int = 0
+	var claws: int = 0
 	for c in crabs:
-		if (c as Node3D).global_position.y > WET_Y - 0.5:
-			on_deck.append(c)
-	_check("at least one crab is on the wet deck in daylight", on_deck.size() >= 1,
-		"%d of %d above y%.1f; positions %s"
-			% [on_deck.size(), crabs.size(), WET_Y - 0.5,
-				str(on_deck.map(func(c): return (c as Node3D).global_position.snapped(Vector3.ONE * 0.1)))])
-	# It must also be somewhere the player actually walks, not parked under the rig.
-	for c in on_deck:
 		var pos: Vector3 = (c as Node3D).global_position
-		_check("the deck crab stands on open plating",
-			pos.x > 21.0 and pos.x < 30.0 and pos.z > -22.0 and pos.z < -8.0,
-			str(pos.snapped(Vector3.ONE * 0.1)))
+		if pos.y < 0.5:
+			under += 1
+		if absf(absf(pos.x) - 22.0) < 5.0 and absf(absf(pos.z) - 12.0) < 5.0:
+			at_legs += 1
+		if (c as GiantCrab)._claw_arms.size() == 2:
+			claws += 1
+	_check("every crab hides under water in daylight", under == crabs.size(),
+		"%d of %d below y0.5" % [under, crabs.size()])
+	_check("the pack is spread around the caisson legs", at_legs == crabs.size(),
+		"%d of %d within a leg footprint" % [at_legs, crabs.size()])
+	_check("every crab carries the animated claw overlay", claws == crabs.size(),
+		"%d of %d" % [claws, crabs.size()])
 
 ## Breaker 4-A: walk from the y10 landing, through the annex door, to within the
 ## interaction ray's reach of the panel — the reported symptom was that no prompt ever
@@ -156,7 +161,7 @@ func _check_breaker() -> void:
 		Vector3(22.7, 10.15, -1.0),
 		Vector3(23.5, 10.15, 1.0),
 		Vector3(23.5, 10.15, 3.5),
-		Vector3(23.2, 10.15, 8.4),
+		Vector3(23.2, 10.15, 7.9),
 	]
 	_body.global_position = route[0]
 	for i in range(30):
@@ -198,3 +203,13 @@ func _check_breaker() -> void:
 	var dist: float = eye.distance_to(panel.global_position)
 	_check("the breaker is within the interaction ray's reach", dist <= REACH,
 		"%.2fm from the panel (reach %.1fm)" % [dist, REACH])
+	# LINE OF SIGHT — the check whose absence let a buried panel pass before: the NE
+	# caisson leg rose through the old room and the panel sat whole inside its concrete,
+	# while this probe only measured straight-line distance. The eye-to-panel ray must
+	# now reach the panel's OWN body, not whatever concrete stands in between.
+	var q := PhysicsRayQueryParameters3D.create(eye, panel.global_position)
+	q.exclude = [(_body as CollisionObject3D).get_rid()]
+	var hit: Dictionary = _body.get_world_3d().direct_space_state.intersect_ray(q)
+	_check("the breaker is VISIBLE from where the player stands (nothing in between)",
+		not hit.is_empty() and (hit.get("collider") as Node) == panel,
+		"ray hit %s" % (hit.get("collider") if not hit.is_empty() else "nothing"))
