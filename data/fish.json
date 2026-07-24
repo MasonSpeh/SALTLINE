@@ -1,5 +1,5 @@
 {
-  "_schema": "fish_id -> { name, rod, net, deep:true (deep-drop RIG pool ONLY — bait-gated, never rolls on the surface rod/net), w:{dawn,day,dusk,night}, storm: ok|only|never|bonus, light: any|drawn, water: any|near|open, depth: surface|mid|deep, fight, pull, cooked_to, school:{count,size,tint:[r,g,b],active:phases}, note }. One source of truth: rod rolls, net rolls, deep-drop rolls, stove map, visible schools, and the Angler's Notes readable are ALL generated from this table.",
+  "_schema": "fish_id -> { name, rod, net, deep:true (deep-drop RIG pool ONLY \u2014 bait-gated, never rolls on the surface rod/net), w:{dawn,day,dusk,night}, storm: ok|only|never|bonus, light: any|drawn, water: any|near|open, depth: surface|mid|deep, fight, pull, cooked_to, school:{count,size,tint:[r,g,b],active:phases}, note }. One source of truth: rod rolls, net rolls, deep-drop rolls, stove map, visible schools, and the Angler's Notes readable are ALL generated from this table.",
   "fish_copper_sprat": {
     "name": "Copper Sprat",
     "rod": true,
@@ -18,7 +18,7 @@
     "pull": 0.4,
     "cooked_to": "cooked_fish_copper_sprat",
     "school": {
-      "count": 22,
+      "count": 34,
       "size": 0.6,
       "tint": [
         0.75,
@@ -53,7 +53,7 @@
     "pull": 0.65,
     "cooked_to": "cooked_fish_herring",
     "school": {
-      "count": 16,
+      "count": 26,
       "size": 1.0,
       "tint": [
         0.7,
@@ -88,7 +88,7 @@
     "pull": 0.9,
     "cooked_to": "cooked_fish_slate_cod",
     "school": {
-      "count": 6,
+      "count": 10,
       "size": 1.3,
       "tint": [
         0.42,
@@ -186,7 +186,7 @@
     "pull": 1.0,
     "cooked_to": "cooked_fish_silver_ladder",
     "school": {
-      "count": 12,
+      "count": 20,
       "size": 0.9,
       "tint": [
         0.8,
@@ -668,7 +668,7 @@
       ],
       "active": []
     },
-    "note": "Deep-drop rig only. All jaw and gut — it swallows things bigger than itself. Night water, off the bottom, on a baited hook."
+    "note": "Deep-drop rig only. All jaw and gut \u2014 it swallows things bigger than itself. Night water, off the bottom, on a baited hook."
   },
   "fish_bloom_dragon": {
     "name": "Bloom Dragonfish",

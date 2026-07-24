@@ -31,6 +31,7 @@ func _ready() -> void:
 	_spawn_schools()
 	_rig_underlights()
 	_deep_giants()
+	_open_water_rays()
 	# The sculpted sea floor + wreck field + reef communities, and the visibility /
 	# light FX (Snell window, shafts, caustics, depth-graded fog). Both self-contain,
 	# so wiring them here keeps main.gd (owned by the waves/sky builder) untouched.
@@ -226,6 +227,8 @@ func _deep_giants() -> void:
 		["fish_fathom_halibut", 3.2, -29.0, 11.0, 0.045, 4.2],
 		["fish_fathom_halibut", 4.1, -20.0, 15.0, 0.033, 1.1],  # a second, larger halibut
 		["fish_barrel_grouper", 2.8, -14.0, 9.0, 0.060, 5.0],   # a lesser one on the shallow edge
+		["fish_barrel_grouper", 3.2, -12.0, 19.0, 0.042, 3.3],  # shallow enough to read clearly
+		["fish_fathom_halibut", 3.6, -16.0, 21.0, 0.030, 0.7],  # wide slow lap, semi-visible
 	]
 	for s in specs:
 		# Size jitter so no two runs stamp the identical fish.
@@ -243,6 +246,72 @@ func _deep_giants() -> void:
 			_rng.randf() * TAU)
 		leviathan.slug = "fish_barrel_grouper"
 		add_child(leviathan)
+
+## OPEN-WATER RAYS. Until now the only ray in the game was the rare aerial night flyover
+## (bloom_fauna.MantleRay, y38-50) — a player diving or leaning over the rim never met
+## one. These are real underwater rays: broad slow gliders banking around the rig in the
+## shallow-to-mid band (-7..-14 m), close enough to the surface that you catch them from
+## the deck edge or on the first breath down. Three of them, spread and phased so one is
+## almost always somewhere in view. Kept off the ambient DEEP roster on purpose — these
+## are shallow and MEANT to be seen; the deep dark stays the groupers' domain.
+func _open_water_rays() -> void:
+	var specs := [
+		# [span_m, band_y, orbit_r, rate, phase]
+		[5.5, -8.5, 20.0, 0.055, 0.0],
+		[6.4, -11.0, 25.0, 0.040, 2.1],
+		[4.8, -7.0, 16.0, 0.070, 4.3],
+	]
+	for spec in specs:
+		var ray := GliderRay.new(float(spec[0]), float(spec[1]), float(spec[2]),
+			float(spec[3]), float(spec[4]))
+		add_child(ray)
+
+## A mantle ray gliding a slow banked circuit in open water around the rig. Wing-beat
+## animation (Mode.WING), a gentle roll into the turn, and a shallow bob — the same glb
+## the aerial night-visitor uses, but here it lives in the water where it can be watched.
+## Orbit radii (16-25) keep the span clear of the caissons at +-22/+-12.
+class GliderRay extends Node3D:
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL := "res://assets/models/fauna/mantle_ray/mantle_ray.glb"
+	var _span: float
+	var _band_y: float
+	var _r: float
+	var _rate: float
+	var _ph: float
+	var _t: float = 0.0
+	var _mats: Array = []
+	var _model: Node3D
+
+	func _init(span: float, band_y: float, r: float, rate: float, ph: float) -> void:
+		_span = span
+		_band_y = band_y
+		_r = r
+		_rate = rate
+		_ph = ph
+
+	func _ready() -> void:
+		var gen: Dictionary = ANIM.attach(self, MODEL, _span, ANIM.Mode.WING,
+			0.14, 0.5, Color(0.3, 0.55, 0.6), _ph)
+		if gen.is_empty():
+			queue_free()
+			return
+		_model = gen.get("model")
+		_mats = gen["mats"]
+		ANIM.drive(_mats, 0.5, 0.05)     # slow wing-beat, faint sheen — not a lantern
+		_t = _ph * 20.0
+
+	func _process(delta: float) -> void:
+		_t += delta
+		var a: float = _t * _rate + _ph
+		var next := Vector3(cos(a) * _r, _band_y + sin(_t * 0.13 + _ph) * 1.1, sin(a) * _r)
+		var vel: Vector3 = next - global_position
+		global_position = next
+		var flat := Vector3(vel.x, 0.0, vel.z)
+		if flat.length_squared() > 0.00001:
+			look_at(next + flat, Vector3.UP)
+			# Bank into the turn — a ray rolls its wings as it corners.
+			if _model:
+				_model.rotation.z = lerp_angle(_model.rotation.z, -0.4, clampf(delta * 2.0, 0.0, 1.0))
 
 ## One slow giant on a drifting circuit under the rig. Raw circular path — it lives
 ## 15+ m down in open water between the legs (orbit radii keep it clear of the caissons
