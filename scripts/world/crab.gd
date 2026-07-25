@@ -953,6 +953,11 @@ func _check_light_scare(delta: float, player: Node3D) -> void:
 ## bulkheads); water/climb states move directly along authored, sonar-validated points.
 ## Either way the SEAT pass afterwards pins the feet to real geometry along `up`.
 const BODY_R: float = 0.42
+## How fast the ground seat is allowed to chase the body. MUST exceed the crab's own top
+## speed (pursue 4.4 m/s) or the seat falls behind and the old code teleported to catch up.
+const SEAT_CATCHUP: float = 9.0
+## Inside this range a stuck-crab recovery must NOT teleport — the player would see it.
+const RELOCATE_HIDE_DIST: float = 45.0
 const PROBE_H: float = 0.35
 const STALL_GIVE_UP: float = 2.5
 var _stalled: float = 0.0
@@ -1080,10 +1085,21 @@ func _seat(delta: float) -> void:
 		up = up.lerp(n, clampf(delta * 7.0, 0.0, 1.0)).normalized()
 	var target: Vector3 = (hit["point"] as Vector3) + up * CLEAR
 	var to_t: Vector3 = target - global_position
-	if not _seated or to_t.length() > 1.3:
+	# SNAP ONLY WHEN GENUINELY RE-ACQUIRING A SURFACE.
+	#
+	# This used to also snap whenever the seat had drifted more than 1.3 m — and the seat
+	# followed at 3.0 m/s while the crab's own chase speed is 4.4 m/s. So a PURSUING crab
+	# outran its own ground seat every single time, drifted past the threshold, and got
+	# teleported forward. Measured over a 110 s night: 36 teleport-sized steps, worst 6.43 m.
+	# On screen that is the crab blinking across the deck instead of scuttling at you, which
+	# is both less smooth and much less frightening.
+	#
+	# The follow rate now comfortably exceeds any speed a crab can move at, so the seat
+	# tracks continuously and the snap is reserved for spawn and for landing after a fall.
+	if not _seated:
 		global_position = target
 	else:
-		global_position += to_t.limit_length(3.0 * delta)
+		global_position += to_t.limit_length(SEAT_CATCHUP * delta)
 	_seated = true
 
 func _follow_path_free(path: Array, speed: float, delta: float) -> bool:
@@ -1103,6 +1119,32 @@ func _nearest_index(points: Array) -> int:
 			best = i
 	return best
 
+## Recover a pinned crab to a known-good point — WITHOUT the player watching it blink.
+##
+## The unstick guard is a real safety net (a crab wedged behind a crate would otherwise
+## grind at a wall until dawn), but it worked by assigning global_position outright, and a
+## path anchor can be many metres away: the QA probe caught single-frame steps of 9.5 m.
+## A teleport is only acceptable if nobody can see it, so:
+##   * far away or behind the camera -> snap, as before. Invisible, and the net stays intact.
+##   * in view and close            -> DO NOT snap. Drop the current leg and pick a fresh
+##     roam target, so the crab visibly turns and walks out of the pin instead. Slower to
+##     recover, but it never blinks in front of you, which is the entire point.
+func _relocate(to: Vector3) -> void:
+	var seen: bool = false
+	var p: Node3D = get_tree().get_first_node_in_group("player") as Node3D
+	if p != null and global_position.distance_to(p.global_position) < RELOCATE_HIDE_DIST:
+		var cam: Camera3D = p.get_node_or_null("Head/Camera3D") as Camera3D
+		# No camera to test against counts as SEEN: prefer the honest slow recovery over a
+		# teleport we cannot prove was hidden.
+		seen = cam == null or not cam.is_position_behind(global_position)
+	if seen:
+		_roam_target = _pick_roam_target()
+		_roam_hold = 0.0
+		return
+	global_position = to
+	_seated = false
+	up = Vector3.UP
+
 ## Runtime unstick: authored points are validated, but if the crab is pinned mid-hunt
 ## or mid-climb (shoved into a prop, geometry edit), free it rather than let it grind
 ## forever. A pinned CLIMB skips the waypoint it cannot reach — relocating it would
@@ -1120,15 +1162,11 @@ func _unstick_guard(delta: float) -> void:
 				_climb_i += 1
 			elif state == State.EMERGE:
 				if not emerge_path.is_empty():
-					global_position = emerge_path[_nearest_index(emerge_path)]
-					_seated = false
-					up = Vector3.UP
+					_relocate(emerge_path[_nearest_index(emerge_path)])
 			else:
 				# Back to a known-good point on this level, then a fresh roam leg.
 				if _level == L_WET and not patrol_loop.is_empty():
-					global_position = patrol_loop[_nearest_index(patrol_loop)]
-					_seated = false
-					up = Vector3.UP
+					_relocate(patrol_loop[_nearest_index(patrol_loop)])
 				_roam_target = _pick_roam_target()
 				_roam_hold = 0.0
 			_guard_t = 0.0

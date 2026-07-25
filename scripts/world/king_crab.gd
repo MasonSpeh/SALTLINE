@@ -83,6 +83,8 @@ const COMMIT_TIME: float = 6.0
 # ankle exactly on the origin plane and the dactyl reaches 0.11 below it, so 0.14 stands the
 # toe tips about 3 cm off the plating — touching, without the capsules z-fighting the deck.
 const CLEAR: float = 0.14
+## Ground-seat catch-up rate. MUST exceed CHASE_SPEED or the seat lags and teleports.
+const SEAT_CATCHUP: float = 8.0
 const BODY_R: float = 0.85
 const PROBE_H: float = 0.9          ## probes at chest height: it steps over crates and kerbs
 
@@ -687,10 +689,14 @@ func _seat(delta: float) -> void:
 		up = up.lerp(n, clampf(delta * 6.0, 0.0, 1.0)).normalized()
 	var target: Vector3 = (hit["point"] as Vector3) + up * CLEAR
 	var to_t: Vector3 = target - global_position
-	if not _seated or to_t.length() > 1.6:
+	# Same teleport bug the normal crab had, same fix: the seat followed at 2.5 m/s while the
+	# king walks at 3.0, so it drifted past the 1.6 m threshold and snapped. A five-metre
+	# animal blinking forward is far more obvious than a small one doing it. Snap is now only
+	# for genuinely re-acquiring a surface; see the long note in crab.gd's _seat().
+	if not _seated:
 		global_position = target
 	else:
-		global_position += to_t.limit_length(2.5 * delta)
+		global_position += to_t.limit_length(SEAT_CATCHUP * delta)
 	_seated = true
 
 ## ---------- articulation ----------

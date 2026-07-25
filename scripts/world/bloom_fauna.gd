@@ -34,7 +34,14 @@ const PEARL := Color(0.88, 0.94, 0.92)
 ## rings with roam boxes that live in crab.gd's level tree, and a crab that senses you on
 ## another deck climbs the stair tower to reach you. Waypoint heights are advisory; the
 ## seat owns the floor.
-const CRAB_COUNT: int = 14
+## SIX small crabs around the base of the rig (owner's call, 2026-07-25; was 14).
+## Fourteen 1.1 m crabs on 10 cling loops meant four leg faces carried a doubled-up pair and
+## the pack read as an infestation rather than a threat. Six is one crab per face across the
+## legs nearest the player's routes, so each is an individual you notice and track — and the
+## two King Crabs stay the thing that actually frightens you. The first SIX roosts are the SE
+## leg (3, the leg by the spawn), the NE leg (2) and the first SW face, which spreads them
+## around the base without ever doubling a loop.
+const CRAB_COUNT: int = 6
 # The old patrol rings. They are no longer walked as routes: crab.gd roams boxes instead,
 # and keeps these as the wet-deck UNSTICK ANCHOR — a short list of points that are known
 # good to drop a pinned crab back onto.
@@ -99,9 +106,9 @@ func _spawn_giant_crabs() -> void:
 		Vector3(0.45, 0, -0.15), Vector3(-0.45, 0, 0.15), Vector3(0.15, 0, -0.45),
 		Vector3(-0.15, 0, 0.45), Vector3(0.35, 0, 0.35),
 	]
-	# 14 crabs over 10 authored cling loops: the modulo doubles four of them up. A
-	# lane-mate offset walks the second crab a couple of metres along its loop so the
-	# pair reads as two animals sharing a leg face, not one crab drawn twice.
+	# SIX crabs over 10 authored cling loops, so the modulo never wraps and no leg face
+	# carries two. (The lane-mate offsets below are kept: they still fan the spawn points a
+	# little, and they are what makes a higher CRAB_COUNT safe if it is ever raised again.)
 	for i in range(CRAB_COUNT):
 		var crab: Node3D = CRAB.new()
 		crab.spawn_index = i

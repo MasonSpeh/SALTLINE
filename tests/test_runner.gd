@@ -272,14 +272,19 @@ func _run() -> void:
 	PlayerState.use_hotbar(slot)
 	_check(PlayerState.hunger > before, "eating restores hunger")
 
-	# Giant crabs (s14): a pack of TEN spread around the four caisson legs — underwater
-	# cling roosts by day (surface-frame seated on the leg faces, no hover), an authored
-	# climb over the EAST deck rim at night, a 0.2-life bite, light-scare, animated claw
-	# overlay, and scuttle audio hard-gated on visibility. (The s13 "day crab" is gone —
-	# owner spec: by day the whole pack hides under water at the legs.)
+	# Giant crabs: SIX small ones around the base of the rig — underwater cling roosts by
+	# day (surface-frame seated on the leg faces, no hover), a climb over the EAST deck rim
+	# at night, a 0.2-life bite, brightness-gated light scare, and scuttle audio hard-gated
+	# on visibility. Read the count from BloomFauna rather than restating it: this assertion
+	# has already gone stale twice (its own comment still said "a pack of TEN" while it was
+	# checking for fourteen), and a test that has to be hand-edited to match a design tweak
+	# is a test that will be wrong again.
 	var CrabS := preload("res://scripts/world/crab.gd")
+	var Bloom := preload("res://scripts/world/bloom_fauna.gd")
+	var want_crabs: int = Bloom.CRAB_COUNT
 	var crabs: Array = get_tree().get_nodes_in_group("giant_crab")
-	_check(crabs.size() == 14, "fourteen giant crabs live on the rig")
+	_check(crabs.size() == want_crabs,
+		"%d giant crabs live on the rig (got %d)" % [want_crabs, crabs.size()])
 	var under: int = 0
 	var on_deck: int = 0
 	var at_legs: int = 0
