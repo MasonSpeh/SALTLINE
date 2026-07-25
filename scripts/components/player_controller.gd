@@ -116,6 +116,10 @@ var input_locked: bool = false     ## cold open / cutscenes: look allowed, movem
 var respawn_point: Vector3 = Vector3.ZERO
 var carried: Node3D = null         ## currently held physics object
 var hook_out: bool = false         ## throwing hook is in flight / reeling
+## Both fishing tools. FishingRod itself decides which behaviour to run from the selected
+## hotbar item (`_is_deep_selected()`); this list is only "what can start a cast at all".
+const ROD_ITEMS: Array[String] = ["fishing_rod", "deep_rig_pole"]
+
 var fishing: Node3D = null         ## a cast is out (FishingRod owns the line)
 var ui_locked: bool = false        ## a HUD panel (inventory/journal/help/bench) is open
 var build: BuildMode = null        ## build mode controller (B)
@@ -264,10 +268,17 @@ func _unhandled_input(event: InputEvent) -> void:
 		_handle_lying_input(event)
 		return
 	# Rod selected + LMB = cast. (While a cast is out, the FishingRod handles LMB.)
+	#
+	# BOTH rods, and this is why the deep rig read as completely broken: FishingRod has always
+	# understood the deep drop (`_is_deep_selected()` reads the selected hotbar item), but
+	# nothing ever SPAWNED one unless the selected item was literally "fishing_rod". Selecting
+	# the deep rig pole and clicking did nothing at all — no cast, no message. Earlier passes
+	# fixed real faults further down the deep path (the line running out of range and dying
+	# silently) that could never actually run, because this gate stopped it here first.
 	if event is InputEventMouseButton and event.button_index == MOUSE_BUTTON_LEFT \
 			and event.pressed and not input_locked and not ui_locked and fishing == null \
 			and carried == null and not _climbing and not hook_out \
-			and not (build and build.active) and _selected_item_id() == "fishing_rod":
+			and not (build and build.active) and _selected_item_id() in ROD_ITEMS:
 		_start_fishing()
 		get_viewport().set_input_as_handled()
 		return
@@ -1167,15 +1178,16 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	# Tools that should read at working size in hand override the pocket scale —
 	# the rod especially: you fish WITH it, it shouldn't look like a pencil.
 	var target: float = HAND_ITEM_MAX_DIM
+	# Keep every pattern on ONE line — GDScript cannot parse a match pattern list that wraps.
 	match _held_item_id:
-		"fishing_rod":
+		"fishing_rod", "deep_rig_pole":
 			target = 0.9   # a full-length rod actually reads as a rod, not a twig
 		"prybar":
 			target = 0.4
 	if largest > 0.0001:
 		container.scale = Vector3.ONE * (target / largest)
 	visual.position = -combined.get_center()
-	if _held_item_id == "fishing_rod":
+	if _held_item_id in ROD_ITEMS:
 		# Angle the rod out over the water like it's actually being fished.
 		container.rotation = Vector3(deg_to_rad(-24), deg_to_rad(-14), 0)
 		container.position += Vector3(0.05, -0.05, -0.1)

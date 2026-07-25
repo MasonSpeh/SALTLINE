@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://deep_rod_probe_rig"]
+
+[ext_resource type="Script" path="res://tests/deep_rod_probe.gd" id="1"]
+
+[node name="DeepRodProbe" type="Node"]
+script = ExtResource("1")

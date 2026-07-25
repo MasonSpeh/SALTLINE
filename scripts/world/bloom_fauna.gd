@@ -14,6 +14,8 @@ class_name BloomFauna extends Node3D
 ##   HarborSeal   — day patrol, porpoises to breathe, watches you (befriendable)
 ##   LampSnail    — night constellations of glow-spots circling the leg bases (§54)
 ##   CorvidGull   — perched Bloom-intelligent gull that tracks the player (§26)
+##   GiantCrab    — the night threat: fourteen, free-roaming, and they climb after you
+##   KingCrab     — two boss-tier giants in the deep; each rolls 50% a night to come up
 
 const ANIMH := preload("res://scripts/world/creature_anim.gd")
 const CRAB := preload("res://scripts/world/crab.gd")   # by path: class cache lags new names
@@ -28,11 +30,14 @@ const PEARL := Color(0.88, 0.94, 0.92)
 ## (crab.gd `up` + per-frame seat), so each loop names the FACE NORMAL it clings to and
 ## the seat pins the feet to the real concrete: no more hovering at hand-typed heights.
 ## NIGHT: on a staggered cue each crosses to the EAST rim (x~30.25, the one clean water
-## edge), climbs an authored lane, and patrols the open plating in two rings — a SOUTH
-## ring across the spawn/SPHL flat and an EAST ring up the corridor to the stair tower,
-## right where the player walks. Waypoint heights are advisory; the seat owns the floor.
+## edge), climbs an authored lane, and then FREE ROAMS — s16 replaced the two fixed patrol
+## rings with roam boxes that live in crab.gd's level tree, and a crab that senses you on
+## another deck climbs the stair tower to reach you. Waypoint heights are advisory; the
+## seat owns the floor.
 const CRAB_COUNT: int = 14
-# Two deck patrol rings (every corner clears legs/rooms/tower by >=1 m):
+# The old patrol rings. They are no longer walked as routes: crab.gd roams boxes instead,
+# and keeps these as the wet-deck UNSTICK ANCHOR — a short list of points that are known
+# good to drop a pinned crab back onto.
 const CRAB_PATROL_EAST: Array = [   # east corridor -> foot of the stair tower (z stays >-6.5)
 	Vector3(26, 2.6, -7.0), Vector3(29, 2.6, -7.0),
 	Vector3(29, 2.6, -16.0), Vector3(26, 2.6, -16.0),
@@ -128,8 +133,34 @@ func _spawn_giant_crabs() -> void:
 			seat = (loop[0] as Vector3).lerp(loop[1] as Vector3, 0.55)
 		crab.global_position = seat
 
+## --- KING CRABS (s16): exactly TWO, and neither is a given -------------------------
+## Two boss-tier animals, and that is the hard cap — the owner's spec is "at most 2 active
+## at a time". They do not roost on the legs with the pack: each lies up in DEEP water well
+## off the east rim (y-8, past the boat-landing lane at x34, so nothing on the rig can be
+## walked into on the way in), and each independently rolls a 50% chance every night of
+## hauling out to hunt. The roll lives in king_crab._on_night(); all this does is place
+## them and hand each one its own haul-out lane.
+##
+## Lanes are the SAME rim climb the pack uses (x31 -> x29.3 over the lip), on two depth
+## lanes of their own — z-9.5 and z-19.5 — so a king never comes up a lane the pack is
+## queued in, and the two kings never share one. RETREAT walks the list backwards.
+const KING := preload("res://scripts/world/king_crab.gd")   # by path: class cache lags new files
+const KING_COUNT: int = 2
+const KING_LANE_Z: Array = [-9.5, -19.5]
+
+func _spawn_king_crabs() -> void:
+	for i in range(KING_COUNT):
+		var z: float = KING_LANE_Z[i % KING_LANE_Z.size()]
+		var king: Node3D = KING.new()
+		king.spawn_index = i
+		king.den = Vector3(38.0, -8.0, z)
+		king.rise_path = [Vector3(34.5, -5.0, z), Vector3(32.0, -2.0, z)] + _crab_climb(z)
+		add_child(king)
+		king.global_position = king.den
+
 func _ready() -> void:
 	_spawn_giant_crabs()
+	_spawn_king_crabs()
 	for i in range(5):
 		add_child(Gull.new(i))
 	for i in range(7):
