@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1jrhgbi6jvsy"
 path.s3tc="res://.godot/imported/plastic_broom_diff_1k.jpg-f6fc46ea61a71c49bcc0a3d6004fc9bc.s3tc.ctex"
-path.etc2="res://.godot/imported/plastic_broom_diff_1k.jpg-f6fc46ea61a71c49bcc0a3d6004fc9bc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/plastic_broom/textures/plastic_broom_diff_1k.jpg"
-dest_files=["res://.godot/imported/plastic_broom_diff_1k.jpg-f6fc46ea61a71c49bcc0a3d6004fc9bc.s3tc.ctex", "res://.godot/imported/plastic_broom_diff_1k.jpg-f6fc46ea61a71c49bcc0a3d6004fc9bc.etc2.ctex"]
+dest_files=["res://.godot/imported/plastic_broom_diff_1k.jpg-f6fc46ea61a71c49bcc0a3d6004fc9bc.s3tc.ctex"]
 
 [params]
 

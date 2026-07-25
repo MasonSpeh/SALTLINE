@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dedfcl0v6n7rw"
 path.s3tc="res://.godot/imported/rig_capture_DiamondPlate002_1K-JPG_Roughness.png-6415b3fdabde765d08efb589c0af5f65.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_DiamondPlate002_1K-JPG_Roughness.png-6415b3fdabde765d08efb589c0af5f65.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_DiamondPlate002_1K-JPG_Roughness.png"
-dest_files=["res://.godot/imported/rig_capture_DiamondPlate002_1K-JPG_Roughness.png-6415b3fdabde765d08efb589c0af5f65.s3tc.ctex", "res://.godot/imported/rig_capture_DiamondPlate002_1K-JPG_Roughness.png-6415b3fdabde765d08efb589c0af5f65.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_DiamondPlate002_1K-JPG_Roughness.png-6415b3fdabde765d08efb589c0af5f65.s3tc.ctex"]
 
 [params]
 

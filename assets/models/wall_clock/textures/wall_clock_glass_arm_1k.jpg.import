@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ctt40p66bxw44"
 path.s3tc="res://.godot/imported/wall_clock_glass_arm_1k.jpg-a28c3f8084c5c0414a71329b62e25e06.s3tc.ctex"
-path.etc2="res://.godot/imported/wall_clock_glass_arm_1k.jpg-a28c3f8084c5c0414a71329b62e25e06.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/wall_clock/textures/wall_clock_glass_arm_1k.jpg"
-dest_files=["res://.godot/imported/wall_clock_glass_arm_1k.jpg-a28c3f8084c5c0414a71329b62e25e06.s3tc.ctex", "res://.godot/imported/wall_clock_glass_arm_1k.jpg-a28c3f8084c5c0414a71329b62e25e06.etc2.ctex"]
+dest_files=["res://.godot/imported/wall_clock_glass_arm_1k.jpg-a28c3f8084c5c0414a71329b62e25e06.s3tc.ctex"]
 
 [params]
 

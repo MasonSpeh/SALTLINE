@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bribpf3i3685y"
 path.s3tc="res://.godot/imported/rig_capture_bench_vice_01_arm_1k.png-f80df64b03494b83071f63d162c6ad55.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_bench_vice_01_arm_1k.png-f80df64b03494b83071f63d162c6ad55.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_bench_vice_01_arm_1k.png"
-dest_files=["res://.godot/imported/rig_capture_bench_vice_01_arm_1k.png-f80df64b03494b83071f63d162c6ad55.s3tc.ctex", "res://.godot/imported/rig_capture_bench_vice_01_arm_1k.png-f80df64b03494b83071f63d162c6ad55.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_bench_vice_01_arm_1k.png-f80df64b03494b83071f63d162c6ad55.s3tc.ctex"]
 
 [params]
 

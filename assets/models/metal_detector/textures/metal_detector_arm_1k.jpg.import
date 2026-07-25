@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bs4b0c0c8nxfa"
 path.s3tc="res://.godot/imported/metal_detector_arm_1k.jpg-bfd9aa6d8a3b4922f6c5fe60902fd7ad.s3tc.ctex"
-path.etc2="res://.godot/imported/metal_detector_arm_1k.jpg-bfd9aa6d8a3b4922f6c5fe60902fd7ad.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_detector/textures/metal_detector_arm_1k.jpg"
-dest_files=["res://.godot/imported/metal_detector_arm_1k.jpg-bfd9aa6d8a3b4922f6c5fe60902fd7ad.s3tc.ctex", "res://.godot/imported/metal_detector_arm_1k.jpg-bfd9aa6d8a3b4922f6c5fe60902fd7ad.etc2.ctex"]
+dest_files=["res://.godot/imported/metal_detector_arm_1k.jpg-bfd9aa6d8a3b4922f6c5fe60902fd7ad.s3tc.ctex"]
 
 [params]
 

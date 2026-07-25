@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://5fiaxtgt4407"
 path.s3tc="res://.godot/imported/rig_capture_Rust007_1K-JPG_NormalGL.png-b6d7b53e684520a7cdf40cd30cdb03c8.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_Rust007_1K-JPG_NormalGL.png-b6d7b53e684520a7cdf40cd30cdb03c8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_Rust007_1K-JPG_NormalGL.png"
-dest_files=["res://.godot/imported/rig_capture_Rust007_1K-JPG_NormalGL.png-b6d7b53e684520a7cdf40cd30cdb03c8.s3tc.ctex", "res://.godot/imported/rig_capture_Rust007_1K-JPG_NormalGL.png-b6d7b53e684520a7cdf40cd30cdb03c8.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_Rust007_1K-JPG_NormalGL.png-b6d7b53e684520a7cdf40cd30cdb03c8.s3tc.ctex"]
 
 [params]
 

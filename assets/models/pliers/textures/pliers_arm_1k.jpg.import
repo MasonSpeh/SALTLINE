@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c6qasg5jhqjb"
 path.s3tc="res://.godot/imported/pliers_arm_1k.jpg-81cabd5a3711d34b16096cf1ecd2cbc6.s3tc.ctex"
-path.etc2="res://.godot/imported/pliers_arm_1k.jpg-81cabd5a3711d34b16096cf1ecd2cbc6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/pliers/textures/pliers_arm_1k.jpg"
-dest_files=["res://.godot/imported/pliers_arm_1k.jpg-81cabd5a3711d34b16096cf1ecd2cbc6.s3tc.ctex", "res://.godot/imported/pliers_arm_1k.jpg-81cabd5a3711d34b16096cf1ecd2cbc6.etc2.ctex"]
+dest_files=["res://.godot/imported/pliers_arm_1k.jpg-81cabd5a3711d34b16096cf1ecd2cbc6.s3tc.ctex"]
 
 [params]
 

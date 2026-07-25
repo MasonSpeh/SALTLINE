@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://duq6tth7yoeg"
 path.s3tc="res://.godot/imported/fancy_picture_frame_01_canvas_nor_gl_1k.jpg-eb92e2dd05eaf38637be7a64726019b6.s3tc.ctex"
-path.etc2="res://.godot/imported/fancy_picture_frame_01_canvas_nor_gl_1k.jpg-eb92e2dd05eaf38637be7a64726019b6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/fancy_picture_frame_01/textures/fancy_picture_frame_01_canvas_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/fancy_picture_frame_01_canvas_nor_gl_1k.jpg-eb92e2dd05eaf38637be7a64726019b6.s3tc.ctex", "res://.godot/imported/fancy_picture_frame_01_canvas_nor_gl_1k.jpg-eb92e2dd05eaf38637be7a64726019b6.etc2.ctex"]
+dest_files=["res://.godot/imported/fancy_picture_frame_01_canvas_nor_gl_1k.jpg-eb92e2dd05eaf38637be7a64726019b6.s3tc.ctex"]
 
 [params]
 

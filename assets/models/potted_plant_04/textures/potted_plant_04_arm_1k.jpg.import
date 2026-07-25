@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bnq5guvapw6v2"
 path.s3tc="res://.godot/imported/potted_plant_04_arm_1k.jpg-e3e43e4919c3d33d8eb08de48c665cdc.s3tc.ctex"
-path.etc2="res://.godot/imported/potted_plant_04_arm_1k.jpg-e3e43e4919c3d33d8eb08de48c665cdc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/potted_plant_04/textures/potted_plant_04_arm_1k.jpg"
-dest_files=["res://.godot/imported/potted_plant_04_arm_1k.jpg-e3e43e4919c3d33d8eb08de48c665cdc.s3tc.ctex", "res://.godot/imported/potted_plant_04_arm_1k.jpg-e3e43e4919c3d33d8eb08de48c665cdc.etc2.ctex"]
+dest_files=["res://.godot/imported/potted_plant_04_arm_1k.jpg-e3e43e4919c3d33d8eb08de48c665cdc.s3tc.ctex"]
 
 [params]
 

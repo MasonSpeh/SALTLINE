@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cv3eq85ecrmuo"
 path.s3tc="res://.godot/imported/PaintedMetal013_1K-JPG_Metalness.jpg-5e626f9d3362ee3ec50e52131d1e9d79.s3tc.ctex"
-path.etc2="res://.godot/imported/PaintedMetal013_1K-JPG_Metalness.jpg-5e626f9d3362ee3ec50e52131d1e9d79.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/PaintedMetal013/PaintedMetal013_1K-JPG_Metalness.jpg"
-dest_files=["res://.godot/imported/PaintedMetal013_1K-JPG_Metalness.jpg-5e626f9d3362ee3ec50e52131d1e9d79.s3tc.ctex", "res://.godot/imported/PaintedMetal013_1K-JPG_Metalness.jpg-5e626f9d3362ee3ec50e52131d1e9d79.etc2.ctex"]
+dest_files=["res://.godot/imported/PaintedMetal013_1K-JPG_Metalness.jpg-5e626f9d3362ee3ec50e52131d1e9d79.s3tc.ctex"]
 
 [params]
 

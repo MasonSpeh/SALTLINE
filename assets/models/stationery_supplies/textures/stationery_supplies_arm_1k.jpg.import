@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dlb1cr4ietgpx"
 path.s3tc="res://.godot/imported/stationery_supplies_arm_1k.jpg-8d87439172c80213506185b1b9e111bd.s3tc.ctex"
-path.etc2="res://.godot/imported/stationery_supplies_arm_1k.jpg-8d87439172c80213506185b1b9e111bd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/stationery_supplies/textures/stationery_supplies_arm_1k.jpg"
-dest_files=["res://.godot/imported/stationery_supplies_arm_1k.jpg-8d87439172c80213506185b1b9e111bd.s3tc.ctex", "res://.godot/imported/stationery_supplies_arm_1k.jpg-8d87439172c80213506185b1b9e111bd.etc2.ctex"]
+dest_files=["res://.godot/imported/stationery_supplies_arm_1k.jpg-8d87439172c80213506185b1b9e111bd.s3tc.ctex"]
 
 [params]
 

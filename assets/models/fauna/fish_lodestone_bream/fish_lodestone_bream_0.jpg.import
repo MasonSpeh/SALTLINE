@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://3wq11nxslab1"
 path.s3tc="res://.godot/imported/fish_lodestone_bream_0.jpg-c0e1a0c23fdc32b9b4d1ffcddf99060e.s3tc.ctex"
-path.etc2="res://.godot/imported/fish_lodestone_bream_0.jpg-c0e1a0c23fdc32b9b4d1ffcddf99060e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_lodestone_bream/fish_lodestone_bream_0.jpg"
-dest_files=["res://.godot/imported/fish_lodestone_bream_0.jpg-c0e1a0c23fdc32b9b4d1ffcddf99060e.s3tc.ctex", "res://.godot/imported/fish_lodestone_bream_0.jpg-c0e1a0c23fdc32b9b4d1ffcddf99060e.etc2.ctex"]
+dest_files=["res://.godot/imported/fish_lodestone_bream_0.jpg-c0e1a0c23fdc32b9b4d1ffcddf99060e.s3tc.ctex"]
 
 [params]
 
@@ -41,5 +40,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=0

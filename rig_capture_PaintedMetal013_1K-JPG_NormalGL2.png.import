@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmcr3mbial81o"
 path.s3tc="res://.godot/imported/rig_capture_PaintedMetal013_1K-JPG_NormalGL2.png-410debd4e16fcfa81d0a540a1ed39ecf.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_PaintedMetal013_1K-JPG_NormalGL2.png-410debd4e16fcfa81d0a540a1ed39ecf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_PaintedMetal013_1K-JPG_NormalGL2.png"
-dest_files=["res://.godot/imported/rig_capture_PaintedMetal013_1K-JPG_NormalGL2.png-410debd4e16fcfa81d0a540a1ed39ecf.s3tc.ctex", "res://.godot/imported/rig_capture_PaintedMetal013_1K-JPG_NormalGL2.png-410debd4e16fcfa81d0a540a1ed39ecf.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_PaintedMetal013_1K-JPG_NormalGL2.png-410debd4e16fcfa81d0a540a1ed39ecf.s3tc.ctex"]
 
 [params]
 

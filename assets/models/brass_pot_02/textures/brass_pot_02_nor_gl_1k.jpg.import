@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bwd3nip7wq3y"
 path.s3tc="res://.godot/imported/brass_pot_02_nor_gl_1k.jpg-4ef17da187bb9a180096247cea6094bf.s3tc.ctex"
-path.etc2="res://.godot/imported/brass_pot_02_nor_gl_1k.jpg-4ef17da187bb9a180096247cea6094bf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/brass_pot_02/textures/brass_pot_02_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/brass_pot_02_nor_gl_1k.jpg-4ef17da187bb9a180096247cea6094bf.s3tc.ctex", "res://.godot/imported/brass_pot_02_nor_gl_1k.jpg-4ef17da187bb9a180096247cea6094bf.etc2.ctex"]
+dest_files=["res://.godot/imported/brass_pot_02_nor_gl_1k.jpg-4ef17da187bb9a180096247cea6094bf.s3tc.ctex"]
 
 [params]
 

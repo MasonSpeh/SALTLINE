@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bxphakj8mxpd7"
 path.s3tc="res://.godot/imported/bronze_ray_statue_diff_1k.jpg-9eeb28de2b0601cf27ffc8dc16ba21cb.s3tc.ctex"
-path.etc2="res://.godot/imported/bronze_ray_statue_diff_1k.jpg-9eeb28de2b0601cf27ffc8dc16ba21cb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bronze_ray_statue/textures/bronze_ray_statue_diff_1k.jpg"
-dest_files=["res://.godot/imported/bronze_ray_statue_diff_1k.jpg-9eeb28de2b0601cf27ffc8dc16ba21cb.s3tc.ctex", "res://.godot/imported/bronze_ray_statue_diff_1k.jpg-9eeb28de2b0601cf27ffc8dc16ba21cb.etc2.ctex"]
+dest_files=["res://.godot/imported/bronze_ray_statue_diff_1k.jpg-9eeb28de2b0601cf27ffc8dc16ba21cb.s3tc.ctex"]
 
 [params]
 

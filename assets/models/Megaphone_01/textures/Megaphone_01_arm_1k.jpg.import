@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://q74td7f11xla"
 path.s3tc="res://.godot/imported/Megaphone_01_arm_1k.jpg-6bab06d045294f6e37dc5d3e1a6147cf.s3tc.ctex"
-path.etc2="res://.godot/imported/Megaphone_01_arm_1k.jpg-6bab06d045294f6e37dc5d3e1a6147cf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Megaphone_01/textures/Megaphone_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/Megaphone_01_arm_1k.jpg-6bab06d045294f6e37dc5d3e1a6147cf.s3tc.ctex", "res://.godot/imported/Megaphone_01_arm_1k.jpg-6bab06d045294f6e37dc5d3e1a6147cf.etc2.ctex"]
+dest_files=["res://.godot/imported/Megaphone_01_arm_1k.jpg-6bab06d045294f6e37dc5d3e1a6147cf.s3tc.ctex"]
 
 [params]
 

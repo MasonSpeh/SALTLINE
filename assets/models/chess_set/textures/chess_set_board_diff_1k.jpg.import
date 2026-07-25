@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://5cw4cux5x67a"
 path.s3tc="res://.godot/imported/chess_set_board_diff_1k.jpg-2f28e7d9bd6bc790355c5c1f1d1f529e.s3tc.ctex"
-path.etc2="res://.godot/imported/chess_set_board_diff_1k.jpg-2f28e7d9bd6bc790355c5c1f1d1f529e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/chess_set/textures/chess_set_board_diff_1k.jpg"
-dest_files=["res://.godot/imported/chess_set_board_diff_1k.jpg-2f28e7d9bd6bc790355c5c1f1d1f529e.s3tc.ctex", "res://.godot/imported/chess_set_board_diff_1k.jpg-2f28e7d9bd6bc790355c5c1f1d1f529e.etc2.ctex"]
+dest_files=["res://.godot/imported/chess_set_board_diff_1k.jpg-2f28e7d9bd6bc790355c5c1f1d1f529e.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://2wrvlefecwtb"
 path.s3tc="res://.godot/imported/SchoolDesk_01_diff_1k.jpg-39efdbba58233bb5142b3a8a736b2dff.s3tc.ctex"
-path.etc2="res://.godot/imported/SchoolDesk_01_diff_1k.jpg-39efdbba58233bb5142b3a8a736b2dff.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/SchoolDesk_01/textures/SchoolDesk_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/SchoolDesk_01_diff_1k.jpg-39efdbba58233bb5142b3a8a736b2dff.s3tc.ctex", "res://.godot/imported/SchoolDesk_01_diff_1k.jpg-39efdbba58233bb5142b3a8a736b2dff.etc2.ctex"]
+dest_files=["res://.godot/imported/SchoolDesk_01_diff_1k.jpg-39efdbba58233bb5142b3a8a736b2dff.s3tc.ctex"]
 
 [params]
 

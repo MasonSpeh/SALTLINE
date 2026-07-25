@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://62rfu7ysh20r"
 path.s3tc="res://.godot/imported/metal_stool_02_diff_1k.jpg-e45437ff76f9d33b9c20d07aa594448a.s3tc.ctex"
-path.etc2="res://.godot/imported/metal_stool_02_diff_1k.jpg-e45437ff76f9d33b9c20d07aa594448a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_stool_02/textures/metal_stool_02_diff_1k.jpg"
-dest_files=["res://.godot/imported/metal_stool_02_diff_1k.jpg-e45437ff76f9d33b9c20d07aa594448a.s3tc.ctex", "res://.godot/imported/metal_stool_02_diff_1k.jpg-e45437ff76f9d33b9c20d07aa594448a.etc2.ctex"]
+dest_files=["res://.godot/imported/metal_stool_02_diff_1k.jpg-e45437ff76f9d33b9c20d07aa594448a.s3tc.ctex"]
 
 [params]
 

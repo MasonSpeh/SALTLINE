@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://beg0usrnv5jcn"
 path.s3tc="res://.godot/imported/ceiling_fan_diff_1k.jpg-36eb6f10671d8b1496784811b940dd27.s3tc.ctex"
-path.etc2="res://.godot/imported/ceiling_fan_diff_1k.jpg-36eb6f10671d8b1496784811b940dd27.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ceiling_fan/textures/ceiling_fan_diff_1k.jpg"
-dest_files=["res://.godot/imported/ceiling_fan_diff_1k.jpg-36eb6f10671d8b1496784811b940dd27.s3tc.ctex", "res://.godot/imported/ceiling_fan_diff_1k.jpg-36eb6f10671d8b1496784811b940dd27.etc2.ctex"]
+dest_files=["res://.godot/imported/ceiling_fan_diff_1k.jpg-36eb6f10671d8b1496784811b940dd27.s3tc.ctex"]
 
 [params]
 

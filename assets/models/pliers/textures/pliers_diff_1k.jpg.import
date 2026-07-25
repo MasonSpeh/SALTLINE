@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://esxx3fn7iqdo"
 path.s3tc="res://.godot/imported/pliers_diff_1k.jpg-e0b5002e794914b71e3e9d15d4cdd194.s3tc.ctex"
-path.etc2="res://.godot/imported/pliers_diff_1k.jpg-e0b5002e794914b71e3e9d15d4cdd194.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/pliers/textures/pliers_diff_1k.jpg"
-dest_files=["res://.godot/imported/pliers_diff_1k.jpg-e0b5002e794914b71e3e9d15d4cdd194.s3tc.ctex", "res://.godot/imported/pliers_diff_1k.jpg-e0b5002e794914b71e3e9d15d4cdd194.etc2.ctex"]
+dest_files=["res://.godot/imported/pliers_diff_1k.jpg-e0b5002e794914b71e3e9d15d4cdd194.s3tc.ctex"]
 
 [params]
 

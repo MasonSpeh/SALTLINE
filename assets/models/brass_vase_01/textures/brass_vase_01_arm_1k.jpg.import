@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bellf2d2bp6hw"
 path.s3tc="res://.godot/imported/brass_vase_01_arm_1k.jpg-8f06aadebb9e0483eef6c69b7e352ca9.s3tc.ctex"
-path.etc2="res://.godot/imported/brass_vase_01_arm_1k.jpg-8f06aadebb9e0483eef6c69b7e352ca9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/brass_vase_01/textures/brass_vase_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/brass_vase_01_arm_1k.jpg-8f06aadebb9e0483eef6c69b7e352ca9.s3tc.ctex", "res://.godot/imported/brass_vase_01_arm_1k.jpg-8f06aadebb9e0483eef6c69b7e352ca9.etc2.ctex"]
+dest_files=["res://.godot/imported/brass_vase_01_arm_1k.jpg-8f06aadebb9e0483eef6c69b7e352ca9.s3tc.ctex"]
 
 [params]
 

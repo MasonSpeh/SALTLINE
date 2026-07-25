@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://btokolun4dw3k"
 path.s3tc="res://.godot/imported/filmstrip_projector_8mm_arm_1k.jpg-b2e692e7c6fd67863aac9de2b5f14e4b.s3tc.ctex"
-path.etc2="res://.godot/imported/filmstrip_projector_8mm_arm_1k.jpg-b2e692e7c6fd67863aac9de2b5f14e4b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/filmstrip_projector_8mm/textures/filmstrip_projector_8mm_arm_1k.jpg"
-dest_files=["res://.godot/imported/filmstrip_projector_8mm_arm_1k.jpg-b2e692e7c6fd67863aac9de2b5f14e4b.s3tc.ctex", "res://.godot/imported/filmstrip_projector_8mm_arm_1k.jpg-b2e692e7c6fd67863aac9de2b5f14e4b.etc2.ctex"]
+dest_files=["res://.godot/imported/filmstrip_projector_8mm_arm_1k.jpg-b2e692e7c6fd67863aac9de2b5f14e4b.s3tc.ctex"]
 
 [params]
 

@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dqwnrcc35x8w6"
 path.s3tc="res://.godot/imported/rig_capture_retro_multimeter_arm_1k2.png-15a8b99229b7841efb21bda1cd58070d.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_retro_multimeter_arm_1k2.png-15a8b99229b7841efb21bda1cd58070d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_retro_multimeter_arm_1k2.png"
-dest_files=["res://.godot/imported/rig_capture_retro_multimeter_arm_1k2.png-15a8b99229b7841efb21bda1cd58070d.s3tc.ctex", "res://.godot/imported/rig_capture_retro_multimeter_arm_1k2.png-15a8b99229b7841efb21bda1cd58070d.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_retro_multimeter_arm_1k2.png-15a8b99229b7841efb21bda1cd58070d.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d0qy5r1pvwuxi"
 path.s3tc="res://.godot/imported/painted_wooden_chair_01_diff_1k.jpg-8b1262aad04892e74d9c60a854fda843.s3tc.ctex"
-path.etc2="res://.godot/imported/painted_wooden_chair_01_diff_1k.jpg-8b1262aad04892e74d9c60a854fda843.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/painted_wooden_chair_01/textures/painted_wooden_chair_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/painted_wooden_chair_01_diff_1k.jpg-8b1262aad04892e74d9c60a854fda843.s3tc.ctex", "res://.godot/imported/painted_wooden_chair_01_diff_1k.jpg-8b1262aad04892e74d9c60a854fda843.etc2.ctex"]
+dest_files=["res://.godot/imported/painted_wooden_chair_01_diff_1k.jpg-8b1262aad04892e74d9c60a854fda843.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ct7pr18adglg8"
 path.s3tc="res://.godot/imported/old_gas_mask_diff_1k.jpg-e7479d2b71fc287ab5453580f5a3a900.s3tc.ctex"
-path.etc2="res://.godot/imported/old_gas_mask_diff_1k.jpg-e7479d2b71fc287ab5453580f5a3a900.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/old_gas_mask/textures/old_gas_mask_diff_1k.jpg"
-dest_files=["res://.godot/imported/old_gas_mask_diff_1k.jpg-e7479d2b71fc287ab5453580f5a3a900.s3tc.ctex", "res://.godot/imported/old_gas_mask_diff_1k.jpg-e7479d2b71fc287ab5453580f5a3a900.etc2.ctex"]
+dest_files=["res://.godot/imported/old_gas_mask_diff_1k.jpg-e7479d2b71fc287ab5453580f5a3a900.s3tc.ctex"]
 
 [params]
 

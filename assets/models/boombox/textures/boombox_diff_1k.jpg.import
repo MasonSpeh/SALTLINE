@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://clamfs8l1t8w3"
 path.s3tc="res://.godot/imported/boombox_diff_1k.jpg-ff8d161849dc1c43b8fc43680fba3aa6.s3tc.ctex"
-path.etc2="res://.godot/imported/boombox_diff_1k.jpg-ff8d161849dc1c43b8fc43680fba3aa6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/boombox/textures/boombox_diff_1k.jpg"
-dest_files=["res://.godot/imported/boombox_diff_1k.jpg-ff8d161849dc1c43b8fc43680fba3aa6.s3tc.ctex", "res://.godot/imported/boombox_diff_1k.jpg-ff8d161849dc1c43b8fc43680fba3aa6.etc2.ctex"]
+dest_files=["res://.godot/imported/boombox_diff_1k.jpg-ff8d161849dc1c43b8fc43680fba3aa6.s3tc.ctex"]
 
 [params]
 

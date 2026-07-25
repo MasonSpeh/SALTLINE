@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://btpe7b0bekj3i"
 path.s3tc="res://.godot/imported/ladder_sectioned_01_arm_1k.jpg-d957f884fe7588ca5c2c63832873ee77.s3tc.ctex"
-path.etc2="res://.godot/imported/ladder_sectioned_01_arm_1k.jpg-d957f884fe7588ca5c2c63832873ee77.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ladder_sectioned_01/textures/ladder_sectioned_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/ladder_sectioned_01_arm_1k.jpg-d957f884fe7588ca5c2c63832873ee77.s3tc.ctex", "res://.godot/imported/ladder_sectioned_01_arm_1k.jpg-d957f884fe7588ca5c2c63832873ee77.etc2.ctex"]
+dest_files=["res://.godot/imported/ladder_sectioned_01_arm_1k.jpg-d957f884fe7588ca5c2c63832873ee77.s3tc.ctex"]
 
 [params]
 

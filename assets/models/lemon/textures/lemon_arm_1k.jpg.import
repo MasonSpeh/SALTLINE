@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://di07k4s5vt1w7"
 path.s3tc="res://.godot/imported/lemon_arm_1k.jpg-5f21add2debedf04bb63d798f7b93d06.s3tc.ctex"
-path.etc2="res://.godot/imported/lemon_arm_1k.jpg-5f21add2debedf04bb63d798f7b93d06.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/lemon/textures/lemon_arm_1k.jpg"
-dest_files=["res://.godot/imported/lemon_arm_1k.jpg-5f21add2debedf04bb63d798f7b93d06.s3tc.ctex", "res://.godot/imported/lemon_arm_1k.jpg-5f21add2debedf04bb63d798f7b93d06.etc2.ctex"]
+dest_files=["res://.godot/imported/lemon_arm_1k.jpg-5f21add2debedf04bb63d798f7b93d06.s3tc.ctex"]
 
 [params]
 

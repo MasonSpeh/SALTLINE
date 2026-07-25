@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cjob5m714uapf"
 path.s3tc="res://.godot/imported/carrot_cake_arm_1k.jpg-3b29cce4fdb925aa469016562f09d897.s3tc.ctex"
-path.etc2="res://.godot/imported/carrot_cake_arm_1k.jpg-3b29cce4fdb925aa469016562f09d897.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/carrot_cake/textures/carrot_cake_arm_1k.jpg"
-dest_files=["res://.godot/imported/carrot_cake_arm_1k.jpg-3b29cce4fdb925aa469016562f09d897.s3tc.ctex", "res://.godot/imported/carrot_cake_arm_1k.jpg-3b29cce4fdb925aa469016562f09d897.etc2.ctex"]
+dest_files=["res://.godot/imported/carrot_cake_arm_1k.jpg-3b29cce4fdb925aa469016562f09d897.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://xgcbgbioa1o5"
 path.s3tc="res://.godot/imported/plastic_jerrycan_arm_1k.jpg-e1da562c5fe76d0f35ad01f8b8491adc.s3tc.ctex"
-path.etc2="res://.godot/imported/plastic_jerrycan_arm_1k.jpg-e1da562c5fe76d0f35ad01f8b8491adc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/plastic_jerrycan/textures/plastic_jerrycan_arm_1k.jpg"
-dest_files=["res://.godot/imported/plastic_jerrycan_arm_1k.jpg-e1da562c5fe76d0f35ad01f8b8491adc.s3tc.ctex", "res://.godot/imported/plastic_jerrycan_arm_1k.jpg-e1da562c5fe76d0f35ad01f8b8491adc.etc2.ctex"]
+dest_files=["res://.godot/imported/plastic_jerrycan_arm_1k.jpg-e1da562c5fe76d0f35ad01f8b8491adc.s3tc.ctex"]
 
 [params]
 

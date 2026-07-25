@@ -87,6 +87,8 @@ common/physics_ticks_per_second=30
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-textures/vram_compression/import_etc2_astc=true
+# Desktop-only release (Windows + macOS), so the mobile ETC2/ASTC variant is dead weight:
+# every VRAM-compressed texture was being imported and stored TWICE.
+textures/vram_compression/import_etc2_astc=false
 limits/opengl/max_renderable_lights=160
 limits/opengl/max_lights_per_object=16

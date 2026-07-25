@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ctp6l82p28a7"
 path.s3tc="res://.godot/imported/rig_capture_bronze_ray_statue_arm_1k.png-c96ddd6d84ac5724dc49f8fb2c7c289e.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_bronze_ray_statue_arm_1k.png-c96ddd6d84ac5724dc49f8fb2c7c289e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_bronze_ray_statue_arm_1k.png"
-dest_files=["res://.godot/imported/rig_capture_bronze_ray_statue_arm_1k.png-c96ddd6d84ac5724dc49f8fb2c7c289e.s3tc.ctex", "res://.godot/imported/rig_capture_bronze_ray_statue_arm_1k.png-c96ddd6d84ac5724dc49f8fb2c7c289e.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_bronze_ray_statue_arm_1k.png-c96ddd6d84ac5724dc49f8fb2c7c289e.s3tc.ctex"]
 
 [params]
 

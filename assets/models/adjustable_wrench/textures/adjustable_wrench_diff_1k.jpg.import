@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dueuxu815352f"
 path.s3tc="res://.godot/imported/adjustable_wrench_diff_1k.jpg-4965cce06686f75f788f176637f2adcb.s3tc.ctex"
-path.etc2="res://.godot/imported/adjustable_wrench_diff_1k.jpg-4965cce06686f75f788f176637f2adcb.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/adjustable_wrench/textures/adjustable_wrench_diff_1k.jpg"
-dest_files=["res://.godot/imported/adjustable_wrench_diff_1k.jpg-4965cce06686f75f788f176637f2adcb.s3tc.ctex", "res://.godot/imported/adjustable_wrench_diff_1k.jpg-4965cce06686f75f788f176637f2adcb.etc2.ctex"]
+dest_files=["res://.godot/imported/adjustable_wrench_diff_1k.jpg-4965cce06686f75f788f176637f2adcb.s3tc.ctex"]
 
 [params]
 

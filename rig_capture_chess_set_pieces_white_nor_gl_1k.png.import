@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c0n6cm3k236jh"
 path.s3tc="res://.godot/imported/rig_capture_chess_set_pieces_white_nor_gl_1k.png-d8ded8ea1ff65a6c1a9e21531d44ec7d.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_chess_set_pieces_white_nor_gl_1k.png-d8ded8ea1ff65a6c1a9e21531d44ec7d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_chess_set_pieces_white_nor_gl_1k.png"
-dest_files=["res://.godot/imported/rig_capture_chess_set_pieces_white_nor_gl_1k.png-d8ded8ea1ff65a6c1a9e21531d44ec7d.s3tc.ctex", "res://.godot/imported/rig_capture_chess_set_pieces_white_nor_gl_1k.png-d8ded8ea1ff65a6c1a9e21531d44ec7d.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_chess_set_pieces_white_nor_gl_1k.png-d8ded8ea1ff65a6c1a9e21531d44ec7d.s3tc.ctex"]
 
 [params]
 

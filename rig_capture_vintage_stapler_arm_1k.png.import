@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dgbuwlohv5vkg"
 path.s3tc="res://.godot/imported/rig_capture_vintage_stapler_arm_1k.png-9004432e06c521f6e0d77b1c05f22d7c.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_vintage_stapler_arm_1k.png-9004432e06c521f6e0d77b1c05f22d7c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_vintage_stapler_arm_1k.png"
-dest_files=["res://.godot/imported/rig_capture_vintage_stapler_arm_1k.png-9004432e06c521f6e0d77b1c05f22d7c.s3tc.ctex", "res://.godot/imported/rig_capture_vintage_stapler_arm_1k.png-9004432e06c521f6e0d77b1c05f22d7c.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_vintage_stapler_arm_1k.png-9004432e06c521f6e0d77b1c05f22d7c.s3tc.ctex"]
 
 [params]
 

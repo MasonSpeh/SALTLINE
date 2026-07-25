@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d065gpu36cle3"
 path.s3tc="res://.godot/imported/alarm_clock_01_arm_1k.jpg-a4886ff80324eb5b37579ac5c0dee7c9.s3tc.ctex"
-path.etc2="res://.godot/imported/alarm_clock_01_arm_1k.jpg-a4886ff80324eb5b37579ac5c0dee7c9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/alarm_clock_01/textures/alarm_clock_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/alarm_clock_01_arm_1k.jpg-a4886ff80324eb5b37579ac5c0dee7c9.s3tc.ctex", "res://.godot/imported/alarm_clock_01_arm_1k.jpg-a4886ff80324eb5b37579ac5c0dee7c9.etc2.ctex"]
+dest_files=["res://.godot/imported/alarm_clock_01_arm_1k.jpg-a4886ff80324eb5b37579ac5c0dee7c9.s3tc.ctex"]
 
 [params]
 

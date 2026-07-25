@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dcf0t55c0am34"
 path.s3tc="res://.godot/imported/oil_tin_arm_1k.jpg-6e298a24be32223b116dcc85782a0485.s3tc.ctex"
-path.etc2="res://.godot/imported/oil_tin_arm_1k.jpg-6e298a24be32223b116dcc85782a0485.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/oil_tin/textures/oil_tin_arm_1k.jpg"
-dest_files=["res://.godot/imported/oil_tin_arm_1k.jpg-6e298a24be32223b116dcc85782a0485.s3tc.ctex", "res://.godot/imported/oil_tin_arm_1k.jpg-6e298a24be32223b116dcc85782a0485.etc2.ctex"]
+dest_files=["res://.godot/imported/oil_tin_arm_1k.jpg-6e298a24be32223b116dcc85782a0485.s3tc.ctex"]
 
 [params]
 

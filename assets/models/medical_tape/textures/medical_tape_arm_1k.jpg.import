@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bg41slirgi3mn"
 path.s3tc="res://.godot/imported/medical_tape_arm_1k.jpg-840c6412fb06d7b733b055c3cf4deba4.s3tc.ctex"
-path.etc2="res://.godot/imported/medical_tape_arm_1k.jpg-840c6412fb06d7b733b055c3cf4deba4.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/medical_tape/textures/medical_tape_arm_1k.jpg"
-dest_files=["res://.godot/imported/medical_tape_arm_1k.jpg-840c6412fb06d7b733b055c3cf4deba4.s3tc.ctex", "res://.godot/imported/medical_tape_arm_1k.jpg-840c6412fb06d7b733b055c3cf4deba4.etc2.ctex"]
+dest_files=["res://.godot/imported/medical_tape_arm_1k.jpg-840c6412fb06d7b733b055c3cf4deba4.s3tc.ctex"]
 
 [params]
 

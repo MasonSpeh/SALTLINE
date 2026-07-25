@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bh3ap2yxsa5gp"
 path.s3tc="res://.godot/imported/industrial_pipe_lamp_nor_gl_1k.jpg-83fdf130fde35c26563904f7e24dc74e.s3tc.ctex"
-path.etc2="res://.godot/imported/industrial_pipe_lamp_nor_gl_1k.jpg-83fdf130fde35c26563904f7e24dc74e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/industrial_pipe_lamp/textures/industrial_pipe_lamp_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/industrial_pipe_lamp_nor_gl_1k.jpg-83fdf130fde35c26563904f7e24dc74e.s3tc.ctex", "res://.godot/imported/industrial_pipe_lamp_nor_gl_1k.jpg-83fdf130fde35c26563904f7e24dc74e.etc2.ctex"]
+dest_files=["res://.godot/imported/industrial_pipe_lamp_nor_gl_1k.jpg-83fdf130fde35c26563904f7e24dc74e.s3tc.ctex"]
 
 [params]
 

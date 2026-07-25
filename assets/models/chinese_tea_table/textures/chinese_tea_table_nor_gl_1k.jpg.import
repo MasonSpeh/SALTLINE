@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bj1wrwi8eej5p"
 path.s3tc="res://.godot/imported/chinese_tea_table_nor_gl_1k.jpg-f6b56d7185d1cbe5b765162dc640f3d7.s3tc.ctex"
-path.etc2="res://.godot/imported/chinese_tea_table_nor_gl_1k.jpg-f6b56d7185d1cbe5b765162dc640f3d7.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/chinese_tea_table/textures/chinese_tea_table_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/chinese_tea_table_nor_gl_1k.jpg-f6b56d7185d1cbe5b765162dc640f3d7.s3tc.ctex", "res://.godot/imported/chinese_tea_table_nor_gl_1k.jpg-f6b56d7185d1cbe5b765162dc640f3d7.etc2.ctex"]
+dest_files=["res://.godot/imported/chinese_tea_table_nor_gl_1k.jpg-f6b56d7185d1cbe5b765162dc640f3d7.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://fv7cav7f0pjo"
 path.s3tc="res://.godot/imported/round_spectacles_nor_gl_1k.jpg-cc329a42ae8c80a465f5b2edac8c51d8.s3tc.ctex"
-path.etc2="res://.godot/imported/round_spectacles_nor_gl_1k.jpg-cc329a42ae8c80a465f5b2edac8c51d8.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/round_spectacles/textures/round_spectacles_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/round_spectacles_nor_gl_1k.jpg-cc329a42ae8c80a465f5b2edac8c51d8.s3tc.ctex", "res://.godot/imported/round_spectacles_nor_gl_1k.jpg-cc329a42ae8c80a465f5b2edac8c51d8.etc2.ctex"]
+dest_files=["res://.godot/imported/round_spectacles_nor_gl_1k.jpg-cc329a42ae8c80a465f5b2edac8c51d8.s3tc.ctex"]
 
 [params]
 

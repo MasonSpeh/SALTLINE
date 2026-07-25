@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cab8cpte8r2pu"
 path.s3tc="res://.godot/imported/rig_capture_Metal032_1K-JPG_Roughness2.png-bd5bfa70006a7239677410eb5e8ffbd2.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_Metal032_1K-JPG_Roughness2.png-bd5bfa70006a7239677410eb5e8ffbd2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_Metal032_1K-JPG_Roughness2.png"
-dest_files=["res://.godot/imported/rig_capture_Metal032_1K-JPG_Roughness2.png-bd5bfa70006a7239677410eb5e8ffbd2.s3tc.ctex", "res://.godot/imported/rig_capture_Metal032_1K-JPG_Roughness2.png-bd5bfa70006a7239677410eb5e8ffbd2.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_Metal032_1K-JPG_Roughness2.png-bd5bfa70006a7239677410eb5e8ffbd2.s3tc.ctex"]
 
 [params]
 

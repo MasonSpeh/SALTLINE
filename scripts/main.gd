@@ -16,6 +16,9 @@ var jelly := JellyGlow.new()
 func _ready() -> void:
 	_build_environment()
 	_build_ocean()
+	# Built and shader-warmed at LOAD, not on the first dive — see _build_underwater_env().
+	_build_underwater_env()
+	_prewarm_underwater_env()
 	# Item effects (heal / cures / empties-returned) listen on PlayerState.item_eaten, which
 	# use_hotbar emits but does not itself implement. Mounted HERE, explicitly, because the
 	# alternative was self-mounting off whatever unrelated call happened to run first — the
@@ -277,6 +280,63 @@ var _underwater_env: Environment = null
 var _was_under: bool = false
 var _star_dome: MeshInstance3D = null
 
+## THE ONE-SECOND FREEZE ON GOING UNDER, and why it was self-inflicted.
+##
+## This Environment used to be built LAZILY, the first frame the camera dipped below the
+## swell. Under gl_compatibility, handing the camera an Environment whose pipeline
+## configuration the renderer has not seen yet forces it to compile those shader variants
+## THERE AND THEN, synchronously, mid-dive — which is the hitch. Building it late also meant
+## the very first dive of every session paid the cost, every session.
+##
+## Two changes. It is built up front, at load, with the rest of the world; and its pipeline
+## configuration is deliberately kept as close to the surface environment's as the look
+## allows (same FILMIC tonemap, glow and SSAO left ON) so the swap changes PARAMETER VALUES
+## rather than the shape of the pipeline. Then `_prewarm_underwater_env()` renders one
+## throwaway off-screen frame through it so the compile happens during load, where a stall
+## is invisible, instead of the moment the player's head goes under.
+func _build_underwater_env() -> void:
+	var e := Environment.new()
+	e.background_mode = Environment.BG_COLOR
+	e.background_color = Color(0.015, 0.075, 0.09)
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.12, 0.27, 0.29)
+	e.ambient_light_energy = 0.7
+	e.fog_enabled = true
+	e.fog_light_color = Color(0.045, 0.16, 0.18)   # North Atlantic murk, not lagoon
+	e.tonemap_mode = Environment.TONE_MAPPER_FILMIC
+	e.tonemap_white = 4.0
+	# Matched to the surface environment on purpose — see the note above. These cost little
+	# in a fogged-in view and keep the dive from switching pipeline shape.
+	e.glow_enabled = true
+	e.glow_intensity = 0.6
+	e.glow_bloom = 0.05
+	e.glow_hdr_threshold = 0.8
+	e.ssao_enabled = true
+	e.ssao_radius = 2.0
+	e.ssao_intensity = 1.5
+	_underwater_env = e
+
+## Render a single 8x8 off-screen frame through the underwater environment so its shader
+## variants are compiled while the level is still loading. Deliberately a SubViewport and
+## not the real camera: assigning it to the player's camera for a frame would compile the
+## same thing but flash the whole screen teal on startup.
+func _prewarm_underwater_env() -> void:
+	if _underwater_env == null:
+		return
+	var vp := SubViewport.new()
+	vp.size = Vector2i(8, 8)
+	vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	vp.own_world_3d = true
+	add_child(vp)
+	var c := Camera3D.new()
+	c.environment = _underwater_env
+	vp.add_child(c)
+	c.current = true
+	# Two frames: one to render, one to be sure it landed. Then it is dead weight — drop it.
+	await get_tree().process_frame
+	await get_tree().process_frame
+	vp.queue_free()
+
 ## Swap the camera's own Environment when it dips below the swell — dense teal
 ## fog, dim ambient, no sky — and duck the topside audio. Camera-level override
 ## means SunController and the storms keep owning the surface environment.
@@ -288,16 +348,6 @@ func _process(_delta: float) -> void:
 		return
 	var wave_y: float = Gyre.wave_height(Vector2(cam.global_position.x, cam.global_position.z), Gyre.water_time()) * 0.85
 	var under: bool = cam.global_position.y < wave_y
-	if under and _underwater_env == null:
-		_underwater_env = Environment.new()
-		_underwater_env.background_mode = Environment.BG_COLOR
-		_underwater_env.background_color = Color(0.015, 0.075, 0.09)
-		_underwater_env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-		_underwater_env.ambient_light_color = Color(0.12, 0.27, 0.29)
-		_underwater_env.ambient_light_energy = 0.7
-		_underwater_env.fog_enabled = true
-		_underwater_env.fog_light_color = Color(0.045, 0.16, 0.18)   # North Atlantic murk, not lagoon
-		_underwater_env.tonemap_mode = Environment.TONE_MAPPER_FILMIC
 	if under:
 		# Deeper = darker and thicker; near the surface the world still glows.
 		var depth: float = maxf(wave_y - cam.global_position.y, 0.0)

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://67spt8ot7add"
 path.s3tc="res://.godot/imported/chinese_cabinet_nor_gl_1k.jpg-c61a4d48350078f158e4badf5a334e8b.s3tc.ctex"
-path.etc2="res://.godot/imported/chinese_cabinet_nor_gl_1k.jpg-c61a4d48350078f158e4badf5a334e8b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/chinese_cabinet/textures/chinese_cabinet_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/chinese_cabinet_nor_gl_1k.jpg-c61a4d48350078f158e4badf5a334e8b.s3tc.ctex", "res://.godot/imported/chinese_cabinet_nor_gl_1k.jpg-c61a4d48350078f158e4badf5a334e8b.etc2.ctex"]
+dest_files=["res://.godot/imported/chinese_cabinet_nor_gl_1k.jpg-c61a4d48350078f158e4badf5a334e8b.s3tc.ctex"]
 
 [params]
 

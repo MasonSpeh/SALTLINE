@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ca7svfw1bgla3"
 path.s3tc="res://.godot/imported/hanging_industrial_lamp_arm_1k.jpg-0a6fdac8cb9b5eb3f1ebedf6d563c094.s3tc.ctex"
-path.etc2="res://.godot/imported/hanging_industrial_lamp_arm_1k.jpg-0a6fdac8cb9b5eb3f1ebedf6d563c094.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/hanging_industrial_lamp/textures/hanging_industrial_lamp_arm_1k.jpg"
-dest_files=["res://.godot/imported/hanging_industrial_lamp_arm_1k.jpg-0a6fdac8cb9b5eb3f1ebedf6d563c094.s3tc.ctex", "res://.godot/imported/hanging_industrial_lamp_arm_1k.jpg-0a6fdac8cb9b5eb3f1ebedf6d563c094.etc2.ctex"]
+dest_files=["res://.godot/imported/hanging_industrial_lamp_arm_1k.jpg-0a6fdac8cb9b5eb3f1ebedf6d563c094.s3tc.ctex"]
 
 [params]
 

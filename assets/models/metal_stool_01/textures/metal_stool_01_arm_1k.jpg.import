@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://7ilmv51ggige"
 path.s3tc="res://.godot/imported/metal_stool_01_arm_1k.jpg-b6cad7792f6d58b35ff97b619bd05504.s3tc.ctex"
-path.etc2="res://.godot/imported/metal_stool_01_arm_1k.jpg-b6cad7792f6d58b35ff97b619bd05504.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_stool_01/textures/metal_stool_01_arm_1k.jpg"
-dest_files=["res://.godot/imported/metal_stool_01_arm_1k.jpg-b6cad7792f6d58b35ff97b619bd05504.s3tc.ctex", "res://.godot/imported/metal_stool_01_arm_1k.jpg-b6cad7792f6d58b35ff97b619bd05504.etc2.ctex"]
+dest_files=["res://.godot/imported/metal_stool_01_arm_1k.jpg-b6cad7792f6d58b35ff97b619bd05504.s3tc.ctex"]
 
 [params]
 

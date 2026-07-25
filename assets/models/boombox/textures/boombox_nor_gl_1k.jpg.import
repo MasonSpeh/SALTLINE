@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://v4o78q1hhix"
 path.s3tc="res://.godot/imported/boombox_nor_gl_1k.jpg-9213a429e269363927cbfbd49e377d1e.s3tc.ctex"
-path.etc2="res://.godot/imported/boombox_nor_gl_1k.jpg-9213a429e269363927cbfbd49e377d1e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/boombox/textures/boombox_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/boombox_nor_gl_1k.jpg-9213a429e269363927cbfbd49e377d1e.s3tc.ctex", "res://.godot/imported/boombox_nor_gl_1k.jpg-9213a429e269363927cbfbd49e377d1e.etc2.ctex"]
+dest_files=["res://.godot/imported/boombox_nor_gl_1k.jpg-9213a429e269363927cbfbd49e377d1e.s3tc.ctex"]
 
 [params]
 

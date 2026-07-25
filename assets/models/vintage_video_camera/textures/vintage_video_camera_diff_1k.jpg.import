@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://di335kw26t2ct"
 path.s3tc="res://.godot/imported/vintage_video_camera_diff_1k.jpg-9160c10d5e95de9322cb23e096946eac.s3tc.ctex"
-path.etc2="res://.godot/imported/vintage_video_camera_diff_1k.jpg-9160c10d5e95de9322cb23e096946eac.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/vintage_video_camera/textures/vintage_video_camera_diff_1k.jpg"
-dest_files=["res://.godot/imported/vintage_video_camera_diff_1k.jpg-9160c10d5e95de9322cb23e096946eac.s3tc.ctex", "res://.godot/imported/vintage_video_camera_diff_1k.jpg-9160c10d5e95de9322cb23e096946eac.etc2.ctex"]
+dest_files=["res://.godot/imported/vintage_video_camera_diff_1k.jpg-9160c10d5e95de9322cb23e096946eac.s3tc.ctex"]
 
 [params]
 

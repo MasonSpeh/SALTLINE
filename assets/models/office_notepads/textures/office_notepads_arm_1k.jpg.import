@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://weahev1q4o3p"
 path.s3tc="res://.godot/imported/office_notepads_arm_1k.jpg-623783d21af0068fa4309435a1a2a5bd.s3tc.ctex"
-path.etc2="res://.godot/imported/office_notepads_arm_1k.jpg-623783d21af0068fa4309435a1a2a5bd.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/office_notepads/textures/office_notepads_arm_1k.jpg"
-dest_files=["res://.godot/imported/office_notepads_arm_1k.jpg-623783d21af0068fa4309435a1a2a5bd.s3tc.ctex", "res://.godot/imported/office_notepads_arm_1k.jpg-623783d21af0068fa4309435a1a2a5bd.etc2.ctex"]
+dest_files=["res://.godot/imported/office_notepads_arm_1k.jpg-623783d21af0068fa4309435a1a2a5bd.s3tc.ctex"]
 
 [params]
 

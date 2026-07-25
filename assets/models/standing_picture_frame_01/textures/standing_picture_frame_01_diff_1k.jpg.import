@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxrl6selr6i5r"
 path.s3tc="res://.godot/imported/standing_picture_frame_01_diff_1k.jpg-71a23dcc0467c487677198d90b7de897.s3tc.ctex"
-path.etc2="res://.godot/imported/standing_picture_frame_01_diff_1k.jpg-71a23dcc0467c487677198d90b7de897.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/standing_picture_frame_01/textures/standing_picture_frame_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/standing_picture_frame_01_diff_1k.jpg-71a23dcc0467c487677198d90b7de897.s3tc.ctex", "res://.godot/imported/standing_picture_frame_01_diff_1k.jpg-71a23dcc0467c487677198d90b7de897.etc2.ctex"]
+dest_files=["res://.godot/imported/standing_picture_frame_01_diff_1k.jpg-71a23dcc0467c487677198d90b7de897.s3tc.ctex"]
 
 [params]
 

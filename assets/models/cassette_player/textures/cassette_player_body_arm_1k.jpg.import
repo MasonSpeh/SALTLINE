@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cupraemkjd73m"
 path.s3tc="res://.godot/imported/cassette_player_body_arm_1k.jpg-af0f91fb5fd8ad3e4ddae467364f1ecf.s3tc.ctex"
-path.etc2="res://.godot/imported/cassette_player_body_arm_1k.jpg-af0f91fb5fd8ad3e4ddae467364f1ecf.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cassette_player/textures/cassette_player_body_arm_1k.jpg"
-dest_files=["res://.godot/imported/cassette_player_body_arm_1k.jpg-af0f91fb5fd8ad3e4ddae467364f1ecf.s3tc.ctex", "res://.godot/imported/cassette_player_body_arm_1k.jpg-af0f91fb5fd8ad3e4ddae467364f1ecf.etc2.ctex"]
+dest_files=["res://.godot/imported/cassette_player_body_arm_1k.jpg-af0f91fb5fd8ad3e4ddae467364f1ecf.s3tc.ctex"]
 
 [params]
 

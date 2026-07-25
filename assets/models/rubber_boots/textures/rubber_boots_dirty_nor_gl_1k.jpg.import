@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ctqvsb5kwrmtq"
 path.s3tc="res://.godot/imported/rubber_boots_dirty_nor_gl_1k.jpg-0ed979433bc83ffeba53eeaff29cc2dc.s3tc.ctex"
-path.etc2="res://.godot/imported/rubber_boots_dirty_nor_gl_1k.jpg-0ed979433bc83ffeba53eeaff29cc2dc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/rubber_boots/textures/rubber_boots_dirty_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/rubber_boots_dirty_nor_gl_1k.jpg-0ed979433bc83ffeba53eeaff29cc2dc.s3tc.ctex", "res://.godot/imported/rubber_boots_dirty_nor_gl_1k.jpg-0ed979433bc83ffeba53eeaff29cc2dc.etc2.ctex"]
+dest_files=["res://.godot/imported/rubber_boots_dirty_nor_gl_1k.jpg-0ed979433bc83ffeba53eeaff29cc2dc.s3tc.ctex"]
 
 [params]
 

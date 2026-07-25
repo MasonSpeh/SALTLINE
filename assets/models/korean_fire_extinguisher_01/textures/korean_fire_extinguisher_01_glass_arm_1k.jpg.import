@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bar36ounrx8fx"
 path.s3tc="res://.godot/imported/korean_fire_extinguisher_01_glass_arm_1k.jpg-4ee1e878537f6121b83662fdc2e22a9a.s3tc.ctex"
-path.etc2="res://.godot/imported/korean_fire_extinguisher_01_glass_arm_1k.jpg-4ee1e878537f6121b83662fdc2e22a9a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/korean_fire_extinguisher_01/textures/korean_fire_extinguisher_01_glass_arm_1k.jpg"
-dest_files=["res://.godot/imported/korean_fire_extinguisher_01_glass_arm_1k.jpg-4ee1e878537f6121b83662fdc2e22a9a.s3tc.ctex", "res://.godot/imported/korean_fire_extinguisher_01_glass_arm_1k.jpg-4ee1e878537f6121b83662fdc2e22a9a.etc2.ctex"]
+dest_files=["res://.godot/imported/korean_fire_extinguisher_01_glass_arm_1k.jpg-4ee1e878537f6121b83662fdc2e22a9a.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://io4efap3xsc5"
 path.s3tc="res://.godot/imported/food_pomegranate_01_rough_1k.jpg-327b08a97afa7c7e41b7a1913cf8dd5d.s3tc.ctex"
-path.etc2="res://.godot/imported/food_pomegranate_01_rough_1k.jpg-327b08a97afa7c7e41b7a1913cf8dd5d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/food_pomegranate_01/textures/food_pomegranate_01_rough_1k.jpg"
-dest_files=["res://.godot/imported/food_pomegranate_01_rough_1k.jpg-327b08a97afa7c7e41b7a1913cf8dd5d.s3tc.ctex", "res://.godot/imported/food_pomegranate_01_rough_1k.jpg-327b08a97afa7c7e41b7a1913cf8dd5d.etc2.ctex"]
+dest_files=["res://.godot/imported/food_pomegranate_01_rough_1k.jpg-327b08a97afa7c7e41b7a1913cf8dd5d.s3tc.ctex"]
 
 [params]
 

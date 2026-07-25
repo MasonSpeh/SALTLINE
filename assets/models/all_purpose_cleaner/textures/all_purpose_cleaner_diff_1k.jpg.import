@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://e7t2qy6yg4fh"
 path.s3tc="res://.godot/imported/all_purpose_cleaner_diff_1k.jpg-45ef0f8df0219a9f9d3c02fed62653a9.s3tc.ctex"
-path.etc2="res://.godot/imported/all_purpose_cleaner_diff_1k.jpg-45ef0f8df0219a9f9d3c02fed62653a9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/all_purpose_cleaner/textures/all_purpose_cleaner_diff_1k.jpg"
-dest_files=["res://.godot/imported/all_purpose_cleaner_diff_1k.jpg-45ef0f8df0219a9f9d3c02fed62653a9.s3tc.ctex", "res://.godot/imported/all_purpose_cleaner_diff_1k.jpg-45ef0f8df0219a9f9d3c02fed62653a9.etc2.ctex"]
+dest_files=["res://.godot/imported/all_purpose_cleaner_diff_1k.jpg-45ef0f8df0219a9f9d3c02fed62653a9.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d0krobia7mld3"
 path.s3tc="res://.godot/imported/Armchair_01_nor_gl_1k.jpg-063a11622de865deb58216c33adba741.s3tc.ctex"
-path.etc2="res://.godot/imported/Armchair_01_nor_gl_1k.jpg-063a11622de865deb58216c33adba741.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ArmChair_01/textures/Armchair_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/Armchair_01_nor_gl_1k.jpg-063a11622de865deb58216c33adba741.s3tc.ctex", "res://.godot/imported/Armchair_01_nor_gl_1k.jpg-063a11622de865deb58216c33adba741.etc2.ctex"]
+dest_files=["res://.godot/imported/Armchair_01_nor_gl_1k.jpg-063a11622de865deb58216c33adba741.s3tc.ctex"]
 
 [params]
 

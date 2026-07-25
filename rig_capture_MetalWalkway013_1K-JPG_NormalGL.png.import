@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cnp5lw1kqvajp"
 path.s3tc="res://.godot/imported/rig_capture_MetalWalkway013_1K-JPG_NormalGL.png-e6ebc4a28ef3cf40906a6a956cb6b1b5.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_MetalWalkway013_1K-JPG_NormalGL.png-e6ebc4a28ef3cf40906a6a956cb6b1b5.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_MetalWalkway013_1K-JPG_NormalGL.png"
-dest_files=["res://.godot/imported/rig_capture_MetalWalkway013_1K-JPG_NormalGL.png-e6ebc4a28ef3cf40906a6a956cb6b1b5.s3tc.ctex", "res://.godot/imported/rig_capture_MetalWalkway013_1K-JPG_NormalGL.png-e6ebc4a28ef3cf40906a6a956cb6b1b5.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_MetalWalkway013_1K-JPG_NormalGL.png-e6ebc4a28ef3cf40906a6a956cb6b1b5.s3tc.ctex"]
 
 [params]
 

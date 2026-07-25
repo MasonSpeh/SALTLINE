@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://doe5fim037o5t"
 path.s3tc="res://.godot/imported/propane_torch_arm_1k.jpg-20203f25fa0b97713a2a0e0dd514ae63.s3tc.ctex"
-path.etc2="res://.godot/imported/propane_torch_arm_1k.jpg-20203f25fa0b97713a2a0e0dd514ae63.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/propane_torch/textures/propane_torch_arm_1k.jpg"
-dest_files=["res://.godot/imported/propane_torch_arm_1k.jpg-20203f25fa0b97713a2a0e0dd514ae63.s3tc.ctex", "res://.godot/imported/propane_torch_arm_1k.jpg-20203f25fa0b97713a2a0e0dd514ae63.etc2.ctex"]
+dest_files=["res://.godot/imported/propane_torch_arm_1k.jpg-20203f25fa0b97713a2a0e0dd514ae63.s3tc.ctex"]
 
 [params]
 

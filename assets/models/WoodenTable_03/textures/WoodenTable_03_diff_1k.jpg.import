@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b28qdqk0fvhp"
 path.s3tc="res://.godot/imported/WoodenTable_03_diff_1k.jpg-d5e2e74f2fb9fe554bc7a1a2b99b1b9b.s3tc.ctex"
-path.etc2="res://.godot/imported/WoodenTable_03_diff_1k.jpg-d5e2e74f2fb9fe554bc7a1a2b99b1b9b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/WoodenTable_03/textures/WoodenTable_03_diff_1k.jpg"
-dest_files=["res://.godot/imported/WoodenTable_03_diff_1k.jpg-d5e2e74f2fb9fe554bc7a1a2b99b1b9b.s3tc.ctex", "res://.godot/imported/WoodenTable_03_diff_1k.jpg-d5e2e74f2fb9fe554bc7a1a2b99b1b9b.etc2.ctex"]
+dest_files=["res://.godot/imported/WoodenTable_03_diff_1k.jpg-d5e2e74f2fb9fe554bc7a1a2b99b1b9b.s3tc.ctex"]
 
 [params]
 

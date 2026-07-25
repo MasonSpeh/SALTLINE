@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmt1mb0mlbxjg"
 path.s3tc="res://.godot/imported/hand_truck_arm_1k.jpg-2dbf496ef50fc19c92ea1da92a7d7ef0.s3tc.ctex"
-path.etc2="res://.godot/imported/hand_truck_arm_1k.jpg-2dbf496ef50fc19c92ea1da92a7d7ef0.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/hand_truck/textures/hand_truck_arm_1k.jpg"
-dest_files=["res://.godot/imported/hand_truck_arm_1k.jpg-2dbf496ef50fc19c92ea1da92a7d7ef0.s3tc.ctex", "res://.godot/imported/hand_truck_arm_1k.jpg-2dbf496ef50fc19c92ea1da92a7d7ef0.etc2.ctex"]
+dest_files=["res://.godot/imported/hand_truck_arm_1k.jpg-2dbf496ef50fc19c92ea1da92a7d7ef0.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3apwd4w43akm"
 path.s3tc="res://.godot/imported/Ottoman_01_nor_gl_1k.jpg-d771171c2f5fe63d419839fabe99cd11.s3tc.ctex"
-path.etc2="res://.godot/imported/Ottoman_01_nor_gl_1k.jpg-d771171c2f5fe63d419839fabe99cd11.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Ottoman_01/textures/Ottoman_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/Ottoman_01_nor_gl_1k.jpg-d771171c2f5fe63d419839fabe99cd11.s3tc.ctex", "res://.godot/imported/Ottoman_01_nor_gl_1k.jpg-d771171c2f5fe63d419839fabe99cd11.etc2.ctex"]
+dest_files=["res://.godot/imported/Ottoman_01_nor_gl_1k.jpg-d771171c2f5fe63d419839fabe99cd11.s3tc.ctex"]
 
 [params]
 

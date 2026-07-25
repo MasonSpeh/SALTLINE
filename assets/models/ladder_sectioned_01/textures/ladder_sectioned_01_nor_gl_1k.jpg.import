@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://o4gm5dyabnlp"
 path.s3tc="res://.godot/imported/ladder_sectioned_01_nor_gl_1k.jpg-2bb271616f1c390893edd10ab54f1f24.s3tc.ctex"
-path.etc2="res://.godot/imported/ladder_sectioned_01_nor_gl_1k.jpg-2bb271616f1c390893edd10ab54f1f24.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ladder_sectioned_01/textures/ladder_sectioned_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/ladder_sectioned_01_nor_gl_1k.jpg-2bb271616f1c390893edd10ab54f1f24.s3tc.ctex", "res://.godot/imported/ladder_sectioned_01_nor_gl_1k.jpg-2bb271616f1c390893edd10ab54f1f24.etc2.ctex"]
+dest_files=["res://.godot/imported/ladder_sectioned_01_nor_gl_1k.jpg-2bb271616f1c390893edd10ab54f1f24.s3tc.ctex"]
 
 [params]
 

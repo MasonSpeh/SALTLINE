@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://d0amb3u7rm0rl"
 path.s3tc="res://.godot/imported/metal_toolbox_arm_1k.jpg-7bf0d0976fc5e6cbc6486606c235fa5d.s3tc.ctex"
-path.etc2="res://.godot/imported/metal_toolbox_arm_1k.jpg-7bf0d0976fc5e6cbc6486606c235fa5d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_toolbox/textures/metal_toolbox_arm_1k.jpg"
-dest_files=["res://.godot/imported/metal_toolbox_arm_1k.jpg-7bf0d0976fc5e6cbc6486606c235fa5d.s3tc.ctex", "res://.godot/imported/metal_toolbox_arm_1k.jpg-7bf0d0976fc5e6cbc6486606c235fa5d.etc2.ctex"]
+dest_files=["res://.godot/imported/metal_toolbox_arm_1k.jpg-7bf0d0976fc5e6cbc6486606c235fa5d.s3tc.ctex"]
 
 [params]
 

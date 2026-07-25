@@ -24,6 +24,10 @@ extends Node
 
 ## Largest dimension under which a mesh stops casting directional shadows.
 const SHADOW_MIN: float = 0.80
+## A "plate": thinner than this and no wider than THIN_PLATE_MAX_SPAN casts no useful shadow.
+## Above the span limit an object this thin is structure (bulkhead, deck plate) and still casts.
+const THIN_PLATE_MAX_THICK: float = 0.09
+const THIN_PLATE_MAX_SPAN: float = 2.60
 ## Objects at least this big always draw, at any distance (structure, tanks, containers).
 const FAR_ALWAYS: float = 3.0
 ## Distance budget: an object of size `s` draws out to clampf(s * SIZE_TO_RANGE, MIN, MAX).
@@ -79,8 +83,25 @@ func _sweep(root: Node) -> void:
 		_budgeted += 1
 		var a: AABB = mi.get_aabb()
 		var scl: Vector3 = mi.global_transform.basis.get_scale()
-		var size: float = maxf(maxf(a.size.x * scl.x, a.size.y * scl.y), a.size.z * scl.z)
-		if size < SHADOW_MIN and mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+		var dim := Vector3(a.size.x * scl.x, a.size.y * scl.y, a.size.z * scl.z)
+		var size: float = maxf(maxf(dim.x, dim.y), dim.z)
+		var thin: float = minf(minf(dim.x, dim.y), dim.z)
+		# A shadow caster earns its place in the shadow passes (one draw call per cascade it
+		# lands in) only if it would actually darken something. Two ways to fail that:
+		#
+		#  1. TOO SMALL to resolve — smaller than a shadow-map texel. That is SHADOW_MIN.
+		#  2. TOO THIN to read — a PLATE. Signs, placards, deck paint, warning panels, cable
+		#     trays, wall stencils: 1.0 x 0.4 x 0.03 has a largest dimension of 1.0, so the
+		#     size test passes it and it casts, but the shadow it throws is a hairline no
+		#     player will ever notice against rusted steel. The rig is dressed with hundreds
+		#     of these and they were all in the shadow budget.
+		#
+		# Anything genuinely structural stays: a 3 mm-thin object 3 m across is a bulkhead or
+		# a deck plate, and those must still cast, so the thin rule only applies below
+		# THIN_PLATE_MAX_SPAN.
+		var negligible: bool = size < SHADOW_MIN \
+			or (thin <= THIN_PLATE_MAX_THICK and size <= THIN_PLATE_MAX_SPAN)
+		if negligible and mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_shadow_off += 1
 		if size >= FAR_ALWAYS or mi.visibility_range_end > 0.0:

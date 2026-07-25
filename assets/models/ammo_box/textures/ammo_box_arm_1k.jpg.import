@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://ctbvha4eupdjq"
 path.s3tc="res://.godot/imported/ammo_box_arm_1k.jpg-8e770ccc0aa80b94dbf1f6191c1ad81e.s3tc.ctex"
-path.etc2="res://.godot/imported/ammo_box_arm_1k.jpg-8e770ccc0aa80b94dbf1f6191c1ad81e.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/ammo_box/textures/ammo_box_arm_1k.jpg"
-dest_files=["res://.godot/imported/ammo_box_arm_1k.jpg-8e770ccc0aa80b94dbf1f6191c1ad81e.s3tc.ctex", "res://.godot/imported/ammo_box_arm_1k.jpg-8e770ccc0aa80b94dbf1f6191c1ad81e.etc2.ctex"]
+dest_files=["res://.godot/imported/ammo_box_arm_1k.jpg-8e770ccc0aa80b94dbf1f6191c1ad81e.s3tc.ctex"]
 
 [params]
 

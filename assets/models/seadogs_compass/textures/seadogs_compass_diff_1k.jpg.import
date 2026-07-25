@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8vt1taikwo0y"
 path.s3tc="res://.godot/imported/seadogs_compass_diff_1k.jpg-8204156adba769f21e1c0692703ade2b.s3tc.ctex"
-path.etc2="res://.godot/imported/seadogs_compass_diff_1k.jpg-8204156adba769f21e1c0692703ade2b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/seadogs_compass/textures/seadogs_compass_diff_1k.jpg"
-dest_files=["res://.godot/imported/seadogs_compass_diff_1k.jpg-8204156adba769f21e1c0692703ade2b.s3tc.ctex", "res://.godot/imported/seadogs_compass_diff_1k.jpg-8204156adba769f21e1c0692703ade2b.etc2.ctex"]
+dest_files=["res://.godot/imported/seadogs_compass_diff_1k.jpg-8204156adba769f21e1c0692703ade2b.s3tc.ctex"]
 
 [params]
 

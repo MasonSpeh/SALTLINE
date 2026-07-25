@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://biy8ujfj5he41"
 path.s3tc="res://.godot/imported/industrial_storage_cart_diff_1k.jpg-cfa57cdf1bbe4405c294bdc62ca78267.s3tc.ctex"
-path.etc2="res://.godot/imported/industrial_storage_cart_diff_1k.jpg-cfa57cdf1bbe4405c294bdc62ca78267.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/industrial_storage_cart/textures/industrial_storage_cart_diff_1k.jpg"
-dest_files=["res://.godot/imported/industrial_storage_cart_diff_1k.jpg-cfa57cdf1bbe4405c294bdc62ca78267.s3tc.ctex", "res://.godot/imported/industrial_storage_cart_diff_1k.jpg-cfa57cdf1bbe4405c294bdc62ca78267.etc2.ctex"]
+dest_files=["res://.godot/imported/industrial_storage_cart_diff_1k.jpg-cfa57cdf1bbe4405c294bdc62ca78267.s3tc.ctex"]
 
 [params]
 

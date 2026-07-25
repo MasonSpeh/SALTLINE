@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://7qd4ra0q61sx"
 path.s3tc="res://.godot/imported/Camera_01_body_diff_1k.jpg-73809aa39dcf2885420b901ed4c9ce30.s3tc.ctex"
-path.etc2="res://.godot/imported/Camera_01_body_diff_1k.jpg-73809aa39dcf2885420b901ed4c9ce30.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Camera_01/textures/Camera_01_body_diff_1k.jpg"
-dest_files=["res://.godot/imported/Camera_01_body_diff_1k.jpg-73809aa39dcf2885420b901ed4c9ce30.s3tc.ctex", "res://.godot/imported/Camera_01_body_diff_1k.jpg-73809aa39dcf2885420b901ed4c9ce30.etc2.ctex"]
+dest_files=["res://.godot/imported/Camera_01_body_diff_1k.jpg-73809aa39dcf2885420b901ed4c9ce30.s3tc.ctex"]
 
 [params]
 

@@ -4,16 +4,15 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c8joyc3hxjyau"
 path.s3tc="res://.godot/imported/screwdriver_diff_1k.jpg-65c98488e31dcbbd1d6665e41168a5ec.s3tc.ctex"
-path.etc2="res://.godot/imported/screwdriver_diff_1k.jpg-65c98488e31dcbbd1d6665e41168a5ec.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/screwdriver/textures/screwdriver_diff_1k.jpg"
-dest_files=["res://.godot/imported/screwdriver_diff_1k.jpg-65c98488e31dcbbd1d6665e41168a5ec.s3tc.ctex", "res://.godot/imported/screwdriver_diff_1k.jpg-65c98488e31dcbbd1d6665e41168a5ec.etc2.ctex"]
+dest_files=["res://.godot/imported/screwdriver_diff_1k.jpg-65c98488e31dcbbd1d6665e41168a5ec.s3tc.ctex"]
 
 [params]
 

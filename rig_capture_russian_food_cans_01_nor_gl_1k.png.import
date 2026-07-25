@@ -4,9 +4,8 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1e0apiw7y2pw"
 path.s3tc="res://.godot/imported/rig_capture_russian_food_cans_01_nor_gl_1k.png-ceb53d78e8c103307af836e31ed493b5.s3tc.ctex"
-path.etc2="res://.godot/imported/rig_capture_russian_food_cans_01_nor_gl_1k.png-ceb53d78e8c103307af836e31ed493b5.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"imported_formats": ["s3tc_bptc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -16,7 +15,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_russian_food_cans_01_nor_gl_1k.png"
-dest_files=["res://.godot/imported/rig_capture_russian_food_cans_01_nor_gl_1k.png-ceb53d78e8c103307af836e31ed493b5.s3tc.ctex", "res://.godot/imported/rig_capture_russian_food_cans_01_nor_gl_1k.png-ceb53d78e8c103307af836e31ed493b5.etc2.ctex"]
+dest_files=["res://.godot/imported/rig_capture_russian_food_cans_01_nor_gl_1k.png-ceb53d78e8c103307af836e31ed493b5.s3tc.ctex"]
 
 [params]
 
