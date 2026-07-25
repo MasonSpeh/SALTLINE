@@ -1,11 +1,22 @@
 class_name FishingRod extends Node3D
-## Rod fishing: select the rod in the hotbar, LMB casts a float onto open water.
-## Wait through the drift (nibbles lie), STRIKE on the plunge, then fight the fish
-## on the line — hold LMB to reel while the tension bar allows, ease off when it
-## screams. Species run by time of day; the deep night holds the strange ones.
+## Two tools, one line object, and they do NOT play the same game.
+##
+## THE SURFACE ROD (item "fishing_rod"): LMB casts a float onto open water. Wait through
+## the drift (nibbles lie), STRIKE on the plunge, then fight the fish on the line — hold
+## LMB to reel while the tension bar allows, ease off when it screams. Species run by time
+## of day; the deep night holds the strange ones.
+##
+## THE DEEP-DROP RIG (item "deep_rig_pole"): no float, no drift. Bait goes on the hook
+## BEFORE anything leaves the drum — no bait, no drop — then a lead is heaved over the side
+## from anywhere that overlooks water and PLUMBS. Depth is the whole mechanic: the lead
+## sinks, the readout counts the metres, and each species in fish.json only looks at a bait
+## that has reached its own drop_m, so the deeper the lead the deeper (and bigger) the pool.
+## LMB thumbs the drum to hold a depth — that is the player choosing their fish — and a
+## second LMB reels in. The fight then hauls the catch back up through all of that water.
+##
 ## The rod object lives only while a cast is out; the player owns one per session.
 
-enum State { CASTING, DRIFT, BITE, FIGHT, DONE }
+enum State { CASTING, DRIFT, SINK, BITE, FIGHT, DONE }
 
 const CAST_SPEED: float = 13.0
 const CAST_LIFT: float = 4.0
@@ -16,27 +27,30 @@ const CANCEL_DISTANCE: float = 6.0     # walk away and the line comes in
 const REEL_RATE: float = 0.14         # progress/sec while reeling
 const TENSION_DECAY: float = 0.8
 
-# Deep-drop rig (the crane hand-line): a straight-down, bait-gated line that pulls the
-# big, deep species. Every one of these only ever applies when _deep is true — the plain
-# surface rod path is byte-for-byte unchanged.
-const DEEP_CAST_LIFT: float = 0.5     # the lead-weighted line plunges; almost no arc
-const DEEP_BITE_FACTOR: float = 1.35  # the deep is patient — bites take longer to find the bait
-const BARREN_GIVEUP: float = 8.0      # a bare deep hook: how long before you give up on it
-## WHY THE DEEP RIG NEEDS ITS OWN RANGE AND SPEED — the "deep rig doesn't cast" bug.
-## It is fished off the crane machinery deck, whose plate is at y 34.15, so the lead has to
-## fall ~36 m before it ever touches water. At the surface rod's CAST_SPEED of 13 m/s that
-## flight is ~35 m out and ~36 m down: about 50 m of line, which blew straight through
-## MAX_RANGE (45) at roughly t=2.55 s — and the over-range branch calls _finish("") with an
-## EMPTY message. So the line silently vanished mid-air, every single time, and the rig read
-## as completely broken. The deep line is long (95 m) and slow off the tip: it is a weighted
-## hand-line you drop over the side, not something you whip out over the sea.
-## Speed is a second, quieter half of the same bug: too slow off the tip and the lead sinks
-## into the machinery deck's own INVISIBLE guard-rail slab (y 33.5..34.8 at ±3.4 m) before it
-## is clear of the plate, which reads as "No open water there" while the player is plainly
-## aiming at the sea. 7 m/s clears both the rail and the deck edge from anywhere on the plate
-## on a roughly level aim, and still falls far more than it flies.
-const DEEP_MAX_RANGE: float = 95.0    # enough line to reach the sea from the crane and fight
-const DEEP_CAST_SPEED: float = 7.0    # clears the guard, then plunges
+# ---------------------------------------------------------------- the deep-drop rig
+# A DIFFERENT TOOL, not the surface rod with different numbers. No float, no drift on the
+# swell: a baited lead goes over the side, plumbs straight down, and the deeper it gets the
+# deeper the pool it is fishing (data/fish.json drop_m). Every constant below and every
+# branch guarded by `_deep` applies to the deep rig ALONE — the surface rod is untouched.
+#
+# WHY IT IS A HEAVE AND NOT A CAST. You do not aim a hand-line up or down; you pick a side
+# and let the lead do the rest. So the deep launch reads only the FLATTENED look direction —
+# never the pitch — and always leaves with the same modest lob. That is what makes "anywhere
+# that overlooks water" true: every deck rim on this rig is fenced with an INVISIBLE
+# full-height guard slab standing 1.25 m off the plate (rig_builder._rail_slab), and looking
+# down at the water you mean to fish — the natural thing to do at a rail — put the old
+# pitch-aimed cast straight into that slab. Hence "crane-only in practice".
+# The eye is 1.6 m up (Player.tscn), so the lead leaves 0.35 m above rail-top, tops out
+# ~0.18 m higher, and is still above rail-top half a second later — by which time
+# DEEP_CAST_SPEED has carried it ~3 m out, clear of any rail you can stand at. Aim at solid
+# decking across the way and the in-flight foul ray still fouls it, exactly as before.
+const DEEP_CAST_LIFT: float = 1.9     # a lob over the rail — the lead takes it from there
+const DEEP_CAST_SPEED: float = 6.0    # a heave over the side, not a whip out to sea
+const DEEP_MAX_RANGE: float = 95.0    # the whole spool: the drop to the water AND the sink
+const DEEP_SINK_RATE: float = 3.2     # m/s the lead pulls the line down through the dark
+const DEEP_MAX_DEPTH: float = 48.0    # end of the spool, measured from the waterline
+const DEEP_BITE_FACTOR: float = 1.1   # the deep is patient, but the sink is the real wait
+const DEEP_FIGHT_SURGE: float = 1.6   # metres the lead is dragged about during the fight
 
 # Species, conditions, and weights all live in data/fish.json via FishTable —
 # the same table the drop net, the stove, and the Angler's Notes read.
@@ -54,15 +68,23 @@ var _progress: float = 0.35
 var _fight_t: float = 0.0
 var _reeling: bool = false
 var _bob: Node3D
-var _dip: float = 0.0                 # visual bobber dip (nibbles and bites)
+var _dip: float = 0.0                 # visual dip: the float ducks, the lead is snatched
 var _line: MeshInstance3D
 var _line_mesh: CylinderMesh
 var _cast_origin: Vector3
 var _rng := RandomNumberGenerator.new()
 var _deep: bool = false          # this cast is the deep-drop rig, not the surface rod
-var _bait_id: String = ""        # bait chosen for the hook this cast ("" = none found)
-var _barren: bool = false        # deep line with no bait — nothing down there will take it
-var _barren_t: float = 0.0
+var _bait_id: String = ""        # bait on the hook this drop ("" = none, and no drop)
+var _depth: float = 0.0          # deep rig: metres the lead has sunk below the waterline
+var _spool_end: bool = false     # deep rig: all the line there is, is out
+var _shown_m: int = -1           # last whole metre put on the HUD (don't rebuild per frame)
+## A refusal to be toasted, after which the line comes in — parked here and spent at the
+## top of the next physics frame. The bait gate is the reason it has to work this way:
+## setup() CANNOT reel the line in from where it stands, because _start_fishing() assigns
+## `player.fishing = rod` on the line AFTER setup() returns. A rod that freed itself inside
+## setup() would leave the controller holding a freed object, and its `fishing == null` cast
+## gate would then be false forever — no more fishing, ever, for the rest of the session.
+var _abort_msg: String = ""
 
 func setup(player: Node3D, camera: Camera3D) -> void:
 	_player = player
@@ -71,24 +93,50 @@ func setup(player: Node3D, camera: Camera3D) -> void:
 	# Which tool cast this line? The deep rig is live only when it's the selected hotbar
 	# item; anything else (the plain rod) fishes the surface exactly as before.
 	_deep = _is_deep_selected()
-	global_position = camera.global_position - camera.global_transform.basis.z * 0.5
-	# The deep rig is a weighted hand-line: it barely arcs, it drops. Aim out over the sea
-	# from the crane top and the lead takes it straight down into deep water. (It still
-	# reuses the in-flight structure-foul raycast, so a drop onto the deck reads "no open
-	# water there" — which teaches the player to fish it over the edge.)
-	var lift: float = DEEP_CAST_LIFT if _deep else CAST_LIFT
-	var speed: float = DEEP_CAST_SPEED if _deep else CAST_SPEED
-	_velocity = -camera.global_transform.basis.z * speed + Vector3(0, lift, 0)
-	if _deep:
-		# Bait is chosen and locked now, at the cast. No bait, no deep bite.
-		_bait_id = _find_bait()
-		_barren = _bait_id == ""
-		_schedule_bite()   # re-roll at deep pace now that _deep is known (_ready ran surface-paced)
+	if not _deep:
+		global_position = camera.global_position - camera.global_transform.basis.z * 0.5
+		_build_float()
+		_velocity = -camera.global_transform.basis.z * CAST_SPEED + Vector3(0, CAST_LIFT, 0)
+		return
+	# BAIT FIRST, THEN DROP. Nothing in the dark comes up to a bare hook, so a bare deep
+	# line is not a cast that fails after a wait — it is a cast that never leaves the
+	# drum. Refuse it here, say why, and let the first physics frame reel it back in.
+	_bait_id = _find_bait()
+	if _bait_id == "":
+		_abort_msg = "Bait the line first — a live snail or cut bait. Nothing in the dark rises to a bare hook."
+		visible = false
+		return
+	_build_lead()
+	# The heave: flattened facing only (see the constants above for why the pitch is thrown
+	# away). The lead also STARTS level with the eye and out at arm's length along that flat
+	# line, so looking down cannot begin the drop already inside the rail slab.
+	var out: Vector3 = -camera.global_transform.basis.z
+	out.y = 0.0
+	out = out.normalized() if out.length() > 0.001 else Vector3.FORWARD
+	global_position = camera.global_position + out * 0.5
+	_velocity = out * DEEP_CAST_SPEED + Vector3(0, DEEP_CAST_LIFT, 0)
+	_schedule_bite()   # re-roll at deep pace now that _deep is known (_ready ran surface-paced)
 
 func _ready() -> void:
-	# The float: red cap over white body — the classic, visible at range.
+	# Terminal tackle hangs off this, and which tackle it is depends on which rig cast the
+	# line — a decision setup() makes, and _ready() runs BEFORE setup(). So the holder is
+	# built here and _build_float() / _build_lead() fill it there.
 	_bob = Node3D.new()
 	add_child(_bob)
+	# Line: one thin cylinder from the rod hand to the tackle, restretched per frame.
+	_line_mesh = CylinderMesh.new()
+	_line_mesh.top_radius = 0.006
+	_line_mesh.bottom_radius = 0.006
+	_line_mesh.height = 1.0
+	_line_mesh.material = MatLib.flat(Color(0.85, 0.88, 0.9))
+	_line = MeshInstance3D.new()
+	_line.mesh = _line_mesh
+	_line.top_level = true
+	add_child(_line)
+	_schedule_bite()
+
+## Surface tackle: the float, red cap over white body — the classic, visible at range.
+func _build_float() -> void:
 	var top := MeshInstance3D.new()
 	var tm := SphereMesh.new()
 	tm.radius = 0.09
@@ -105,17 +153,39 @@ func _ready() -> void:
 	bot.mesh = bm
 	bot.position.y = -0.05
 	_bob.add_child(bot)
-	# Line: one thin cylinder from the rod hand to the float, restretched per frame.
-	_line_mesh = CylinderMesh.new()
-	_line_mesh.top_radius = 0.006
-	_line_mesh.bottom_radius = 0.006
-	_line_mesh.height = 1.0
-	_line_mesh.material = MatLib.flat(Color(0.85, 0.88, 0.9))
-	_line = MeshInstance3D.new()
-	_line.mesh = _line_mesh
-	_line.top_level = true
-	add_child(_line)
-	_schedule_bite()
+
+## Deep tackle: NO FLOAT. A pear of grey lead with the baited hook slung under it, dull
+## and heavy — the thing that does the work on this rig is gravity, and the tackle should
+## say so at a glance. (A float on the deep rig was the single most wrong thing about it:
+## a bobber holds bait AT the surface, which is the exact opposite of the job.)
+func _build_lead() -> void:
+	var lead := MeshInstance3D.new()
+	var lm := SphereMesh.new()
+	lm.radius = 0.075
+	lm.height = 0.26                       # drawn out into a pear, the way a sinker is cast
+	lm.material = MatLib.flat(Color(0.34, 0.35, 0.38))
+	lead.mesh = lm
+	_bob.add_child(lead)
+	var hook := MeshInstance3D.new()
+	var hm := CylinderMesh.new()
+	hm.top_radius = 0.012
+	hm.bottom_radius = 0.004
+	hm.height = 0.16
+	hm.material = MatLib.flat(Color(0.62, 0.64, 0.68))
+	hook.mesh = hm
+	hook.position = Vector3(0.045, -0.2, 0)
+	hook.rotation.z = deg_to_rad(-22)
+	_bob.add_child(hook)
+	# The bait itself, on the hook. Small, but it is the thing the drop is gated on, so it
+	# should be visible on the line — the player paid for it.
+	var bait := MeshInstance3D.new()
+	var bt := SphereMesh.new()
+	bt.radius = 0.05
+	bt.height = 0.09
+	bt.material = MatLib.flat(Color(0.6, 0.5, 0.38) if _bait_id == "snail_live" else Color(0.55, 0.34, 0.3))
+	bait.mesh = bt
+	bait.position = Vector3(0.05, -0.26, 0)
+	_bob.add_child(bait)
 
 func _hand_pos() -> Vector3:
 	# The tip of the actually-held rod visual, wherever the camera is looking — not
@@ -173,6 +243,9 @@ func _physics_process(delta: float) -> void:
 	if not is_instance_valid(_player):
 		queue_free()
 		return
+	if _abort_msg != "":
+		_finish(_abort_msg)   # the bait gate, spent one frame after setup() refused the drop
+		return
 	if _player.ui_locked or _player.input_locked or (_player.get("build") and _player.build.active):
 		_finish("")   # panels, blackouts, and build mode all reel the line in
 		return
@@ -196,13 +269,22 @@ func _physics_process(delta: float) -> void:
 			if global_position.y <= water_y + 0.02:
 				global_position.y = water_y + 0.02
 				AudioDirector.play_one_shot("splash", global_position, -14.0)
-				_state = State.DRIFT
 				if _deep:
-					if _barren:
-						_prompt("The weight plunges into the dark — but the hook's bare.")
-					else:
-						_prompt("The weight takes it down — deep water, %s on the hook." % _bait_name())
+					# The lead is in the water and the bait is committed: SPEND it here, at
+					# the splash, not on the strike. A drop that never reached the sea (a
+					# clatter off the steel, a walk-away) costs you nothing — a drop that
+					# did costs one bait whether or not anything comes up on it.
+					if _bait_id != "":
+						PlayerState.remove_item(_bait_id)
+					# Start the depth count where the lead actually is, so the first frame of
+					# sinking doesn't pop it by however high the crest was.
+					_depth = -global_position.y
+					_state = State.SINK
+					# A toast, not a prompt: the prompt line belongs to the live depth readout
+					# from here on, and a one-frame prompt would simply never be read.
+					_toast("The lead takes it down — %s on the hook." % _bait_name())
 				else:
+					_state = State.DRIFT
 					# The water read: teach the variables by naming them every cast.
 					_prompt("Line's out — %s" % FISH.summary(FISH.context(self, global_position)))
 			elif global_position.distance_to(_hand_pos()) > (DEEP_MAX_RANGE if _deep else MAX_RANGE):
@@ -212,32 +294,53 @@ func _physics_process(delta: float) -> void:
 				return
 		State.DRIFT:
 			_ride_water(t, delta)
-			if _barren:
-				# A bare deep hook: the dark won't answer. A beat to feel it, then reel in.
-				_barren_t += delta
-				if _barren_t >= BARREN_GIVEUP:
-					_finish("Bare hook — the deep won't rise to nothing. Bait the line.")
-					return
-			else:
+			_bite_timer -= delta
+			if _bite_timer <= 0.0:
+				if _nibbles > 0:
+					_nibbles -= 1
+					_dip = 0.16   # a lying little tug
+					AudioDirector.play_one_shot("splash", global_position, -26.0)
+					_bite_timer = _rng.randf_range(1.8, 5.0)
+				else:
+					_state = State.BITE
+					_bite_window = BITE_WINDOW
+					_dip = 0.45
+					AudioDirector.play_one_shot("splash", global_position, -8.0)
+					_prompt("!!!  [LMB] STRIKE")
+		State.SINK:
+			# THE DEEP RIG'S OWN STATE, and the whole point of the tool: the lead sinks and
+			# keeps sinking, and what can bite grows deeper the further down the bait gets.
+			# Nothing here touches the wave surface — it is under it.
+			_sink(delta)
+			# The bait has to be in SOMEBODY's water before it can be taken; above the
+			# shallowest drop depth in the table the line is only falling through the light.
+			if _depth >= FISH.min_drop_depth():
 				_bite_timer -= delta
 				if _bite_timer <= 0.0:
 					if _nibbles > 0:
 						_nibbles -= 1
-						_dip = 0.16   # a lying little tug
-						AudioDirector.play_one_shot("splash", global_position, -26.0)
+						_dip = 0.5   # something down there knocked the lead
+						AudioDirector.play_one_shot("scuttle_a", _hand_pos(), -26.0)
 						_bite_timer = _rng.randf_range(1.8, 5.0)
 					else:
 						_state = State.BITE
 						_bite_window = BITE_WINDOW
-						_dip = 0.45
-						AudioDirector.play_one_shot("splash", global_position, -8.0)
-						_prompt("!!!  [LMB] STRIKE")
+						_dip = 1.4   # the line RUNS — no float to duck, the rod loads instead
+						AudioDirector.play_one_shot("clang", _hand_pos(), -22.0)
+						_prompt("!!!  SOMETHING HAS IT AT %d m   [LMB] STRIKE" % int(_depth))
 		State.BITE:
-			_ride_water(t, delta)
+			if _deep:
+				_hold_depth()
+			else:
+				_ride_water(t, delta)
 			_bite_window -= delta
 			if _bite_window <= 0.0:
-				_state = State.DRIFT
-				_prompt("It let go. The float settles.")
+				_state = State.SINK if _deep else State.DRIFT
+				if _deep:
+					_toast("It let go. The line goes slack.")
+					_shown_m = -1   # bring the depth readout (and the reel-in hint) back
+				else:
+					_prompt("It let go. The float settles.")
 				_schedule_bite()
 		State.FIGHT:
 			_fight(delta, t)
@@ -253,20 +356,70 @@ func _physics_process(delta: float) -> void:
 func _ride_water(t: float, _delta: float) -> void:
 	global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 + 0.02 - _dip
 
+## The deep rig's line-out. The lead pulls the spool down at its own rate and the prompt
+## reads the depth back, because depth is the mechanic: every metre opens more of the
+## table (fish.json drop_m) and the pool skews deeper the longer you let it run.
+##
+## Two things stop it and the tighter one wins. DEEP_MAX_DEPTH is the real one: 48 m of
+## water, deeper than the deepest drop_m in the table, so EVERY spot that overlooks water
+## can reach every species — which is the whole point of the brief and the reason the drop
+## height is deliberately NOT made to cost you depth. DEEP_MAX_RANGE (total line out from
+## the hand) only ever bites from an absurd height, and is kept as the backstop that stops
+## the line growing without limit; the highest drop on the rig spends ~42 m of it.
+func _sink(delta: float) -> void:
+	if not _spool_end:
+		_depth = minf(_depth + DEEP_SINK_RATE * delta, DEEP_MAX_DEPTH)
+	_hold_depth()
+	if not _spool_end and (_depth >= DEEP_MAX_DEPTH \
+			or global_position.distance_to(_hand_pos()) >= DEEP_MAX_RANGE):
+		_hold_the_spool(false)
+		return
+	var m: int = int(_depth)
+	if m != _shown_m:
+		_shown_m = m
+		if _spool_end:
+			_prompt("Holding at %d m · %s   [LMB] reel in" % [m, FISH.depth_read(_depth)])
+		else:
+			_prompt("Line down %d m · %s   [LMB] hold the spool" % [m, FISH.depth_read(_depth)])
+
+## Stop paying line out and fish whatever depth the lead has reached. Called both when the
+## spool physically runs out and when the player thumbs the drum — the same condition, and
+## the reason DEPTH IS A CHOICE rather than a timer: hold it shallow for the grouper, let it
+## all the way out for what lives at the end of the line.
+func _hold_the_spool(thumbed: bool) -> void:
+	# Is there anything in this water at all? If the PLAYER asked for the hold, refuse the
+	# hold and keep paying out: the bait is already spent, and "that is too shallow" teaches
+	# better with the line still running than with the drop thrown away. If the SPOOL ran
+	# out there is no deeper to go, so the line comes in and says why.
+	if FISH.pool_weight("deep", FISH.context(self, global_position), _depth) <= 0.0:
+		if thumbed:
+			_toast("Nothing lives as shallow as %d m — let the spool run." % int(_depth))
+		else:
+			_abort_msg = "Spool's end at %d m, above the lot of them. Drop it from lower down." % int(_depth)
+		return
+	_spool_end = true
+	_shown_m = -1   # force the readout to redraw and say the line has stopped
+	if thumbed:
+		AudioDirector.play_one_shot("clang", _hand_pos(), -28.0)   # the drum stops turning
+		_toast("Thumb on the drum — %d m, %s." % [int(_depth), FISH.depth_read(_depth)])
+
+## Where the deep lead hangs: plumb below where it splashed, at its current depth, minus
+## whatever the last knock on the line snatched it by. The swell is above it and has
+## nothing to do with it — this is why the deep rig never calls _ride_water().
+func _hold_depth() -> void:
+	global_position.y = -_depth - _dip
+
 func _hook() -> void:
 	# Roll the species now, from the live conditions at THIS float, THIS moment — the
 	# fight character comes from what took the bait. The deep rig draws its OWN pool
-	# (deep-flagged, bigger species) and spends a bait; the surface rod rolls "rod" as before.
+	# (deep-flagged species, gated on how far the lead has actually sunk); the surface
+	# rod rolls "rod" with no depth at all, exactly as before.
 	var kind: String = "deep" if _deep else "rod"
-	_fish = FISH.roll(kind, FISH.context(self, global_position), _rng)
+	var depth_m: float = _depth if _deep else -1.0
+	_fish = FISH.roll(kind, FISH.context(self, global_position), _rng, depth_m)
 	if _fish.is_empty():
 		_finish("Whatever it was, it's gone.")
 		return
-	if _deep:
-		# The bait's taken — spend one. (Re-found fresh in case the pack shifted.)
-		var spent: String = _find_bait()
-		if spent != "":
-			PlayerState.remove_item(spent)
 	_state = State.FIGHT
 	_tension = 0.3
 	_progress = 0.35
@@ -286,8 +439,14 @@ func _fight(delta: float, t: float) -> void:
 		_progress -= surge * pull * 0.035 * delta
 	_tension = clampf(_tension, 0.0, 1.2)
 	_progress = clampf(_progress, 0.0, 1.0)
-	# The float drags toward the fish's runs.
-	global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 - 0.2 * surge
+	if _deep:
+		# There is no float to watch, so the FIGHT is the line: winning it lifts the lead —
+		# and whatever is on it — up out of the dark toward you, and every surge you have to
+		# give it takes some of that back. You can see how far you have left to bring it.
+		global_position.y = -(_depth + DEEP_FIGHT_SURGE * surge) * (1.0 - _progress)
+	else:
+		# The float drags toward the fish's runs.
+		global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 - 0.2 * surge
 	if _tension >= 1.0:
 		AudioDirector.play_one_shot("scuttle_a", _hand_pos(), -16.0)   # dry snap of parting line
 		_finish("The line parts. Gone.")
@@ -298,7 +457,11 @@ func _fight(delta: float, t: float) -> void:
 	if _progress >= 1.0:
 		_land()
 		return
-	_prompt("FIGHT  [hold LMB] reel   line %s   strain %s" % [_bar(_progress), _bar(_tension)])
+	if _deep:
+		_prompt("FIGHT  %d m to bring up   [hold LMB] reel   line %s   strain %s" \
+			% [int(_depth * (1.0 - _progress)), _bar(_progress), _bar(_tension)])
+	else:
+		_prompt("FIGHT  [hold LMB] reel   line %s   strain %s" % [_bar(_progress), _bar(_tension)])
 
 static func _bar(v: float) -> String:
 	var n: int = clampi(int(v * 8.0), 0, 8)
@@ -311,12 +474,28 @@ func _land() -> void:
 		Journal.discover("fish_the_looker")
 		_finish("It surfaces — and looks back at you. Your hands open on their own.")
 		return
-	Journal.discover(_fish["id"])
-	if PlayerState.add_item(_fish["id"]):
-		_fly_catch_to_player()
-		_finish("Caught: %s" % _fish["name"])
-	else:
+	var id: String = String(_fish["id"])
+	Journal.discover(id)
+	if not PlayerState.add_item(id):
 		_finish("Pack's full — the %s slips back." % _fish["name"])
+		return
+	_fly_catch_to_player()
+	# THE SIZE OF THE FISH, rolled here, at the rail, on the one fish that was actually
+	# landed — and remembered on the table (FishTable.record_size) so the stove and the
+	# drying line can fillet THIS fish rather than an average one. Species with no size
+	# range in fish.json roll 0.0 and read exactly as they always did.
+	var kg: float = FISH.roll_size(id, _rng)
+	if kg <= 0.0:
+		_finish("Caught: %s" % _fish["name"])
+		return
+	FISH.record_size(id, kg)
+	var n: int = FISH.fillets_for(id, kg)
+	if n <= 1:
+		_finish("Caught: %s — %.1f kg" % [_fish["name"], kg])
+		return
+	# Name the payoff at the moment it is earned: the whole reason to fight a fish this
+	# big is what it fillets out into on the stove or the line.
+	_finish("Caught: %s — %.1f kg. That'll fillet out %d times over." % [_fish["name"], kg, n])
 
 ## The visual payoff: the fish arcs out of the water into your hands, flashing
 ## and flipping, then vanishes into the pack. Owned by the scene, so it plays
@@ -339,6 +518,13 @@ func _prompt(text: String) -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		hud.show_prompt_raw(text)
+
+## A message that lingers on its own, for the beats where the prompt line is already
+## carrying something live (the deep rig's depth readout).
+func _toast(text: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud:
+		hud.toast(text)
 
 func _finish(msg: String) -> void:
 	_state = State.DONE
@@ -391,4 +577,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		State.DRIFT:
 			if event.pressed:
 				_finish("")   # reel in early
+				get_viewport().set_input_as_handled()
+		State.SINK:
+			if event.pressed:
+				# One button, two jobs, in the order a hand-line actually uses them: the
+				# first press stops the drum and fishes THIS depth (which is how the player
+				# chooses their species), the second hauls the lead back up.
+				if _spool_end:
+					_finish("")
+				else:
+					_hold_the_spool(true)
 				get_viewport().set_input_as_handled()

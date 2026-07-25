@@ -378,10 +378,11 @@
     "thirst": 0.1
   },
   "cooked_fish_barrel_grouper": {
-    "name": "Cooked Barrel Grouper",
+    "name": "Barrel Grouper Fillet",
     "use": "eat",
-    "hunger": 0.85,
-    "thirst": 0.1
+    "hunger": 0.45,
+    "thirst": 0.05,
+    "effect": "A PORTION, not the whole fish: one grouper breaks down into 6-12 of these on the stove (fish.json fillets), so the nourishment is per-fillet. It was 0.85 back when a grouper cooked one-for-one."
   },
   "cooked_fish_stone_crab": {
     "name": "Boiled Stone Crab",
@@ -402,10 +403,11 @@
     "thirst": 0.05
   },
   "cooked_fish_fathom_halibut": {
-    "name": "Cooked Fathom Halibut",
+    "name": "Fathom Halibut Fillet",
     "use": "eat",
-    "hunger": 0.9,
-    "thirst": 0.1
+    "hunger": 0.5,
+    "thirst": 0.05,
+    "effect": "A PORTION, not the whole fish: a door-sized halibut breaks down into 6-11 of these (fish.json fillets), so the nourishment is per-fillet. It was 0.9 back when one halibut cooked one-for-one."
   },
   "croissant": {
     "name": "Stale Croissant",
@@ -698,7 +700,7 @@
   "deep_rig_pole": {
     "name": "Deep Rig Pole",
     "use": "tool",
-    "effect": "The weighted hand-line that draws the deep-drop pool (FishingRod._is_deep_selected). rig_builder places one in the world as a Takeable, but it had no entry here at all — so its name, its stacking and its tooltip were all guesses."
+    "effect": "The weighted hand-line, and its own game rather than a longer cast: BAIT IT FIRST (a live snail, or any cut bait) or it will not leave the drum, then heave the lead over the side from anywhere that overlooks water. It plumbs straight down and the readout counts the metres — every species in fish.json only takes a bait that has reached its own drop_m, so the deeper the lead the deeper and bigger the pool (grouper at 16 m, sturgeon at 44). LMB thumbs the drum to hold a depth, a second LMB reels in. See FishingRod._deep."
   },
   "bottle_empty": {
     "name": "Salvaged Bottle",

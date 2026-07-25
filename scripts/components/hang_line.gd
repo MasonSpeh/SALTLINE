@@ -3,17 +3,30 @@ class_name HangLine extends Interactable
 ## Raw fish stays fresh for 4 game hours, then turns (Rotten Fish). Cooked fish
 ## cures instead — 4 game hours on the line makes Dried Fish, which keeps
 ## forever with the same nourishment. The rig's larder, strung in the wind.
+##
+## ONE EXCEPTION, and it is the other half of the deep rig's payoff: a fish big enough to
+## carry a fillets range in data/fish.json does NOT turn on the line. A grouper is worth
+## the salt, so it CURES straight from raw — 4 hours in the wind and it comes off as 6 to 12
+## Dried Fish, by what that particular fish weighed. Cooking it on the stove gives the same
+## count as its own species' fillets; this is the cold, fuel-free way to the same payoff.
+## Everything smaller behaves exactly as it always has: raw turns, cooked cures, one for one.
 
 const FISH := preload("res://scripts/world/fish_table.gd")
 const FRESH_HOURS: float = 4.0
 const SLOTS: int = 4
 
 var length_m: float = 2.4
-var _hung: Array = []          ## [{id, age_h, visual}]
+## [{id, age_h, visual, n, cure_n}] — n is how many items TAKE hands back right now (1 until
+## it has cured), cure_n is how many it will hand back once it has. A cured big fish is a
+## whole handful on one hook; everything else is 1 either way.
+var _hung: Array = []
 var _game_hour_per_sec: float = 0.0
+## Only for weights we never saw landed (a reloaded save, a netted fish) — FishTable.take_size.
+var _rng := RandomNumberGenerator.new()
 
 func _init() -> void:
 	display_name = "Drying Line"
+	_rng.randomize()
 
 func _ready() -> void:
 	# A drying line is strung BETWEEN two posts and there is nothing under it by design,
@@ -75,9 +88,12 @@ func interact(verb: String, _player: Node3D) -> void:
 			_take()
 	super.interact(verb, _player)
 
-## Anything fishy in the pack qualifies: raw (rots), cooked (dries), dried (inert).
+## Anything fishy in the pack qualifies: raw (rots, or CURES if it is a big one), cooked
+## (dries), dried (inert). "cooked_fish*" catches the legacy generic meals AND all ~19
+## per-species ones — those could not be hung at all before, which made the whole species
+## fillet line a dead end on the drying rack.
 func _hangable(id: String) -> bool:
-	return FISH.cooked_for(id) != "" or id == "cooked_fish" or id == "cooked_fish_prime" \
+	return FISH.cooked_for(id) != "" or id.begins_with("cooked_fish") \
 		or id == "dried_fish" or id == "fish_rotten"
 
 func _player_fish() -> String:
@@ -102,19 +118,50 @@ func _hang() -> void:
 	add_child(visual)
 	visual.position = Vector3(_slot_x(_hung.size()), -0.55, 0)
 	visual.rotation.z = PI   # hung by the tail
-	_hung.append({"id": id, "age_h": 0.0, "visual": visual})
+	# The weight is claimed HERE, as the fish leaves the pack, not when the cure finishes —
+	# it is THIS fish on the hook, and the ledger should not hand its weight to another.
+	# It only becomes the number of items the hook gives back once the cure has actually
+	# happened (see _process): a big fish taken back off the line still raw is one fish.
+	_hung.append({"id": id, "age_h": 0.0, "visual": visual, "n": 1, "cure_n": _cure_yield(id)})
 	AudioDirector.play_one_shot("clang", global_position, -22.0)
 	Journal.discover("system_preserving")
+
+## Portions this hook will give back once it has cured. One for every ordinary fish; for a
+## big species, what that fish's landed weight fillets out into — the same cut the stove
+## would have made of it.
+func _cure_yield(id: String) -> int:
+	if FISH.cooked_for(id) == "":
+		return 1   # already cooked / dried / rotten — one item in, one item out
+	return int(FISH.take_yield(id, _rng)["n"])
 
 func _take() -> void:
 	if _hung.is_empty():
 		return
 	var entry: Dictionary = _hung.pop_back()
 	(entry["visual"] as Node3D).queue_free()
-	PlayerState.add_item(entry["id"])
+	var id: String = String(entry["id"])
+	var want: int = maxi(int(entry.get("n", 1)), 1)
+	# A cured grouper is a dozen pieces off one hook, so the pack can run out mid-handful.
+	# Anything that won't fit is set down under the line as a real, savable Takeable rather
+	# than lost — same rule as the stove.
+	var got: int = 0
+	var floored: int = 0
+	for _i in range(want):
+		if PlayerState.add_item(id):
+			got += 1
+		else:
+			var toss := Vector3(_rng.randf_range(-0.4, 0.4), 0.0, _rng.randf_range(-0.4, 0.4))
+			SaveManager.drop_into_world(id, global_position + Vector3(0, -0.9, 0), toss)
+			floored += 1
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
-		hud.toast("Off the line: %s" % PlayerState.items.get(entry["id"], {}).get("name", entry["id"]))
+		var nm: String = PlayerState.items.get(id, {}).get("name", id)
+		if want <= 1:
+			hud.toast("Off the line: %s" % nm)
+		elif floored == 0:
+			hud.toast("Off the line: %d × %s" % [got, nm])
+		else:
+			hud.toast("Off the line: %d × %s (%d set down — pack's full)" % [got, nm, floored])
 
 func _process(delta: float) -> void:
 	if _hung.is_empty():
@@ -127,12 +174,15 @@ func _process(delta: float) -> void:
 		var id: String = entry["id"]
 		var next: String = ""
 		if FISH.cooked_for(id) != "":
-			next = "fish_rotten"                     # raw turns
-		elif id == "cooked_fish" or id == "cooked_fish_prime":
-			next = "dried_fish"                      # cooked cures
+			# Raw turns — unless it is a big fish, which is worth salting and cures instead.
+			next = "dried_fish" if FISH.is_big(id) else "fish_rotten"
+		elif id.begins_with("cooked_fish"):
+			next = "dried_fish"                      # cooked cures (generic AND per-species)
 		if next != "" and next != id:
 			entry["id"] = next
 			entry["age_h"] = 0.0
+			if next == "dried_fish":
+				entry["n"] = maxi(int(entry.get("cure_n", 1)), 1)   # a cured big fish is many
 			var old: Node3D = entry["visual"]
 			var pos: Vector3 = old.position
 			old.queue_free()
