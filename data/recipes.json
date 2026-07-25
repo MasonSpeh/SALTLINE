@@ -540,5 +540,120 @@
     "work_sec": 4.5,
     "desc": "Two planks ledged and braced into a leaf, hung on bolt-hinges in a driftwood frame. It swings, it latches, and a room with a door in it is a room you can shut.",
     "hint": "A doorway is just a hole until something hangs in it."
+  },
+  "bottle_empty": {
+    "name": "Salvaged Bottle",
+    "cat": "material",
+    "needs": {
+      "glass_pane": 1
+    },
+    "tool": "hand_file",
+    "makes": "bottle_empty",
+    "count": 2,
+    "work_sec": 2.8,
+    "desc": "A pane scored, wrapped, cracked round a hot wire and worked back into something that holds a litre. Two out of a sheet if your hands are steady.",
+    "hint": "The rain catcher is only half a water supply. The other half is something to put it in."
+  },
+  "thermos_empty": {
+    "name": "Crew Thermos",
+    "cat": "gear",
+    "needs": {
+      "steel_plate": 1,
+      "foam_block": 1
+    },
+    "makes": "thermos_empty",
+    "work_sec": 4.0,
+    "desc": "A plate rolled into a shell, packed round with closed-cell foam, seam crimped over. Not a vacuum. Close enough that the water in it is still cold at dusk.",
+    "hint": "Twice the water of a bottle in the same slot."
+  },
+  "bandage": {
+    "name": "Field Dressing",
+    "cat": "gear",
+    "needs": {
+      "canvas_scrap": 1,
+      "kelp_fiber": 1
+    },
+    "tool": "crude_knife",
+    "makes": "bandage",
+    "count": 2,
+    "work_sec": 2.5,
+    "desc": "Canvas cut into strips, boiled, dried on the line, and rolled onto a fibre tie. Two dressings out of one square.",
+    "hint": "Something will open you up out here. Have these made before it does."
+  },
+  "medkit": {
+    "name": "Medkit",
+    "cat": "gear",
+    "needs": {
+      "bandage": 2,
+      "glow_mucus": 1,
+      "shell_grit": 1
+    },
+    "makes": "medkit",
+    "work_sec": 5.5,
+    "desc": "Two dressings, a sealed jar of bloom-mucus, and crushed shell to draw a wound dry. The mucus burns clean — the shrine note was right about that much.",
+    "hint": "The sick-bay ledger says the medic gave a man 'something he won't take'. This is that something."
+  },
+  "bloom_tonic": {
+    "name": "Bloom Tonic",
+    "cat": "food",
+    "needs": {
+      "glow_mucus": 1,
+      "kelp_bundle": 1
+    },
+    "makes": "bloom_tonic",
+    "work_sec": 3.0,
+    "desc": "Mucus thinned with pressed kelp until it will go down. Tastes of low tide and burns all the way. Whatever raw fish does to you, this undoes.",
+    "hint": "You will eat something raw eventually, and then you will want this."
+  },
+  "kelp_brew": {
+    "name": "Kelp Brew",
+    "cat": "food",
+    "needs": {
+      "bottle_water": 1,
+      "kelp_bundle": 1
+    },
+    "makes": "kelp_brew",
+    "work_sec": 3.0,
+    "desc": "Rainwater and bloom-kelp brought up hot on the bench plate. Green, faintly lit, and the first thing on this rig that has warmed your hands from the inside.",
+    "hint": "The cold isn't the temperature. Sometimes it isn't the wind either."
+  },
+  "galley_stew": {
+    "name": "Fish Stew",
+    "cat": "food",
+    "needs": {
+      "@raw_fish": 1,
+      "kelp_bundle": 1,
+      "bottle_water": 1
+    },
+    "makes": "galley_stew",
+    "work_sec": 5.0,
+    "desc": "Whole fish, a fistful of kelp, a bottle of rain, and long enough over heat that the bones give up. The best meal anybody has had on Saltline-4 in a while.",
+    "hint": "Fish, kelp, water. You have all three now — that is the point of the catcher."
+  },
+  "floor_panel_kit": {
+    "name": "Deck Panel",
+    "cat": "structure",
+    "needs": {
+      "steel_plate": 2,
+      "pipe_length": 1
+    },
+    "tool": "hammer_tool",
+    "makes": "floor_panel_kit",
+    "work_sec": 4.5,
+    "desc": "Two plates hammered into checker tread over a pipe joist, framed in angle. Two metres square of deck where there was a hole, or nothing at all.",
+    "hint": "There are gaps on this rig you have been walking around for days."
+  },
+  "window_panel_kit": {
+    "name": "Window Panel",
+    "cat": "structure",
+    "needs": {
+      "steel_plate": 1,
+      "glass_pane": 2,
+      "bolt_handful": 1
+    },
+    "makes": "window_panel_kit",
+    "work_sec": 5.0,
+    "desc": "A wall section with a light cut into it: two salvaged panes bedded in a bolted surround, storm bar across the glass. Walls decide where inside is. This decides you can still see out.",
+    "hint": "Panes come out of picture frames and dead screens. Break them carefully."
   }
 }

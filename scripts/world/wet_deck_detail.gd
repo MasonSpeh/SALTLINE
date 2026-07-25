@@ -362,9 +362,18 @@ func _pump_skids() -> void:
 		# Dead gauge, needle at zero.
 		var g := _dcyl(Vector3(p.x + 0.72, y + 1.0, p.z - 0.45), 0.1, 0.04, MatLib.flat(Color(0.88, 0.88, 0.82)))
 		g.rotation.x = deg_to_rad(90)
-		# Bolted nameplate on the pump-skid front — was floating upright above the pump
-		# with nothing behind it. Now the stencil sits on a real plate on the housing.
-		_signplate(s[2], Vector3(p.x, y + 0.9, p.z - 0.62), 180, 12, Color(0.85, 0.85, 0.78), 1.9, 0.28)
+		# Bolted nameplate on the pump-skid front. An earlier pass moved this in Z onto the
+		# skid face but LEFT IT AT y+0.9 — and the only thing at that z is the 0.18 m skid
+		# base, so a 1.9 x 0.28 m plate hung 0.58 m clear in open air with nothing behind it.
+		# From the north bay it read as a floating railing panel over the deck/leg overlap.
+		# Now the skid carries a real END PLATE standing on its own base and the stencil is
+		# bolted to the face of that, 1 cm proud so the two never z-fight.
+		_box(Vector3(p.x, y + 0.35, p.z - 0.55), Vector3(1.9, 0.34, 0.05), MatLib.painted_steel())
+		for bx in [-0.82, 0.82]:                                        # corner bolts
+			var bolt := _dcyl(Vector3(p.x + bx, y + 0.35, p.z - 0.59), 0.02, 0.03,
+				MatLib.galvanized())
+			bolt.rotation.x = deg_to_rad(90)
+		_signplate(s[2], Vector3(p.x, y + 0.35, p.z - 0.63), 180, 12, Color(0.85, 0.85, 0.78), 1.9, 0.28)
 
 # ---------------------------------------------------------------- girder ceiling
 

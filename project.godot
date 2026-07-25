@@ -80,8 +80,8 @@ crouch={
 
 [physics]
 
-3d/physics_engine="JoltPhysics3D"
 common/physics_ticks_per_second=30
+3d/physics_engine="JoltPhysics3D"
 
 [rendering]
 

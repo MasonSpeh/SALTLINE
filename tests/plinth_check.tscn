@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://plinth_check_rig"]
+
+[ext_resource type="Script" path="res://tests/plinth_check.gd" id="1"]
+
+[node name="PlinthCheck" type="Node"]
+script = ExtResource("1")

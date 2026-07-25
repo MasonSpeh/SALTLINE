@@ -18,15 +18,25 @@ const HEAD_BOB_SPRINT_FREQ: float = 2.6
 const HEAD_BOB_AMPLITUDE: float = 0.03
 const WATER_LEVEL: float = 0.4
 
-# Fall damage (GDD A5: the deck is unforgiving). A fall is scored by the impact speed the
-# body carries into the ground, read back as the height it fell from (h = v^2 / 2g under our
-# own GRAVITY). A short drop or a normal jump (~0.9m) lands clean; past FALL_SAFE_HEIGHT life
-# bleeds in proportion, and a fall of FALL_LETHAL_HEIGHT or more empties the bar — routing
-# into the existing death/respawn blackout. NEVER applied while swimming, climbing, mantling,
-# flying, or on the buoyant water landing (the sea breaks the fall).
-const FALL_SAFE_HEIGHT: float = 3.5      ## drops shorter than this never hurt (a jump is ~0.9m)
-const FALL_LETHAL_HEIGHT: float = 11.5   ## a single landing from at/above this blacks you out
+# Fall damage (GDD A5: the deck is unforgiving — but not a tripwire). A fall is scored by the
+# impact speed the body carries into the ground, read back as the height it fell from
+# (h = v^2 / 2g under our own GRAVITY). A short drop or a normal jump (~0.9m) lands clean; past
+# FALL_SAFE_HEIGHT life bleeds along FALL_DAMAGE_CURVE, and a fall of FALL_LETHAL_HEIGHT or more
+# empties the bar — routing into the existing death/respawn blackout. NEVER applied while
+# swimming, climbing, mantling, flying, or on the buoyant water landing (the sea breaks the fall).
+#
+# The rig is stacked walkways and half-storey step-downs, and the old 3.5m/11.5m linear pair
+# meant routine deck traversal was chipping life off for hops the player could not read as
+# dangerous. Both thresholds moved up and the curve between them was softened, so a misjudged
+# step is a lesson and only a genuine long drop is fatal.
+const FALL_SAFE_HEIGHT: float = 5.0      ## drops shorter than this never hurt (was 3.5; a jump is ~0.9m)
+const FALL_LETHAL_HEIGHT: float = 16.0   ## a single landing from at/above this blacks you out (was 11.5)
 const FALL_DAMAGE_AT_LETHAL: float = 1.0 ## life removed at exactly the lethal height (a full bar)
+## Shape of the bleed between safe and lethal. 1.0 is the old straight line; above 1.0 the
+## first metres past the safe height cost almost nothing and the price piles up toward the
+## lethal end — which is where the fear belongs.
+const FALL_DAMAGE_CURVE: float = 2.0
+const FALL_TOAST_MIN: float = 0.02 ## below this the hit isn't worth a line of text
 
 # Postures: STAND (default), CROUCH (held on the crouch key), PRONE (Z toggle — lie
 # flat on the deck). Each is a capsule height, a collider y-offset, and an eye line.
@@ -1029,21 +1039,28 @@ func _landing_in_water() -> bool:
 	var wave_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), Gyre.water_time()) * 0.85
 	return global_position.y < wave_y - 0.15
 
-## A hard landing bleeds life in proportion to the drop. The tracked impact speed is read
-## back as a fall height (h = v^2 / 2g under our own GRAVITY): under FALL_SAFE_HEIGHT you land
-## clean; above it damage climbs, reaching a full bar at FALL_LETHAL_HEIGHT and beyond — which
-## zeroes life through PlayerState.set_life and fires player_died -> _on_player_died, the same
-## blackout/respawn the drown and life-out paths use. Reuses the "groan" one-shot (the game's
+## A hard landing bleeds life with the drop. The tracked impact speed is read back as a fall
+## height (h = v^2 / 2g under our own GRAVITY): under FALL_SAFE_HEIGHT you land clean; above it
+## damage climbs along FALL_DAMAGE_CURVE, reaching a full bar at FALL_LETHAL_HEIGHT and beyond —
+## which zeroes life through PlayerState.set_life and fires player_died -> _on_player_died, the
+## same blackout/respawn the drown and life-out paths use. Reuses the "groan" one-shot (the game's
 ## existing pained-body cue, as in _drown) as the grunt of impact, louder the harder you hit.
 func _apply_fall_damage(peak_speed: float) -> void:
 	var fall_h: float = (peak_speed * peak_speed) / (2.0 * GRAVITY)
 	if fall_h <= FALL_SAFE_HEIGHT:
 		return   # a short step-down or a normal jump — landed clean, no cost
 	var over: float = (fall_h - FALL_SAFE_HEIGHT) / maxf(0.01, FALL_LETHAL_HEIGHT - FALL_SAFE_HEIGHT)
-	PlayerState.life -= over * FALL_DAMAGE_AT_LETHAL   # >= a full bar past lethal -> blackout
-	AudioDirector.play_one_shot("groan", global_position, lerpf(-16.0, -2.0, clampf(over, 0.0, 1.0)))
+	# Curved, not linear: at the halfway mark this costs a quarter bar instead of a half.
+	# `over` is deliberately NOT clamped first — at or past the lethal height it is >= 1, where
+	# the exponent leaves a full bar or more, so the blackout at the far end still stands.
+	var damage: float = pow(over, FALL_DAMAGE_CURVE) * FALL_DAMAGE_AT_LETHAL
+	PlayerState.life -= damage   # >= a full bar past lethal -> blackout
+	AudioDirector.play_one_shot("groan", global_position, lerpf(-16.0, -2.0, clampf(damage, 0.0, 1.0)))
 	# A word on the survivable hits; the lethal one hands off to the death flow's own toast.
-	if PlayerState.life > 0.0:
+	# Only when it actually cost something: the softened curve means the first metre past the
+	# safe height takes a rounding error off the bar, and "that one cost you" over a fall the
+	# player barely felt would train them to distrust the line.
+	if PlayerState.life > 0.0 and damage > FALL_TOAST_MIN:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud and hud.has_method("toast"):
 			hud.toast("You hit the deck hard. That one cost you.")

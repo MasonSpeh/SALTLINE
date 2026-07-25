@@ -1,7 +1,8 @@
 extends Node
 ## Owns survival stats (hunger, thirst, warmth, life) + inventory/hotbar. Depletion rates
-## come from data/tuning.json (A1: no magic numbers). Consequences stay soft until life
-## bottoms out — then player_died fires and the controller runs a blackout respawn.
+## come from data/tuning.json (A1: no magic numbers) — hunger and thirst are the one
+## exception, and HUNGER_PER_SEC says why. Consequences stay soft until life bottoms out —
+## then player_died fires and the controller runs a blackout respawn.
 
 signal hunger_changed(value: float)
 signal thirst_changed(value: float)
@@ -31,6 +32,17 @@ const BOOTS_COLD_RELIEF: float = 0.45 ## dry feet: cold bites 45% slower through
 
 const LIFE_DRAIN_PER_SEC: float = 0.02   ## while starving or parched
 const LIFE_REGEN_PER_SEC: float = 0.01   ## while fed, watered, and not too sick
+
+## Hunger and thirst depletion, both cut 15% from the first tuning pass: the survival clock
+## was asking for a meal and a drink more often than the rig hands you either one, so it read
+## as book-keeping rather than pressure.
+##
+## Hunger and thirst were cut 15% (2026-07-25) because the survival clock was outrunning the
+## exploration. The reduced rates live in data/tuning.json like every other feel-value — these
+## constants are only the fallbacks used if the file is missing a key, and they are kept
+## numerically IDENTICAL to it so the two can never quietly disagree.
+const HUNGER_PER_SEC: float = 0.0004675   ## was 0.00055 (x0.85)
+const THIRST_PER_SEC: float = 0.000935    ## was 0.0011  (x0.85)
 
 ## Rest: the slow tax of being awake. Only sleep pays it back in full; sitting down
 ## slows the bleed. Low rest is a soft, real cost — you get winded sooner.
@@ -120,8 +132,8 @@ func _process(delta: float) -> void:
 	var ease: float = 1.0 - COMFORT_HUNGER_RELIEF * comfort
 	if resting:
 		ease *= RESTING_DECAY_MULT
-	hunger -= tuning.get("hunger_per_sec", 0.00055) * delta * ease
-	thirst -= tuning.get("thirst_per_sec", 0.0011) * delta * ease
+	hunger -= float(tuning.get("hunger_per_sec", HUNGER_PER_SEC)) * delta * ease
+	thirst -= float(tuning.get("thirst_per_sec", THIRST_PER_SEC)) * delta * ease
 	# Rest: awake spends it, sitting still claws a little of it back. Only a night's
 	# sleep fills it — see ComfortFurniture's bed flow.
 	var rest_rate: float = tuning.get("rest_per_sec_awake", 0.00028)
@@ -291,7 +303,9 @@ func add_item(item_id: String) -> bool:
 	if inventory.size() >= backpack_capacity():
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud:
-			hud.toast("Pack is full.")
+			# Name the way out. The pack panel is where room gets made now — a full pack
+			# used to be a dead end the player had to guess their way out of.
+			hud.toast("Pack is full. [I] — click an item, then the empty space, to drop it.")
 		return false
 	inventory.append(item_id)
 	inventory_counts.append(1)
@@ -314,6 +328,50 @@ func backpack_to_hotbar(inv_idx: int) -> bool:
 			inventory_changed.emit()
 			return true
 	return false
+
+## Exchange a pack stack with a hotbar slot — the full-pack answer to backpack_to_hotbar.
+## That one needs a FREE hotbar slot and simply returns false with all four occupied, which
+## is what forced the player to drop (or stow) something before they could bring a pack item
+## to hand. This is an in-place exchange: nothing is created, nothing is destroyed, no
+## capacity is consulted, so it cannot fail on a full pack or a full hotbar.
+##
+## Three cases, all lossless:
+##  · empty hotbar slot — the stack simply moves in and the pack slot goes away (inventory is
+##    a list, not a fixed grid, so leaving a null in it would draw as a phantom item);
+##  · same item both sides — pile them up to the stack cap rather than shuffling two stacks
+##    of the same thing back and forth; anything over the cap stays in the pack;
+##  · anything else — a straight swap, counts included.
+func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
+	if inv_idx < 0 or inv_idx >= inventory.size():
+		return false
+	if slot < 0 or slot >= HOTBAR_SIZE:
+		return false
+	var pack_id: String = String(inventory[inv_idx])
+	var pack_n: int = int(inventory_counts[inv_idx])
+	var hand_id: Variant = hotbar[slot]
+	var hand_n: int = int(hotbar_counts[slot])
+	if hand_id != null and String(hand_id) == pack_id:
+		var room: int = _stack_cap(pack_id) - hand_n
+		var moved: int = mini(pack_n, maxi(room, 0))
+		if moved > 0:
+			hotbar_counts[slot] = hand_n + moved
+			if pack_n - moved <= 0:
+				inventory.remove_at(inv_idx)
+				inventory_counts.remove_at(inv_idx)
+			else:
+				inventory_counts[inv_idx] = pack_n - moved
+			inventory_changed.emit()
+		return true   # a topped-out hand stack is a no-op, never a downgrade
+	hotbar[slot] = pack_id
+	hotbar_counts[slot] = pack_n
+	if hand_id == null:
+		inventory.remove_at(inv_idx)
+		inventory_counts.remove_at(inv_idx)
+	else:
+		inventory[inv_idx] = hand_id
+		inventory_counts[inv_idx] = hand_n
+	inventory_changed.emit()
+	return true
 
 func hotbar_to_backpack(slot: int) -> bool:
 	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:

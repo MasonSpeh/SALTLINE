@@ -1,7 +1,7 @@
 {
 	"_schema": "All feel-values for the slice. PLACEHOLDER values pending designer tuning pass (GDD par.8). Rates are per real-time second; stats run 0..1.",
-	"hunger_per_sec": 0.00055,
-	"thirst_per_sec": 0.0011,
+	"hunger_per_sec": 0.0004675,
+	"thirst_per_sec": 0.000935,
 	"warmth_per_sec_neutral": 0.0,
 	"warmth_per_sec_cold": -0.004,
 	"warmth_per_sec_night": -0.0015,

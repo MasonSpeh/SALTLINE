@@ -759,5 +759,296 @@
       "active": []
     },
     "note": "Deep-drop rig only. A rattail that hangs nose-down over the deep in daylight. Open water, dropped straight below."
+  },
+  "fish_bilge_blenny": {
+    "name": "Bilge Blenny",
+    "rod": true,
+    "net": true,
+    "w": {
+      "dawn": 22,
+      "day": 24,
+      "dusk": 22,
+      "night": 18
+    },
+    "storm": "ok",
+    "light": "any",
+    "water": "near",
+    "depth": "surface",
+    "fight": 0.45,
+    "pull": 0.35,
+    "cooked_to": "cooked_fish_bilge_blenny",
+    "school": {
+      "count": 28,
+      "size": 0.65,
+      "tint": [
+        0.34,
+        0.4,
+        0.32
+      ],
+      "active": [
+        "dawn",
+        "day",
+        "dusk",
+        "night"
+      ],
+      "shape": "slender"
+    },
+    "note": "Lives in the wash around the legs and the outfalls, and never once leaves the rig's shadow. Ugly, endless, and always biting."
+  },
+  "fish_tallow_pollock": {
+    "name": "Tallow Pollock",
+    "rod": true,
+    "net": true,
+    "w": {
+      "dawn": 18,
+      "day": 20,
+      "dusk": 12,
+      "night": 4
+    },
+    "storm": "bonus",
+    "light": "any",
+    "water": "any",
+    "depth": "mid",
+    "fight": 1.2,
+    "pull": 0.95,
+    "cooked_to": "cooked_fish_tallow_pollock",
+    "school": {
+      "count": 11,
+      "size": 1.25,
+      "tint": [
+        0.48,
+        0.44,
+        0.3
+      ],
+      "active": [
+        "dawn",
+        "day"
+      ],
+      "shape": "fusiform"
+    },
+    "note": "Fat under the skin like a candle — bites double with weather in the water, and renders down to a proper meal."
+  },
+  "fish_gannet_mackerel": {
+    "name": "Gannet Mackerel",
+    "rod": true,
+    "net": true,
+    "w": {
+      "dawn": 26,
+      "day": 6,
+      "dusk": 24,
+      "night": 2
+    },
+    "storm": "never",
+    "light": "any",
+    "water": "open",
+    "depth": "surface",
+    "fight": 1.05,
+    "pull": 1.2,
+    "cooked_to": "cooked_fish_gannet_mackerel",
+    "school": {
+      "count": 24,
+      "size": 0.95,
+      "tint": [
+        0.42,
+        0.58,
+        0.62
+      ],
+      "active": [
+        "dawn",
+        "dusk"
+      ],
+      "shape": "slender"
+    },
+    "note": "Runs the open water at first and last light and scatters the moment the glass falls. Where the birds are working, they are."
+  },
+  "fish_rust_wrasse": {
+    "name": "Rust Wrasse",
+    "rod": true,
+    "net": true,
+    "w": {
+      "dawn": 8,
+      "day": 18,
+      "dusk": 10,
+      "night": 1
+    },
+    "storm": "ok",
+    "light": "any",
+    "water": "near",
+    "depth": "mid",
+    "fight": 0.85,
+    "pull": 0.7,
+    "cooked_to": "cooked_fish_rust_wrasse",
+    "school": {
+      "count": 8,
+      "size": 1.0,
+      "tint": [
+        0.62,
+        0.34,
+        0.22
+      ],
+      "active": [
+        "day"
+      ],
+      "shape": "deep"
+    },
+    "note": "Grazes the barnacle crust off the legs all day long and comes up the colour of the steel it eats. Fish the shadow."
+  },
+  "fish_kelp_pipefish": {
+    "name": "Kelp Pipefish",
+    "rod": false,
+    "net": true,
+    "w": {
+      "dawn": 16,
+      "day": 18,
+      "dusk": 14,
+      "night": 6
+    },
+    "storm": "never",
+    "light": "any",
+    "water": "near",
+    "depth": "surface",
+    "fight": 0.35,
+    "pull": 0.25,
+    "cooked_to": "cooked_fish_kelp_pipefish",
+    "school": {
+      "count": 14,
+      "size": 0.7,
+      "tint": [
+        0.28,
+        0.44,
+        0.3
+      ],
+      "active": [
+        "dawn",
+        "day",
+        "dusk"
+      ],
+      "shape": "pike"
+    },
+    "note": "Hangs vertical in the bloom-kelp and holds dead still. Never takes a hook; walks into a soaked net without noticing it."
+  },
+  "fish_lantern_dogfish": {
+    "name": "Lantern Dogfish",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 3,
+      "day": 1,
+      "dusk": 8,
+      "night": 20
+    },
+    "storm": "ok",
+    "light": "drawn",
+    "water": "open",
+    "depth": "deep",
+    "fight": 1.6,
+    "pull": 1.45,
+    "cooked_to": "cooked_fish_lantern_dogfish",
+    "school": {
+      "count": 4,
+      "size": 1.5,
+      "tint": [
+        0.3,
+        0.33,
+        0.38
+      ],
+      "active": [
+        "night"
+      ],
+      "shape": "fusiform"
+    },
+    "note": "A small shark with a lit belly, and it fights like a bigger one. Deep open water, and only well after dark."
+  },
+  "fish_squall_garfish": {
+    "name": "Squall Garfish",
+    "rod": true,
+    "net": true,
+    "w": {
+      "dawn": 9,
+      "day": 9,
+      "dusk": 9,
+      "night": 9
+    },
+    "storm": "only",
+    "light": "any",
+    "water": "open",
+    "depth": "surface",
+    "fight": 1.35,
+    "pull": 1.5,
+    "cooked_to": "cooked_fish_squall_garfish",
+    "school": {
+      "count": 12,
+      "size": 1.3,
+      "tint": [
+        0.72,
+        0.76,
+        0.8
+      ],
+      "active": [],
+      "shape": "pike"
+    },
+    "note": "Storm water only, and only out where the swell has room. Comes clean out of the sea on the strike and goes back in somewhere else entirely."
+  },
+  "fish_anchor_ray": {
+    "name": "Anchor Ray",
+    "rod": false,
+    "net": true,
+    "w": {
+      "dawn": 4,
+      "day": 3,
+      "dusk": 6,
+      "night": 10
+    },
+    "storm": "ok",
+    "light": "any",
+    "water": "near",
+    "depth": "deep",
+    "fight": 1.75,
+    "pull": 1.4,
+    "cooked_to": "cooked_fish_anchor_ray",
+    "school": {
+      "count": 1,
+      "size": 2.6,
+      "tint": [
+        0.36,
+        0.34,
+        0.3
+      ],
+      "active": [
+        "night"
+      ],
+      "shape": "flat"
+    },
+    "note": "Lies on the mooring chains where the silt collects. Only a net soaked close to the legs finds one, and the winch complains about it."
+  },
+  "fish_trench_hagfish": {
+    "name": "Trench Hagfish",
+    "rod": false,
+    "net": false,
+    "deep": true,
+    "w": {
+      "dawn": 5,
+      "day": 4,
+      "dusk": 7,
+      "night": 12
+    },
+    "storm": "ok",
+    "light": "any",
+    "water": "any",
+    "depth": "deep",
+    "fight": 1.7,
+    "pull": 1.3,
+    "cooked_to": "cooked_fish_prime",
+    "school": {
+      "count": 0,
+      "size": 0,
+      "tint": [
+        0.3,
+        0.28,
+        0.26
+      ],
+      "active": []
+    },
+    "note": "Deep-drop rig only. Comes up in a rope of its own slime and keeps moving after it should have stopped. Sears to a prime fillet regardless."
   }
 }

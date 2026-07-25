@@ -1,5 +1,5 @@
 {
-  "_schema": "item_id -> { name, use: eat|drink|tool|build, hunger/thirst: restore amounts, side_effect, melee_damage/melee_reach/swing_sec for weapons, and for worn gear: worn + the field naming its effect (pack_slots | light | cold_relief). The 'effect' string names the code that implements it — worn gear with no implementation is a lie.",
+  "_schema": "item_id -> { name, use: eat|drink|tool|build, hunger/thirst: restore amounts, side_effect, melee_damage/melee_reach/swing_sec for weapons, and for worn gear: worn + the field naming its effect (pack_slots | light | cold_relief). The 'effect' string names the code that implements it — worn gear with no implementation is a lie. PlayerState.use_hotbar implements hunger/thirst/comfort/side_effect; scripts/components/item_effects.gd implements FOUR more on the same consume path: heal (adds to the 0..1 life bar), cures ('sickness'), warmth, returns (item id handed back when the consumable is spent — how a drunk bottle leaves you the bottle), plus an optional 'line' overriding the toast. NOTE: only an eat/drink item is ever SPENT by use_hotbar, so a consumable that is not food carries use:drink with thirst 0. Water vessels add vessel:true + vessel_kind (bottle|flask) + fills_to + fill_hours, read by scripts/components/rain_catcher.gd.",
   "canned_food": {
     "name": "Canned Food",
     "use": "eat",
@@ -686,5 +686,203 @@
   "door_kit": {
     "name": "Wooden Door (kit)",
     "use": "build"
+  },
+  "floor_panel_kit": {
+    "name": "Deck Panel (kit)",
+    "use": "build"
+  },
+  "window_panel_kit": {
+    "name": "Window Panel (kit)",
+    "use": "build"
+  },
+  "deep_rig_pole": {
+    "name": "Deep Rig Pole",
+    "use": "tool",
+    "effect": "The weighted hand-line that draws the deep-drop pool (FishingRod._is_deep_selected). rig_builder places one in the world as a Takeable, but it had no entry here at all — so its name, its stacking and its tooltip were all guesses."
+  },
+  "bottle_empty": {
+    "name": "Salvaged Bottle",
+    "use": "tool",
+    "vessel": true,
+    "vessel_kind": "bottle",
+    "fills_to": "bottle_water",
+    "fill_hours": 1.2,
+    "effect": "Stand it in a Rain Catcher's cradle and one good squall fills it (RainCatcherDock)."
+  },
+  "bottle_water": {
+    "name": "Bottle of Rainwater",
+    "use": "drink",
+    "thirst": 0.45,
+    "vessel": true,
+    "vessel_kind": "bottle",
+    "returns": "bottle_empty",
+    "line": "Rainwater — cold, flat, faintly of canvas. The bottle goes back in your pack.",
+    "effect": "Restores thirst through the normal drink path and hands the empty bottle back (ItemEffects `returns`), so the water farm is a loop instead of a tap."
+  },
+  "thermos_empty": {
+    "name": "Crew Thermos",
+    "use": "tool",
+    "vessel": true,
+    "vessel_kind": "flask",
+    "fills_to": "thermos_water",
+    "fill_hours": 2.0,
+    "effect": "Holds more than a bottle and takes roughly twice the weather to fill (RainCatcherDock)."
+  },
+  "thermos_water": {
+    "name": "Thermos of Rainwater",
+    "use": "drink",
+    "thirst": 0.7,
+    "vessel": true,
+    "vessel_kind": "flask",
+    "returns": "thermos_empty",
+    "line": "Half a litre straight off the sky. The flask goes back in your pack.",
+    "effect": "As the bottle, but a proper day's water in one slot (ItemEffects `returns`)."
+  },
+  "bandage": {
+    "name": "Field Dressing",
+    "use": "drink",
+    "thirst": 0.0,
+    "heal": 0.12,
+    "line": "Cleaned, packed, bound off. It'll hold.",
+    "effect": "Heals 0.12 of the 0..1 life bar (ItemEffects `heal`). Tagged use:drink with thirst 0 because use_hotbar only ever SPENDS an eat/drink item — a use:tool item is never consumed — and 'drink' keeps the inventory tooltip from calling a dressing edible."
+  },
+  "medkit": {
+    "name": "Medkit",
+    "use": "drink",
+    "thirst": 0.0,
+    "heal": 0.4,
+    "cures": "sickness",
+    "line": "Sutures, sulfa powder, clean water. You come out of it steadier than you went in.",
+    "effect": "Heals 0.4 of life and clears sickness (ItemEffects `heal` + `cures`). See bandage for why use:drink."
+  },
+  "bloom_tonic": {
+    "name": "Bloom Tonic",
+    "use": "drink",
+    "thirst": 0.1,
+    "cures": "sickness",
+    "line": "Low tide in a bottle, and it burns going down. The queasiness lets go all the same.",
+    "effect": "Clears sickness (ItemEffects `cures`) — the answer to raw fish, live snails and a bad glow worm."
+  },
+  "kelp_brew": {
+    "name": "Kelp Brew",
+    "use": "drink",
+    "thirst": 0.3,
+    "hunger": 0.08,
+    "warmth": 0.45,
+    "returns": "bottle_empty",
+    "line": "Hot, green, faintly luminous. The heat gets all the way out to your hands.",
+    "effect": "Restores warmth as well as thirst (ItemEffects `warmth`) and gives the bottle back."
+  },
+  "galley_stew": {
+    "name": "Fish Stew",
+    "use": "eat",
+    "hunger": 0.75,
+    "thirst": 0.25,
+    "warmth": 0.3,
+    "returns": "bottle_empty",
+    "line": "A whole fish, a fistful of kelp and a bottle of rain, boiled down to something you would call a meal.",
+    "effect": "The best food on the rig, and the only one that warms you (ItemEffects `warmth`). Hands the bottle back."
+  },
+  "fish_bilge_blenny": {
+    "name": "Bilge Blenny",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_tallow_pollock": {
+    "name": "Tallow Pollock",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_gannet_mackerel": {
+    "name": "Gannet Mackerel",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_rust_wrasse": {
+    "name": "Rust Wrasse",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_kelp_pipefish": {
+    "name": "Kelp Pipefish",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_lantern_dogfish": {
+    "name": "Lantern Dogfish",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_squall_garfish": {
+    "name": "Squall Garfish",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_anchor_ray": {
+    "name": "Anchor Ray",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_trench_hagfish": {
+    "name": "Trench Hagfish",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_bilge_blenny": {
+    "name": "Cooked Bilge Blenny",
+    "use": "eat",
+    "hunger": 0.28,
+    "thirst": 0.05
+  },
+  "cooked_fish_tallow_pollock": {
+    "name": "Cooked Tallow Pollock",
+    "use": "eat",
+    "hunger": 0.58,
+    "thirst": 0.05
+  },
+  "cooked_fish_gannet_mackerel": {
+    "name": "Cooked Gannet Mackerel",
+    "use": "eat",
+    "hunger": 0.46,
+    "thirst": 0.05
+  },
+  "cooked_fish_rust_wrasse": {
+    "name": "Cooked Rust Wrasse",
+    "use": "eat",
+    "hunger": 0.4,
+    "thirst": 0.05
+  },
+  "cooked_fish_kelp_pipefish": {
+    "name": "Cooked Kelp Pipefish",
+    "use": "eat",
+    "hunger": 0.26,
+    "thirst": 0.05
+  },
+  "cooked_fish_lantern_dogfish": {
+    "name": "Cooked Lantern Dogfish",
+    "use": "eat",
+    "hunger": 0.55,
+    "thirst": 0.05
+  },
+  "cooked_fish_squall_garfish": {
+    "name": "Cooked Squall Garfish",
+    "use": "eat",
+    "hunger": 0.5,
+    "thirst": 0.05
+  },
+  "cooked_fish_anchor_ray": {
+    "name": "Cooked Anchor Ray",
+    "use": "eat",
+    "hunger": 0.62,
+    "thirst": 0.1
   }
 }

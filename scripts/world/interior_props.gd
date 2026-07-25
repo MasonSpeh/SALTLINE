@@ -96,6 +96,10 @@ func _ready() -> void:
 	# above the galley section. Safe to run here: rig_builder calls _density_a()
 	# (which authors them) BEFORE it adds this node, so they already exist.
 	_galley_bulkhead_layout()
+	# Same deal for the rec room: rig_builder authors a rug, two legless table tops,
+	# a mid-air TV and a flat-colour bench block in there, and _decorate_rec_room() /
+	# _density_a() both run before this node is added. See _rec_room_layout().
+	_rec_room_layout()
 	_stream()   # drain the queue across frames, then settle (runs as a coroutine)
 
 ## Instance the queued props a handful per frame so no single frame stalls.
@@ -425,6 +429,19 @@ func _wall_mesh(pos: Vector3, size: Vector3, mat: Material) -> MeshInstance3D:
 	mi.add_to_group("placement_exempt")
 	return mi
 
+## Built-in joinery: a carcass the player actually bumps into. Same shape as _wall_mesh
+## but a colliding CSGBox3D, because a credenza you can walk through is scenery, not
+## furniture. Exempt from the settle for the same reason a wall is — it IS the surface.
+func _carcass(pos: Vector3, size: Vector3, mat: Material) -> CSGBox3D:
+	var b := CSGBox3D.new()
+	b.size = size
+	b.material = mat
+	b.use_collision = true
+	add_child(b)
+	b.global_position = pos
+	b.add_to_group("placement_exempt")
+	return b
+
 func _galley() -> void:
 	var y: float = DECK_Y
 	var counter: float = y + 1.2       # counter top is y+1.0
@@ -450,9 +467,34 @@ func _galley() -> void:
 
 # ---- bunkhouse ----
 # Six bunks at z 6.5 (south row) / z 15.5 (north row), x -25.5 / -18.8 / -12.0.
-# Each has a steel locker at bed + (1.2, *, -0.8), top y+1.8, and a footlocker at
-# bed + (0, *, 1.45), top y+0.4.  THE CORRIDOR IS z 10..12 AND STAYS EMPTY — the sitting
-# nook and the shared table that used to stand in it are now inside cabins.
+#
+# THE WARDROBE LOCKERS ARE ON THE HEAD WALL, NOT BESIDE THE BUNK. This comment used to
+# say "a steel locker at bed + (1.2, *, -0.8)" and every locker-top coordinate in this
+# file was derived from that offset. rig_builder._build_bunkhouse moved them: they are
+# built by _wardrobe_locker at (bed.x + 1.15, y + 0.9, LOCK_Z) with LOCK_Z 4.55 for the
+# south row and 17.45 for the north, because the old -0.8 z offset put the north-row
+# lockers a metre out into the room. The visual is a 0.5 x 1.8 x 0.5 box centred on
+# y+0.9, so the carcass runs y..y+1.8 and its resting plane measures y+1.86 (the lid
+# stands a little proud) — that is LOCK_TOP below. A bed-relative z offset here is now
+# a floating-prop bug, so every locker-top item anchors to (bed.x + 1.15, LOCK_Z).
+#
+# The FLOOR is not y either: the bunkhouse lino overlay spans y+0.02..y+0.05, so anything
+# standing on the deck seats its base at y+0.05.
+#
+# THE CORRIDOR IS z 10..12 AND STAYS EMPTY — the sitting nook and the shared table that
+# used to stand in it are now inside cabins.
+
+## Bunk and locker anchors come from the SHARED layout module, not from a second copy of
+## the numbers. Restating them here is exactly how six locker-top items ended up hovering
+## where the lockers used to be, and lining the bunks up against the cabin walls would have
+## broken the same six placements again. See bunk_layout.gd.
+const BUNKS := preload("res://scripts/world/bunk_layout.gd")   # by path: class cache lags new files
+
+## The locker top serving a given bunk. The top is 0.5m square, so items must land well
+## inside +-0.25 of this in x and z — SurfaceSnap probes a single ray straight down from
+## the ORIGIN, so an anchor near the edge misses the top and the item drops to the deck.
+func _locker_top(bed: Vector3) -> Vector3:
+	return BUNKS.locker_top(bed)
 
 func _bunkhouse() -> void:
 	var y: float = DECK_Y
@@ -462,8 +504,7 @@ func _bunkhouse() -> void:
 	# distinct, wall-aligned piece on the EAST side against the divider it shares — so
 	# each reads as a different crew member's room, and nothing stands free in the middle.
 	# East-divider interior faces: A x-21.455 · B x-14.785 · C x-8.125.
-	var beds := [Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
-			Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5)]
+	var beds: Array = BUNKS.beds()   # shared with rig_builder — never restate these
 
 	# --- A-S · the fitter: a work desk squared to the east divider, tools laid out. ---
 	_pc("metal_office_desk", Vector3(-21.85, y, 6.6), -90)
@@ -508,39 +549,224 @@ func _bunkhouse() -> void:
 	_p("binoculars", Vector3(-8.55, y + 0.95, 15.25), 20)
 	_p("old_gas_mask", Vector3(-8.55, y + 0.95, 14.7), -30)
 
-	# Each crew member's few things on their head-wall wardrobe top (locker at bed.x+1.15,
-	# z 4.55 south / 17.45 north, top y+1.8) — now that the lockers sit where the comment
-	# always claimed, these land on a real surface instead of the old floating box.
-	var lock := ["ceramic_vase_01", "food_apple_01", "decorative_book_set_01",
+	# Each crew member's one keepsake on their head-wall wardrobe top, anchored through
+	# _locker_top() so it tracks the real locker instead of a stale bed-relative offset.
+	# Set slightly west/south of centre; _scatter_decka() puts the second item on the
+	# opposite quarter of the same 0.5m square top, so the two never fight for the ray.
+	# NOTE "decorative_book_set_01" was a phantom id — there is no such model in
+	# assets/models, so PropLib handed back its labelled fallback CRATE and cabin C-S has
+	# been showing a plain wooden box on the locker where a stack of books belongs.
+	# book_encyclopedia_set_01 is the real set (the one bunk A-N already uses).
+	var lock := ["ceramic_vase_01", "food_apple_01", "book_encyclopedia_set_01",
 			"brass_goblets", "plastic_thermos", "round_spectacles"]
 	for i in range(beds.size()):
-		var p: Vector3 = beds[i]
-		var lz: float = 4.55 if p.z < 11.0 else 17.45
-		_p(lock[i], Vector3(p.x + 1.15, y + 1.85, lz), i * 33.0)
+		var lt: Vector3 = _locker_top(beds[i])
+		_p(lock[i], lt + Vector3(-0.11, 0.09, -0.10), i * 33.0)
 	# Corridor (z10..12) keeps only wall-hung items, between the cabin doors and clear of
 	# the 1.2m walk lane: a fire point and a framed photo. Life jacket by the C-S door.
 	_pw("korean_fire_extinguisher_01", Vector3(-15.0, y + 0.9, 10.2), 180, 1.1)
 	_pw("fancy_picture_frame_02", Vector3(-21.0, y + 1.6, 11.8), 0)
 	_pw("life_jacket", Vector3(-8.25, y + 1.5, 6.2), -90)
 
-# ---- rec room ----
-# Low table top y+0.32 (x 22.25..23.75, z 12.03..12.98). Couch top y+0.7 (x 21.8..24.2,
-# z 8.7..9.7). Bookshelf top y+2.0 (x 24.6..26.4, z 17.43..17.78). West door at (18, 11).
+# ============================================================ rec room
+#
+# THE ROOM, measured (sonar): interior x 18.125..27.875, z 8.125..17.875 — 9.75m square.
+# Floor working surface y+0.05 (the rubber overlay spans y+0.02..y+0.05, so anything
+# standing on the deck seats its base at y+0.05, NOT y). Deckhead underside y+3.075;
+# ceiling beams at y+2.95, service pipes at y+2.7, the pennant cord on z 12.9 — nothing
+# of ours goes above y+2.6. THE WEST DOOR is the opening z 10.3..11.7 in the x18 wall.
+#
+# FIXED FURNITURE (built in rig_builder, not ours to author — only to compose around):
+#   couch          x 21.8..24.2, z 8.7..9.7, seat top y+0.70
+#   low table top  x 22.25..23.75, z 12.03..12.98, top y+0.32   (legged by _rec_room_layout)
+#   floor rug      x 21.3..24.7, z 11.3..13.7                   (raised by _rec_room_layout)
+#   bookshelf      x 24.6..26.4, z 17.43..17.78, top y+2.00
+#   dead TV        1.4 x 0.9 x 0.4 slab                         (seated by _rec_room_layout)
+#   east bench     1.0 x 0.7 x 2.2 block                        (re-faced by _rec_room_layout)
+#   magazine table 0.9 x 0.7 top                                (legged by _rec_room_layout)
+#   cased wall clock on the WEST bulkhead at x18.125, y+2.30, z 15.0
+#   floor lamp (26.6, 9.2), fishing rod (27.0, 9.5), tally-book readable (27.7, 14.2)
+#
+# THE COMPOSITION. Two datums do all the work: the room's north-south SPINE at x 23 and
+# the conversation square at z 12.5. Everything is squared to one or the other, and the
+# heavy masses are paired across the spine so the room reads composed from the doorway
+# rather than scattered:
+#
+#   NORTH WALL (the media + library wall, all on the spine)
+#       media credenza centre x 20.5  |  screen x 23.0  |  bookshelf centre x 25.5
+#       — the two 1.8-2.3m masses sit at exactly +-2.5m from the screen, and a matched
+#         pair of potted plants flanks the screen at +-1.05m.
+#   CENTRE (the conversation square) — the low table on the spine at z 12.5 with a
+#       MIRRORED pair of chairs at x 21.5 / x 24.5, both facing it. The rug's footprint
+#       is the square: its edges land within 45mm of the outside of both chairs.
+#   SOUTH WALL (the lounge) — the fixed couch centred on the spine, the glTF sofa run
+#       up flush beside it on the SAME back line (z 8.70) so the two read as one bench
+#       seat, the ottoman centred on the couch as a footstool, and a potted plant in
+#       each corner.
+#   WEST WALL (the reading run) — a matched pair of armchairs flanking a lamp table,
+#       centred under the stopped clock at z 15.0.
+#   EAST WALL (the dart wall) — board, timber surround, score slate, and a real oche
+#       batten on the deck 2.37m off the board face. The north-east quarter is left
+#       DELIBERATELY EMPTY: it is the throwing space.
+#
+#   CIRCULATION. The walk lane in from the west door is x 18.1..21.7, z 9.7..12.0 and
+#   nothing stands in it: the sofa stops at z 9.54, the extinguisher is wall-bracketed,
+#   the ottoman starts at x 22.65, the square's west chair starts at z 12.2. The lane
+#   opens into the middle of the room, with the lounge to the south and the media wall
+#   ahead — which is why the room reads as somewhere you walk INTO rather than around.
 
 func _rec_room() -> void:
 	var y: float = DECK_Y
-	var low: float = y + 0.55        # low table top is y+0.32
-	_p("boombox", Vector3(22.5, low, 12.3), 30)
-	_p("plastic_thermos", Vector3(22.5, y + 0.75, 10.4), -40)   # on the ottoman
-	# Television on its stand, backed against the east bulkhead (interior face x 27.875).
-	_pc("small_wooden_table_01", Vector3(27.3, y, 12.5), -90)
-	_pc("television_02", Vector3(27.3, y + 1.0, 12.3), -90)
-	# A worn chair facing the table, and a stool.
-	_pc("painted_wooden_chair_01", Vector3(20.7, y, 12.4), 100)
-	_pc("metal_stool_02", Vector3(24.6, y, 14.2), -60)
-	# Reading light on the bookshelf top (top y+2.0, x 24.6..26.4, z 17.43..17.78).
-	_p("Lantern_01", Vector3(25.35, y + 2.25, 17.6), 0)
-	_lamp(Vector3(25.5, y + 2.5, 17.4), Color(1.0, 0.83, 0.52), 0.4, 3.5)
+	var low: float = y + 0.55        # low table top is y+0.32; the settle drops the rest
+
+	# ---- THE CONVERSATION SQUARE (centre of the room, on the spine) ----
+	# A MIRRORED pair of chairs facing the low table across it. Both sit 0.505m clear of
+	# the table edge and land inside the rug, so the group reads as one deliberate square
+	# rather than as two chairs that happen to be near a table.
+	_pc("painted_wooden_chair_01", Vector3(21.50, y, 12.50), 90)    # west arm, faces east
+	_pc("painted_wooden_chair_01", Vector3(24.50, y, 12.50), -90)   # east arm, faces west
+	# The table top itself carries the frozen chess game (rig_builder) — ours adds only
+	# what a hand puts down beside it, all inside x 22.25..23.75 / z 12.03..12.98.
+	_p("plastic_thermos", Vector3(22.45, low, 12.25), -40)
+	_p("food_avocado_01", Vector3(23.55, low, 12.80), 0)
+
+	# ---- THE LOUNGE (south wall, back line z 8.70) ----
+	# The glTF sofa run up flush against the fixed couch's west end (21.8) and squared to
+	# the SAME back line, so the pair reads as one continuous bench seat under the wall.
+	_pc("Sofa_01", Vector3(20.75, y, 9.12), 0)                      # x 19.75..21.75
+	_pc("Ottoman_01", Vector3(23.00, y, 10.35), 0)                  # footstool, on the spine
+	_p("throw_pillows_01", Vector3(23.85, y + 0.75, 9.35), 20)      # on the fixed couch
+	_p("throw_pillows_01", Vector3(20.20, y + 0.60, 9.20), -25)     # on the sofa
+	_p("classic_laptop", Vector3(22.40, y + 0.75, 9.35), 200)       # left open on the couch
+	# Corner plants, one each side — the pair that squares the south end off. The SE
+	# sapling is rig_builder's; this is its mate in the SW corner, potted the same way
+	# the galley plant is (pot on the deck, foliage settled onto the pot).
+	_pc("ceramic_pot", Vector3(18.75, y, 8.75), 0)
+	_p("calathea_orbifolia_01", Vector3(18.75, y + 0.60, 8.75), 0)
+
+	# ---- THE WEST WALL: the reading run, centred under the stopped clock (z 15.0) ----
+	# Two armchairs angled in toward the room with a lamp table between them. The clock
+	# rig_builder hung at y+2.30 lands dead centre over the table, which is what makes
+	# this wall read as arranged rather than lined up.
+	_pc("ArmChair_01", Vector3(18.95, y, 13.60), 75)
+	_pc("ArmChair_01", Vector3(18.95, y, 16.40), 105)
+	# Nightstand top measures x 18.138..18.502, z 14.757..15.243 with its surface at y+0.655
+	# (sonar, from the identical piece in bunk A-N). Both items sit well inside that.
+	_pc("ClassicNightstand_01", Vector3(18.32, y, 15.00), 90)       # back flush on x 18.125
+	_p("vintage_oil_lamp", Vector3(18.30, y + 0.72, 15.16), 0)
+	_p("postcard_set_01", Vector3(18.30, y + 0.72, 14.84), -12)
+	_lamp(Vector3(18.42, y + 0.95, 15.10), Color(1.0, 0.84, 0.54), 0.45, 4.0)
+	# Fire point on the clear pier between the door reveal (z 11.7) and the south armchair
+	# (z 13.15) — bracketed 0.115 proud of the wall face, settle-exempt.
+	_pw("korean_fire_extinguisher_01", Vector3(18.24, y + 0.95, 12.20), 90, 1.1)
+
+## Repair the rec room's FIXED furniture, and build the joinery the composition needs.
+##
+## Five things in this room are authored in rig_builder (_decorate_rec_room and _density_a)
+## and every one of them is broken in the same family of ways the sonar scan keeps finding:
+##
+##  1. THE LOW TABLE IS A TOP WITH NO LEGS. A 1.5 x 0.08 x 0.95 slab at y+0.28 with 0.19m
+##     of clear air under it (scan: gap 0.19, nothing to either side) — the whole chess
+##     game, the score card and the scattered hand of cards ride a plank hovering over the
+##     deck. This is the floating table the owner photographed.
+##  2. THE MAGAZINE TABLE IS THE SAME BUG AGAIN — a 0.9 x 0.06 x 0.7 top at y+0.22, gap
+##     0.14. Two legless tops in one room is why the room reads unfinished.
+##  3. THE RUG NEVER RENDERS. Authored at y+0.02 with a 0.03 thickness, i.e. y18.005..18.035
+##     — entirely INSIDE the rubber floor overlay (y18.02..18.05) that is laid on top of it.
+##     Same bug as the five Deck B cabin rugs and the Deck D exercise mat.
+##  4. THE DEAD TV FLOATS. A 1.4 x 0.9 x 0.4 slab whose base sits 0.50m off the deck and
+##     0.475m clear of the bulkhead behind it — supported by nothing, mounted to nothing.
+##  5. THE EAST BENCH IS A FLAT-COLOUR PLACEHOLDER standing 0.575m off the wall it is
+##     supposed to be built into — a solid green block in the middle of the east side.
+##
+## Nothing here re-authors that furniture; this only moves existing nodes into the
+## composition and builds the missing joinery under them. Every lookup is gated on an exact
+## signature (size + position), so if rig_builder is ever fixed at source this silently
+## no-ops instead of fighting it — the same contract as _galley_bulkhead_layout(), and the
+## same hand-off note: FOLD INTO rig_builder.gd AND DELETE FROM HERE when that file is
+## next opened. Legs are derived from each top's OWN measured underside, so they follow the
+## slab rather than restating its height as a second literal.
+func _rec_room_layout() -> void:
+	var y: float = DECK_Y
+	var deck: float = y + 0.05        # rubber overlay top — what furniture actually stands on
+	var host: Node = get_parent()
+	if host == null:
+		return
+	# The credenza goes in whether or not the TV lookup matches: it is our own joinery and
+	# the north wall's composition (and the boombox and console that ride its top) depends
+	# on it. Back face on the bulkhead plane, 2.30 wide so it pairs with the 1.8m bookshelf
+	# across the screen. Plinth / carcass / top / doors / handles — real joinery, so it
+	# reads as built-in rather than as a box pushed against a wall.
+	var cx: float = 20.50
+	var cz: float = 17.645            # centre of a 0.42-deep carcass whose back is on 17.855
+	_carcass(Vector3(cx, y + 0.105, cz), Vector3(2.16, 0.11, 0.34), MatLib.dark_metal())
+	_carcass(Vector3(cx, y + 0.410, cz), Vector3(2.30, 0.50, 0.42), MatLib.wood())
+	var cred_top: float = y + 0.71    # 0.05 slab centred y+0.685 -> top face y+0.71
+	_carcass(Vector3(cx, y + 0.685, 17.635), Vector3(2.38, 0.05, 0.48), MatLib.weathered_wood())
+	for dx in [-0.57, 0.57]:
+		_wall_mesh(Vector3(cx + dx, y + 0.41, 17.420), Vector3(1.10, 0.42, 0.03), MatLib.painted_steel())
+	for hx in [-0.10, 0.10]:
+		_wall_mesh(Vector3(cx + hx, y + 0.41, 17.360), Vector3(0.04, 0.04, 0.09), MatLib.galvanized())
+
+	for n in host.get_children():
+		if not (n is CSGBox3D):
+			continue
+		var b := n as CSGBox3D
+		# 1. The low table: legs and side rails from the deck up to its measured underside.
+		if b.size.is_equal_approx(Vector3(1.5, 0.08, 0.95)) \
+				and b.position.distance_to(Vector3(23.0, y + 0.28, 12.5)) < 0.05:
+			_table_legs(b, deck, 0.10, 0.62, 0.36)
+		# 2. The magazine table: legged the same way, and lifted to a real 0.34 top so it
+		#    works as the side table in front of the east bench instead of a floor plank.
+		#    Re-centred on the bench it serves (bench centre z 11.10) with 0.83m of legroom.
+		elif b.size.is_equal_approx(Vector3(0.9, 0.06, 0.7)) \
+				and b.position.distance_to(Vector3(24.8, y + 0.22, 10.5)) < 0.05:
+			b.position = Vector3(25.60, y + 0.31, 11.10)
+			_table_legs(b, deck, 0.07, 0.36, 0.26)
+		# 3. The rug, lifted out of the floor overlay so it lands ON the deck. Its footprint
+		#    (x 21.3..24.7, z 11.3..13.7) IS the conversation square: the mirrored chairs at
+		#    x 21.5 / 24.5 land within 45mm of its edges, which is what ties the group.
+		elif b.size.is_equal_approx(Vector3(3.4, 0.03, 2.4)) \
+				and b.position.distance_to(Vector3(23.0, y + 0.02, 12.5)) < 0.05:
+			b.position = Vector3(23.0, y + 0.065, 12.5)
+		# 4. The dead TV, set down on the credenza top and pushed back flush to the
+		#    bulkhead (0.4 deep, back on 17.85). Centred at x 20.5 so it is exactly 2.5m
+		#    west of the screen on the spine, mirroring the bookshelf 2.5m east of it.
+		elif b.size.is_equal_approx(Vector3(1.4, 0.9, 0.4)) \
+				and b.position.distance_to(Vector3(20.0, y + 1.0, 17.2)) < 0.05:
+			b.position = Vector3(20.50, cred_top + 0.45, 17.65)
+		# 5. The east bench: pushed back flush against the bulkhead (x 26.875..27.875) and
+		#    shifted north to z 10.0..12.2 so it clears the fishing rod propped at z 9.5,
+		#    which it used to stand on top of. Re-faced in real woven canvas — a flat
+		#    saturated albedo is not a body panel — then given a seat cushion and a back.
+		elif b.size.is_equal_approx(Vector3(1.0, 0.7, 2.2)) \
+				and b.position.distance_to(Vector3(26.8, y + 0.35, 10.5)) < 0.05:
+			b.position = Vector3(27.375, y + 0.35, 11.10)
+			b.material = MatLib.canvas(Color(0.40, 0.33, 0.30))
+			_wall_mesh(Vector3(27.375, y + 0.745, 11.10), Vector3(0.95, 0.09, 2.10),
+				MatLib.canvas(Color(0.44, 0.34, 0.28)))                     # seat cushion
+			_wall_mesh(Vector3(27.700, y + 1.050, 11.10), Vector3(0.30, 0.52, 2.10),
+				MatLib.canvas(Color(0.37, 0.30, 0.26)))                     # back rest
+
+## Four legs and two side rails under a table top, derived from the top's own AABB so the
+## joinery cannot drift away from the slab it carries. `inset_x`/`inset_z` are the leg
+## centres measured from the top's centre; `w` is the leg section.
+func _table_legs(top: CSGBox3D, deck_y: float, w: float, inset_x: float, inset_z: float) -> void:
+	var under: float = top.position.y - top.size.y * 0.5
+	var h: float = under - deck_y
+	if h <= 0.02:
+		return                        # already sitting on the deck; nothing to carry
+	var c: Vector3 = top.position
+	var timber: Material = MatLib.wood()
+	for lx in [-inset_x, inset_x]:
+		for lz in [-inset_z, inset_z]:
+			_wall_mesh(Vector3(c.x + lx, deck_y + h * 0.5, c.z + lz), Vector3(w, h, w), timber)
+	# Side rails just under the top, so the frame reads as jointed rather than as four
+	# posts holding a plank up — the same apron trick the machine-shop bench uses.
+	var rail: float = minf(0.05, h * 0.35)
+	for lz in [-inset_z, inset_z]:
+		_wall_mesh(Vector3(c.x, under - rail * 0.6, c.z + lz),
+			Vector3(inset_x * 2.0 + w, rail, rail), MatLib.weathered_wood())
 
 # ---- machine shop ----
 # Fitter's bench top y+0.95, x -21.2..-18.5, z -12.9..-11.2.
@@ -666,26 +892,70 @@ func _bunkhouse_more() -> void:
 	# against a wall (west/head bulkheads) or tucked into a corner, nothing in a walk line.
 	_pw("fancy_picture_frame_01", Vector3(-27.8, y + 1.6, 7.0), 90)     # A-S, west bulkhead
 	_pw("fancy_picture_frame_02", Vector3(-8.2, y + 1.6, 16.0), -90)    # C-N, east bulkhead
-	_pw("fancy_picture_frame_01", Vector3(-18.8, y + 1.6, 4.15), 0)     # B-S, head wall
-	_pc("fern_02", Vector3(-27.4, y, 16.9), 0)                          # A-N, NW corner
-	_p("celandine_01", Vector3(-11.4, y + 1.85, 17.45), 0)             # C-N wardrobe-top sprig
+	_pw("fancy_picture_frame_01", Vector3(BUNKS.bed_pos(1, true).x, y + 1.6, 4.15), 0)  # B-S, head wall
+	_pc("fern_02", Vector3(-27.4, y + 0.05, 16.9), 0)                   # A-N, NW corner (lino top)
+	# C-N wardrobe-top sprig. Was anchored at x -11.4, which is 0.55m west of that locker's
+	# centre — clear off a top only 0.5m wide, so it had nothing under it. On the locker's
+	# free quarter it lands on the steel like the rest of the crew's things.
+	_p("celandine_01", _locker_top(BUNKS.bed_pos(2, false)) + Vector3(-0.13, 0.09, 0.13), 0)
 
 func _rec_room_more() -> void:
 	var y: float = DECK_Y
 	var low: float = y + 0.55
-	# The rec room earns its name: dartboard, chess mid-game, a real sofa.
-	# The board hangs on the EAST bulkhead (interior face x 27.875), facing back across
-	# the room with a clear throwing lane.
-	_pw("dartboard", Vector3(27.82, y + 1.8, 15.5), -90)
-	_p("chess_set", Vector3(23.3, low, 12.4), 20)           # on the low table
-	# Seating along the south wall, an L with the built-in couch; ottoman in front.
-	_pc("Sofa_01", Vector3(20.6, y, 8.8), 0)
-	_pc("Ottoman_01", Vector3(22.5, y, 10.4), 0)
-	# A bronze Bloom-creature statue up on the bookshelf — someone was already a believer.
-	_p("bronze_whale_statue", Vector3(26.2, y + 2.25, 17.6), -20)
-	_pc("fir_sapling", Vector3(26.9, y, 8.7), 0)
-	_p("classic_laptop", Vector3(22.6, y + 0.95, 9.2), 200)  # left open on the couch (top y+0.7)
-	_p("food_avocado_01", Vector3(22.9, low, 12.85), 0)
+
+	# ---- THE NORTH WALL: media + library, everything on the spine at x 23 ----
+	# The working set stands dead centre on the spine, facing SOUTH down the room at the
+	# ottoman, the low table and the couch — one unbroken sight line, which is the focal
+	# point the room was missing. yaw 180 = facing -Z (the _label convention: 0 faces +Z).
+	# The stand measures 0.9 x 0.43 with its top at y+0.52, so z 17.65 puts its back flush
+	# on the bulkhead face (17.875).
+	_pc("small_wooden_table_01", Vector3(23.00, y, 17.65), 0)
+	_pc("television_02", Vector3(23.00, y + 0.58, 17.60), 180)
+	# The credenza built under the dead TV (see _rec_room_layout) has a 2.38 x 0.48 top at
+	# y+0.685; these two ride its ends, clear of the TV's 1.4m footprint at its centre.
+	_p("boombox", Vector3(19.60, y + 0.78, 17.60), 8)
+	_p("gaming_console", Vector3(21.44, y + 0.78, 17.60), -6)
+	# A framed photo on the bare plate above the credenza, below the beam line (y+2.95).
+	_pw("fancy_picture_frame_01", Vector3(20.50, y + 2.15, 17.82), 180)
+	# The matched pair that squares the screen: one potted plant either side at +-1.05m,
+	# each in the 1.15m gap between the screen stand and the mass beyond it.
+	for px in [21.95, 24.05]:
+		_pc("ceramic_pot", Vector3(px, y, 17.55), 0)
+		_p("calathea_orbifolia_01", Vector3(px, y + 0.60, 17.55), 0)
+	# Bookshelf top (top y+2.0, x 24.6..26.4, z 17.43..17.78): the mantel clock centred on
+	# the shelf as its anchor, the whale and the candleholders balanced either side of it.
+	# The lantern moved off here onto the west-wall lamp table, where a reading light
+	# actually belongs — it was the fourth object on one 1.8m shelf top.
+	_p("mantel_clock_01", Vector3(25.50, y + 2.25, 17.60), 180)
+	_p("bronze_whale_statue", Vector3(24.85, y + 2.25, 17.60), -20)
+	_p("brass_candleholders", Vector3(26.15, y + 2.25, 17.60), 0)
+	# The library wall's own light — a bracketed lamp over the bookshelf, with the omni set
+	# INSIDE the fixture so the warm pool has a visible source. Threads between the shelf-top
+	# clutter (up to y+2.30) and the z15.5 ceiling beam (y+2.82..y+3.08).
+	_pw("industrial_wall_lamp", Vector3(25.50, y + 2.55, 17.82), 180)
+	_lamp(Vector3(25.50, y + 2.40, 17.58), Color(1.0, 0.86, 0.58), 0.45, 4.5)
+
+	# ---- THE EAST WALL: the dart wall ----
+	# Board flush on the bulkhead (interior face x 27.875) with a real timber surround
+	# behind it and a chalk slate beside it, all settle-exempt wall fittings.
+	_pw("dartboard", Vector3(27.80, y + 1.80, 15.50), -90)
+	_wall_mesh(Vector3(27.856, y + 1.80, 15.50), Vector3(0.03, 0.95, 0.95), MatLib.weathered_wood())
+	_wall_mesh(Vector3(27.850, y + 1.55, 14.35), Vector3(0.04, 0.60, 0.45), MatLib.dark_metal())
+	_wall_mesh(Vector3(27.790, y + 1.22, 14.35), Vector3(0.10, 0.05, 0.30), MatLib.weathered_wood())  # chalk tray
+	# The oche: a timber throw batten screwed to the deck a regulation 2.37m off the board
+	# face. It is what makes the empty north-east quarter read as a throwing lane and not
+	# as unfinished floor — and it is a fitting, so it takes scene light like the deck.
+	_wall_mesh(Vector3(25.43, y + 0.058, 15.50), Vector3(0.06, 0.016, 1.30), MatLib.weathered_wood())
+	# Scorer's stool tucked flush into the north-east corner, out of the throwing space.
+	_pc("metal_stool_02", Vector3(27.45, y, 17.20), -90)
+	_p("sungka_board", Vector3(27.45, y + 0.85, 17.20), 0)
+
+	# ---- odds and ends that belong to the lounge ----
+	_p("chess_set", Vector3(23.30, low, 12.42), 20)          # on the low table, mid-game
+	_pc("fir_sapling", Vector3(26.90, y, 8.70), 0)           # SE corner, mate to the SW pot
+	_p("baseball_01", Vector3(21.90, y + 0.05, 10.05), 0)    # rolled out from under the sofa
+	# East bench cushion top is y+0.79 (see _rec_room_layout) — the reading nook's pillow.
+	_p("throw_pillows_01", Vector3(27.32, y + 0.85, 10.45), 15)
 
 func _machine_shop_more() -> void:
 	var y: float = DECK_Y
@@ -787,13 +1057,18 @@ func _scatter_decka() -> void:
 	var tbl: float = y + 0.7
 	var counter: float = y + 1.2
 	var low: float = y + 0.55
-	# Bunkhouse: a second personal item on each locker top (top = bed + (1.2, 1.8, -0.8)).
-	var beds := [Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
-			Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5)]
+	# Bunkhouse: a second personal item on each locker top. These were authored bed-relative
+	# at bed + (1.32, 2.05, -0.68), from the days when the wardrobe stood beside the bunk;
+	# rig_builder moved every locker to the head wall (see the note over _bunkhouse), so all
+	# six anchors were left over open deck and the settle pass dropped the lot onto the
+	# floor — a lighter, spectacles and a cassette player lying in the middle of six cabins.
+	# Anchored through _locker_top() they ride the locker, on the opposite quarter of the
+	# 0.5m top from the keepsake _bunkhouse() already put there.
+	var beds: Array = BUNKS.beds()   # shared with rig_builder — never restate these
 	var kit := ["cigarette_pack", "vintage_lighter", "cassette_player", "round_spectacles", "postcard_set_01", "cigarette_case"]
 	for i in range(beds.size()):
-		var p: Vector3 = beds[i]
-		_p(kit[i], p + Vector3(1.32, 2.05, -0.68), i * 37.0)
+		var lt: Vector3 = _locker_top(beds[i])
+		_p(kit[i], lt + Vector3(0.12, 0.09, 0.11), i * 37.0)
 	# The relocated cabin table (-15.7, 13.3) and the nook nightstand (-27.4, 14.0).
 	_p("brass_candleholders", Vector3(-15.7, y + 0.95, 13.45), 0)
 	_p("wooden_candlestick", Vector3(-15.7, y + 0.95, 13.15), 20)
@@ -811,14 +1086,15 @@ func _scatter_decka() -> void:
 	_p("wooden_bowl_01", Vector3(8.0, tbl, 11.0), 0)          # table (8,11)
 	_p("carved_wooden_plate", Vector3(2.0, tbl, 14.5), -20)
 	_p("strawberry_chocolate_cake", Vector3(8.0, tbl, 14.5), 0)
-	# Rec room: shelf top (x 24.6..26.4, z 17.6), TV stand, low table, couch, stool.
-	_p("mantel_clock_01", Vector3(24.85, y + 2.25, 17.6), 180)
-	_p("brass_candleholders", Vector3(25.8, y + 2.25, 17.6), 0)
-	_p("gaming_console", Vector3(27.3, y + 1.0, 12.8), -90)
-	_p("gamepad", Vector3(23.5, low, 12.8), 20)
-	_p("sungka_board", Vector3(24.6, y + 0.85, 14.2), 0)     # left out on the stool
-	_p("baseball_01", Vector3(21.2, y + 0.05, 10.8), 0)      # rolled under the sofa
-	_p("vintage_video_camera", Vector3(23.7, y + 0.95, 9.25), 30)   # on the couch
+	# Rec room. The shelf top, the credenza top and the low table are all stocked in
+	# _rec_room()/_rec_room_more() now that the room has a composition; this pass adds only
+	# the last few hand-put-down items, each named to the surface it lands on.
+	_p("gamepad", Vector3(22.45, low, 12.75), 20)                  # low table, beside the chess
+	_p("vintage_video_camera", Vector3(25.62, y + 0.42, 11.22), 30)  # magazine table (top y+0.34)
+	_p("round_spectacles", Vector3(25.42, y + 0.42, 10.92), -15)     # magazine table
+	# The book set anchors at its WEST end and runs +0.34m east, so x 27.36 keeps the whole
+	# stack on the bench cushion (x 26.90..27.85) instead of hanging off it.
+	_p("book_encyclopedia_set_01", Vector3(27.36, y + 0.85, 11.55), 0)  # east bench cushion
 
 func _scatter_deckb() -> void:
 	var y: float = B_Y
@@ -898,7 +1174,18 @@ func _scatter_deckd() -> void:
 	_p("vintage_oil_lamp", Vector3(9.2, y + 1.05, 17.0), 0)
 	_p("wicker_basket_02", Vector3(10.5, y + 1.85, 17.0), 30)
 	_p("standing_picture_frame_01", Vector3(8.9, y + 0.95, 15.6), 20)
-	_p("metal_detector", Vector3(14.8, y + 0.05, 17.6), 40)        # leaned on the store wall
+	# THE FLOATING METAL DETECTOR. Authored at the Deck D floor and found by the sonar scan
+	# hanging in the DECK C mud-log room, base y26.91 — 1.8m up that room's north wall, on
+	# top of an instrument rack, which is the "metal detector mounted high on a wall" the
+	# owner photographed. Cause: this glTF is the one prop in the library whose mesh hangs
+	# BELOW its origin. Its single node carries a rotation quaternion, so the model's AABB
+	# in root space runs y -0.93..+0.20 (scaled to the 1.2m size hint) — the origin sits
+	# 0.93m ABOVE the bottom of the mesh. Placing the origin at floor+0.05 therefore dropped
+	# the whole detector through the Deck D slab, and the settle pass then rested it on the
+	# first real surface it could see underneath: the Deck C rack, a storey down.
+	# Authored at floor + 0.98 the mesh base starts ~5cm clear of the Deck D deck and the
+	# settle seats it flush. Tucked into the store's north-east corner as before.
+	_p("metal_detector", Vector3(14.8, y + 0.98, 17.6), 40)        # leaned in the store corner
 	# Workshop craft bench (x 18.15..19.85, z 16.6..17.4, top y+0.96) — the scattered tools
 	# were authored west of x 18.15, i.e. off the bench entirely.
 	_p("flathead_screwdriver", Vector3(18.4, y + 1.2, 17.1), 40)

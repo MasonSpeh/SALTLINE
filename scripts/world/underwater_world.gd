@@ -286,6 +286,8 @@ class GliderRay extends Node3D:
 	const BANK_GAIN: float = 2.9        ## roll radians per rad/s of turn (bank into corners)
 	const BANK_MAX: float = 1.2         ## ~69°: wings well past vertical on the deep banks
 	const BANK_RESP: float = 2.0        ## how fast the roll eases toward its target
+	const TURN_SMOOTH: float = 3.0      ## low-pass on the measured turn rate (see _process)
+	const WING_HZ: float = 0.42         ## wing-beat frequency, SET ONCE — never per frame
 	const PITCH_LOOK: float = 0.55      ## how much it noses toward its climb/dive
 	const RADIAL_HOLD: float = 0.06     ## gentle pull back toward the orbit radius
 	const RADIAL_CLAMP: float = 2.6     ## hard cap on how far off the orbit it may stray (m)
@@ -303,6 +305,7 @@ class GliderRay extends Node3D:
 	var _depth: float = 0.0
 	var _prev_depth: float = 0.0
 	var _roll: float = 0.0
+	var _turn_smooth: float = 0.0   ## filtered turn rate — the raw one is far too noisy to bank on
 
 	func _init(span: float, band_y: float, r: float, rate: float, ph: float) -> void:
 		_span = span
@@ -313,13 +316,21 @@ class GliderRay extends Node3D:
 
 	func _ready() -> void:
 		var gen: Dictionary = ANIM.attach(self, MODEL, _span, ANIM.Mode.WING,
-			0.14, 0.5, Color(0.3, 0.55, 0.6), _ph)
+			0.14, WING_HZ, Color(0.3, 0.55, 0.6), _ph)
 		if gen.is_empty():
 			queue_free()
 			return
 		_model = gen.get("model")
 		_mats = gen["mats"]
-		ANIM.drive(_mats, 0.5, 0.05)     # slow wing-beat, faint sheen — not a lantern
+		# SET THE WING-BEAT ONCE AND NEVER TOUCH IT AGAIN. The motion shader computes
+		# `t = TIME * rate + phase`, so rate is a TIME MULTIPLIER, not a speed dial: writing
+		# a new rate at second T teleports the wave phase by T * delta_rate. At T=100s even a
+		# 0.01 change jumps a full cycle, so re-driving `rate` every frame (which an earlier
+		# pass did, to beat harder through banks) made the wings snap to a random position
+		# every single frame — read in-game as violent glitching and frantic over-fast
+		# flapping. The wing-beat is now constant and the shader runs free off TIME, which is
+		# also why it costs nothing per frame. Only ever call drive() on a STATE CHANGE.
+		ANIM.drive(_mats, WING_HZ, 0.05)   # slow wing-beat, faint sheen — not a lantern
 		_t = _ph * 20.0
 		# Keep the original pacing (tangential speed ~= rate*radius), floored so a big slow
 		# orbit still glides at a believable clip rather than crawling.
@@ -356,7 +367,13 @@ class GliderRay extends Node3D:
 		var dh: float = wrapf(desired - _heading, -PI, PI)
 		var applied: float = clampf(dh, -TURN_RATE_MAX * delta, TURN_RATE_MAX * delta)
 		_heading += applied
-		var turn_rate: float = applied / maxf(delta, 0.0001)
+		# `applied / delta` is a per-frame difference divided by a per-frame time — once the
+		# heading has caught up to the target it is mostly frame noise, and feeding that
+		# straight into the bank made the wings twitch. Low-pass it so the roll answers to the
+		# SUSTAINED turn (a real sweep) and ignores single-frame wobble.
+		var turn_rate: float = lerpf(_turn_smooth, applied / maxf(delta, 0.0001),
+			clampf(delta * TURN_SMOOTH, 0.0, 1.0))
+		_turn_smooth = turn_rate
 		# --- advance along the heading, then clamp the orbit so the span clears the legs ---
 		var fwd := Vector3(sin(_heading), 0.0, cos(_heading))
 		var np: Vector3 = pos + fwd * (_speed * delta)
@@ -380,8 +397,7 @@ class GliderRay extends Node3D:
 		_roll = lerp_angle(_roll, roll_target, clampf(delta * BANK_RESP, 0.0, 1.0))
 		if _model:
 			_model.rotation.z = _roll
-		# Wings work a touch harder through a hard bank.
-		ANIM.drive(_mats, 0.5 + absf(_roll) * 0.22, 0.05)
+		# (No drive() here on purpose — see the note in _ready(). The wing-beat is constant.)
 
 ## One slow giant on a drifting circuit under the rig. Raw circular path — it lives
 ## 15+ m down in open water between the legs (orbit radii keep it clear of the caissons

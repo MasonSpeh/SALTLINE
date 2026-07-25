@@ -22,6 +22,21 @@ const TENSION_DECAY: float = 0.8
 const DEEP_CAST_LIFT: float = 0.5     # the lead-weighted line plunges; almost no arc
 const DEEP_BITE_FACTOR: float = 1.35  # the deep is patient — bites take longer to find the bait
 const BARREN_GIVEUP: float = 8.0      # a bare deep hook: how long before you give up on it
+## WHY THE DEEP RIG NEEDS ITS OWN RANGE AND SPEED — the "deep rig doesn't cast" bug.
+## It is fished off the crane machinery deck, whose plate is at y 34.15, so the lead has to
+## fall ~36 m before it ever touches water. At the surface rod's CAST_SPEED of 13 m/s that
+## flight is ~35 m out and ~36 m down: about 50 m of line, which blew straight through
+## MAX_RANGE (45) at roughly t=2.55 s — and the over-range branch calls _finish("") with an
+## EMPTY message. So the line silently vanished mid-air, every single time, and the rig read
+## as completely broken. The deep line is long (95 m) and slow off the tip: it is a weighted
+## hand-line you drop over the side, not something you whip out over the sea.
+## Speed is a second, quieter half of the same bug: too slow off the tip and the lead sinks
+## into the machinery deck's own INVISIBLE guard-rail slab (y 33.5..34.8 at ±3.4 m) before it
+## is clear of the plate, which reads as "No open water there" while the player is plainly
+## aiming at the sea. 7 m/s clears both the rail and the deck edge from anywhere on the plate
+## on a roughly level aim, and still falls far more than it flies.
+const DEEP_MAX_RANGE: float = 95.0    # enough line to reach the sea from the crane and fight
+const DEEP_CAST_SPEED: float = 7.0    # clears the guard, then plunges
 
 # Species, conditions, and weights all live in data/fish.json via FishTable —
 # the same table the drop net, the stove, and the Angler's Notes read.
@@ -62,7 +77,8 @@ func setup(player: Node3D, camera: Camera3D) -> void:
 	# reuses the in-flight structure-foul raycast, so a drop onto the deck reads "no open
 	# water there" — which teaches the player to fish it over the edge.)
 	var lift: float = DEEP_CAST_LIFT if _deep else CAST_LIFT
-	_velocity = -camera.global_transform.basis.z * CAST_SPEED + Vector3(0, lift, 0)
+	var speed: float = DEEP_CAST_SPEED if _deep else CAST_SPEED
+	_velocity = -camera.global_transform.basis.z * speed + Vector3(0, lift, 0)
 	if _deep:
 		# Bait is chosen and locked now, at the cast. No bait, no deep bite.
 		_bait_id = _find_bait()
@@ -173,7 +189,8 @@ func _physics_process(delta: float) -> void:
 			var hit: Dictionary = space.intersect_ray(q)
 			if not hit.is_empty():
 				AudioDirector.play_one_shot("clang", global_position, -20.0)
-				_finish("No open water there.")
+				_finish("The lead clatters off the steel — stand at the rail and drop it over the side." \
+					if _deep else "No open water there.")
 				return
 			var water_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85
 			if global_position.y <= water_y + 0.02:
@@ -188,8 +205,10 @@ func _physics_process(delta: float) -> void:
 				else:
 					# The water read: teach the variables by naming them every cast.
 					_prompt("Line's out — %s" % FISH.summary(FISH.context(self, global_position)))
-			elif global_position.distance_to(_hand_pos()) > MAX_RANGE:
-				_finish("")
+			elif global_position.distance_to(_hand_pos()) > (DEEP_MAX_RANGE if _deep else MAX_RANGE):
+				# Say something rather than letting the line evaporate: a silent _finish("")
+				# here is exactly what made the deep rig look like it did nothing at all.
+				_finish("Out of line — drop it over the side, into open water." if _deep else "")
 				return
 		State.DRIFT:
 			_ride_water(t, delta)

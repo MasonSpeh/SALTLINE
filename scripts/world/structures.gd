@@ -13,6 +13,8 @@ const BLOOM_CIRCUIT := "bloom_lamps"   ## always-on: bio-light needs no breaker
 const FIRE_CIRCUIT := "built_fires"    ## always-on: a lit fire needs no breaker either
 const DROP_NET := preload("res://scripts/components/drop_net.gd")   # by path: class cache lags new files
 const DOOR := preload("res://scripts/components/door.gd")           # world agent's InteractDoor; by path per HARD RULE
+const CATCHER_DOCK := preload("res://scripts/components/rain_catcher.gd")  # by path: class cache lags new files
+const ITEM_EFFECTS := preload("res://scripts/components/item_effects.gd")  # by path: class cache lags — see build()
 const SL := preload("res://scripts/world/structure_lib.gd")
 
 const KIT_ORDER := [
@@ -25,16 +27,23 @@ const KIT_ORDER := [
 	# water & growing
 	"rain_catcher_kit", "planter_kit",
 	# structure & ground
-	"walkway_kit", "wall_panel_kit", "door_kit", "barricade_kit", "chair_kit", "drop_net_kit",
+	"walkway_kit", "floor_panel_kit", "wall_panel_kit", "window_panel_kit",
+	"door_kit", "barricade_kit", "chair_kit", "drop_net_kit",
 ]
 
 ## Kits that may be mounted on a vertical surface (build mode aims a camera ray
 ## for these and aligns local +Z to the wall normal).
+##
+## Deliberately NOT here: wall_panel_kit and window_panel_kit. Both are freestanding
+## SECTIONS with their own sill, posts and head — you stand them on the deck to make a
+## wall where there wasn't one, exactly like the barricade. A wall-mounted wall panel
+## would be a panel glued to the wall it duplicates.
 const WALL_MOUNT := ["shelf_kit"]
 
 ## Kits that lie flat and should tilt to follow a sloped deck instead of standing
-## bolt-upright on it.
-const TILT_TO_SURFACE := ["rug_kit", "walkway_kit", "bedroll_kit"]
+## bolt-upright on it. Deck panels belong here with the walkway: a floor that stands
+## bolt-upright on a sloped plate leaves a lip you trip on.
+const TILT_TO_SURFACE := ["rug_kit", "walkway_kit", "bedroll_kit", "floor_panel_kit"]
 
 static func display_name(kit: String) -> String:
 	return {
@@ -47,6 +56,7 @@ static func display_name(kit: String) -> String:
 		"wall_panel_kit": "Wall Panel", "lamp_post_kit": "Lamp Post",
 		"windbreak_kit": "Windbreak", "rug_kit": "Woven Rug",
 		"door_kit": "Wooden Door",
+		"floor_panel_kit": "Deck Panel", "window_panel_kit": "Window Panel",
 	}.get(kit, kit)
 
 ## Placement thud, per material. A canvas bedroll must not land like a girder.
@@ -54,7 +64,8 @@ static func place_sound(kit: String) -> String:
 	match kit:
 		"bedroll_kit", "rug_kit", "windbreak_kit", "drying_rack_kit", "leanto_kit":
 			return "step"
-		"chair_kit", "workbench_kit", "walkway_kit", "shelf_kit", "door_kit":
+		# floor_panel_kit sits here too: a deck plate dropped into place, not a girder landing.
+		"chair_kit", "workbench_kit", "walkway_kit", "shelf_kit", "door_kit", "floor_panel_kit":
 			return "hatch"
 	return "clang"
 
@@ -64,11 +75,17 @@ static func footprint(kit: String) -> float:
 	match kit:
 		"rug_kit", "bedroll_kit":
 			return 1.1
-		"walkway_kit", "wall_panel_kit", "windbreak_kit", "drying_rack_kit":
+		# Keep every pattern on ONE line: GDScript cannot parse a match pattern list that
+		# wraps onto the next line ("Expected expression for match pattern").
+		"walkway_kit", "wall_panel_kit", "window_panel_kit", "windbreak_kit", "drying_rack_kit", "floor_panel_kit":
 			return 1.2
 	return 0.8
 
 static func build(kit: String, ghost: bool = false) -> Node3D:
+	# Belt-and-braces mount for the item-effects domain (heal / cures / returns). main.gd
+	# is what actually mounts it; this is just a cheap static bool test once it is up.
+	if not ghost:
+		ITEM_EFFECTS.ensure()
 	var root: Node3D = _build(kit, ghost)
 	if not ghost:
 		root.set_meta("kit", kit)
@@ -110,6 +127,10 @@ static func _build(kit: String, ghost: bool) -> Node3D:
 			return shelf(ghost)
 		"wall_panel_kit":
 			return wall_panel(ghost)
+		"window_panel_kit":
+			return window_panel(ghost)
+		"floor_panel_kit":
+			return floor_panel(ghost)
 		"door_kit":
 			return wooden_door(ghost)
 		"lamp_post_kit":
@@ -430,6 +451,29 @@ static func rain_catcher(ghost: bool) -> Node3D:
 	SL.cyl(root, Vector3(0, 0.46, 0), 0.34, 0.92, rust, not ghost)
 	SL.ring(root, 0.90, 0.355, 0.05, dark)
 	SL.ring(root, 0.16, 0.355, 0.05, dark)
+	# ---- the bottling branch. The drum is the reservoir you DRINK from; this is the tap
+	# you fill a bottle at. It is plumbed VISIBLY — tee, run, drop, nozzle — because a
+	# bottle standing on its own beside a barrel is a mystery, and a bottle standing in a
+	# cage under a dripping nozzle explains itself from across the deck.
+	var bolt: Material = SL.mat("bolt", ghost)
+	SL.cyl(root, Vector3(0, 1.06, 0), 0.038, 0.10, pipe)                                   # tee body
+	SL.cyl(root, Vector3(0, 1.06, 0.44), 0.030, 0.88, pipe, false, Vector3(deg_to_rad(90), 0, 0))
+	SL.cyl(root, Vector3(0, 0.94, 0.86), 0.030, 0.28, pipe)                                # the drop
+	SL.cyl(root, Vector3(0, 0.785, 0.86), 0.042, 0.05, dark, false, Vector3.ZERO, 0.016)   # drip nozzle
+	# Cradle: deck pad, stanchion, a tray, and a four-post cage so a full bottle can't
+	# walk off it in a blow. Only the pad and the stanchion collide — the tray and cage
+	# sit inside the dock's own interaction box, and a second collider in there would
+	# steal the ray that has to reach the cradle.
+	SL.box(root, Vector3(0, 0.02, 0.86), Vector3(0.24, 0.04, 0.24), dark, not ghost)
+	SL.cyl(root, Vector3(0, 0.20, 0.86), 0.030, 0.36, pipe)
+	SL.box(root, Vector3(0, 0.38, 0.86), Vector3(0.28, 0.03, 0.28), dark)
+	for cx in [-1.0, 1.0]:
+		for cz in [-1.0, 1.0]:
+			SL.box(root, Vector3(cx * 0.115, 0.50, 0.86 + cz * 0.115),
+				Vector3(0.018, 0.24, 0.018), bolt)
+	for sz2 in [-1.0, 1.0]:
+		SL.box(root, Vector3(0, 0.60, 0.86 + sz2 * 0.115), Vector3(0.25, 0.016, 0.016), bolt)
+	SL.bolts(root, Vector3(-0.09, 0.40, 0.86), Vector3(0.09, 0.40, 0.86), 2, bolt, 0.028)
 	if not ghost:
 		# NAMED: RainButt._find_water matches on the name to raise and lower the level.
 		# StructureLib's primitives leave Godot's "@MeshInstance3D@37" auto-names, which
@@ -438,6 +482,11 @@ static func rain_catcher(ghost: bool) -> Node3D:
 			SL.mat("water", false, 0.25))
 		water.name = "WaterLevel"
 		SL.comfort_marker(root, "water", "rain_catcher_kit", Vector3(0, 0.50, 0), Vector3(0.68, 0.90, 0.68))
+		# The cradle you dock a bottle in. Its own component, so the water-farm loop
+		# (DOCK / SWAP / TAKE and the fill clock) lives nowhere near the geometry.
+		var dock: Interactable = CATCHER_DOCK.new()
+		root.add_child(dock)
+		dock.position = Vector3(0, 0.40, 0.86)
 	return root
 
 ## A cut-down drum with punched vents and a bed of embers. Light, heat, and the
@@ -670,27 +719,113 @@ static func shelf(ghost: bool) -> Node3D:
 			SL.bolts(root, Vector3(x, level - 0.26, 0.02), Vector3(x, level - 0.04, 0.02), 2, bolt, 0.03)
 	return root
 
-## A real wall section: bolted plate on a pipe frame, braced at the back.
+## A real wall section: bolted plate on a flush stile-and-rail frame, standing on its
+## own sill.
+##
+## DE-PIPED. This kit used to carry two round pipe posts standing proud of BOTH faces
+## and — much worse — a pair of kicker braces raking 0.6 m out of the back of it at
+## deck level. You could not stand a wall against anything, walking past one caught
+## your shins, and from inside a room the thing read as scaffolding rather than as a
+## wall. The frame is now flat bar, the same 0.09 the plate is thick, so the silhouette
+## from either side is a panel and nothing else. Just the wall.
 static func wall_panel(ghost: bool) -> Node3D:
 	var root := Node3D.new()
 	var pipe: Material = SL.mat("pipe", ghost)
 	var steel: Material = SL.mat("steel", ghost)
 	var dark: Material = SL.mat("steel_dark", ghost)
 	var bolt: Material = SL.mat("bolt", ghost)
-	SL.box(root, Vector3(0, 0.06, 0), Vector3(2.14, 0.12, 0.22), dark, not ghost)
-	for sx in [-1.0, 1.0]:
-		SL.cyl(root, Vector3(sx * 0.99, 1.12, 0), 0.055, 2.24, pipe, not ghost)
-		# Kicker brace to the deck behind the panel.
-		SL.cyl(root, Vector3(sx * 0.99, 0.52, -0.34), 0.035, 1.20, pipe, false,
-			Vector3(deg_to_rad(-32), 0, 0))
+	SL.box(root, Vector3(0, 0.06, 0), Vector3(2.14, 0.12, 0.16), dark, not ghost)
 	SL.box(root, Vector3(0, 1.14, 0), Vector3(1.94, 2.02, 0.07), steel, not ghost)
+	# Edge stiles: the recipe's length of pipe, hammered out into bar stock and set flush
+	# with the plate instead of left standing off the face.
+	for sx in [-1.0, 1.0]:
+		SL.box(root, Vector3(sx * 0.94, 1.14, 0), Vector3(0.10, 2.06, 0.09), pipe, not ghost)
 	# Corrugation ribs, front face.
 	for i in range(7):
 		var x2: float = -0.81 + 0.27 * float(i)
 		SL.box(root, Vector3(x2, 1.14, 0.05), Vector3(0.09, 1.96, 0.03), dark)
-	SL.box(root, Vector3(0, 2.24, 0), Vector3(2.18, 0.10, 0.18), dark, not ghost)
+	SL.box(root, Vector3(0, 2.24, 0), Vector3(2.18, 0.10, 0.13), dark, not ghost)
 	for sx2 in [-0.98, 0.98]:
 		SL.bolts(root, Vector3(sx2, 0.22, 0.06), Vector3(sx2, 2.06, 0.06), 7, bolt)
+	return root
+
+## The same section with a light in it: salvaged panes bedded into a bolted surround, so
+## a room you walled in still has weather in it. Same envelope, sill and head as the wall
+## panel — stand the two in a row and the courses line up.
+static func window_panel(ghost: bool) -> Node3D:
+	var root := Node3D.new()
+	var pipe: Material = SL.mat("pipe", ghost)
+	var steel: Material = SL.mat("steel", ghost)
+	var dark: Material = SL.mat("steel_dark", ghost)
+	var bolt: Material = SL.mat("bolt", ghost)
+	# GHOST CONTRACT: build_mode._tint_ghost mutates a mesh material's albedo in place,
+	# and MatLib.glass hands back a CACHED material shared with every window on the rig —
+	# tinting that would stain the lot. SL.mat(_, true) is always a fresh copy.
+	var pane: Material = SL.mat("water", true) if ghost else MatLib.glass(Color(0.55, 0.68, 0.72))
+	# Sill, head, flush edge stiles: identical to wall_panel so the two read as a set.
+	SL.box(root, Vector3(0, 0.06, 0), Vector3(2.14, 0.12, 0.16), dark, not ghost)
+	SL.box(root, Vector3(0, 2.24, 0), Vector3(2.18, 0.10, 0.13), dark, not ghost)
+	for sx in [-1.0, 1.0]:
+		SL.box(root, Vector3(sx * 0.94, 1.14, 0), Vector3(0.10, 2.06, 0.09), pipe, not ghost)
+	# The plate, in four pieces around a 1.10 x 0.70 opening (x -0.55..0.55, y 1.20..1.90).
+	SL.box(root, Vector3(0, 0.665, 0), Vector3(1.94, 1.07, 0.07), steel, not ghost)   # below
+	SL.box(root, Vector3(0, 2.025, 0), Vector3(1.94, 0.25, 0.07), steel, not ghost)   # above
+	for sx2 in [-1.0, 1.0]:
+		SL.box(root, Vector3(sx2 * 0.76, 1.55, 0), Vector3(0.42, 0.70, 0.07), steel, not ghost)
+	# Corrugation ribs on the solid lower field only — you do not rib a window.
+	for i in range(7):
+		var x3: float = -0.81 + 0.27 * float(i)
+		SL.box(root, Vector3(x3, 0.66, 0.05), Vector3(0.09, 1.02, 0.03), dark)
+	# The glazing: two panes with a centre mullion, because nobody salvages one sheet this
+	# big intact. Thick enough to carry a real collider — a window you can walk through is
+	# not a window.
+	for px in [-1.0, 1.0]:
+		SL.box(root, Vector3(px * 0.275, 1.55, 0), Vector3(0.52, 0.68, 0.03), pane, not ghost)
+	SL.box(root, Vector3(0, 1.55, 0), Vector3(0.05, 0.72, 0.08), dark, not ghost)
+	# Glazing surround: rebate all round, a drip ledge under the opening, and the storm bar
+	# somebody bolted diagonally across the glass after the first bad night.
+	for oy in [1.18, 1.92]:
+		SL.box(root, Vector3(0, oy, 0.03), Vector3(1.18, 0.06, 0.05), dark)
+	for ox in [-1.0, 1.0]:
+		SL.box(root, Vector3(ox * 0.58, 1.55, 0.03), Vector3(0.06, 0.76, 0.05), dark)
+	SL.box(root, Vector3(0, 1.14, 0.10), Vector3(1.26, 0.04, 0.14), dark)             # drip ledge
+	SL.box(root, Vector3(0, 1.55, 0.06), Vector3(1.32, 0.06, 0.03), dark, false,
+		Vector3(0, 0, deg_to_rad(-29.0)))                                            # storm bar
+	SL.bolts(root, Vector3(-0.55, 1.14, 0.07), Vector3(0.55, 1.14, 0.07), 5, bolt, 0.03)
+	for sx3 in [-0.98, 0.98]:
+		SL.bolts(root, Vector3(sx3, 0.22, 0.06), Vector3(sx3, 2.06, 0.06), 7, bolt)
+	return root
+
+## A section of real deck: checker plate on an angle-iron frame, to lay over a hole, a
+## gap between two structures, or nothing at all. Origin at deck level like the walkway,
+## and it TILTS to follow a sloped plate (TILT_TO_SURFACE) so it never leaves a lip to
+## catch a boot. Only the tread collides; the frame under it is dressing.
+static func floor_panel(ghost: bool) -> Node3D:
+	var root := Node3D.new()
+	var dark: Material = SL.mat("steel_dark", ghost)
+	var pipe: Material = SL.mat("pipe", ghost)
+	var bolt: Material = SL.mat("bolt", ghost)
+	# Real checker plate for the built panel; a fresh tint-safe stand-in for the ghost
+	# (see the GHOST CONTRACT note in window_panel).
+	var tread: Material = SL.mat("steel", true) if ghost else MatLib.checker_plate()
+	const W: float = 2.0
+	# Perimeter angle-iron, so the panel has a visible edge instead of reading as a decal
+	# painted on the deck.
+	for sz in [-1.0, 1.0]:
+		SL.box(root, Vector3(0, 0.05, sz * (W * 0.5 - 0.04)), Vector3(W, 0.10, 0.08), dark)
+	for sx in [-1.0, 1.0]:
+		SL.box(root, Vector3(sx * (W * 0.5 - 0.04), 0.05, 0), Vector3(0.08, 0.10, W - 0.16), dark)
+	# Two joists across the middle of the span — the reason you can stand on it.
+	for jz in [-0.62, 0.62]:
+		SL.box(root, Vector3(0, 0.05, jz), Vector3(W - 0.16, 0.09, 0.07), pipe)
+	SL.box(root, Vector3(0, 0.125, 0), Vector3(W, 0.05, W), tread, not ghost)
+	# Two lifting slots and a bolt at each corner: a panel somebody unbolted from
+	# somewhere else and carried here.
+	for lx in [-0.5, 0.5]:
+		SL.box(root, Vector3(lx, 0.152, 0), Vector3(0.16, 0.012, 0.05), dark)
+	for bx in [-1.0, 1.0]:
+		for bz in [-1.0, 1.0]:
+			SL.box(root, Vector3(bx * 0.90, 0.152, bz * 0.90), Vector3(0.05, 0.02, 0.05), bolt)
 	return root
 
 ## A ledged-and-braced plank door hung in a driftwood frame. The leaf IS the world

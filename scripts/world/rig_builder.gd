@@ -4,6 +4,8 @@ class_name RigBuilder extends Node3D
 ## Positions are the level design — edit here, not in scattered scenes.
 
 const STAIRS := preload("res://scripts/world/stair_kit.gd")   # by path: class cache lags new files
+## Bunkhouse cabin furniture grid, shared with interior_props so the two cannot drift.
+const BUNKS := preload("res://scripts/world/bunk_layout.gd")   # by path: class cache lags new files
 
 const DECK_Y: float = 18.0        # Topside floor
 const WET_Y: float = 2.0          # Wet Deck floor
@@ -1218,7 +1220,10 @@ func _build_bunkhouse() -> void:
 	_box(Vector3(-18, y + WALL_H, 11), Vector3(20.5, 0.25, 14.5), mat)
 	_box(Vector3(-18, y + 0.035, 11), Vector3(19.5, 0.03, 13.5), MatLib.lino_floor(), self, false)
 	# Cabin dividers: south row (z 4..10), north row (z 12..18), corridor between.
-	var xs := [-28.0, -21.33, -14.66, -8.0]
+	# The divider lines and everything derived from them (bunks, lockers, and the personal
+	# items interior_props stands on those lockers) come from BUNKS — see bunk_layout.gd for
+	# why: these numbers used to be typed here AND in interior_props, and drifted apart.
+	var xs: Array = BUNKS.CABIN_X
 	for i in range(3):
 		# corridor walls with a door into each cabin
 		_wall(Vector3(xs[i], y, 10), Vector3(xs[i + 1], y, 10), WALL_H, mat, 0.5)
@@ -1232,24 +1237,40 @@ func _build_bunkhouse() -> void:
 		Vector3(xs[2], 0, 10), Vector3(xs[2], 0, 12)], y, WALL_H, mat)
 	# Beds you can turn in on: made (neat) vs thrown-back (someone rose in a hurry).
 	# Heads to the wall — south row faces −Z, north row +Z. Each is a Bed you can SLEEP in.
-	var bed_specs := [
-		[Vector3(-25.5, y, 6.5), 0.0], [Vector3(-18.8, y, 6.5), 0.0], [Vector3(-12.0, y, 6.5), 0.0],
-		[Vector3(-25.5, y, 15.5), 180.0], [Vector3(-18.8, y, 15.5), 180.0], [Vector3(-12.0, y, 15.5), 180.0],
-	]
+	#
+	# LINED UP AGAINST THE WALLS, and derived from the cabin geometry rather than hand-typed:
+	# the bunks used to sit at z 6.5 / 15.5 in cabins 6 m deep, which left every bed hanging
+	# in the middle of its own room with a metre of dead floor behind the headboard. A bunk
+	# goes in the corner. The frame is 1.0 wide x 2.1 long (bed.gd) and walls are WALL_T
+	# thick centred on their line, so an interior face is 0.125 in from the wall's line: put
+	# the head 0.02 off the outer wall and the long side 0.02 off the cabin's west divider.
+	var bed_specs := []
+	for bp in BUNKS.beds():
+		bed_specs.append([bp, BUNKS.bed_yaw(bp.z < 11.0)])
 	for i in range(bed_specs.size()):
 		var p: Vector3 = bed_specs[i][0]
 		var blanket_col: Color = Color(0.75, 0.78, 0.8) if i % 2 == 0 else Color(0.55, 0.58, 0.62)
 		_bed(p, bed_specs[i][1], i % 2 == 0, blanket_col)
-		# Wardrobe locker flush against the HEAD wall beside the bunk. The old −0.8 z
-		# offset put the north-row lockers a metre into the room (toward the foot), which
-		# is the "block floating mid-cabin" the layout read as; anchoring to the head wall
-		# (z4 south / z18 north) tucks all six into the same tidy spot.
-		var lock_z: float = 4.55 if p.z < 11.0 else 17.45
-		_wardrobe_locker(Vector3(p.x + 1.15, y + 0.9, lock_z))
-	_readable("crew_letter_1", "Unsent Letter", Vector3(-18.8, y + 0.75, 7.3), Vector3(0.3, 0.05, 0.4))
-	# Henrik's photo, taped inside the bunk frame — the boys, the small fish, "three weeks".
-	_readable("henrik_photo", "Photograph", Vector3(-18.4, y + 0.9, 6.5), Vector3(0.2, 0.24, 0.02))
-	_readable("crew_letter_2", "Note in a Locker", Vector3(-17.6, y + 1.3, 14.7), Vector3(0.28, 0.35, 0.05))
+		# Wardrobe locker flush against the HEAD wall beside the bunk (z4 south / z18 north),
+		# so all six tuck into the same tidy spot instead of standing a metre into the room.
+		_wardrobe_locker(BUNKS.locker_pos(p))
+	# The three notes, re-seated onto REAL surfaces. All three were authored against the old
+	# mid-room bunk positions at hand-picked heights, so they hung in open air once the
+	# furniture moved — worst of them "Note in a Locker", stranded 2.75 m from any locker.
+	# Now: one lying on a mattress, one taped to the head wall, one dropped on the floor.
+	var mid: Vector3 = BUNKS.bed_pos(1, true)         # centre cabin, south row
+	var mid_x: float = mid.x
+	# On the made mattress (frame top 0.4 + mattress 0.16 => surface y + 0.56).
+	_readable("crew_letter_1", "Unsent Letter",
+		Vector3(mid_x + 0.18, y + 0.59, mid.z + 0.55), Vector3(0.3, 0.05, 0.4))
+	# Henrik's photo, taped to the head wall just above the pillow — the boys, the small
+	# fish, "three weeks". Thin in Z so it lies FLAT on the z4 wall's interior face (4.125).
+	_readable("henrik_photo", "Photograph",
+		Vector3(mid_x, y + 1.25, 4.15), Vector3(0.2, 0.24, 0.02))
+	# Dropped on the floor beside the north bunk, where it fell out of the locker. The room
+	# floors carry a 3 cm covering laid at y + 0.035, so its top surface is y + 0.05.
+	_readable("crew_letter_2", "Note in a Locker",
+		Vector3(mid_x + 0.85, y + 0.07, BUNKS.bed_pos(1, false).z - 0.5), Vector3(0.28, 0.04, 0.35))
 
 func _build_galley() -> void:
 	var mat: Material = MatLib.concrete()
@@ -1498,8 +1519,13 @@ func _build_high_iron() -> void:
 	_ladder(Vector3(CRANE_X - 2.35, CRANE_LAND_Y, CRANE_Z), 8.15, 90.0, "Mast Ladder — Upper", 1.2)
 
 	# --- machinery deck: the crane's own floor, the plate the head is bolted to ---
-	_box(Vector3(CRANE_X, CRANE_DECK_Y, CRANE_Z),
-		Vector3(CRANE_DECK_HALF * 2.0, 0.3, CRANE_DECK_HALF * 2.0), MatLib.deck_plate())
+	# BUILT AS FOUR STRIPS AROUND A LADDER HATCH, not one slab. The upper mast ladder tops
+	# out at x -0.35 / z -14, which is INSIDE this 7x7 plate: the slab was solid, so there
+	# was no opening to climb back down through. You could get up (climbing runs with world
+	# collision off, so the ladder passes through the plate) and then had no way off the
+	# crane except a 16 m drop to the deck — the "can't get down without dying" trap.
+	# The hatch is deliberately kept clear of the gantry A-frame feet at x 0.3 / z -13.6.
+	_crane_deck_with_hatch()
 	_crane_rails(CRANE_DECK_TOP, CRANE_DECK_HALF - 0.1, mat)
 	_build_crane_head()
 
@@ -1511,6 +1537,61 @@ func _build_high_iron() -> void:
 		Vector3(CRANE_X + 2.0, CRANE_DECK_TOP + 0.12, CRANE_Z - 1.4), Vector3(0.16, 0.14, 1.5))
 	# Osk's watch slate, propped on the drill floor by the finger rack — the night he first saw it.
 	_readable("osk_watch_slate", "Night Watch Slate", Vector3(5.8, DECK_Y + 0.62, -15.0), Vector3(0.34, 0.28, 0.04))
+
+## The machinery-deck plate, with a real LADDER HATCH cut through it at the head of the
+## upper mast ladder — the way down off the crane.
+##
+## The opening is framed by four plate strips rather than by CSG subtraction: a subtracted
+## CSG hole keeps the original box's COLLISION (that is exactly what boxed the player into
+## the SPHL), so the only way to get a hole the player can actually pass through is to not
+## put plate there in the first place.
+const CRANE_HATCH_X0: float = -0.95   ## hatch spans x -0.95..0.15 — ladder stiles at ±0.175 of -0.35
+const CRANE_HATCH_X1: float = 0.15
+const CRANE_HATCH_Z0: float = -14.9   ## and z -14.9..-13.4 — ladder rungs run -14.35..-13.65
+const CRANE_HATCH_Z1: float = -13.4
+func _crane_deck_with_hatch() -> void:
+	var plate: Material = MatLib.deck_plate()
+	var steel: Material = MatLib.rust_steel()
+	var x0: float = CRANE_X - CRANE_DECK_HALF     # -1.5
+	var x1: float = CRANE_X + CRANE_DECK_HALF     #  5.5
+	var z0: float = CRANE_Z - CRANE_DECK_HALF     # -17.5
+	var z1: float = CRANE_Z + CRANE_DECK_HALF     # -10.5
+	# West and east strips run the full depth; north and south close the gap either side of
+	# the hatch. Butted, never overlapping — coplanar plate tops z-fight (the s12 lesson).
+	_box(Vector3((x0 + CRANE_HATCH_X0) * 0.5, CRANE_DECK_Y, CRANE_Z),
+		Vector3(CRANE_HATCH_X0 - x0, 0.3, z1 - z0), plate)
+	_box(Vector3((CRANE_HATCH_X1 + x1) * 0.5, CRANE_DECK_Y, CRANE_Z),
+		Vector3(x1 - CRANE_HATCH_X1, 0.3, z1 - z0), plate)
+	var hw: float = CRANE_HATCH_X1 - CRANE_HATCH_X0
+	var hx: float = (CRANE_HATCH_X0 + CRANE_HATCH_X1) * 0.5
+	_box(Vector3(hx, CRANE_DECK_Y, (z0 + CRANE_HATCH_Z0) * 0.5),
+		Vector3(hw, 0.3, CRANE_HATCH_Z0 - z0), plate)
+	_box(Vector3(hx, CRANE_DECK_Y, (CRANE_HATCH_Z1 + z1) * 0.5),
+		Vector3(hw, 0.3, z1 - CRANE_HATCH_Z1), plate)
+	# Coaming: a 9 cm upstand round the rim. Low enough to step over (a 0.4 m-radius capsule
+	# rolls up ~0.117 m before the contact normal reads as a wall) but you feel it underfoot
+	# before you feel open air, which is the whole point of a coaming on a deck opening.
+	var top: float = CRANE_DECK_TOP
+	for cz in [CRANE_HATCH_Z0 - 0.045, CRANE_HATCH_Z1 + 0.045]:
+		_box(Vector3(hx, top + 0.045, cz), Vector3(hw + 0.18, 0.09, 0.09), steel)
+	for cx in [CRANE_HATCH_X0 - 0.045, CRANE_HATCH_X1 + 0.045]:
+		_box(Vector3(cx, top + 0.045, (CRANE_HATCH_Z0 + CRANE_HATCH_Z1) * 0.5),
+			Vector3(0.09, 0.09, CRANE_HATCH_Z1 - CRANE_HATCH_Z0), steel)
+	# Hazard paint round the opening so it READS as a hole from across the deck instead of
+	# being discovered by falling into it. Thin, non-colliding, laid just over the plate.
+	for pz in [CRANE_HATCH_Z0 - 0.16, CRANE_HATCH_Z1 + 0.16]:
+		_box(Vector3(hx, top + 0.012, pz), Vector3(hw + 0.6, 0.02, 0.22),
+			MatLib.hazard_stripe(), self, false)
+	for px in [CRANE_HATCH_X0 - 0.16, CRANE_HATCH_X1 + 0.16]:
+		_box(Vector3(px, top + 0.012, (CRANE_HATCH_Z0 + CRANE_HATCH_Z1) * 0.5),
+			Vector3(0.22, 0.02, CRANE_HATCH_Z1 - CRANE_HATCH_Z0 + 0.6),
+			MatLib.hazard_stripe(), self, false)
+	# Two grab stanchions with a hoop rail on the EAST rim — the side the climber steps off
+	# toward (the ladder's exit_forward is +X). Something to hold while finding the rungs.
+	for gz in [CRANE_HATCH_Z0 + 0.15, CRANE_HATCH_Z1 - 0.15]:
+		_box(Vector3(CRANE_HATCH_X1 + 0.12, top + 0.5, gz), Vector3(0.07, 1.0, 0.07), steel, self, false)
+	_box(Vector3(CRANE_HATCH_X1 + 0.12, top + 1.0, (CRANE_HATCH_Z0 + CRANE_HATCH_Z1) * 0.5),
+		Vector3(0.07, 0.07, CRANE_HATCH_Z1 - CRANE_HATCH_Z0 - 0.3), steel, self, false)
 
 ## Perimeter guard: a visual top+mid bar on all four sides plus one smooth full-height
 ## slab per side, the same grammar the deck rails use — a lone waist bar with open air
@@ -1669,9 +1750,14 @@ const CAB_H: float = 2.4
 func _crane_cab(top: float) -> void:
 	var steel: Material = MatLib.painted_steel()
 	var dark: Material = MatLib.dark_metal()
-	# Boom-heel working plate west of the cab, and the rope coil left on it.
-	_box(Vector3(CRANE_X - 1.2, top + 0.02, CRANE_Z - 1.6), Vector3(2.4, 0.04, 2.6),
-		MatLib.checker_plate(), self, false)
+	# Boom-heel working plate west of the cab, and the rope coil left on it. Its west edge
+	# STOPS at the ladder hatch (CRANE_HATCH_X1): it used to run 0.55 m past it, laying
+	# checker plate visually across the hole you climb down through — a painted-on floor
+	# over a 16 m drop, which is a worse lie than no plate at all.
+	var wp_x1: float = 2.0                                       # unchanged east edge
+	var wp_w: float = wp_x1 - CRANE_HATCH_X1
+	_box(Vector3((CRANE_HATCH_X1 + wp_x1) * 0.5, top + 0.02, CRANE_Z - 1.6),
+		Vector3(wp_w, 0.04, 2.6), MatLib.checker_plate(), self, false)
 	_takeable("rope", "Coil of Wire Rope", Vector3(CRANE_X - 1.6, top + 0.05, CRANE_Z - 1.6))
 	_takeable("flare", "Signal Flare", Vector3(CRANE_X - 2.4, top + 0.02, CRANE_Z + 1.7))
 
@@ -2009,26 +2095,40 @@ func _decorate_interiors() -> void:
 
 func _decorate_bunkhouse() -> void:
 	var y: float = DECK_Y
-	var bed_positions := [
-		Vector3(-25.5, y, 6.5), Vector3(-18.8, y, 6.5), Vector3(-12.0, y, 6.5),
-		Vector3(-25.5, y, 15.5), Vector3(-18.8, y, 15.5), Vector3(-12.0, y, 15.5),
-	]
+	# Bunks come from BUNKS, never from a second hand-typed copy of the same list — this
+	# function held the FOURTH copy, and its mug and photo were still pinned to a locker
+	# that had long since been moved to the head wall, so they hung in open air.
+	var bed_positions: Array = BUNKS.beds()
 	for i in range(bed_positions.size()):
 		var p: Vector3 = bed_positions[i]
+		var lock: Vector3 = BUNKS.locker_pos(p)
+		# One sign does both jobs: the FOOT of the bunk and the locker's room-facing side are
+		# the same direction, because the head and the locker share the outer wall. The old
+		# code hardcoded +Z for both, which was survivable while the bunks floated mid-room
+		# but would now kick the north row's boots and towel straight through the z18 wall.
+		var out: float = 1.0 if p.z < 11.0 else -1.0
+		var front: float = lock.z + out * (BUNKS.LOCK_HALF + 0.02)   # just proud of the door
 		# The Bed builds its own pillow + blanket; here we add the lived-in extras.
 		if i % 2 == 1:
 			# Boots kicked off at the foot of the slept-in beds.
-			_box(p + Vector3(-0.35, 0.12, 1.3), Vector3(0.14, 0.24, 0.3), MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
-			_box(p + Vector3(-0.15, 0.12, 1.35), Vector3(0.14, 0.24, 0.3), MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
-			# Locker door left hanging open.
-			var door := _box(p + Vector3(1.45, 0.9, -0.45), Vector3(0.04, 1.7, 0.45), MatLib.painted_steel(), self, false)
-			door.rotation.y = 0.7
+			_box(Vector3(p.x - 0.35, y + 0.12, p.z + out * 1.3), Vector3(0.14, 0.24, 0.3),
+				MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
+			_box(Vector3(p.x - 0.15, y + 0.12, p.z + out * 1.35), Vector3(0.14, 0.24, 0.3),
+				MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
+			# Locker door left hanging open — hinged on the locker's own front face.
+			var door := _box(Vector3(lock.x - 0.22, lock.y, front), Vector3(0.04, 1.7, 0.45),
+				MatLib.painted_steel(), self, false)
+			door.rotation.y = 0.7 * out
 		else:
 			# A folded towel over the foot rail, a mug on the locker top.
-			_box(p + Vector3(0, 0.62, 0.95), Vector3(0.9, 0.06, 0.28), MatLib.canvas(Color(0.7, 0.62, 0.5)), self, false)
-			_cyl_nc(p + Vector3(1.2, 1.86, -0.8), 0.07, 0.11, MatLib.flat(Color(0.8, 0.78, 0.72)))
-		# A personal photo taped inside each locker, facing the bunk.
-		_box(p + Vector3(0.98, 1.35, -0.8), Vector3(0.02, 0.22, 0.3), MatLib.flat(Color(0.55, 0.6, 0.62)), self, false)
+			_box(Vector3(p.x, y + 0.62, p.z + out * 0.95), Vector3(0.9, 0.06, 0.28),
+				MatLib.canvas(Color(0.7, 0.62, 0.5)), self, false)
+			var top: Vector3 = BUNKS.locker_top(p)
+			_cyl_nc(Vector3(top.x - 0.12, top.y + 0.055, top.z), 0.07, 0.11,
+				MatLib.flat(Color(0.8, 0.78, 0.72)))
+		# A personal photo taped to the locker door, facing the bunk.
+		_box(Vector3(lock.x + 0.1, y + 1.35, front), Vector3(0.22, 0.3, 0.02),
+			MatLib.flat(Color(0.55, 0.6, 0.62)), self, false)
 	# Corridor light strip (dead — the grid is down; it stays a dark fixture).
 	_box(Vector3(-18, y + 3.0, 11), Vector3(16, 0.08, 0.3), MatLib.dark_metal(), self, false)
 	# A duffel someone packed and never took, a guitar propped in the corner.
@@ -2590,7 +2690,13 @@ func _build_crane_lights() -> void:
 ## a LightSwitch (OPERATE) — dead in the blackout ("nothing hums"), and once the breaker is
 ## closed the player can click it on and off. The bulb is its toggled light; the shade
 ## brightens with it. Placed on clear floor / desks, out of the walk lanes.
-func _lamp(pos: Vector3, name_: String = "Work Lamp") -> void:
+## `floor_pos` is the point ON THE FLOOR SURFACE the lamp stands on, not the body centre:
+## the lamp is then built UP from it, so the weighted base always lands flush. Authoring
+## these by body-centre is how the first pass ended up with every base sunk 2.5 cm into the
+## plating — remember the room floors carry a 3 cm covering laid at floor + 0.035, so the
+## surface a lamp stands on is floor + 0.05 in every finished room (bare slabs are floor + 0).
+func _lamp(floor_pos: Vector3, name_: String = "Work Lamp") -> void:
+	var pos: Vector3 = floor_pos + Vector3(0, 0.215, 0)   # base half-height + body offset
 	var sw := LightSwitch.new()
 	sw.display_name = name_
 	sw.circuit_id = "topside_floodlights"
@@ -2619,12 +2725,13 @@ func _lamp(pos: Vector3, name_: String = "Work Lamp") -> void:
 ## Portable lamps the player can switch on once the grid is live — one in each main living
 ## space plus the ops lookout. Deck B/C/D floors come from RigSuperstructure (B=21.6).
 func _build_lamps() -> void:
-	_lamp(Vector3(-26.4, DECK_Y + 0.19, 9.4), "Bunk Lamp")        # bunkhouse, SW cabin floor
-	_lamp(Vector3(-9.4, DECK_Y + 0.19, 15.6), "Bunk Lamp")        # bunkhouse, NE cabin floor
-	_lamp(Vector3(1.2, DECK_Y + 0.19, 16.6), "Galley Lamp")       # galley, north wall
-	_lamp(Vector3(26.6, DECK_Y + 0.19, 9.2), "Rec Room Lamp")     # rec room, SE corner
-	_lamp(Vector3(4.4, 21.6 + 0.19, 9.9), "Cabin Lamp")           # Deck B cabin B-02 floor
-	_lamp(Vector3(29.2, OPS_Y + 0.19, 1.6), "Watch Lamp")         # ops lookout, NE corner
+	var lino: float = DECK_Y + 0.05        # topside rooms: floor covering top surface
+	_lamp(Vector3(-26.4, lino, 9.4), "Bunk Lamp")            # bunkhouse, SW cabin floor
+	_lamp(Vector3(-9.4, lino, 15.6), "Bunk Lamp")            # bunkhouse, NE cabin floor
+	_lamp(Vector3(1.2, lino, 16.6), "Galley Lamp")           # galley, north wall
+	_lamp(Vector3(26.6, lino, 9.2), "Rec Room Lamp")         # rec room, SE corner
+	_lamp(Vector3(4.4, 21.6 + 0.05, 9.9), "Cabin Lamp")      # Deck B cabin B-02 floor
+	_lamp(Vector3(29.2, OPS_Y, 1.6), "Watch Lamp")           # ops lookout — bare slab, no covering
 
 ## Red emergency beacons for the blackout — a heartbeat the player can always steer by
 ## until the deck lamps come on. Well spaced: the crane head, the antenna mast, a LARGE

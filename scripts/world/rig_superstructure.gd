@@ -333,8 +333,24 @@ func _light(pos: Vector3, energy: float = 0.55, range_: float = 7.0) -> void:
 	l.add_to_group("spill_lights")
 	add_child(l)
 	l.position = pos
-	# Dead ceiling fixture under it.
+	# Dead ceiling fixture under it. NOTE this is why _light() is a CEILING call only: it
+	# always hangs a 0.7m steel fixture 0.35m above `pos`, so using it for a low mood light
+	# leaves that fixture floating in mid-room. Use _glow() for light with its own source.
 	_dbox(pos + Vector3(0, 0.35, 0), Vector3(0.7, 0.08, 0.24), MatLib.dark_metal())
+
+## Light whose SOURCE is already in the scene — emissive geometry, a lit shrine, a lamp
+## prop — so it gets no fixture of its own. _light()'s ceiling plate hanging over a shrine
+## at chest height was a 0.7 x 0.08 x 0.24 steel box floating in the middle of cabin B-03
+## with 1.31m of clear air under it (sonar audit).
+func _glow(pos: Vector3, color: Color, energy: float = 0.4, range_: float = 4.0) -> void:
+	var l := OmniLight3D.new()
+	l.light_color = color
+	l.light_energy = energy
+	l.omni_range = range_
+	l.shadow_enabled = false
+	l.add_to_group("spill_lights")
+	add_child(l)
+	l.position = pos
 
 ## A MAINS ceiling light for the accommodation stack — the powered counterpart to _light.
 ## _light fixtures track the SUN (spill_lights): they glow by day and die at night, so the
@@ -806,7 +822,11 @@ func _deck_b() -> void:
 		frond.rotation.z = deg_to_rad(-16 + i * 8)
 	_dbox(Vector3(11.9, y + 0.1, 10.3), Vector3(1.4, 0.2, 0.6), MatLib.wood())
 	_readable("shrine_note", "Kelp-Wrapped Note", Vector3(11.9, y + 0.21, 9.8), Vector3(0.28, 0.04, 0.34))
-	_light(Vector3(11.5, y + 1.2, 10.0), 0.35, 4.0)
+	# The shrine's own teal light. Was _light(), which hangs its dead ceiling plate 0.35m
+	# above the position it is given — so a mood light at chest height left a 0.7m steel
+	# fixture floating at y+1.55 in the middle of the cabin (sonar: gap 1.31, nothing to
+	# either side). The emissive fronds ARE the source here, so no fixture.
+	_glow(Vector3(11.5, y + 1.2, 10.0), Color(0.45, 0.95, 0.8), 0.35, 4.0)
 	# B-04: two lockers, duffel, pinup poster.
 	_bunk(Vector3(14.1, y, 7.4), false)
 	_locker(Vector3(17.3, y, 6.9))
@@ -830,11 +850,22 @@ func _deck_b() -> void:
 	_readable("cabin_b05_scrawl", "Scrawl on the Wall", Vector3(22.84, y + 1.5, 8.8), Vector3(0.05, 0.5, 0.7))
 
 	# ---- linen store (x 23..28, z 6..11) ----
+	# THREE 4.2m BOARDS WITH NOTHING HOLDING THEM UP. Twelve white linen bundles stacked on
+	# 0.06-thick planks that cantilever out of a wall they do not even touch (sonar: boards
+	# 0.025 clear of the x27.875 face, gaps 0.52 / 0.20 / 0.35 beneath) — from the doorway
+	# that reads as a dozen towels hovering in mid-air, which is what the owner reported.
+	# The boards now sit on a real three-post bay with end and mid uprights, their backs
+	# flush on the bulkhead, and the bundles are woven canvas rather than flat white albedo.
+	var lin_x: float = 27.625            # 0.5-deep board -> back face on 27.875
+	for pz in [6.42, 8.50, 10.58]:       # end posts at the board ends + one mid support
+		_dbox(Vector3(lin_x, y + 1.05, pz), Vector3(0.5, 2.0, 0.05), MatLib.painted_steel())
 	for sy in [0.6, 1.3, 2.0]:
-		_dbox(Vector3(27.6, y + sy, 8.5), Vector3(0.5, 0.06, 4.2), MatLib.wood())
+		_dbox(Vector3(lin_x, y + sy, 8.5), Vector3(0.5, 0.06, 4.2), MatLib.wood())
+		# Front lip, so a board reads as a shelf rather than as a floating sheet edge-on.
+		_dbox(Vector3(lin_x - 0.24, y + sy + 0.04, 8.5), Vector3(0.03, 0.07, 4.2), MatLib.dark_metal())
 		for i in range(4):
-			_dbox(Vector3(27.6, y + sy + 0.14, 6.9 + i * 1.0), Vector3(0.4, 0.22, 0.6),
-				MatLib.flat(Color(0.85, 0.86, 0.84)))
+			_dbox(Vector3(lin_x, y + sy + 0.14, 6.9 + i * 1.0), Vector3(0.4, 0.22, 0.6),
+				MatLib.canvas(Color(0.86, 0.87, 0.85)))
 	_light(Vector3(25.5, y + 2.85, 8.5), 0.45, 5.0)
 	_label("LINEN", Vector3(26.6, y + 2.35, 11.16), 0, 28)
 
@@ -1035,15 +1066,27 @@ func _deck_c() -> void:
 	_readable("comms_log", "Last Transmission Log", Vector3(5.2, y + 0.85, 16.8), Vector3(0.3, 0.05, 0.4))
 	_label("RADIO ROOM", Vector3(8.5, y + 2.35, 14.16), 0, 28)
 	_light(Vector3(8, y + 2.85, 16), 0.5, 6.0)
-	# Mud logging (x 13..23, z 14..18): instrument racks + paper strips.
+	# Mud logging (x 13..23, z 14..18): instrument racks + chart strips.
+	# Racks are 1.2 x 1.8 x 0.7 centred on z 17.4, so their FRONT face is z 17.05 and their
+	# tops are y+1.80. The chart faces were authored at z 16.98, floating 55mm proud of the
+	# steel they are supposed to be part of; 17.032 seats them on the front panel.
 	for i in range(3):
 		_box(Vector3(14.5 + i * 3.0, y + 0.9, 17.4), Vector3(1.2, 1.8, 0.7), MatLib.dark_metal())
-		_dbox(Vector3(14.5 + i * 3.0, y + 1.35, 16.98), Vector3(0.8, 0.5, 0.03),
-			MatLib.flat(Color(0.85, 0.86, 0.8)))
+		_dbox(Vector3(14.5 + i * 3.0, y + 1.35, 17.032), Vector3(0.8, 0.5, 0.03),
+			MatLib.dirty_white_panel())
+	# THE CHART STRIPS. Four 0.3 x 1.4 pale sheets used to hang at (14.0 + i*1.6, y+1.1, 15.2)
+	# — dead centre of the room, 0.41m off the floor, 1.2m clear of every wall and tipped
+	# forward, with nothing above or below them. Four cloth-shaped rectangles floating in
+	# mid-air is what the owner photographed as "floating towels". They belong on the room's
+	# one bare bulkhead: the WEST wall (interior face x 13.125), pinned in a run north of the
+	# bracketed extinguisher at z 14.4. Rotation is about X so the lean stays IN the wall
+	# plane — the old rotation.x on a z-facing sheet is what tipped them out into the room.
 	for i in range(4):
-		var strip := _dbox(Vector3(14.0 + i * 1.6, y + 1.1, 15.2), Vector3(0.3, 1.4, 0.01),
-			MatLib.flat(Color(0.92, 0.92, 0.86)))
-		strip.rotation.x = 0.15
+		var sz: float = 15.0 + i * 0.42
+		var strip := _dbox(Vector3(13.145, y + 1.35, sz), Vector3(0.03, 1.4, 0.30),
+			MatLib.dirty_white_panel())
+		strip.rotation.x = 0.035 - float(i % 2) * 0.07
+		_dbox(Vector3(13.17, y + 2.02, sz), Vector3(0.02, 0.03, 0.03), MatLib.galvanized())  # pin
 	_label("MUD LOG", Vector3(18, y + 2.35, 14.16), 0, 28)
 	_light(Vector3(18, y + 2.85, 16), 0.45, 6.5)
 	# Corridor dressing.
@@ -1376,13 +1419,29 @@ func _density_pass() -> void:
 	# so all five rugs were buried INSIDE the floor and never rendered. They now lie on it.
 	var box_yaw := [8.0, -14.0, 23.0, -7.0, 12.0]
 	var rug_yaw := [5.0, -9.0, 12.0, -4.0, 8.0]
-	var mug_dz := [0.0, 0.12, -0.08, 0.05, 0.15]
+	# THE FIVE CABIN MUGS. All five were authored at (cabin centre + 1.3, y+0.86, ~6.95) on
+	# the assumption that every cabin has a desk there. Only B-01 does: _deck_b() gives B-02
+	# a desk at (6.9, 8.0) — a metre north of that line — and B-03/04/05 have no desk at all
+	# (shrine, lockers, ransacked). So four of the five mugs stood in mid-air at chest height
+	# in the middle of a cabin (sonar: gaps 0.77 / 0.77 / 0.77 / 0.42, nothing to any side).
+	# Each mug now names the real surface in ITS cabin, and the read is better for it: the
+	# shrine gets an offering, the ransacked cabin's mug is up on the tipped locker.
+	#   B-01 desk top y+0.80 (x 1.2..2.4, z 6.6..7.2)      B-02 desk top y+0.80 (x 6.3..7.5, z 7.7..8.3)
+	#   B-03 shrine plinth top y+0.20 (x 11.2..12.6)       B-04 locker top y+1.80 (17.3, 7.6)
+	#   B-05 tipped locker, top face ~y+0.575 (20.0, 8.6)
+	var mug_at := [Vector3(1.35, y + 0.86, 6.75), Vector3(7.35, y + 0.86, 7.85),
+			Vector3(11.35, y + 0.26, 10.15), Vector3(17.30, y + 1.86, 7.60),
+			Vector3(20.00, y + 0.63, 8.60)]
 	for i in range(5):
 		var cx: float = cabin_x[i]
-		_dcyl(Vector3(cx + 1.3, y + 0.86, 6.95 + mug_dz[i]), 0.05, 0.09, MatLib.flat(Color(0.9, 0.9, 0.86)))
-		var bx := _dbox(Vector3(cx - 0.9, y + 0.14, 8.3), Vector3(0.55, 0.28, 0.4), MatLib.flat(Color(0.35, 0.3, 0.24)))
+		_dcyl(mug_at[i], 0.05, 0.09, MatLib.medical_white())     # glazed ceramic, not flat white
+		# Under-bunk kit bag. Was centred at y+0.14, i.e. base on y+0.00 — 5cm sunk into the
+		# lino overlay it is supposed to be sitting on. Woven canvas, seated on y+0.05.
+		var bx := _dbox(Vector3(cx - 0.9, y + 0.19, 8.3), Vector3(0.55, 0.28, 0.4),
+			MatLib.canvas(Color(0.42, 0.36, 0.28)))
 		bx.rotation.y = deg_to_rad(box_yaw[i])
-		var rug := _dbox(Vector3(cx - 1.3, y + 0.056, 7.4), Vector3(0.7, 0.015, 1.1), MatLib.flat(Color(0.42, 0.3, 0.24)))
+		var rug := _dbox(Vector3(cx - 1.3, y + 0.056, 7.4), Vector3(0.7, 0.015, 1.1),
+			MatLib.canvas(Color(0.46, 0.32, 0.26)))
 		rug.rotation.y = deg_to_rad(rug_yaw[i])
 		var hook_col := Color(0.85, 0.55, 0.15) if i % 2 == 0 else Color(0.3, 0.4, 0.5)
 		# Coat-hook board snapped to the solid pier by each cabin door — cabins sit on
@@ -1408,9 +1467,21 @@ func _density_pass() -> void:
 		var card := _dbox(Vector3(8.2 + crng.randf_range(-0.4, 0.4), y + 0.52, 14.6 + crng.randf_range(-0.4, 0.4)),
 			Vector3(0.11, 0.004, 0.16), MatLib.flat(Color(0.92, 0.92, 0.88)))
 		card.rotation.y = crng.randf() * TAU
-	# Wash room: towel dispensers on the pier east of window x4, a bucket, duckboards.
-	for tx in [5.1, 5.6]:
-		_dbox(Vector3(tx, y + 1.4, 17.83), Vector3(0.3, 0.5, 0.05), MatLib.flat(Color(0.8, 0.82, 0.8)))
+	# Wash room: a real TOWEL RAIL on the pier east of the x4 window (clear pier x 4.8..5.875),
+	# a bucket, duckboards. The two towels used to be flat white 0.3 x 0.5 slabs pinned to
+	# the bulkhead at y+1.4 — no rail, no hooks, nothing holding them, so they read as towels
+	# hanging in the air an inch off the wall. Now: bracketed galvanised rail with the cloth
+	# draped OVER it (each towel's top edge is on the rail centre line) and a folded spare on
+	# the counter's east end, which is a real surface (counter x -0.75..3.75, top y+0.90).
+	var rail_y: float = y + 1.55
+	for bx in [4.95, 5.73]:
+		_dbox(Vector3(bx, rail_y + 0.05, 17.83), Vector3(0.04, 0.10, 0.10), MatLib.galvanized())
+	_dbox(Vector3(5.34, rail_y, 17.80), Vector3(0.82, 0.035, 0.035), MatLib.galvanized())
+	for tx in [5.10, 5.58]:
+		_dbox(Vector3(tx, rail_y - 0.21, 17.79), Vector3(0.30, 0.42, 0.05),
+			MatLib.canvas(Color(0.82, 0.84, 0.82)))
+	_dbox(Vector3(3.55, y + 0.96, 17.55), Vector3(0.30, 0.12, 0.24),
+		MatLib.canvas(Color(0.84, 0.85, 0.83)))       # folded spare, on the counter
 	_dcyl(Vector3(-1.2, y + 0.15, 16.6), 0.16, 0.3, MatLib.galvanized())
 	# Duckboard: y+0.02 buried it inside the kitchen-tile overlay (y+0.02..0.05). A 0.03-thick
 	# box seats its bottom on the 0.05 overlay top at centre y+0.065 (y+0.05 was half-sunk).

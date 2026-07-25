@@ -1,6 +1,6 @@
 # RIG ATLAS — SALTLINE main rig, sonar scan briefing
 
-*Generated 2026-07-24 16:29 · 693,507 tris · 483 manifest props · regenerate with `~/SALTLINE/tools/export_rig.sh`*
+*Generated 2026-07-25 08:26 · 715,081 tris · 546 manifest props · regenerate with `~/SALTLINE/tools/export_rig.sh`*
 
 ## Coordinate contract (verified exact)
 
@@ -31,19 +31,19 @@ Scan bounds (mm): x[-41839,60532] y[-23276,37540] z[-92000,51720]
 | store_room | [10,16] | [-22,-16] | [1.8,5.4] | 21 |
 | pump_ready_room | [10,18] | [-14,-6] | [1.8,5.4] | 10 |
 | sphl_pod | [12,21] | [-28,-21] | [1.0,6.0] | 14 |
-| rec_room | [18,28] | [8,18] | [18.0,21.2] | 43 |
+| rec_room | [18,28] | [8,18] | [18.0,21.2] | 86 |
 | ops_lookout | [21,31] | [-7,3] | [36.0,41.0] | 0 |
 | galley | [-2,14] | [8,18] | [18.0,21.2] | 63 |
 | machine_shop | [-28,-14] | [-18,-6] | [18.0,21.2] | 34 |
-| bunkhouse | [-28,-8] | [4,18] | [18.0,21.2] | 82 |
-| deck_d_cabins | [8,30] | [4,19] | [28.6,32.0] | 38 |
+| bunkhouse | [-28,-8] | [4,18] | [18.0,21.2] | 102 |
+| deck_d_cabins | [8,30] | [4,19] | [28.6,32.0] | 39 |
 | stair_tower | [21,31] | [-6,2] | [2.0,21.2] | 0 |
 | deck_b_cabins | [-2,30] | [4,19] | [21.6,25.0] | 54 |
-| deck_c_cabins | [-2,30] | [4,19] | [25.1,28.5] | 42 |
+| deck_c_cabins | [-2,30] | [4,19] | [25.1,28.5] | 41 |
 | stack_roof | [-2,30] | [4,19] | [32.1,36.0] | 3 |
 | wet_deck | [6,32] | [-28,-4] | [1.0,6.5] | 80 |
 | boat_landing | [6,34] | [-30,0] | [-3.5,1.0] | 2 |
-| topside_deck | [-30,30] | [-20,20] | [17.5,21.4] | 234 |
+| topside_deck | [-30,30] | [-20,20] | [17.5,21.4] | 297 |
 | high_iron | [-12,12] | [-12,12] | [32.0,52.0] | 0 |
 
 ## Key locations (godot meters)

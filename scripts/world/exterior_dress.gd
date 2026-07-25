@@ -39,6 +39,19 @@ const LADDER := preload("res://scripts/components/ladder.gd")
 
 const DECK_Y: float = 18.0
 const SHOP_WALL_Z: float = -5.875     # machine shop north face
+
+## ============================ LADDER KEEP-OUT (do not dress inside this) ============
+## The machine-shop ROOF ACCESS ladder climbs the shop's north face at x -14.8, y 18 ->
+## 21.55 (see _roof_ladder). It has now been blocked THREE separate times by wall
+## dressing that runs the length of this face and simply carried on straight through the
+## climb — most recently the ShopWallTray cable tray (y 20.72) and ShopWallConduit
+## (y 20.30), both of which ran east to x -14.3/-14.4 and crossed the rungs dead centre.
+##
+## ANY new run, tray, conduit, pipe, hose or bracket on the shop north face MUST stop at
+## LADDER_KEEP_X0 (coming from the west) or start at LADDER_KEEP_X1 (from the east). The
+## band between them is the climber's body plus the safety cage — it stays empty.
+const LADDER_KEEP_X0: float = -15.6   ## west edge of the ladder keep-out
+const LADDER_KEEP_X1: float = -14.1   ## east edge of the ladder keep-out
 const DORM_WALL_Z: float = 3.875      # bunkhouse south face
 const WALL_TOP: float = 21.2          # both blocks: 18.0 + WALL_H
 
@@ -443,22 +456,34 @@ func _shop_wall_line() -> void:
 	var steel: Material = MatLib.rust_steel()
 	var zf: float = SHOP_WALL_Z
 
+	# EVERY run on this face STOPS at LADDER_KEEP_X0 — the roof-access ladder climbs the
+	# wall at x -14.8 and this tray/conduit used to run straight through its rungs.
+	# Terminating the spine west of the ladder is also how a real platform routes it: the
+	# tray dies into a gland plate and the drops carry on below the climb.
+	var tray_x1: float = LADDER_KEEP_X0
+	var tray_x0: float = -27.7
+	var tray_len: float = tray_x1 - tray_x0            # 12.1 m (was 13.4, ending at -14.3)
+	var tray_mid: float = (tray_x0 + tray_x1) * 0.5    # -21.65
 	var tray := _wall_asm("ShopWallTray")
 	# Cable tray high on the wall on real angle brackets.
-	_bx(tray, Vector3(-21.0, DECK_Y + 2.72, zf + 0.22), Vector3(13.4, 0.05, 0.32), galv)
+	_bx(tray, Vector3(tray_mid, DECK_Y + 2.72, zf + 0.22), Vector3(tray_len, 0.05, 0.32), galv)
 	for side in [-0.14, 0.14]:
-		_bx(tray, Vector3(-21.0, DECK_Y + 2.77, zf + 0.22 + side), Vector3(13.4, 0.10, 0.03), galv)
+		_bx(tray, Vector3(tray_mid, DECK_Y + 2.77, zf + 0.22 + side), Vector3(tray_len, 0.10, 0.03), galv)
 	for i in range(8):
 		var bx: float = -27.4 + i * 1.85
+		if bx > tray_x1:
+			continue                                    # the old i=7 bracket stood at -14.45
 		_bx(tray, Vector3(bx, DECK_Y + 2.66, zf + 0.11), Vector3(0.06, 0.06, 0.26), steel)
 		var d := _bx(tray, Vector3(bx, DECK_Y + 2.53, zf + 0.30), Vector3(0.05, 0.30, 0.05), steel)
 		d.rotation.x = deg_to_rad(-34)
 	for i in range(3):
-		_cy(tray, Vector3(-21.0, DECK_Y + 2.78, zf + 0.15 + i * 0.07), 0.03, 13.4,
+		_cy(tray, Vector3(tray_mid, DECK_Y + 2.78, zf + 0.15 + i * 0.07), 0.03, tray_len,
 			MatLib.flat(Color(0.14, 0.13, 0.15)), Vector3(0, 0, 90))
+	# Gland plate capping the cut end, so the tray reads as terminated rather than sawn off.
+	_bx(tray, Vector3(tray_x1 - 0.04, DECK_Y + 2.74, zf + 0.22), Vector3(0.08, 0.22, 0.36), steel)
 
 	var cond := _wall_asm("ShopWallConduit")
-	_conduit_x(cond, -27.4, -14.4, DECK_Y + 2.30, zf + 0.08, 0.055)
+	_conduit_x(cond, -27.4, LADDER_KEEP_X0, DECK_Y + 2.30, zf + 0.08, 0.055)
 	_conduit_x(cond, -27.4, -19.0, DECK_Y + 2.12, zf + 0.07, 0.04)
 	# Junction boxes with their drops off the tray.
 	for jx in [-25.4, -20.6, -16.2]:

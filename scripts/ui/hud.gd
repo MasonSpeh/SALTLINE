@@ -6,6 +6,8 @@ class_name HUD extends CanvasLayer
 var prompt_label: Label
 var prompt_chip: PanelContainer
 var prompt_locked: bool = false   # scripted hint owns the chip; ray won't overwrite
+const CHIP_FADE_OUT: float = 0.22 ## seconds the chip takes to let go (see _set_chip)
+var _chip_tween: Tween
 var toast_label: Label
 var crosshair: Label
 var objective_label: Label
@@ -34,9 +36,16 @@ var journal_panel: Panel
 var journal_text: RichTextLabel
 var inventory_panel: Panel
 var inv_grid: GridContainer
+var inv_title: Label              ## doubles as the "picked up, click away to drop" line
 var inv_info: Label
 var _inv_buttons: Array[Button] = []
 var _inv_hovered_idx: int = -1   ## last unified slot the cursor was over (for DROP)
+## The pick-to-drop selection: a unified slot index plus the id that was sitting in it.
+## Both, because pack indices SHIFT whenever a stack empties (inventory is a list) — the id
+## is how we tell "still the thing I picked" from "something else slid into that slot", and
+## it is the difference between dropping what the player chose and dropping their dinner.
+var _inv_selected_idx: int = -1
+var _inv_selected_id: String = ""
 var bench_panel: BenchPanel
 var crate_panel: Panel
 var crate_title: Label
@@ -367,9 +376,29 @@ func set_hint(text: String) -> void:
 	_set_chip(text)
 	set_targeting(text != "")
 
+## The one place the prompt chip's text and visibility change. Appearing is instant (you
+## looked at a thing, the answer should already be there); going away is a short fade, so
+## the ray losing its target reads as the chip letting go rather than blinking out.
 func _set_chip(text: String) -> void:
-	prompt_label.text = text
-	prompt_chip.visible = text != ""
+	if _chip_tween:
+		_chip_tween.kill()   # a new line always wins over a fade-out in progress
+	if text != "":
+		prompt_label.text = text
+		prompt_chip.modulate.a = 1.0
+		prompt_chip.visible = true
+		return
+	if not prompt_chip.visible:
+		prompt_label.text = ""
+		return
+	# Fade the chip out with its text still in it: emptying the label first would leave an
+	# empty bordered box dissolving on screen, which reads as a bug rather than as a
+	# prompt letting go. Hidden (not merely transparent) at the end, because visible ==
+	# false is what the rest of the HUD reads as "there is no prompt".
+	_chip_tween = create_tween()
+	_chip_tween.tween_property(prompt_chip, "modulate:a", 0.0, CHIP_FADE_OUT)
+	_chip_tween.tween_callback(func() -> void:
+		prompt_chip.visible = false
+		prompt_label.text = "")
 
 func set_targeting(on: bool) -> void:
 	if not crosshair:
@@ -519,7 +548,9 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]Climb[/b]          HOLD E on a ladder — E rides up, E+S rides down, release to let go
 [b]Carry[/b]          E grabs loose props · LMB throws · E/G sets down
 [b]Hotbar[/b]         1–4 brings that item to hand · same number again eats or drinks it
-[b]Inventory[/b]      I — pack and hotbar, click items to move them
+[b]Inventory[/b]      I — click a pack item to bring it to hand (it swaps with what you hold,
+                so a full hotbar is never a reason to drop anything)
+                click a slot, then the panel's empty space, to drop that item
 [b]Crates[/b]         E opens an exchange panel — take what you need, stow what you don't
 [b]Journal[/b]        J — discoveries, item notes, craft hints
 [b]Hook[/b]           F — throw the rigging hook (craft it at the bench)
@@ -561,6 +592,11 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 
 	# INVENTORY — hotbar row + pack grid, click to move. Minecraft, pocket edition.
 	inventory_panel = _make_panel(560, 480)
+	# Clicks that land on the panel but NOT on a slot button are the "drop what I picked"
+	# gesture (see _inv_panel_input). For those to reach the panel at all, the layout
+	# containers and labels covering it must not swallow them — a Control only takes the
+	# mouse for itself, so IGNORE here leaves every child button's own clicks untouched.
+	inventory_panel.gui_input.connect(_inv_panel_input)
 	var ivbox := VBoxContainer.new()
 	ivbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	ivbox.offset_left = 18
@@ -568,11 +604,13 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	ivbox.offset_right = -18
 	ivbox.offset_bottom = -12
 	ivbox.add_theme_constant_override("separation", 10)
+	ivbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inventory_panel.add_child(ivbox)
-	var ititle := Label.new()
-	ititle.text = "PACK        (left-click: hotbar ⇄ pack · right-click: drop one)"
-	ititle.add_theme_font_size_override("font_size", 17)
-	ivbox.add_child(ititle)
+	inv_title = Label.new()
+	inv_title.text = INV_TITLE
+	inv_title.add_theme_font_size_override("font_size", 17)
+	inv_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ivbox.add_child(inv_title)
 	inv_grid = GridContainer.new()
 	inv_grid.columns = 4
 	inv_grid.add_theme_constant_override("h_separation", 8)
@@ -597,14 +635,18 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	inv_info.custom_minimum_size = Vector2(0, 74)
 	inv_info.add_theme_font_size_override("font_size", 13)
 	inv_info.add_theme_color_override("font_color", Color(0.72, 0.76, 0.72))
+	inv_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ivbox.add_child(inv_info)
-	# Drop control: acts on the last slot the cursor was over, so it works for pack and
-	# hotbar slots alike. The G key does the same for the selected hotbar slot in play.
+	# Drop control: acts on the picked slot if there is one, otherwise on the last slot the
+	# cursor was over — so it works for pack and hotbar slots alike, and agrees with the
+	# click-away drop about WHICH item is on the block. The G key does the same for the
+	# selected hotbar slot in play.
 	var drop_btn := Button.new()
 	drop_btn.text = "⤓  DROP ONE"
 	drop_btn.custom_minimum_size = Vector2(0, 32)
 	drop_btn.focus_mode = Control.FOCUS_NONE
-	drop_btn.pressed.connect(func() -> void: _drop_slot(_inv_hovered_idx))
+	drop_btn.pressed.connect(func() -> void:
+		_drop_slot(_inv_selected_idx if _inv_selection_valid() else _inv_hovered_idx))
 	ivbox.add_child(drop_btn)
 
 	# CRATE — exchange with a storage crate: its contents left, your pack right.
@@ -685,6 +727,9 @@ func toggle_panel(which: String) -> void:
 	inventory_panel.visible = false
 	bench_panel.visible = false
 	crate_panel.visible = false
+	# A pick-to-drop selection is per-visit: never carry one across a close, or the next
+	# click on empty space would let go of something the player picked minutes ago.
+	_inv_clear_selection()
 	if not was_open:
 		target.visible = true
 		if which == "journal":
@@ -797,9 +842,19 @@ func _inv_all_slots() -> Array:
 		slots.append(PlayerState.inventory[i] if i < PlayerState.inventory.size() else null)
 	return slots
 
+## Header when nothing is picked. With a pick live, the header becomes the drop instruction —
+## it is the one line in the panel that is always on screen and never grows the layout.
+const INV_TITLE: String = "PACK        (click: into your hand · right-click: drop one)"
+
 func _refresh_inventory_panel() -> void:
 	if inventory_panel == null or not inventory_panel.visible:
 		return
+	# A pick only survives while the item it named is still in the slot it named. Eating,
+	# a crate exchange or a craft can all move things under an open panel.
+	if not _inv_selection_valid():
+		_inv_clear_selection()
+	inv_title.text = INV_TITLE if _inv_selected_id == "" else \
+		"PACK        ▸ %s  —  click the empty space to drop it" % _item_name(_inv_selected_id)
 	var slots: Array = _inv_all_slots()
 	var shown: int = PlayerState.HOTBAR_SIZE + PlayerState.backpack_capacity()
 	for i in range(_inv_buttons.size()):
@@ -821,13 +876,100 @@ func _refresh_inventory_panel() -> void:
 		else:
 			_inv_buttons[i].text = label
 			_inv_buttons[i].modulate = Color(1, 1, 1) if item != null else Color(1, 1, 1, 0.45)
+		# The picked slot reads as picked — the drop instruction in the header has to be
+		# aimed at something the player can see they chose.
+		if i == _inv_selected_idx and item != null:
+			_inv_buttons[i].text = "▸ " + _inv_buttons[i].text
+			_inv_buttons[i].modulate = Color(0.68, 1.0, 0.78)
 
+## The id in a unified slot index (hotbar 0..HOTBAR_SIZE-1, then the pack); "" when the slot
+## is empty or out of range. The one place unified indices are decoded for reading.
+func _inv_slot_item(unified_idx: int) -> String:
+	if unified_idx < 0:
+		return ""
+	if unified_idx < PlayerState.HOTBAR_SIZE:
+		var h: Variant = PlayerState.hotbar[unified_idx]
+		return String(h) if h != null else ""
+	var i: int = unified_idx - PlayerState.HOTBAR_SIZE
+	if i >= PlayerState.inventory.size():
+		return ""
+	return String(PlayerState.inventory[i])
+
+func _item_name(item_id: String) -> String:
+	return PlayerState.items.get(item_id, {}).get("name", item_id.capitalize())
+
+## Pick a slot for the click-away drop, remembering WHAT was in it (see _inv_selected_id).
+func _inv_select(idx: int) -> void:
+	_inv_selected_idx = idx
+	_inv_selected_id = _inv_slot_item(idx)
+	if _inv_selected_id == "":
+		_inv_selected_idx = -1
+
+func _inv_clear_selection() -> void:
+	_inv_selected_idx = -1
+	_inv_selected_id = ""
+
+## True while the picked slot still holds the item that was picked.
+func _inv_selection_valid() -> bool:
+	return _inv_selected_id != "" and _inv_slot_item(_inv_selected_idx) == _inv_selected_id
+
+## Which hotbar slot a pack click exchanges with: the one in hand. Nothing selected yet
+## (a fresh game, before any 1-4 press) falls back to the first empty slot, then to slot 1,
+## so the click always lands somewhere instead of quietly doing nothing.
+func _swap_target_slot() -> int:
+	var sel: int = PlayerState.selected_hotbar
+	if sel >= 0 and sel < PlayerState.HOTBAR_SIZE:
+		return sel
+	for i in range(PlayerState.HOTBAR_SIZE):
+		if PlayerState.hotbar[i] == null:
+			return i
+	return 0
+
+## Left-click a slot. Two jobs, and neither of them can dead-end on a full pack:
+##  · a PACK slot exchanges its stack with the hotbar slot in hand. It used to call
+##    backpack_to_hotbar, which needs a free hotbar slot and returned false with all four
+##    occupied — the click did nothing at all, and the player had to drop or stow something
+##    before they could bring anything to hand. A swap needs no free slot anywhere.
+##  · a HOTBAR slot still stows into the pack; when the pack has no room the click PICKS it
+##    instead of failing silently, and the click-away drop below is the way out.
+## Either way the clicked item ends up picked (the selection follows it to its new slot),
+## because a click is also how the player chooses what they are about to drop.
 func _inv_slot_clicked(idx: int) -> void:
+	if _inv_slot_item(idx) == "":
+		_inv_clear_selection()   # an empty slot picks nothing
+		_refresh_inventory_panel()
+		return
 	if idx < PlayerState.HOTBAR_SIZE:
-		PlayerState.hotbar_to_backpack(idx)
+		if PlayerState.hotbar_to_backpack(idx):
+			_inv_select(PlayerState.HOTBAR_SIZE + PlayerState.inventory.size() - 1)
+		else:
+			_inv_select(idx)   # pack full — it stays in hand, picked and ready to drop
 	else:
-		PlayerState.backpack_to_hotbar(idx - PlayerState.HOTBAR_SIZE)
+		var slot: int = _swap_target_slot()
+		# Set the hand slot BEFORE the swap: the held-item visual is rebuilt on
+		# inventory_changed, which swap_backpack_hotbar emits, and it reads selected_hotbar.
+		PlayerState.selected_hotbar = slot
+		if PlayerState.swap_backpack_hotbar(idx - PlayerState.HOTBAR_SIZE, slot):
+			_inv_select(slot)
+		else:
+			_inv_select(idx)
 	_refresh_inventory_panel()
+
+## A click inside the panel but away from the slot grid drops the picked item — "put it
+## down over there". The grid's own rect is excluded so the gaps between slots (and the
+## hidden past-capacity row) can never read as "away": inside the grid, a click is a slot
+## click or nothing at all.
+func _inv_panel_input(event: InputEvent) -> void:
+	var mb := event as InputEventMouseButton
+	if mb == null or not mb.pressed or mb.button_index != MOUSE_BUTTON_LEFT:
+		return
+	if not _inv_selection_valid():
+		return
+	if inv_grid.get_global_rect().has_point(mb.global_position):
+		return
+	# Drops ONE, matching right-click and the G key, so clicking away again empties a stack
+	# a can at a time. _drop_slot refreshes the panel, which retires a spent selection.
+	_drop_slot(_inv_selected_idx)
 
 func _inv_slot_hovered(idx: int) -> void:
 	_inv_hovered_idx = idx
@@ -865,7 +1007,7 @@ func _drop_slot(unified_idx: int) -> void:
 		return
 	_spawn_drop(id)
 	_refresh_inventory_panel()
-	toast("Dropped %s" % PlayerState.items.get(id, {}).get("name", id.capitalize()))
+	toast("Dropped %s" % _item_name(id))
 
 ## Make the item real again on the deck in front of the player, with a small toss.
 func _spawn_drop(item_id: String) -> void:

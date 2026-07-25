@@ -16,6 +16,12 @@ var jelly := JellyGlow.new()
 func _ready() -> void:
 	_build_environment()
 	_build_ocean()
+	# Item effects (heal / cures / empties-returned) listen on PlayerState.item_eaten, which
+	# use_hotbar emits but does not itself implement. Mounted HERE, explicitly, because the
+	# alternative was self-mounting off whatever unrelated call happened to run first — the
+	# dressing pass and the build system were both being used as an "earliest hook", which
+	# left healing quietly dependent on having salvaged or built something that session.
+	add_child(preload("res://scripts/components/item_effects.gd").new())
 	rig = RigBuilder.new()
 	add_child(rig)
 	add_child(jelly)
