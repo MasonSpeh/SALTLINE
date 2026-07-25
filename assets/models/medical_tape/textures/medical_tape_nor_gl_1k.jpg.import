@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bt4pvrucq2dnj"
 path.s3tc="res://.godot/imported/medical_tape_nor_gl_1k.jpg-555938223d9b42b163a1a96fb3ac4b8b.s3tc.ctex"
+path.etc2="res://.godot/imported/medical_tape_nor_gl_1k.jpg-555938223d9b42b163a1a96fb3ac4b8b.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/medical_tape/textures/medical_tape_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/medical_tape_nor_gl_1k.jpg-555938223d9b42b163a1a96fb3ac4b8b.s3tc.ctex"]
+dest_files=["res://.godot/imported/medical_tape_nor_gl_1k.jpg-555938223d9b42b163a1a96fb3ac4b8b.s3tc.ctex", "res://.godot/imported/medical_tape_nor_gl_1k.jpg-555938223d9b42b163a1a96fb3ac4b8b.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b6kwc3c75ht6j"
 path.s3tc="res://.godot/imported/Barrel_01_explosive_arm_1k.jpg-273523371bf227f2592f50c0b2966133.s3tc.ctex"
+path.etc2="res://.godot/imported/Barrel_01_explosive_arm_1k.jpg-273523371bf227f2592f50c0b2966133.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/Barrel_01/textures/Barrel_01_explosive_arm_1k.jpg"
-dest_files=["res://.godot/imported/Barrel_01_explosive_arm_1k.jpg-273523371bf227f2592f50c0b2966133.s3tc.ctex"]
+dest_files=["res://.godot/imported/Barrel_01_explosive_arm_1k.jpg-273523371bf227f2592f50c0b2966133.s3tc.ctex", "res://.godot/imported/Barrel_01_explosive_arm_1k.jpg-273523371bf227f2592f50c0b2966133.etc2.ctex"]
 
 [params]
 

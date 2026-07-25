@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cflm2cujwfrri"
 path.s3tc="res://.godot/imported/hanging_picture_frame_01_artwork_nor_gl_1k.jpg-cc5e10e1d216a100d2679b26bc7934ee.s3tc.ctex"
+path.etc2="res://.godot/imported/hanging_picture_frame_01_artwork_nor_gl_1k.jpg-cc5e10e1d216a100d2679b26bc7934ee.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/hanging_picture_frame_01/textures/hanging_picture_frame_01_artwork_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/hanging_picture_frame_01_artwork_nor_gl_1k.jpg-cc5e10e1d216a100d2679b26bc7934ee.s3tc.ctex"]
+dest_files=["res://.godot/imported/hanging_picture_frame_01_artwork_nor_gl_1k.jpg-cc5e10e1d216a100d2679b26bc7934ee.s3tc.ctex", "res://.godot/imported/hanging_picture_frame_01_artwork_nor_gl_1k.jpg-cc5e10e1d216a100d2679b26bc7934ee.etc2.ctex"]
 
 [params]
 

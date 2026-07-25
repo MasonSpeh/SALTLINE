@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c6ei1t1gf4lav"
 path.s3tc="res://.godot/imported/vintage_radio_transceiver_nor_gl_1k.jpg-dc6f6a6394c7d875c762435974d27ff2.s3tc.ctex"
+path.etc2="res://.godot/imported/vintage_radio_transceiver_nor_gl_1k.jpg-dc6f6a6394c7d875c762435974d27ff2.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/vintage_radio_transceiver/textures/vintage_radio_transceiver_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/vintage_radio_transceiver_nor_gl_1k.jpg-dc6f6a6394c7d875c762435974d27ff2.s3tc.ctex"]
+dest_files=["res://.godot/imported/vintage_radio_transceiver_nor_gl_1k.jpg-dc6f6a6394c7d875c762435974d27ff2.s3tc.ctex", "res://.godot/imported/vintage_radio_transceiver_nor_gl_1k.jpg-dc6f6a6394c7d875c762435974d27ff2.etc2.ctex"]
 
 [params]
 

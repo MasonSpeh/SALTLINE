@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://p7grsi0tbqya"
 path.s3tc="res://.godot/imported/medical_box_arm_1k.jpg-f9029a13356e16964e8bf1bcf1e29410.s3tc.ctex"
+path.etc2="res://.godot/imported/medical_box_arm_1k.jpg-f9029a13356e16964e8bf1bcf1e29410.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/medical_box/textures/medical_box_arm_1k.jpg"
-dest_files=["res://.godot/imported/medical_box_arm_1k.jpg-f9029a13356e16964e8bf1bcf1e29410.s3tc.ctex"]
+dest_files=["res://.godot/imported/medical_box_arm_1k.jpg-f9029a13356e16964e8bf1bcf1e29410.s3tc.ctex", "res://.godot/imported/medical_box_arm_1k.jpg-f9029a13356e16964e8bf1bcf1e29410.etc2.ctex"]
 
 [params]
 

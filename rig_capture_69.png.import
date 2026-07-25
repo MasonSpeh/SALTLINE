@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://db4w48fut1fcu"
 path.s3tc="res://.godot/imported/rig_capture_69.png-848c30c65552efd96109fd7f73b6d69f.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_69.png-848c30c65552efd96109fd7f73b6d69f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_69.png"
-dest_files=["res://.godot/imported/rig_capture_69.png-848c30c65552efd96109fd7f73b6d69f.s3tc.ctex"]
+dest_files=["res://.godot/imported/rig_capture_69.png-848c30c65552efd96109fd7f73b6d69f.s3tc.ctex", "res://.godot/imported/rig_capture_69.png-848c30c65552efd96109fd7f73b6d69f.etc2.ctex"]
 
 [params]
 

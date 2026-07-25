@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://byarkyjjrrrfp"
 path.s3tc="res://.godot/imported/worn_metal_rack_diff_1k.jpg-12286ce6291205955f536bd92d3898b4.s3tc.ctex"
+path.etc2="res://.godot/imported/worn_metal_rack_diff_1k.jpg-12286ce6291205955f536bd92d3898b4.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/worn_metal_rack/textures/worn_metal_rack_diff_1k.jpg"
-dest_files=["res://.godot/imported/worn_metal_rack_diff_1k.jpg-12286ce6291205955f536bd92d3898b4.s3tc.ctex"]
+dest_files=["res://.godot/imported/worn_metal_rack_diff_1k.jpg-12286ce6291205955f536bd92d3898b4.s3tc.ctex", "res://.godot/imported/worn_metal_rack_diff_1k.jpg-12286ce6291205955f536bd92d3898b4.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://jgt0see41np2"
 path.s3tc="res://.godot/imported/MetalWalkway013_1K-JPG_Opacity.jpg-6605db10a9072554d45b226622dccb89.s3tc.ctex"
+path.etc2="res://.godot/imported/MetalWalkway013_1K-JPG_Opacity.jpg-6605db10a9072554d45b226622dccb89.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/MetalWalkway013/MetalWalkway013_1K-JPG_Opacity.jpg"
-dest_files=["res://.godot/imported/MetalWalkway013_1K-JPG_Opacity.jpg-6605db10a9072554d45b226622dccb89.s3tc.ctex"]
+dest_files=["res://.godot/imported/MetalWalkway013_1K-JPG_Opacity.jpg-6605db10a9072554d45b226622dccb89.s3tc.ctex", "res://.godot/imported/MetalWalkway013_1K-JPG_Opacity.jpg-6605db10a9072554d45b226622dccb89.etc2.ctex"]
 
 [params]
 

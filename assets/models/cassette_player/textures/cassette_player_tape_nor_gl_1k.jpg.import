@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b0qa1r06eml5o"
 path.s3tc="res://.godot/imported/cassette_player_tape_nor_gl_1k.jpg-0f2f7ad99104ef0b1717e1bd582a6a54.s3tc.ctex"
+path.etc2="res://.godot/imported/cassette_player_tape_nor_gl_1k.jpg-0f2f7ad99104ef0b1717e1bd582a6a54.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/cassette_player/textures/cassette_player_tape_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/cassette_player_tape_nor_gl_1k.jpg-0f2f7ad99104ef0b1717e1bd582a6a54.s3tc.ctex"]
+dest_files=["res://.godot/imported/cassette_player_tape_nor_gl_1k.jpg-0f2f7ad99104ef0b1717e1bd582a6a54.s3tc.ctex", "res://.godot/imported/cassette_player_tape_nor_gl_1k.jpg-0f2f7ad99104ef0b1717e1bd582a6a54.etc2.ctex"]
 
 [params]
 

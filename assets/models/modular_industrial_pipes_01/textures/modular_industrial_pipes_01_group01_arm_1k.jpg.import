@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://8g8ibiimjhjs"
 path.s3tc="res://.godot/imported/modular_industrial_pipes_01_group01_arm_1k.jpg-20a2192eb287239ed8e5f448a5236f7c.s3tc.ctex"
+path.etc2="res://.godot/imported/modular_industrial_pipes_01_group01_arm_1k.jpg-20a2192eb287239ed8e5f448a5236f7c.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/modular_industrial_pipes_01/textures/modular_industrial_pipes_01_group01_arm_1k.jpg"
-dest_files=["res://.godot/imported/modular_industrial_pipes_01_group01_arm_1k.jpg-20a2192eb287239ed8e5f448a5236f7c.s3tc.ctex"]
+dest_files=["res://.godot/imported/modular_industrial_pipes_01_group01_arm_1k.jpg-20a2192eb287239ed8e5f448a5236f7c.s3tc.ctex", "res://.godot/imported/modular_industrial_pipes_01_group01_arm_1k.jpg-20a2192eb287239ed8e5f448a5236f7c.etc2.ctex"]
 
 [params]
 

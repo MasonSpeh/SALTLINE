@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dhc17kw5r6knv"
 path.s3tc="res://.godot/imported/rig_capture_Planks037A_1K-JPG_NormalGL.png-ad26bbb0e38f4bff24f14e66312f25c6.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_Planks037A_1K-JPG_NormalGL.png-ad26bbb0e38f4bff24f14e66312f25c6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_Planks037A_1K-JPG_NormalGL.png"
-dest_files=["res://.godot/imported/rig_capture_Planks037A_1K-JPG_NormalGL.png-ad26bbb0e38f4bff24f14e66312f25c6.s3tc.ctex"]
+dest_files=["res://.godot/imported/rig_capture_Planks037A_1K-JPG_NormalGL.png-ad26bbb0e38f4bff24f14e66312f25c6.s3tc.ctex", "res://.godot/imported/rig_capture_Planks037A_1K-JPG_NormalGL.png-ad26bbb0e38f4bff24f14e66312f25c6.etc2.ctex"]
 
 [params]
 

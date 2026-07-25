@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://68eeja2aau0t"
 path.s3tc="res://.godot/imported/PaintedMetal004_1K-JPG_Opacity.jpg-73b53a5b3b6d47f9297cf053e6652766.s3tc.ctex"
+path.etc2="res://.godot/imported/PaintedMetal004_1K-JPG_Opacity.jpg-73b53a5b3b6d47f9297cf053e6652766.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/PaintedMetal004/PaintedMetal004_1K-JPG_Opacity.jpg"
-dest_files=["res://.godot/imported/PaintedMetal004_1K-JPG_Opacity.jpg-73b53a5b3b6d47f9297cf053e6652766.s3tc.ctex"]
+dest_files=["res://.godot/imported/PaintedMetal004_1K-JPG_Opacity.jpg-73b53a5b3b6d47f9297cf053e6652766.s3tc.ctex", "res://.godot/imported/PaintedMetal004_1K-JPG_Opacity.jpg-73b53a5b3b6d47f9297cf053e6652766.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmrdx0dlbeo2c"
 path.s3tc="res://.godot/imported/plastic_bottle_gallon_diff_1k.jpg-e3c0a55ed802ce414748303098f64515.s3tc.ctex"
+path.etc2="res://.godot/imported/plastic_bottle_gallon_diff_1k.jpg-e3c0a55ed802ce414748303098f64515.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/plastic_bottle_gallon/textures/plastic_bottle_gallon_diff_1k.jpg"
-dest_files=["res://.godot/imported/plastic_bottle_gallon_diff_1k.jpg-e3c0a55ed802ce414748303098f64515.s3tc.ctex"]
+dest_files=["res://.godot/imported/plastic_bottle_gallon_diff_1k.jpg-e3c0a55ed802ce414748303098f64515.s3tc.ctex", "res://.godot/imported/plastic_bottle_gallon_diff_1k.jpg-e3c0a55ed802ce414748303098f64515.etc2.ctex"]
 
 [params]
 

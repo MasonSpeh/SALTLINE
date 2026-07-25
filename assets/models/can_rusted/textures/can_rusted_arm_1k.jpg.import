@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dexhtrjqwsk62"
 path.s3tc="res://.godot/imported/can_rusted_arm_1k.jpg-ae05bc11e201f3c579d89c50a262f262.s3tc.ctex"
+path.etc2="res://.godot/imported/can_rusted_arm_1k.jpg-ae05bc11e201f3c579d89c50a262f262.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/can_rusted/textures/can_rusted_arm_1k.jpg"
-dest_files=["res://.godot/imported/can_rusted_arm_1k.jpg-ae05bc11e201f3c579d89c50a262f262.s3tc.ctex"]
+dest_files=["res://.godot/imported/can_rusted_arm_1k.jpg-ae05bc11e201f3c579d89c50a262f262.s3tc.ctex", "res://.godot/imported/can_rusted_arm_1k.jpg-ae05bc11e201f3c579d89c50a262f262.etc2.ctex"]
 
 [params]
 

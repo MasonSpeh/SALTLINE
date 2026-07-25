@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c7608lbsf7jl"
 path.s3tc="res://.godot/imported/rig_capture_office_notepads_arm_1k.png-b2e07c97f21af3a801f15705db34b029.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_office_notepads_arm_1k.png-b2e07c97f21af3a801f15705db34b029.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_office_notepads_arm_1k.png"
-dest_files=["res://.godot/imported/rig_capture_office_notepads_arm_1k.png-b2e07c97f21af3a801f15705db34b029.s3tc.ctex"]
+dest_files=["res://.godot/imported/rig_capture_office_notepads_arm_1k.png-b2e07c97f21af3a801f15705db34b029.s3tc.ctex", "res://.godot/imported/rig_capture_office_notepads_arm_1k.png-b2e07c97f21af3a801f15705db34b029.etc2.ctex"]
 
 [params]
 

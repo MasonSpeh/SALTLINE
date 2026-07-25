@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dibpl4djnmg1n"
 path.s3tc="res://.godot/imported/postcard_set_01_diff_1k.jpg-e49431c3a462a67c5240d77578ebe273.s3tc.ctex"
+path.etc2="res://.godot/imported/postcard_set_01_diff_1k.jpg-e49431c3a462a67c5240d77578ebe273.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/postcard_set_01/textures/postcard_set_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/postcard_set_01_diff_1k.jpg-e49431c3a462a67c5240d77578ebe273.s3tc.ctex"]
+dest_files=["res://.godot/imported/postcard_set_01_diff_1k.jpg-e49431c3a462a67c5240d77578ebe273.s3tc.ctex", "res://.godot/imported/postcard_set_01_diff_1k.jpg-e49431c3a462a67c5240d77578ebe273.etc2.ctex"]
 
 [params]
 

@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://68nxwh6ktr0h"
 path.s3tc="res://.godot/imported/rig_capture_vintage_radio_transceiver_nor_gl_1k.png-60d38153b37ec67dbff0a464d06a06aa.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_vintage_radio_transceiver_nor_gl_1k.png-60d38153b37ec67dbff0a464d06a06aa.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_vintage_radio_transceiver_nor_gl_1k.png"
-dest_files=["res://.godot/imported/rig_capture_vintage_radio_transceiver_nor_gl_1k.png-60d38153b37ec67dbff0a464d06a06aa.s3tc.ctex"]
+dest_files=["res://.godot/imported/rig_capture_vintage_radio_transceiver_nor_gl_1k.png-60d38153b37ec67dbff0a464d06a06aa.s3tc.ctex", "res://.godot/imported/rig_capture_vintage_radio_transceiver_nor_gl_1k.png-60d38153b37ec67dbff0a464d06a06aa.etc2.ctex"]
 
 [params]
 

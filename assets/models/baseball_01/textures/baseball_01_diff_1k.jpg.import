@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b7onbya0gy8t"
 path.s3tc="res://.godot/imported/baseball_01_diff_1k.jpg-dd5db848b18a0ec85365face3befe0df.s3tc.ctex"
+path.etc2="res://.godot/imported/baseball_01_diff_1k.jpg-dd5db848b18a0ec85365face3befe0df.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/baseball_01/textures/baseball_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/baseball_01_diff_1k.jpg-dd5db848b18a0ec85365face3befe0df.s3tc.ctex"]
+dest_files=["res://.godot/imported/baseball_01_diff_1k.jpg-dd5db848b18a0ec85365face3befe0df.s3tc.ctex", "res://.godot/imported/baseball_01_diff_1k.jpg-dd5db848b18a0ec85365face3befe0df.etc2.ctex"]
 
 [params]
 

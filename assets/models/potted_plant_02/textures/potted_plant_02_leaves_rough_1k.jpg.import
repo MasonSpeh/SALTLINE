@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://4coccn0usdan"
 path.s3tc="res://.godot/imported/potted_plant_02_leaves_rough_1k.jpg-5e27b755b92cc55d7cf2a31ad358b66a.s3tc.ctex"
+path.etc2="res://.godot/imported/potted_plant_02_leaves_rough_1k.jpg-5e27b755b92cc55d7cf2a31ad358b66a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/potted_plant_02/textures/potted_plant_02_leaves_rough_1k.jpg"
-dest_files=["res://.godot/imported/potted_plant_02_leaves_rough_1k.jpg-5e27b755b92cc55d7cf2a31ad358b66a.s3tc.ctex"]
+dest_files=["res://.godot/imported/potted_plant_02_leaves_rough_1k.jpg-5e27b755b92cc55d7cf2a31ad358b66a.s3tc.ctex", "res://.godot/imported/potted_plant_02_leaves_rough_1k.jpg-5e27b755b92cc55d7cf2a31ad358b66a.etc2.ctex"]
 
 [params]
 

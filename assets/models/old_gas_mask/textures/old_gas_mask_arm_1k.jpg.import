@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cm6jsvf3ci1wd"
 path.s3tc="res://.godot/imported/old_gas_mask_arm_1k.jpg-a2cdd693c92303bc8285e84379ea26fa.s3tc.ctex"
+path.etc2="res://.godot/imported/old_gas_mask_arm_1k.jpg-a2cdd693c92303bc8285e84379ea26fa.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/old_gas_mask/textures/old_gas_mask_arm_1k.jpg"
-dest_files=["res://.godot/imported/old_gas_mask_arm_1k.jpg-a2cdd693c92303bc8285e84379ea26fa.s3tc.ctex"]
+dest_files=["res://.godot/imported/old_gas_mask_arm_1k.jpg-a2cdd693c92303bc8285e84379ea26fa.s3tc.ctex", "res://.godot/imported/old_gas_mask_arm_1k.jpg-a2cdd693c92303bc8285e84379ea26fa.etc2.ctex"]
 
 [params]
 

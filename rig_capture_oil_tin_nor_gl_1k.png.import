@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cqoi03stm8trs"
 path.s3tc="res://.godot/imported/rig_capture_oil_tin_nor_gl_1k.png-51238abe768b41180bd9929ade0d1a6a.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_oil_tin_nor_gl_1k.png-51238abe768b41180bd9929ade0d1a6a.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_oil_tin_nor_gl_1k.png"
-dest_files=["res://.godot/imported/rig_capture_oil_tin_nor_gl_1k.png-51238abe768b41180bd9929ade0d1a6a.s3tc.ctex"]
+dest_files=["res://.godot/imported/rig_capture_oil_tin_nor_gl_1k.png-51238abe768b41180bd9929ade0d1a6a.s3tc.ctex", "res://.godot/imported/rig_capture_oil_tin_nor_gl_1k.png-51238abe768b41180bd9929ade0d1a6a.etc2.ctex"]
 
 [params]
 

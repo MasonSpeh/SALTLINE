@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bopf6xthsnkax"
 path.s3tc="res://.godot/imported/rig_capture_seadogs_compass_arm_1k.png-06ca78409566a07d0f45cfc6a4dfc79d.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_seadogs_compass_arm_1k.png-06ca78409566a07d0f45cfc6a4dfc79d.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_seadogs_compass_arm_1k.png"
-dest_files=["res://.godot/imported/rig_capture_seadogs_compass_arm_1k.png-06ca78409566a07d0f45cfc6a4dfc79d.s3tc.ctex"]
+dest_files=["res://.godot/imported/rig_capture_seadogs_compass_arm_1k.png-06ca78409566a07d0f45cfc6a4dfc79d.s3tc.ctex", "res://.godot/imported/rig_capture_seadogs_compass_arm_1k.png-06ca78409566a07d0f45cfc6a4dfc79d.etc2.ctex"]
 
 [params]
 

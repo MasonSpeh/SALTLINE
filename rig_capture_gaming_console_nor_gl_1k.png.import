@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dllpu6x1se4xt"
 path.s3tc="res://.godot/imported/rig_capture_gaming_console_nor_gl_1k.png-7db0ff766b37d8f765fe03484c47c5c9.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_gaming_console_nor_gl_1k.png-7db0ff766b37d8f765fe03484c47c5c9.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_gaming_console_nor_gl_1k.png"
-dest_files=["res://.godot/imported/rig_capture_gaming_console_nor_gl_1k.png-7db0ff766b37d8f765fe03484c47c5c9.s3tc.ctex"]
+dest_files=["res://.godot/imported/rig_capture_gaming_console_nor_gl_1k.png-7db0ff766b37d8f765fe03484c47c5c9.s3tc.ctex", "res://.godot/imported/rig_capture_gaming_console_nor_gl_1k.png-7db0ff766b37d8f765fe03484c47c5c9.etc2.ctex"]
 
 [params]
 

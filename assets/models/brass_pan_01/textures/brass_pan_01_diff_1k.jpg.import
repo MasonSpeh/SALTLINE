@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://csmchyf3v87h3"
 path.s3tc="res://.godot/imported/brass_pan_01_diff_1k.jpg-113d994cd4419ffcb2c5b017fe42a2e6.s3tc.ctex"
+path.etc2="res://.godot/imported/brass_pan_01_diff_1k.jpg-113d994cd4419ffcb2c5b017fe42a2e6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/brass_pan_01/textures/brass_pan_01_diff_1k.jpg"
-dest_files=["res://.godot/imported/brass_pan_01_diff_1k.jpg-113d994cd4419ffcb2c5b017fe42a2e6.s3tc.ctex"]
+dest_files=["res://.godot/imported/brass_pan_01_diff_1k.jpg-113d994cd4419ffcb2c5b017fe42a2e6.s3tc.ctex", "res://.godot/imported/brass_pan_01_diff_1k.jpg-113d994cd4419ffcb2c5b017fe42a2e6.etc2.ctex"]
 
 [params]
 

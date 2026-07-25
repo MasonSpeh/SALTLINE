@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://m50rcfjyxcpc"
 path.s3tc="res://.godot/imported/tool_cart_nor_gl_1k.jpg-f8ccaf5245bca95979cd28bd8511b25f.s3tc.ctex"
+path.etc2="res://.godot/imported/tool_cart_nor_gl_1k.jpg-f8ccaf5245bca95979cd28bd8511b25f.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/tool_cart/textures/tool_cart_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/tool_cart_nor_gl_1k.jpg-f8ccaf5245bca95979cd28bd8511b25f.s3tc.ctex"]
+dest_files=["res://.godot/imported/tool_cart_nor_gl_1k.jpg-f8ccaf5245bca95979cd28bd8511b25f.s3tc.ctex", "res://.godot/imported/tool_cart_nor_gl_1k.jpg-f8ccaf5245bca95979cd28bd8511b25f.etc2.ctex"]
 
 [params]
 

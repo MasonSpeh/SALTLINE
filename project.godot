@@ -87,8 +87,13 @@ common/physics_ticks_per_second=30
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-# Desktop-only release (Windows + macOS), so the mobile ETC2/ASTC variant is dead weight:
-# every VRAM-compressed texture was being imported and stored TWICE.
-textures/vram_compression/import_etc2_astc=false
+; ETC2/ASTC must stay ON, and it is NOT "the mobile format" here: Apple Silicon has no
+; S3TC/BPTC, so a universal macOS build REQUIRES ASTC and the export refuses outright
+; ("Cannot export for universal or arm64 if ETC2 ASTC texture format is disabled").
+; Turning it off to save space broke the Mac build entirely.
+; Per-BUILD size is handled where it belongs — in the export presets, which choose formats
+; per platform (the Windows preset packs s3tc_bptc only). So both formats exist in the local
+; import cache, but no single shipped build carries both.
+textures/vram_compression/import_etc2_astc=true
 limits/opengl/max_renderable_lights=160
 limits/opengl/max_lights_per_object=16

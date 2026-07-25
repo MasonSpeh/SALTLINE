@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3jkxaodua4v2"
 path.s3tc="res://.godot/imported/food_ginger_01_nor_gl_1k.jpg-1b4fd99a1b05aeafae2c3c583fdb9dc4.s3tc.ctex"
+path.etc2="res://.godot/imported/food_ginger_01_nor_gl_1k.jpg-1b4fd99a1b05aeafae2c3c583fdb9dc4.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/food_ginger_01/textures/food_ginger_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/food_ginger_01_nor_gl_1k.jpg-1b4fd99a1b05aeafae2c3c583fdb9dc4.s3tc.ctex"]
+dest_files=["res://.godot/imported/food_ginger_01_nor_gl_1k.jpg-1b4fd99a1b05aeafae2c3c583fdb9dc4.s3tc.ctex", "res://.godot/imported/food_ginger_01_nor_gl_1k.jpg-1b4fd99a1b05aeafae2c3c583fdb9dc4.etc2.ctex"]
 
 [params]
 

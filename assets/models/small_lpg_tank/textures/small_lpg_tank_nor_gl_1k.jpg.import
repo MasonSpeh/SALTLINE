@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://cplirxo8jcn0d"
 path.s3tc="res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.s3tc.ctex"
+path.etc2="res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/small_lpg_tank/textures/small_lpg_tank_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.s3tc.ctex"]
+dest_files=["res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.s3tc.ctex", "res://.godot/imported/small_lpg_tank_nor_gl_1k.jpg-7ad5598375b6979adda320b2ef961334.etc2.ctex"]
 
 [params]
 

@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://c3o0ec7u3nu4r"
 path.s3tc="res://.godot/imported/small_wooden_table_01_nor_gl_1k.jpg-c1c2af43c03acbde01a6db4bce9533ba.s3tc.ctex"
+path.etc2="res://.godot/imported/small_wooden_table_01_nor_gl_1k.jpg-c1c2af43c03acbde01a6db4bce9533ba.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/small_wooden_table_01/textures/small_wooden_table_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/small_wooden_table_01_nor_gl_1k.jpg-c1c2af43c03acbde01a6db4bce9533ba.s3tc.ctex"]
+dest_files=["res://.godot/imported/small_wooden_table_01_nor_gl_1k.jpg-c1c2af43c03acbde01a6db4bce9533ba.s3tc.ctex", "res://.godot/imported/small_wooden_table_01_nor_gl_1k.jpg-c1c2af43c03acbde01a6db4bce9533ba.etc2.ctex"]
 
 [params]
 

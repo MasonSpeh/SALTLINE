@@ -4,8 +4,9 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://b0338oyxnk4mm"
 path.s3tc="res://.godot/imported/rig_capture_CorrugatedSteel005_1K-JPG_NormalGL5.png-921929e114a3e5f0802b26f64389c523.s3tc.ctex"
+path.etc2="res://.godot/imported/rig_capture_CorrugatedSteel005_1K-JPG_NormalGL5.png-921929e114a3e5f0802b26f64389c523.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 generator_parameters={
@@ -15,7 +16,7 @@ generator_parameters={
 [deps]
 
 source_file="res://rig_capture_CorrugatedSteel005_1K-JPG_NormalGL5.png"
-dest_files=["res://.godot/imported/rig_capture_CorrugatedSteel005_1K-JPG_NormalGL5.png-921929e114a3e5f0802b26f64389c523.s3tc.ctex"]
+dest_files=["res://.godot/imported/rig_capture_CorrugatedSteel005_1K-JPG_NormalGL5.png-921929e114a3e5f0802b26f64389c523.s3tc.ctex", "res://.godot/imported/rig_capture_CorrugatedSteel005_1K-JPG_NormalGL5.png-921929e114a3e5f0802b26f64389c523.etc2.ctex"]
 
 [params]
 

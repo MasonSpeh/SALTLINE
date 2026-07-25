@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dk6wxbnut7ggh"
 path.s3tc="res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.s3tc.ctex"
+path.etc2="res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/bench_vice_01/textures/bench_vice_01_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.s3tc.ctex"]
+dest_files=["res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.s3tc.ctex", "res://.godot/imported/bench_vice_01_nor_gl_1k.jpg-d055a90c7c0926a383550e8d39f173e6.etc2.ctex"]
 
 [params]
 

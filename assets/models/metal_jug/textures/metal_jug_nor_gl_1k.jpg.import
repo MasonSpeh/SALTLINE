@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://bymoc206xjkmp"
 path.s3tc="res://.godot/imported/metal_jug_nor_gl_1k.jpg-41befaa85b80c150fee98927aedbcccc.s3tc.ctex"
+path.etc2="res://.godot/imported/metal_jug_nor_gl_1k.jpg-41befaa85b80c150fee98927aedbcccc.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/metal_jug/textures/metal_jug_nor_gl_1k.jpg"
-dest_files=["res://.godot/imported/metal_jug_nor_gl_1k.jpg-41befaa85b80c150fee98927aedbcccc.s3tc.ctex"]
+dest_files=["res://.godot/imported/metal_jug_nor_gl_1k.jpg-41befaa85b80c150fee98927aedbcccc.s3tc.ctex", "res://.godot/imported/metal_jug_nor_gl_1k.jpg-41befaa85b80c150fee98927aedbcccc.etc2.ctex"]
 
 [params]
 

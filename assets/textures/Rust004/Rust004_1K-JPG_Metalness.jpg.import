@@ -4,15 +4,16 @@ importer="texture"
 type="CompressedTexture2D"
 uid="uid://dwc75pi0itmx0"
 path.s3tc="res://.godot/imported/Rust004_1K-JPG_Metalness.jpg-5d4ffb0e76cddef915afc2b1e16aa0e3.s3tc.ctex"
+path.etc2="res://.godot/imported/Rust004_1K-JPG_Metalness.jpg-5d4ffb0e76cddef915afc2b1e16aa0e3.etc2.ctex"
 metadata={
-"imported_formats": ["s3tc_bptc"],
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
 "vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/Rust004/Rust004_1K-JPG_Metalness.jpg"
-dest_files=["res://.godot/imported/Rust004_1K-JPG_Metalness.jpg-5d4ffb0e76cddef915afc2b1e16aa0e3.s3tc.ctex"]
+dest_files=["res://.godot/imported/Rust004_1K-JPG_Metalness.jpg-5d4ffb0e76cddef915afc2b1e16aa0e3.s3tc.ctex", "res://.godot/imported/Rust004_1K-JPG_Metalness.jpg-5d4ffb0e76cddef915afc2b1e16aa0e3.etc2.ctex"]
 
 [params]
 
