@@ -918,14 +918,18 @@ func _roof_ladder() -> void:
 		for side2 in [-0.24, 0.24]:
 			_bx(a, Vector3(x + side2, DECK_Y + by, z - 0.16), Vector3(0.06, 0.06, 0.33), steel)
 		_bx(a, Vector3(x, DECK_Y + by, z - 0.32), Vector3(0.62, 0.10, 0.04), steel)
-	# Safety hoops. Centered z+0.42: at the old z+0.14 the torus back-arc crossed the
-	# rung plane right at the stiles, so the "cage" read as rusty rings stabbed through
-	# the ladder. At +0.42 the whole circle stays proud of the climb line and the
-	# climber is inside it, which is what a cage is.
-	for hy in [1.95, 2.60, 3.25]:
-		_ring(a, Vector3(x, DECK_Y + hy, z + 0.42), 0.36, 0.40, steel, Vector3(90, 0, 0))
-	for sx in [-0.34, 0.0, 0.34]:
-		_bx(a, Vector3(x + sx, DECK_Y + 2.6, z + 0.80), Vector3(0.04, 1.5, 0.04), steel)
+	# SAFETY HOOPS DELETED — this is the thing the owner kept photographing.
+	#
+	# Three 0.8 m closed rings stood 0.42 m proud of the rungs. Geometrically that is a
+	# correct cat-ladder cage (the climber goes up inside it) and it was moved out to +0.42
+	# precisely so it stopped intersecting the stiles. But from the alley, which is the only
+	# place you ever see this ladder from, three dark rings hang across the climb and read as
+	# a cable coiled over the rungs — reported as "things blocking this ladder" more than
+	# once, most recently with a screenshot and "YES IT IS".
+	#
+	# A cage is optional dressing on a 3.5 m ladder; an unmistakably climbable ladder is not.
+	# The rings and the three cage stringers that carried them are gone. The climb-out grab
+	# rails below stay, because those are what you actually haul on at the top.
 	# Climb-out grab rails standing proud of the roof edge.
 	for side3 in [-0.42, 0.42]:
 		_bx(a, Vector3(x + side3, ROOF_Y + 0.55, z - 0.05), Vector3(0.06, 1.1, 0.06), steel)

@@ -1578,13 +1578,16 @@ func _crane_deck_with_hatch() -> void:
 		_box(Vector3(cx, top + 0.045, (CRANE_HATCH_Z0 + CRANE_HATCH_Z1) * 0.5),
 			Vector3(0.09, 0.09, CRANE_HATCH_Z1 - CRANE_HATCH_Z0), steel)
 	# Hazard paint round the opening so it READS as a hole from across the deck instead of
-	# being discovered by falling into it. Thin, non-colliding, laid just over the plate.
-	for pz in [CRANE_HATCH_Z0 - 0.16, CRANE_HATCH_Z1 + 0.16]:
-		_box(Vector3(hx, top + 0.012, pz), Vector3(hw + 0.6, 0.02, 0.22),
+	# being discovered by falling into it. A PAINTED OUTLINE, tight to the coaming — the
+	# first pass used 0.22 m bands set 0.16 m out, which from standing height merged into one
+	# huge yellow apron covering half the machinery deck. 0.10 m hard against the lip says
+	# "opening" without repainting the whole plate.
+	for pz in [CRANE_HATCH_Z0 - 0.145, CRANE_HATCH_Z1 + 0.145]:
+		_box(Vector3(hx, top + 0.012, pz), Vector3(hw + 0.29, 0.02, 0.10),
 			MatLib.hazard_stripe(), self, false)
-	for px in [CRANE_HATCH_X0 - 0.16, CRANE_HATCH_X1 + 0.16]:
+	for px in [CRANE_HATCH_X0 - 0.145, CRANE_HATCH_X1 + 0.145]:
 		_box(Vector3(px, top + 0.012, (CRANE_HATCH_Z0 + CRANE_HATCH_Z1) * 0.5),
-			Vector3(0.22, 0.02, CRANE_HATCH_Z1 - CRANE_HATCH_Z0 + 0.6),
+			Vector3(0.10, 0.02, CRANE_HATCH_Z1 - CRANE_HATCH_Z0 + 0.29),
 			MatLib.hazard_stripe(), self, false)
 	# Two grab stanchions with a hoop rail on the EAST rim — the side the climber steps off
 	# toward (the ladder's exit_forward is +X). Something to hold while finding the rungs.
@@ -2110,11 +2113,13 @@ func _decorate_bunkhouse() -> void:
 		var front: float = lock.z + out * (BUNKS.LOCK_HALF + 0.02)   # just proud of the door
 		# The Bed builds its own pillow + blanket; here we add the lived-in extras.
 		if i % 2 == 1:
-			# Boots kicked off at the foot of the slept-in beds.
-			_box(Vector3(p.x - 0.35, y + 0.12, p.z + out * 1.3), Vector3(0.14, 0.24, 0.3),
-				MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
-			_box(Vector3(p.x - 0.15, y + 0.12, p.z + out * 1.35), Vector3(0.14, 0.24, 0.3),
-				MatLib.flat(Color(0.2, 0.16, 0.12)), self, false)
+			# Boots kicked off at the foot of the slept-in beds. Rubber, not MatLib.flat: a
+			# flat dark albedo next to this rig's textured steel and timber reads as an
+			# un-authored placeholder cube, and in the cabin shot that is exactly what these
+			# two were — a black block on the floor. flat() is for lit lenses only.
+			for bz in [1.30, 1.35]:
+				_box(Vector3(p.x - (0.35 if bz < 1.33 else 0.15), y + 0.12, p.z + out * bz),
+					Vector3(0.14, 0.24, 0.3), MatLib.rubber_floor(), self, false)
 			# Locker door left hanging open — hinged on the locker's own front face.
 			var door := _box(Vector3(lock.x - 0.22, lock.y, front), Vector3(0.04, 1.7, 0.45),
 				MatLib.painted_steel(), self, false)
@@ -2128,7 +2133,7 @@ func _decorate_bunkhouse() -> void:
 				MatLib.flat(Color(0.8, 0.78, 0.72)))
 		# A personal photo taped to the locker door, facing the bunk.
 		_box(Vector3(lock.x + 0.1, y + 1.35, front), Vector3(0.22, 0.3, 0.02),
-			MatLib.flat(Color(0.55, 0.6, 0.62)), self, false)
+			MatLib.dirty_white_panel(), self, false)
 	# Corridor light strip (dead — the grid is down; it stays a dark fixture).
 	_box(Vector3(-18, y + 3.0, 11), Vector3(16, 0.08, 0.3), MatLib.dark_metal(), self, false)
 	# A duffel someone packed and never took, a guitar propped in the corner.

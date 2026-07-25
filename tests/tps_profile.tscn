@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://tps_profile_rig"]
+
+[ext_resource type="Script" path="res://tests/tps_profile.gd" id="1"]
+
+[node name="TpsProfile" type="Node"]
+script = ExtResource("1")
