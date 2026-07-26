@@ -154,6 +154,11 @@ func _process(delta: float) -> void:
 		w_rate *= (1.0 - relief)
 	warmth += w_rate * delta
 	sickness = maxf(0.0, sickness - delta * 0.15)  # recover from sickness over time
+	# Clamp all drainable stats to valid range so they never drift and degrade speed over time.
+	hunger = clampf(hunger, 0.0, 1.0)
+	thirst = clampf(thirst, 0.0, 1.0)
+	warmth = clampf(warmth, 0.0, 1.0)
+	rest = clampf(rest, 0.0, 1.0)
 	# Life: starving or parched wears you down; fed + watered + mostly-well heals you.
 	if hunger <= 0.0 or thirst <= 0.0:
 		life -= LIFE_DRAIN_PER_SEC * delta
