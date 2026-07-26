@@ -99,6 +99,24 @@ renderer/rendering_method.mobile="gl_compatibility"
 ; per platform (the Windows preset packs s3tc_bptc only). So both formats exist in the local
 ; import cache, but no single shipped build carries both.
 textures/vram_compression/import_etc2_astc=true
+; SHADOW QUALITY. All four of these were still on Godot's desktop defaults (4096 maps,
+; medium PCF) — defaults chosen for a Forward+ desktop GPU, not for a Compatibility/GL
+; build whose stated target is a MacBook. Measured with tests/FrameAttrib.tscn, the sun's
+; shadow pass alone is 31-42% of EVERY draw call in the frame (658 of 2147 at the wet
+; deck, 1036 of 2447 on the topside deck), and the maps it renders into were 4x larger
+; than the geometry can use.
+;
+; 2048 over the sun's 45 m cascade range is ~45 texels/metre — finer than the rusted
+; plating it lands on. The positional atlas is now shared by AT MOST two lights at a time
+; (render_budget.gd rations shadow casters), so 2048 gives each of them a bigger slice
+; than 4096 did when it was being split between six.
+lights_and_shadows/directional_shadow/size=2048
+lights_and_shadows/positional_shadow/atlas_size=2048
+; PCF tap count per shadowed fragment. Quality 1 (low) instead of 2 (medium): on a soft,
+; overcast North-Sea key light the extra taps buy a smoother penumbra nobody is looking
+; for, and cost a multiple of the shadow sampling on every lit pixel.
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=1
 limits/opengl/max_renderable_lights=160
 ; max_lights_per_object is the size of the per-fragment light loop the GL shader runs on
 ; EVERY object, everywhere — it is not a budget that only bites when it is reached. It was

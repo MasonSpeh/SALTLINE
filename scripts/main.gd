@@ -179,7 +179,14 @@ func _build_environment() -> void:
 	# reads shadows on — the deck they stand on and the structure immediately around it —
 	# and the far rig reads by silhouette and fog anyway.
 	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	sun.directional_shadow_max_distance = 60.0
+	# 60 -> 45 m. max_distance IS the caster cull for the cascades: nothing past it is
+	# drawn into a shadow map at all, so this is the one knob that removes shadow DRAW
+	# CALLS rather than just making them cheaper to rasterise. tests/FrameAttrib.tscn put
+	# the sun's pass at 31-42% of every draw call in the frame, and the rig is ~50 m
+	# across, so 60 m was paying to shadow the far side of a structure that reads as
+	# silhouette and fog from anywhere you can stand. 45 m still covers the whole deck you
+	# are on and the ironwork immediately around it, which is all a shadow is legible on.
+	sun.directional_shadow_max_distance = 45.0
 	sun.directional_shadow_split_1 = 0.14
 	add_child(sun)
 	var moon := DirectionalLight3D.new()

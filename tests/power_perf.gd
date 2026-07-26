@@ -24,13 +24,23 @@ const SPOTS := [
 var _main: Node3D
 var _player: Node3D
 var _cam: Camera3D
+## Every draw-call count this run has seen. If the window is occluded or minimised, macOS
+## stops presenting, the RenderingServer counters FREEZE at their last value, and the main
+## loop spins free — which reads as a flawless 144 fps with identical tris and draws at
+## every vantage. That is not a fast build, it is no build at all, and it looks enough like
+## a real result to act on. Run with --always-on-top, and fail loudly if it happens anyway.
+var _seen_draws: Array[int] = []
 
 func _ready() -> void:
 	_main = load("res://scenes/Main.tscn").instantiate()
 	add_child(_main)
 	# Same 28 s settle ocean_perf uses: the dressing streams in and render_budget.gd
 	# sweeps behind it, so measuring earlier measures a half-built rig.
-	await get_tree().create_timer(28.0).timeout
+	# 40 s, not 28. render_budget.gd sweeps 8 times over ~23 s and mesh_batcher merges
+	# behind it; at 28 s the last sweep sometimes landed before the first measurement and
+	# sometimes after, so the same build measured 663 or 1912 draw calls at the same
+	# vantage on consecutive runs. Waiting past all of it makes runs comparable.
+	await get_tree().create_timer(40.0).timeout
 	GameClock.force_phase(GameClock.Phase.NIGHT)   # power only reads as a change after dark
 	_player = get_tree().get_first_node_in_group("player")
 	_player.set_physics_process(false)
@@ -85,6 +95,23 @@ func _ready() -> void:
 			vol.append(l)
 			l.light_volumetric_fog_energy = 0.0
 	await _report("light fog energy OFF (%d)" % vol.size())
+	for l in vol:
+		l.light_volumetric_fog_energy = 2.0
+	# 4. THE SUN'S OWN CASCADE PASS. Measured in-run and A/B'd against itself, because
+	# run-to-run draw-call counts at a fixed vantage are not comparable (see the settle
+	# comment above) — the only trustworthy figure is the delta inside one measurement.
+	# This is the number that says whether the shadow-quality pass actually bought
+	# anything: it was 658-1036 draw calls before it.
+	var sun: DirectionalLight3D = null
+	for l in _all_lights():
+		if l is DirectionalLight3D and (l as DirectionalLight3D).shadow_enabled:
+			sun = l
+			break
+	if sun != null:
+		await _report("  sun shadow ON  (reference)")
+		sun.shadow_enabled = false
+		await _report("  sun shadow OFF (the delta)")
+		sun.shadow_enabled = true
 	get_tree().quit()
 
 ## How many lights exist, how many are visible, and how badly do they overlap? The
@@ -154,10 +181,18 @@ func _at(s: Array) -> void:
 		await get_tree().process_frame
 		frames += 1
 		acc += Engine.get_frames_per_second()
+	var draws: int = int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))
 	print("%-16s fps %6.1f   lights covering camera %3d   tris %8d   draws %5d" % [
 		s[0], acc / maxf(float(frames), 1.0), _overlap_at(s[1]),
 		int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_PRIMITIVES_IN_FRAME)),
-		int(RenderingServer.get_rendering_info(RenderingServer.RENDERING_INFO_TOTAL_DRAW_CALLS_IN_FRAME))])
+		draws])
+	_seen_draws.append(draws)
+	# Five different vantages cannot legitimately draw the identical number of calls.
+	if _seen_draws.size() >= 3 and _seen_draws.count(draws) == _seen_draws.size():
+		push_error("INVALID RUN — draw counters frozen at %d. The window is occluded or "
+			% draws + "minimised; nothing is being presented. Re-run with --always-on-top "
+			+ "and leave the window visible. Ignore every number above.")
+		print("!!!! INVALID RUN: counters frozen (window occluded). Numbers are meaningless.")
 
 func _report(label: String) -> void:
 	await get_tree().create_timer(1.0).timeout

@@ -9,6 +9,7 @@ var env: Environment
 var star_mat: ShaderMaterial
 var storm_intensity: float = 0.0   ## 0 clear .. 1 full storm; set by StormSystem
 var _last_f: float = 0.0
+var _sun_shadow_on: bool = true    ## hysteresis latch for the sun's cascade (see _apply)
 
 ## Ocean (ocean_water.gdshader) sea_state is driven from here so a squall raises the
 ## swell in lockstep with the sky/rain. Calm water is never glassy-flat — a working
@@ -182,6 +183,29 @@ func _on_tick(f: float) -> void:
 	# and it mutes the sun the way squall cloud does, just without the darkening.
 	env.fog_density = lerpf(0.0008, 0.004, storm) + 0.0068 * fog_intensity
 	sun.light_energy *= 1.0 - 0.38 * fog_intensity
+
+	# A SUN THAT IS NOT LIGHTING ANYTHING MUST NOT RENDER A CASCADE.
+	#
+	# This is the same lesson the moon already learned in main.gd — it ships with
+	# shadow_enabled = false because it was drawing a full cascade of the whole rig every
+	# frame, all day, at zero energy. The SUN has exactly that problem in the other half of
+	# the cycle: light_energy goes to 0 the moment it drops below the horizon, but
+	# shadow_enabled stayed true all night, so every night frame paid for a shadow map of a
+	# light contributing nothing. Measured in tests/PowerPerf.tscn at night, that pass was
+	# 897 of 2192 draw calls — 41% of the frame — and turning it off took 15.5 -> 19.4 fps
+	# with no visible difference whatsoever, because there is no sunlight to cast a shadow
+	# from. It pays off in heavy storm too, where the same energy term is scaled to a tenth.
+	#
+	# Two thresholds, not one: energy crawls through this band slowly at dawn and dusk, and
+	# a single cutoff would flip the flag back and forth for several real seconds, throwing
+	# away and reallocating the shadow map each time. On at 0.08, off at 0.03 — well under
+	# the ~0.22 ambient floor, so the first shadow appears only once there is enough sun to
+	# read one.
+	if _sun_shadow_on and sun.light_energy < 0.03:
+		_sun_shadow_on = false
+	elif not _sun_shadow_on and sun.light_energy > 0.08:
+		_sun_shadow_on = true
+	sun.shadow_enabled = _sun_shadow_on
 
 	# Interior daylight-spill lights track the sun; interiors go black at night (Rule 7)
 	# unless the player flips the switches they earned.
