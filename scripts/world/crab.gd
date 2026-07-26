@@ -44,7 +44,7 @@ var patrol_offset: Vector3 = Vector3.ZERO   ## fans the pack out over the roam b
 var state: State = State.ROOST
 var _wp_index: int = 0
 var patrol_speed: float = 1.6
-var pursue_speed: float = 4.4
+var pursue_speed: float = 4.0
 var detect_radius: float = 11.0
 var hunt_radius: float = 46.0
 var give_up_dist: float = 26.0
@@ -53,6 +53,10 @@ var scare_bright: float = 2.35
 var hp: float = 3.0                 ## melee hits it can take before it quits the night
 
 const ROOST_SPEED: float = 0.5      ## slow underwater sidle
+const SURFACE_CHANCE: float = 0.5   ## owner spec (2026-07-25b): each crab, each night,
+## independently has a 50% chance of coming up at all — same rule the King Crab already
+## rolls. A pack that is ALWAYS fully out (the s16 default) is what made six crabs read
+## as more than six; some nights half the roosts stay dark and empty.
 const BITE_DAMAGE: float = 0.2      ## PlayerState.life is normalized 0..1 (owner spec: -0.2/hit)
 const BITE_COOLDOWN: float = 1.6    ## was 2.5 — a crab that reaches you now keeps hurting you
 const BITE_SHOVE: float = 7.0
@@ -73,6 +77,7 @@ var _bite_cd: float = 0.0
 var _lit_t: float = 0.0             ## how long a BRIGHT player light has been on it
 var _scare_cd: float = 0.0          ## re-approach cooldown after a light scare
 var _night_wait: float = 0.0        ## emergence stagger countdown
+var _surface_tonight: bool = true   ## this night's 50% coin; rolled fresh on GameClock.night
 var _beaten: bool = false           ## repelled to zero hp: done for this night
 var _fleeing_home: bool = false     ## FLEE reached the water and is walking to roost
 var _scare_retreat: bool = false    ## FLEE is a short back-off from a beam, not a rout
@@ -293,6 +298,7 @@ func _ready() -> void:
 	add_to_group("hittable")     # craftable melee weapons can drive it off
 	add_to_group("giant_crab")
 	GameClock.dawn.connect(_on_dawn)
+	GameClock.night.connect(_on_night_roll)
 	_last_pos = global_position
 	_guard_pos = global_position
 	_night_wait = float(spawn_index) * EMERGE_STAGGER
@@ -491,9 +497,15 @@ func _aggression() -> float:
 ## Is it time to be up on the rig? All night, and the back half of dusk — the light is
 ## more than half gone by then and the first of them are already over the rim.
 func _wants_up() -> bool:
+	if not _surface_tonight:
+		return false
 	if GameClock.current_phase == GameClock.Phase.NIGHT:
 		return true
 	return GameClock.current_phase == GameClock.Phase.DUSK and GameClock.phase_fraction() > 0.45
+
+## The nightly coin: independent per crab, same rule the King Crab already used.
+func _on_night_roll() -> void:
+	_surface_tonight = _rng.randf() < SURFACE_CHANCE
 
 ## Day home: a free wander over the crab's own submerged leg face — not a lap of a
 ## four-point rectangle. When the light goes it heads for its emergence lane, unless it

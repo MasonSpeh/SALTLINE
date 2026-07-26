@@ -198,12 +198,17 @@ func _build_legs(chitin: Material, joint: Material) -> void:
 		var hip := Node3D.new()
 		add_child(hip)
 		hip.position = Vector3(side * HIP_OUT, HIP_Y, z_along)
-		KIT.ball(hip, Vector3.ZERO, 0.13, joint)          # the coxa knuckle
+		# NO joint-knuckle balls here (there used to be one at every hip and knee: 16
+		# total). They were meant to cap the seam where two limb capsules meet at an
+		# angle, but because they're built AFTER ANIM.replace() (fact #2 — the limbs
+		# have to be, so they stay visible), nothing ever hides them, and in the darker
+		# `joint` material they read as a scattered dotted pattern across the whole
+		# animal instead of a clean shell. The capsule overlap at each hinge is enough
+		# on its own; owner call, 2026-07-25b: remove them.
 		KIT.limb(hip, Vector3.ZERO, femur, 0.085, chitin)
 		var knee := Node3D.new()
 		hip.add_child(knee)
 		knee.position = femur
-		KIT.ball(knee, Vector3.ZERO, 0.10, joint)
 		KIT.limb(knee, Vector3.ZERO, tibia, 0.062, chitin)
 		var foot := Node3D.new()
 		knee.add_child(foot)
@@ -257,7 +262,14 @@ func _on_night() -> void:
 		return
 	hp = MAX_HP
 	_beaten = false
-	_committed = _rng.randf() < HUNT_CHANCE
+	# Owner spec (2026-07-25b): never on the rig's first night. day_count only ticks up
+	# when a NIGHT phase COMPLETES (game_clock.gd _advance_phase), so it still reads 0
+	# at the instant this fires for night one — the coin only starts turning from the
+	# second night on.
+	if GameClock.day_count == 0:
+		_committed = false
+	else:
+		_committed = _rng.randf() < HUNT_CHANCE
 	# Staggered so two kings never haul out over the rim shoulder to shoulder.
 	_wait = _rng.randf_range(8.0, 90.0) + float(spawn_index) * 25.0
 
@@ -371,16 +383,14 @@ func _process(delta: float) -> void:
 			_retreat(delta)
 	_seat(delta)
 
-## Deep water, out of sight. It drifts a few metres around its lie-up, and on a night its
-## coin came up it waits out its stagger and then hauls out.
+## Resting on the leg foundation, not swimming (owner call, 2026-07-25b: `den` now sits
+## against the SE leg's submerged foot instead of out in open water — see bloom_fauna.gd
+## _spawn_king_crabs). It settles onto that point once and stays there, motionless, for
+## the whole day; the old version drifted a few metres round its lie-up continuously,
+## which read as swimming in place rather than a boss lying up at the base of the rig.
 func _den(delta: float) -> void:
 	_leave_hunt()
-	if _roam_hold > 0.0:
-		_roam_hold -= delta
-	elif _step_free(_roam_target, SWIM_SPEED * 0.35, delta):
-		_roam_target = den + Vector3(_rng.randf_range(-3.5, 3.5),
-			_rng.randf_range(-1.2, 1.2), _rng.randf_range(-3.5, 3.5))
-		_roam_hold = _rng.randf_range(1.0, 5.0)
+	_step_free(den, SWIM_SPEED * 0.2, delta)
 	if _committed and not _beaten and GameClock.current_phase == GameClock.Phase.NIGHT:
 		_wait -= delta
 		if _wait <= 0.0:

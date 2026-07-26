@@ -149,19 +149,26 @@ func _spawn_giant_crabs() -> void:
 ## them and hand each one its own haul-out lane.
 ##
 ## Lanes are the SAME rim climb the pack uses (x31 -> x29.3 over the lip), on two depth
-## lanes of their own — z-9.5 and z-19.5 — so a king never comes up a lane the pack is
-## queued in, and the two kings never share one. RETREAT walks the list backwards.
+## lanes of their own — z-9.5 and z-12.5 — so a king never comes up a lane the pack is
+## queued in (pack lanes: -8, -11, -14, -17, -20, -22), and the two kings never share one.
+## RETREAT walks the list backwards.
+##
+## Owner call, 2026-07-25b: both dens moved off the far open water (was x38, well past
+## the boat-landing lane) to sit against the SE leg's own submerged foot instead — the
+## leg's east face runs x19..25, so x27 clears it by a couple of metres of open water,
+## same depth the far den used to lie at. The kings now rest at the base of the rig
+## during the day (king_crab.gd _den) rather than lying up somewhere out in the sea.
 const KING := preload("res://scripts/world/king_crab.gd")   # by path: class cache lags new files
 const KING_COUNT: int = 2
-const KING_LANE_Z: Array = [-9.5, -19.5]
+const KING_LANE_Z: Array = [-9.5, -12.5]
 
 func _spawn_king_crabs() -> void:
 	for i in range(KING_COUNT):
 		var z: float = KING_LANE_Z[i % KING_LANE_Z.size()]
 		var king: Node3D = KING.new()
 		king.spawn_index = i
-		king.den = Vector3(38.0, -8.0, z)
-		king.rise_path = [Vector3(34.5, -5.0, z), Vector3(32.0, -2.0, z)] + _crab_climb(z)
+		king.den = Vector3(27.0, -8.0, z)
+		king.rise_path = [Vector3(29.5, -3.0, z)] + _crab_climb(z)
 		add_child(king)
 		king.global_position = king.den
 

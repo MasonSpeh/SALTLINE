@@ -17,12 +17,26 @@ const FISH_TINT := {
 	"fish_gulper_eel": Color(0.28, 0.22, 0.3), "fish_bloom_dragon": Color(0.15, 0.35, 0.4),
 	"fish_fathom_sturgeon": Color(0.34, 0.36, 0.32), "fish_abyss_grenadier": Color(0.4, 0.38, 0.34),
 }
+## Owner call, 2026-07-25b: every species now has its own entry. Before this, only 8 of
+## the ~20 species were listed and everything else silently fell back to the default 1.0
+## multiplier in build() below — so a barrel grouper (1.4) and an un-listed ember snapper
+## (1.0) differed by only 40%, and most of the roster (herring, slate cod, mirrorjack,
+## chimefish, sable hake, ghost sole, glasspike, lodestone bream, drum croaker, miller
+## flounder) was fully un-differentiated at the same size. These are a real spread, small
+## baitfish up to the huge deep-drop catches — a caught grouper should read as HUGE in the
+## hand next to a herring, not a fifth again as big.
 const FISH_SIZE := {
-	"fish_barrel_grouper": 1.4, "fish_fathom_halibut": 1.6, "fish_copper_sprat": 0.6,
-	"fish_ribbon_eel": 1.2,
+	"fish_herring": 0.5, "fish_copper_sprat": 0.45,           # small baitfish schools
+	"fish_chimefish": 0.55, "fish_silver_ladder": 0.65,
+	"fish_mirrorjack": 0.7, "fish_ghost_sole": 0.6, "fish_miller_flounder": 0.7,
+	"fish_lodestone_bream": 0.85,
+	"fish_slate_cod": 1.0, "fish_glasspike": 0.9,
+	"fish_ember_snapper": 1.3, "fish_drum_croaker": 1.1, "fish_sable_hake": 1.1,
+	"fish_ribbon_eel": 1.3,
+	"fish_barrel_grouper": 1.8, "fish_fathom_halibut": 1.7,   # the big topside-water catches
 	# Deep-drop rig species read heavy in the hand.
-	"fish_gulper_eel": 1.5, "fish_bloom_dragon": 1.3,
-	"fish_fathom_sturgeon": 1.8, "fish_abyss_grenadier": 1.4,
+	"fish_gulper_eel": 1.6, "fish_bloom_dragon": 1.4,
+	"fish_fathom_sturgeon": 2.0, "fish_abyss_grenadier": 1.3,
 }
 ## Real generated fish meshes (assets/models/fauna/<id>) when present; procedural
 ## silhouette when not. Preloaded — the class cache lags for this new file.

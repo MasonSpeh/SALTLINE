@@ -31,9 +31,15 @@ func contains(world_point: Vector3) -> bool:
 		and absf(local.z) <= zone_extents.z * 0.5
 
 func _on_powered(id: String) -> void:
-	if id == circuit_id:
-		for l in _lights:
-			l.visible = true
+	if id != circuit_id:
+		return
+	# Staggered: a zone's lights (e.g. the 4 shadow-casting floodlight poles) used to
+	# all go visible in the same frame as every other circuit handler in the world.
+	for l in _lights:
+		var light: Light3D = l
+		PowerGrid.queue_light(func() -> void:
+			if is_instance_valid(light):
+				light.visible = true)
 
 func _on_lost(id: String) -> void:
 	if id == circuit_id:

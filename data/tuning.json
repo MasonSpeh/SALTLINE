@@ -9,8 +9,9 @@
 	"warmth_per_sec_heated": 0.02,
 
 	"_crabs": "The 2026-07-25 predator pass renamed these on purpose. The old keys (crab_pursue_speed 3.8 / crab_detect_radius 6.0 / crab_contact_radius 1.2) were the TAME numbers, and leaving them in place under the names the code reads would have silently reverted the whole overhaul the first time this file loaded. They are deleted rather than left dead so nobody re-points the code at them.",
+	"_crabs_2026_07_25b": "Owner call, same day: 4.4 chase read as barely escapable even by sprint (5.0) once combined with the pack always being fully out. Dropped to 4.0 — still faster than the 3.2 walk, still slower than the 5.0 sprint, but with real air between it and your top speed. Paired with a 50% nightly no-show roll per crab (crab.gd _on_night) so the pack itself is lighter most nights too.",
 	"crab_patrol_speed": 1.6,
-	"crab_chase_speed": 4.4,
+	"crab_chase_speed": 4.0,
 	"crab_sense_radius": 11.0,
 	"crab_hunt_radius": 46.0,
 	"crab_give_up_dist": 26.0,

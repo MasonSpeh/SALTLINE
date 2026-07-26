@@ -371,11 +371,16 @@ func _powered_ceiling(pos: Vector3, energy: float = 1.6, rng: float = 5.5) -> vo
 	add_child(lamp)
 	lamp.global_position = pos - Vector3(0, 0.28, 0)
 	lamp.add_to_group("interior_mains")
+	# Staggered (PowerGrid.queue_light): this one function alone builds 32 of these
+	# fixtures across the accommodation stack, and all 32 used to go visible with a
+	# fresh material in the same frame as the breaker flip.
 	PowerGrid.circuit_powered.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
-			lamp.visible = true
-			if is_instance_valid(lens):
-				lens.material_override = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0))
+			PowerGrid.queue_light(func() -> void:
+				if is_instance_valid(lamp):
+					lamp.visible = true
+					if is_instance_valid(lens):
+						lens.material_override = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0)))
 	PowerGrid.circuit_lost.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
 			lamp.visible = false)

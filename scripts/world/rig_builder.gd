@@ -1387,10 +1387,13 @@ func _build_floodlights() -> void:
 		zone.add_light(spot)
 		spot.global_position = p + Vector3(0, 3.55, 0)
 		spot.rotation.x = deg_to_rad(-90)
-		# Emissive lens turns on with the circuit.
+		# Emissive lens turns on with the circuit. Staggered with the rest of the rig's
+		# lights (see PowerGrid.queue_light) so the breaker flip does not spike a frame.
 		PowerGrid.circuit_powered.connect(func(id: String) -> void:
 			if id == "topside_floodlights" and is_instance_valid(head):
-				head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.4))
+				PowerGrid.queue_light(func() -> void:
+					if is_instance_valid(head):
+						head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.4)))
 	# Space heater near the galley south wall — a real barrel stove (was a flat brown
 	# placeholder block that read as a floating slab). Grounded flush by the settle pass.
 	var stove: Node3D = PropLib.spawn("barrel_stove", self, Vector3(11, DECK_Y + 0.02, 6.5), 0.0, 1.0, true)
@@ -1435,9 +1438,11 @@ func _build_floodlights() -> void:
 		wlamp.add_to_group("wet_deck_worklights")
 		PowerGrid.circuit_powered.connect(func(id: String) -> void:
 			if id == "topside_floodlights" and is_instance_valid(wlamp):
-				wlamp.visible = true
-				if is_instance_valid(head):
-					head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.2))
+				PowerGrid.queue_light(func() -> void:
+					if is_instance_valid(wlamp):
+						wlamp.visible = true
+						if is_instance_valid(head):
+							head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.2)))
 		PowerGrid.circuit_lost.connect(func(id: String) -> void:
 			if id == "topside_floodlights" and is_instance_valid(wlamp):
 				wlamp.visible = false)
@@ -2545,9 +2550,11 @@ func _mains_light(pos: Vector3, energy: float, rng: float) -> void:
 	lamp.add_to_group("interior_mains")
 	PowerGrid.circuit_powered.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
-			lamp.visible = true
-			if is_instance_valid(lens):
-				lens.material = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0))
+			PowerGrid.queue_light(func() -> void:
+				if is_instance_valid(lamp):
+					lamp.visible = true
+					if is_instance_valid(lens):
+						lens.material = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0)))
 	PowerGrid.circuit_lost.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
 			lamp.visible = false)
@@ -2613,9 +2620,11 @@ func _stair_bulkhead(pos: Vector3, energy: float, rng: float) -> void:
 	lamp.add_to_group("interior_mains")
 	PowerGrid.circuit_powered.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
-			lamp.visible = true
-			if is_instance_valid(lens):
-				lens.material = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0))
+			PowerGrid.queue_light(func() -> void:
+				if is_instance_valid(lamp):
+					lamp.visible = true
+					if is_instance_valid(lens):
+						lens.material = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0)))
 	PowerGrid.circuit_lost.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
 			lamp.visible = false)
@@ -2638,9 +2647,11 @@ func _powered_omni(pos: Vector3, energy: float, rng: float,
 	lamp.add_to_group("interior_mains")
 	PowerGrid.circuit_powered.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
-			lamp.visible = true
-			if is_instance_valid(lens):
-				lens.material = MatLib.flat(color, true, 2.2))
+			PowerGrid.queue_light(func() -> void:
+				if is_instance_valid(lamp):
+					lamp.visible = true
+					if is_instance_valid(lens):
+						lens.material = MatLib.flat(color, true, 2.2)))
 	PowerGrid.circuit_lost.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(lamp):
 			lamp.visible = false)
@@ -2666,9 +2677,11 @@ func _powered_spot(pos: Vector3, pitch_deg: float, energy: float, rng: float,
 	spot.add_to_group("interior_mains")
 	PowerGrid.circuit_powered.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(spot):
-			spot.visible = true
-			if is_instance_valid(head):
-				head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.2))
+			PowerGrid.queue_light(func() -> void:
+				if is_instance_valid(spot):
+					spot.visible = true
+					if is_instance_valid(head):
+						head.material = MatLib.flat(Color(1.0, 0.95, 0.8), true, 2.2)))
 	PowerGrid.circuit_lost.connect(func(id: String) -> void:
 		if id == "topside_floodlights" and is_instance_valid(spot):
 			spot.visible = false)
