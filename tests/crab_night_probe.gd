@@ -49,7 +49,11 @@ func _run() -> void:
 		await get_tree().physics_frame
 
 	var crabs: Array = get_tree().get_nodes_in_group("giant_crab")
-	_check("the pack spawned", crabs.size() >= 10, "%d crabs" % crabs.size())
+	# Was `>= 10`. The pack was cut to bloom_fauna.gd CRAB_COUNT = 6 in the 2026-07-25
+	# predator pass; read the count from the spawner rather than restating it here, so a
+	# future retune of the pack size does not fail this probe for no reason.
+	var want: int = int(preload("res://scripts/world/bloom_fauna.gd").CRAB_COUNT)
+	_check("the pack spawned", crabs.size() >= want, "%d crabs (want %d)" % [crabs.size(), want])
 	if crabs.is_empty():
 		return
 
@@ -92,6 +96,11 @@ func _run() -> void:
 	var reached: int = 0
 	var on_deck_now: int = 0
 	var states := {}
+	# Each crab independently rolls crab.gd SURFACE_CHANCE on GameClock.night, so on any
+	# given night roughly half the pack never leaves the water ON PURPOSE. The assertions
+	# below are therefore about the crabs that ROLLED TO COME UP — counting the no-shows as
+	# failures would fail this probe at random about 98% of the time.
+	var risers: int = 0
 	for i in range(crabs.size()):
 		var c: Node3D = crabs[i]
 		if not is_instance_valid(c):
@@ -99,6 +108,9 @@ func _run() -> void:
 		var st: int = c.state
 		var key: String = CrabS.State.keys()[st]
 		states[key] = int(states.get(key, 0)) + 1
+		if not bool(c._surface_tonight):
+			continue
+		risers += 1
 		if ever_on_deck[i]:
 			reached += 1
 		if c.global_position.y > WET_Y - 0.6:
@@ -108,10 +120,11 @@ func _run() -> void:
 				str(c.global_position.snapped(Vector3.ONE * 0.1)), c.global_position.y])
 	_say("   states: %s" % str(states))
 
-	_check("every crab surfaced onto the plating during the night",
-		reached == crabs.size(), "%d of %d reached the deck" % [reached, crabs.size()])
-	_check("crabs are still up and hunting, not sunk back", on_deck_now >= crabs.size() / 2,
-		"%d of %d on deck at the end" % [on_deck_now, crabs.size()])
+	_say("   %d of %d crabs rolled to surface tonight" % [risers, crabs.size()])
+	_check("every crab that rolled to surface reached the plating",
+		reached == risers, "%d of %d risers reached the deck" % [reached, risers])
+	_check("risers are still up and hunting, not sunk back", on_deck_now >= risers / 2,
+		"%d of %d on deck at the end" % [on_deck_now, risers])
 	var hunting: int = int(states.get("PATROL", 0)) + int(states.get("PURSUE", 0))
-	_check("the pack is up and hunting (PATROL or PURSUE)", hunting >= crabs.size() - 1,
+	_check("the risers are up and hunting (PATROL or PURSUE)", hunting >= risers - 1,
 		str(states))

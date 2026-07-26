@@ -263,6 +263,55 @@ func _run() -> void:
 	_check(main.hud.objective_label.text.to_lower().contains("floodlight"),
 		"objective updates to the power-on payoff")
 
+	# ---- move_slot: the one verb the inventory panel's pick-then-place click runs on.
+	# Every direction has to work, because the old panel could only do pack->hand and
+	# hand->end-of-pack and that is exactly what made it feel glitchy.
+	PlayerState.hotbar = [null, null, null, null]
+	PlayerState.hotbar_counts = [1, 1, 1, 1]
+	PlayerState.inventory.clear()
+	PlayerState.inventory_counts.clear()
+	PlayerState.hotbar[0] = "flare"
+	PlayerState.hotbar[2] = "bandage"
+	PlayerState.inventory.append("scrap_metal")
+	PlayerState.inventory_counts.append(3)
+	var H: int = PlayerState.HOTBAR_SIZE
+	# hotbar -> empty hotbar slot
+	_check(PlayerState.move_slot(0, 1), "move_slot: hotbar to an empty hotbar slot")
+	_check(PlayerState.hotbar[1] == "flare" and PlayerState.hotbar[0] == null,
+		"the flare moved and vacated its old slot")
+	# hotbar -> occupied hotbar slot exchanges both ways
+	PlayerState.move_slot(1, 2)
+	_check(PlayerState.hotbar[2] == "flare" and PlayerState.hotbar[1] == "bandage",
+		"move_slot: two occupied hotbar slots exchange")
+	# pack -> hotbar, counts carried
+	_check(PlayerState.move_slot(H + 0, 0), "move_slot: pack to hotbar")
+	_check(PlayerState.hotbar[0] == "scrap_metal" and int(PlayerState.hotbar_counts[0]) == 3,
+		"the whole stack of 3 came with it")
+	_check(PlayerState.inventory.is_empty(), "the emptied pack entry is removed, not left null")
+	# hotbar -> the empty cell past the end of the pack = stow
+	_check(PlayerState.move_slot(0, H + 0), "move_slot: hotbar stows into an empty pack")
+	_check(PlayerState.inventory.size() == 1 and PlayerState.hotbar[0] == null,
+		"stowing appends to the pack and clears the hand")
+	# pack -> pack reorder (was impossible before)
+	PlayerState.inventory.append("rope")
+	PlayerState.inventory_counts.append(1)
+	PlayerState.move_slot(H + 0, H + 1)
+	_check(PlayerState.inventory[0] == "rope" and PlayerState.inventory[1] == "scrap_metal",
+		"move_slot: two pack slots reorder")
+	# same id merges into one stack instead of shuffling two of the same thing
+	PlayerState.hotbar[0] = "scrap_metal"
+	PlayerState.hotbar_counts[0] = 2
+	PlayerState.move_slot(0, H + 1)
+	_check(int(PlayerState.inventory_counts[1]) == 5 and PlayerState.hotbar[0] == null,
+		"move_slot: two stacks of the same item merge")
+	# a move that means nothing is refused rather than corrupting a slot
+	_check(not PlayerState.move_slot(3, 3), "move_slot: same slot is a no-op")
+	_check(not PlayerState.move_slot(3, 0), "move_slot: an empty source is a no-op")
+	PlayerState.hotbar = [null, null, null, null]
+	PlayerState.hotbar_counts = [1, 1, 1, 1]
+	PlayerState.inventory.clear()
+	PlayerState.inventory_counts.clear()
+
 	# Inventory + eating.
 	PlayerState.add_item("canned_food")
 	var before: float = 0.4

@@ -390,7 +390,12 @@ func _process(delta: float) -> void:
 ## which read as swimming in place rather than a boss lying up at the base of the rig.
 func _den(delta: float) -> void:
 	_leave_hunt()
-	_step_free(den, SWIM_SPEED * 0.2, delta)
+	# Settled and motionless, _step_free stops calling _orient — and a body that never
+	# orients never takes up the frame the seat is handing it. So square up every frame:
+	# on the leg foundation that is what lays the shell down along the concrete instead of
+	# leaving it standing upright with its feet in the slope.
+	if _step_free(den, SWIM_SPEED * 0.2, delta):
+		_orient(delta)
 	if _committed and not _beaten and GameClock.current_phase == GameClock.Phase.NIGHT:
 		_wait -= delta
 		if _wait <= 0.0:
@@ -438,6 +443,7 @@ func _hunt(delta: float, player: Node3D) -> void:
 		return
 	if _roam_hold > 0.0:
 		_roam_hold -= delta
+		_orient(delta)      # standing still on sloped plate, it still settles onto the face
 		return
 	if _step_deck(_roam_target, HUNT_SPEED, delta):
 		_roam_target = _pick_roam()
@@ -674,40 +680,46 @@ func _step_deck(target: Vector3, speed: float, delta: float,
 func _step_free(target: Vector3, speed: float, delta: float) -> bool:
 	return _step_move(target, speed, delta, false)
 
-## Seated only when it is standing on the rig. In the water, on a flight, or on the way
-## home it moves in real 3D — the same reason the pack's transit is unseated.
+## The footing window and the roll-onto-a-new-normal rate, both scaled up from the
+## ordinary crab's 0.55 / 7.0: a bigger animal reads its face from further out and takes
+## longer to come over onto it.
+const SEAT_REACH: float = 0.7
+const SEAT_EASE: float = 6.0
+
+## THE SURFACE FRAME (2026-07-25). A king used to seat only while it was HUNTing or
+## PURSUing on the plating, so anywhere else it stood bolt upright in world space: lying
+## up against the SE leg's foundation it floated off the sloped concrete, and out on a
+## brace or at the edge of the plating it clipped through the face instead of lying on
+## it. It now carries the SAME frame its smaller kin does — FaunaMove.seat, one
+## implementation for both — so a king standing on a leg, on a sloped brace or over a
+## deck rim lies PARALLEL to that surface, at its own scale: a wider footing window
+## (reach 0.7 against the crab's 0.55) and a slower roll onto a new normal, because five
+## metres and a quarter-tonne of animal does not snap onto a new face the way a small one
+## does.
+##
+## Still NOT seated for a climb or an open-water transit: a flight owns its own `up` (the
+## slope), and a swimming king that stays stuck to a face just slides along it — the
+## projection in _step_move cancels the component pointing away from the wall, which is
+## the bug that once stranded the pack flat against the concrete.
 func _seat(delta: float) -> void:
-	if state != State.HUNT and state != State.PURSUE:
+	if state == State.CLIMB or (state == State.RETREAT and _descending):
 		_seated = false
-		if state != State.CLIMB and not (state == State.RETREAT and _descending):
-			up = up.lerp(Vector3.UP, clampf(delta * 2.5, 0.0, 1.0)).normalized()
 		return
-	if _skip.is_empty():
-		_skip = MOVE.kin_bodies(self)
-	var lift: float = 0.7
-	var drop: float = 1.2
-	if not _seated:
-		lift = 1.2
-		drop = 2.2
-	var hit: Dictionary = MOVE.surface_hit(self, global_position, up, lift, drop, _skip)
-	if hit.is_empty():
+	if state == State.RISE or state == State.RETREAT:
 		_seated = false
 		up = up.lerp(Vector3.UP, clampf(delta * 2.5, 0.0, 1.0)).normalized()
 		return
-	var n: Vector3 = hit["normal"]
-	if n.dot(up) > 0.2:
-		up = up.lerp(n, clampf(delta * 6.0, 0.0, 1.0)).normalized()
-	var target: Vector3 = (hit["point"] as Vector3) + up * CLEAR
-	var to_t: Vector3 = target - global_position
-	# Same teleport bug the normal crab had, same fix: the seat followed at 2.5 m/s while the
-	# king walks at 3.0, so it drifted past the 1.6 m threshold and snapped. A five-metre
-	# animal blinking forward is far more obvious than a small one doing it. Snap is now only
-	# for genuinely re-acquiring a surface; see the long note in crab.gd's _seat().
+	if _skip.is_empty():
+		_skip = MOVE.kin_bodies(self)
+	var frame: Dictionary = MOVE.seat(self, up, heading, _seated, delta,
+		SEAT_REACH, CLEAR, SEAT_EASE, SEAT_CATCHUP, _skip)
+	up = frame["up"]
+	heading = frame["heading"]
+	_seated = frame["seated"]
 	if not _seated:
-		global_position = target
-	else:
-		global_position += to_t.limit_length(SEAT_CATCHUP * delta)
-	_seated = true
+		# Nothing under it: it is in the water off the rig, so ease upright and let the
+		# authored den / rise points carry it.
+		up = up.lerp(Vector3.UP, clampf(delta * 2.5, 0.0, 1.0)).normalized()
 
 ## ---------- articulation ----------
 

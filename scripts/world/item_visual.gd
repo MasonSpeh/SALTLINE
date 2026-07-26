@@ -16,6 +16,7 @@ const FISH_TINT := {
 	# Deep-drop rig species — the big ones from the dark.
 	"fish_gulper_eel": Color(0.28, 0.22, 0.3), "fish_bloom_dragon": Color(0.15, 0.35, 0.4),
 	"fish_fathom_sturgeon": Color(0.34, 0.36, 0.32), "fish_abyss_grenadier": Color(0.4, 0.38, 0.34),
+	"fish_coelacanth": Color(0.32, 0.34, 0.38), "fish_giant_oarfish": Color(0.6, 0.65, 0.58),
 }
 ## Owner call, 2026-07-25b: every species now has its own entry. Before this, only 8 of
 ## the ~20 species were listed and everything else silently fell back to the default 1.0
@@ -37,6 +38,8 @@ const FISH_SIZE := {
 	# Deep-drop rig species read heavy in the hand.
 	"fish_gulper_eel": 1.6, "fish_bloom_dragon": 1.4,
 	"fish_fathom_sturgeon": 2.0, "fish_abyss_grenadier": 1.3,
+	"fish_coelacanth": 0.9,                                    # half the grouper
+	"fish_giant_oarfish": 3.5,                                 # largest in the game, a ribbon of meat
 }
 ## Real generated fish meshes (assets/models/fauna/<id>) when present; procedural
 ## silhouette when not. Preloaded — the class cache lags for this new file.

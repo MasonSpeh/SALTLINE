@@ -247,6 +247,18 @@
     "hunger": 0.08,
     "side_effect": "sick"
   },
+  "fish_giant_oarfish": {
+    "name": "Giant Oarfish",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "fish_coelacanth": {
+    "name": "Coelacanth",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
   "dried_fish": {
     "name": "Dried Fish",
     "use": "eat",
@@ -407,7 +419,7 @@
     "use": "eat",
     "hunger": 0.5,
     "thirst": 0.05,
-    "effect": "A PORTION, not the whole fish: a door-sized halibut breaks down into 6-11 of these (fish.json fillets), so the nourishment is per-fillet. It was 0.9 back when one halibut cooked one-for-one."
+    "effect": "A PORTION, not the whole fish: a door-sized halibut breaks down into 1-3 of these (fish.json fillets), so the nourishment is per-fillet."
   },
   "croissant": {
     "name": "Stale Croissant",

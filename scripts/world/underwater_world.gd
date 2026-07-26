@@ -269,24 +269,39 @@ func _open_water_rays() -> void:
 ## A mantle ray gliding open water around the rig. Wing-beat animation (Mode.WING), the
 ## same glb the aerial night-visitor uses, living down where it can be watched.
 ##
-## MOVEMENT MODEL (rewritten). The old ray tracked a perfect flat circle and held a fixed
-## 23° lean the whole way round — it never actually swam level, and every ray banked the
-## same amount forever. The new model steers like a real batoid: it CRUISES LEVEL by
-## default, and BANK IS EARNED — it rolls only as hard as it is actually turning, then
-## rights itself on the straights. A lazy multi-octave weave layered over a soft orbit
-## tether makes the heading wander, so the ray carves long sweeping banked turns (wings
-## tipping past 60° on the deep ones) and levels back out between them. Pitch follows its
-## own gentle climb/dive. The orbit tether + a hard radial clamp keep the span clear of
-## the caissons (legs at ±22 / ±12); orbit radii 16-25 as before.
+## MOVEMENT MODEL (2026-07-25: THE BANK NOW FLIES THE ANIMAL). Two rewrites ago the ray
+## tracked a flat circle at a fixed 23° lean — it never swam level. The last pass fixed
+## that by measuring how hard the heading was changing and rolling to match, which read
+## better but still had the causation backwards: the path was decided first and the wings
+## were a lagging readout of it, so a banked ray was as likely to be sliding sideways
+## through a straight as carving. A real batoid — like an aircraft — does the opposite.
+## It ROLLS, and the roll is what bends the path.
+##
+## So the bank is now the STATE and the heading is the consequence: a lazy multi-octave
+## weave plus a soft orbit tether ask for a bank, the wings take their own time coming over
+## (BANK_RESP), and the heading is then integrated straight out of the roll through the
+## coordinated-turn law, turn = TURN_PER_BANK * tan(roll). Attitude and path cannot
+## disagree any more — level IS straight, banked IS an arc, by construction, and the harder
+## it is over the tighter the arc. Pitch follows its own gentle climb/dive. Holding a 20 m
+## orbit needs only ~15° of lean, so the weave is what puts the drama in. The tether and a
+## hard radial clamp keep the span clear of the caissons (legs at ±22 / ±12); orbit radii
+## 16-25 as before.
 class GliderRay extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL := "res://assets/models/fauna/mantle_ray/mantle_ray.glb"
 	# --- swim tuning (dial the drama here) --------------------------------------------
 	const TURN_RATE_MAX: float = 0.55   ## rad/s ceiling on heading change — caps how tight
-	const BANK_GAIN: float = 2.9        ## roll radians per rad/s of turn (bank into corners)
+	## The coordinated turn. rad/s of heading change per unit of tan(roll): at BANK_MAX it
+	## comes out at the TURN_RATE_MAX ceiling, and at the ~15° the orbit itself asks for it
+	## gives the 0.055 rad/s that holds a 20 m circle. This one number IS the coupling.
+	const TURN_PER_BANK: float = 0.21
 	const BANK_MAX: float = 1.2         ## ~69°: wings well past vertical on the deep banks
 	const BANK_RESP: float = 2.0        ## how fast the roll eases toward its target
-	const TURN_SMOOTH: float = 3.0      ## low-pass on the measured turn rate (see _process)
+	## How much bank the orbit tether asks for per radian of heading error, and the ceiling
+	## on that ask — the tether may lean the animal back toward its circle, but it may never
+	## pin it over: the weave has to stay the thing you notice.
+	const TETHER_BANK: float = 0.9
+	const TETHER_BANK_MAX: float = 0.6
 	const WING_HZ: float = 0.42         ## wing-beat frequency, SET ONCE — never per frame
 	const PITCH_LOOK: float = 0.55      ## how much it noses toward its climb/dive
 	const RADIAL_HOLD: float = 0.06     ## gentle pull back toward the orbit radius
@@ -298,14 +313,16 @@ class GliderRay extends Node3D:
 	var _ph: float
 	var _t: float = 0.0
 	var _mats: Array = []
-	var _model: Node3D
 	var _heading: float = 0.0    ## yaw of travel, integrated (not derived from a fixed circle)
 	var _speed: float = 1.0      ## lazy glide speed, m/s
 	var _dir: float = 1.0        ## orbit sense: +1 CCW, -1 CW
 	var _depth: float = 0.0
 	var _prev_depth: float = 0.0
-	var _roll: float = 0.0
-	var _turn_smooth: float = 0.0   ## filtered turn rate — the raw one is far too noisy to bank on
+	var _roll: float = 0.0           ## THE bank. +ve = starboard wing up = leaning into a left turn
+	## The turn the current bank is generating, rad/s. No longer a filtered measurement of
+	## the path (there is nothing left to measure — the roll dictates it), but it keeps the
+	## name because tests/ray_roll.gd finds the rays by it.
+	var _turn_smooth: float = 0.0
 
 	func _init(span: float, band_y: float, r: float, rate: float, ph: float) -> void:
 		_span = span
@@ -320,7 +337,6 @@ class GliderRay extends Node3D:
 		if gen.is_empty():
 			queue_free()
 			return
-		_model = gen.get("model")
 		_mats = gen["mats"]
 		# SET THE WING-BEAT ONCE AND NEVER TOUCH IT AGAIN. The motion shader computes
 		# `t = TIME * rate + phase`, so rate is a TIME MULTIPLIER, not a speed dial: writing
@@ -348,10 +364,14 @@ class GliderRay extends Node3D:
 		_prev_depth = _depth
 		var target_depth: float = _band_y + sin(_t * 0.06 + _ph) * 2.0 + sin(_t * 0.021 + _ph * 1.7) * 1.0
 		_depth = lerpf(_depth, target_depth, clampf(delta * 0.6, 0.0, 1.0))
-		# --- steering: orbit tangent + gentle radial tether, then a lazy multi-octave weave.
-		# The weave is what turns a dead circle into natural roaming: the ray leans left,
-		# then right, carving banked sweeps. Its heading CHASES this target at a capped rate,
-		# so the turn rate (hence the bank) rises and falls instead of sitting at a constant.
+		# --- steering: the two things that ask for a BANK ----------------------------------
+		# 1. THE WEAVE. A lazy multi-octave roll wander — the ray leans left, comes back
+		#    through level, leans right. This is the animal's own idea and it is what turns a
+		#    dead circle into roaming; because it is three incommensurate octaves it never
+		#    repeats and it spends real time near level between the sweeps.
+		# 2. THE TETHER. The orbit tangent (plus a soft radial pull) says which way it OUGHT
+		#    to be heading; the difference is answered the only way a swimming animal can
+		#    answer it — by leaning that way — never by yawing flat.
 		var flat := Vector2(pos.x, pos.z)
 		var dist: float = maxf(flat.length(), 0.001)
 		var radial := flat / dist                       # unit vector pointing outward
@@ -359,21 +379,22 @@ class GliderRay extends Node3D:
 		var err: float = dist - _r                       # +ve = drifted too far out
 		var steer := (tangent - radial * clampf(err * RADIAL_HOLD, -0.9, 0.9)).normalized()
 		var base_heading: float = atan2(steer.x, steer.y)
-		var weave: float = sin(_t * 0.16 + _ph) * 0.6 \
-			+ sin(_t * 0.05 + _ph * 2.3) * 0.45 \
-			+ sin(_t * 0.027 + _ph * 3.7) * 0.7
-		var desired: float = base_heading + weave
-		# Turn toward the desired heading, rate-limited. The applied step IS the turn rate.
-		var dh: float = wrapf(desired - _heading, -PI, PI)
-		var applied: float = clampf(dh, -TURN_RATE_MAX * delta, TURN_RATE_MAX * delta)
-		_heading += applied
-		# `applied / delta` is a per-frame difference divided by a per-frame time — once the
-		# heading has caught up to the target it is mostly frame noise, and feeding that
-		# straight into the bank made the wings twitch. Low-pass it so the roll answers to the
-		# SUSTAINED turn (a real sweep) and ignores single-frame wobble.
-		var turn_rate: float = lerpf(_turn_smooth, applied / maxf(delta, 0.0001),
-			clampf(delta * TURN_SMOOTH, 0.0, 1.0))
+		var weave: float = sin(_t * 0.16 + _ph) * 0.30 \
+			+ sin(_t * 0.05 + _ph * 2.3) * 0.22 \
+			+ sin(_t * 0.027 + _ph * 3.7) * 0.34
+		var tether: float = clampf(wrapf(base_heading - _heading, -PI, PI) * TETHER_BANK,
+			-TETHER_BANK_MAX, TETHER_BANK_MAX)
+		var bank_target: float = clampf(weave + tether, -BANK_MAX, BANK_MAX)
+		# The wings take their own time coming over — a five-metre span has inertia, and the
+		# lag is what makes the entry to a turn read as a roll rather than a snap.
+		_roll = lerp_angle(_roll, bank_target, clampf(delta * BANK_RESP, 0.0, 1.0))
+		# THE COUPLING. The heading changes because the animal is banked, and by exactly as
+		# much as the bank says: level = dead straight, hard over = the tightest arc it has.
+		# (|_roll| <= BANK_MAX < PI/2, so the tangent can never run away.)
+		var turn_rate: float = clampf(TURN_PER_BANK * tan(_roll),
+			-TURN_RATE_MAX, TURN_RATE_MAX)
 		_turn_smooth = turn_rate
+		_heading += turn_rate * delta
 		# --- advance along the heading, then clamp the orbit so the span clears the legs ---
 		var fwd := Vector3(sin(_heading), 0.0, cos(_heading))
 		var np: Vector3 = pos + fwd * (_speed * delta)
@@ -385,18 +406,19 @@ class GliderRay extends Node3D:
 			np.z = rn.y
 		np.y = _depth
 		global_position = np
-		# --- orientation: yaw + a gentle pitch toward the climb on the HOST (level roll),
-		# and the bank as a local roll on the MODEL (whose -0.4 convention we inherit). ----
+		# --- orientation: yaw + a gentle pitch toward the climb, then the bank ------------
 		var climb: float = (_depth - _prev_depth) / maxf(delta, 0.0001)
 		var look_tgt: Vector3 = np + fwd + Vector3(0.0, clampf(climb * PITCH_LOOK, -0.5, 0.5), 0.0)
 		if (look_tgt - np).length_squared() > 0.000001:
 			look_at(look_tgt, Vector3.UP)
-		# Bank proportional to how hard it is turning: near-level on the straights, wings
-		# well over on the deep sweeps. Sign matches the old constant lean (CCW turn -> -z).
-		var roll_target: float = clampf(-turn_rate * BANK_GAIN, -BANK_MAX, BANK_MAX)
-		_roll = lerp_angle(_roll, roll_target, clampf(delta * BANK_RESP, 0.0, 1.0))
-		if _model:
-			_model.rotation.z = _roll
+		# THE BANK GOES ON THE HOST, about its own forward axis — the only axis a bank can be
+		# about. look_at has just levelled the body along the direction of travel, so rolling
+		# around local Z tips the starboard wing up for a positive _roll, which is a lean to
+		# port, which is the direction a positive turn_rate is taking it: attitude and path
+		# agree because they are the same number. It used to be written to the MODEL's local
+		# rotation.z instead, which after the facing correction is not the forward axis at
+		# all — the model node now carries the authored-facing fix and nothing else.
+		rotate_object_local(Vector3.BACK, _roll)
 		# (No drive() here on purpose — see the note in _ready(). The wing-beat is constant.)
 
 ## One slow giant on a drifting circuit under the rig. Raw circular path — it lives
@@ -404,6 +426,15 @@ class GliderRay extends Node3D:
 ## at ±22/±12), below every deck, net and swimmer, so no wall test is needed.
 class DeepGiant extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	## BODY DEPTH, dorsal to belly. The generated grouper measures 1.90 long by 0.80 deep —
+	## a 0.42 ratio, which is a cod's proportion, not a grouper's, and at this size the
+	## animal read slab-sided: a long shape at the edge of the floodlight with no mass to it.
+	## A real grouper is a DEEP fish, half again as tall through the shoulder as it is thick.
+	## Stretching the model's own Y (the mesh is authored lying down, so Y is dorsal-ventral)
+	## takes it to ~0.55 of its length — a heavy, slab-shouldered silhouette — while length
+	## and width, which the scale normalisation set from the species size, are untouched.
+	## Groupers only: the halibut on this same class is a FLATFISH and must stay flat.
+	const GROUPER_DEPTH: float = 1.3
 	var slug: String = "fish_barrel_grouper"
 	var _size: float
 	var _band_y: float
@@ -428,6 +459,9 @@ class DeepGiant extends Node3D:
 			queue_free()
 			return
 		_mats = gen["mats"]
+		if slug == "fish_barrel_grouper":
+			var model: Node3D = gen["model"]
+			model.scale.y *= GROUPER_DEPTH
 		# Barely lit — these read as shapes in the murk, not lanterns. The pontoon
 		# floodlights supply whatever highlight they get.
 		ANIM.drive(_mats, 0.45, 0.05)

@@ -77,14 +77,21 @@ const CATS := {
 		"start": "You put a boot on the seam.",
 		"done": "It folds flat and the seam lets go.",
 	},
-	# Flasks, jugs, lidded tubs. You are not breaking these up — you are tipping out
-	# whatever somebody left in them and keeping the vessel, because a vessel that holds
-	# water is worth more out here than the tin it's made of.
+	# Flasks, jugs, lidded tubs. You are not breaking these up — you are picking them up
+	# with what is still in them.
+	#
+	# Owner call, 2026-07-25b: this used to be verb EMPTY, and it POURED THE WATER OUT —
+	# on a rig where thirst is the fastest-draining stat, the only thing you could do with
+	# a full crew flask was tip it over the side and keep the tin. That is backwards. TAKE
+	# now hands you the FULL vessel: one drink (items.json bottle_water / thermos_water),
+	# and because those carry `returns`, the empty comes back to your pack afterwards for
+	# the Rain Catcher to refill. Found water is the opening of the water loop, not a
+	# thing you throw away to enter it.
 	"vessel": {
-		"tools": [], "verb": "EMPTY", "work": 1.2, "sound": "hiss",
+		"tools": [], "verb": "TAKE", "work": 1.2, "sound": "hiss",
 		"hint": "",
 		"start": "",
-		"done": "What was in it goes over the side. The vessel's sound.",
+		"done": "Still got most of a shift's water in it. That comes with you.",
 	},
 	# First-aid stock. Sealed, dry, and the only thing on this rig that was ever meant
 	# to help you.

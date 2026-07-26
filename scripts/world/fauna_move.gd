@@ -101,6 +101,71 @@ static func surface_hit(node: Node3D, pos: Vector3, up: Vector3, lift: float,
 		n = u
 	return {"point": hit["position"] as Vector3, "normal": n.normalized()}
 
+## THE SURFACE FRAME SEAT. A crab does not stand on "the deck", it stands on whatever
+## face is under its feet — sloped plate, a caisson leg, the outside of a rim — and its
+## body lies PARALLEL to that face. This is the one implementation of that: cast along
+## -up for footing, ease `up` onto the normal that comes back (so sloped and curved plate
+## is RIDDEN rather than decided about), wrap over a convex edge the way the SurfaceCrawler
+## below does by trying the old heading as the new up, and hold the body `clear` metres
+## off the face it found.
+##
+## Lifted out of crab.gd's _seat so the King Crab shares the identical frame instead of
+## carrying a second copy of it that drifts out of step — the same reason step() and
+## hit_normal() live here rather than in the species. The caller still owns WHEN to seat:
+## a climb and an open-water transit want their own `up`, and those state rules are
+## species knowledge, not movement knowledge.
+##
+## `reach` is the body's footing window, scaled off the animal (crab 0.55, king 0.7): the
+## cast runs from `reach` above the origin down to 1.75 * reach below it, and opens 1.7x
+## wider while UNSEATED so a body that has just landed — or been staged by a shot script —
+## re-acquires the face instead of falling through it. `ease` is how fast `up` rolls onto
+## a new normal, `catchup` how fast the seat may chase the body (it MUST exceed the
+## animal's own top speed, or the seat lags behind and then teleports to catch up).
+##
+## Returns the new frame — {"up", "heading", "seated"} — for the caller to write straight
+## back onto its own vars. The node itself is moved onto the seat here; with no footing at
+## all nothing is moved and "seated" comes back false, which is the caller's cue that the
+## animal is in the air or the water and its authored points own the motion.
+static func seat(node: Node3D, up: Vector3, heading: Vector3, seated: bool, delta: float,
+		reach: float, clear: float, ease: float, catchup: float,
+		exclude: Array[RID] = []) -> Dictionary:
+	var u: Vector3 = up.normalized()
+	var h: Vector3 = heading
+	var lift: float = reach
+	var drop: float = reach * 1.75
+	if not seated:
+		lift *= 1.7
+		drop *= 1.7
+	var hit: Dictionary = surface_hit(node, node.global_position, u, lift, drop, exclude)
+	if hit.is_empty() and seated and h.length() > 0.5:
+		# CONVEX EDGE (deck -> rim face, the crest of a kerb). The face the feet were on has
+		# run out, but the one they are walking INTO is still there: rolling the frame so the
+		# old heading becomes the new up carries the body over the lip and down the far side,
+		# which is what a crawler does with an edge — instead of walking off into the air.
+		var h2: Dictionary = surface_hit(node, node.global_position, h,
+			reach * 1.27, reach * 2.18, exclude)
+		if not h2.is_empty():
+			var old_up: Vector3 = u
+			u = h.normalized()
+			h = -old_up
+			hit = h2
+	if hit.is_empty():
+		return {"up": u, "heading": h, "seated": false}
+	var n: Vector3 = hit["normal"]
+	if n.dot(u) > 0.2:
+		u = u.lerp(n, clampf(delta * ease, 0.0, 1.0)).normalized()
+	var target: Vector3 = (hit["point"] as Vector3) + u * clear
+	var to_t: Vector3 = target - node.global_position
+	# SNAP ONLY WHEN GENUINELY RE-ACQUIRING A SURFACE — never as a "the seat has drifted"
+	# correction. The old crab did the latter and a pursuing crab, moving faster than its
+	# own seat could follow, was teleported forward 36 times in a measured 110 s night.
+	# `catchup` exceeding the animal's top speed is what makes the continuous case safe.
+	if not seated:
+		node.global_position = target
+	else:
+		node.global_position += to_t.limit_length(catchup * delta)
+	return {"up": u, "heading": h, "seated": true}
+
 ## Is `pos` INSIDE world geometry? The one question a raycast cannot answer: Godot's
 ## convex raycast ignores a shape whose interior the ray starts in, so a probe fired from
 ## inside a bulkhead sails through it and reports whatever lies BEYOND — which reads a

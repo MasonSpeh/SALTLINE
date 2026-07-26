@@ -968,6 +968,11 @@ const BODY_R: float = 0.42
 ## How fast the ground seat is allowed to chase the body. MUST exceed the crab's own top
 ## speed (pursue 4.4 m/s) or the seat falls behind and the old code teleported to catch up.
 const SEAT_CATCHUP: float = 9.0
+## The footing window and how fast the body rolls onto a new face normal — a small, light
+## animal reads its face from close in and swaps frames quickly. (The King Crab passes its
+## own, bigger numbers into the same FaunaMove.seat.)
+const SEAT_REACH: float = 0.55
+const SEAT_EASE: float = 7.0
 ## Inside this range a stuck-crab recovery must NOT teleport — the player would see it.
 const RELOCATE_HIDE_DIST: float = 45.0
 const PROBE_H: float = 0.35
@@ -1072,47 +1077,18 @@ func _seat(delta: float) -> void:
 		return
 	if _skip.is_empty():
 		_skip = MOVE.kin_bodies(self)
-	var lift: float = 0.55
-	var drop: float = 0.95
+	# The frame itself now lives in FaunaMove.seat — the King Crab stands on the same one,
+	# so the cast window, the convex-edge wrap and the no-teleport catch-up are shared
+	# rather than maintained twice. What stays here is the crab's own numbers and the
+	# swimming fallback: no footing means it is in the water, so ease upright and let the
+	# authored emergence points carry it.
+	var frame: Dictionary = MOVE.seat(self, up, heading, _seated, delta,
+		SEAT_REACH, CLEAR, SEAT_EASE, SEAT_CATCHUP, _skip)
+	up = frame["up"]
+	heading = frame["heading"]
+	_seated = frame["seated"]
 	if not _seated:
-		lift = 0.9
-		drop = 1.6
-	var hit: Dictionary = MOVE.surface_hit(self, global_position, up, lift, drop, _skip)
-	if hit.is_empty() and _seated:
-		var wrap_up: Vector3 = heading
-		if wrap_up.length() > 0.5:
-			var h2: Dictionary = MOVE.surface_hit(self, global_position, wrap_up,
-				0.7, 1.2, _skip)
-			if not h2.is_empty():
-				var old_up: Vector3 = up
-				up = wrap_up.normalized()
-				heading = -old_up
-				hit = h2
-	if hit.is_empty():
-		_seated = false
 		up = up.lerp(Vector3.UP, clampf(delta * 2.5, 0.0, 1.0)).normalized()
-		return
-	var n: Vector3 = hit["normal"]
-	if n.dot(up) > 0.2:
-		up = up.lerp(n, clampf(delta * 7.0, 0.0, 1.0)).normalized()
-	var target: Vector3 = (hit["point"] as Vector3) + up * CLEAR
-	var to_t: Vector3 = target - global_position
-	# SNAP ONLY WHEN GENUINELY RE-ACQUIRING A SURFACE.
-	#
-	# This used to also snap whenever the seat had drifted more than 1.3 m — and the seat
-	# followed at 3.0 m/s while the crab's own chase speed is 4.4 m/s. So a PURSUING crab
-	# outran its own ground seat every single time, drifted past the threshold, and got
-	# teleported forward. Measured over a 110 s night: 36 teleport-sized steps, worst 6.43 m.
-	# On screen that is the crab blinking across the deck instead of scuttling at you, which
-	# is both less smooth and much less frightening.
-	#
-	# The follow rate now comfortably exceeds any speed a crab can move at, so the seat
-	# tracks continuously and the snap is reserved for spawn and for landing after a fall.
-	if not _seated:
-		global_position = target
-	else:
-		global_position += to_t.limit_length(SEAT_CATCHUP * delta)
-	_seated = true
 
 func _follow_path_free(path: Array, speed: float, delta: float) -> bool:
 	if _wp_index >= path.size():

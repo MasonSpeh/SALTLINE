@@ -378,6 +378,108 @@ func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
 	inventory_changed.emit()
 	return true
 
+## Move / swap / merge the contents of ONE unified slot into another, in any direction:
+## hotbar<->hotbar, pack<->pack, hotbar<->pack. Unified index = 0..HOTBAR_SIZE-1 for the
+## hotbar, then HOTBAR_SIZE + i for pack entry i.
+##
+## Owner call, 2026-07-25b: this exists because the inventory panel had no way to express
+## "put THIS there". A click on a hotbar slot dumped it at the END of the pack, and a click
+## on a pack slot swapped it into whatever hotbar slot happened to be equipped — invisible
+## state the player never chose. Neither hotbar->hotbar nor pack->pack reordering was
+## possible AT ALL. One verb replaces all of it: pick a slot, then click the slot you want
+## it in.
+##
+## Every case is lossless and in-place. Nothing is created or destroyed, so the only way
+## this returns false is a move that means nothing (same slot, empty source, an
+## out-of-range target, or a merge into a stack that is already at the cap).
+##
+## `inventory` is a PACKED list, not a fixed grid — a null left in it would draw as a
+## phantom slot — so the two directions that vacate a pack cell remove it outright, and a
+## drop onto the empty cell past the end appends. Each direction is handled explicitly
+## rather than through a generic write helper, because a shared helper would have to
+## remove-then-insert and every pack index after the hole would shift under it.
+func move_slot(from_u: int, to_u: int) -> bool:
+	if from_u == to_u or from_u < 0 or to_u < 0:
+		return false
+	var from_h: bool = from_u < HOTBAR_SIZE
+	var to_h: bool = to_u < HOTBAR_SIZE
+	var fi: int = from_u if from_h else from_u - HOTBAR_SIZE
+	var ti: int = to_u if to_h else to_u - HOTBAR_SIZE
+	# The source has to actually hold something.
+	if from_h:
+		if fi >= HOTBAR_SIZE or hotbar[fi] == null:
+			return false
+	elif fi >= inventory.size():
+		return false
+	# The target has to be a slot that exists. For the pack that includes exactly one cell
+	# past the end — the first empty one — which is what "stow it in the pack" clicks.
+	if to_h:
+		if ti >= HOTBAR_SIZE:
+			return false
+	elif ti > inventory.size() or ti >= backpack_capacity():
+		return false
+
+	var f_id: String = String(hotbar[fi]) if from_h else String(inventory[fi])
+	var f_n: int = int(hotbar_counts[fi]) if from_h else int(inventory_counts[fi])
+	var t_id: String = ""
+	var t_n: int = 0
+	if to_h:
+		if hotbar[ti] != null:
+			t_id = String(hotbar[ti])
+			t_n = int(hotbar_counts[ti])
+	elif ti < inventory.size():
+		t_id = String(inventory[ti])
+		t_n = int(inventory_counts[ti])
+
+	# ---- same thing on both sides: pile it up instead of shuffling two identical stacks.
+	if t_id != "" and t_id == f_id:
+		var moved: int = mini(f_n, maxi(_stack_cap(f_id) - t_n, 0))
+		if moved <= 0:
+			return false      # target stack already at the cap: a no-op, not a swap
+		if to_h:
+			hotbar_counts[ti] = t_n + moved
+		else:
+			inventory_counts[ti] = t_n + moved
+		if f_n - moved <= 0:
+			_clear_slot(from_h, fi)
+		elif from_h:
+			hotbar_counts[fi] = f_n - moved
+		else:
+			inventory_counts[fi] = f_n - moved
+		inventory_changed.emit()
+		return true
+
+	# ---- otherwise the two slots exchange contents outright.
+	if to_h:
+		hotbar[ti] = f_id
+		hotbar_counts[ti] = f_n
+	elif ti < inventory.size():
+		inventory[ti] = f_id
+		inventory_counts[ti] = f_n
+	else:
+		inventory.append(f_id)          # the empty cell past the end
+		inventory_counts.append(f_n)
+	if t_id == "":
+		_clear_slot(from_h, fi)
+	elif from_h:
+		hotbar[fi] = t_id
+		hotbar_counts[fi] = t_n
+	else:
+		inventory[fi] = t_id
+		inventory_counts[fi] = t_n
+	inventory_changed.emit()
+	return true
+
+## Empty one slot. A hotbar slot goes null in place (it is a fixed grid); a pack entry is
+## removed outright, because the pack is a packed list.
+func _clear_slot(is_hotbar: bool, i: int) -> void:
+	if is_hotbar:
+		hotbar[i] = null
+		hotbar_counts[i] = 1
+	else:
+		inventory.remove_at(i)
+		inventory_counts.remove_at(i)
+
 func hotbar_to_backpack(slot: int) -> bool:
 	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:
 		return false

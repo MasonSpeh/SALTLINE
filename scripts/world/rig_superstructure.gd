@@ -358,7 +358,16 @@ func _glow(pos: Vector3, color: Color, energy: float = 0.4, range_: float = 4.0)
 ## These wake with the BREAKER instead (topside circuit): dead and dark in the blackout,
 ## warm once the player restores power. `pos` is the ceiling underside; the fixture bolts
 ## flush and the omni hangs just below. Shadows off for gl_compat.
-func _powered_ceiling(pos: Vector3, energy: float = 1.6, rng: float = 5.5) -> void:
+## The default range was 5.5 and is now 4.2, with the energy raised to keep each room as
+## bright as it was. 5.5 m was further than the rooms are: these fixtures cast no shadows
+## (gl_compat perf), so an unshadowed 5.5 m sphere hung in a 5 m cabin PASSES THROUGH THE
+## BULKHEAD — the cabin lights at z8 were lighting the corridor at z12, and with only 3.5 m
+## between deck ceilings they were lighting the deck above as well. Measured with
+## tests/PowerPerf.tscn, a single point in the Deck B corridor sat inside 23 light volumes
+## once the breaker closed, and in GL every extra light touching an object is another pass
+## over it. Pulling the radius inside the walls that should have been stopping it is both
+## the fix for the leak and the fix for the cost.
+func _powered_ceiling(pos: Vector3, energy: float = 1.9, rng: float = 4.2) -> void:
 	_dbox(pos + Vector3(0, -0.02, 0), Vector3(0.5, 0.06, 0.22), MatLib.dark_metal())   # flush plate
 	var lens := _dbox(pos + Vector3(0, -0.1, 0), Vector3(0.42, 0.06, 0.16),
 		MatLib.flat(Color(0.85, 0.82, 0.72), false, 0.0))                              # dark lens

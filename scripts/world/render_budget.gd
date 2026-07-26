@@ -42,6 +42,40 @@ const FADE: float = 0.18          ## fraction of the range spent fading, so noth
 const SWEEP_COUNT: int = 8
 const SWEEP_EVERY: float = 3.0
 
+# ---------------------------------------------------------------- the LIGHT budget
+## Rules 1 and 2 above are about MESHES, and they are why the rig draws at all. They do
+## nothing for the second cliff, which the breaker falls off: closing the topside circuit
+## took the rig from ~20 fps to ~12 and made it "unbearably glitchy". Measured with
+## tests/PowerPerf.tscn (windowed, real GPU) the blame is not what it looks like:
+##
+##   * turning 60 interior lights OFF bought back 4%. The light COUNT is not the problem.
+##   * turning shadows off on the FIVE shadow-casting omni/spots took 20.7 -> 31.9 fps and
+##     dropped 700 draw calls. FIVE lights were costing more than half the frame.
+##
+## A shadow-casting spot re-renders every caster in its range into a shadow map, every
+## frame, whether or not the player can see the result. Four pole floodlights standing on
+## an open deck do that four times over, and the three you are not standing under
+## contribute nothing you would ever notice.
+##
+## So: shadows stay ON — they are the whole point of restoring power — but only for the
+## lights CLOSE ENOUGH FOR THE SHADOW TO BE WORTH DRAWING. Stand under a floodlight and it
+## still throws your shadow across the plating; the three poles across the deck give you
+## their light without also each rendering a shadow map you cannot resolve at that range.
+##
+## This is done by toggling `shadow_enabled` from _process, NOT with Light3D's own
+## `distance_fade_shadow`. That property is the obvious tool and it is the wrong one here:
+## it is implemented in Forward+ and Mobile only, and the Compatibility renderer this game
+## ships on ignores it outright. Measured with tests/PowerPerf.tscn, setting it changed the
+## draw-call count by nothing at all, while flipping `shadow_enabled` on the same five
+## lights dropped ~700 draw calls. The flag is real in GL; the fade is not.
+##
+## DIRECTIONAL lights are exempt — the sun's shadow is the whole sky and has no position
+## to be near or far from.
+const SHADOW_NEAR: float = 20.0     ## a shadow-casting light further than this stops casting
+const SHADOW_ALWAYS: float = 9.0    ## ...but this close it casts even when the fixture is off screen
+const SHADOW_BUDGET: int = 2        ## at most this many lights cast at once, nearest first
+const SHADOW_POLL: float = 0.25     ## seconds between re-rankings; lights and player both move slowly
+
 ## Never touch these: they are already hand-tuned, camera-relative, or shader-displaced far
 ## outside their authored AABB, so a size-derived range would cull them wrongly.
 const SKIP_SCRIPTS: Array[String] = [
@@ -58,13 +92,25 @@ const SKIP_GROUPS: Array[String] = [
 
 var _budgeted: int = 0
 var _shadow_off: int = 0
+var _lights_faded: int = 0
+var _shadow_lights: Array[Light3D] = []   ## every non-directional light authored to cast
+var _poll_t: float = 0.0
 
 func _ready() -> void:
 	name = "RenderBudget"
 	for i in range(SWEEP_COUNT):
 		await get_tree().create_timer(SWEEP_EVERY if i > 0 else 1.5).timeout
 		_sweep(get_parent())
-	print("[budget] meshes budgeted: %d   shadow casters dropped: %d" % [_budgeted, _shadow_off])
+	print("[budget] meshes budgeted: %d   shadow casters dropped: %d   shadow lights rationed: %d"
+		% [_budgeted, _shadow_off, _lights_faded])
+
+func _process(delta: float) -> void:
+	if _shadow_lights.is_empty():
+		return
+	_poll_t -= delta
+	if _poll_t <= 0.0:
+		_poll_t = SHADOW_POLL
+		_rank_shadows()
 
 func _sweep(root: Node) -> void:
 	if root == null:
@@ -76,6 +122,12 @@ func _sweep(root: Node) -> void:
 			continue
 		for c in n.get_children():
 			stack.append(c)
+		# Lights are budgeted on the same sweep — a brazier the player lit two minutes ago
+		# and a floodlight built at startup both come through here exactly once.
+		var lt := n as Light3D
+		if lt != null:
+			_budget_light(lt)
+			continue
 		var mi := n as MeshInstance3D
 		if mi == null or mi.mesh == null or mi.has_meta("budgeted"):
 			continue
@@ -110,6 +162,56 @@ func _sweep(root: Node) -> void:
 		mi.visibility_range_end = reach
 		mi.visibility_range_end_margin = reach * FADE
 		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
+
+## Enrol one light in the shadow budget. The light itself is never touched — same colour,
+## same energy, same range, same lens — only its shadow pass is rationed, by _rank_shadows
+## below. A light that was authored WITHOUT shadows costs nothing here and is skipped, so
+## the ~180 shadowless omnis on the rig fall straight through and stay shadowless.
+func _budget_light(l: Light3D) -> void:
+	if l.has_meta("budgeted"):
+		return
+	l.set_meta("budgeted", true)
+	if l is DirectionalLight3D or not l.shadow_enabled:
+		return
+	_shadow_lights.append(l)
+	_lights_faded += 1
+
+## Keep only the SHADOW_BUDGET nearest shadow-casters live, and only inside SHADOW_NEAR.
+## Cheap: a handful of lights, a distance each, four times a second.
+func _rank_shadows() -> void:
+	var cam: Camera3D = get_viewport().get_camera_3d() if is_inside_tree() else null
+	if cam == null:
+		return
+	var eye: Vector3 = cam.global_position
+	var live: Array = []      # [distance, light] for everything in range
+	for i in range(_shadow_lights.size() - 1, -1, -1):
+		var l: Light3D = _shadow_lights[i]
+		if not is_instance_valid(l):
+			_shadow_lights.remove_at(i)
+			continue
+		if not l.visible:
+			l.shadow_enabled = false
+			continue
+		var d: float = l.global_position.distance_to(eye)
+		# Near enough AND either on screen or close enough to be overhead. The frustum test
+		# is the one that matters indoors: standing in a Deck B cabin puts you within 11 m
+		# of two pole floodlights that are outside the hull and one deck down, and they
+		# were each rendering a shadow map through the floor that nothing in the room could
+		# ever show. Distance alone cannot tell those apart from the pole you are standing
+		# under; "is the fixture itself in shot" can, for one dot product per light.
+		#
+		# SHADOW_ALWAYS is the exception that keeps the payoff: stand at the foot of a
+		# floodlight and look DOWN at the pool of light, and the fixture is above and
+		# behind the camera — out of frustum, in the one spot where your own shadow
+		# stretching across the plating is the whole reason the light is there.
+		var seen: bool = d <= SHADOW_ALWAYS or cam.is_position_in_frustum(l.global_position)
+		if d > SHADOW_NEAR or not seen:
+			l.shadow_enabled = false
+		else:
+			live.append([d, l])
+	live.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
+	for i in range(live.size()):
+		(live[i][1] as Light3D).shadow_enabled = i < SHADOW_BUDGET
 
 func _skip(n: Node) -> bool:
 	for g in SKIP_GROUPS:

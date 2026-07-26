@@ -548,9 +548,9 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]Climb[/b]          HOLD E on a ladder — E rides up, E+S rides down, release to let go
 [b]Carry[/b]          E grabs loose props · LMB throws · E/G sets down
 [b]Hotbar[/b]         1–4 brings that item to hand · same number again eats or drinks it
-[b]Inventory[/b]      I — click a pack item to bring it to hand (it swaps with what you hold,
-                so a full hotbar is never a reason to drop anything)
-                click a slot, then the panel's empty space, to drop that item
+[b]Inventory[/b]      I — click an item to pick it up, then click the slot you want it in
+                (swaps with whatever is there, so a full pack is never a dead end)
+                click it again to put it back · click empty space to drop it
 [b]Crates[/b]         E opens an exchange panel — take what you need, stow what you don't
 [b]Journal[/b]        J — discoveries, item notes, craft hints
 [b]Hook[/b]           F — throw the rigging hook (craft it at the bench)
@@ -913,46 +913,45 @@ func _inv_clear_selection() -> void:
 func _inv_selection_valid() -> bool:
 	return _inv_selected_id != "" and _inv_slot_item(_inv_selected_idx) == _inv_selected_id
 
-## Which hotbar slot a pack click exchanges with: the one in hand. Nothing selected yet
-## (a fresh game, before any 1-4 press) falls back to the first empty slot, then to slot 1,
-## so the click always lands somewhere instead of quietly doing nothing.
-func _swap_target_slot() -> int:
-	var sel: int = PlayerState.selected_hotbar
-	if sel >= 0 and sel < PlayerState.HOTBAR_SIZE:
-		return sel
-	for i in range(PlayerState.HOTBAR_SIZE):
-		if PlayerState.hotbar[i] == null:
-			return i
-	return 0
-
-## Left-click a slot. Two jobs, and neither of them can dead-end on a full pack:
-##  · a PACK slot exchanges its stack with the hotbar slot in hand. It used to call
-##    backpack_to_hotbar, which needs a free hotbar slot and returned false with all four
-##    occupied — the click did nothing at all, and the player had to drop or stow something
-##    before they could bring anything to hand. A swap needs no free slot anywhere.
-##  · a HOTBAR slot still stows into the pack; when the pack has no room the click PICKS it
-##    instead of failing silently, and the click-away drop below is the way out.
-## Either way the clicked item ends up picked (the selection follows it to its new slot),
-## because a click is also how the player chooses what they are about to drop.
+## Left-click a slot: PICK IT UP, then click where you want it. That is the whole model.
+##
+## Owner call, 2026-07-25b — the old behaviour was reported as glitchy, and it was, because
+## one click meant two different things depending on which half of the panel it landed in.
+## A hotbar click STOWED the item instantly, at the end of the pack, with no say in where
+## it went. A pack click swapped it into `PlayerState.selected_hotbar` — whichever slot was
+## last equipped, state the player could not see and had not chosen — so the same click
+## sent the item somewhere different depending on invisible history. Neither hotbar->hotbar
+## nor pack->pack reordering was possible at all, and because the selection marker followed
+## the item to wherever it had been flung, the highlight jumped to a slot the player never
+## clicked. That is the "glitch".
+##
+## Now: first click picks (nothing moves), second click places. Same slot twice cancels.
+## Empty slot with nothing picked clears. Every pair of slots is a legal move, so there is
+## no dead end and no case where a click silently does nothing.
 func _inv_slot_clicked(idx: int) -> void:
-	if _inv_slot_item(idx) == "":
-		_inv_clear_selection()   # an empty slot picks nothing
-		_refresh_inventory_panel()
-		return
-	if idx < PlayerState.HOTBAR_SIZE:
-		if PlayerState.hotbar_to_backpack(idx):
-			_inv_select(PlayerState.HOTBAR_SIZE + PlayerState.inventory.size() - 1)
-		else:
-			_inv_select(idx)   # pack full — it stays in hand, picked and ready to drop
-	else:
-		var slot: int = _swap_target_slot()
-		# Set the hand slot BEFORE the swap: the held-item visual is rebuilt on
-		# inventory_changed, which swap_backpack_hotbar emits, and it reads selected_hotbar.
-		PlayerState.selected_hotbar = slot
-		if PlayerState.swap_backpack_hotbar(idx - PlayerState.HOTBAR_SIZE, slot):
-			_inv_select(slot)
+	# ---- nothing picked yet: this click picks, and moves nothing.
+	if not _inv_selection_valid():
+		if _inv_slot_item(idx) == "":
+			_inv_clear_selection()
 		else:
 			_inv_select(idx)
+		_refresh_inventory_panel()
+		return
+	# ---- clicking the picked slot again puts it back down.
+	if idx == _inv_selected_idx:
+		_inv_clear_selection()
+		_refresh_inventory_panel()
+		return
+	# ---- place it. The selection follows the item so a mis-drop is one click to undo,
+	# and so the click-away drop below still has something aimed at it.
+	if PlayerState.move_slot(_inv_selected_idx, idx):
+		# Bringing something to a hotbar slot equips that slot, so the held-item visual
+		# matches what the panel just showed going into your hand.
+		if idx < PlayerState.HOTBAR_SIZE:
+			PlayerState.selected_hotbar = idx
+		_inv_select(idx)
+	else:
+		_inv_clear_selection()
 	_refresh_inventory_panel()
 
 ## A click inside the panel but away from the slot grid drops the picked item — "put it

@@ -33,8 +33,25 @@ enum Mode {
 ## DEFAULT is: yaw the model node 180 and tell the shader the head is at the +Z end
 ## (flow_flip 1). Radially symmetric models (jelly, barnacles, limpet, flora) don't
 ## care. Add a slug here ONLY when a future model breaks the convention.
-const FACING_DEFAULT := {"yaw": 180.0, "axis": 0, "flip": 1.0}
-const FACING_OVERRIDES: Dictionary = {}
+##   yaw/pitch — degrees on the model node. Applied in Godot's YXZ order, so `pitch` is
+##               taken FIRST in the mesh's own space and `yaw` then swings the result.
+##   axis/flip — where the shader finds the body: see flow_axis / flow_flip.
+##   lift      — which local axis the WING/FLAP beat displaces along: 0 = Y, 1 = Z.
+const FACING_DEFAULT := {"yaw": 180.0, "pitch": 0.0, "axis": 0, "flip": 1.0, "lift": 0}
+## THE MANTLE RAY is the one model that breaks the convention, and it broke it in the one
+## way a yaw cannot fix (re-verified from the FacingShot side view, 2026-07-25): Meshy
+## authored it STANDING ON ITS TAIL, like a kite. Wings span local X, the head is at +Y
+## with the tail whip hanging to -Y, and the thin dorsal-ventral axis runs Z — dark back
+## at -Z, pale belly at +Z, because a "front" view of a ray is a view of its underside.
+## Yawing that 180 like everything else only spins the kite: the animal swims edge-on, on
+## its side, which is exactly what it has been doing. Pitching +90 lays it flat (head
+## +Y -> -Z, dark back -Z -> +Y) and the usual 180 yaw then puts the head on Godot's
+## forward. `across` is still local X so the wingbeat spans correctly, but the beat has to
+## displace along local Z — the mesh's dorsal-ventral axis — or the wingtips shear
+## fore-and-aft along the body instead of flapping.
+const FACING_OVERRIDES: Dictionary = {
+	"mantle_ray": {"yaw": 180.0, "pitch": 90.0, "axis": 0, "flip": 1.0, "lift": 1},
+}
 
 static func facing_for(path: String) -> Dictionary:
 	return FACING_OVERRIDES.get(path.get_file().get_basename(), FACING_DEFAULT)
@@ -118,12 +135,14 @@ static func attach(host: Node3D, path: String, target_m: float, mode: int,
 		return {}
 	host.add_child(model)
 	var mats := apply(model, mode, amp, rate, glow, phase, opacity)
-	# Normalise authored facing so the species' look_at movement drives it head-first.
+	# Normalise authored facing so the species' look_at movement drives it head-first — and
+	# right-side-up: a model authored standing on end needs the pitch as well as the yaw.
 	var fac := facing_for(path)
-	model.rotation.y = deg_to_rad(fac["yaw"])
+	model.rotation = Vector3(deg_to_rad(fac["pitch"]), deg_to_rad(fac["yaw"]), 0.0)
 	for m in mats:
 		(m as ShaderMaterial).set_shader_parameter("flow_axis", fac["axis"])
 		(m as ShaderMaterial).set_shader_parameter("flow_flip", fac["flip"])
+		(m as ShaderMaterial).set_shader_parameter("lift_axis", fac["lift"])
 	return {"model": model, "mats": mats}
 
 ## Attach the generated mesh and hide the procedural geometry it supersedes.

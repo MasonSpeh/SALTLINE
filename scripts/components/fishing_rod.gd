@@ -103,7 +103,7 @@ func setup(player: Node3D, camera: Camera3D) -> void:
 	# drum. Refuse it here, say why, and let the first physics frame reel it back in.
 	_bait_id = _find_bait()
 	if _bait_id == "":
-		_abort_msg = "Bait the line first — a live snail or cut bait. Nothing in the dark rises to a bare hook."
+		_abort_msg = "Bait the hook first — a live snail or a small fish. Nothing in the dark rises to a bare hook."
 		visible = false
 		return
 	_build_lead()
@@ -206,20 +206,24 @@ func _is_deep_selected() -> bool:
 	var it: Variant = PlayerState.hotbar[sel]
 	return it != null and String(it) == "deep_rig_pole"
 
-## Find one bait in the pack: a live snail, or any fish flesh as cut bait (rotten chum
-## counts — a bare fish BONE does not). Cheapest-first, so a prize catch is never spent
-## baiting the next drop. Returns the item id, or "" when there's none.
+## Find one bait in the pack: a live snail, rotten chum, or a small fish as cut bait.
+## Small baitfish are the species under 0.7m: copper sprat, herring, chimefish, ghost sole,
+## silver ladder. Large fish waste their protein on a deep drop — nothing chases the bait
+## at depth if there's plenty of meat on the hook already. Cheapest-first, so a prize catch
+## is never spent baiting the next drop. Returns the item id, or "" when there's none.
 func _find_bait() -> String:
 	for want in ["snail_live", "fish_rotten"]:
 		if PlayerState.has_item(want):
 			return want
 	for entry in PlayerState.hotbar + PlayerState.inventory:
-		if entry != null and _is_cut_bait(String(entry)):
+		if entry != null and _is_small_bait_fish(String(entry)):
 			return String(entry)
 	return ""
 
-static func _is_cut_bait(id: String) -> bool:
-	return id.begins_with("fish_") and id != "fish_bone" and id != "fish_rotten"
+## Small species suitable as bait for the deep-drop rig. These are the baitfish schools
+## whose size multiplier is <0.7m (see item_visual.gd FISH_SIZE).
+static func _is_small_bait_fish(id: String) -> bool:
+	return id in ["fish_copper_sprat", "fish_herring", "fish_chimefish", "fish_ghost_sole", "fish_silver_ladder"]
 
 ## Plain-words bait name for the water-read prompt.
 func _bait_name() -> String:

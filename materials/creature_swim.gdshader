@@ -42,6 +42,11 @@ uniform vec3 bounds_size = vec3(2.0);
 // tell the shader where the head actually is so the wave still runs head -> tail.
 uniform int flow_axis = 0;       // 0: body runs along local Z   1: along local X
 uniform float flow_flip = 0.0;   // 0: head at min end           1: head at max end
+// Which local axis a WING/FLAP beat lifts along. Y for everything authored lying down;
+// the mantle ray was authored standing on its tail, so its dorsal-ventral axis — the one
+// wings actually beat along — is local Z, and a beat written to Y would shear its wingtips
+// fore-and-aft along the body instead of flapping them.
+uniform int lift_axis = 0;       // 0: beat along local Y        1: along local Z
 
 // --- bioluminescence ------------------------------------------------------------
 uniform vec4 glow_color : source_color = vec4(0.25, 0.95, 0.88, 1.0);
@@ -67,7 +72,8 @@ void vertex() {
 	} else if (mode == 1) {
 		// Ray: wings beat vertically, amplitude growing toward the tips.
 		float lat = clamp(abs(across - 0.5) * 2.0, 0.0, 1.0);
-		p.y += sin(t * TAU_ - lat * 1.4) * amp * lat * lat;
+		float beat = sin(t * TAU_ - lat * 1.4) * amp * lat * lat;
+		if (lift_axis == 0) { p.y += beat; } else { p.z += beat; }
 	} else if (mode == 2) {
 		// Jelly: the bell squashes and the skirt flares — a swimming pulse.
 		float pulse = sin(t * TAU_);
@@ -77,7 +83,8 @@ void vertex() {
 	} else if (mode == 3) {
 		// Bird: fast wingbeat.
 		float lat = clamp(abs(across - 0.5) * 2.0, 0.0, 1.0);
-		p.y += sin(t * TAU_ * 2.0) * amp * lat * lat;
+		float wb = sin(t * TAU_ * 2.0) * amp * lat * lat;
+		if (lift_axis == 0) { p.y += wb; } else { p.z += wb; }
 	} else if (mode == 4) {
 		// LEGGED GAIT (crab). There are no bones, so "legs" get found geometrically:
 		// geometry that sits low in the body AND out to the side. Each one steps on a
