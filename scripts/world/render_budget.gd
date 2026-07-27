@@ -73,7 +73,15 @@ const SWEEP_EVERY: float = 3.0
 ## to be near or far from.
 const SHADOW_NEAR: float = 20.0     ## a shadow-casting light further than this stops casting
 const SHADOW_ALWAYS: float = 9.0    ## ...but this close it casts even when the fixture is off screen
-const SHADOW_BUDGET: int = 2        ## at most this many lights cast at once, nearest first
+const SHADOW_BUDGET: int = 3        ## owner call, 2026-07-27: 2 -> 3, to see how the frame takes it
+## A currently-casting light needs to fall this many metres further back than a currently-
+## dark one before the ranking swaps them. Two lights sitting near the SHADOW_BUDGET cutoff
+## (a player walking a corridor lined with fixtures, say) used to trade the last slot back
+## and forth every SHADOW_POLL tick as their distances crossed — each swap tears down one
+## shadow map and stands up another, which reads as a shadow visibly popping / relighting
+## for no reason the player did. The margin only ever helps the light that already has the
+## slot, so it cannot let a light that is genuinely much closer keep waiting its turn.
+const SHADOW_HYSTERESIS: float = 1.5
 const SHADOW_POLL: float = 0.25     ## seconds between re-rankings; lights and player both move slowly
 
 ## Never touch these: they are already hand-tuned, camera-relative, or shader-displaced far
@@ -208,7 +216,11 @@ func _rank_shadows() -> void:
 		if d > SHADOW_NEAR or not seen:
 			l.shadow_enabled = false
 		else:
-			live.append([d, l])
+			# Hysteresis: a light already holding a shadow slot is measured as if it were
+			# SHADOW_HYSTERESIS metres closer than it really is, so it does not lose the slot
+			# to a rival that is only marginally nearer this tick than last tick.
+			var ranked_d: float = d - (SHADOW_HYSTERESIS if l.shadow_enabled else 0.0)
+			live.append([ranked_d, l])
 	live.sort_custom(func(a: Array, b: Array) -> bool: return a[0] < b[0])
 	for i in range(live.size()):
 		(live[i][1] as Light3D).shadow_enabled = i < SHADOW_BUDGET

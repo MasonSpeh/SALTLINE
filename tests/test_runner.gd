@@ -282,8 +282,8 @@ func _run() -> void:
 	# ---- move_slot: the one verb the inventory panel's pick-then-place click runs on.
 	# Every direction has to work, because the old panel could only do pack->hand and
 	# hand->end-of-pack and that is exactly what made it feel glitchy.
-	PlayerState.hotbar = [null, null, null, null]
-	PlayerState.hotbar_counts = [1, 1, 1, 1]
+	PlayerState.hotbar = PlayerState._new_hotbar()
+	PlayerState.hotbar_counts = PlayerState._new_hotbar_counts()
 	PlayerState.inventory.clear()
 	PlayerState.inventory_counts.clear()
 	PlayerState.hotbar[0] = "flare"
@@ -323,10 +323,27 @@ func _run() -> void:
 	# a move that means nothing is refused rather than corrupting a slot
 	_check(not PlayerState.move_slot(3, 3), "move_slot: same slot is a no-op")
 	_check(not PlayerState.move_slot(3, 0), "move_slot: an empty source is a no-op")
-	PlayerState.hotbar = [null, null, null, null]
-	PlayerState.hotbar_counts = [1, 1, 1, 1]
+	# move to ANY empty pack slot, not just the one immediately past the end (owner report,
+	# 2026-07-27: "clicks an item, clicks a new spot, item should just move there — currently
+	# it only swaps with another item"). Two items in, one far-empty slot targeted directly.
+	PlayerState.inventory.append("flare")
+	PlayerState.inventory_counts.append(1)
+	PlayerState.inventory.append("bandage")
+	PlayerState.inventory_counts.append(1)
+	var far_empty: int = H + 5   # well past inventory.size() == 2, still inside capacity
+	_check(PlayerState.move_slot(H + 0, far_empty),
+		"move_slot: a distant empty pack slot is a legal target, not just the next one")
+	_check(PlayerState.inventory.has("flare") and not PlayerState.inventory.is_empty(),
+		"the moved item actually landed in the pack rather than vanishing")
+	PlayerState.hotbar = PlayerState._new_hotbar()
+	PlayerState.hotbar_counts = PlayerState._new_hotbar_counts()
 	PlayerState.inventory.clear()
 	PlayerState.inventory_counts.clear()
+
+	# ---- hotbar/backpack sizing (owner call, 2026-07-27): 4 -> 6 hotbar, +6 backpack.
+	_check(PlayerState.HOTBAR_SIZE == 6, "hotbar grew to 6 slots")
+	_check(PlayerState.hotbar.size() == 6, "the live hotbar array matches HOTBAR_SIZE")
+	_check(PlayerState.MAX_BACKPACK == 18, "base backpack grew to 18 slots")
 
 	# Inventory + eating.
 	PlayerState.add_item("canned_food")

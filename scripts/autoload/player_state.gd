@@ -18,8 +18,14 @@ signal inventory_changed
 signal item_eaten(item_id: String)
 
 const LOW_THRESHOLD: float = 0.5
-const HOTBAR_SIZE: int = 4
-const MAX_BACKPACK: int = 12   ## Minecraft-ish, but a day pack, not a warehouse
+## Owner call, 2026-07-27: 4 -> 6 hotbar slots and 12 -> 18 base pack slots (both +6). Every
+## other place that used to hand-type "[null, null, null, null]" or "[1, 1, 1, 1]" now builds
+## off this constant instead (see _new_hotbar()/_new_hotbar_counts() below) — the old literals
+## were exactly the kind of silently-stale duplication this codebase's own comments warn
+## about elsewhere (e.g. the crab pack count probes), and a second hand-typed 6-long array
+## would only have moved the staleness forward instead of fixing it.
+const HOTBAR_SIZE: int = 6
+const MAX_BACKPACK: int = 18   ## a day pack, not a warehouse — but a bigger one now
 ## Same-id items pile into one slot up to this many — food, kits, materials and salvage
 ## all stack, so a night's fishing is one slot instead of sixteen. Held/worn equipment
 ## is the exception (see EQUIPMENT below): a wrench is a wrench, you carry one.
@@ -68,13 +74,13 @@ var life: float = 1.0 : set = set_life
 var oxygen: float = 1.0 : set = set_oxygen
 var rest: float = 1.0 : set = set_rest
 var comfort: float = 0.0 : set = set_comfort
-var hotbar: Array = [null, null, null, null]
+var hotbar: Array = _new_hotbar()
 var inventory: Array = [] ## overflow list beyond the hotbar
 ## How many sit in each slot. Parallel to hotbar/inventory rather than folded into
 ## them, so every existing caller that reads `hotbar[i]` / iterates `inventory` still
 ## sees a plain item id (or null) — the count rides alongside. Counts are only ever
 ## meaningful where the matching slot holds an id; a null slot's count is ignored.
-var hotbar_counts: Array = [1, 1, 1, 1]
+var hotbar_counts: Array = _new_hotbar_counts()
 var inventory_counts: Array = [] ## parallel to inventory, one int per stack
 var selected_hotbar: int = -1  ## last hotbar slot pressed (#1-4)
 
@@ -278,6 +284,20 @@ const EQUIPMENT := {
 func is_stackable(item_id: String) -> bool:
 	return not EQUIPMENT.has(item_id)
 
+## A freshly emptied hotbar: HOTBAR_SIZE slots, every one null. Array.resize() on a brand
+## new array leaves every element null already — spelled out anyway so a reader doesn't
+## have to know that.
+static func _new_hotbar() -> Array:
+	var a: Array = []
+	a.resize(HOTBAR_SIZE)
+	return a
+
+static func _new_hotbar_counts() -> Array:
+	var a: Array = []
+	a.resize(HOTBAR_SIZE)
+	a.fill(1)
+	return a
+
 func _stack_cap(item_id: String) -> int:
 	return MAX_STACK if is_stackable(item_id) else 1
 
@@ -411,12 +431,23 @@ func move_slot(from_u: int, to_u: int) -> bool:
 			return false
 	elif fi >= inventory.size():
 		return false
-	# The target has to be a slot that exists. For the pack that includes exactly one cell
-	# past the end — the first empty one — which is what "stow it in the pack" clicks.
+	# The target has to be a slot that exists. For the pack, ANY empty visual slot within
+	# capacity is a legal target, not just the one cell immediately past the end.
+	#
+	# Owner call, 2026-07-27: this used to reject ti > inventory.size(), i.e. every empty
+	# pack slot except the very next one. `inventory` is a packed list with no null padding,
+	# so a click on any later-looking empty square silently failed and cancelled the pick —
+	# which read as "clicking an item, clicking a new spot, and nothing happens", with the
+	# only thing that visibly worked being a swap onto an ALREADY-OCCUPIED slot. There is no
+	# stable identity for an empty pack cell beyond "some index not yet used" (see the
+	# append branch below), so every empty target — wherever the player clicked — resolves
+	# to the same append, and the item shows up at the first free slot rather than pinned to
+	# the exact square. That is a genuine MOVE, which is what was asked for; it just cannot
+	# be a positionally-stable one without turning `inventory` into a padded grid.
 	if to_h:
 		if ti >= HOTBAR_SIZE:
 			return false
-	elif ti > inventory.size() or ti >= backpack_capacity():
+	elif ti >= backpack_capacity():
 		return false
 
 	var f_id: String = String(hotbar[fi]) if from_h else String(inventory[fi])
@@ -575,8 +606,8 @@ func take_one_from_slot(unified_idx: int) -> String:
 ## arrays): a missing/short counts array defaults every occupied slot to one. Called by
 ## SaveManager so hotbar/inventory and their counts can never drift out of length.
 func load_inventory(hb: Variant, hb_counts: Variant, inv: Variant, inv_counts: Variant) -> void:
-	hotbar = [null, null, null, null]
-	hotbar_counts = [1, 1, 1, 1]
+	hotbar = _new_hotbar()
+	hotbar_counts = _new_hotbar_counts()
 	if hb is Array:
 		for i in range(mini((hb as Array).size(), HOTBAR_SIZE)):
 			var v: Variant = (hb as Array)[i]

@@ -1,6 +1,6 @@
 class_name StartScreen extends Control
 ## Branded start screen: a painted North-Sea night — smooth gradient sky with a low
-## Bloom-teal aurora, a hazed moon, drifting fog banks, fine wind-slanted rain, a stark
+## Bloom-teal aurora, a hazed moon, drifting fog banks, a stark
 ## rig silhouette with flickering sodium windows and a slow rotating derrick beacon that
 ## rims the structure as it passes, its reflection breaking on the swell, distant swell
 ## glints, an occasional gull drifting the horizon, film grain + a corner vignette, a
@@ -62,7 +62,6 @@ func _ready() -> void:
 	_build_glints()
 	_build_beacon()
 	_build_gull()
-	_build_rain()
 	_build_vignette()
 	_build_grain()
 	_build_title()
@@ -428,48 +427,6 @@ func _reset_gull(view: Vector2) -> void:
 	_gull_speed = randf_range(18.0, 30.0)
 	_gull_y = view.y * randf_range(0.30, 0.52)
 	_gull.position = Vector2(-999.0, _gull_y)               # park offscreen while waiting
-
-## -- rain (canvas shader) ----------------------------------------------------
-
-func _build_rain() -> void:
-	# Fine wind-slanted rain over the whole frame. A single full-screen canvas_item shader:
-	# no particles, no per-frame CPU — free on gl_compatibility.
-	var sh := Shader.new()
-	sh.code = """
-shader_type canvas_item;
-render_mode blend_add;
-uniform float wind = 0.22;
-uniform float intensity = 0.5;
-float h11(float x){ return fract(sin(x * 91.17) * 4271.53); }
-void fragment() {
-	vec2 uv = UV;
-	uv.x += uv.y * wind;                 // slant the whole field
-	float cols = 150.0;                  // many fine columns
-	float c = floor(uv.x * cols);
-	float seed = h11(c);
-	float speed = 0.7 + seed * 1.1;
-	float phase = seed * 20.0;
-	float y = uv.y * 9.0 - TIME * speed * 3.4 + phase;   // -TIME so drops FALL (down), not up
-	float streak = fract(y);
-	// long, sharp-headed thin drop
-	float drop = smoothstep(0.0, 0.025, streak) * (1.0 - smoothstep(0.03, 0.55, streak));
-	float cx = fract(uv.x * cols);
-	float line = smoothstep(0.24, 0.10, abs(cx - 0.5));  // ~2px hairline
-	float active = step(0.55, h11(c + 3.1));             // sparse: fewer than half the columns
-	float a = drop * line * active * intensity;
-	a *= smoothstep(0.0, 0.12, UV.y);                    // ease in from the very top
-	COLOR = vec4(0.62, 0.74, 0.80, a * 0.34);
-}
-"""
-	var mat := ShaderMaterial.new()
-	mat.shader = sh
-	var rect := ColorRect.new()
-	rect.color = Color(1, 1, 1, 1)
-	rect.material = mat
-	rect.anchor_right = 1.0
-	rect.anchor_bottom = 1.0
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	add_child(rect)
 
 ## -- vignette ----------------------------------------------------------------
 

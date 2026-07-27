@@ -217,7 +217,14 @@ func _ready() -> void:
 	_lantern_light.light_color = LANTERN_COLOR
 	_lantern_light.light_energy = 0.0
 	_lantern_light.omni_range = LANTERN_RANGE
-	_lantern_light.shadow_enabled = false   # gl_compatibility: keep the omni cheap
+	# gl_compatibility: keep the omni cheap. Investigated 2026-07-27 against a report of
+	# "the lantern isn't updating shadows correctly" raised alongside the world-fixture
+	# shadow budget going 2 -> 3 (render_budget.gd): NOT related. render_budget.gd's
+	# _budget_light() only enrols lights it finds with shadow_enabled == true at sweep time,
+	# and this one is built false right here and never toggled — it never enters that
+	# rationing system at all, so raising or lowering SHADOW_BUDGET cannot touch it. If the
+	# lantern's shadow behaviour still looks wrong after this, the cause is elsewhere.
+	_lantern_light.shadow_enabled = false
 	camera.add_child(_lantern_light)
 	_lantern_light.position = Vector3(0.25, -0.2, -0.35)
 	# The flashlight beam: a SpotLight on the camera pointing where you look (a Node3D's
@@ -306,12 +313,28 @@ func _unhandled_input(event: InputEvent) -> void:
 		_toggle_prone()
 		get_viewport().set_input_as_handled()
 		return
+	# [B] is shared between Build Mode's own binding (below) and baiting the deep-drop rig
+	# (owner spec 2026-07-27) — they were never going to collide in practice, since Build
+	# Mode only ever meant anything with a build kit selected, not the rod, but the raw
+	# KEY_B match below doesn't know that on its own. FishingRod.try_bait_now() owns the
+	# call: it only claims the press while the deep rig is actually the wielded, idle tool
+	# (see deep_rig_idle()), and returns false otherwise so B falls straight through to
+	# Build Mode exactly as it always has.
+	if event.is_action_pressed("bait_hook") and not ui_locked and not input_locked \
+			and preload("res://scripts/components/fishing_rod.gd").try_bait_now(self):
+		get_viewport().set_input_as_handled()
+		return
 	if event is InputEventKey and event.pressed and not event.echo and not input_locked:
 		match event.keycode:
 			KEY_1: _hotbar_pressed(0)
 			KEY_2: _hotbar_pressed(1)
 			KEY_3: _hotbar_pressed(2)
 			KEY_4: _hotbar_pressed(3)
+			# 5 and 6: the hotbar grew from 4 to 6 slots (owner call, 2026-07-27) and these
+			# two keys were simply never bound — the two new slots were only reachable by
+			# clicking the pack panel. KEY_B is not free (Build Mode), and KEY_F9 is debug.
+			KEY_5: _hotbar_pressed(4)
+			KEY_6: _hotbar_pressed(5)
 			KEY_F: _f_pressed()
 			KEY_F9: _identify_looked_at()
 			KEY_B:
