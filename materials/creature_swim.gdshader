@@ -30,6 +30,7 @@ uniform float metallic_v : hint_range(0.0, 1.0) = 0.0;
 // --- motion ---------------------------------------------------------------------
 // 0 undulate (fish/eel/shark)  1 wing flap (ray)  2 bell pulse (jelly)  3 fast flap (bird)
 // 4 legged gait (crab)  5 pedal wave (snails)  6 cirral beat (barnacles)  7 resting swell
+// 8 flora sway  9 lobed-fin scull (coelacanth)
 uniform int mode = 0;
 uniform float amp = 0.06;        // displacement amplitude, local units
 uniform float wave_len = 1.6;    // wavelength of the travelling wave along the body
@@ -139,6 +140,60 @@ void vertex() {
 		float s = sin(t * TAU_) * amp;
 		p = mid + (p - mid) * (1.0 + s * 0.5);
 		p.y += s * 0.3;
+	} else if (mode == 9) {
+		// LOBED-FIN SCULL — the coelacanth (owner's brief, 2026-07-26: "a very distinctive
+		// slow, sculling, almost hovering swim with paired lobed fins that move alternately,
+		// like a slow four-legged walk through water"). Mode 0 is wrong for this animal in
+		// two ways at once: it bends the WHOLE body like a cod, and it has nothing to say
+		// about the four fins, which on a coelacanth are the part everybody recognises.
+		// Three effects, layered:
+		float side = across - 0.5;
+		float lat = clamp(abs(side) * 2.0, 0.0, 1.0);   // 0 at the spine, 1 at the fin tips
+
+		// 1. THE TAIL SCULLS, THE BODY DOES NOT. A coelacanth is a stiff, heavily scaled
+		// tube that holds its line and waves the trilobed caudal behind it. Hence a CUBIC
+		// ramp instead of mode 0's quadratic (the front two thirds barely register) and a
+		// long wavelength — 0.45 of a cycle over the whole body, so it carries less than
+		// half a wave and never reads as an eel. Bigger throw than mode 0 (2.2x) because
+		// the amplitude that is gone from the body has to show up in the tail or the animal
+		// looks dead.
+		float ramp = along * along * along;
+		float d = sin(t * TAU_ - along * TAU_ * 0.45) * amp * ramp * 2.2;
+		if (flow_axis == 0) { p.x += d; } else { p.z += d; }
+
+		// 2. THE PAIRED LOBES ROW, IN DIAGONAL PAIRS. The pectorals and pelvics are limbs,
+		// so they get found the same way the crab's legs do (mode 4): geometry that is
+		// OUTBOARD and LOW. Both halves of that test are load-bearing. Outboard alone also
+		// selects the sides of the HEAD — this mesh's skull is nearly as wide as the fin
+		// span — and rowing the head is the one thing that would wreck the shot; low alone
+		// takes the median anal fin, which should ride the tail wave, not row. Excluding
+		// the first 0.2 of the body keeps the jaw out of it too, so effect 3 owns the head.
+		float finness = smoothstep(0.35, 0.90, lat)
+			* (1.0 - smoothstep(0.30, 0.55, n.y))
+			* smoothstep(0.08, 0.20, along);
+		// The gait. Half `rate`, because the row is a slow amble under a tail beating at
+		// full speed — the two must NOT lock, or the animal reads as one rigid machine.
+		// Phase from the side (the crab's PI flip, discontinuous only at the spine where
+		// finness is already 0) plus phase from station along the body: at 2.6*PI the
+		// pectorals (along ~0.22) and pelvics (~0.45) come out most of a half-cycle apart,
+		// which is the contralateral tetrapod pattern — left-front with right-rear — and
+		// the residual gradient inside one fin lets the blade trail its own lobe.
+		float c = t * TAU_ * 0.5 + along * PI_ * 2.6 + (side > 0.0 ? PI_ : 0.0);
+		p.y += sin(c) * amp * finness * 2.2;                  // the power stroke, vertical
+		float row = cos(c) * amp * finness * 1.3;             // ...swung fore-and-aft
+		if (flow_axis == 0) { p.z += row; } else { p.x += row; }
+
+		// 3. BREATHING. No bones and no jaw joint, so this is not a hinge — it is a slow
+		// swell of the low front of the skull, which on a closed mesh opens the mouth line
+		// into a gape, plus an opercular flare a half-cycle later: mouth shuts, gill covers
+		// lift. Deliberately slow (0.35x) and small (well under half the fin throw) because
+		// the honest version of this is a suggestion of breathing, not an animated jaw.
+		float breath = sin(t * TAU_ * 0.35);
+		float jaw = (1.0 - smoothstep(0.02, 0.16, along)) * (1.0 - smoothstep(0.30, 0.55, n.y));
+		p.y -= max(breath, 0.0) * amp * 0.5 * jaw;
+		float oper = smoothstep(0.05, 0.13, along) * (1.0 - smoothstep(0.13, 0.26, along));
+		float flare = max(-breath, 0.0) * amp * 0.35 * oper * lat;
+		if (flow_axis == 0) { p.x += sign(side) * flare; } else { p.z += sign(side) * flare; }
 	}
 	VERTEX = p;
 }

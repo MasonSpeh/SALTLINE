@@ -279,36 +279,18 @@ func _apply_level() -> void:
 	_water.scale = Vector3(1.0, f, 1.0)
 
 ## A salvaged glass bottle: shoulder, tapered neck, driftwood bung, a rope collar where
-## a hand goes. The water inside wears the same material as the drum's own level disc, so
-## the rising line reads through the glass and matches the barrel it stands next to.
+## a hand goes, and the water on its own pivot so the rising line reads through the glass.
+##
+## The geometry moved to ItemVisual.vessel_bottle on 2026-07-26, when the pack started
+## showing items instead of naming them: bottle_empty and bottle_water were anonymous cubes
+## in the inventory while THIS bottle stood in the cradle beside them. One builder now
+## serves both, and the cradle always gets the water column (the level starts at 3%).
 func _build_bottle(root: Node3D) -> void:
-	var glass: Material = MatLib.glass(Color(0.60, 0.68, 0.62))
-	var bung: Material = MatLib.weathered_wood()
-	var collar: Material = MatLib.rope_mat()
-	SL.cyl(root, Vector3(0, 0.11, 0), 0.045, 0.22, glass)
-	SL.cyl(root, Vector3(0, 0.245, 0), 0.045, 0.05, glass, false, Vector3.ZERO, 0.020)
-	SL.cyl(root, Vector3(0, 0.285, 0), 0.020, 0.04, glass)
-	SL.cyl(root, Vector3(0, 0.315, 0), 0.022, 0.035, bung)
-	SL.cyl(root, Vector3(0, 0.20, 0), 0.048, 0.02, collar)
-	# The water gets its own pivot at the bottle floor: scaling the MESH would stretch it
-	# about its middle and sink the column through the base. Scaling the pivot raises the
-	# surface from the bottom, which is what filling looks like.
-	var pivot := Node3D.new()
-	pivot.name = "WaterPivot"
-	root.add_child(pivot)
-	pivot.position = Vector3(0, 0.012, 0)
-	SL.cyl(pivot, Vector3(0, 0.098, 0), 0.038, 0.196, SL.mat("water", false, 0.25))
-	_water = pivot
+	_water = ItemVisual.vessel_bottle(root, true)
 
 ## A crew vacuum flask: dented galvanised shell, dark screw cap, canvas carry straps.
 ## Opaque on purpose — the prompt carries the level for this one, because a steel flask
-## with a visible water line would be a lie about what a thermos is.
+## with a visible water line would be a lie about what a thermos is. Hence `false`: the
+## packed thermos_water shows its cap off as a brimming cup, but a docked one never has to.
 func _build_flask(root: Node3D) -> void:
-	var shell: Material = MatLib.galvanized()
-	var cap: Material = MatLib.dark_metal()
-	var strap: Material = MatLib.canvas(Color(0.44, 0.42, 0.37))
-	SL.cyl(root, Vector3(0, 0.13, 0), 0.050, 0.26, shell)
-	SL.cyl(root, Vector3(0, 0.283, 0), 0.052, 0.05, cap)
-	SL.cyl(root, Vector3(0, 0.245, 0), 0.054, 0.02, cap)
-	SL.box(root, Vector3(0, 0.19, 0.055), Vector3(0.09, 0.02, 0.012), strap)
-	SL.box(root, Vector3(0, 0.09, 0.055), Vector3(0.09, 0.02, 0.012), strap)
+	ItemVisual.vessel_flask(root, false)

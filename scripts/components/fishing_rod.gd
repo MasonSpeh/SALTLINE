@@ -103,7 +103,7 @@ func setup(player: Node3D, camera: Camera3D) -> void:
 	# drum. Refuse it here, say why, and let the first physics frame reel it back in.
 	_bait_id = _find_bait()
 	if _bait_id == "":
-		_abort_msg = "Bait the hook first — a live snail or a small fish. Nothing in the dark rises to a bare hook."
+		_abort_msg = "Bait the hook first — a live snail, a crab leg, or a small fish. Nothing in the dark rises to a bare hook."
 		visible = false
 		return
 	_build_lead()
@@ -182,7 +182,14 @@ func _build_lead() -> void:
 	var bt := SphereMesh.new()
 	bt.radius = 0.05
 	bt.height = 0.09
-	bt.material = MatLib.flat(Color(0.6, 0.5, 0.38) if _bait_id == "snail_live" else Color(0.55, 0.34, 0.3))
+	# Bait colour reads what is actually on the hook: a snail's pale foot, a crab leg's
+	# orange chitin, or the dull red of cut/rotten fish.
+	var bait_col := Color(0.55, 0.34, 0.3)
+	if _bait_id == "snail_live":
+		bait_col = Color(0.6, 0.5, 0.38)
+	elif _bait_id == "crab_leg":
+		bait_col = Color(0.78, 0.36, 0.16)
+	bt.material = MatLib.flat(bait_col)
 	bait.mesh = bt
 	bait.position = Vector3(0.05, -0.26, 0)
 	_bob.add_child(bait)
@@ -206,13 +213,19 @@ func _is_deep_selected() -> bool:
 	var it: Variant = PlayerState.hotbar[sel]
 	return it != null and String(it) == "deep_rig_pole"
 
-## Find one bait in the pack: a live snail, rotten chum, or a small fish as cut bait.
-## Small baitfish are the species under 0.7m: copper sprat, herring, chimefish, ghost sole,
-## silver ladder. Large fish waste their protein on a deep drop — nothing chases the bait
-## at depth if there's plenty of meat on the hook already. Cheapest-first, so a prize catch
-## is never spent baiting the next drop. Returns the item id, or "" when there's none.
+## Find one bait in the pack: a live snail, rotten chum, a CRAB LEG, or a small fish as cut
+## bait. Small baitfish are the species under 0.7m: copper sprat, herring, chimefish, ghost
+## sole, silver ladder. Large fish waste their protein on a deep drop — nothing chases the
+## bait at depth if there's plenty of meat on the hook already. Cheapest-first, so a prize
+## catch is never spent baiting the next drop. Returns the item id, or "" when there's none.
+##
+## CRAB LEG (owner spec, 2026-07-26: the eight legs off a killed giant crab "can be eaten or
+## used as bait"). It sits third: raw it is worth less on the plate than any cooked fish, so
+## spending one on a hook is cheap — but a snail or a lump of rot is cheaper still, and a
+## harvest of eight legs is a real night's work that should not be burned through by
+## accident when there is chum in the pack.
 func _find_bait() -> String:
-	for want in ["snail_live", "fish_rotten"]:
+	for want in ["snail_live", "fish_rotten", "crab_leg"]:
 		if PlayerState.has_item(want):
 			return want
 	for entry in PlayerState.hotbar + PlayerState.inventory:
@@ -231,6 +244,8 @@ func _bait_name() -> String:
 		return "a live snail"
 	if _bait_id == "fish_rotten":
 		return "rotten chum"
+	if _bait_id == "crab_leg":
+		return "a crab leg"
 	return "cut bait"
 
 func _schedule_bite() -> void:

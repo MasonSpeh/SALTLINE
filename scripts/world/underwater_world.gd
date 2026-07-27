@@ -14,8 +14,73 @@ const MOVE := preload("res://scripts/world/fauna_move.gd")
 const LEGS := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 const DEPTH_BAND := {"surface": -1.2, "mid": -4.5, "deep": -9.5}
 
+## TWO PODS PER SPECIES (2026-07-26, owner: "there should be around double the total
+## amount of fish shown, more in the open water around"). The ocean used to be stocked
+## with exactly one shoal per species, wandering a ±24 x ±28 m box — the rig's own
+## footprint plus a little. Swim out past the moorings and the sea was empty.
+##
+## Inflating the single shoal would only have made a denser BALL in the same water, which
+## is not what was asked for, so every species now runs a SECOND pod on a wider, slower,
+## deeper circuit. That doubles the population and puts the whole of the added half in the
+## open water the owner was pointing at. The counts themselves stay in data/fish.json: how
+## many fish are in a shoal is a fact about the species; how much ocean we stock is not.
+const SCHOOL_PODS: int = 2
+## Per pod: how far its slow centre-wander carries it in x/z, how fast that wander runs,
+## and how far below the species' own depth band it sits. Pod 0 IS the historical near-rig
+## shoal, numbers unchanged. Pod 1 is the new open-water half — wider, slower (a shoal that
+## far out should read as barely moving when you watch it from the rim) and a few metres
+## down, so the added fish fill the water COLUMN as well as the plan view.
+const POD_SPREAD: Array[Vector2] = [Vector2(24.0, 28.0), Vector2(41.0, 46.0)]
+const POD_RATES: Array[Vector2] = [Vector2(0.050, 0.041), Vector2(0.029, 0.023)]
+const POD_DROP: Array[float] = [0.0, 3.4]
+
+## HOW FAR A SHOAL FISH IS WORTH DRAWING.
+##
+## render_budget.gd derives a visibility range from an object's size for everything it
+## sweeps, and school fish were taking the generic one: size * 110 m, so a 0.4 m sprat was
+## still being submitted at 46 m and a 1.1 m cod at 121. Above water that rule is right.
+## Below it, it is not — the MEDIUM has already eaten the fish long before then.
+## underwater_fx grades fog from 0.028/m in the shallows to past 0.2/m in the deep, and at
+## 0.028 a body 60 m off is down to under a fifth of its contrast; a hand-sized fish at
+## that range is a smudge on fog-coloured fog. These meshes are the most expensive thing
+## in the water (the generated species .glbs run tens of thousands of triangles each), so
+## doubling the stocking without touching this would have doubled the far-field cost for
+## shapes nobody can resolve. Every fish now carries its OWN range, set at spawn at roughly
+## 0.55x the generic rule. render_budget skips any mesh that already has a range, so this
+## wins and the size-derived rule never overwrites it.
+const FISH_RANGE_PER_M: float = 62.0
+const FISH_RANGE_MIN: float = 20.0
+const FISH_RANGE_MAX: float = 62.0
+const FISH_RANGE_FADE: float = 0.18
+
+## HOW A SHOAL FISH MOVES (2026-07-26, owner: fish should move "how the jellyfish move").
+##
+## The jelly (bloom_fauna.JellyDrifter) reads well for three reasons, and the bell pulse is
+## none of them: its position is a slow MULTI-OCTAVE function of time so it never travels
+## in a straight line, every individual carries its own phase offset so no two are ever in
+## step, and nothing about it happens instantly. The old shoal had none of that. Every
+## member was pinned to an evenly spaced slot on one shared ring, all turning at the same
+## angular rate, with its facing recomputed from scratch out of the last frame's
+## displacement — so a school read as a carousel of identical fish snapping their heads
+## around, and a radius that breathed on a sine made the whole ring pump in lockstep.
+##
+## The fish now get the jelly's QUALITIES without its pulse, because a fish is not a bell:
+## the ring is a TARGET the fish eases toward rather than a rail it is welded to, the
+## target itself weaves on its own octaves, each member carries a random phase AND a random
+## speed, and the heading is a REMEMBERED value eased onto the direction of travel instead
+## of a fresh look_at every frame. A fish also noses into its own climb, the way the
+## glider ray does. Body-wave phase is randomised per member too (it used to be i * 0.5,
+## which is a marching band).
+const FISH_EASE: float = 2.2     ## how hard a fish is drawn toward its wander target (1/s)
+const FISH_TURN: float = 2.4     ## how fast the remembered heading eases onto the new one (1/s)
+const FISH_PITCH: float = 0.42   ## how much of its own vertical speed a fish noses into
+
 var _kelp: Array[Node3D] = []
-var _schools: Array = []   # [{root, fish[], def, band_y, center, t}]
+## One entry per POD, not per species — see SCHOOL_PODS.
+## [{root, fish[], def, id, pod, band_y, size, spread, rates, radius, ph[], spd[], head[],
+##   climb[], warm, t}]. The four parallel arrays are the per-member swim state; `warm` is
+## false until the pod's first live frame has seated its fish.
+var _schools: Array = []
 var _t: float = 0.0
 var _rng := RandomNumberGenerator.new()
 var _snow: GPUParticles3D          # marine snow, storm/depth-reactive in _process
@@ -213,6 +278,21 @@ func _rig_underlights() -> void:
 ## already gone dark around them, shallow enough that the pontoon floodlights rake
 ## across their backs as they pass under the rig. From the deck or the shallows you
 ## mostly get moving silhouettes at the edge of the light, which is the point.
+## THE BIG GROUPER'S HOME (2026-07-26, owner: "the huge grouper should be a bit deeper,
+## and home base closer to the leg of the rig"). Every deep giant used to orbit the rig's
+## dead CENTRE, because DeepGiant's circle was hardcoded around the world origin — so the
+## one animal a player goes looking for had no address at all, just a lap of open water
+## somewhere under the middle of the structure. A grouper does not live like that: it holds
+## a territory against structure and keeps coming back to it.
+##
+## The SE caisson is the leg to hold. It is the one the tidal ladder and the deep-drop rig
+## are on, so "go down the SE leg and look for the big one" becomes something a player can
+## actually act on. This sits just off its east face — the leg is a 6 m square about
+## (22, 12), so its face is at x 25 — and the two giants anchored here swim well below the
+## steel: the caisson bottoms out at y -23 (rig_builder), and these are at -26 and -36, so
+## even a tight orbit around the leg's own footprint can never put a 4 m fish inside it.
+const LEG_HOME := Vector3(24.0, 0.0, 12.0)
+
 func _deep_giants() -> void:
 	# The always-present residents on slow circuits under the rig: three original plus a
 	# second halibut and a lesser grouper on the shallow edge, so there is a spread of BIG
@@ -221,29 +301,59 @@ func _deep_giants() -> void:
 	# elsewhere in the game, discovered as a one-off event; making it a routine deep
 	# patroller here would cheapen that encounter.)
 	var specs := [
-		# [slug, size_m, band_y, orbit_r, rate, phase]
-		["fish_barrel_grouper", 3.6, -17.0, 13.0, 0.05, 0.0],
-		["fish_barrel_grouper", 4.4, -24.0, 17.0, 0.038, 2.4],
-		["fish_fathom_halibut", 3.2, -29.0, 11.0, 0.045, 4.2],
-		["fish_fathom_halibut", 4.1, -20.0, 15.0, 0.033, 1.1],  # a second, larger halibut
-		["fish_barrel_grouper", 2.8, -14.0, 9.0, 0.060, 5.0],   # a lesser one on the shallow edge
-		["fish_barrel_grouper", 3.2, -12.0, 19.0, 0.042, 3.3],  # shallow enough to read clearly
-		["fish_fathom_halibut", 3.6, -16.0, 21.0, 0.030, 0.7],  # wide slow lap, semi-visible
+		# [slug, size_m, band_y, orbit_r, rate, phase, home]
+		["fish_barrel_grouper", 3.6, -17.0, 13.0, 0.05, 0.0, Vector3.ZERO],
+		# THE BIG RESIDENT GROUPER — the one a player without a Leviathan roll thinks of as
+		# "the huge one". Anchored on the SE leg (see LEG_HOME) and dropped from -24 to -26:
+		# a bit deeper, but still inside the pontoon floodlights' 42 m throw, so it is deeper
+		# WATER and not simply gone.
+		["fish_barrel_grouper", 4.4, -26.0, 9.0, 0.038, 2.4, LEG_HOME],
+		["fish_fathom_halibut", 3.2, -29.0, 11.0, 0.045, 4.2, Vector3.ZERO],
+		["fish_fathom_halibut", 4.1, -20.0, 15.0, 0.033, 1.1, Vector3.ZERO],  # a second, larger halibut
+		["fish_barrel_grouper", 2.8, -14.0, 9.0, 0.060, 5.0, Vector3.ZERO],   # a lesser one on the shallow edge
+		["fish_barrel_grouper", 3.2, -12.0, 19.0, 0.042, 3.3, Vector3.ZERO],  # shallow enough to read clearly
+		["fish_fathom_halibut", 3.6, -16.0, 21.0, 0.030, 0.7, Vector3.ZERO],  # wide slow lap, semi-visible
+		# THE COELACANTH (owner-supplied mesh, 2026-07-26). Deeper than every resident but
+		# the -29 halibut, and the one deep animal here that is NOT a slab: 1.8 m, half the
+		# grouper, sculling on its lobed fins (creature_anim Mode.SCULL, applied through
+		# MOTION_OVERRIDES so this spec needs no new column). -21 puts it 8 m below the
+		# death line — genuinely out of reach — inside the -17..-29 band underwater_fx lights
+		# as shapes at the edge of the dark, and on the deep rig's own 20 m drop line
+		# (fish.json drop_m 20): you fish it at 20 m and you can see it at 21.
+		# Centre-anchored, NOT on the leg: at -21 it rides ABOVE the caissons' -23 bottom, so
+		# a LEG_HOME here would swim it through steel. Radius 12 keeps 7 m clear of the legs.
+		# 0.028 rad/s is ~0.2 body-lengths a second — a hover, slower than anything else down
+		# there, which is what a coelacanth actually does.
+		["fish_coelacanth", 1.8, -21.0, 12.0, 0.028, 1.6, Vector3.ZERO],
 	]
 	for s in specs:
 		# Size jitter so no two runs stamp the identical fish.
 		var sz: float = float(s[1]) * _rng.randf_range(0.9, 1.15)
-		var host := DeepGiant.new(sz, s[2], s[3], s[4], s[5])
+		var host := DeepGiant.new(sz, s[2], s[3], s[4], s[5], s[6])
 		host.slug = s[0]
 		add_child(host)
 	# THE LEVIATHAN. A rare colossal grouper — ~5x the residents, a slow shape the size of
 	# the escape pod itself — patrolling the deep dark below the death line. It is NOT on
 	# every dive: seeing one is meant to be an event, so ~45% of playthroughs get one.
-	# Deep (-36 m) on a tight orbit (radius 8) so its bulk stays clear of the caissons, and
-	# barely lit, so it reads as a moving wall at the very edge of the floodlight throw.
-	if _rng.randf() < 0.45:
-		var leviathan := DeepGiant.new(_rng.randf_range(16.0, 19.0), -36.0, 8.0, 0.024,
-			_rng.randf() * TAU)
+	# Deep (-36 m) and barely lit, so it reads as a moving wall at the very edge of the
+	# floodlight throw. Its lap is now centred on the SE leg rather than on the rig's
+	# midpoint (LEG_HOME) and tightened to radius 7, so THE huge grouper holds station
+	# under one specific leg you can go and find instead of touring the whole footprint.
+	# 13 m clear below the caisson bottom, so the tighter orbit costs nothing in clearance.
+	#
+	# THE ROLL GETS ITS OWN RANDOM STREAM (2026-07-26). It used to be drawn from the shared
+	# _rng, which meant the biggest animal in the game was decided by however many draws
+	# every spawner ABOVE it in _ready happened to consume. Doubling the schools added
+	# ~1,500 draws to _spawn_schools, that shifted this one draw from 0.16 to past 0.45,
+	# and an 18 m grouper silently vanished from the world without a line of leviathan code
+	# being touched — found only because the giant was counted before and after. Seeded off
+	# the same world seed, so the roll is still the fixed, reproducible one this build has
+	# always had; it just cannot be flipped from a distance any more.
+	var lev_rng := RandomNumberGenerator.new()
+	lev_rng.seed = 7411
+	if lev_rng.randf() < 0.45:
+		var leviathan := DeepGiant.new(lev_rng.randf_range(16.0, 19.0), -36.0, 7.0, 0.024,
+			lev_rng.randf() * TAU, LEG_HOME)
 		leviathan.slug = "fish_barrel_grouper"
 		add_child(leviathan)
 
@@ -421,9 +531,11 @@ class GliderRay extends Node3D:
 		rotate_object_local(Vector3.BACK, _roll)
 		# (No drive() here on purpose — see the note in _ready(). The wing-beat is constant.)
 
-## One slow giant on a drifting circuit under the rig. Raw circular path — it lives
-## 15+ m down in open water between the legs (orbit radii keep it clear of the caissons
-## at ±22/±12), below every deck, net and swimmer, so no wall test is needed.
+## One slow giant on a drifting circuit under the rig. Raw circular path around its own
+## `home` — either the rig's midpoint (the default, for the roaming residents) or a
+## specific caisson (LEG_HOME, for the big groupers that hold a territory against the
+## steel). It lives 15+ m down, below every deck, net and swimmer, and the leg-anchored
+## ones sit below the caissons' own -23 bottom, so no wall test is needed either way.
 class DeepGiant extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	## BODY DEPTH, dorsal to belly. The generated grouper measures 1.90 long by 0.80 deep —
@@ -431,26 +543,34 @@ class DeepGiant extends Node3D:
 	## animal read slab-sided: a long shape at the edge of the floodlight with no mass to it.
 	## A real grouper is a DEEP fish, half again as tall through the shoulder as it is thick.
 	## Stretching the model's own Y (the mesh is authored lying down, so Y is dorsal-ventral)
-	## takes it to ~0.55 of its length — a heavy, slab-shouldered silhouette — while length
-	## and width, which the scale normalisation set from the species size, are untouched.
+	## leaves length and width — which the scale normalisation set from the species size —
+	## untouched.
+	##
+	## 2026-07-26: 1.3 took it to a 0.55 depth ratio and the owner asked for more, so 1.55,
+	## which is a 0.65 ratio: about as deep through the shoulder as a goliath grouper reads
+	## in the water once you count the dorsal. That is the ceiling for this trick — a fish
+	## past ~0.7 stops being a grouper and starts being a discus, and the stretch is applied
+	## to the WHOLE model, fins and jaw included, so it distorts as fast as it deepens.
 	## Groupers only: the halibut on this same class is a FLATFISH and must stay flat.
-	const GROUPER_DEPTH: float = 1.3
+	const GROUPER_DEPTH: float = 1.55
 	var slug: String = "fish_barrel_grouper"
 	var _size: float
 	var _band_y: float
 	var _r: float
 	var _rate: float
 	var _ph: float
+	var _home: Vector3
 	var _t: float = 0.0
 	var _mats: Array = []
 
 	func _init(size: float = 3.5, band_y: float = -20.0, r: float = 12.0,
-			rate: float = 0.05, ph: float = 0.0) -> void:
+			rate: float = 0.05, ph: float = 0.0, home: Vector3 = Vector3.ZERO) -> void:
 		_size = size
 		_band_y = band_y
 		_r = r
 		_rate = rate
 		_ph = ph
+		_home = home
 
 	func _ready() -> void:
 		var gen: Dictionary = ANIM.attach(self, "res://assets/models/fauna/%s/%s.glb" % [slug, slug],
@@ -470,7 +590,9 @@ class DeepGiant extends Node3D:
 	func _process(delta: float) -> void:
 		_t += delta
 		var a: float = _t * _rate + _ph
-		var next := Vector3(cos(a) * _r, _band_y + sin(_t * 0.11 + _ph) * 1.6, sin(a) * _r * 0.8)
+		var next := Vector3(_home.x + cos(a) * _r,
+			_band_y + sin(_t * 0.11 + _ph) * 1.6,
+			_home.z + sin(a) * _r * 0.8)
 		var vel: Vector3 = next - global_position
 		global_position = next
 		var flat := Vector3(vel.x, 0.0, vel.z)
@@ -586,16 +708,15 @@ func _storm_intensity() -> float:
 
 # ---------------------------------------------------------------- schools
 
-## Spawn a visible school for every species that declares one — same table the
-## rod rolls. Depth band, size, count, tint, and active hours all come along.
+## Spawn the visible shoals for every species that declares one — same table the
+## rod rolls. Depth band, size, count, tint, and active hours all come along. Each
+## species is stocked SCHOOL_PODS times: see the constant for why.
 func _spawn_schools() -> void:
 	for id in FISH.all():
 		var def: Dictionary = FISH.all()[id]
 		var school: Dictionary = def.get("school", {})
 		if int(school.get("count", 0)) <= 0:
 			continue
-		var root := Node3D.new()
-		add_child(root)
 		var tint_arr: Array = school["tint"]
 		var tint := Color(tint_arr[0], tint_arr[1], tint_arr[2])
 		var mat := StandardMaterial3D.new()
@@ -605,45 +726,94 @@ func _spawn_schools() -> void:
 			mat.emission_enabled = true
 			mat.emission = Color(0.2, 0.9, 0.85)
 			mat.emission_energy_multiplier = 0.5
-		var size: float = float(school["size"])
-		var shape: String = String(school.get("shape", "slender"))
-		# The species' real generated skin: the SAME mesh the caught/held fish and the
-		# reef shoals use. Godot caches the .glb, so every member of a school shares the
-		# one mesh resource — only the node instances repeat. Tinted per the school entry,
-		# swimming on the UNDULATE body wave, each fish on its own phase so the school
-		# doesn't beat in lockstep. Missing asset -> the tinted primitive silhouette, so a
-		# fish still generating in the background never leaves a hole in the water.
-		var glow: Color = Color(0.2, 0.9, 0.85) if id == "fish_herring" else tint
-		var model_len: float = maxf(size, 0.3) * 0.7
-		var model_path: String = "res://assets/models/fauna/%s/%s.glb" % [id, id]
-		var members: Array = []
-		for i in range(int(school["count"])):
-			var f := Node3D.new()
-			root.add_child(f)
-			# Per-member size spread: a real shoal is juveniles-to-adults, not one stamped
-			# size repeated N times. Most cluster around the school size; a few run notably
-			# bigger (the old breeders) or smaller (this year's fry). Skewed so the big ones
-			# are the minority they should be.
-			var roll: float = _rng.randf()
-			var sv: float = (0.62 + 0.5 * roll) if roll < 0.82 else (1.12 + 1.05 * (roll - 0.82) / 0.18)
-			var member_len: float = model_len * sv
-			var gen: Dictionary = ANIM.attach(f, model_path, member_len, ANIM.Mode.UNDULATE,
-				0.1, 2.2, glow, float(i) * 0.5)
-			if gen.is_empty():
-				_build_fish(f, shape, size * sv, mat)   # no generated mesh yet — keep the silhouette
-			else:
-				for m in gen["mats"]:
-					(m as ShaderMaterial).set_shader_parameter("tint", tint)
-				if id == "fish_herring":
-					ANIM.drive(gen["mats"], 2.2, 0.5)   # the lantern shoal keeps its glow
-			members.append(f)
 		var band_y: float = DEPTH_BAND.get(def.get("depth", "mid"), -4.5)
-		_schools.append({
-			"root": root, "fish": members, "def": def, "id": id,
-			"band_y": band_y, "size": size,
-			"center": Vector3(_rng.randf_range(-26, 26), band_y, _rng.randf_range(-30, 30)),
-			"t": _rng.randf_range(0, 100.0),
-		})
+		# One material per species, shared by both pods — the tint is a fact about the
+		# fish, not about which patch of water this particular shoal is working.
+		for pod in range(SCHOOL_PODS):
+			_spawn_pod(id, def, school, tint, mat, band_y, pod)
+
+## One pod of one species: its own node, its own members, its own circuit. Pod 0 works the
+## water immediately around the rig; pod 1 and up work the open water (POD_SPREAD).
+func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
+		mat: StandardMaterial3D, band_y: float, pod: int) -> void:
+	var root := Node3D.new()
+	add_child(root)
+	var size: float = float(school["size"])
+	var shape: String = String(school.get("shape", "slender"))
+	# The species' real generated skin: the SAME mesh the caught/held fish and the
+	# reef shoals use. Godot caches the .glb, so every member of a school shares the
+	# one mesh resource — only the node instances repeat. Tinted per the school entry,
+	# swimming on the UNDULATE body wave, each fish on its own phase so the school
+	# doesn't beat in lockstep. Missing asset -> the tinted primitive silhouette, so a
+	# fish still generating in the background never leaves a hole in the water.
+	var glow: Color = Color(0.2, 0.9, 0.85) if id == "fish_herring" else tint
+	var model_len: float = maxf(size, 0.3) * 0.7
+	var model_path: String = "res://assets/models/fauna/%s/%s.glb" % [id, id]
+	var members: Array = []
+	# Per-member swim personality — see the FISH_EASE block. Parallel plain Arrays, not
+	# PackedFloat32Arrays: these are written every frame through the school Dictionary, and
+	# a Packed array is copy-on-write, so `s["head"][i] = x` would copy the whole array.
+	var phases: Array = []
+	var speeds: Array = []
+	var heads: Array = []
+	var climbs: Array = []
+	for i in range(int(school["count"])):
+		var f := Node3D.new()
+		root.add_child(f)
+		# Per-member size spread: a real shoal is juveniles-to-adults, not one stamped
+		# size repeated N times. Most cluster around the school size; a few run notably
+		# bigger (the old breeders) or smaller (this year's fry). Skewed so the big ones
+		# are the minority they should be.
+		var roll: float = _rng.randf()
+		var sv: float = (0.62 + 0.5 * roll) if roll < 0.82 else (1.12 + 1.05 * (roll - 0.82) / 0.18)
+		var member_len: float = model_len * sv
+		var ph: float = _rng.randf() * TAU
+		var gen: Dictionary = ANIM.attach(f, model_path, member_len, ANIM.Mode.UNDULATE,
+			0.1, 2.2, glow, ph)
+		if gen.is_empty():
+			_build_fish(f, shape, size * sv, mat)   # no generated mesh yet — keep the silhouette
+		else:
+			for m in gen["mats"]:
+				(m as ShaderMaterial).set_shader_parameter("tint", tint)
+			if id == "fish_herring":
+				ANIM.drive(gen["mats"], 2.2, 0.5)   # the lantern shoal keeps its glow
+		# This fish's own distance budget, generated mesh or silhouette alike.
+		_budget_fish(f, clampf(member_len * FISH_RANGE_PER_M, FISH_RANGE_MIN, FISH_RANGE_MAX))
+		members.append(f)
+		phases.append(ph)
+		speeds.append(_rng.randf_range(0.78, 1.28))
+		heads.append(_rng.randf() * TAU)
+		climbs.append(0.0)
+	# How wide the pod itself is. It used to be a flat (0.8..1.3) * (1 + size/2), i.e. a
+	# ~1.4 m ball whether the shoal held two groupers or thirty-four sprats — which is why
+	# a big school read as a knot rather than a shoal. Scaling on sqrt(count) keeps the
+	# density roughly constant instead: more fish, more water.
+	var spread_r: float = (0.9 + size * 0.55) * sqrt(float(maxi(members.size(), 1))) * 0.42
+	_schools.append({
+		"root": root, "fish": members, "def": def, "id": id, "pod": pod,
+		"band_y": band_y - POD_DROP[pod], "size": size,
+		"spread": POD_SPREAD[pod], "rates": POD_RATES[pod], "radius": spread_r,
+		"ph": phases, "spd": speeds, "head": heads, "climb": climbs,
+		"warm": false,
+		"t": _rng.randf_range(0, 100.0),
+	})
+
+## Give one fish — generated mesh or fallback silhouette — its own distance budget; see
+## FISH_RANGE_PER_M for why it does not take render_budget.gd's generic size-derived one.
+## Walks the whole instance because a .glb can carry several surfaces and the silhouette
+## fallback is half a dozen primitives.
+func _budget_fish(f: Node, reach: float) -> void:
+	var stack: Array = [f]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		var mi := n as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		mi.visibility_range_end = reach
+		mi.visibility_range_end_margin = reach * FISH_RANGE_FADE
+		mi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_DISABLED
 
 ## Build one fish's body under `f`. Convention: head faces -Z, tail at +Z (the
 ## school code look_at()s -Z toward the swim target). Each `shape` reads as a
@@ -761,37 +931,87 @@ func _process(delta: float) -> void:
 		var storm: float = _storm_intensity()
 		_snow.amount_ratio = clampf(0.55 + storm * 0.45, 0.0, 1.0)
 		_snow.speed_scale = 1.0 + storm * 0.7
+	# EVERYTHING BELOW THE WAVE LINE IS HIDDEN WHENEVER THE CAMERA IS TOPSIDE
+	# (_cull_topside, above) — and until now it was all still being SIMULATED behind that
+	# hidden flag: 44 kelp strands and every fish in the ocean, each fish sampling the
+	# Gerstner swell and running a look_at, on every frame of a game that is mostly played
+	# on deck. Doubling the stocking (2026-07-26) would have doubled that bill for water
+	# nobody is looking at, so the swim now stops with the drawing. The phase bookkeeping
+	# below deliberately keeps running — it is a handful of dictionary reads, and it is
+	# what decides which shoals EXIST, which the screenshot harnesses read. And because a
+	# pod's own clock `t` stops with it, every fish resumes exactly where it left off
+	# instead of teleporting a minute further down its circuit the moment you go under.
+	var swim: bool = visible
 	# Kelp sways in the set of the current.
-	for strand in _kelp:
-		var sway: float = strand.get_meta("sway")
-		var phase: float = strand.get_meta("phase")
-		strand.rotation.x = sin(_t * 0.4 * sway + phase) * 0.1
-		strand.rotation.z = cos(_t * 0.33 * sway + phase) * 0.1
-	# Schools: wander their band, members orbit the moving center. Species keep
+	if swim:
+		for strand in _kelp:
+			var sway: float = strand.get_meta("sway")
+			var phase: float = strand.get_meta("phase")
+			strand.rotation.x = sin(_t * 0.4 * sway + phase) * 0.1
+			strand.rotation.z = cos(_t * 0.33 * sway + phase) * 0.1
+	# Schools: wander their band, members ease around the moving centre. Species keep
 	# their active hours — the night shift appears as the day shoals thin out.
 	var phase_key: String = "day"
 	match GameClock.current_phase:
 		GameClock.Phase.DAWN: phase_key = "dawn"
 		GameClock.Phase.DUSK: phase_key = "dusk"
 		GameClock.Phase.NIGHT: phase_key = "night"
+	var storming: bool = _storm_intensity() > 0.15
 	for s in _schools:
 		var active: Array = s["def"]["school"].get("active", [])
-		var want: bool = active.has(phase_key)
+		# An EMPTY active list is not "never". It is how data/fish.json says this shoal
+		# keeps no clock hours, and in that table it means exactly one thing: a
+		# `storm: "only"` species — the drum croaker chorus and the squall garfish, which
+		# between them declare 20 fish per pod. Read literally as "active in no phase",
+		# those schools spawned their fish and then stayed hidden for the entire game.
+		# They now show up for the one condition they are FOR, which is also the moment
+		# the player is most likely to be looking at the water.
+		var want: bool = active.has(phase_key) if not active.is_empty() else storming
 		var root: Node3D = s["root"]
 		root.visible = want
-		if not want:
+		if not want or not swim:
 			continue
 		s["t"] += delta
 		var t: float = s["t"]
-		var drift := Vector3(cos(t * 0.05) * 24.0, 0, sin(t * 0.041) * 28.0)
-		var center: Vector3 = Vector3(drift.x, s["band_y"] + sin(t * 0.11) * 0.8, drift.z)
+		# THE POD'S OWN WANDER. Two incommensurate octaves per axis instead of one, so the
+		# centre never retraces the same lap — the jelly's trick, at shoal scale.
+		var spread: Vector2 = s["spread"]
+		var rates: Vector2 = s["rates"]
+		var cx: float = cos(t * rates.x) * spread.x + sin(t * rates.x * 0.37 + 1.3) * spread.x * 0.16
+		var cz: float = sin(t * rates.y) * spread.y + cos(t * rates.y * 0.43 + 2.1) * spread.y * 0.16
+		var center := Vector3(cx, s["band_y"] + sin(t * 0.11) * 0.8 + sin(t * 0.037) * 0.5, cz)
 		var members: Array = s["fish"]
 		var n: int = members.size()
+		var mph: Array = s["ph"]
+		var mspd: Array = s["spd"]
+		var mhead: Array = s["head"]
+		var mclimb: Array = s["climb"]
+		var r_base: float = s["radius"]
+		# Slow enough that the eased follow below can actually keep up with it: a target
+		# moving faster than FISH_EASE can track just drags the whole ring inward.
+		var orbit: float = clampf(0.55 / maxf(s["size"], 0.6), 0.12, 0.8)
+		# Frame-rate-independent easing — the same fraction of the gap closed per SECOND,
+		# not per frame, so a 15 fps dip and a 60 fps stretch swim identically. On a pod's
+		# very first live frame the fish are still stacked at the origin, so that one frame
+		# seats them outright instead of letting them swoop in from the middle of the world.
+		var warm: bool = s["warm"]
+		var follow: float = (1.0 - exp(-FISH_EASE * delta)) if warm else 1.0
+		var turn: float = 1.0 - exp(-FISH_TURN * delta)
+		s["warm"] = true
 		for i in range(n):
 			var f: Node3D = members[i]
-			var a: float = t * (1.2 / maxf(s["size"], 0.6)) + i * (TAU / maxi(n, 1))
-			var r: float = (0.8 + 0.5 * sin(t * 0.7 + i)) * (1.0 + s["size"] * 0.5)
-			var next: Vector3 = center + Vector3(cos(a) * r, sin(t * 1.3 + i) * 0.25, sin(a) * r * 0.7)
+			var ph: float = mph[i]
+			var spd: float = mspd[i]
+			# A TARGET, not a rail. The evenly spaced slot is what still makes it read as
+			# one school; the per-member weave, radius octave and speed are what stop it
+			# reading as a carousel of clones.
+			var a: float = t * orbit * spd + float(i) * (TAU / maxi(n, 1)) \
+				+ sin(t * 0.23 * spd + ph) * 0.55
+			var rad: float = r_base * (0.72 + 0.34 * sin(t * 0.27 * spd + ph * 1.3))
+			var bob: float = sin(t * 0.41 * spd + ph) * 0.34 + sin(t * 0.15 + ph * 2.1) * 0.26
+			var target: Vector3 = center + Vector3(cos(a) * rad, bob, sin(a) * rad * 0.72)
+			var cur: Vector3 = f.global_position
+			var next: Vector3 = cur.lerp(target, follow)
 			# Never let a school breach. The "surface" band sits at -1.2, which was under
 			# water when the sea was a flat plane; against the Gerstner swell (±2 m calm,
 			# more in a squall) it put whole shoals of fish flapping above the waterline.
@@ -805,15 +1025,29 @@ func _process(delta: float) -> void:
 			# orbit in open water), and if the step would enter the steel, stop the fish at
 			# the surface so it grazes the leg and its orbit carries it back out.
 			if _near_leg(next):
-				var res: Dictionary = MOVE.swim_clear(f, f.global_position, next, 0.3)
+				var res: Dictionary = MOVE.swim_clear(f, cur, next, 0.3)
 				next = res["pos"]
-			var vel: Vector3 = next - f.global_position
+				if bool(res["blocked"]):
+					next = _slide_leg(next, target, delta)
+			var step: Vector3 = next - cur
 			f.global_position = next
-			# Steer by the FLAT velocity only — a vertical bob aligned with UP
-			# makes look_at error-spam hard enough to choke the editor debugger.
-			var flat := Vector3(vel.x, 0.0, vel.z)
-			if flat.length_squared() > 0.0001:
-				f.look_at(next + flat, Vector3.UP)
+			if not warm:
+				continue
+			# THE HEADING IS REMEMBERED, NOT RE-DERIVED. Pointing a fish straight down its
+			# last frame's displacement is what made the old shoal snap: one jittery step
+			# and the whole body yaws to it instantly. Carrying the heading and easing it
+			# onto the new one gives the animal a turn RATE, so it banks through a change of
+			# direction over a few tenths of a second like the glider ray does.
+			if absf(step.x) + absf(step.z) > 0.0002:
+				mhead[i] = lerp_angle(mhead[i], atan2(step.x, step.z), turn)
+			# ...and it noses into its own climb rather than swimming flat while rising.
+			# Eased on the same constant, and clamped well short of vertical so the look_at
+			# below can never be handed a direction parallel to UP (that error-spams hard
+			# enough to choke the editor debugger).
+			mclimb[i] = lerpf(mclimb[i],
+				clampf(step.y / maxf(delta, 0.0001) * FISH_PITCH, -0.5, 0.5), turn)
+			var hd: float = mhead[i]
+			f.look_at(next + Vector3(sin(hd), mclimb[i], cos(hd)), Vector3.UP)
 
 ## Is `p` close enough to a rig leg (in plan) that a wall test is worth casting? The legs
 ## are 6 m square; 4.5 m from a centre clears the caisson plus a fish's turn radius.
@@ -822,3 +1056,36 @@ func _near_leg(p: Vector3) -> bool:
 		if absf(p.x - leg.x) < 4.5 and absf(p.z - leg.z) < 4.5:
 			return true
 	return false
+
+func _nearest_leg(p: Vector3) -> Vector3:
+	var best: Vector3 = LEGS[0]
+	var bd: float = 1.0e9
+	for leg in LEGS:
+		var d: float = absf(p.x - leg.x) + absf(p.z - leg.z)
+		if d < bd:
+			bd = d
+			best = leg
+	return best
+
+## A fish the caisson raycast stopped DEAD is a fish the shoal swims away from. Its slot on
+## the ring is on the far side of six metres of concrete, so the ray blocks it again on the
+## next frame, and the next, while the pod drifts on without it — which is exactly how a
+## lone fish ends up shivering flat against a leg twenty metres from its school. Probed for
+## 2026-07-26: five bream and eight pollock were sitting on the SE caisson's z-face at a
+## dead-identical z 8.8, stranded, while their shoals worked open water off to the north.
+##
+## A real fish goes AROUND. So a blocked fish is pushed ALONG the face — in whichever of
+## the two tangential directions closes on the slot it wants — plus a small standoff out
+## from the leg so the slide never grinds into the corner it is rounding. It works its own
+## way past the steel and rejoins under its own steam, and because it is a nudge per frame
+## rather than a re-seat, nothing about it is a teleport.
+func _slide_leg(pos: Vector3, target: Vector3, delta: float) -> Vector3:
+	var leg: Vector3 = _nearest_leg(pos)
+	var out := Vector3(pos.x - leg.x, 0.0, pos.z - leg.z)
+	if out.length_squared() < 0.0001:
+		return pos
+	out = out.normalized()
+	var tangent := Vector3(-out.z, 0.0, out.x)
+	if tangent.dot(target - pos) < 0.0:
+		tangent = -tangent
+	return pos + (tangent * 2.2 + out * 0.6) * delta

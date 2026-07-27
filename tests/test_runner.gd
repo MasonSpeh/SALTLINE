@@ -49,6 +49,22 @@ func _fish_total() -> int:
 		n += _item_count(id)
 	return n
 
+## Swings of a `dmg` weapon a full-health giant crab survives before it turns over. Drives
+## the REAL repel() on a real crab rather than doing the arithmetic here, so the answer
+## covers the whole path the player's swing takes (player_controller._melee_attack -> repel)
+## and not just a subtraction. Leaves the crab alive, on its roost, exactly as it found it.
+func _crab_kill_hits(crab: Node3D, from: Node3D, dmg: float) -> int:
+	var CrabS := preload("res://scripts/world/crab.gd")
+	crab._respawn()
+	crab.state = CrabS.State.PATROL
+	crab.global_position = Vector3(20, 2.6, -10)
+	var hits: int = 0
+	while crab.state != CrabS.State.DEAD and hits < 99:
+		crab.repel(from.global_position, dmg)
+		hits += 1
+	crab._respawn()
+	return hits
+
 func _item_count(id: String) -> int:
 	var n: int = 0
 	for it in PlayerState.hotbar:
@@ -401,6 +417,88 @@ func _run() -> void:
 		GameClock.force_phase(GameClock.Phase.DAWN)
 		_check(crab.state == CrabS.State.FLEE, "dawn sends deck crabs back to the water")
 		_check(not main._ending, "dawn does not end the game (open-ended survival)")
+
+		# --- KILLING ONE, AND WHAT COMES OFF IT (owner spec, 2026-07-26) -----------------
+		# Four spear hits, six knife hits. Asserted against the REAL melee_damage out of
+		# data/items.json rather than a hand-copied 1.7 and 1.0: the crab's health pool is
+		# derived from those numbers (crab.gd MAX_HP), so if anyone retunes a weapon this is
+		# the test that says the pool has to move with it. The crude pair is what the spec's
+		# counts describe — they are the first two weapons anyone on this rig owns — and the
+		# honed pair is asserted to be strictly FASTER, which is what honing is for.
+		var spear_dmg: float = float(PlayerState.items.get("crude_spear", {}).get("melee_damage", 0.0))
+		var knife_dmg: float = float(PlayerState.items.get("crude_knife", {}).get("melee_damage", 0.0))
+		var hspear_dmg: float = float(PlayerState.items.get("honed_spear", {}).get("melee_damage", 0.0))
+		var hknife_dmg: float = float(PlayerState.items.get("honed_knife", {}).get("melee_damage", 0.0))
+		_check(_crab_kill_hits(crab, player, spear_dmg) == 4, "a crude spear kills a giant crab in 4 hits")
+		_check(_crab_kill_hits(crab, player, knife_dmg) == 6, "a crude knife kills a giant crab in 6 hits")
+		_check(_crab_kill_hits(crab, player, hspear_dmg) < 4, "a honed spear kills it quicker than a crude one")
+		_check(_crab_kill_hits(crab, player, hknife_dmg) < 6, "a honed knife kills it quicker than a crude one")
+
+		# The corpse. It is the SAME node — nothing is freed — turned over on its back with
+		# its legs drawn in, and its touch collider is live where it was dead before.
+		crab._respawn()
+		crab.state = CrabS.State.PATROL
+		crab.global_position = Vector3(20, 2.6, -10)
+		while crab.state != CrabS.State.DEAD:
+			crab.repel(player.global_position, spear_dmg)
+		_check(is_instance_valid(crab), "a killed crab stays in the world as a corpse")
+		_check(crab.corpse_touch != null and (crab.corpse_touch as CollisionObject3D).collision_layer == 1,
+			"the corpse becomes something you can walk up to")
+		for k in range(6):
+			crab._dead_tick(0.4)          # let the flop settle
+		if crab._model != null:
+			_check(absf(crab._model.rotation.z - PI) < 0.25, "the corpse has turned over onto its back")
+			_check(crab._model.scale.y < crab._model_scale0.y, "the corpse has curled up")
+
+		# Eight legs, and they are food AND bait.
+		_check(crab.corpse_verbs() == ["HARVEST"], "a fresh corpse offers HARVEST")
+		# count_item, not _item_count: legs stack, so the whole harvest lands in ONE slot and
+		# a slot count would read eight legs as "1".
+		var legs_before: int = PlayerState.count_item("crab_leg")
+		crab.corpse_act("HARVEST", player)
+		_check(PlayerState.count_item("crab_leg") - legs_before == 8,
+			"harvesting a crab corpse yields 8 crab legs")
+		_check(crab.corpse_verbs().is_empty(), "a picked-clean shell offers nothing more")
+		_check(PlayerState.items.get("crab_leg", {}).get("use", "") == "eat",
+			"a crab leg is food")
+		# Bait: the deep rig takes cheaper bait first, so clear the pack of chum before
+		# asking — and put it back afterwards, since later checks own those items.
+		var had_snail: int = PlayerState.count_item("snail_live")
+		var had_rot: int = PlayerState.count_item("fish_rotten")
+		while PlayerState.remove_item("snail_live"):
+			pass
+		while PlayerState.remove_item("fish_rotten"):
+			pass
+		var rod_probe: Node = preload("res://scripts/components/fishing_rod.gd").new()
+		_check(rod_probe._find_bait() == "crab_leg", "a crab leg baits the deep-drop rig")
+		rod_probe.free()
+		for k in range(had_snail):
+			PlayerState.add_item("snail_live")
+		for k in range(had_rot):
+			PlayerState.add_item("fish_rotten")
+
+		# Respawn: the next DUSK, and nothing before it. A crab that popped back up mid-hunt
+		# would make the fight pointless and take the corpse out from under the player.
+		GameClock.force_phase(GameClock.Phase.NIGHT)
+		_check(crab.state == CrabS.State.DEAD, "a corpse does not get up during the night it died in")
+		GameClock.force_phase(GameClock.Phase.DAWN)
+		_check(crab.state == CrabS.State.DEAD, "the corpse lies through the day, harvestable in daylight")
+		GameClock.force_phase(GameClock.Phase.DUSK)
+		_check(crab.state == CrabS.State.ROOST, "dusk puts a fresh crab back on its roost")
+		_check(is_equal_approx(crab.hp, CrabS.MAX_HP), "the respawned crab is whole again")
+		_check(crab.global_position.y < 0.5, "the respawned crab is back under the waterline")
+
+		# The supports: most of the pack is authored a climb up its own caisson leg. The
+		# geometry of those routes is proven in CrabNightProbe (it sphere-casts every
+		# waypoint and every landing); all this asserts is that they were handed out.
+		var with_routes: int = 0
+		for cc in crabs:
+			if not (cc.leg_climb as Array).is_empty():
+				with_routes += 1
+		_check(with_routes >= 4, "most of the pack climbs the rig supports at night (%d of %d)"
+			% [with_routes, crabs.size()])
+
+		GameClock.force_phase(GameClock.Phase.DAWN)   # leave the clock where this block found it
 		# Put the crab back on its roost so later checks see the resting pack.
 		crab.state = CrabS.State.ROOST
 		crab._scare_cd = 0.0

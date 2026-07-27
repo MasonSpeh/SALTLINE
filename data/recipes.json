@@ -164,6 +164,17 @@
     "desc": "A minute on hot steel and the light goes out of it. What's left is honest meat.",
     "hint": "Raw ones bite back on the way down. Sear it first."
   },
+  "crab_leg_seared": {
+    "name": "Seared Crab Leg",
+    "cat": "food",
+    "needs": {
+      "crab_leg": 1
+    },
+    "makes": "crab_leg_seared",
+    "work_sec": 2.5,
+    "desc": "Crack the shell along the seam, lay the meat on hot plate, and for about a minute the whole deck smells like somewhere else. You killed something the size of a dog for this. Eat it properly.",
+    "hint": "Raw shellfish is a bet you lose. Eight legs is a lot of dinners if you cook them."
+  },
   "bloom_lamp_kit": {
     "name": "Bloom Lamp",
     "cat": "structure",

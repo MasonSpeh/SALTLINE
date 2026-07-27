@@ -14,7 +14,8 @@ class_name BloomFauna extends Node3D
 ##   HarborSeal   — day patrol, porpoises to breathe, watches you (befriendable)
 ##   LampSnail    — night constellations of glow-spots circling the leg bases (§54)
 ##   CorvidGull   — perched Bloom-intelligent gull that tracks the player (§26)
-##   GiantCrab    — the night threat: fourteen, free-roaming, and they climb after you
+##   GiantCrab    — the night threat: a pool of eight, free-roaming, killable, and they
+##                  climb the caisson legs and the stair tower after you
 ##   KingCrab     — two boss-tier giants in the deep; each rolls 50% a night to come up
 
 const ANIMH := preload("res://scripts/world/creature_anim.gd")
@@ -23,25 +24,30 @@ const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
 const PEARL := Color(0.88, 0.94, 0.92)
 
-## --- Giant crabs (s15): FOURTEEN, spread around the four caisson legs --------------
+## --- Giant crabs: a pool of EIGHT, spread around the four caisson legs --------------
 ## DAY: every crab clings to a submerged face of one of the 4 caisson legs (6x6 boxes at
 ## x=±22 z=±12 — SE fills x[19,25] z[-15,-9]), sidling its cling loop — visible to anyone
 ## who leans over a rim or swims. The crab carries a snail-style surface frame now
 ## (crab.gd `up` + per-frame seat), so each loop names the FACE NORMAL it clings to and
 ## the seat pins the feet to the real concrete: no more hovering at hand-typed heights.
-## NIGHT: on a staggered cue each crosses to the EAST rim (x~30.25, the one clean water
-## edge), climbs an authored lane, and then FREE ROAMS — s16 replaced the two fixed patrol
-## rings with roam boxes that live in crab.gd's level tree, and a crab that senses you on
-## another deck climbs the stair tower to reach you. Waypoint heights are advisory; the
-## seat owns the floor.
-## SIX small crabs around the base of the rig (owner's call, 2026-07-25; was 14).
+## NIGHT: on a staggered cue each goes up. A crab on one of the three free-standing legs
+## CLIMBS ITS OWN SUPPORT — straight up the concrete and over the topside rim, see
+## _crab_leg_climbs; the SE trio (the caisson the wet deck is built through) crosses to the
+## EAST rim (x~30.25, the one clean water edge) and climbs its authored lane. Either way it
+## then FREE ROAMS — s16 replaced the two fixed patrol rings with roam boxes that live in
+## crab.gd's level tree, and a crab that senses you on another deck climbs the stair tower
+## to reach you. Waypoint heights are advisory; the seat owns the floor.
+## EIGHT small crabs around the base of the rig (owner's call, 2026-07-26; was 6, was 14).
 ## Fourteen 1.1 m crabs on 10 cling loops meant four leg faces carried a doubled-up pair and
-## the pack read as an infestation rather than a threat. Six is one crab per face across the
-## legs nearest the player's routes, so each is an individual you notice and track — and the
-## two King Crabs stay the thing that actually frightens you. The first SIX roosts are the SE
-## leg (3, the leg by the spawn), the NE leg (2) and the first SW face, which spreads them
-## around the base without ever doubling a loop.
-const CRAB_COUNT: int = 6
+## the pack read as an infestation rather than a threat; six read as a threat but left the
+## rig thin once crabs could be KILLED (crab.gd MAX_HP — a night's hunting can now take one
+## out of the pool until the next dusk). Eight is the pool, NOT the turnout: each crab rolls
+## crab.gd SURFACE_CHANCE independently every night, so a typical night puts three or four
+## of them on the plating and some nights half the roosts stay dark. Eight still fits the
+## ten authored cling loops one crab per face, which is what keeps every crab an individual
+## you notice and track — the first EIGHT roosts are the SE leg (3, the leg by the spawn),
+## the NE leg (2) and all three SW faces.
+const CRAB_COUNT: int = 8
 # The old patrol rings. They are no longer walked as routes: crab.gd roams boxes instead,
 # and keeps these as the wet-deck UNSTICK ANCHOR — a short list of points that are known
 # good to drop a pinned crab back onto.
@@ -94,6 +100,81 @@ func _crab_climb(z: float) -> Array:
 	return [Vector3(31.0, -0.5, z), Vector3(30.6, 0.6, z),
 		Vector3(30.3, 1.7, z), Vector3(29.3, 2.6, z)]
 
+## --- THE SUPPORT CLIMB (owner spec, 2026-07-26) ------------------------------------
+## "Crabs should climb the rig supports at night." The supports are the four caisson legs,
+## and rig_builder._build_structure builds each as ONE 6x6 concrete casting centred on
+## (+-22, +-12) running unbroken from the seabed to y17 — the underside of the topside
+## plate. That makes a leg the only surface on this rig a crab can get from the water to
+## the main deck on without a single stair, and these routes are that climb: haul out at
+## the leg's foot, go up the bare face, out along the underside of the deck, and over the
+## rim. crab.gd walks them through its existing climb buffer (_begin_leg_climb ->
+## _walk_link -> _finish_climb), so nothing here is a second movement system.
+##
+## THE NUMBERS ARE THE RIG'S OWN:
+##   leg faces          |x| 19..25, |z| 9..15          (6x6 boxes at +-22, +-12)
+##   pontoon skirts     y -3.05..0.95, x -28..28, |z| 8..16   (the feet, and the haul-out)
+##   topside plate      y 17..18, x -30..30, z -20..20  (underside at 17, walking top at 18)
+##   under-deck girders y ~16.9..17.85                  (hence a 16.4 traverse, below them)
+## The SE leg (x19..25, z-15..-9) gets NO route: it is the one caisson the WET DECK is
+## built straight through (slab x8..30, z-22..2 at y2), so its faces are interrupted and a
+## climb up them would pass through the plating. Those three crabs keep the east rim lane,
+## which lands them on the wet deck a few metres from the leg anyway.
+const LEG_FACE_OFF: float = 0.45    ## how far the body's origin rides off the concrete
+const LEG_FOOT_Y: float = 1.45      ## just clear of the pontoon top (0.95) at the foot
+const LEG_UNDER_Y: float = 16.4     ## traverse height: under the deck, under the girders
+const LEG_OVER_Y: float = 18.7      ## crest height going over the rim rail (rail top 18.61)
+const LEG_LAND_Y: float = 18.25     ## on the plate (top 18.0; the seat owns the last 0.15)
+
+## One support climb, as a polyline. `foot` is the haul-out on the pontoon at the leg's
+## foot; `face` is the (x, z) column the crab crawls up; `edge` is the (x, z) just OUTBOARD
+## of the topside rim it crosses; `land` is where it comes down on the plate.
+func _leg_route(foot: Vector3, face: Vector2, edge: Vector2, land: Vector3) -> Array:
+	return [
+		foot,                                             # out of the sea at the leg's foot
+		Vector3(face.x, LEG_FOOT_Y + 1.4, face.y),        # onto the concrete, belly to it
+		Vector3(face.x, 9.0, face.y),                     # mid-climb, level with nothing
+		Vector3(face.x, LEG_UNDER_Y, face.y),             # up under the deck
+		Vector3(edge.x, LEG_UNDER_Y, edge.y),             # out along the underside to the rim
+		Vector3(edge.x, LEG_OVER_Y, edge.y),              # up the outside face of the plate
+		land,                                             # over the rail, down on the deck
+	]
+
+## Per-roost support routes, indexed the same way CRAB_ROOSTS is (a crab climbs the leg it
+## slept on, up the face it slept on wherever that face is exposed). Empty = no climb.
+##   3    — NE leg east face, over the EAST rim at z14: the one gap in the east rail, where
+##          the broken bridge leaves the deck. It lands in the x29 lane, which runs clear
+##          from z5 to z19 past the deck containers.
+##   4    — NE leg north face, over the NORTH rim east of the galley (galley is x-2..14).
+##   5-7  — SW leg, all three faces, over the SOUTH rim into the lane between the machine
+##          shop's south wall and the south rail.
+##   8, 9 — NW leg, over the NORTH rim into the matching lane north of the bunkhouse. Not
+##          populated at CRAB_COUNT 8, but authored so raising the count stays safe.
+##
+## EVERY LANDING IS MEASURED, NOT GUESSED. z19.0 / z-19.0 / the x29 lane are the rows a
+## sphere-cast sweep of the topside plate came back clear on (deck under it at exactly y18,
+## nothing within a 0.45 m body radius above it) — the deck a metre either side of them is
+## containers, rails and hut walls. CrabNightProbe re-runs that same sweep against these
+## routes every time it runs, so a future deck-dressing pass cannot quietly wall one off.
+func _crab_leg_climbs() -> Array:
+	var none: Array = []
+	return [
+		none, none, none,                                  # 0-2: SE leg — see the note above
+		_leg_route(Vector3(26.6, LEG_FOOT_Y, 13.4), Vector2(25.0 + LEG_FACE_OFF, 13.4),
+			Vector2(30.7, 14.0), Vector3(29.0, LEG_LAND_Y, 14.0)),
+		_leg_route(Vector3(22.0, LEG_FOOT_Y, 15.7), Vector2(22.0, 15.0 + LEG_FACE_OFF),
+			Vector2(22.0, 20.7), Vector3(22.0, LEG_LAND_Y, 19.0)),
+		_leg_route(Vector3(-22.0, LEG_FOOT_Y, -15.7), Vector2(-22.0, -15.0 - LEG_FACE_OFF),
+			Vector2(-22.0, -20.7), Vector3(-22.0, LEG_LAND_Y, -19.0)),
+		_leg_route(Vector3(-26.6, LEG_FOOT_Y, -12.0), Vector2(-25.0 - LEG_FACE_OFF, -12.0),
+			Vector2(-24.5, -20.7), Vector3(-24.5, LEG_LAND_Y, -19.0)),
+		_leg_route(Vector3(-17.4, LEG_FOOT_Y, -12.0), Vector2(-19.0 + LEG_FACE_OFF, -12.0),
+			Vector2(-19.5, -20.7), Vector3(-19.5, LEG_LAND_Y, -19.0)),
+		_leg_route(Vector3(-26.6, LEG_FOOT_Y, 12.0), Vector2(-25.0 - LEG_FACE_OFF, 12.0),
+			Vector2(-24.5, 20.7), Vector3(-24.5, LEG_LAND_Y, 19.0)),
+		_leg_route(Vector3(-22.0, LEG_FOOT_Y, 15.7), Vector2(-22.0, 15.0 + LEG_FACE_OFF),
+			Vector2(-22.0, 20.7), Vector3(-22.0, LEG_LAND_Y, 19.0)),
+	]
+
 func _spawn_giant_crabs() -> void:
 	# Ring assignment alternates so both rings stay manned all night; the offsets fan
 	# the shared loops. Each nudge <=0.4 m and pointed INBOARD / away from the nearest
@@ -106,15 +187,17 @@ func _spawn_giant_crabs() -> void:
 		Vector3(0.45, 0, -0.15), Vector3(-0.45, 0, 0.15), Vector3(0.15, 0, -0.45),
 		Vector3(-0.15, 0, 0.45), Vector3(0.35, 0, 0.35),
 	]
-	# SIX crabs over 10 authored cling loops, so the modulo never wraps and no leg face
+	# EIGHT crabs over 10 authored cling loops, so the modulo never wraps and no leg face
 	# carries two. (The lane-mate offsets below are kept: they still fan the spawn points a
 	# little, and they are what makes a higher CRAB_COUNT safe if it is ever raised again.)
+	var leg_routes: Array = _crab_leg_climbs()
 	for i in range(CRAB_COUNT):
 		var crab: Node3D = CRAB.new()
 		crab.spawn_index = i
 		var roost: Dictionary = CRAB_ROOSTS[i % CRAB_ROOSTS.size()]
 		crab.roost_loop = roost["loop"]
 		crab.roost_up = roost["up"]
+		crab.leg_climb = leg_routes[i % leg_routes.size()]
 		# Transit legs: the climb lanes are all on the EAST rim, so crabs roosting on
 		# the west and north legs get authored swim waypoints routing them AROUND the
 		# solid pontoon (x16..28, z-16..-8) and the deck structures instead of straight
@@ -133,6 +216,16 @@ func _spawn_giant_crabs() -> void:
 		crab.emerge_path = lead + _crab_climb(CRAB_EMERGE_Z[i % CRAB_EMERGE_Z.size()])
 		crab.patrol_loop = CRAB_PATROL_EAST if (i % 2) == 0 else CRAB_PATROL_SOUTH
 		crab.patrol_offset = offsets[i % offsets.size()]
+		# The corpse's touch target. Built HERE and not in crab.gd because FaunaTouch is an
+		# inner class of this file and crab.gd is preloaded BY this file — a crab reaching
+		# back for BloomFauna would close a script cycle. It is attached from spawn (so
+		# FaunaMove.kin_bodies, which caches every fauna collider exactly once, already
+		# knows about it) but crab._ready parks it on collision_layer 0: a living crab must
+		# never shove the player or answer [E]. Death turns it solid; the harvest and the
+		# respawn take it away again.
+		var corpse := FaunaTouch.new("Dead Giant Crab", 0.9, crab.corpse_verbs, crab.corpse_act)
+		crab.add_child(corpse)
+		crab.corpse_touch = corpse
 		add_child(crab)
 		var seat: Vector3 = crab.roost_loop[0]
 		if i >= CRAB_ROOSTS.size():

@@ -61,6 +61,7 @@ const FAUNA_SOURCED := {
 	"glow_mucus": "LampSnail harvest",
 	"limpet_shell": "AnchorLimpet PRY",
 	"glow_worm": "glow worm pick-up",
+	"crab_leg": "giant crab corpse HARVEST",
 }
 
 func _check_kits() -> void:
@@ -187,15 +188,27 @@ func _collect_takeables() -> void:
 func _world_has_takeable(id: String) -> bool:
 	return _takeable_ids.has(id)
 
-## Prove the fauna whitelist is not a lie: each id must really be granted by
-## bloom_fauna.gd. If someone deletes a creature's harvest, this fails instead of
-## silently excusing an unobtainable recipe input.
+## Every species file BloomFauna spawns which grants an item from its own script. Most of
+## the wildlife lives inside bloom_fauna.gd as an inner class, but the two crabs are big
+## enough to have their own files — so a harvest written there is still a fauna source and
+## has to be searched, or the whitelist below fails for a grant that plainly exists.
+const FAUNA_SCRIPTS: Array[String] = [
+	"res://scripts/world/bloom_fauna.gd",
+	"res://scripts/world/crab.gd",
+]
+
+## Prove the fauna whitelist is not a lie: each id must really be granted by one of the
+## fauna scripts. If someone deletes a creature's harvest, this fails instead of silently
+## excusing an unobtainable recipe input.
 func _check_fauna_sources() -> void:
-	var f := FileAccess.open("res://scripts/world/bloom_fauna.gd", FileAccess.READ)
-	var src := f.get_as_text()
+	var src: String = ""
+	for path in FAUNA_SCRIPTS:
+		var f := FileAccess.open(path, FileAccess.READ)
+		if f != null:
+			src += f.get_as_text()
 	for id in FAUNA_SOURCED:
 		if not src.contains('add_item("%s")' % id):
-			_fail("'%s' is whitelisted as fauna-sourced (%s) but bloom_fauna.gd never grants it"
+			_fail("'%s' is whitelisted as fauna-sourced (%s) but no fauna script grants it"
 				% [id, FAUNA_SOURCED[id]])
 	print("fauna-sourced materials confirmed: ", FAUNA_SOURCED.keys())
 

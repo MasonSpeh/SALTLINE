@@ -86,16 +86,34 @@ def _poll(url: str, key: str, label: str) -> dict:
             raise TimeoutError(f"{label} timed out after {POLL_MAX}s (id still running).")
 
 
-def meshy_text_to_3d(key: str, prompt: str) -> dict:
-    """preview -> refine, returns the refined task (with model_urls)."""
+def meshy_text_to_3d(key: str, prompt: str, refine: bool = True,
+                     ai_model: str = "") -> dict:
+    """preview -> refine, returns the refined task (with model_urls).
+
+    Measured against the live account 2026-07-26 (`consumed_credits` on each finished
+    task): a PREVIEW costs 20 credits and the REFINE pass 10 — the geometry is the
+    expensive half, the opposite of what the published pricing table implies.
+
+    `refine=False` stops after the preview and returns the untextured mesh: a third off,
+    and the schools tint their surfaces from the fish table anyway, so the albedo map
+    only really shows on a fish held in the hand. The returned task's `id` is the
+    preview id, so a later credit top-up can refine the SAME mesh instead of paying
+    full price for a new one that would also change a shape the player already knows.
+
+    `ai_model` pins the generator ("meshy-5" / "meshy-6"); empty = the account default.
+    Keep the prompt under 600 chars — Meshy truncates silently past that.
+    """
     print("[1/3] preview mesh from text ...")
-    r = requests.post(f"{MESHY}/v2/text-to-3d", headers=_headers(key), json={
-        "mode": "preview", "prompt": prompt,
-        "art_style": "realistic", "should_remesh": True,
-    }, timeout=60)
+    body = {"mode": "preview", "prompt": prompt,
+            "art_style": "realistic", "should_remesh": True}
+    if ai_model:
+        body["ai_model"] = ai_model
+    r = requests.post(f"{MESHY}/v2/text-to-3d", headers=_headers(key), json=body, timeout=60)
     r.raise_for_status()
     preview_id = r.json()["result"]
-    _poll(f"{MESHY}/v2/text-to-3d/{preview_id}", key, "preview")
+    prev = _poll(f"{MESHY}/v2/text-to-3d/{preview_id}", key, "preview")
+    if not refine:
+        return prev
 
     print("[2/3] refine (PBR textures) ...")
     r = requests.post(f"{MESHY}/v2/text-to-3d", headers=_headers(key), json={

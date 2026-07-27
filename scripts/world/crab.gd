@@ -25,10 +25,25 @@ class_name GiantCrab extends Node3D
 ## crab no longer FORGETS you when you step into one: it closes to the edge of the pool
 ## and waits there, claws up.
 ##
+## KILLING ONE (owner spec, 2026-07-26). They used to be un-killable: enough melee damage
+## only "beat them back" and they went over the rim for the night. Now they DIE — four hits
+## from a crude spear, six from a crude knife (the honed versions are quicker, which is the
+## whole point of honing one) — and a killed crab curls up, turns over onto its back and
+## stays there as a corpse you can harvest for EIGHT crab legs. Food, and the best bait on
+## the rig. The pack is a pool of eight; a kill is a real dent in tonight's pack, and the
+## sea replaces that crab at the NEXT DUSK, never during the night you fought it in.
+##
+## THE SUPPORTS. Coming up the east deck rim is no longer the only way onto the rig. After
+## dark a crab roosting on a free-standing caisson leg goes STRAIGHT UP ITS OWN LEG — a
+## seventeen-metre crawl on bare concrete, out along the underside of the topside plate and
+## over the rim — and arrives on the main deck without ever touching the wet deck or the
+## stair tower. The route is one more polyline through the SAME climb machinery the stair
+## flights use (_set_link / _walk_link / _finish_climb), authored per-leg by the spawner.
+##
 ## Its sound is honest: soft chitin taps ONLY while moving, near, and actually visible.
 
-enum State { ROOST, EMERGE, PATROL, PURSUE, FLEE, GONE, CLIMB }
-## CLIMB is appended LAST on purpose: tests and shot scripts store these as ints
+enum State { ROOST, EMERGE, PATROL, PURSUE, FLEE, GONE, CLIMB, DEAD }
+## CLIMB and DEAD are appended LAST on purpose: tests and shot scripts store these as ints
 ## (beta1_shot stages GiantCrab.State.PATROL, crab_night_probe prints State.keys()[st]),
 ## so inserting a state mid-enum would silently renumber every one of them.
 
@@ -37,6 +52,9 @@ enum State { ROOST, EMERGE, PATROL, PURSUE, FLEE, GONE, CLIMB }
 var roost_loop: Array = []     ## underwater cling loop on a caisson-leg face
 var roost_up: Vector3 = Vector3.UP   ## the face normal that loop clings to
 var emerge_path: Array = []    ## water -> rim -> deck; walked in reverse to go home
+var leg_climb: Array = []      ## NIGHT ONLY: water -> up this crab's own caisson leg ->
+## under the topside plate -> over the rim onto the main deck. Empty for a crab whose leg
+## is not climbable (see BloomFauna._crab_leg_climbs), and that crab keeps the rim lane.
 var patrol_loop: Array = []    ## wet-deck seed points; now the unstick anchor, not a route
 var spawn_index: int = 0
 var patrol_offset: Vector3 = Vector3.ZERO   ## fans the pack out over the roam boxes
@@ -50,7 +68,25 @@ var hunt_radius: float = 46.0
 var give_up_dist: float = 26.0
 var contact_radius: float = 1.45
 var scare_bright: float = 2.35
-var hp: float = 3.0                 ## melee hits it can take before it quits the night
+var hp: float = MAX_HP              ## melee damage it can take before it dies
+
+## THE KILL, in damage rather than in hit counts (owner spec, 2026-07-26: "if hit 4 times
+## by spear, or 6 times by knife they curl up and die"). Counting hits by weapon NAME would
+## have meant crab.gd carrying a table of item ids, and it would have said nothing sensible
+## about the honed variants; a health pool reads the real melee_damage the player is
+## swinging (player_controller._melee_attack passes data/items.json's number straight into
+## repel()), so the counts fall out of the weapons themselves:
+##   crude_spear 1.7 x4 = 6.8  -> dead on the 4th   (x3 = 5.1, still up)
+##   crude_knife 1.0 x6 = 6.0  -> dead on the 6th   (x5 = 5.0, still up)
+##   honed_spear 2.6 x3 = 7.8  -> dead on the 3rd
+##   honed_knife 1.6 x4 = 6.4  -> dead on the 4th
+## The spec's 4-and-6 are the CRUDE pair on purpose: they are the first two weapons anyone
+## on this rig owns and the ones you fight the pack with for most of a run. Honing either
+## takes a hit off, which is exactly what an upgrade should buy — a bar tuned so that both
+## variants of a weapon killed in the same number of swings would make the honed one
+## pointless against the only animal worth swinging at.
+const MAX_HP: float = 6.0
+const HARVEST_LEGS: int = 8         ## legs on a crab, and legs off a corpse
 
 const ROOST_SPEED: float = 0.5      ## slow underwater sidle
 const SURFACE_CHANCE: float = 0.5   ## owner spec (2026-07-25b): each crab, each night,
@@ -70,6 +106,17 @@ const EMERGE_STAGGER: float = 2.0   ## seconds between pack members leaving the 
 ## through each other — but at the old 4 s the last crab waited a full minute before it
 ## even set off, on top of a 60 m swim in from the west legs. Halved: the whole pack is
 ## committed within ~30 s of nightfall and up on the plating well inside the night.
+
+## Corpse + harvest. The touch collider is built by the SPAWNER (BloomFauna owns the
+## FaunaTouch class), handed over here, and kept on collision_layer 0 until the crab dies:
+## a live crab must not shove the player around or answer [E], and FaunaMove.kin_bodies
+## caches the fauna colliders once, so the collider has to exist from spawn even though it
+## only becomes solid on death.
+var corpse_touch: Node = null
+var _dead_t: float = 0.0            ## seconds this corpse has been lying there
+var _legs_left: int = 0             ## legs still on the shell (0 = picked clean)
+var _model_height: float = 0.0      ## measured shell height — the death roll needs it
+var _model_scale0: Vector3 = Vector3.ONE
 
 var _resume_state: State = State.PATROL
 var _recoil: float = 0.0            ## stagger timer after a strike / bite lunge
@@ -264,6 +311,8 @@ var _climb_path: Array = []
 var _climb_i: int = 0
 var _climb_to: int = L_WET
 var _descending: bool = false       ## FLEE is still walking the flights back down
+var _on_leg: bool = false           ## this climb is the caisson leg, not a stair flight
+var _leg_descent: bool = false      ## FLEE is going back DOWN the leg it came up
 
 ## Brightness model. Mirrors PlayerController's own light setup (FLASHLIGHT_ENERGY 4.0,
 ## spot_range 22, spot_angle 32; LANTERN_ENERGY 1.5, LANTERN_RANGE 9) so what the crab
@@ -299,6 +348,9 @@ func _ready() -> void:
 	add_to_group("giant_crab")
 	GameClock.dawn.connect(_on_dawn)
 	GameClock.night.connect(_on_night_roll)
+	GameClock.dusk.connect(_on_dusk_respawn)
+	if corpse_touch is CollisionObject3D:
+		(corpse_touch as CollisionObject3D).collision_layer = 0   # nothing to touch yet
 	_last_pos = global_position
 	_guard_pos = global_position
 	_night_wait = float(spawn_index) * EMERGE_STAGGER
@@ -368,15 +420,45 @@ static func ground_model(model: Node3D) -> float:
 		model.position.y -= lowest * model.scale.y
 	return model.position.y
 
+## The generated shell's own height, measured exactly the way ground_model() measures its
+## foot. The death roll needs it: turning the model 180 degrees about its own origin puts
+## the whole body BELOW that origin, so a corpse has to be lifted by precisely its height
+## to come to rest back-down ON the plate instead of sunk through it.
+static func model_height(model: Node3D) -> float:
+	var lo: float = INF
+	var hi: float = -INF
+	var stack: Array = [model]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		var mi := n as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		var aabb: AABB = mi.get_aabb()
+		for k in range(8):
+			var local: Vector3 = model.global_transform.affine_inverse() \
+				* (mi.global_transform * aabb.get_endpoint(k))
+			lo = minf(lo, local.y)
+			hi = maxf(hi, local.y)
+	return 0.0 if lo > hi else (hi - lo) * model.scale.y
+
 func _ground_generated() -> void:
 	_model_base_y = ground_model(_model)
+	_model_height = model_height(_model)
+	_model_scale0 = _model.scale
 
 ## ---------- fightback ----------
 
-## Struck by a melee weapon (player_controller._melee_attack). Each hit staggers it;
-## enough damage and it gives up the night and goes back over the rim into the sea.
+## Struck by a melee weapon (player_controller._melee_attack). Each hit staggers it; when
+## the pool runs out it DIES (see MAX_HP for why the counts are 4 spear / 6 knife).
+##
+## A FLEEING crab is no longer immune. It used to be — the old repel() returned early on
+## State.FLEE — which made sense while the worst you could do was drive one off, but now
+## that a crab can be killed, a player chasing a wounded animal down the deck with a spear
+## has to be allowed to finish it. Only a corpse and a despawned crab refuse the hit.
 func repel(from_pos: Vector3, damage: float) -> void:
-	if state == State.GONE or state == State.FLEE:
+	if state == State.GONE or state == State.DEAD:
 		return
 	hp -= damage
 	_recoil = 0.4
@@ -389,16 +471,146 @@ func repel(from_pos: Vector3, damage: float) -> void:
 	AudioDirector.play_one_shot("clang", global_position, -6.0)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hp <= 0.0:
-		_beaten = true
-		_start_flee()
+		_die(from_pos)
 		if hud and hud.has_method("toast"):
-			hud.toast("It breaks off and drops over the rim. Gone — for tonight.")
+			hud.toast("It curls, turns over, and stops moving. Eight legs of meat.")
 	else:
 		_resume_state = State.PATROL
 		state = State.PURSUE     # faces you down, but the recoil holds it off this beat
 		_commit = COMMIT_TIME
 		if hud and hud.has_method("toast"):
 			hud.toast("You beat it back. It rears, claws high.")
+
+## ---------- death, the corpse, and the harvest ----------
+
+## Dead. It curls up and turns over, and it STAYS: the thing you fought is worth more on
+## the plate than driven over the rim. Nothing is queue_free()d — the same node is the
+## corpse, and the same node is the crab again after the respawn, which is what keeps the
+## pack size, the group memberships and the save/probe counts honest.
+func _die(from_pos: Vector3) -> void:
+	state = State.DEAD
+	_dead_t = 0.0
+	_legs_left = HARVEST_LEGS
+	_beaten = true
+	_on_leg = false
+	_leg_descent = false
+	_descending = false
+	_scare_retreat = false
+	_fleeing_home = false
+	_climb_path = []
+	_recoil = 0.0
+	_lit_t = 0.0
+	# A corpse lies on the deck, not clinging to the wall it happened to be climbing.
+	up = Vector3.UP
+	_seated = false
+	_face_toward(from_pos)          # it dies facing whatever killed it
+	if corpse_touch is CollisionObject3D:
+		(corpse_touch as CollisionObject3D).collision_layer = 1   # now there IS something here
+	# The motion shader goes quiet in one write. _set_beat is the only safe way to change
+	# `rate` (see its docstring: a live rate change teleports the wave's phase), and the
+	# mode drops to BREATHE so the vertex program is not still walking a dead animal's legs.
+	_set_beat(0.0, 0.0)
+	for m in _mats:
+		(m as ShaderMaterial).set_shader_parameter("mode", ANIM.Mode.BREATHE)
+	_resting_pose = true
+	AudioDirector.play_one_shot("clang", global_position, -10.0)
+	Journal.discover("creature_lamplight_crab")
+
+## The corpse, per frame. The flop is eased rather than snapped so the kill has a beat to
+## it, and the seat keeps running so the shell settles onto whatever it died on.
+const DEATH_FLOP: float = 3.0       ## how fast the body rolls over (1/s of a lerp)
+const DEATH_TILT: float = 0.16      ## a few degrees off dead-square: nothing lands neatly
+const CURL: Vector3 = Vector3(0.9, 0.82, 0.9)   ## legs drawn in under the shell
+func _dead_tick(delta: float) -> void:
+	_dead_t += delta
+	if _model != null:
+		var t: float = clampf(delta * DEATH_FLOP, 0.0, 1.0)
+		# ON ITS BACK: half a turn about the body's own long axis, lifted by the measured
+		# shell height so the flat of the carapace — not the model's origin — ends on the
+		# plate. CURL is the other half of the pose: a dead crab pulls its legs in.
+		_model.rotation.z = lerpf(_model.rotation.z, PI, t)
+		_model.rotation.x = lerpf(_model.rotation.x, DEATH_TILT, t)
+		_model.position.y = lerpf(_model.position.y, _model_height, t)
+		_model.scale = _model.scale.lerp(_model_scale0 * CURL, t)
+	# The scuttle one-shots are gated on _speed, and _animate() (which owns it) no longer
+	# runs — so zero it here or the corpse keeps tapping its way around the deck.
+	_last_pos = global_position
+	_speed = 0.0
+	_seat(delta)
+
+## Verbs for the corpse's touch collider (built and wired by BloomFauna._spawn_giant_crabs).
+## Empty while the crab is alive or picked clean, which is also how the prompt stays off a
+## living animal — belt and braces with the layer-0 collider.
+func corpse_verbs() -> Array:
+	return ["HARVEST"] if state == State.DEAD and _legs_left > 0 else []
+
+## Take the legs. One HARVEST strips the whole crab when there is room for it; with a full
+## pack it takes what fits and the rest stays on the shell, so a harvest is never silently
+## thrown away (the same rule cook_stove uses when it puts an uncookable fish back).
+func corpse_act(_verb: String, _player: Node3D) -> void:
+	if state != State.DEAD or _legs_left <= 0:
+		return
+	var took: int = 0
+	# The item id is spelled out rather than held in a const on purpose: IntegrationProbe
+	# proves its fauna-source whitelist by searching the fauna scripts for the literal
+	# add_item("crab_leg"), and a const would hide the only place this item enters the game.
+	while _legs_left > 0 and PlayerState.add_item("crab_leg"):
+		_legs_left -= 1
+		took += 1
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud == null or not hud.has_method("toast"):
+		return
+	if took == 0:
+		hud.toast("No room for it. The legs stay on the shell.")
+	elif _legs_left > 0:
+		hud.toast("You break off %d legs. %d still on the shell." % [took, _legs_left])
+	else:
+		hud.toast("You crack the shell out and take all %d legs." % took)
+
+## RESPAWN, on the next DUSK — never at any point during the night the crab died in.
+##
+## The rhythm is the reason. These are night animals: the pack comes up when the light goes
+## and is gone by dawn, so the only respawn cue that cannot land mid-fight is the one that
+## starts the NEXT night. Kill a crab and it is genuinely out of tonight's pack — that is
+## what the four spear hits bought — and the corpse then lies through the rest of the night
+## and the whole of the following day, so a kill made in the dark is still there to harvest
+## in daylight when you can see what you are doing. Come dusk the sea has taken the shell
+## back and another crab is on the leg, ready to roll its own SURFACE_CHANCE coin.
+func _on_dusk_respawn() -> void:
+	if state == State.DEAD:
+		_respawn()
+
+func _respawn() -> void:
+	state = State.ROOST
+	hp = MAX_HP
+	_legs_left = 0
+	_dead_t = 0.0
+	_beaten = false
+	_recoil = 0.0
+	_bite_cd = 0.0
+	_scare_cd = 0.0
+	_lit_t = 0.0
+	_commit = 0.0
+	_level = L_WATER
+	_wp_index = 0
+	_climb_path = []
+	_night_wait = float(spawn_index) * EMERGE_STAGGER
+	up = roost_up
+	_seated = false
+	if not roost_loop.is_empty():
+		global_position = roost_loop[0]
+	_roam_target = _pick_water_target()
+	if corpse_touch is CollisionObject3D:
+		(corpse_touch as CollisionObject3D).collision_layer = 0
+	# The body comes back whole: shell the right way up, legs out, the gait restarted.
+	if _model != null:
+		_model.rotation = Vector3.ZERO
+		_model.position.y = _model_base_y
+		_model.scale = _model_scale0
+		for m in _mats:
+			(m as ShaderMaterial).set_shader_parameter("mode", ANIM.Mode.SCUTTLE)
+	_beat = -1.0          # forces the next _set_beat through; see its docstring
+	_resting_pose = false
 
 ## A genuinely BRIGHT light held on it. It breaks contact and circles out of the beam —
 ## it does not abandon the night. Only a beating or the dawn sends it over the rim.
@@ -421,6 +633,20 @@ func _start_flee() -> void:
 	_scare_retreat = false
 	state = State.FLEE
 	_fleeing_home = false
+	_leg_descent = false
+	# Caught on the leg (dawn, or a rout, while it is still on the concrete): back DOWN the
+	# same face, starting from the point of the route it is nearest. Anything else would
+	# have sent it swimming to the top of the east rim lane from halfway up a caisson.
+	if _on_leg and not leg_climb.is_empty():
+		var down: Array = leg_climb.duplicate()
+		down.reverse()
+		_climb_path = down
+		_climb_i = _nearest_index(down)
+		_climb_to = L_WATER
+		_seated = false
+		_descending = true
+		_leg_descent = true
+		return
 	_descending = _level > L_WET and _set_link(next_toward(_level, L_WET))
 	if not _descending:
 		_wp_index = maxi(emerge_path.size() - 1, 0)   # walk the emergence path backwards
@@ -448,6 +674,12 @@ func _try_bite(player: Node3D) -> void:
 ## ---------- state machine ----------
 
 func _process(delta: float) -> void:
+	# A corpse is not an animal with a state machine. It flops, it settles, and it waits
+	# for a dusk — before _animate(), which would otherwise keep writing the living pose
+	# (the chase rear, the bob, the gait beat) straight over the death roll every frame.
+	if state == State.DEAD:
+		_dead_tick(delta)
+		return
 	_animate(delta)
 	_bite_cd = maxf(_bite_cd - delta, 0.0)
 	_scare_cd = maxf(_scare_cd - delta, 0.0)
@@ -528,6 +760,13 @@ func _roost(delta: float) -> void:
 	if _wants_up() and not _beaten and _scare_cd <= 0.0:
 		_night_wait -= delta
 		if _night_wait <= 0.0:
+			# THE SUPPORTS FIRST. A crab whose leg is climbable goes up the concrete rather
+			# than swimming the rim lane — owner spec, 2026-07-26 ("crabs should climb the
+			# rig supports at night"). Only the legs that are actually exposed all the way
+			# up carry a route (BloomFauna._crab_leg_climbs); everything else still emerges
+			# over the east rim, so the wet deck never empties out.
+			if _begin_leg_climb():
+				return
 			state = State.EMERGE
 			_wp_index = 0
 
@@ -690,6 +929,18 @@ func _flee(delta: float, player: Node3D) -> void:
 	if _descending:
 		_walk_link(delta, CLIMB_SPEED * 1.2)     # heavier and faster going down
 		if _climb_i >= _climb_path.size():
+			# The leg puts it back in the water at the foot of its own caisson, which is
+			# where it lives — no rim lane to walk backwards afterwards, just the last few
+			# metres to the cling loop.
+			if _leg_descent:
+				_leg_descent = false
+				_descending = false
+				_on_leg = false
+				_level = L_WATER
+				_seated = false
+				_fleeing_home = true
+				AudioDirector.play_one_shot("splash", global_position, -8.0)
+				return
 			_level = _climb_to
 			_seated = false
 			_descending = _level > L_WET and _set_link(next_toward(_level, L_WET))
@@ -718,6 +969,10 @@ func _flee(delta: float, player: Node3D) -> void:
 			_night_wait = float(spawn_index) * EMERGE_STAGGER
 
 func _on_dawn() -> void:
+	# A corpse does not get up at dawn. It lies there through the day (that is the window
+	# in which you can see to harvest it) and is replaced at dusk — see _on_dusk_respawn.
+	if state == State.DEAD:
+		return
 	_beaten = false
 	_scare_retreat = false
 	_night_wait = float(spawn_index) * EMERGE_STAGGER
@@ -819,6 +1074,30 @@ func _begin_climb_toward(target: int) -> bool:
 	state = State.CLIMB
 	return true
 
+## UP THE SUPPORT. The caisson leg is one 6x6 concrete casting running from the seabed to
+## the underside of the topside plate (rig_builder._build_structure), so above the pontoon
+## skirt its outboard faces are seventeen metres of uninterrupted vertical surface — the
+## one piece of this rig a crab can climb without a single stair. The route is a plain
+## authored polyline, so it goes through the SAME buffer the stair flights use and is
+## walked by the same _walk_link: no second climber, no second arrival hand-off.
+##
+## `up` is left exactly as it is on purpose. It is the crab's cling-face normal, and
+## slope_up() returns its fallback for a straight vertical run — so the body keeps its
+## belly to the concrete all the way up, and only rolls flat again when the polyline turns
+## horizontal under the deck. That is the whole trick, and it is the surface frame's, not
+## a new one.
+func _begin_leg_climb() -> bool:
+	if leg_climb.is_empty():
+		return false
+	_climb_path = leg_climb.duplicate()
+	_climb_i = 0
+	_climb_to = L_TOPSIDE
+	_stalled = 0.0
+	_seated = false
+	_on_leg = true
+	state = State.CLIMB
+	return true
+
 ## Walk the loaded link. Shared by the hunting CLIMB and the homeward descent inside FLEE.
 func _walk_link(delta: float, speed: float) -> void:
 	if _climb_i >= _climb_path.size():
@@ -840,6 +1119,10 @@ func _finish_climb() -> void:
 	_level = _climb_to
 	_climb_path = []
 	_seated = false
+	# Over the rim and onto the plate: from here it is an ordinary topside crab, and it
+	# goes home the ordinary way (down the tower, over the east rim). Only a crab still ON
+	# the leg reverses the leg route — see _start_flee.
+	_on_leg = false
 	# Arrived. If the player has moved on again, keep going without a beat of hesitation.
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	if player != null and _wants_up():

@@ -11,6 +11,12 @@ const SLUGS := [
 	"jelly_drifter", "barnacle_cluster", "anchor_limpet", "glow_worm",
 	"harbor_seal", "bait_fish", "lamplight_crab", "giant_crab",   # post-regen
 	"glow_kelp", "glow_creeper", "bloom_anemone",           # flora
+	# s15 (2026-07-26): the new fish-table species. Every one of these was checked
+	# through this harness before it was called done — the ray in particular, because
+	# the mantle_ray taught us Meshy likes to author a flat fish standing on its tail.
+	"fish_bilge_blenny", "fish_tallow_pollock", "fish_gannet_mackerel",
+	"fish_rust_wrasse", "fish_kelp_pipefish", "fish_squall_garfish",
+	"fish_lantern_dogfish", "fish_anchor_ray",
 ]
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 var _cam: Camera3D

@@ -25,7 +25,25 @@ enum Mode {
 	CIRRI = 6,      ## feathery feeding sweep — barnacles
 	BREATHE = 7,    ## resting swell — limpet, denned glow worm
 	SWAY = 8,       ## anchored drift in the current — flora
+	SCULL = 9,      ## stiff body, sculling tail, rowing lobed fins — coelacanth
 }
+
+## SPECIES WITH A SIGNATURE GAIT (added for the coelacanth, 2026-07-26).
+## Swim style is a property of the ANIMAL, not of whoever spawned it. Every other species
+## in the game happens to move the way its caller guessed, so callers pass the mode. The
+## coelacanth does not: mode 0 (the fish default that DeepGiant, ReefLife and the bestiary
+## sheet all hand it) bends it like a cod and ignores its four lobed fins, which is most of
+## what makes it recognisable. Rather than make five call sites remember Mode.SCULL —
+## across files owned by other work — the animal carries its own gait here, exactly the way
+## it already carries its own authored facing in FACING_OVERRIDES below. Add an entry ONLY
+## for a species whose motion no caller should have to know about; the caller's `amp`/`rate`
+## are left alone, since those are tuned per-instance for size and distance.
+const MOTION_OVERRIDES: Dictionary = {
+	"fish_coelacanth": Mode.SCULL,
+}
+
+static func mode_for(path: String, requested: int) -> int:
+	return MOTION_OVERRIDES.get(path.get_file().get_basename(), requested)
 
 ## Authored-facing normalisation. VERIFIED via tests/FacingShot.tscn side views: every
 ## directional Meshy model faces the VIEWER (+Z) — heads point screen-left from a +X
@@ -49,6 +67,12 @@ const FACING_DEFAULT := {"yaw": 180.0, "pitch": 0.0, "axis": 0, "flip": 1.0, "li
 ## forward. `across` is still local X so the wingbeat spans correctly, but the beat has to
 ## displace along local Z — the mesh's dorsal-ventral axis — or the wingtips shear
 ## fore-and-aft along the body instead of flapping.
+## fish_coelacanth (owner-supplied Meshy model, CHECKED 2026-07-26 rather than assumed —
+## six fixed views of the raw mesh): body runs local Z (1.90 long) x 1.07 dorsal-ventral
+## x 0.41 across, head at +Z with the dorsals up at +Y and the lobed pairs hanging below.
+## That is the convention exactly, so it takes NO entry here — the default's 180 yaw and
+## flip 1.0 land it head-first on Godot's -Z, right side up. Recorded so the next person
+## knows it was verified and not skipped.
 const FACING_OVERRIDES: Dictionary = {
 	"mantle_ray": {"yaw": 180.0, "pitch": 90.0, "axis": 0, "flip": 1.0, "lift": 1},
 }
@@ -134,7 +158,10 @@ static func attach(host: Node3D, path: String, target_m: float, mode: int,
 	if model == null:
 		return {}
 	host.add_child(model)
-	var mats := apply(model, mode, amp, rate, glow, phase, opacity)
+	# A species with a signature gait (MOTION_OVERRIDES) supplies its own mode; everything
+	# else moves the way its caller asked. Done HERE and not in apply() so the raw shading
+	# entry point stays literal for the screenshot harnesses that drive it by hand.
+	var mats := apply(model, mode_for(path, mode), amp, rate, glow, phase, opacity)
 	# Normalise authored facing so the species' look_at movement drives it head-first — and
 	# right-side-up: a model authored standing on end needs the pitch as well as the yaw.
 	var fac := facing_for(path)

@@ -305,6 +305,18 @@
     "hunger": 0.5,
     "comfort": 0.05
   },
+  "crab_leg": {
+    "name": "Crab Leg",
+    "use": "eat",
+    "hunger": 0.1,
+    "side_effect": "sick"
+  },
+  "crab_leg_seared": {
+    "name": "Seared Crab Leg",
+    "use": "eat",
+    "hunger": 0.45,
+    "thirst": 0.05
+  },
   "cooked_fish_copper_sprat": {
     "name": "Cooked Copper Sprat",
     "use": "eat",

@@ -8,7 +8,7 @@ class_name ItemIcons extends Node
 ## THE IDEA: don't author icon art. Every item in this game already has a 3D look —
 ## ItemVisual.build() returns the exact node the world puts on the ground and in your hand,
 ## including the real generated fish meshes. So an icon is just that node, photographed
-## once: a tiny SubViewport with its own World3D, a key light, an orthogonal camera framed
+## once: in a SubViewport with its own World3D, a key light, an orthogonal camera framed
 ## to the item's own bounding box, one frame, and the result copied into an ImageTexture.
 ##
 ## Consequences worth knowing:
@@ -33,46 +33,15 @@ const VIEW_DIR := Vector3(0.62, 0.55, 0.78)
 
 signal icon_ready(item_id: String)
 
-var _vp: SubViewport
-var _cam: Camera3D
-var _stage: Node3D                      ## the item under the camera, one at a time
+
+
+
 var _cache: Dictionary = {}             ## item_id -> ImageTexture (or null = tried, no art)
 var _queue: Array[String] = []
 var _busy: bool = false
 
 func _ready() -> void:
 	name = "ItemIcons"
-	_vp = SubViewport.new()
-	_vp.size = Vector2i(ICON_PX, ICON_PX)
-	# own_world_3d keeps the game world out: without it this camera would be sitting in the
-	# middle of the rig, photographing the sea behind every bolt.
-	_vp.own_world_3d = true
-	_vp.transparent_bg = true
-	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
-	add_child(_vp)
-	_stage = Node3D.new()
-	_vp.add_child(_stage)
-	_cam = Camera3D.new()
-	_cam.projection = Camera3D.PROJECTION_ORTHOGONAL
-	_vp.add_child(_cam)
-	# An isolated World3D has no sun and no sky, so an unlit item renders as a silhouette.
-	# A key light, a fill from the opposite side, and a lifted ambient floor give every item
-	# readable form without any of them going to pure black in the shadowed corner.
-	var key := DirectionalLight3D.new()
-	key.rotation_degrees = Vector3(-38, -140, 0)
-	key.light_energy = 1.5
-	_vp.add_child(key)
-	var fill := DirectionalLight3D.new()
-	fill.rotation_degrees = Vector3(-12, 45, 0)
-	fill.light_energy = 0.55
-	fill.light_color = Color(0.82, 0.88, 1.0)
-	_vp.add_child(fill)
-	var env := Environment.new()
-	env.background_mode = Environment.BG_CANVAS
-	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
-	env.ambient_light_color = Color(0.62, 0.65, 0.7)
-	env.ambient_light_energy = 1.0
-	_cam.environment = env
 
 ## The icon for an item, or null if it is not rendered yet (or has no art). Safe to call
 ## every refresh: the first call for an id queues the render, later ones hit the cache.
@@ -90,47 +59,92 @@ func _process(_delta: float) -> void:
 	_busy = true
 	_render(_queue.pop_front())
 
+## Photograph ONE item in a viewport built for it and thrown away afterwards.
+##
+## The first version shared one long-lived SubViewport across every item, and every icon
+## after the first came back with another item's geometry baked into it. Two plausible
+## causes were fixed and NEITHER of them was it: deferred queue_free() leaving the outgoing
+## model in the tree for a frame, and the capture racing the viewport's UPDATE_ONCE. Both
+## were real bugs worth fixing; neither was this one.
+##
+## Rather than keep guessing at a shared mutable render target, each render now gets its own
+## viewport, its own World3D and its own lights, and frees them when it is done. There is no
+## state to leak between items because there is no shared state. That is also exactly how
+## the per-item sheet in tests/inventory_shot.gd renders — which came out clean while the
+## shared path did not, and was the evidence that the target itself was the variable.
+##
+## The cost is a SubViewport per DISTINCT item ever picked up, alive for about two frames.
+## Against the alternative of a subtle wrong picture in the player's pack, that is nothing.
 func _render(item_id: String) -> void:
-	for c in _stage.get_children():
-		c.queue_free()
-	var model: Node3D = null
 	# ItemVisual builds from the same table the world does; an unknown id yields an empty
 	# node rather than throwing, which the AABB check below turns into "no art".
-	model = ItemVisual.build(item_id)
+	var model: Node3D = ItemVisual.build(item_id)
 	if model == null:
-		_finish(item_id, null)
+		_finish(item_id, null, null)
 		return
-	_stage.add_child(model)
+	var vp := SubViewport.new()
+	vp.size = Vector2i(ICON_PX, ICON_PX)
+	# own_world_3d keeps the game world out: without it this camera would be sitting in the
+	# middle of the rig, photographing the sea behind every bolt.
+	vp.own_world_3d = true
+	vp.transparent_bg = true
+	vp.render_target_clear_mode = SubViewport.CLEAR_MODE_ALWAYS
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var cam := Camera3D.new()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	# An isolated World3D has no sun and no sky, so an unlit item renders as a silhouette.
+	# A key, a fill from the opposite side and a lifted ambient floor give every item
+	# readable form without any of it going to pure black in the shadowed corner.
+	# The background is CLEAR_COLOR, not CANVAS: BG_CANVAS pulls the 2D layer in behind the
+	# subject, which is both wrong here and not what transparent_bg wants underneath it.
+	var env := Environment.new()
+	env.background_mode = Environment.BG_CLEAR_COLOR
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.62, 0.65, 0.7)
+	env.ambient_light_energy = 1.0
+	cam.environment = env
+	vp.add_child(cam)
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-38, -140, 0)
+	key.light_energy = 1.5
+	vp.add_child(key)
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-12, 45, 0)
+	fill.light_energy = 0.55
+	fill.light_color = Color(0.82, 0.88, 1.0)
+	vp.add_child(fill)
+	vp.add_child(model)
 	# Wait a frame so children added inside _ready() (the fish meshes load theirs there)
 	# exist before the bounds are measured — measuring too early frames an empty node and
 	# renders a blank slot for exactly the items with the best art.
 	await get_tree().process_frame
 	var box: AABB = _bounds(model)
 	if box.size.length() <= 0.0001:
-		_finish(item_id, null)
+		_finish(item_id, null, vp)
 		return
 	# Frame it: orthogonal size from the item's largest on-screen extent, camera pulled
 	# back along the view direction far enough that nothing crosses the near plane.
 	var centre: Vector3 = box.position + box.size * 0.5
 	var extent: float = maxf(maxf(box.size.x, box.size.y), box.size.z)
-	_cam.size = maxf(extent, 0.001) / FRAME_FILL
-	_cam.near = 0.01
-	_cam.far = extent * 8.0 + 10.0
-	_cam.global_position = centre + VIEW_DIR.normalized() * (extent * 3.0 + 1.0)
-	_cam.look_at(centre, Vector3.UP)
-	_vp.render_target_update_mode = SubViewport.UPDATE_ONCE
+	cam.size = maxf(extent, 0.001) / FRAME_FILL
+	cam.near = 0.01
+	cam.far = extent * 8.0 + 10.0
+	cam.global_position = centre + VIEW_DIR.normalized() * (extent * 3.0 + 1.0)
+	cam.look_at(centre, Vector3.UP)
+	# Two frames: one to draw the framed subject, one to be certain it landed before the
+	# texture is read back.
 	await RenderingServer.frame_post_draw
-	var img: Image = _vp.get_texture().get_image()
-	# COPY into an ImageTexture. The SubViewport's own texture is a single reused target —
-	# handing it out directly would give every slot the same picture, whichever item was
-	# photographed last.
-	_finish(item_id, ImageTexture.create_from_image(img) if img != null else null)
+	await RenderingServer.frame_post_draw
+	var img: Image = vp.get_texture().get_image()
+	# COPY into an ImageTexture — the viewport's own texture dies with the viewport below.
+	_finish(item_id, ImageTexture.create_from_image(img) if img != null else null, vp)
 
-func _finish(item_id: String, tex: Texture2D) -> void:
+func _finish(item_id: String, tex: Texture2D, vp: SubViewport) -> void:
 	_cache[item_id] = tex
-	for c in _stage.get_children():
-		c.queue_free()
-	_vp.render_target_update_mode = SubViewport.UPDATE_DISABLED
+	if vp != null:
+		remove_child(vp)     # out of the render tree at once; freed on the normal schedule
+		vp.queue_free()
 	_busy = false
 	icon_ready.emit(item_id)
 
