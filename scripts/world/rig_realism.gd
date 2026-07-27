@@ -74,11 +74,26 @@ func _cargo_baskets() -> void:
 			_bx(a, Vector3(-1.26, DECK_Y + h, 0), Vector3(0.07, 0.07, 1.2), frame)
 			_bx(a, Vector3(1.26, DECK_Y + h, 0), Vector3(0.07, 0.07, 1.2), frame)
 		# Sling set gathered to a master link overhead — how a basket actually waits.
+		#
+		# 2026-07-27 bug: look_at_from_position() takes GLOBAL points, but this was passing
+		# leg.position (LOCAL to `a`, which sits at spec[0]/spec[1] — e.g. (24,-10) or
+		# (8,-5), not the origin) as if it were the global start, and an equally local
+		# Vector3(cx2, ..., cz2) as the global target. look_at_from_position sets the
+		# node's global position outright, so both baskets' four legs snapped to world
+		# (~cx2*0.55, DECK_Y+1.95, ~cz2*0.55) — right on top of each other near the map
+		# centre — instead of hanging over their own basket. The rest of each basket
+		# (skid, frame, rails) uses ordinary local `_bx` positions so it stayed put; only
+		# the legs, built with an explicit look_at, drifted. That is the "4 skinny ropes
+		# floating mid-deck, nothing else around" report: two baskets' worth of orphaned
+		# sling legs, stacked on each other a long way from either basket, with no load
+		# and no basket in sight to explain them. Fixed by routing both points through
+		# `a.to_global()` so the look-at is computed in world space like everywhere else.
 		for cx2 in [-1.24, 1.24]:
 			for cz2 in [-0.58, 0.58]:
 				var leg := _bx(a, Vector3(cx2 * 0.55, DECK_Y + 1.95, cz2 * 0.55),
 					Vector3(0.035, 1.3, 0.035), MatLib.dark_metal())
-				leg.look_at_from_position(leg.position, Vector3(cx2, DECK_Y + 1.42, cz2), Vector3.UP)
+				leg.look_at_from_position(leg.global_position,
+					a.to_global(Vector3(cx2, DECK_Y + 1.42, cz2)), Vector3.UP)
 				leg.rotate_object_local(Vector3.RIGHT, PI / 2)
 
 ## Bottled-gas rack by the tower — cutting and purging gas lives outdoors in a cage.
