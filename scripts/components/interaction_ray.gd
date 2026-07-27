@@ -10,6 +10,26 @@ const REACH: float = 2.6
 const PROMPT_GRACE: float = 1.0
 
 var _current: Node3D = null   # Interactable or PhysProp
+## The target the name popup and outline box last fired for. Distinct from `_shown` (the
+## chip's grace-held text): both of these drop the instant the ray stops hitting anything,
+## so looking away and back to the SAME item is a fresh "notice" and a fresh outline, even
+## though the persistent chip is still holding its grace window on the old text.
+var _announced: Node3D = null
+## Owner request, 2026-07-27b: the name popup was firing on every new target, which read as
+## a chip re-triggering rather than the occasional ambient notice they wanted — "like the
+## waves, only every 1-2 mins". A flat cooldown between popup FIRINGS (not per-item) is the
+## simplest faithful reading of that: whatever you're looking at when the timer runs out gets
+## the next notice, and everything glanced at in between gets the outline only. The random
+## span (rather than a fixed one) is what keeps it feeling like a tide rather than a metronome.
+const POPUP_COOLDOWN_MIN: float = 60.0
+const POPUP_COOLDOWN_MAX: float = 120.0
+var _popup_cd: float = 0.0    ## seconds until the next name popup may fire (0 = ready now)
+## Reused every frame — a wireframe box, PRIMITIVE_LINES, built once in _ready and just
+## repositioned/rescaled on a target change (owner request, 2026-07-27: keep it cheap, no
+## per-frame allocation, this project just went through a frame-cost pass — see
+## render_budget.gd). top_level so its transform is independent of the ray's own rotation;
+## parented here so it is freed automatically with the player.
+var _outline: MeshInstance3D = null
 ## What the ray last handed the HUD ("" = the chip is clear as far as the ray knows).
 ##
 ## THE STALE PROMPT BUG. The dispatch used to diff `next != _current` alone and push only on
@@ -28,11 +48,18 @@ func _ready() -> void:
 	target_position = Vector3(0, 0, -REACH)
 	collide_with_areas = false
 	collide_with_bodies = true
+	_outline = _build_outline_mesh()
+	add_child(_outline)
 
 func _player() -> Node3D:
 	return get_tree().get_first_node_in_group("player")
 
 func _physics_process(delta: float) -> void:
+	# Ticks down regardless of carry/build/fishing/ui_locked suppression below — the cooldown
+	# is about pacing the NOTICE, not about whether a target happens to be available right
+	# now, so it shouldn't stall (or get a free extension) just because a panel was open.
+	if _popup_cd > 0.0:
+		_popup_cd -= delta
 	var player: Node3D = _player()
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if player and (player.carried or (player.build and player.build.active)):
@@ -41,12 +68,14 @@ func _physics_process(delta: float) -> void:
 		# showed forces a fresh push the moment the ray owns the chip again.
 		_current = null
 		_forget_prompt()
+		_clear_outline()
 		return
 	if player and player.get("fishing") != null and player.fishing != null:
 		# A cast is out — the rod owns the prompt and the mouse. No grabbing
 		# props mid-fight, no prompt chip fighting over the strike banner.
 		_current = null
 		_forget_prompt()
+		_clear_outline()
 		return
 	if player and player.ui_locked:
 		# A panel (inventory / journal / help / bench / crate), a sit, or a lie-down. Nobody
@@ -57,6 +86,7 @@ func _physics_process(delta: float) -> void:
 		if _shown != "" and hud:
 			hud.show_prompt("")
 		_forget_prompt()
+		_clear_outline()
 		return
 	var hit: Object = get_collider() if is_colliding() else null
 	var next: Node3D = null
@@ -69,6 +99,23 @@ func _physics_process(delta: float) -> void:
 	if next != null and not is_instance_valid(next):
 		next = null
 	_current = next
+	# Name popup + outline box (owner request, 2026-07-27): both fire off _announced, not
+	# _shown — they're a "you're now looking at X" notice, so they reset the instant the
+	# target changes OR is lost, unlike the chip's grace-held text. Deliberately independent
+	# of prompt_locked below: a scripted hint owning the chip's TEXT is not a reason to hide
+	# what the player is visibly looking at.
+	if next != _announced:
+		_announced = next
+		if next != null:
+			_show_outline(next)   # instant, every change — no cooldown on the highlight itself
+			# The text announcement alone is cooldown-gated (owner request, 2026-07-27b): a
+			# new target while still on cooldown gets the outline but no popup, so flicking
+			# across several items doesn't spam a notice for each one.
+			if hud and _popup_cd <= 0.0:
+				hud.show_item_name(String(next.get("display_name")))
+				_popup_cd = randf_range(POPUP_COOLDOWN_MIN, POPUP_COOLDOWN_MAX)
+		else:
+			_clear_outline()
 	# A scripted hint owns the chip: keep tracking the target (E must still dispatch) but
 	# record nothing, because show_prompt() is a no-op while locked — pretending our text
 	# landed would leave the chip blank when the hint releases and we're still aimed here.
@@ -133,3 +180,89 @@ func _unhandled_input(event: InputEvent) -> void:
 	# next frame. Dropping _current no longer strands the chip: _physics_process diffs against
 	# _shown, so if nothing comes back the grace clear takes the prompt down.
 	_current = null
+
+## A thin, low-opacity wireframe cube (unit size, centred on origin) built ONCE and reused —
+## restrained on purpose (owner call, 2026-07-27): this is a survival game, not a loot-shooter,
+## so a bright glowing box would fight the atmosphere. top_level so repositioning it doesn't
+## have to fight the ray's own rotation; hidden until the first target arrives.
+func _build_outline_mesh() -> MeshInstance3D:
+	var verts := PackedVector3Array()
+	var c: Array[Vector3] = []
+	for x in [-0.5, 0.5]:
+		for y in [-0.5, 0.5]:
+			for z in [-0.5, 0.5]:
+				c.append(Vector3(x, y, z))
+	# Corner order above is (x y z) with x slowest: 0=--- 1=--+ 2=-+- 3=-++ 4=+-- 5=+-+ 6=++- 7=+++
+	var edges: Array = [
+		[0, 1], [0, 2], [0, 4], [1, 3], [1, 5], [2, 3],
+		[2, 6], [3, 7], [4, 5], [4, 6], [5, 7], [6, 7],
+	]
+	for e in edges:
+		verts.append(c[e[0]])
+		verts.append(c[e[1]])
+	var arr: Array = []
+	arr.resize(Mesh.ARRAY_MAX)
+	arr[Mesh.ARRAY_VERTEX] = verts
+	var mesh := ArrayMesh.new()
+	mesh.add_surface_from_arrays(Mesh.PRIMITIVE_LINES, arr)
+	var mat := StandardMaterial3D.new()
+	mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+	mat.albedo_color = Color(0.92, 0.92, 0.88, 0.4)   # same restrained cream as the chip's text
+	mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	mat.vertex_color_use_as_albedo = false
+	mesh.surface_set_material(0, mat)
+	var mi := MeshInstance3D.new()
+	mi.mesh = mesh
+	mi.top_level = true
+	mi.visible = false
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	return mi
+
+## World-space AABB of every mesh under `root`, in WORLD space (unlike item_icons._bounds,
+## which measures in the model's own local space — this box has to sit still in the world,
+## not spin with a tumbling carried prop, so it is deliberately axis-aligned in world space
+## rather than oriented to the target's own basis).
+func _world_bounds(root: Node3D) -> AABB:
+	var out := AABB()
+	var got: bool = false
+	var stack: Array = [root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for ch in n.get_children():
+			stack.append(ch)
+		var mi := n as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		var local_aabb: AABB = mi.mesh.get_aabb()
+		# Merge all 8 transformed corners — a rotated part's local AABB corners are no
+		# longer the extremes once transformed, so each corner has to be tested individually.
+		for i in range(8):
+			var corner := Vector3(
+				local_aabb.position.x + local_aabb.size.x * float(i & 1),
+				local_aabb.position.y + local_aabb.size.y * float((i >> 1) & 1),
+				local_aabb.position.z + local_aabb.size.z * float((i >> 2) & 1))
+			var world_pt: Vector3 = mi.global_transform * corner
+			if not got:
+				out = AABB(world_pt, Vector3.ZERO)
+				got = true
+			else:
+				out = out.expand(world_pt)
+	return out
+
+## Show the outline around `target`'s world geometry, or fall back to a small box on its
+## own origin if it has no mesh yet (a prop whose visual loads a frame late shouldn't leave
+## the box stuck on the last item, or worse, invisible with nothing to say why).
+func _show_outline(target: Node3D) -> void:
+	if _outline == null:
+		return
+	var box: AABB = _world_bounds(target)
+	if box.size.length() <= 0.0001:
+		box = AABB(target.global_position - Vector3(0.15, 0.15, 0.15), Vector3(0.3, 0.3, 0.3))
+	var pad: float = 0.02   # a hair of clearance so the lines don't z-fight the surface
+	_outline.global_position = box.position + box.size * 0.5
+	_outline.scale = box.size + Vector3.ONE * pad * 2.0
+	_outline.visible = true
+
+func _clear_outline() -> void:
+	if _outline != null:
+		_outline.visible = false

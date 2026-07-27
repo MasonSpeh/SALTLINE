@@ -14,6 +14,11 @@ class_name FishingRod extends Node3D
 ## LMB thumbs the drum to hold a depth — that is the player choosing their fish — and a
 ## second LMB reels in. The fight then hauls the catch back up through all of that water.
 ##
+## BAITING IS ITS OWN ACTION (owner spec 2026-07-27): press [B] while the rig is the wielded
+## tool to arm the hook — a text prompt says so and names what it'll use — and casting an
+## unbaited hook just refuses, same as before. See _baited_id, bait_prompt_text() and
+## try_bait_now() below for why that state has to live outside any one FishingRod instance.
+##
 ## The rod object lives only while a cast is out; the player owns one per session.
 
 enum State { CASTING, DRIFT, SINK, BITE, FIGHT, DONE }
@@ -52,6 +57,25 @@ const DEEP_MAX_DEPTH: float = 48.0    # end of the spool, measured from the wate
 const DEEP_BITE_FACTOR: float = 1.1   # the deep is patient, but the sink is the real wait
 const DEEP_FIGHT_SURGE: float = 1.6   # metres the lead is dragged about during the fight
 
+## Any fish species read as legal deep-rig bait: "smaller than 2m" (owner spec 2026-07-27),
+## not the old hardcoded five-species list. fish.json has no body-length field (size_kg is
+## a landed WEIGHT, rolled per catch, nothing to do with the species' own size) — the best
+## stand-in is item_visual.gd's FISH_SIZE, the multiplier ItemVisual already treats as a
+## body-length figure in metres when it scales a held/dropped fish model. See
+## _is_small_bait_fish() below.
+const BAIT_FISH_MAX_M: float = 2.0
+
+## General food scraps that count as bait alongside cut fish and the named specials in
+## _is_bait_item() — flesh/protein a hand-line would actually use, not produce or tinned
+## rations. Owner spec 2026-07-26/27: "a small fish... or whatever available food scrap
+## wise" — judgement call on what's plausible (raw or cooked meat/fish) versus what
+## obviously isn't (a canned peach, a birthday cake).
+const BAIT_SCRAPS: Array[String] = [
+	"raw_fillet", "raw_sea_bird", "cooked_sea_bird", "dried_fish",
+	"crab_leg_seared", "escargot", "glow_worm", "glow_worm_cooked",
+	"cooked_fish", "cooked_fish_prime",
+]
+
 # Species, conditions, and weights all live in data/fish.json via FishTable —
 # the same table the drop net, the stove, and the Angler's Notes read.
 const FISH := preload("res://scripts/world/fish_table.gd")
@@ -75,6 +99,13 @@ var _cast_origin: Vector3
 var _rng := RandomNumberGenerator.new()
 var _deep: bool = false          # this cast is the deep-drop rig, not the surface rod
 var _bait_id: String = ""        # bait on the hook this drop ("" = none, and no drop)
+## The deep rig's hook, OUTSIDE any one cast: which bait (if any) is armed on it right now.
+## Static because the rig has to remember this BETWEEN casts, and between drops the
+## FishingRod node doesn't exist at all — setup()/queue_free() only bracket a single cast
+## (see the _abort_msg doc below). Owner spec 2026-07-27: baiting is its own explicit action
+## ([B] — see bait_prompt_text()/try_bait_now()), not something that used to happen
+## implicitly the instant a cast was attempted.
+static var _baited_id: String = ""
 var _depth: float = 0.0          # deep rig: metres the lead has sunk below the waterline
 var _spool_end: bool = false     # deep rig: all the line there is, is out
 var _shown_m: int = -1           # last whole metre put on the HUD (don't rebuild per frame)
@@ -98,14 +129,21 @@ func setup(player: Node3D, camera: Camera3D) -> void:
 		_build_float()
 		_velocity = -camera.global_transform.basis.z * CAST_SPEED + Vector3(0, CAST_LIFT, 0)
 		return
-	# BAIT FIRST, THEN DROP. Nothing in the dark comes up to a bare hook, so a bare deep
-	# line is not a cast that fails after a wait — it is a cast that never leaves the
-	# drum. Refuse it here, say why, and let the first physics frame reel it back in.
-	_bait_id = _find_bait()
-	if _bait_id == "":
-		_abort_msg = "Bait the hook first — a live snail, a crab leg, or a small fish. Nothing in the dark rises to a bare hook."
+	# BAIT FIRST, THEN DROP. The hook has to already be armed — press [B] beforehand (see
+	# try_bait_now()) — nothing in the dark comes up to a bare hook, so a bare deep line is
+	# not a cast that fails after a wait, it is a cast that never leaves the drum. Refuse it
+	# here, say why, and let the first physics frame reel it back in.
+	if _baited_id == "" or not PlayerState.has_item(_baited_id):
+		# The has_item() half of that check catches bait that got eaten/dropped/spent some
+		# other way in the gap between arming the hook and pulling the trigger — a gap that
+		# didn't used to exist when baiting and casting were the same instant. Without it the
+		# hook would still read "baited" and cast on a fish that's no longer in the pack.
+		_baited_id = ""
+		_abort_msg = "Bait the hook first — press [B]. Nothing in the dark rises to a bare hook."
 		visible = false
 		return
+	_bait_id = _baited_id
+	_baited_id = ""   # spent into this drop; a fresh [B] arms the next one
 	_build_lead()
 	# The heave: flattened facing only (see the constants above for why the pitch is thrown
 	# away). The lead also STARTS level with the eye and out at arm's length along that flat
@@ -213,40 +251,109 @@ func _is_deep_selected() -> bool:
 	var it: Variant = PlayerState.hotbar[sel]
 	return it != null and String(it) == "deep_rig_pole"
 
-## Find one bait in the pack: a live snail, rotten chum, a CRAB LEG, or a small fish as cut
-## bait. Small baitfish are the species under 0.7m: copper sprat, herring, chimefish, ghost
-## sole, silver ladder. Large fish waste their protein on a deep drop — nothing chases the
-## bait at depth if there's plenty of meat on the hook already. Cheapest-first, so a prize
-## catch is never spent baiting the next drop. Returns the item id, or "" when there's none.
-##
-## CRAB LEG (owner spec, 2026-07-26: the eight legs off a killed giant crab "can be eaten or
-## used as bait"). It sits third: raw it is worth less on the plate than any cooked fish, so
-## spending one on a hook is cheap — but a snail or a lump of rot is cheaper still, and a
-## harvest of eight legs is a real night's work that should not be burned through by
-## accident when there is chum in the pack.
-func _find_bait() -> String:
-	for want in ["snail_live", "fish_rotten", "crab_leg"]:
-		if PlayerState.has_item(want):
-			return want
+## Find one bait in the pack for the deep rig, hotbar first in slot order then the pack
+## overflow — "closest to the first item slot" (owner spec 2026-07-27), the same order
+## HangLine picks a fish in (hang_line.gd _find_bait). This SUPERSEDES the old
+## cheapest-first ordering (snail/chum/crab-leg checked ahead of everything else): with
+## bait now its own explicit [B] action instead of something spent silently on every cast,
+## slot order is the legible rule — whatever the player put closest to hand is what gets
+## used. Returns the item id, or "" when there's none.
+static func _find_bait() -> String:
 	for entry in PlayerState.hotbar + PlayerState.inventory:
-		if entry != null and _is_small_bait_fish(String(entry)):
+		if entry != null and _is_bait_item(String(entry)):
 			return String(entry)
 	return ""
 
-## Small species suitable as bait for the deep-drop rig. These are the baitfish schools
-## whose size multiplier is <0.7m (see item_visual.gd FISH_SIZE).
-static func _is_small_bait_fish(id: String) -> bool:
-	return id in ["fish_copper_sprat", "fish_herring", "fish_chimefish", "fish_ghost_sole", "fish_silver_ladder"]
+## Whether id is legal deep-rig bait: the three named specials (a live snail, rotten chum,
+## a crab leg — owner spec 2026-07-26 on the crab leg specifically), a general flesh scrap
+## (BAIT_SCRAPS), or any fish species under BAIT_FISH_MAX_M.
+static func _is_bait_item(id: String) -> bool:
+	if id in ["snail_live", "fish_rotten", "crab_leg"]:
+		return true
+	if id in BAIT_SCRAPS:
+		return true
+	return _is_small_bait_fish(id)
 
-## Plain-words bait name for the water-read prompt.
-func _bait_name() -> String:
-	if _bait_id == "snail_live":
+## Any fish species read as small enough to use as cut bait on the deep rig — see
+## BAIT_FISH_MAX_M above. Large fish waste their protein on a drop: nothing chases the bait
+## at depth if there's plenty of meat on the hook already.
+static func _is_small_bait_fish(id: String) -> bool:
+	if not id.begins_with("fish_"):
+		return false
+	return float(ItemVisual.FISH_SIZE.get(id, 1.0)) < BAIT_FISH_MAX_M
+
+## Plain-words bait name for player-facing reads (the "X on the hook" toast, the bait
+## prompt). The three named specials keep their own hand-written reads; anything else — a
+## small fish, a food scrap — falls back to its own item name (data/items.json), since
+## enumerating every qualifying id by hand stopped being practical once the rule went
+## size/flesh-based instead of five hardcoded species (owner spec 2026-07-27).
+static func _bait_name(id: String) -> String:
+	if id == "snail_live":
 		return "a live snail"
-	if _bait_id == "fish_rotten":
+	if id == "fish_rotten":
 		return "rotten chum"
-	if _bait_id == "crab_leg":
+	if id == "crab_leg":
 		return "a crab leg"
-	return "cut bait"
+	if id == "":
+		return "cut bait"
+	return String(PlayerState.items.get(id, {}).get("name", id))
+
+## True while the deep rig is the selected hotbar tool and nothing else (a carried prop,
+## build mode, a climb, an existing cast) has the player's hands full — the same guards
+## _start_fishing() and player_controller's own input handling already gate a cast behind,
+## mirrored here so the bait prompt/[B] handling never offers something those would swallow
+## anyway. Also the reason [B] is safe to hand entirely to bait while this is true: Build
+## Mode's own [B] binding only ever meant anything when some OTHER item was selected.
+static func deep_rig_idle(player: Node) -> bool:
+	if player == null or not is_instance_valid(player):
+		return false
+	if player.get("fishing") != null:
+		return false
+	if player.get("carried") != null:
+		return false
+	if bool(player.get("hook_out")):
+		return false
+	var build: Object = player.get("build")
+	if build != null and bool(build.get("active")):
+		return false
+	var sel: int = PlayerState.selected_hotbar
+	if sel < 0 or sel >= PlayerState.HOTBAR_SIZE:
+		return false
+	var it: Variant = PlayerState.hotbar[sel]
+	return it != null and String(it) == "deep_rig_pole"
+
+## What the bait chip should say right now, or "" to hide it. Read every frame from HUD
+## (see hud.gd's dedicated bait chip) — the rig has to be able to prompt for bait BEFORE
+## any cast exists, and no FishingRod node exists between casts (see _baited_id above), so
+## this lives here as a plain static read instead of on a node that isn't there yet.
+static func bait_prompt_text(player: Node) -> String:
+	if not deep_rig_idle(player):
+		return ""
+	if _baited_id != "" and PlayerState.has_item(_baited_id):
+		return "Hook baited: %s — [LMB] heave it over the side" % _bait_name(_baited_id)
+	_baited_id = ""   # bait vanished (eaten/dropped/used) since it was armed — say so honestly
+	var found: String = _find_bait()
+	if found == "":
+		return "Nothing to bait the hook with — a fish under 2 m, or a scrap of flesh."
+	return "[B]  Bait the hook with %s" % _bait_name(found)
+
+## Press [B] while the deep rig is idle: arm the hook with whatever _find_bait() turns up
+## (closest to the first item slot — owner spec 2026-07-27). Returns true if it did
+## anything (armed the hook, or the hook was already armed), false if [B] should still fall
+## through to whatever else it does (Build Mode) — see player_controller.gd's B handler.
+static func try_bait_now(player: Node) -> bool:
+	if not deep_rig_idle(player):
+		return false
+	if _baited_id != "" and PlayerState.has_item(_baited_id):
+		return true   # already armed — swallow the press, don't also open Build Mode
+	var found: String = _find_bait()
+	if found == "":
+		return false   # nothing to bait with: this press isn't ours, let Build Mode have it
+	_baited_id = found
+	var hud: Node = player.get_tree().get_first_node_in_group("hud")
+	if hud:
+		hud.toast("Baited: %s" % _bait_name(found))
+	return true
 
 func _schedule_bite() -> void:
 	# The water read drives the wait: storms are a frenzy, feeding hours are
@@ -289,19 +396,20 @@ func _physics_process(delta: float) -> void:
 				global_position.y = water_y + 0.02
 				AudioDirector.play_one_shot("splash", global_position, -14.0)
 				if _deep:
-					# The lead is in the water and the bait is committed: SPEND it here, at
-					# the splash, not on the strike. A drop that never reached the sea (a
-					# clatter off the steel, a walk-away) costs you nothing — a drop that
-					# did costs one bait whether or not anything comes up on it.
-					if _bait_id != "":
-						PlayerState.remove_item(_bait_id)
+					# The bait is NOT spent here (owner correction, 2026-07-27: a drop that
+					# reels back up with no bite has to still have its bait on the hook —
+					# it used to be charged the instant the lead hit the water, which meant
+					# reeling in early on a dead read cost you bait for nothing). The hook
+					# only actually loses what's on it in State.SINK below, at the moment
+					# something really takes it — see the bite branch there.
+					#
 					# Start the depth count where the lead actually is, so the first frame of
 					# sinking doesn't pop it by however high the crest was.
 					_depth = -global_position.y
 					_state = State.SINK
 					# A toast, not a prompt: the prompt line belongs to the live depth readout
 					# from here on, and a one-frame prompt would simply never be read.
-					_toast("The lead takes it down — %s on the hook." % _bait_name())
+					_toast("The lead takes it down — %s on the hook." % _bait_name(_bait_id))
 				else:
 					_state = State.DRIFT
 					# The water read: teach the variables by naming them every cast.
@@ -345,6 +453,13 @@ func _physics_process(delta: float) -> void:
 						_state = State.BITE
 						_bite_window = BITE_WINDOW
 						_dip = 1.4   # the line RUNS — no float to duck, the rod loads instead
+						# THE BAIT IS SPENT HERE, not at the splash and not on the strike
+						# (owner spec 2026-07-27): a nibble is a lie and costs nothing, a
+						# reel-in with no bite at all costs nothing, but something real
+						# taking the hook — whether or not the player then lands it — is
+						# the one moment that actually uses the bait up.
+						if _bait_id != "":
+							PlayerState.remove_item(_bait_id)
 						AudioDirector.play_one_shot("clang", _hand_pos(), -22.0)
 						_prompt("!!!  SOMETHING HAS IT AT %d m   [LMB] STRIKE" % int(_depth))
 		State.BITE:
@@ -589,6 +704,14 @@ func _unhandled_input(event: InputEvent) -> void:
 		State.BITE:
 			if event.pressed:
 				_hook()
+				# THE STRIKE-AND-HOLD GLITCH: the press that triggers _hook() is still down
+				# at this exact instant, but _reeling (read by State.FIGHT below) only ever
+				# used to get set from a LATER, separate mouse event. A player who struck by
+				# pressing LMB and just kept holding it — the natural motion, and the same
+				# gesture FIGHT itself asks for — saw the line do nothing until they let go
+				# and clicked again. _hook() only ever transitions BITE -> FIGHT, so reading
+				# _state right after it is enough to know the strike landed.
+				_reeling = _state == State.FIGHT
 				get_viewport().set_input_as_handled()
 		State.FIGHT:
 			_reeling = event.pressed

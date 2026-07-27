@@ -8,7 +8,25 @@ var prompt_chip: PanelContainer
 var prompt_locked: bool = false   # scripted hint owns the chip; ray won't overwrite
 const CHIP_FADE_OUT: float = 0.22 ## seconds the chip takes to let go (see _set_chip)
 var _chip_tween: Tween
+## Deep-drop rig bait chip — a DEDICATED primitive (owner spec 2026-07-27: "press [B],
+## prompted by a text pop up"), not the shared prompt_chip. prompt_chip is InteractionRay's
+## to write every frame off whatever the look-ray is aimed at; sharing it with a second,
+## unrelated writer polling on its own schedule is exactly how two systems end up racing to
+## stomp each other's text — the rig gets its own chip instead, sitting below the crosshair
+## prompt so both can be up at once without either one flickering the other out.
+var bait_chip: PanelContainer
+var bait_label: Label
+const FISHING_ROD := preload("res://scripts/components/fishing_rod.gd")
 var toast_label: Label
+## The bare item name that flashes up when the interaction ray's target CHANGES (owner
+## request, 2026-07-27) — a brief "notice", distinct from the persistent "[E] TAKE ..."
+## chip which is driven separately and must keep working exactly as it does today. Lives
+## low, near the hotbar, so it never collides with the toast/comfort lines stacked above
+## the chip at center screen.
+var item_name_label: Label
+var _item_name_tween: Tween
+const ITEM_NAME_HOLD: float = 1.0   ## seconds the name sits fully visible before it fades
+const ITEM_NAME_FADE: float = 0.5
 var crosshair: Label
 var objective_label: Label
 var hotbar_slots: Array[PanelContainer] = []
@@ -131,6 +149,12 @@ func _process(_delta: float) -> void:
 		_player = get_tree().get_first_node_in_group("player")
 	var in_water: bool = is_instance_valid(_player) and bool(_player.get("swimming"))
 	oxygen_bar.visible = in_water or PlayerState.oxygen < 0.999
+	# Deep-drop bait chip: polled the same defensive way as the stat bars above, since
+	# there's no changed-signal for "wielding the rig with an empty hook" either.
+	var bait_text: String = FISHING_ROD.bait_prompt_text(_player) if is_instance_valid(_player) else ""
+	bait_chip.visible = bait_text != ""
+	if bait_text != "":
+		bait_label.text = bait_text
 
 ## Defensive read for stats another system may not have added yet.
 func _stat_value_or_full(prop: String) -> float:
@@ -172,6 +196,23 @@ func _build() -> void:
 	prompt_label.add_theme_color_override("font_color", Color(0.95, 0.95, 0.9))
 	prompt_chip.add_child(prompt_label)
 
+	# Bait chip — same look as the context prompt, parked just under it so wielding the
+	# deep rig while also aiming at some other interactable doesn't fight it for the line.
+	bait_chip = PanelContainer.new()
+	bait_chip.set_anchors_preset(Control.PRESET_CENTER)
+	bait_chip.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	bait_chip.grow_vertical = Control.GROW_DIRECTION_BOTH
+	bait_chip.position = Vector2(0, 78)
+	bait_chip.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	bait_chip.add_theme_stylebox_override("panel", chip_style)
+	bait_chip.visible = false
+	root.add_child(bait_chip)
+	bait_label = Label.new()
+	bait_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	bait_label.add_theme_font_size_override("font_size", 15)
+	bait_label.add_theme_color_override("font_color", Color(0.9, 0.88, 0.75))
+	bait_chip.add_child(bait_label)
+
 	# Toast line above the prompt.
 	toast_label = Label.new()
 	toast_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
@@ -182,6 +223,22 @@ func _build() -> void:
 	toast_label.add_theme_color_override("font_color", Color(0.8, 0.85, 0.8))
 	toast_label.modulate.a = 0.0
 	root.add_child(toast_label)
+
+	# Item-name popup — bottom of screen, above the hotbar row. Bare name only (no verb,
+	# no "[E]"); that's what the persistent prompt chip already says. This is just a quick
+	# "you're looking at: X" notice that gets out of the way on its own.
+	item_name_label = Label.new()
+	item_name_label.set_anchors_preset(Control.PRESET_CENTER_BOTTOM)
+	item_name_label.position += Vector2(-200, -96)
+	item_name_label.custom_minimum_size = Vector2(400, 24)
+	item_name_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	item_name_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	item_name_label.add_theme_font_size_override("font_size", 15)
+	item_name_label.add_theme_color_override("font_color", Color(0.88, 0.88, 0.84))
+	item_name_label.add_theme_color_override("font_outline_color", Color(0, 0, 0, 0.6))
+	item_name_label.add_theme_constant_override("outline_size", 3)
+	item_name_label.modulate.a = 0.0
+	root.add_child(item_name_label)
 
 	# Crosshair dot — brightens and swells to a ring when aimed at something usable.
 	crosshair = Label.new()
@@ -220,7 +277,7 @@ func _build() -> void:
 	help_button.pressed.connect(func() -> void: toggle_panel("help"))
 	topright.add_child(help_button)
 
-	# Hotbar: 4 slots, bottom-left.
+	# Hotbar: HOTBAR_SIZE slots (6 as of 2026-07-27), bottom-left.
 	var bar := HBoxContainer.new()
 	bar.set_anchors_preset(Control.PRESET_BOTTOM_LEFT)
 	bar.position = Vector2(16, -64)
@@ -424,6 +481,21 @@ func _set_chip(text: String) -> void:
 		prompt_chip.visible = false
 		prompt_label.text = "")
 
+## Flash an item's bare name at the bottom of the screen, then let it fade — called by
+## InteractionRay whenever its target CHANGES (owner request, 2026-07-27), not every frame
+## it stays on the same thing. Appearing is instant, same reasoning as the prompt chip:
+## the player already looked, the answer should already be there.
+func show_item_name(text: String) -> void:
+	if item_name_label == null or text == "":
+		return
+	if _item_name_tween:
+		_item_name_tween.kill()   # re-acquiring mid-fade restarts the notice, doesn't fight it
+	item_name_label.text = text
+	item_name_label.modulate.a = 1.0
+	_item_name_tween = create_tween()
+	_item_name_tween.tween_interval(ITEM_NAME_HOLD)
+	_item_name_tween.tween_property(item_name_label, "modulate:a", 0.0, ITEM_NAME_FADE)
+
 func set_targeting(on: bool) -> void:
 	if not crosshair:
 		return
@@ -582,7 +654,7 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]Interact[/b]       E — one context verb (take / open / read / connect / operate)
 [b]Climb[/b]          HOLD E on a ladder — E rides up, E+S rides down, release to let go
 [b]Carry[/b]          E grabs loose props · LMB throws · E/G sets down
-[b]Hotbar[/b]         1–4 brings that item to hand · same number again eats or drinks it
+[b]Hotbar[/b]         1–6 brings that item to hand · same number again eats or drinks it
 [b]Inventory[/b]      I — click an item to pick it up, then click the slot you want it in
                 (swaps with whatever is there, so a full pack is never a dead end)
                 click it again to put it back · click empty space to drop it
