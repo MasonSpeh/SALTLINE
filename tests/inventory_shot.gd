@@ -45,8 +45,12 @@ func _ready() -> void:
 	await get_tree().create_timer(24.0).timeout
 	main._countdown = 0.0
 	main.hud.fade_rect.color.a = 0.0
-	PlayerState.hotbar = [null, null, null, null]
-	PlayerState.hotbar_counts = [1, 1, 1, 1]
+	# HOTBAR_SIZE is the live source of truth (grew 4 -> 6 on 2026-07-27, see
+	# player_state.gd) — a hardcoded 4-slot array here silently desynced add_item's
+	# bounds checks from the real hotbar and made every add_item in LOAD fail quietly,
+	# which is why this harness started photographing an empty pack.
+	PlayerState.hotbar = PlayerState._new_hotbar()
+	PlayerState.hotbar_counts = PlayerState._new_hotbar_counts()
 	PlayerState.inventory.clear()
 	PlayerState.inventory_counts.clear()
 	for id in LOAD:
@@ -59,6 +63,11 @@ func _ready() -> void:
 	# Icons bake one per frame; this load is ~20 distinct items, so a couple of seconds is
 	# generous. If a slot still shows a word after this, that item genuinely has no art.
 	await get_tree().create_timer(6.0).timeout
+	# Verification-only: simulate hovering "galley_stew" (unified idx 15 — LOAD fills
+	# hotbar then pack in order, so this lands on the richest-stat item: hunger, thirst,
+	# warmth, and a returns-a-bottle loop) so the hover-info redesign is visible in the
+	# same screenshot without a real mouse move.
+	main.hud._inv_slot_hovered(15)
 	await RenderingServer.frame_post_draw
 	var img: Image = get_viewport().get_texture().get_image()
 	print("[inv] saved err=", img.save_png("/tmp/inv_icons.png"))

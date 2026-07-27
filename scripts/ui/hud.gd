@@ -55,7 +55,10 @@ var journal_text: RichTextLabel
 var inventory_panel: Panel
 var inv_grid: GridContainer
 var inv_title: Label              ## doubles as the "picked up, click away to drop" line
-var inv_info: Label
+## RichTextLabel (was a plain Label) so the richer hover panel (owner request 2026-07-27:
+## "add more info") can color a stat line (e.g. the amber ▸ hint, a red side-effect
+## warning) without hand-rolling a second label stack.
+var inv_info: RichTextLabel
 var _inv_buttons: Array[Button] = []
 ## Renders each item's own 3D model into a slot picture, once, on demand. See item_icons.gd.
 ## Preloaded by path, not referenced by class_name: the global class cache lags for a
@@ -614,6 +617,47 @@ func _panel_style() -> StyleBoxFlat:
 	s.set_content_margin_all(18)
 	return s
 
+## Crew-locker steel for the inventory panel specifically (owner request 2026-07-27:
+## "improve the UI to theme" — the generic dark rounded rectangle every panel shared
+## didn't say "this rig" the way MatLib's dark_metal/rust_steel/hazard_stripe palette
+## does everywhere else in the game). No StyleBoxTexture is available under
+## gl_compatibility-friendly static theming, so the "riveted plate" read comes from a
+## flat dark-steel bg plus a warm rust border rather than an actual texture — cheap,
+## and it never redraws per frame.
+func _locker_panel_style() -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.10, 0.105, 0.115, 0.97)   ## MatLib.dark_metal's tone, flattened for UI
+	s.border_color = Color(0.42, 0.27, 0.15, 0.95)  ## rust_steel — the locker's worn edge
+	s.set_border_width_all(3)
+	s.set_corner_radius_all(3)   ## near-square: a toolbox corner, not a rounded app card
+	s.set_content_margin_all(18)
+	s.shadow_color = Color(0, 0, 0, 0.5)
+	s.shadow_size = 8
+	return s
+
+## A small bolt-head circle for the panel's four corners. Purely decorative, built once
+## at panel construction — not per-frame, keeping the "riveted steel" read affordable
+## on gl_compatibility.
+func _rivet() -> Panel:
+	var r := Panel.new()
+	r.custom_minimum_size = Vector2(7, 7)
+	r.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var st := StyleBoxFlat.new()
+	st.bg_color = Color(0.32, 0.33, 0.35)
+	st.set_corner_radius_all(4)
+	st.border_color = Color(0.05, 0.05, 0.06)
+	st.set_border_width_all(1)
+	r.add_theme_stylebox_override("panel", st)
+	return r
+
+func _add_rivets(panel: Panel, w: float, h: float) -> void:
+	var inset := 9.0
+	for corner in [Vector2(inset, inset), Vector2(w - inset - 7, inset),
+			Vector2(inset, h - inset - 7), Vector2(w - inset - 7, h - inset - 7)]:
+		var r := _rivet()
+		r.position = corner
+		panel.add_child(r)
+
 ## Panels sit above the world-layer text. The toast line lives at center-bottom -170
 ## and the centred panels span most of the screen height, so a Journal discovery
 ## firing while the bench was open drew straight across the pack grid.
@@ -698,7 +742,18 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	jscroll.add_child(journal_text)
 
 	# INVENTORY — hotbar row + pack grid, click to move. Minecraft, pocket edition.
-	inventory_panel = _make_panel(560, 480)
+	# 480 was already short for 5 grid rows + title + info + drop button before this pass
+	# (they only fit by silently overflowing the panel's bottom edge — Panel doesn't clip
+	# by default, so the drop button and hover info were rendering past the border onto
+	# the world behind it). The richer hover info box (owner request 2026-07-27) made the
+	# overflow worse and visible, which is what surfaced it: 620 is sized to actually fit
+	# 5 rows of 74px slots + header + hazard rule + a 2-3 line info box + the drop button.
+	inventory_panel = _make_panel(560, 620)
+	# Crew-locker re-theme (owner request 2026-07-27): the panel gets its own steel
+	# stylebox and corner rivets instead of the generic dark rounded rectangle every
+	# other panel uses — see _locker_panel_style / _add_rivets.
+	inventory_panel.add_theme_stylebox_override("panel", _locker_panel_style())
+	_add_rivets(inventory_panel, 560, 620)
 	# Clicks that land on the panel but NOT on a slot button are the "drop what I picked"
 	# gesture (see _inv_panel_input). For those to reach the panel at all, the layout
 	# containers and labels covering it must not swallow them — a Control only takes the
@@ -710,14 +765,26 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	ivbox.offset_top = 12
 	ivbox.offset_right = -18
 	ivbox.offset_bottom = -12
-	ivbox.add_theme_constant_override("separation", 10)
+	ivbox.add_theme_constant_override("separation", 8)
 	ivbox.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	inventory_panel.add_child(ivbox)
 	inv_title = Label.new()
 	inv_title.text = INV_TITLE
 	inv_title.add_theme_font_size_override("font_size", 17)
+	# Warm amber warning-label tint (MatLib.hazard_stripe's palette) instead of the
+	# default white — the header reads as a stencilled locker label, not a UI caption.
+	inv_title.add_theme_color_override("font_color", Color(0.86, 0.74, 0.42))
 	inv_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ivbox.add_child(inv_title)
+	# Hazard stripe accent under the header — the one splash of the deck's
+	# watch-your-step chevron color the panel gets (owner call: "a hazard-stripe
+	# accent" per the theme brief). A single flat rule, not a shader, so it costs
+	# nothing per frame.
+	var hazard_rule := ColorRect.new()
+	hazard_rule.custom_minimum_size = Vector2(0, 3)
+	hazard_rule.color = Color(0.62, 0.5, 0.14)
+	hazard_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	ivbox.add_child(hazard_rule)
 	inv_grid = GridContainer.new()
 	# 6 across instead of 4: the slots are square now (owner call, 2026-07-26) and a
 	# 4-wide grid of squares makes a tall narrow column that overruns the panel once the
@@ -741,6 +808,25 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 		b.custom_minimum_size = Vector2(74, 74)
 		b.focus_mode = Control.FOCUS_NONE
 		b.clip_contents = true
+		# Steel-slot styling (owner theme pass, 2026-07-27) — a riveted socket rather than
+		# a stock Godot button, and the hover/pressed states pick up the same warm amber
+		# the hazard rule uses, so "this slot is interactive" reads as rig hardware, not UI
+		# chrome. Static styleboxes only — no per-frame cost.
+		var slot_normal := StyleBoxFlat.new()
+		slot_normal.bg_color = Color(0.145, 0.15, 0.16)
+		slot_normal.border_color = Color(0.05, 0.05, 0.055)
+		slot_normal.set_border_width_all(2)
+		slot_normal.set_corner_radius_all(3)
+		b.add_theme_stylebox_override("normal", slot_normal)
+		var slot_hover := slot_normal.duplicate()
+		slot_hover.border_color = Color(0.7, 0.55, 0.2)
+		slot_hover.bg_color = Color(0.19, 0.19, 0.2)
+		b.add_theme_stylebox_override("hover", slot_hover)
+		var slot_pressed := slot_normal.duplicate()
+		slot_pressed.border_color = Color(0.62, 0.5, 0.14)
+		slot_pressed.bg_color = Color(0.1, 0.1, 0.11)
+		b.add_theme_stylebox_override("pressed", slot_pressed)
+		b.add_theme_stylebox_override("focus", slot_normal)
 		var pic := TextureRect.new()
 		pic.name = "Pic"
 		pic.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -752,17 +838,46 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
 		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		b.add_child(pic)
+		# ALWAYS-VISIBLE name + count strip (owner request 2026-07-27: "should be able to
+		# see how many of each item/name even without hovering"). A thin semi-transparent
+		# backing along the slot's bottom edge so the label reads over any icon color, with
+		# the icon staying the dominant visual above it. Built once here; text set per
+		# refresh in _refresh_inventory_panel via _slot_name_tag_text().
+		var tag_bg := Panel.new()
+		tag_bg.name = "TagBG"
+		tag_bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+		tag_bg.custom_minimum_size = Vector2(0, 16)
+		tag_bg.offset_top = -16
+		tag_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		var tag_style := StyleBoxFlat.new()
+		tag_style.bg_color = Color(0.02, 0.02, 0.02, 0.72)
+		tag_style.content_margin_left = 2
+		tag_style.content_margin_right = 2
+		tag_bg.add_theme_stylebox_override("panel", tag_style)
+		var tag_lbl := Label.new()
+		tag_lbl.name = "Tag"
+		tag_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+		tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+		tag_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+		tag_lbl.clip_text = true
+		tag_lbl.add_theme_font_size_override("font_size", 9)
+		tag_lbl.add_theme_color_override("font_color", Color(0.88, 0.88, 0.84))
+		tag_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		tag_bg.add_child(tag_lbl)
+		b.add_child(tag_bg)
 		var idx: int = i
 		b.pressed.connect(func() -> void: _inv_slot_clicked(idx))
 		b.mouse_entered.connect(func() -> void: _inv_slot_hovered(idx))
 		b.gui_input.connect(func(e: InputEvent) -> void: _inv_slot_gui_input(idx, e))
 		inv_grid.add_child(b)
 		_inv_buttons.append(b)
-	inv_info = Label.new()
-	inv_info.autowrap_mode = TextServer.AUTOWRAP_WORD_SMART
-	inv_info.custom_minimum_size = Vector2(0, 74)
-	inv_info.add_theme_font_size_override("font_size", 13)
-	inv_info.add_theme_color_override("font_color", Color(0.72, 0.76, 0.72))
+	inv_info = RichTextLabel.new()
+	inv_info.bbcode_enabled = true
+	inv_info.fit_content = false
+	inv_info.scroll_active = false
+	inv_info.custom_minimum_size = Vector2(0, 92)
+	inv_info.add_theme_font_size_override("normal_font_size", 13)
+	inv_info.add_theme_color_override("default_color", Color(0.72, 0.76, 0.72))
 	inv_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ivbox.add_child(inv_info)
 	# Drop control: acts on the picked slot if there is one, otherwise on the last slot the
@@ -993,25 +1108,27 @@ func _refresh_inventory_panel() -> void:
 		_inv_buttons[i].visible = true
 		var item: Variant = slots[i] if i < slots.size() else null
 		var pic: TextureRect = _inv_buttons[i].get_node("Pic")
-		# THE PICTURE IS THE SLOT. Text is now only what a picture cannot say: the 1-4 key
-		# for a hotbar slot, the stack count, the pick marker — and the item's name ONLY
-		# while its icon is still baking, so a slot is never an anonymous blank square.
+		var tag_bg: Panel = _inv_buttons[i].get_node("TagBG")
+		var tag_lbl: Label = tag_bg.get_node("Tag")
+		# THE PICTURE IS THE SLOT. b.text is now only what a picture cannot say: the 1-4 key
+		# for a hotbar slot and the pick marker. The name + stack count moved into the
+		# always-visible bottom tag strip (owner request 2026-07-27) — see TagBG above —
+		# so they no longer depend on the icon still being baked to show at all.
 		var glyphs: PackedStringArray = []
 		if i < PlayerState.HOTBAR_SIZE:
 			glyphs.append(str(i + 1))
 		if item == null:
 			pic.texture = null
+			tag_bg.visible = false
 			_inv_buttons[i].text = " ".join(glyphs)
 			_inv_buttons[i].modulate = Color(1, 1, 1, 0.45)
 			continue
 		var id: String = str(item)
 		pic.texture = _icons.get_icon(id)
-		if pic.texture == null:
-			glyphs.append(id.capitalize())
 		var cnt: int = PlayerState.hotbar_stack(i) if i < PlayerState.HOTBAR_SIZE \
 			else PlayerState.inventory_stack(i - PlayerState.HOTBAR_SIZE)
-		if cnt > 1:
-			glyphs.append("×%d" % cnt)
+		tag_bg.visible = true
+		tag_lbl.text = _slot_tag_text(id, cnt)
 		_inv_buttons[i].modulate = Color(1, 0.95, 0.75) if i < PlayerState.HOTBAR_SIZE \
 			else Color(1, 1, 1)
 		# The picked slot reads as picked — the drop instruction in the header has to be
@@ -1020,6 +1137,24 @@ func _refresh_inventory_panel() -> void:
 			glyphs.insert(0, "▸")
 			_inv_buttons[i].modulate = Color(0.68, 1.0, 0.78)
 		_inv_buttons[i].text = " ".join(glyphs)
+
+## The always-visible name+count strip's text. A 74px slot at 9pt fits roughly 11-12
+## narrow characters before Label.clip_text starts eating the tail, so long item names
+## (e.g. "Fathom Halibut Fillet") get shortened to their first word or two rather than
+## trusting clip to pick a sane cutoff — "Fathom..." reads as a name, "Fathom Halibut F"
+## reads as a bug. Short names pass through untouched.
+const _TAG_MAX_CHARS: int = 12
+func _slot_tag_text(item_id: String, count: int) -> String:
+	var full: String = _item_name(item_id)
+	var suffix: String = " ×%d" % count if count > 1 else ""
+	var budget: int = _TAG_MAX_CHARS - suffix.length()
+	var shown: String = full
+	if full.length() > budget:
+		# Prefer to break on a word boundary so an abbreviation still reads as a word
+		# ("Fathom…" not "Fatho…").
+		var cut: int = full.rfind(" ", budget)
+		shown = full.substr(0, cut if cut > 3 else budget) + "…"
+	return shown + suffix
 
 ## The id in a unified slot index (hotbar 0..HOTBAR_SIZE-1, then the pack); "" when the slot
 ## is empty or out of range. The one place unified indices are decoded for reading.
@@ -1116,19 +1251,76 @@ func _inv_slot_hovered(idx: int) -> void:
 	if item == null:
 		inv_info.text = ""
 		return
-	var id: String = str(item)
+	inv_info.text = _item_info_bbcode(str(item))
+
+## Owner request 2026-07-27 ("add more info"): richer than a one-line summary — the
+## use category up top, then every stat items.json actually encodes for this item
+## (hunger/thirst restore, heal/cures, warmth, melee, worn-gear effects, vessel/bait
+## behaviour), then the Journal's own body/hint. Everything here is read straight off
+## data/items.json and Journal.item_info — no new fields invented, per the brief.
+## bbcode because inv_info is a RichTextLabel now (see its declaration), so a category
+## tag and a warning can each get their own color without a second label.
+func _item_info_bbcode(id: String) -> String:
 	var def: Dictionary = PlayerState.items.get(id, {})
 	var jinfo: Dictionary = Journal.item_info(id)
-	var line: String = def.get("name", id.capitalize())
-	if def.get("use", "") == "eat":
-		line += "  —  edible (+%d%% hunger)" % int(def.get("hunger", 0.0) * 100.0)
-	else:
-		line += "  —  tool"
+	var use: String = def.get("use", "tool")
+	var cat_color := {"eat": "#c9a84a", "drink": "#6fb8c9", "tool": "#9aa0a6", "build": "#8fb0a8"}
+	var cat_word := {"eat": "FOOD", "drink": "DRINK", "tool": "TOOL", "build": "BUILD KIT"}
+	var out: String = "[b]%s[/b]  [color=%s]%s[/color]\n" % [
+		def.get("name", id.capitalize()), cat_color.get(use, "#9aa0a6"), cat_word.get(use, use.to_upper())]
+	for stat in _item_stat_lines(def):
+		out += stat + "\n"
+	if jinfo.is_empty():
+		# No journal.json entry authored for this item at all — distinct from "not yet
+		# discovered" (add_item auto-discovers on pickup, and you can only hover an item
+		# you're holding), so this reads as "the survivor hasn't puzzled this one out",
+		# not as a content bug.
+		out += "[color=#5c605e]Not yet catalogued in the journal.[/color]"
+		return out
 	if jinfo.get("body", "") != "":
-		line += "\n%s" % jinfo["body"]
+		out += "%s\n" % jinfo["body"]
 	if jinfo.get("hint", "") != "":
-		line += "\n▸ %s" % jinfo["hint"]
-	inv_info.text = line
+		out += "[color=#c9b458]▸ %s[/color]" % jinfo["hint"]
+	return out
+
+## One bbcode line per stat items.json actually carries for this item. Order follows
+## the _schema comment at the top of items.json: consumption, healing, worn effects,
+## melee, then vessel/loop behaviour.
+func _item_stat_lines(def: Dictionary) -> Array[String]:
+	var lines: Array[String] = []
+	var hunger: float = def.get("hunger", 0.0)
+	var thirst: float = def.get("thirst", 0.0)
+	if def.get("use", "") == "eat" and hunger > 0.0:
+		lines.append("Hunger  +%d%%" % int(hunger * 100.0))
+	if thirst > 0.0:
+		lines.append("Thirst  +%d%%" % int(thirst * 100.0))
+	if def.get("warmth", 0.0) > 0.0:
+		lines.append("Warmth  +%d%%" % int(float(def["warmth"]) * 100.0))
+	if def.get("heal", 0.0) > 0.0:
+		lines.append("Heals  +%d%% life" % int(float(def["heal"]) * 100.0))
+	if def.get("cures", "") != "":
+		lines.append("Cures %s" % String(def["cures"]))
+	if def.get("side_effect", "") != "":
+		lines.append("[color=#c96a4a]Raw — risk of %s[/color]" % String(def["side_effect"]))
+	if def.has("melee_damage"):
+		lines.append("Melee  %.1f dmg · %.1fm reach · %.2fs swing" % [
+			float(def.get("melee_damage", 0.0)), float(def.get("melee_reach", 0.0)),
+			float(def.get("swing_sec", 0.0))])
+	if def.get("worn", false):
+		var bits: Array[String] = []
+		if def.get("light", false):
+			bits.append("carried light")
+		if def.get("pack_slots", 0) > 0:
+			bits.append("+%d pack slots" % int(def["pack_slots"]))
+		if def.get("cold_relief", 0.0) > 0.0:
+			bits.append("%d%% slower cold loss" % int(float(def["cold_relief"]) * 100.0))
+		lines.append("Worn — %s" % ", ".join(bits) if not bits.is_empty() else "Worn")
+	if def.get("vessel", false):
+		if def.has("fills_to"):
+			lines.append("Vessel — fills from rain (~%.1fh)" % float(def.get("fill_hours", 0.0)))
+		elif def.get("returns", "") != "":
+			lines.append("Vessel — empties back to %s" % _item_name(String(def["returns"])))
+	return lines
 
 ## Right-click a slot to drop one from it (left-click still moves it).
 func _inv_slot_gui_input(idx: int, event: InputEvent) -> void:
