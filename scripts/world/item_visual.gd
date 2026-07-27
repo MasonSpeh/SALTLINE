@@ -820,24 +820,27 @@ static func build(item_id: String) -> Node3D:
 
 		# ---- WHAT THE WATER GIVES UP TO A KNIFE ----
 		"crab_leg", "crab_leg_seared":
-			# Landed in items.json while this pass was running (2026-07-26) and went straight
-			# onto the generic box, so it gets a look here with the rest. Same knuckled leg
-			# for both; the pan reddens the shell and blacks the joints, exactly as the crab's
-			# own carapace does in _crab_shape.
+			# Owner call, 2026-07-27: rebuilt as plain BLOCKS/TRIANGLES (box + prism, no
+			# cylinders/spheres/cones) — cheaper to render at icon size and it reads just as
+			# clearly as a leg, since a real crab leg IS a tapered, faceted, jointed rod.
+			# Same shape for both; the pan reddens the shell and blacks the joints, matching
+			# the crab's own carapace in _crab_shape.
 			var cl_hot: bool = item_id.ends_with("_seared")
 			var cl_sh: Color = Color(0.78, 0.3, 0.16) if cl_hot else Color(0.62, 0.38, 0.28)
 			var cl_jt: Color = Color(0.3, 0.16, 0.1) if cl_hot else Color(0.5, 0.3, 0.22)
-			var cl_a := _cyl(root, 0.035, 0.18, cl_sh, Vector3(-0.09, 0.06, 0))
-			cl_a.rotation.z = deg_to_rad(66)
-			_sph(root, 0.037, cl_jt, Vector3(-0.015, 0.095, 0), Vector3(1.0, 0.9, 1.0))          # knuckle
-			var cl_b := _cyl(root, 0.028, 0.17, cl_sh, Vector3(0.055, 0.075, 0))
-			cl_b.rotation.z = deg_to_rad(115)
-			_sph(root, 0.029, cl_jt, Vector3(0.125, 0.045, 0), Vector3(1.0, 0.9, 1.0))
-			var cl_t := _cone(root, 0.026, 0.004, 0.1, cl_sh.darkened(0.15), Vector3(0.175, 0.025, 0))
-			cl_t.rotation.z = deg_to_rad(-108)                                                   # pointed dactyl
+			# Two straight segments meeting at a knuckle, bent like a real walking leg —
+			# femur out and down, tibia back in and down to a point.
+			var cl_a := _box(root, Vector3(0.19, 0.05, 0.045), cl_sh, Vector3(-0.09, 0.065, 0))
+			cl_a.rotation.z = deg_to_rad(24)
+			_box(root, Vector3(0.05, 0.05, 0.05), cl_jt, Vector3(-0.005, 0.09, 0))          # knuckle
+			var cl_b := _box(root, Vector3(0.17, 0.04, 0.035), cl_sh, Vector3(0.08, 0.055, 0))
+			cl_b.rotation.z = deg_to_rad(-58)
+			# The pointed dactyl tip — a prism tapering to an edge, not a smooth cone.
+			var cl_t := _prism(root, Vector3(0.09, 0.03, 0.024), cl_sh.darkened(0.15), Vector3(0.175, 0.005, 0))
+			cl_t.rotation.z = deg_to_rad(-58)
 			for cl_i in range(2):
-				var cl_bd := _cyl(root, 0.037, 0.014, cl_jt, Vector3(-0.13 + cl_i * 0.06, 0.078 + cl_i * 0.014, 0))
-				cl_bd.rotation.z = deg_to_rad(66)                                                # shell bands
+				var cl_bd := _box(root, Vector3(0.03, 0.052, 0.05), cl_jt, Vector3(-0.13 + cl_i * 0.06, 0.075 + cl_i * 0.01, 0))
+				cl_bd.rotation.z = deg_to_rad(24)                                            # shell bands
 		"glow_mucus":
 			# A handful of live slime, still lit. Low and spreading — nothing else in the pack
 			# is a puddle, which is the whole point next to the glow worm's cube.
