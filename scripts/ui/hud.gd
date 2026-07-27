@@ -39,6 +39,11 @@ var inv_grid: GridContainer
 var inv_title: Label              ## doubles as the "picked up, click away to drop" line
 var inv_info: Label
 var _inv_buttons: Array[Button] = []
+## Renders each item's own 3D model into a slot picture, once, on demand. See item_icons.gd.
+## Preloaded by path, not referenced by class_name: the global class cache lags for a
+## newly added script and resolves it as an unknown type on the first run.
+const ITEM_ICONS := preload("res://scripts/ui/item_icons.gd")
+var _icons: Node
 var _inv_hovered_idx: int = -1   ## last unified slot the cursor was over (for DROP)
 ## The pick-to-drop selection: a unified slot index plus the id that was sitting in it.
 ## Both, because pack indices SHIFT whenever a stack empties (inventory is a list) — the id
@@ -62,6 +67,13 @@ var _rest_bound: bool = false     # PlayerState.rest_changed connected?
 
 func _ready() -> void:
 	add_to_group("hud")
+	# Slot pictures. Each item is photographed once from its own 3D model and cached, so
+	# the first refresh after a pickup shows the item's name and the next shows the item.
+	_icons = ITEM_ICONS.new()
+	add_child(_icons)
+	_icons.icon_ready.connect(func(_id: String) -> void:
+		_refresh_hotbar()
+		_refresh_inventory_panel())
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build()
@@ -215,14 +227,26 @@ func _build() -> void:
 	bar.add_theme_constant_override("separation", 6)
 	root.add_child(bar)
 	for i in range(PlayerState.HOTBAR_SIZE):
+		# SQUARE, and showing the item rather than naming it (owner call, 2026-07-26).
+		# The picture is a TextureRect filling the slot; the label survives on top of it,
+		# demoted to the two things a picture cannot carry — the 1-4 key that selects the
+		# slot, and the stack count. An item with no rendered icon yet falls back to its
+		# name in that same label, so the bar is never blank while icons are still baking.
 		var slot := PanelContainer.new()
-		slot.custom_minimum_size = Vector2(110, 44)
+		slot.custom_minimum_size = Vector2(58, 58)
+		var pic := TextureRect.new()
+		pic.name = "Pic"
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		slot.add_child(pic)
 		var lbl := Label.new()
 		lbl.name = "L"
 		lbl.text = str(i + 1)
 		lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		lbl.add_theme_font_size_override("font_size", 13)
+		lbl.vertical_alignment = VERTICAL_ALIGNMENT_BOTTOM
+		lbl.add_theme_font_size_override("font_size", 11)
+		lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
 		slot.add_child(lbl)
 		slot.modulate = Color(1, 1, 1, 0.65)
 		bar.add_child(slot)
@@ -471,14 +495,25 @@ func _unhandled_input(event: InputEvent) -> void:
 func _refresh_hotbar() -> void:
 	for i in range(hotbar_slots.size()):
 		var lbl: Label = hotbar_slots[i].get_node("L")
+		var pic: TextureRect = hotbar_slots[i].get_node("Pic")
 		var item: Variant = PlayerState.hotbar[i]
-		var txt: String = "%d  %s" % [i + 1, str(item).capitalize() if item != null else "—"]
-		if item != null:
-			var n: int = PlayerState.hotbar_stack(i)
-			if n > 1:
-				txt += "  ×%d" % n
+		if item == null:
+			pic.texture = null
+			lbl.text = str(i + 1)
+			hotbar_slots[i].modulate.a = 0.5
+			continue
+		var id: String = str(item)
+		pic.texture = _icons.get_icon(id)
+		# The slot number always, the count when it stacks, and the NAME only while the
+		# icon has not baked yet — so a fresh pickup is never an anonymous empty square.
+		var txt: String = str(i + 1)
+		if pic.texture == null:
+			txt = "%d %s" % [i + 1, id.capitalize()]
+		var n: int = PlayerState.hotbar_stack(i)
+		if n > 1:
+			txt += "  ×%d" % n
 		lbl.text = txt
-		hotbar_slots[i].modulate.a = 0.95 if item != null else 0.5
+		hotbar_slots[i].modulate.a = 0.95
 
 func fade_to_black(duration: float) -> Tween:
 	var tw: Tween = create_tween()
@@ -612,7 +647,10 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	inv_title.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	ivbox.add_child(inv_title)
 	inv_grid = GridContainer.new()
-	inv_grid.columns = 4
+	# 6 across instead of 4: the slots are square now (owner call, 2026-07-26) and a
+	# 4-wide grid of squares makes a tall narrow column that overruns the panel once the
+	# tool belt adds its four.
+	inv_grid.columns = 6
 	inv_grid.add_theme_constant_override("h_separation", 8)
 	inv_grid.add_theme_constant_override("v_separation", 8)
 	ivbox.add_child(inv_grid)
@@ -621,9 +659,27 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	# grid can't be sized to a fixed number once and go stale when the belt is found.
 	var max_slots: int = PlayerState.HOTBAR_SIZE + PlayerState.MAX_BACKPACK + PlayerState.TOOL_BELT_SLOTS
 	for i in range(max_slots):
+		# SQUARE slots showing the item itself (owner call, 2026-07-26). The Button keeps
+		# every existing interaction — pick/place, right-click drop, hover info — and gains
+		# a TextureRect child for the picture. The picture is a CHILD rather than the
+		# Button's own `icon` because Button.icon is laid out against the button text and
+		# gets shoved aside by the stack-count and pick-marker glyphs; a child fills the
+		# whole square and the glyphs overlay it.
 		var b := Button.new()
-		b.custom_minimum_size = Vector2(118, 52)
+		b.custom_minimum_size = Vector2(74, 74)
 		b.focus_mode = Control.FOCUS_NONE
+		b.clip_contents = true
+		var pic := TextureRect.new()
+		pic.name = "Pic"
+		pic.set_anchors_preset(Control.PRESET_FULL_RECT)
+		pic.offset_left = 4
+		pic.offset_top = 4
+		pic.offset_right = -4
+		pic.offset_bottom = -4
+		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		b.add_child(pic)
 		var idx: int = i
 		b.pressed.connect(func() -> void: _inv_slot_clicked(idx))
 		b.mouse_entered.connect(func() -> void: _inv_slot_hovered(idx))
@@ -864,23 +920,34 @@ func _refresh_inventory_panel() -> void:
 			continue
 		_inv_buttons[i].visible = true
 		var item: Variant = slots[i] if i < slots.size() else null
-		var label: String = str(item).capitalize() if item != null else "—"
-		if item != null:
-			var cnt: int = PlayerState.hotbar_stack(i) if i < PlayerState.HOTBAR_SIZE \
-				else PlayerState.inventory_stack(i - PlayerState.HOTBAR_SIZE)
-			if cnt > 1:
-				label += "  ×%d" % cnt
+		var pic: TextureRect = _inv_buttons[i].get_node("Pic")
+		# THE PICTURE IS THE SLOT. Text is now only what a picture cannot say: the 1-4 key
+		# for a hotbar slot, the stack count, the pick marker — and the item's name ONLY
+		# while its icon is still baking, so a slot is never an anonymous blank square.
+		var glyphs: PackedStringArray = []
 		if i < PlayerState.HOTBAR_SIZE:
-			_inv_buttons[i].text = "%d· %s" % [i + 1, label]
-			_inv_buttons[i].modulate = Color(1, 0.95, 0.75) if item != null else Color(0.85, 0.85, 0.8, 0.7)
-		else:
-			_inv_buttons[i].text = label
-			_inv_buttons[i].modulate = Color(1, 1, 1) if item != null else Color(1, 1, 1, 0.45)
+			glyphs.append(str(i + 1))
+		if item == null:
+			pic.texture = null
+			_inv_buttons[i].text = " ".join(glyphs)
+			_inv_buttons[i].modulate = Color(1, 1, 1, 0.45)
+			continue
+		var id: String = str(item)
+		pic.texture = _icons.get_icon(id)
+		if pic.texture == null:
+			glyphs.append(id.capitalize())
+		var cnt: int = PlayerState.hotbar_stack(i) if i < PlayerState.HOTBAR_SIZE \
+			else PlayerState.inventory_stack(i - PlayerState.HOTBAR_SIZE)
+		if cnt > 1:
+			glyphs.append("×%d" % cnt)
+		_inv_buttons[i].modulate = Color(1, 0.95, 0.75) if i < PlayerState.HOTBAR_SIZE \
+			else Color(1, 1, 1)
 		# The picked slot reads as picked — the drop instruction in the header has to be
 		# aimed at something the player can see they chose.
-		if i == _inv_selected_idx and item != null:
-			_inv_buttons[i].text = "▸ " + _inv_buttons[i].text
+		if i == _inv_selected_idx:
+			glyphs.insert(0, "▸")
 			_inv_buttons[i].modulate = Color(0.68, 1.0, 0.78)
+		_inv_buttons[i].text = " ".join(glyphs)
 
 ## The id in a unified slot index (hotbar 0..HOTBAR_SIZE-1, then the pack); "" when the slot
 ## is empty or out of range. The one place unified indices are decoded for reading.
