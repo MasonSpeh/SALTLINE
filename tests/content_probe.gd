@@ -92,10 +92,15 @@ func _check_rain() -> void:
 		_check("rain has a process material and a draw pass",
 			rain.process_material != null and rain.draw_pass_1 != null)
 
-## s14 crab spec: TEN crabs, all hiding under water in daylight, clinging spread
-## around the four caisson legs (visible by leaning over a rim or diving) — none up on
-## the plating until night. Their bodies must also be SEATED near their authored cling
-## bands, not hovering at hand-typed heights (the old pack floated 0.6 m off the deck).
+## The crab pack hides under water in daylight, clinging spread around the four caisson
+## legs (visible by leaning over a rim or diving) — none up on the plating until night.
+## Their bodies must also be SEATED near their authored cling bands, not hovering at
+## hand-typed heights (the old pack floated 0.6 m off the deck).
+##
+## The count is read from the SPAWNER, not restated here. This asserted `>= 14` from the
+## s14 spec and had been failing since the 2026-07-25 predator pass cut the pack to 6 —
+## a stale expectation reporting a bug that did not exist, which is worse than no test.
+## It is 8 today; reading BloomFauna.CRAB_COUNT means the next retune does not re-break it.
 func _check_crabs() -> void:
 	var crabs: Array = []
 	var stack: Array = [get_tree().root]
@@ -105,7 +110,9 @@ func _check_crabs() -> void:
 			stack.append(c)
 		if n is GiantCrab:
 			crabs.append(n)
-	_check("the full crab pack spawned", crabs.size() >= 14, "%d crabs" % crabs.size())
+	var want: int = int(preload("res://scripts/world/bloom_fauna.gd").CRAB_COUNT)
+	_check("the full crab pack spawned", crabs.size() >= want,
+		"%d crabs (want %d)" % [crabs.size(), want])
 	var under: int = 0
 	var at_legs: int = 0
 	var claws: int = 0

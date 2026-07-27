@@ -223,10 +223,21 @@ const PROPS := {
 	# ---- vessel: bare hands -> something that holds water ----
 	# Thirteen crew flasks and tubs sit on the desks and benches of this rig, every one
 	# of them still holding somebody's last shift. Tip it out, keep the flask.
-	"modified_thermos": ["vessel", {"thermos_empty": 1}, "Crew Thermos"],
-	"plastic_thermos": ["vessel", {"thermos_empty": 1}, "Crew Flask"],
-	"plastic_container": ["vessel", {"bottle_empty": 1}, "Lidded Container"],
-	"metal_jug": ["vessel", {"bottle_empty": 1}, "Metal Jug"],
+	# These yield the FULL vessel. Fixing an inconsistency introduced on 2026-07-25b: the
+	# verb and its line were changed from EMPTY ("what was in it goes over the side") to
+	# TAKE ("still got most of a shift's water in it, that comes with you") — but the yields
+	# were left as the empties, so the station SAID it was handing you water and handed you
+	# a dry bottle. The line was the correct half; these are now what it promises.
+	#
+	# It also closes a real hole IntegrationProbe was already reporting before any of that:
+	# `bottle_water` had NO world source at all, so the two recipes that consume one
+	# (kelp_brew, galley_stew) could not be reached without first building a Rain Catcher
+	# and waiting out a squall. Found water is the OPENING of the water loop — drink it,
+	# keep the vessel (items.json `returns`), refill it at the catcher thereafter.
+	"modified_thermos": ["vessel", {"thermos_water": 1}, "Crew Thermos"],
+	"plastic_thermos": ["vessel", {"thermos_water": 1}, "Crew Flask"],
+	"plastic_container": ["vessel", {"bottle_water": 1}, "Lidded Container"],
+	"metal_jug": ["vessel", {"bottle_water": 1}, "Metal Jug"],
 
 	# ---- medical: bare hands -> dressings and kits ----
 	"medical_tape": ["medical", {"bandage": 2}, "Roll of Medical Tape"],

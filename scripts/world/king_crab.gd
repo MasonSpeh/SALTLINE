@@ -68,7 +68,7 @@ const CONTACT: float = 2.35         ## its reach is its leg span, not its shell
 const BITE_DAMAGE: float = 0.34
 const BITE_COOLDOWN: float = 2.4
 const BITE_SHOVE: float = 11.0
-const MAX_HP: float = 9.0           ## the ordinary crab quits at 3
+const MAX_HP: float = 9.0           ## the ordinary crab DIES at 6 (crab.gd, 2026-07-26)
 const HUNT_CHANCE: float = 0.5      ## owner spec: each king, each night, independently
 # The light bar. An ordinary crab breaks off at 2.35 brightness units; a flashlight only
 # HAS 4.0 at point blank, so at 3.4 a king gives ground only for a beam held dead on it
