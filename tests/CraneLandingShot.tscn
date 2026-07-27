@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://crane_landing_shot"]
+[ext_resource type="Script" path="res://tests/crane_landing_shot.gd" id="1"]
+[node name="CraneLandingShot" type="Node"]
+script = ExtResource("1")

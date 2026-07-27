@@ -1516,26 +1516,52 @@ func _build_high_iron() -> void:
 			_member(Vector3(CRANE_X + s * MAST_HALF, y0, CRANE_Z + MAST_HALF),
 				Vector3(CRANE_X + s * MAST_HALF, y1, CRANE_Z - MAST_HALF), 0.1, mat)
 
-	# --- the climb: two ladder runs with a real landing between them ---
+	# --- the climb: two OFFSET ladder runs with a real landing between them ---
 	# One 16m ladder ran the whole way with nothing to stop at. Split at the halfway
 	# platform, so the climb has a rest, a view, and somewhere to leave things.
+	#
+	# THE TWO RUNS ARE OFFSET, and that is load-bearing, not styling. They used to be
+	# STACKED on one axis (both at x -0.35) through a landing that was one solid grating
+	# slab, which is the machinery-deck trap repeated one floor down: the lower run's head
+	# was buried flush IN the plate, so from the landing there was no opening to climb back
+	# down through and no rungs to point at — the only ladder in reach was the UPPER run,
+	# and riding that down just set you back on the same landing. Up was free; down was an
+	# 8 m drop onto the drill floor. Owner, 2026-07-26: "no way back down without jumping".
+	#
+	# The upper run cannot move: its head has to land inside CRANE_HATCH_*, and that hole
+	# is pinned at x -0.95..0.15 by the slew ring (r 1.95 about the axis) to its east and
+	# the gantry A-frame feet at x 0.3. So the LOWER run is the one that moved — east, out
+	# to the landing's outboard end, where the deck below is open. It now climbs to the
+	# landing's east end, you cross the landing westward, and the upper run takes you on up
+	# through the machinery-deck hatch. A real switchback, and the landing is finally
+	# something you walk across instead of something you pass through.
 	_crane_landing()
-	_ladder(Vector3(CRANE_X - 2.35, DECK_Y, CRANE_Z), 8.0, 90.0, "Mast Ladder", 1.2)
-	_ladder(Vector3(CRANE_X - 2.35, CRANE_LAND_Y, CRANE_Z), 8.15, 90.0, "Mast Ladder — Upper", 1.2)
+	_ladder(Vector3(LAND_LADDER_X, DECK_Y, CRANE_Z), 8.0, 270.0, "Mast Ladder", LAND_LADDER_EXIT)
+	# The upper run faces NORTH (yaw 0), so it mantles you onto the plate NORTH of the hatch
+	# at (-0.40, 34.55, -13.2) — clear of the turret's west face by 0.6 m and of the slew
+	# ring by 0.28 m — and, at its other end, sets you down on the mid landing at z -13.2,
+	# well inside its north rail. Facing is the only thing that decides BOTH those spots
+	# (exit is -face_dir at each end), so the two have to be solved together: exiting east
+	# put you inside the turret, exiting west put you off the machinery deck's west edge,
+	# and exiting south put you off the LANDING's south edge into an 8 m drop.
+	_ladder(Vector3(CRANE_X - 2.4, CRANE_LAND_Y, CRANE_Z - 0.6), 8.15, 0.0, "Mast Ladder — Upper", 1.4)
 
 	# --- machinery deck: the crane's own floor, the plate the head is bolted to ---
 	# BUILT AS FOUR STRIPS AROUND A LADDER HATCH, not one slab. The upper mast ladder tops
-	# out at x -0.35 / z -14, which is INSIDE this 7x7 plate: the slab was solid, so there
-	# was no opening to climb back down through. You could get up (climbing runs with world
-	# collision off, so the ladder passes through the plate) and then had no way off the
-	# crane except a 16 m drop to the deck — the "can't get down without dying" trap.
-	# The hatch is deliberately kept clear of the gantry A-frame feet at x 0.3 / z -13.6.
+	# out INSIDE this 7x7 plate: the slab was solid, so there was no opening to climb back
+	# down through. You could get up (climbing runs with world collision off, so the ladder
+	# passes through the plate) and then had no way off the crane except a 16 m drop to the
+	# deck — the "can't get down without dying" trap. See CRANE_HATCH_* for why the opening
+	# then had to move south as well as exist.
 	_crane_deck_with_hatch()
 	_crane_rails(CRANE_DECK_TOP, CRANE_DECK_HALF - 0.1, mat)
 	_build_crane_head()
 
+	# Left on the plate NORTH-WEST of the king post, where the climber arrives. It used to
+	# lie at (0.6, 34.18, -13.0) — 1.72 m from the tower axis, i.e. inside the old solid
+	# slew disc, buried 0.37 m under its top face and impossible to read or even see.
 	_readable("lookout_note", "Weathered Notebook",
-		Vector3(CRANE_X - 1.4, CRANE_DECK_TOP + 0.03, CRANE_Z + 1.0), Vector3(0.3, 0.06, 0.4))
+		Vector3(CRANE_X - 3.05, CRANE_DECK_TOP + 0.03, CRANE_Z + 1.6), Vector3(0.3, 0.06, 0.4))
 	# The deep rig pole — the heavy hand-line for dropping straight down for the big deep
 	# fish — waits up here on the crane's machinery deck, a reward for making the climb.
 	_takeable("deep_rig_pole", "Deep Rig Pole",
@@ -1550,10 +1576,24 @@ func _build_high_iron() -> void:
 ## CSG hole keeps the original box's COLLISION (that is exactly what boxed the player into
 ## the SPHL), so the only way to get a hole the player can actually pass through is to not
 ## put plate there in the first place.
-const CRANE_HATCH_X0: float = -0.95   ## hatch spans x -0.95..0.15 — ladder stiles at ±0.175 of -0.35
+##
+## THE HATCH SITS SOUTH OF THE CRANE'S CENTRELINE, and that is traversal, not composition.
+## It used to be centred on z -14, and the upper run exited EAST from it — straight into the
+## turret. The machinery house is a 2.8 x 2.6 box whose underside is the slew-ring top, so
+## its AABB is x 0.6..3.4 / y 34.55..37.35 / z -14.10..-11.50, and _dismount_clear()'s
+## anchor for that run was (0.85, 34.55, -14.0) — inside the house on all three axes. Every
+## +X candidate was a capsule inside the turret and every off-axis one landed flush on the
+## slew ring (top 34.55, exactly the anchor height, so the down-0.05 probe reads a hit).
+## All nine rejected, the last resort fired, and the player was dropped onto the ladder head
+## in the middle of the open hatch with the machine walling them in — measured at 0.00 m of
+## travel in all four directions. Owner, 2026-07-26: climbing to a deck you cannot walk on.
+## Moved south and turned to exit NORTH onto open plate; every number checked in
+## tests/access_probe.gd. The gantry A-frame feet (x 0.3 / z -12.0 and -13.6) are now north
+## of the opening rather than beside it.
+const CRANE_HATCH_X0: float = -0.95   ## hatch spans x -0.95..0.15 — ladder stiles at ±0.35 of -0.40
 const CRANE_HATCH_X1: float = 0.15
-const CRANE_HATCH_Z0: float = -14.9   ## and z -14.9..-13.4 — ladder rungs run -14.35..-13.65
-const CRANE_HATCH_Z1: float = -13.4
+const CRANE_HATCH_Z0: float = -15.35  ## and z -15.35..-13.85 — ladder rungs run -14.775..-14.425
+const CRANE_HATCH_Z1: float = -13.85
 func _crane_deck_with_hatch() -> void:
 	var plate: Material = MatLib.deck_plate()
 	var steel: Material = MatLib.rust_steel()
@@ -1594,12 +1634,14 @@ func _crane_deck_with_hatch() -> void:
 		_box(Vector3(px, top + 0.012, (CRANE_HATCH_Z0 + CRANE_HATCH_Z1) * 0.5),
 			Vector3(0.10, 0.02, CRANE_HATCH_Z1 - CRANE_HATCH_Z0 + 0.29),
 			MatLib.hazard_stripe(), self, false)
-	# Two grab stanchions with a hoop rail on the EAST rim — the side the climber steps off
-	# toward (the ladder's exit_forward is +X). Something to hold while finding the rungs.
-	for gz in [CRANE_HATCH_Z0 + 0.15, CRANE_HATCH_Z1 - 0.15]:
-		_box(Vector3(CRANE_HATCH_X1 + 0.12, top + 0.5, gz), Vector3(0.07, 1.0, 0.07), steel, self, false)
-	_box(Vector3(CRANE_HATCH_X1 + 0.12, top + 1.0, (CRANE_HATCH_Z0 + CRANE_HATCH_Z1) * 0.5),
-		Vector3(0.07, 0.07, CRANE_HATCH_Z1 - CRANE_HATCH_Z0 - 0.3), steel, self, false)
+	# Two grab stanchions with a hoop rail on the NORTH rim — the side the climber steps off
+	# toward, now that the run exits +Z. Something to hold while finding the rungs.
+	# Non-colliding: they stand within a capsule radius of the mantle spot, and a collider
+	# there would make _dismount_clear() reject the one spot on this deck that works.
+	for gx in [CRANE_HATCH_X0 + 0.15, CRANE_HATCH_X1 - 0.15]:
+		_box(Vector3(gx, top + 0.5, CRANE_HATCH_Z1 + 0.12), Vector3(0.07, 1.0, 0.07), steel, self, false)
+	_box(Vector3((CRANE_HATCH_X0 + CRANE_HATCH_X1) * 0.5, top + 1.0, CRANE_HATCH_Z1 + 0.12),
+		Vector3(CRANE_HATCH_X1 - CRANE_HATCH_X0 - 0.3, 0.07, 0.07), steel, self, false)
 
 ## Perimeter guard: a visual top+mid bar on all four sides plus one smooth full-height
 ## slab per side, the same grammar the deck rails use — a lone waist bar with open air
@@ -1612,26 +1654,107 @@ func _crane_rails(top_y: float, half: float, mat: Material) -> void:
 		_rail_slab(Vector3(CRANE_X, top_y + 0.6, CRANE_Z + s * half), Vector3(half * 2.0, 1.3, 0.07))
 		_rail_slab(Vector3(CRANE_X + s * half, top_y + 0.6, CRANE_Z), Vector3(0.07, 1.3, half * 2.0))
 
-## Halfway landing on the mast ladder: a grating plate hung between the legs with the
-## ladder passing through it, railed on all four sides. Somewhere to stand, and the
-## reason there is anything worth finding on the way up.
+## Halfway landing on the mast ladder: a grating plate hung between the legs, railed on
+## all four sides, with a LADDER HATCH cut through its east end. Somewhere to stand, and
+## the reason there is anything worth finding on the way up.
+##
+## THE HATCH IS THE WAY DOWN, and it is at the EAST end for one reason: what is under the
+## landing. The mid landing sits over the drill floor, and the rotary block (rig_exterior
+## ._derrick(), a solid 2.2 x 1.1 x 2.0 box centred on the tower axis) fills x 0.9..3.1 /
+## z -15..-13 up to y 19.1 — i.e. the whole middle of the bay. A run dropped anywhere west
+## of x 3.5 steps off its bottom rung straight INTO that block; _dismount_clear() would
+## reject every candidate around it and fall back to the intended spot, which is the
+## fully-buried-capsule case move_and_slide() can never depenetrate. East of x 3.5 the
+## deck is open all the way, so that is where the run goes.
+##
+## Cut as three butted plate strips, never as a CSG subtraction: a subtracted hole keeps
+## the parent box's baked collision (the SPHL lesson), so the only hole the player can
+## actually fall through is plate that was never laid. Same construction as
+## _crane_deck_with_hatch() one floor up.
+##
+## EVERY NUMBER HERE IS A CLEARANCE, measured against the 0.4 m-radius player capsule and
+## asserted in tests/access_probe.gd. Do not nudge one without re-running that probe:
+##   ladder axis x 4.675, half-width 0.175  -> 0.15 m to each hatch cheek
+##   mantle x 4.675 - 1.0 = 3.675           -> 0.175 m clear of the rotary block (east
+##                                             face x 3.1) for a 0.4 m-radius capsule
+##                                          -> 0.185 m clear of the hatch coaming (x 4.26)
+## Those two pull in opposite directions and the gap between the block and the landing's
+## east edge is only 1.9 m — 0.8 m of capsule, a 0.65 m opening, two lips — so this is
+## about as wide as the clearances get. Moving the mantle west buys coaming clearance and
+## spends block clearance, and burying the capsule in the block is the unrecoverable one:
+## _dismount_clear() falls back to the intended spot when every candidate is blocked, and
+## move_and_slide() cannot depenetrate a fully-embedded body.
+const LAND_HATCH_X0: float = 4.35    ## hatch spans x 4.35..5.0 — flush with the east edge
+const LAND_HATCH_X1: float = 5.0
+const LAND_HATCH_Z0: float = -14.75  ## and z -14.75..-13.25 — rungs run -14.35..-13.65
+const LAND_HATCH_Z1: float = -13.25
+const LAND_LADDER_X: float = 4.675   ## descent run, centred in the hatch
+const LAND_LADDER_EXIT: float = 1.0  ## mantles WEST onto plate at x 3.675, both ends
 func _crane_landing() -> void:
 	var mat: Material = MatLib.rust_steel()
 	var y: float = CRANE_LAND_Y
-	# Top face lands exactly on CRANE_LAND_Y so the lower ladder tops out flush with it.
-	_box(Vector3(CRANE_X - 0.1, y - 0.15, CRANE_Z), Vector3(6.2, 0.3, 3.0), MatLib.grating())
-	# Kick plates + rails round the four edges.
+	var x0: float = CRANE_X - 3.2    # -1.2
+	var x1: float = CRANE_X + 3.0    #  5.0
+	var z0: float = CRANE_Z - 1.5    # -15.5
+	var z1: float = CRANE_Z + 1.5    # -12.5
+	# Top face lands exactly on CRANE_LAND_Y so both ladder runs top out flush with it.
+	# West strip runs the full depth; south and north close the gap either side of the
+	# hatch. Butted, never overlapping — coplanar plate tops z-fight (the s12 lesson).
+	var grate: Material = MatLib.grating()
+	_box(Vector3((x0 + LAND_HATCH_X0) * 0.5, y - 0.15, CRANE_Z),
+		Vector3(LAND_HATCH_X0 - x0, 0.3, z1 - z0), grate)
+	var hw: float = LAND_HATCH_X1 - LAND_HATCH_X0
+	var hx: float = (LAND_HATCH_X0 + LAND_HATCH_X1) * 0.5
+	_box(Vector3(hx, y - 0.15, (z0 + LAND_HATCH_Z0) * 0.5),
+		Vector3(hw, 0.3, LAND_HATCH_Z0 - z0), grate)
+	_box(Vector3(hx, y - 0.15, (LAND_HATCH_Z1 + z1) * 0.5),
+		Vector3(hw, 0.3, z1 - LAND_HATCH_Z1), grate)
+	# Kick plates + rails round the four edges. The EAST rail is what closes the hatch's
+	# fourth side — the opening runs right out to the plate edge, so the guard that stops
+	# you walking off the landing is the same one that stops you walking into the hole.
 	for spec in [[Vector3(CRANE_X - 0.1, y + 0.55, CRANE_Z - 1.5), Vector3(6.2, 0.9, 0.06)],
 			[Vector3(CRANE_X - 0.1, y + 0.55, CRANE_Z + 1.5), Vector3(6.2, 0.9, 0.06)],
 			[Vector3(CRANE_X - 3.2, y + 0.55, CRANE_Z), Vector3(0.06, 0.9, 3.0)],
 			[Vector3(CRANE_X + 3.0, y + 0.55, CRANE_Z), Vector3(0.06, 0.9, 3.0)]]:
 		_box(spec[0], spec[1], mat, self, false)
 		_rail_slab(spec[0], Vector3(maxf(spec[1].x, 0.07), 1.3, maxf(spec[1].z, 0.07)))
-	# A rigger left his kit up here the day the crane stopped.
+	# Coaming: a 9 cm upstand on the three cut sides (the east side is the plate edge and
+	# already has the rail). Low enough to step over — a 0.4 m capsule rolls up ~0.117 m
+	# before the contact normal reads as a wall — but you feel it before you feel air.
+	for cz in [LAND_HATCH_Z0 - 0.045, LAND_HATCH_Z1 + 0.045]:
+		_box(Vector3(hx - 0.045, y + 0.045, cz), Vector3(hw + 0.09, 0.09, 0.09), mat)
+	_box(Vector3(LAND_HATCH_X0 - 0.045, y + 0.045, CRANE_Z),
+		Vector3(0.09, 0.09, LAND_HATCH_Z1 - LAND_HATCH_Z0 + 0.18), mat)
+	# Hazard paint tight to the coaming, so the opening READS as a hole from the far end of
+	# the landing instead of being discovered by falling into it. 0.10 m bands hard against
+	# the lip — the machinery deck proved that wider bands set further out just merge into
+	# one yellow apron and stop meaning "edge".
+	for pz in [LAND_HATCH_Z0 - 0.145, LAND_HATCH_Z1 + 0.145]:
+		_box(Vector3(hx - 0.145, y + 0.012, pz), Vector3(hw + 0.29, 0.02, 0.10),
+			MatLib.hazard_stripe(), self, false)
+	_box(Vector3(LAND_HATCH_X0 - 0.145, y + 0.012, CRANE_Z),
+		Vector3(0.10, 0.02, LAND_HATCH_Z1 - LAND_HATCH_Z0 + 0.29),
+		MatLib.hazard_stripe(), self, false)
+	# Two grab stanchions with a hoop rail on the WEST rim — the side the climber steps off
+	# toward (this run's exit_forward is -X, the opposite hand to the machinery deck's).
+	# Non-colliding on purpose: they stand 0.02 m off the mantle spot at x 3.675, and a
+	# collider there would make _dismount_clear() reject the one landing spot that works.
+	for gz in [LAND_HATCH_Z0 + 0.15, LAND_HATCH_Z1 - 0.15]:
+		_box(Vector3(LAND_HATCH_X0 - 0.12, y + 0.5, gz), Vector3(0.07, 1.0, 0.07), mat, self, false)
+	_box(Vector3(LAND_HATCH_X0 - 0.12, y + 1.0, CRANE_Z),
+		Vector3(0.07, 0.07, LAND_HATCH_Z1 - LAND_HATCH_Z0 - 0.3), mat, self, false)
+	# A rigger left his kit up here the day the crane stopped. Both finds sit on the
+	# landing's WEST half now — the east half is the hatch and the lane you walk to it.
 	_dbox(Vector3(CRANE_X + 1.5, y + 0.09, CRANE_Z - 0.9), Vector3(0.7, 0.18, 0.5), MatLib.dark_metal())
 	_takeable("wrench", "Rigger's Wrench", Vector3(CRANE_X + 1.5, y + 0.19, CRANE_Z - 0.9))
-	_takeable("bolt_handful", "Handful of Bolts", Vector3(CRANE_X + 2.4, y + 0.01, CRANE_Z + 0.8))
+	# Was at x 4.4 / z -13.2, which is now 0.05 m off the hatch's north lip — a takeable
+	# half-hanging over an 8 m hole.
+	_takeable("bolt_handful", "Handful of Bolts", Vector3(CRANE_X + 0.6, y + 0.01, CRANE_Z + 0.8))
 	_plabel("LANDING 1 — HOLD THE RAIL", Vector3(CRANE_X - 0.1, y + 0.55, CRANE_Z - 1.54), 180, 18,
+		Color(0.9, 0.8, 0.4))
+	# The hatch is at the far end from the upper run, so it needs saying at the top of the
+	# climb as well as being visible: you arrive off the upper ladder at x 0.85 facing east.
+	_plabel("LADDER DOWN — EAST END", Vector3(LAND_HATCH_X0 - 1.9, y + 0.95, CRANE_Z - 1.54), 180, 15,
 		Color(0.9, 0.8, 0.4))
 
 # ---------- the crane head ----------
@@ -1661,9 +1784,24 @@ func _build_crane_head() -> void:
 	var dark: Material = MatLib.dark_metal()
 	var top: float = CRANE_DECK_TOP
 
-	# --- slew ring + king post: the crane turns on a bearing, not on the plate ---
-	_cyl(Vector3(CRANE_X, top + 0.2, CRANE_Z), 1.95, 0.4, dark)
-	_dcyl(Vector3(CRANE_X, top + 0.44, CRANE_Z), 2.1, 0.06, MatLib.hazard_stripe())
+	# --- slew bearing + king post: the crane turns on a RACE, not on a 4 m plate ---
+	#
+	# This was one solid CSGCylinder, radius 1.95 and 0.4 m tall: a 3.9 m disc of collision
+	# laid across the middle of the machinery deck. Two things wrong with it. It is not what
+	# a slew bearing is — a crane turns on a bearing race with the king post inside it, not
+	# on a filled plate. And 0.4 m is a WALL: a 0.4 m-radius capsule rolls up about 0.117 m
+	# before the contact normal reads as vertical, so the disc could be stepped off but
+	# never stepped back onto, and it swallowed the "lookout_note" readable whole (it was
+	# placed at y 34.18, 0.37 m inside the solid).
+	#
+	# Now: a king post carrying the house, and a race ring around it standing 0.10 m proud —
+	# under the roll-up limit, so it reads as a bearing underfoot and walks like deck. The
+	# race is a ring of SEGMENT BOXES rather than a CSG difference of two cylinders: a
+	# subtracted hole keeps the parent's baked collision (the SPHL lesson, and the same
+	# reason both ladder hatches are built as strips).
+	_cyl(Vector3(CRANE_X, top + 0.2, CRANE_Z), KING_POST_R, 0.4, dark)
+	_slew_race(top, dark)
+	_dcyl(Vector3(CRANE_X, top + 0.115, CRANE_Z), RACE_R1 + 0.15, 0.03, MatLib.hazard_stripe())
 	var turret := _box(Vector3(CRANE_X, top + 1.8, CRANE_Z + 1.2), Vector3(2.8, 2.8, 2.6), mat)
 	turret.name = "CraneTurret"
 	# Machinery-house detail: exhaust stack, vent louvres, and the boom-hoist sheave
@@ -1710,6 +1848,34 @@ func _build_crane_head() -> void:
 
 	# --- boom-heel deck + the operator's cab ---
 	_crane_cab(top)
+
+## Slew-bearing geometry. The king post has to stay clear of the upper run's mantle spot
+## at (-0.40, 34.55, -13.2): that capsule's nearest approach to the tower axis is 2.08 m,
+## so the race's outer edge is the number that matters and it is checked in access_probe.
+const KING_POST_R: float = 1.15   ## pedestal under the house — 0.4 m proud, walked around
+const RACE_R0: float = 1.45       ## bearing race, inner
+const RACE_R1: float = 1.85       ## and outer — 2.08 m of clearance to the mantle capsule
+const RACE_SEGS: int = 28
+
+## The bearing race: a ring of short boxes laid tangent to the circle, 0.10 m proud of the
+## plate. Boxes, not a torus and not a CSG difference — the segments give the race the
+## faceted look of a real bolted bearing, and every one of them is a collider low enough to
+## walk over, so the deck stays one connected floor.
+func _slew_race(top: float, mat: Material) -> void:
+	var rm: float = (RACE_R0 + RACE_R1) * 0.5
+	var w: float = RACE_R1 - RACE_R0
+	# Chord of one segment, plus a hair so neighbours butt instead of leaving a gap tooth.
+	var seg: float = 2.0 * rm * sin(PI / RACE_SEGS) + 0.02
+	for i in range(RACE_SEGS):
+		var a: float = TAU * float(i) / RACE_SEGS
+		var b := _box(Vector3(CRANE_X + cos(a) * rm, top + 0.05, CRANE_Z + sin(a) * rm),
+			Vector3(w, 0.10, seg), mat)
+		b.rotation.y = -a
+	# Bolt heads round the race — the detail that says "bearing" rather than "kerb".
+	for i in range(RACE_SEGS):
+		var a2: float = TAU * (float(i) + 0.5) / RACE_SEGS
+		_dcyl(Vector3(CRANE_X + cos(a2) * rm, top + 0.115, CRANE_Z + sin(a2) * rm),
+			0.05, 0.05, MatLib.galvanized())
 
 ## Four tapering chords with ring ties and lacing between them — a real box boom, not a
 ## painted stick. Built as plain meshes: it is twenty metres in the air over open water.
@@ -1767,7 +1933,11 @@ func _crane_cab(top: float) -> void:
 	_box(Vector3((CRANE_HATCH_X1 + wp_x1) * 0.5, top + 0.02, CRANE_Z - 1.6),
 		Vector3(wp_w, 0.04, 2.6), MatLib.checker_plate(), self, false)
 	_takeable("rope", "Coil of Wire Rope", Vector3(CRANE_X - 1.6, top + 0.05, CRANE_Z - 1.6))
-	_takeable("flare", "Signal Flare", Vector3(CRANE_X - 2.4, top + 0.02, CRANE_Z + 1.7))
+	# Both of these used to lie at x -0.4, dead centre of the 2 m lane between the deck's
+	# west rail and the turret — which is the ONLY lane the upper run's mantle opens onto.
+	# A readable and a takeable are colliders, so they were a fence across the arrival:
+	# north off the mantle spot measured 0.30 m. Set against the west rail instead.
+	_takeable("flare", "Signal Flare", Vector3(CRANE_X - 3.05, top + 0.02, CRANE_Z + 2.6))
 
 	_wall(Vector3(CAB_X0, top, CAB_Z1), Vector3(CAB_X1, top, CAB_Z1), CAB_H, steel, 0.5)  # door
 	_wall(Vector3(CAB_X0, top, CAB_Z0), Vector3(CAB_X1, top, CAB_Z0), CAB_H, steel)
