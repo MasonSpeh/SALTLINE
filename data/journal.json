@@ -213,7 +213,7 @@
   "creature_lamp_snail": {
     "cat": "creature",
     "title": "Lamp Snails",
-    "body": "Lean over the rail on a dark night and the legs are wearing constellations — shells the size of a wheelbarrow, each spotted with cold light, drifting slow circles at the waterline. The whole rig stands in its own quiet galaxy after sundown.",
+    "body": "Lean over the rail on a dark night and the legs are wearing lamps — shells the size of a wheelbarrow with cold light running through them in veins, the way light runs through alabaster held up to a window. They drift slow circles at the waterline and the whole rig stands in that glow after sundown.",
     "hint": "On an outgoing tide some strand on the leg bracing. A gentle harvest takes the glow-mucus and leaves the animal."
   },
   "creature_corvid_gull": {
@@ -575,6 +575,12 @@
     "title": "Glass Snails",
     "body": "Under the wet-deck lip, on the plate that never sees sun, there is nothing to see but a slow teal spiral turning in the dark. The shell is glass — truly glass — and the light is its gut, working. Come closer and it does not shrink. It burns brighter and turns the lit coil toward you, which is the Bloom all over: curiosity where you expected fear.",
     "hint": "They brighten to a nearby lamp. Stand still and the whole underside of the deck lights up."
+  },
+  "creature_pyramid_snail": {
+    "cat": "creature",
+    "title": "Pyramid Snails",
+    "body": "A spire of black and white winding to a point, ringed with pale spikes on every step, riding a broad grey foot that ripples as it goes. It carries its eyes up on stalks and swings them round to hold you while it keeps walking. The other three gastropods never leave the water line. This one crosses the whole topside on its own business, changes its mind about which way is interesting, and goes that way instead.",
+    "hint": "It is going somewhere, not patrolling — wait where you are and it will come to you. Greens will stop it dead, and a fed pair will make a third."
   },
   "creature_anchor_limpet": {
     "cat": "creature",

@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://pyramid_wander_probe"]
+[ext_resource type="Script" path="res://tests/pyramid_wander_probe.gd" id="1"]
+[node name="PyramidWanderProbe" type="Node"]
+script = ExtResource("1")

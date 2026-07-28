@@ -12,7 +12,8 @@ class_name BloomFauna extends Node3D
 ##   GlowWorms    — night den-dwellers in the dark corners; crouch close to grab one
 ##   Epic4EyedWhale — four-eyed vastness that swims the night air, high and rare
 ##   HarborSeal   — day patrol, porpoises to breathe, watches you (befriendable)
-##   LampSnail    — night constellations of glow-spots circling the leg bases (§54)
+##   LampSnail    — marble-veined lamps circling the leg bases at night (§54)
+##   PyramidSnail — banded ziggurat-shelled wanderer that free-roams the whole rig
 ##   CorvidGull   — perched Bloom-intelligent gull that tracks the player (§26)
 ##   GiantCrab    — the night threat: a pool of eight, free-roaming, killable, and they
 ##                  climb the caisson legs and the stair tower after you
@@ -20,6 +21,10 @@ class_name BloomFauna extends Node3D
 
 const ANIMH := preload("res://scripts/world/creature_anim.gd")
 const CRAB := preload("res://scripts/world/crab.gd")   # by path: class cache lags new names
+## Shell patterning: marble veining, spiral banding and soft flesh, all in one shader.
+## See materials/shell_marble.gdshader for why the lamp snail's glow stopped being
+## geometry, and BloomFauna.shell_mat() for how a mesh gets dressed in it.
+const SHELL_SHADER := preload("res://materials/shell_marble.gdshader")
 const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
 const PEARL := Color(0.88, 0.94, 0.92)
@@ -289,7 +294,7 @@ func _ready() -> void:
 	# New Codex species.
 	add_child(HarborSeal.new())      # day patrol + curiosity (befriendable canon)
 	add_child(HarborSeal.new())
-	# Lamp Snails: glowing constellations circling the leg bases at night (§54).
+	# Lamp Snails: marble-veined shells circling the leg bases at night (§54).
 	# Centres sit INBOARD of the caisson faces (the legs occupy |x| 19..25), so a 1.6 m
 	# ring clears the concrete instead of sweeping through it, and on the pontoon decks
 	# (top y 0.95) rather than the old y 0.3 which buried them in the slab.
@@ -331,6 +336,21 @@ func _ready() -> void:
 	]
 	for i in range(glass_beds.size()):
 		add_child(GlassSnail.new(i, glass_beds[i]))
+	# Pyramid snails: the one gastropod with NO tie to water, so they are seeded on the
+	# TOPSIDE PLATE (y18, x[-30,30] z[-20,20]) and left to walk it. These are start points,
+	# not homes — each picks a fresh random heading every 16-42 s and keeps going, so where
+	# you meet one has nothing to do with where it was spawned. The three points are in the
+	# open lanes between the deckhouses (machine shop x[-28,-14] z[-18,-6]; bunkhouse
+	# x[-28,-8] z[4,18]; galley x[-2,14] z[8,18]; rec room x[18,28] z[8,18]), and sit a
+	# little proud of the plating so the crawler's first wide grounding probe seats them
+	# flush on the real deck rather than trusting a hand-typed y.
+	var pyramid_starts: Array[Vector3] = [
+		Vector3(2.0, 18.3, -10.0),    # open mid-deck, north of the wet-deck hatch runs
+		Vector3(6.0, 18.3, 0.5),      # dead centre of the plate, clear of every deckhouse
+		Vector3(-6.0, 18.3, -2.0),    # west spine, clear of the machine shop
+	]
+	for i in range(pyramid_starts.size()):
+		add_child(PyramidSnail.new(i, pyramid_starts[i]))
 	# Anchor limpets welded into the splash zone (54d), near the barnacle faces.
 	var limpet_spots: Array[Vector3] = [Vector3(-19.0, 1.55, -11.4), Vector3(19.0, 1.7, 11.4),
 			Vector3(-21.6, 1.35, -9.6), Vector3(24.6, 1.5, -12.4), Vector3(22.2, 1.25, 9.6)]
@@ -410,6 +430,36 @@ static func glow_mat(color: Color, energy: float, alpha: float = 1.0) -> Standar
 	m.roughness = 0.5
 	return m
 
+## A shell-pattern material on SHELL_SHADER, with `aabb` pushed in as the object-space
+## window the pattern is sampled over — the shader normalises VERTEX by it, so passing
+## the mesh's own bounds is what makes one marbling span exactly one shell whatever size
+## it was built at. `params` sets any uniform by name (pattern_mode, vein_color, ...).
+##
+## Used two ways, both of them the GlassSnail precedent: dressed straight onto procedural
+## geometry, and swapped onto a GENERATED model's surfaces after CreatureAnim.attach —
+## ShaderMaterial carries every parameter across a shader change by name, so the baked
+## PBR maps, the authored facing and the pedal motion survive the swap.
+static func shell_mat(aabb: AABB, params: Dictionary = {}) -> ShaderMaterial:
+	var m := ShaderMaterial.new()
+	m.shader = SHELL_SHADER
+	m.set_shader_parameter("bounds_min", aabb.position)
+	m.set_shader_parameter("bounds_size", aabb.size)
+	for k in params:
+		m.set_shader_parameter(k, params[k])
+	return m
+
+## Re-dress already-generated creature surfaces in the shell shader (the swap above),
+## returning them so the species can keep a handle for its per-frame dimming.
+static func reshell(mats: Array, params: Dictionary = {}) -> Array[ShaderMaterial]:
+	var out: Array[ShaderMaterial] = []
+	for m in mats:
+		var sm: ShaderMaterial = m
+		sm.shader = SHELL_SHADER
+		for k in params:
+			sm.set_shader_parameter(k, params[k])
+		out.append(sm)
+	return out
+
 static func is_dark_phase() -> bool:
 	return GameClock.current_phase == GameClock.Phase.NIGHT \
 		or GameClock.current_phase == GameClock.Phase.DUSK
@@ -425,7 +475,8 @@ const GREENS: Array[String] = ["kelp_bundle"]   # any greens item counts as feed
 const BREED_RADIUS: float = 4.0
 const BABY_SCALE: float = 0.4
 const GROW_HOURS: float = 48.0                  # ~2 game days to reach full size
-const SNAIL_GROUPS: Dictionary = {"lamp": "snail_lamp", "rust": "snail_rust", "glass": "snail_glass"}
+const SNAIL_GROUPS: Dictionary = {"lamp": "snail_lamp", "rust": "snail_rust",
+	"glass": "snail_glass", "pyramid": "snail_pyramid"}
 
 static func has_greens() -> bool:
 	for g in GREENS:
@@ -551,6 +602,8 @@ static func snail_restore(tree: SceneTree, data: Dictionary) -> void:
 				baby = RustSnail.new(idx, pos, pos + Vector3(1.4, 0, 0))
 			"glass":
 				baby = GlassSnail.new(idx, pos)
+			"pyramid":
+				baby = PyramidSnail.new(idx, pos)
 		if baby == null:
 			continue
 		baby.set("_is_baby", true)
@@ -1877,17 +1930,26 @@ class GroundCrawler extends FaunaMove.SurfaceCrawler:
 	pass
 
 
-# ------------------------------------------------- Lamp Snail constellation
+# --------------------------------------------------- Lamp Snail (marbled shell)
 class LampSnail extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL_PATH := "res://assets/models/fauna/lamp_snail/lamp_snail.glb"
 	var _gen_mats: Array = []
-	## Wheelbarrow-sized gastropods (Codex §54), shells constellated with
-	## bioluminescent spots. By night they drift the rig-leg bases; their glow is
-	## visible through the water — the "lean over the rail" wonder-beat.
+	## Wheelbarrow-sized gastropods (Codex §54). The shell is BACKLIT MARBLE — wavy
+	## luminous veins flowing through a dark shell body, like light behind alabaster —
+	## not the old scatter of star-dots. By night they drift the rig-leg bases; their
+	## glow is visible through the water: the "lean over the rail" wonder-beat.
 	var _t: float
 	var _base: Vector3
-	var _spots: Array[StandardMaterial3D] = []
+	## THE SHELL'S LIGHT. This replaces the old `_spots` array of glowing sphere meshes
+	## one-for-one: same job (a handle the game dims and lights every frame), same call
+	## sites, but it is now the shell SURFACE — materials/shell_marble.gdshader draws
+	## flowing marbled veins of light through the shell body instead of dotting stars on
+	## it. Cheaper too: the constellation was up to eleven extra meshes per snail, and
+	## since CreatureAnim.replace() hides everything built before it, not one of them was
+	## even being drawn once lamp_snail.glb landed.
+	var _vein_mats: Array[ShaderMaterial] = []
+	var _vein_energy: float = 0.0     ## the eased glow level pushed into `vein_energy`
 	var _idx: int
 	var _stalks: Array[Node3D] = []   # the two optic tentacles, waving
 	var _eye_mat: StandardMaterial3D
@@ -1913,10 +1975,23 @@ class LampSnail extends Node3D:
 		sm.radius = 0.45
 		sm.height = 0.7
 		sm.is_hemisphere = true
-		# The dome carries a dim teal bioluminescence of its own — at energy 0.0 the shell
-		# was matte black and only the pin-prick spots lit, so the "lamp" snail read as a
-		# dark lump with sparkles instead of a glowing animal.
-		sm.material = BloomFauna.glow_mat(Color(0.09, 0.30, 0.30), 0.55)
+		# MARBLED, not spotted. The dome is a dark teal shell body with luminous ribbons
+		# running through it — backlit nacre. Bounds come off the mesh so the veining is
+		# scaled to this dome and not to some assumed unit size. mask_lo/hi are pushed
+		# below zero because this mesh is ALL shell (nothing to mask the foot out of).
+		var shell_mat: ShaderMaterial = BloomFauna.shell_mat(sm.get_aabb(), {
+			"pattern_mode": 0,
+			"base_color": Color(0.09, 0.30, 0.30),
+			"vein_color": Color(0.40, 1.0, 0.92),
+			"tint": Color(1, 1, 1, 1),
+			"roughness_v": 0.38,
+			"pattern_scale": 2.8, "vein_width": 0.40, "vein_sharp": 0.52,
+			"warp_strength": 1.7, "pattern_scroll": 0.03,
+			"mask_lo": -0.5, "mask_hi": -0.4,
+			"mode": 0,   # static: the procedural dome has no foot to ripple
+		})
+		_vein_mats.append(shell_mat)
+		sm.material = shell_mat
 		shell.mesh = sm
 		add_child(shell)
 		# The foot beneath.
@@ -1955,22 +2030,6 @@ class LampSnail extends Node3D:
 			eye.position = Vector3(0, 0.22, 0.24)   # at the stalk tip
 			pivot.add_child(eye)
 			_stalks.append(pivot)
-		# The constellation: glow spots scattered on the shell.
-		var rng := RandomNumberGenerator.new()
-		rng.seed = 400 + _idx
-		for i in range(rng.randi_range(7, 11)):
-			var spot := MeshInstance3D.new()
-			var pm := SphereMesh.new()
-			pm.radius = 0.05
-			pm.height = 0.1
-			var m := BloomFauna.glow_mat(BloomFauna.TEAL, 2.0)
-			_spots.append(m)
-			pm.material = m
-			spot.mesh = pm
-			var u: float = rng.randf() * TAU
-			var v: float = rng.randf_range(0.1, 0.95)
-			spot.position = Vector3(cos(u) * 0.42 * sqrt(1.0 - v * v), v * 0.42, sin(u) * 0.42 * sqrt(1.0 - v * v))
-			add_child(spot)
 		# A gentle pool of light cast on the deck plate — warm teal, soft attenuation, no shadow.
 		_lamp_light = OmniLight3D.new()
 		_lamp_light.light_energy = 0.65
@@ -1979,7 +2038,7 @@ class LampSnail extends Node3D:
 		_lamp_light.shadow_enabled = false
 		add_child(_lamp_light)
 		# The journal's promised beat: a gentle harvest takes the glow-mucus, leaves the
-		# animal. Only at night, and the constellation needs time to re-charge. Crouch
+		# animal. Only at night, and the veining needs time to re-charge. Crouch
 		# near it and E means COLLECT instead (BloomFauna.player_crouching); standing,
 		# offering greens (FEED) takes precedence the same way HarborSeal's FEED beats
 		# PET, then HARVEST, then the GRAB fallback.
@@ -1996,11 +2055,27 @@ class LampSnail extends Node3D:
 				return out,
 			_touch_act)
 		add_child(touch)
-		# Generated mesh: a faint shell flex; the constellation does the real work.
+		# Generated mesh: a faint shell flex; the marbling does the real work.
 		# PEDAL: the foot ripples back-to-front, which is how a snail actually travels.
 		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.9, ANIM.Mode.PEDAL, 0.03, 0.55, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
+			# Swap the generated surfaces onto the shell shader — the GlassSnail move. The
+			# generator bakes an opaque albedo and cannot be asked for veins of light, so
+			# the pattern goes on here, over the baked skin. base_color multiplies that
+			# skin down to a deep shell tone; mask_lo/hi keep the veining on the shell and
+			# off the foot (one mesh covers both), and the PEDAL motion, PBR maps and
+			# authored facing all ride across the shader swap untouched.
+			_vein_mats.append_array(BloomFauna.reshell(_gen_mats, {
+				"pattern_mode": 0,
+				"base_color": Color(0.17, 0.32, 0.33),
+				"base_desat": 1.0, "skin_mix": 0.12,   # the baked star decals go
+				"vein_color": Color(0.45, 1.0, 0.93),
+				"roughness_v": 0.36,
+				"pattern_scale": 2.9, "vein_width": 0.40, "vein_sharp": 0.52,
+				"warp_strength": 1.7, "pattern_scroll": 0.03,
+				"mask_lo": 0.24, "mask_hi": 0.44,
+			}))
 			BloomFauna.ground_model(self, gen["model"])   # foot on the surface, not floating
 		# Wanders the leg base instead of tracing a rigid circle through the concrete: it
 		# heads out, and when the caisson or a rail stops it, it turns and grazes on.
@@ -2041,7 +2116,7 @@ class LampSnail extends Node3D:
 		Journal.discover("system_snail_breeding")
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud and hud.has_method("toast"):
-			hud.toast("It takes the greens eagerly — the constellation brightens.")
+			hud.toast("It takes the greens eagerly — the veins in the shell run brighter.")
 
 	## Two fed lamp snails in reach of each other: a permanent baby, half-grown light
 	## between them. Resets both parents so the next baby needs a fresh pair of feeds.
@@ -2059,7 +2134,7 @@ class LampSnail extends Node3D:
 			hud.toast("Two fed lights lean together, and a third blinks on between them.")
 
 	## COLLECT: the whole animal, for the pot. Works on a baby or a grown one — a lamp
-	## snail leaving the deck dims the constellation by exactly one light, same as a
+	## snail leaving the deck dims the rig by exactly one light, same as a
 	## harvest dims one shell, except this light does not come back.
 	func _collect(_player: Node3D) -> void:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
@@ -2094,15 +2169,20 @@ class LampSnail extends Node3D:
 		var night: bool = GameClock.current_phase == GameClock.Phase.NIGHT
 		var glow: float = 2.0 if night else 0.0
 		if _harvest_cd > 120.0:
-			glow *= 0.15   # freshly wiped — the constellation re-charges slowly
+			glow *= 0.15   # freshly wiped — the shell's veining re-charges slowly
 		# Fed reads as visibly brighter and a touch faster — the "I fed it" feedback.
 		var pulse_rate: float = 1.05 if _fed else 0.8
 		var pulse_mul: float = 1.3 if _fed else 1.0
-		for i in range(_spots.size()):
-			# The constellation twinkles — each spot on its own slow beat.
-			_spots[i].emission_energy_multiplier = lerpf(_spots[i].emission_energy_multiplier,
-				glow * pulse_mul * (0.55 + 0.45 * sin(_t * pulse_rate + i * 1.3)), delta * 1.5)
-		# The lamp light pulses with the constellation, dimming when freshly harvested.
+		# THE DIMMER (was the per-spot emission loop). Same eased level, same rate, same
+		# semantics — 0.0 by day, full at night, knocked to 15% while the shell recharges
+		# after a harvest — pushed into one shader uniform instead of eleven materials.
+		# The per-spot twinkle offset is now spatial: the shader varies the ribbons across
+		# the shell so the marbling breathes unevenly rather than as one flat lamp.
+		_vein_energy = lerpf(_vein_energy, glow * pulse_mul * (0.55 + 0.45 * sin(_t * pulse_rate)),
+			delta * 1.5)
+		for m in _vein_mats:
+			m.set_shader_parameter("vein_energy", _vein_energy)
+		# The lamp light pulses with the shell, dimming when freshly harvested.
 		if _lamp_light:
 			var light_energy: float = glow * pulse_mul * (0.55 + 0.45 * sin(_t * pulse_rate)) * 0.325
 			_lamp_light.light_energy = lerpf(_lamp_light.light_energy, light_energy, delta * 1.5)
@@ -2818,6 +2898,589 @@ class GlassSnail extends Node3D:
 			_crawler.orient(self, delta, 2.0)
 		if near:
 			Journal.discover_if_near(self, "creature_glass_snail", 7.0)
+
+# --------------------------------------------------------- Pyramid Snail
+class PyramidSnail extends Node3D:
+	## THE WANDERER (owner brief, 2026-07-27). The other three gastropods are all tied to
+	## water — the lamp snails graze the leg bases, the rust snails work the splash-zone
+	## seams, the glass snails never leave their submerged plate. This one has no such
+	## tether: it walks the whole rig, picks a direction, holds it for half a minute, then
+	## picks another. You meet it in the middle of the topside plate on a walk to the
+	## galley, which is exactly the point of it.
+	##
+	## The shell is the other half: a stepped ziggurat spiral climbing to a point, banded
+	## black and white like a textile cone, with a ring of mineral spikes on every whorl's
+	## shoulder. Evolved-bloom armour — graphic and beautiful, not menacing — and a
+	## silhouette nobody will confuse with the other three domes at any distance.
+	##
+	## THERE IS NO GENERATED MESH FOR IT (no generation credits), so the procedural body
+	## IS the animal rather than a fallback nobody sees. It still ASKS for the asset first
+	## — CreatureAnim.replace returns {} when the file is absent, which is this project's
+	## documented signal to build the primitive body — so the day a pyramid_snail.glb does
+	## land, it takes over with no code change.
+	const ANIM := preload("res://scripts/world/creature_anim.gd")
+	const MODEL_PATH := "res://assets/models/fauna/pyramid_snail/pyramid_snail.glb"
+	const PEARL := Color(0.93, 0.93, 0.89)
+	# --- shell geometry -----------------------------------------------------------
+	const TIERS: int = 9          ## whorls in the ziggurat
+	const SEG: int = 18           ## segments round a whorl
+	const R0: float = 0.275       ## radius of the bottom whorl
+	const SHELL_H: float = 0.70   ## base to the last whorl (the apex spike is extra)
+	const TWIST: float = 0.40     ## radians each whorl rotates over the one below it
+	const SPIKES: int = 6         ## tubercles per whorl shoulder
+	# --- the body -----------------------------------------------------------------
+	const FOOT_HW: float = 0.33   ## half-width of the pedal sole
+	const FOOT_HL: float = 0.54   ## half-length
+	const FOOT_HT: float = 0.17   ## height of the flank at midships
+	# --- the wander ---------------------------------------------------------------
+	## Speed sits between the lamp snail (0.13) and the rust snail (0.10) — the same
+	## grazing idiom, not a new kind of movement.
+	const SPEED: float = 0.115
+	## Big enough to be the WHOLE RIG rather than a patch: the crawler's own leash is what
+	## eventually turns a stray back, and at 17 m from home that is the deck edge, not a
+	## circle it paces. Direction changes come from the timer below, not from the leash.
+	const LEASH: float = 17.0
+	const TURN_MIN: float = 16.0  ## seconds it holds one heading, low end...
+	const TURN_MAX: float = 42.0  ## ...and high. Randomised per leg AND seeded per animal,
+	                              ## so two of them never turn on the same beat.
+	## Hard keep-aboard box, in from the topside plate's x±30 / z±20 rim. The crawler
+	## already refuses a step with no footing under it (SurfaceCrawler._has_footing) and
+	## turns back at a convex edge, so this is the belt to that pair of braces: a heading
+	## that is carrying the animal out over the rail gets REFLECTED back inboard.
+	const ROAM_X: float = 27.5
+	const ROAM_Z: float = 17.5
+
+	var _gen_mats: Array = []
+	var _t: float
+	var _base: Vector3
+	var _idx: int
+	var _shell_mats: Array[ShaderMaterial] = []   ## the banded shell (spiral pattern mode)
+	var _flesh_mats: Array[ShaderMaterial] = []   ## foot / collar / head / tentacles
+	var _stalks: Array[Node3D] = []               ## eye stalks, waving
+	var _tents: Array[Node3D] = []                ## the shorter oral (sensory) tentacles
+	var _eye_mat: StandardMaterial3D
+	var _crawler: GroundCrawler       ## free-roaming surface wander over the whole rig
+	var _turn_cd: float = 0.0         ## seconds until it picks a fresh random heading
+	var _carried_by: Node3D = null    ## set while the player is carrying this live snail
+	var _fed: bool = false            ## took a greens item; breeds when a fed sibling is close
+	var _is_baby: bool = false        ## spawned by breeding — permanent, ~0.4 scale, grows in
+	var _grow_h: float = 0.0          ## game-hours since birth (baby only)
+	var _body_pivot: Node3D = null    ## baby-only scale wrapper (see BloomFauna.shrink_to_baby)
+	var _rng := RandomNumberGenerator.new()
+
+	func _init(idx: int, base: Vector3) -> void:
+		_idx = idx
+		_base = base
+		_t = idx * 2.3
+		_rng.seed = 1300 + idx
+
+	func _ready() -> void:
+		add_to_group("snail_pyramid")
+		# Ask for the generated asset first. It is not there (and will not be until someone
+		# spends generation credits on it), so this returns {} and the procedural body gets
+		# built — the documented degrade path, used here as the primary path.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.95, ANIM.Mode.PEDAL,
+			0.03, 0.6, PEARL)
+		if gen.is_empty():
+			_build_body()
+		else:
+			_gen_mats = gen["mats"]
+			BloomFauna.ground_model(self, gen["model"])
+		# Same verb set as the other three crawlers: crouch for COLLECT, greens offer FEED
+		# ahead of the GRAB fallback.
+		var touch := FaunaTouch.new("Pyramid Snail", 0.6,
+			func() -> Array:
+				if BloomFauna.player_crouching(self):
+					return ["COLLECT"]
+				var out: Array = ["GRAB"]
+				if not _is_baby and not _fed and BloomFauna.has_greens():
+					out.push_front("FEED")
+				return out,
+			_touch_act)
+		add_child(touch)
+		global_position = _base
+		# FREE EXPLORATION. Same GroundCrawler every snail uses — so the surface-snapping,
+		# the kerb-crawling and the refusal to step where there is no footing all come
+		# along — but on a rig-sized leash with the heading driven by _pick_heading()'s
+		# timer instead of by a patch. Seating is the crawler's: its first tick runs a wide
+		# grounding probe from ABOVE the animal and pins the origin FOOT (2 cm) off the
+		# real face, which is the fix for the old hand-typed-Y float (see surface_y's note)
+		# — so the authored y here only has to be roughly right and the snail still sits
+		# flush on the plating. The procedural body is built with its sole at local y=0 so
+		# that 2 cm is all the clearance there is.
+		_crawler = GroundCrawler.new(_base, LEASH, SPEED, 1300 + _idx, 0.30, 0.22, _base.y)
+		_pick_heading()
+		# Stagger the FIRST leg across the whole window as well, or three snails spawned in
+		# the same frame would still take their first turn together.
+		_turn_cd = _rng.randf_range(TURN_MIN * 0.25, TURN_MAX)
+		if _is_baby:
+			_body_pivot = BloomFauna.shrink_to_baby(self, BloomFauna.BABY_SCALE)
+
+	# ---------------------------------------------------------------- procedural body
+	func _build_body() -> void:
+		_build_flesh()      # foot first: the shell sits on top of it
+		_build_shell()
+		_build_head()
+
+	## One triangle with an explicitly computed OUTWARD normal. `ref` is any point inside
+	## the solid at that spot; the normal is flipped to point away from it. Doing it this
+	## way (rather than SurfaceTool.generate_normals()) means the lighting cannot come out
+	## inverted from a winding mistake in the ring loops below, which on a nine-tier
+	## spiral is a genuinely easy mistake to make and a horrible one to spot.
+	static func _tri(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, ref: Vector3) -> void:
+		var n: Vector3 = (b - a).cross(c - a)
+		if n.length() < 1e-9:
+			return
+		n = n.normalized()
+		if n.dot((a + b + c) / 3.0 - ref) < 0.0:
+			n = -n
+		st.set_normal(n)
+		st.add_vertex(a)
+		st.add_vertex(b)
+		st.add_vertex(c)
+
+	static func _quad(st: SurfaceTool, a: Vector3, b: Vector3, c: Vector3, d: Vector3,
+			ref: Vector3) -> void:
+		_tri(st, a, b, c, ref)
+		_tri(st, a, c, d, ref)
+
+	## Soft-tissue quad: per-VERTEX normals, so the foot and the mantle read as smooth
+	## muscle instead of the faceted low-poly the flat-shaded shell wants. The shell shader
+	## is cull_disabled, so winding does not matter here — only the normals do.
+	static func _quad_smooth(st: SurfaceTool, p: Array[Vector3], n: Array[Vector3]) -> void:
+		for tri in [[0, 1, 2], [0, 2, 3]]:
+			for k in tri:
+				st.set_normal(n[k])
+				st.add_vertex(p[k])
+
+	## A band of quads between two horizontal rings — the riser and the tread of one
+	## ziggurat step. The two rings carry different rotations, which is what makes the
+	## stack SPIRAL instead of merely stacking.
+	static func _ring_band(st: SurfaceTool, ra: float, ya: float, rota: float,
+			rb: float, yb: float, rotb: float) -> void:
+		for j in range(SEG):
+			var f0: float = float(j) * TAU / float(SEG)
+			var f1: float = float(j + 1) * TAU / float(SEG)
+			var p0 := Vector3(cos(rota + f0) * ra, ya, sin(rota + f0) * ra)
+			var p1 := Vector3(cos(rota + f1) * ra, ya, sin(rota + f1) * ra)
+			var q0 := Vector3(cos(rotb + f0) * rb, yb, sin(rotb + f0) * rb)
+			var q1 := Vector3(cos(rotb + f1) * rb, yb, sin(rotb + f1) * rb)
+			# Reference point on the shell's axis, well below the band: for a riser that makes
+			# the normal radial-outward, for a tread it makes it point up.
+			var ref := Vector3(0.0, minf(ya, yb) - 0.6, 0.0)
+			_quad(st, p0, p1, q1, q0, ref)
+
+	## One whorl's ring of spikes: a five-sided cone standing off the shoulder, aimed
+	## outward and canted up. Each ring is rolled a little further round than the one
+	## below, so the tubercles themselves trace the spiral up the shell.
+	static func _spike_ring(st: SurfaceTool, tier: int, r: float, y: float, rot: float,
+			length: float) -> void:
+		for j in range(SPIKES):
+			var a: float = rot + float(j) * TAU / float(SPIKES) + float(tier) * 0.33
+			var outw := Vector3(cos(a), 0.0, sin(a))
+			var base_c: Vector3 = outw * (r * 0.90) + Vector3(0.0, y, 0.0)
+			var dir: Vector3 = (outw + Vector3(0.0, 0.42, 0.0)).normalized()
+			var tip: Vector3 = base_c + dir * length
+			var u: Vector3 = dir.cross(Vector3.UP)
+			u = u.normalized() if u.length() > 0.01 else Vector3.RIGHT
+			var v: Vector3 = dir.cross(u).normalized()
+			var br: float = length * 0.34
+			var pts: Array[Vector3] = []
+			for k in range(5):
+				var th: float = float(k) * TAU / 5.0
+				pts.append(base_c + (u * cos(th) + v * sin(th)) * br)
+			for k in range(5):
+				_tri(st, pts[k], pts[(k + 1) % 5], tip, base_c)
+
+	## The shell: a stepped conical spiral, two surfaces — the banded whorls and the
+	## pale mineral spikes — on ONE ArrayMesh, so the whole thing is two draw calls and,
+	## more importantly, one continuous object space for the shader. That last part is
+	## why the tiers are not separate MeshInstance3Ds: the spiral band pattern is sampled
+	## in object space, and per-tier meshes would each restart it.
+	func _build_shell() -> void:
+		var body := SurfaceTool.new()
+		body.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var spikes := SurfaceTool.new()
+		spikes.begin(Mesh.PRIMITIVE_TRIANGLES)
+		for i in range(TIERS):
+			var f0: float = float(i) / float(TIERS)
+			var f1: float = float(i + 1) / float(TIERS)
+			var r0: float = R0 * pow(1.0 - f0, 0.85)
+			var r1: float = R0 * pow(1.0 - f1, 0.85)
+			var y0: float = SHELL_H * f0
+			var y1: float = SHELL_H * f1
+			var yw: float = lerpf(y0, y1, 0.62)          # top of the vertical riser
+			var t0: float = float(i) * TWIST
+			var tw: float = t0 + TWIST * 0.62
+			var t1: float = float(i + 1) * TWIST
+			_ring_band(body, r0, y0, t0, r0, yw, tw)     # riser
+			_ring_band(body, r0, yw, tw, r1, y1, t1)     # tread
+			# Longest on the bottom whorls, shrinking hard with the shell — a cone's armour
+			# is heaviest at the aperture. A flat taper made the apex a ball of thorns.
+			_spike_ring(spikes, i, r0, lerpf(y0, yw, 0.45), t0,
+				0.035 + 0.115 * pow(1.0 - f0, 1.4))
+		# The point: a slim cone finishing the spiral.
+		var r_top: float = R0 * pow(1.0 / float(TIERS), 0.85)
+		var apex := Vector3(0.0, SHELL_H + 0.09, 0.0)
+		var t_top: float = float(TIERS) * TWIST
+		for j in range(SEG):
+			var f0: float = float(j) * TAU / float(SEG)
+			var f1: float = float(j + 1) * TAU / float(SEG)
+			_tri(body, Vector3(cos(t_top + f0) * r_top, SHELL_H, sin(t_top + f0) * r_top),
+				Vector3(cos(t_top + f1) * r_top, SHELL_H, sin(t_top + f1) * r_top), apex,
+				Vector3(0.0, SHELL_H - 0.3, 0.0))
+		var mesh := ArrayMesh.new()
+		body.commit(mesh)
+		spikes.commit(mesh)
+		# BLACK AND WHITE, WINDING UP. band_turns is an integer on purpose: the shader's
+		# angular term is an atan, and only a whole number of turns closes seamlessly
+		# across the -PI/+PI cut instead of leaving a visible vertical join.
+		var shell_mat: ShaderMaterial = BloomFauna.shell_mat(mesh.get_aabb(), {
+			"pattern_mode": 1,
+			"band_dark": Color(0.035, 0.035, 0.045),
+			"band_light": Color(0.96, 0.95, 0.91),
+			# 4 turns of stripe per revolution against only 4 up the shell: the angular
+			# term dominates, so the bands cut ACROSS the nine whorls at a steep diagonal.
+			# The first pass used band_freq 9 — one stripe per tier — and the pattern just
+			# re-drew the steps instead of winding through them.
+			"band_turns": 4.0, "band_freq": 4.0, "band_edge": 0.09,
+			"vein_color": Color(0.55, 0.95, 0.95), "vein_energy": 0.10,
+			"roughness_v": 0.42, "pattern_scale": 2.6,
+			"mode": 0,
+		})
+		mesh.surface_set_material(0, shell_mat)
+		_shell_mats.append(shell_mat)
+		# The spikes stay pale mineral all the way round rather than picking up the banding
+		# — that contrast is what makes them read as armour grown ON the shell.
+		var spike_mat := StandardMaterial3D.new()
+		spike_mat.albedo_color = PEARL
+		spike_mat.roughness = 0.24
+		spike_mat.metallic = 0.15
+		spike_mat.cull_mode = BaseMaterial3D.CULL_DISABLED
+		spike_mat.emission_enabled = true
+		spike_mat.emission = Color(0.55, 0.85, 0.85)
+		spike_mat.emission_energy_multiplier = 0.12
+		mesh.surface_set_material(1, spike_mat)
+		var mi := MeshInstance3D.new()
+		mi.mesh = mesh
+		mi.position = Vector3(0.0, 0.15, 0.07)   # seated on the foot, a touch aft
+		mi.rotation.x = deg_to_rad(13.0)         # carried tipped back, the way a snail does
+		add_child(mi)
+
+	## A point on the pedal foot. `s` runs -1 (tail) to +1 (head, at -Z: the crawler puts
+	## -Z on the heading), `a` runs round the cross-section from the SOLE (a=0, y=0) over
+	## the flank to the back (a=PI). The sole therefore sits exactly on local y=0, which
+	## is what lets the crawler seat the animal flush — a body modelled around its centre
+	## would hover by half its own thickness.
+	static func _foot_point(s: float, a: float) -> Vector3:
+		var prof: float = sqrt(maxf(0.0, 1.0 - s * s))
+		# Muscular ripple: the flank swells and narrows in waves down the body, which is
+		# the pedal wave standing still. The shader animates it on top of this.
+		var w: float = FOOT_HW * prof * (1.0 + 0.10 * sin(s * 11.0 + 0.7))
+		var ht: float = FOOT_HT * prof * (1.0 + 0.07 * sin(s * 11.0 + 0.7))
+		return Vector3(w * sin(a), ht * 0.5 * (1.0 - cos(a)), -s * FOOT_HL)
+
+	## Outward surface normal of the foot at (s, a), by central difference. Smooth muscle
+	## needs per-vertex normals; the flat-shaded treatment that suits the mineral shell
+	## turns the same mesh into a lump of faceted salmon.
+	static func _foot_normal(s_in: float, a: float) -> Vector3:
+		# Pull off the poles: at |s| = 1 the cross-section collapses to a point, the cross
+		# product degenerates and the tail cap ends up shaded with a flat black facet.
+		# Sampling the normal a hair inboard gives the pole the normal of its own rim.
+		var s: float = clampf(s_in, -0.985, 0.985)
+		var d: float = 0.006
+		var da: Vector3 = _foot_point(s, a + d) - _foot_point(s, a - d)
+		var ds: Vector3 = _foot_point(minf(s + d, 1.0), a) - _foot_point(maxf(s - d, -1.0), a)
+		var n: Vector3 = da.cross(ds)
+		if n.length() < 1e-8:
+			return Vector3.UP
+		n = n.normalized()
+		# Reference INBOARD along the body axis (0.55 of the way, not the same station), so
+		# near the nose and tail — where the cross-section has collapsed to almost nothing
+		# and a same-station reference gives a near-zero vector — the outward test still
+		# has a strong component to work with. A same-station ref left the tail cap shaded
+		# as one flat dark facet, which read as a bite out of the animal.
+		if n.dot(_foot_point(s, a) - Vector3(0.0, FOOT_HT * 0.5, -s * FOOT_HL * 0.55)) < 0.0:
+			n = -n
+		return n
+
+	func _build_flesh() -> void:
+		var st := SurfaceTool.new()
+		st.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var NL: int = 30
+		var NA: int = 22
+		for i in range(NL):
+			for j in range(NA):
+				var pts: Array[Vector3] = []
+				var nms: Array[Vector3] = []
+				for e in [[0, 0], [0, 1], [1, 1], [1, 0]]:
+					var s: float = -1.0 + 2.0 * float(i + int(e[0])) / float(NL)
+					var a: float = float(j + int(e[1])) * TAU / float(NA)
+					pts.append(_foot_point(s, a))
+					nms.append(_foot_normal(s, a))
+				_quad_smooth(st, pts, nms)
+		var foot := ArrayMesh.new()
+		st.commit(foot)
+		var mi := MeshInstance3D.new()
+		mi.mesh = foot
+		# PEDAL on the foot itself: the shader's muscular wave runs tail -> head down the
+		# sole. flow_flip 0 because this body is built head-first at -Z (n.z = 0), not the
+		# generated-asset convention of head at +Z.
+		foot.surface_set_material(0, _flesh_material(foot.get_aabb(), true))
+		add_child(mi)
+		# MANTLE COLLAR — the lip of soft tissue where the flesh meets the shell, sitting
+		# tight around the bottom whorl so the shell reads as GROWN OUT of the animal.
+		# (First pass ringed it at 1.16x the whorl radius, which read as a pink lifebuoy
+		# parked around the shell rather than as part of the snail.)
+		var cst := SurfaceTool.new()
+		cst.begin(Mesh.PRIMITIVE_TRIANGLES)
+		var CA: int = 34
+		var CT: int = 8
+		var cr: float = R0 * 1.03
+		for i in range(CA):
+			for k in range(CT):
+				var pts: Array[Vector3] = []
+				var nms: Array[Vector3] = []
+				for e in [[0, 0], [1, 0], [1, 1], [0, 1]]:
+					var a: float = float(i + int(e[0])) * TAU / float(CA)
+					var th: float = float(k + int(e[1])) * TAU / float(CT)
+					var radial := Vector3(cos(a), 0.0, sin(a))
+					var rr: float = cr + 0.014 * sin(a * 11.0)      # a soft scalloped lip
+					var nrm: Vector3 = (radial * cos(th) + Vector3.UP * sin(th)).normalized()
+					pts.append(radial * rr + nrm * 0.036)
+					nms.append(nrm)
+				_quad_smooth(cst, pts, nms)
+		var collar := ArrayMesh.new()
+		cst.commit(collar)
+		collar.surface_set_material(0, _flesh_material(collar.get_aabb(), false))
+		var cmi := MeshInstance3D.new()
+		cmi.mesh = collar
+		cmi.position = Vector3(0.0, 0.148, 0.06)
+		cmi.scale = Vector3(1.06, 0.72, 1.06)
+		add_child(cmi)
+
+	## Head, eye stalks and oral tentacles — the part the owner wanted PROMINENT. A snail
+	## reads as an animal (rather than as a shell that slides) entirely through this end.
+	func _build_head() -> void:
+		var head := MeshInstance3D.new()
+		var hm := SphereMesh.new()
+		hm.radius = 0.5
+		hm.height = 1.0
+		hm.radial_segments = 20
+		hm.rings = 12
+		hm.material = _flesh_material(hm.get_aabb(), false)
+		head.mesh = hm
+		head.scale = Vector3(0.34, 0.27, 0.46)
+		head.position = Vector3(0.0, 0.155, -0.40)
+		add_child(head)
+		# A short muzzle carrying the mouth, so the head has a front and not just a curve.
+		var snout := MeshInstance3D.new()
+		var nm := SphereMesh.new()
+		nm.radius = 0.5
+		nm.height = 1.0
+		nm.radial_segments = 16
+		nm.rings = 9
+		nm.material = _flesh_material(nm.get_aabb(), false)
+		snout.mesh = nm
+		snout.scale = Vector3(0.23, 0.17, 0.22)
+		snout.position = Vector3(0.0, 0.125, -0.555)
+		add_child(snout)
+		# Eyes at the tips of long retractile stalks — a gastropod's actual anatomy, and
+		# the tell that this species watches you back.
+		# A dark wet bead with a teal glint in it, not a lit bulb: the first pass ran the
+		# emission hot enough that the eyes read as two solid teal lollipops.
+		_eye_mat = BloomFauna.glow_mat(Color(0.05, 0.07, 0.09), 0.0)
+		_eye_mat.roughness = 0.06
+		_eye_mat.metallic = 0.25
+		_eye_mat.emission = Color(0.35, 0.95, 0.9)
+		for sx in [-0.085, 0.085]:
+			var pivot := Node3D.new()
+			add_child(pivot)
+			pivot.position = Vector3(sx, 0.25, -0.42)
+			var stalk := MeshInstance3D.new()
+			var stm := CapsuleMesh.new()
+			stm.radius = 0.014
+			stm.height = 0.34
+			stm.material = _flesh_material(stm.get_aabb(), false)
+			stalk.mesh = stm
+			stalk.rotation.x = deg_to_rad(-32)          # up and forward
+			stalk.position = Vector3(0.0, 0.125, -0.085)
+			pivot.add_child(stalk)
+			var eye := MeshInstance3D.new()
+			var em := SphereMesh.new()
+			em.radius = 0.030
+			em.height = 0.060
+			em.radial_segments = 14
+			em.rings = 8
+			em.material = _eye_mat
+			eye.mesh = em
+			eye.position = Vector3(0.0, 0.267, -0.185)   # at the stalk tip
+			pivot.add_child(eye)
+			_stalks.append(pivot)
+		# The shorter, lower pair: oral tentacles, which taste the plating ahead of it.
+		for sx in [-0.062, 0.062]:
+			var pivot := Node3D.new()
+			add_child(pivot)
+			pivot.position = Vector3(sx, 0.10, -0.60)
+			var tent := MeshInstance3D.new()
+			var tm := CapsuleMesh.new()
+			tm.radius = 0.015
+			tm.height = 0.14
+			tm.material = _flesh_material(tm.get_aabb(), false)
+			tent.mesh = tm
+			tent.rotation.x = deg_to_rad(-64)
+			tent.position = Vector3(0.0, 0.005, -0.055)
+			pivot.add_child(tent)
+			_tents.append(pivot)
+
+	## Soft tissue: mottled, with a warm rim that stands in for the subsurface scattering
+	## the compatibility renderer does not have. `pedal` turns on the shader's foot wave.
+	func _flesh_material(aabb: AABB, pedal: bool) -> ShaderMaterial:
+		var m: ShaderMaterial = BloomFauna.shell_mat(aabb, {
+			"pattern_mode": 2,
+			# Wet-grey tissue with a warm cast, not the salmon the first pass produced —
+			# a snail's foot is a muted, faintly translucent grey once it is out of a
+			# terrarium photograph, and the warmth belongs in the rim, not the albedo.
+			"base_color": Color(0.55, 0.53, 0.50),
+			"vein_color": Color(0.80, 0.66, 0.60),
+			"vein_energy": 0.22,
+			"roughness_v": 0.62,
+			"pattern_scale": 3.0,
+			"rim_power": 2.4,
+			"mode": 5 if pedal else 0,
+			"amp": 0.012, "rate": 0.6,
+			"flow_axis": 0, "flow_flip": 0.0,   # head at -Z on this hand-built body
+		})
+		_flesh_mats.append(m)
+		return m
+
+	# ------------------------------------------------------------------ interactions
+	func _touch_act(verb: String, player: Node3D) -> void:
+		match verb:
+			"FEED":
+				_feed(player)
+			"COLLECT":
+				_collect(player)
+			_:
+				BloomFauna.grab_snail(self, player)
+
+	func _feed(_player: Node3D) -> void:
+		if _is_baby or _fed or not BloomFauna.consume_greens():
+			return
+		_fed = true
+		Journal.discover("system_snail_breeding")
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("It stops mid-stride, takes the greens, and both eye stalks swing up to look at you.")
+
+	func _breed_with(partner: Node3D) -> void:
+		var mid: Vector3 = (global_position + partner.global_position) * 0.5
+		var baby := PyramidSnail.new(5000 + (randi() % 100000), mid)
+		baby._is_baby = true
+		get_parent().add_child(baby)
+		baby.global_position = mid
+		_fed = false
+		partner.set("_fed", false)
+		Journal.discover("creature_snail_baby")
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if hud and hud.has_method("toast"):
+			hud.toast("Two banded spires meet, lean together a while, and leave a third one between them.")
+
+	func _collect(_player: Node3D) -> void:
+		var hud: Node = get_tree().get_first_node_in_group("hud")
+		if not PlayerState.add_item("snail_live"):
+			if hud and hud.has_method("toast"):
+				hud.toast("Hands full — it stays where it is.")
+			return
+		Journal.discover("item_snail_live")
+		if hud and hud.has_method("toast"):
+			hud.toast("Into the pack it goes, spikes and all, stalks still reading the air.")
+		queue_free()
+
+	# ---------------------------------------------------------------------- wandering
+	## Turn onto `dir`, projected into whatever face the foot is currently stuck to (so a
+	## heading picked in world XZ still makes sense halfway up a bulkhead).
+	func _steer(dir: Vector3) -> void:
+		var u: Vector3 = _crawler.up
+		var t: Vector3 = dir - u * dir.dot(u)
+		if t.length() < 0.001:
+			return
+		_crawler.heading = t.normalized()
+		# The crawler's own free-wander turns on a DISTANCE counter. Push it out of reach:
+		# on this species the TIMER owns direction changes, and the leash keeps its role of
+		# hauling a stray back inboard.
+		_crawler._leg = 1.0e9
+
+	func _pick_heading() -> void:
+		var a: float = _rng.randf() * TAU
+		_steer(Vector3(cos(a), 0.0, sin(a)))
+		_turn_cd = _rng.randf_range(TURN_MIN, TURN_MAX)
+
+	## Reflect off the rig's rim. The crawler will not step where there is no footing, so
+	## this is not what stops it falling — it is what stops it spending a whole leg nosing
+	## along a handrail looking for a way out over the sea.
+	func _keep_aboard() -> void:
+		var p: Vector3 = global_position
+		var h: Vector3 = _crawler.heading
+		var turned := false
+		if absf(p.x) > ROAM_X and p.x * h.x > 0.0:
+			h.x = -h.x
+			turned = true
+		if absf(p.z) > ROAM_Z and p.z * h.z > 0.0:
+			h.z = -h.z
+			turned = true
+		if turned:
+			_steer(h)
+			_turn_cd = maxf(_turn_cd, 6.0)   # hold the new heading long enough to get clear
+
+	func _process(delta: float) -> void:
+		_t += delta
+		if _is_baby:
+			_grow_h += delta * GameClock.time_scale * BloomFauna.game_hour_per_sec()
+			if _body_pivot:
+				_body_pivot.scale = Vector3.ONE * lerpf(BloomFauna.BABY_SCALE, 1.0,
+					clampf(_grow_h / BloomFauna.GROW_HOURS, 0.0, 1.0))
+			if _grow_h >= BloomFauna.GROW_HOURS:
+				_is_baby = false
+		elif _fed:
+			var partner: Node3D = BloomFauna.find_breed_partner(self, BloomFauna.BREED_RADIUS)
+			if partner:
+				_breed_with(partner)
+		# Night lifts the pale bands and the flesh a little — bioluminescence, not a lamp:
+		# this species is a day-and-night animal, unlike the lamp snails.
+		var night: bool = BloomFauna.is_dark_phase()
+		var lift: float = (0.55 if night else 0.10) * (1.25 if _fed else 1.0)
+		for m in _shell_mats:
+			m.set_shader_parameter("vein_energy", lift)
+		for m in _flesh_mats:
+			m.set_shader_parameter("vein_energy", 0.16 + lift * 0.35)
+		if _eye_mat:
+			_eye_mat.emission_energy_multiplier = lerpf(_eye_mat.emission_energy_multiplier,
+				0.5 if night else 0.12, delta * 2.0)
+		if _gen_mats.size() > 0:
+			ANIM.drive(_gen_mats, 0.6, lift)
+		# Stalks and tentacles read the air on their own slow rhythms.
+		for i in range(_stalks.size()):
+			var s: Node3D = _stalks[i]
+			s.rotation.z = sin(_t * 0.55 + i * PI) * 0.20
+			s.rotation.y = sin(_t * 0.37 + i * 1.7) * 0.24
+		for i in range(_tents.size()):
+			var tn: Node3D = _tents[i]
+			tn.rotation.y = sin(_t * 0.9 + i * 2.1) * 0.30
+			tn.rotation.x = sin(_t * 0.7 + i) * 0.12
+		if BloomFauna.snail_carry(self, _crawler, delta):
+			return
+		# THE WANDER: hold a heading for a randomised stretch of tens of seconds, then take
+		# a fresh random one. Not a patrol and not a patch — the only things that turn it
+		# early are the rig itself (walls, kerbs, deck edges, all the crawler's) and the
+		# keep-aboard reflection.
+		_turn_cd -= delta
+		if _turn_cd <= 0.0:
+			_pick_heading()
+		_keep_aboard()
+		_crawler.tick(self, delta)
+		_crawler.orient(self, delta, 3.0)
+		Journal.discover_if_near(self, "creature_pyramid_snail", 10.0)
 
 # --------------------------------------------------------- Anchor Limpet
 class AnchorLimpet extends Node3D:
