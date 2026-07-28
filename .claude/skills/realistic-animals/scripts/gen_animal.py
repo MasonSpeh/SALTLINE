@@ -196,6 +196,20 @@ def _tripo_json_headers(key: str) -> dict:
     return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
 
 
+def _tripo_raise(r: "requests.Response", label: str) -> None:
+    """raise_for_status() that KEEPS THE BODY. Tripo reports an exhausted account as a
+    bare HTTP 403 whose only useful content is the JSON body
+    (`{"code":2010,"message":"You don't have enough credit to create this task"}`).
+    requests' own message is just "403 Client Error: Forbidden for url: ...", which
+    carries no hint of the cause — so gen_fish_batch's credit detector can't see it and
+    a whole batch grinds through every species failing identically instead of stopping
+    on the first. Fold the body into the message so the caller can classify it."""
+    if r.status_code < 400:
+        return
+    body = r.text[:300]
+    raise requests.HTTPError(f"{label}: HTTP {r.status_code} — {body}", response=r)
+
+
 def _tripo_task_id(resp: dict) -> str:
     data = resp.get("data") or resp
     task_id = data.get("task_id")
@@ -210,7 +224,7 @@ def _tripo_poll(task_id: str, key: str, label: str) -> dict:
     waited = 0
     while True:
         r = requests.get(f"{TRIPO}/task/{task_id}", headers=_tripo_json_headers(key), timeout=60)
-        r.raise_for_status()
+        _tripo_raise(r, f"poll:{label}")
         payload = r.json()
         task = payload.get("data", payload)
         status = task.get("status")
@@ -237,7 +251,7 @@ def tripo_text_to_3d(key: str, prompt: str, model_version: str = "") -> dict:
     if model_version:
         body["model_version"] = model_version
     r = requests.post(f"{TRIPO}/task", headers=_tripo_json_headers(key), json=body, timeout=60)
-    r.raise_for_status()
+    _tripo_raise(r, "text_to_model")
     task_id = _tripo_task_id(r.json())
     return _tripo_poll(task_id, key, "text-to-model")
 
@@ -250,7 +264,7 @@ def tripo_image_to_3d(key: str, image_path: str) -> dict:
     with open(image_path, "rb") as f:
         r = requests.post(f"{TRIPO}/upload", headers=_tripo_headers(key),
                           files={"file": (Path(image_path).name, f, mime)}, timeout=120)
-    r.raise_for_status()
+    _tripo_raise(r, "upload")
     upload = r.json()
     token = (upload.get("data") or upload).get("image_token")
     if not token:
@@ -260,7 +274,7 @@ def tripo_image_to_3d(key: str, image_path: str) -> dict:
         "type": "image_to_model", "file": {"type": ext, "file_token": token},
         "texture": True, "pbr": True,
     }, timeout=60)
-    r.raise_for_status()
+    _tripo_raise(r, "image_to_model")
     task_id = _tripo_task_id(r.json())
     return _tripo_poll(task_id, key, "image-to-model")
 
@@ -277,7 +291,7 @@ def tripo_rig_and_animate(key: str, base_task_id: str, clips: list[str]) -> dict
         r = requests.post(f"{TRIPO}/task", headers=_tripo_json_headers(key), json={
             "type": "animate_rig", "original_model_task_id": base_task_id, "out_format": "glb",
         }, timeout=60)
-        r.raise_for_status()
+        _tripo_raise(r, "animate_rig")
         rig_task_id = _tripo_task_id(r.json())
         _tripo_poll(rig_task_id, key, "rig")
     except (requests.HTTPError, RuntimeError, KeyError) as e:
@@ -292,7 +306,7 @@ def tripo_rig_and_animate(key: str, base_task_id: str, clips: list[str]) -> dict
                 "type": "animate_retarget", "original_model_task_id": rig_task_id,
                 "out_format": "glb", "animation": preset,
             }, timeout=60)
-            r.raise_for_status()
+            _tripo_raise(r, "animate_retarget")
             anim_task_id = _tripo_task_id(r.json())
             results[clip] = _tripo_poll(anim_task_id, key, f"animate:{clip}")
         except (requests.HTTPError, RuntimeError, KeyError) as e:

@@ -53,6 +53,31 @@ NORTH_SEA = (", photoreal REAL fish, wet skin, drab muted North Atlantic colouri
 # model frozen mid-curve swims like a banana forever.
 NPOSE = ", stretched out straight and level in a neutral horizontal swimming pose"
 
+# ---------------------------------------------------------------------------
+# s16 (2026-07-27): the owner's standing art direction for EVOLVED BLOOM fauna,
+# replacing the grim NORTH_SEA tail for the six species still unmodelled:
+#
+#   "Evolution is positive, not corruptive. Mutations are adaptive and often
+#    beautiful: bioluminescence, mineral armor, new symbioses, increased
+#    intelligence and sociability. No gore, no body horror. Awe and beauty of
+#    nature."
+#
+# So the negatives here are doing real work: the old prompts for these six were
+# written the other way round and said things like "grotesque and skeletal",
+# "fangs too big for its mouth" and "wrinkled slimy skin". Those descriptors are
+# gone from the bodies below, and the tail actively pushes against them, because
+# a generator will happily reintroduce deep-sea-horror tropes for these species
+# from its own priors unless told not to.
+#
+# SAME 600-CHARACTER CEILING AS NORTH_SEA — Meshy truncates silently past it and
+# the negatives live at the tail, so an over-long prompt loses exactly the part
+# that keeps the fish beautiful. There is an assertion below that enforces this.
+BLOOM_EVOLVED = (", photoreal evolved deep-sea fish, adaptive beautiful mutation, "
+                 "iridescent bioluminescence, nacre mineral armour, healthy elegant "
+                 "animal, single subject, whole body, side profile, plain background, "
+                 "no base, no plinth, no ground, no rock, no hands, "
+                 "not grotesque, no gore, not skeletal, not diseased")
+
 FISH: dict[str, str] = {
     "fish_copper_sprat":
         "a tiny slender alien sprat fish, burnished copper scales, a line of faint "
@@ -175,42 +200,52 @@ NEW_FISH: dict[str, str] = {
         "tail trailing straight behind, drab silt-grey and brown speckled camouflage, "
         "pale underside, seen from above, wings held flat and horizontal",
     "fish_abyss_grenadier":
-        "a grenadier rattail deep-sea fish, big blunt bulbous head with huge eyes and a "
-        "downturned mouth, body tapering to an extremely long thin whip-like rattail "
-        "with no tail fin at all, large fragile pale grey-brown scales, one small "
-        "triangular dorsal fin near the head" + NPOSE,
+        "a grenadier rattail, a smooth domed head with large gentle intelligent eyes, "
+        "body tapering to a long elegant whip tail, big iridescent silver-lilac scales, "
+        "one neat triangular dorsal fin" + NPOSE,
 
     # ---- tier 3: deep-drop pool, only ever seen landed on the deck ----
     "fish_gulper_eel":
-        "a gulper eel pelican eel, an ENORMOUS loose hinged pouch-like jaw far bigger "
-        "than the rest of the animal, tiny eyes right at the snout tip, a thin whip-like "
-        "black eel body tapering away behind it to a threadlike tail, soft scaleless "
-        "matte black skin, grotesque and skeletal" + NPOSE,
+        "a pelican gulper eel, a great graceful hinged pouch jaw, a slender ribbon body "
+        "tapering to a fine tail, deep violet-black skin with a luminous pearl-blue seam "
+        "along the jaw and a softly lit tail tip" + NPOSE,
     "fish_trench_hagfish":
-        "a hagfish, a primitive jawless eel-shaped animal, no fins and no jaws, a blunt "
-        "round mouth ringed with short barbels, no eyes, uniform pinkish-grey wrinkled "
-        "slimy skin, a low fin fold along the tail, coated in thick clear slime" + NPOSE,
+        "a hagfish, a smooth primitive jawless eel-shaped animal, a soft round mouth "
+        "ringed with fine barbels, glossy rose-pearl skin with a faint opal sheen, a low "
+        "fin fold running along the tail" + NPOSE,
     "fish_bloom_dragon":
-        "a deep-sea dragonfish, long slim black eel-like body, an oversized head with "
-        "huge needle fangs too big for its mouth, a long barbel hanging from its chin "
-        "tipped with a small COLD BLUE-GREEN glowing lure, rows of tiny blue-green "
-        "photophore dots along its flank, matte black scaleless skin" + NPOSE,
+        "a deep-sea dragonfish, a slender iridescent body, a long chin barbel tipped with "
+        "a bright teal glowing lure, neat rows of blue-green photophores along the flank, "
+        "fine opal scales" + NPOSE,
     "fish_fathom_sturgeon":
-        "a huge ancient sturgeon, long armoured body ridged with five rows of bony "
-        "scutes, a flat pointed shovel snout with four barbels underneath, a "
-        "shark-like upturned asymmetrical tail, small eyes, olive-grey armoured hide, "
-        "prehistoric and massive" + NPOSE,
+        "a huge ancient sturgeon, five rows of polished nacre scutes down an armoured "
+        "body, a flat shovel snout with four barbels beneath, an upturned shark-like "
+        "tail, pearl and jade sheen" + NPOSE,
     "fish_giant_oarfish":
-        "a giant oarfish, an immensely long flat ribbon-shaped silver body, a brilliant "
-        "crimson-red dorsal fin running its entire length, a tall crest of long red rays "
-        "rising from the top of its small horse-like head, two long red pelvic rays "
-        "hanging like oars, blue-black dashes on polished silver skin" + NPOSE,
+        "a giant oarfish, an immensely long flat silver ribbon body, a brilliant crimson "
+        "dorsal fin running its whole length, a tall crest of red rays on a small head, "
+        "two long red pelvic oars, blue-black dashes on polished silver" + NPOSE,
+}
+
+# The six s16 species take the evolved-bloom tail rather than the grim North-Sea one.
+BLOOM_FISH: set[str] = {
+    "fish_abyss_grenadier", "fish_gulper_eel", "fish_trench_hagfish",
+    "fish_bloom_dragon", "fish_fathom_sturgeon", "fish_giant_oarfish",
 }
 
 # One namespace for the runner. Every s15 slug carries the North-Sea tail instead of the
-# Pandora one; the original wave keeps the look it shipped with.
+# Pandora one; the original wave keeps the look it shipped with; the six s16 species that
+# are still unmodelled carry the evolved-bloom tail (see BLOOM_EVOLVED).
 PROMPTS: dict[str, str] = {s: p + STYLE for s, p in FISH.items()}
-PROMPTS.update({s: p + NORTH_SEA for s, p in NEW_FISH.items()})
+PROMPTS.update({s: p + (BLOOM_EVOLVED if s in BLOOM_FISH else NORTH_SEA)
+                for s, p in NEW_FISH.items()})
+
+# Enforce the truncation ceiling rather than trusting it. A prompt that creeps past 600
+# loses its tail — which is where every negative lives — and the failure is SILENT: you
+# get a plausible-looking fish on a display plinth and no error anywhere. Two of the s15
+# wave shipped at ~730 chars before this was caught by hand.
+_OVERLONG = {s: len(p) for s, p in PROMPTS.items() if len(p) > 600}
+assert not _OVERLONG, f"prompt(s) over the 600-char truncation ceiling: {_OVERLONG}"
 
 # Set the moment a job comes back with a payment/quota error. Meshy bills per task, so
 # retrying an out-of-credit batch just burns wall-clock against a wall — the owner's rule
@@ -241,8 +276,18 @@ def _note_preview(slug: str, task_id: str) -> None:
 
 
 def _is_credit_error(msg: str) -> bool:
+    """Classify a task failure as 'the account is out of money' so the batch stops
+    cleanly instead of grinding every remaining species into the same wall.
+
+    Providers disagree on how they say it. Meshy uses 402. Tripo returns a bare HTTP
+    403 whose ONLY signal is the JSON body (`code 2010`, "You don't have enough credit
+    to create this task") — which is why gen_animal._tripo_raise folds the body into
+    the exception message; without that this function sees just "403 Client Error:
+    Forbidden" and misclassifies an empty account as a transient error.
+    """
     low = msg.lower()
-    return ("402" in low or "credit" in low or "quota" in low
+    return ("402" in low or "403" in low or "2010" in low
+            or "credit" in low or "quota" in low
             or "insufficient" in low or "payment" in low)
 
 
