@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
-"""Generate a realistic, (optionally) rigged + animated animal GLB with Meshy AI and
-download it into the SALTLINE asset tree.
+"""Generate a realistic, (optionally) rigged + animated animal GLB with an AI 3D
+generator and download it into the SALTLINE asset tree. Defaults to Tripo3D; Meshy AI
+stays fully supported via --provider meshy.
 
-Pipeline: text/image -> preview mesh -> refine (PBR textures) -> [rig -> animate] -> GLB.
+Pipeline: text/image -> mesh (+PBR textures) -> [rig -> animate] -> GLB.
 
 The animal is written to  <out>/<name>/<name>.glb  ready for Godot to import.
 
-Requires:  MESHY_API_KEY in the environment or in ./.env   (pip install requests)
+Requires:  TRIPO_API_KEY (or MESHY_API_KEY for --provider meshy) in the environment
+           or in ./.env   (pip install requests)
 
 Examples
 --------
@@ -18,13 +20,26 @@ Examples
 
   python3 gen_animal.py --name harbor_seal --image ref/seal.png --animate swim idle
 
+  python3 gen_animal.py --name old_crab --provider meshy --prompt "..."
+
 Notes
 -----
-* Endpoints target Meshy's public OpenAPI. If Meshy changes a path (rigging/animation
-  are the newest features and move most), the script reports it and STILL leaves you the
-  refined static GLB — finish rig+animate in the web UI and re-export to the same path.
-* Tripo3D is an easy swap: same shape (submit -> poll -> download a GLB with skeleton).
-  Set --provider tripo and TRIPO_API_KEY to use it (endpoints noted in code).
+* Tripo (default): POST /v2/openapi/task {type: text_to_model|image_to_model}, poll,
+  then {type: animate_rig} -> {type: animate_retarget, animation: "preset:<clip>"} for
+  each requested clip. Preset names are Tripo's, not ours — known presets include
+  walk, run, idle, jump, climb, swim, fly, dive; an unrecognised name is still sent
+  through and Tripo will reject it, same graceful-fallback behaviour as the Meshy path.
+  UNLIKE Meshy, Tripo bakes each retargeted clip into its OWN glb, so with --animate
+  you'll get <name>.glb (the static/base mesh SALTLINE actually uses — see the skill's
+  Step 5 vertex-shader animation path) plus one <name>_<clip>.glb per clip that
+  successfully rigged.
+* Meshy (--provider meshy): preview -> refine -> [rig -> animate], all clips bundled
+  into one glb. Meshy's auto-rig is CONFIRMED humanoid-only (422 on any animal) — see
+  the skill doc. Kept for parity with the existing bestiary, which was generated on it.
+* Endpoint paths are the newest, most likely to move part of either API. Both providers'
+  rig/animate calls are wrapped so a moved or rejected endpoint reports the error and
+  still leaves you the static GLB — finish rig+animate in the provider's web UI and
+  re-export to the same path.
 """
 from __future__ import annotations
 import argparse
@@ -39,6 +54,7 @@ except ImportError:
     sys.exit("Missing dependency: pip install requests")
 
 MESHY = "https://api.meshy.ai/openapi"
+TRIPO = "https://api.tripo3d.ai/v2/openapi"
 POLL_EVERY = 5      # seconds
 POLL_MAX = 60 * 20  # give big refine/animate jobs up to 20 min
 
@@ -58,6 +74,8 @@ def load_key(provider: str) -> str:
         sys.exit(f"No {var}. Add it to your environment or ./.env (see the skill's Step 2).")
     return key
 
+
+# ==================================================================== Meshy AI
 
 def _headers(key: str) -> dict:
     return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
@@ -103,7 +121,7 @@ def meshy_text_to_3d(key: str, prompt: str, refine: bool = True,
     `ai_model` pins the generator ("meshy-5" / "meshy-6"); empty = the account default.
     Keep the prompt under 600 chars — Meshy truncates silently past that.
     """
-    print("[1/3] preview mesh from text ...")
+    print("[1/3] preview mesh from text (Meshy) ...")
     body = {"mode": "preview", "prompt": prompt,
             "art_style": "realistic", "should_remesh": True}
     if ai_model:
@@ -125,7 +143,7 @@ def meshy_text_to_3d(key: str, prompt: str, refine: bool = True,
 
 
 def meshy_image_to_3d(key: str, image_path: str) -> dict:
-    print("[1/2] mesh from image ...")
+    print("[1/2] mesh from image (Meshy) ...")
     import base64, mimetypes
     data = Path(image_path).read_bytes()
     mime = mimetypes.guess_type(image_path)[0] or "image/png"
@@ -141,9 +159,11 @@ def meshy_image_to_3d(key: str, image_path: str) -> dict:
 
 def meshy_rig_and_animate(key: str, base_task_id: str, clips: list[str]) -> dict | None:
     """Best-effort auto-rig + animation. Returns a task with an animated model_urls, or
-    None if the endpoints have moved (caller falls back to the static mesh)."""
+    None if the endpoints have moved / reject the model (caller falls back to the
+    static mesh). CONFIRMED humanoid-only as of 2026-07-18 — this will 422 on any
+    non-bipedal creature. Kept for parity; don't expect it to succeed on a crab."""
     try:
-        print(f"[3/3] rig + animate {clips} ...")
+        print(f"[3/3] rig + animate {clips} (Meshy) ...")
         r = requests.post(f"{MESHY}/v1/rigging", headers=_headers(key),
                           json={"input_task_id": base_task_id, "character_height": 1.0},
                           timeout=60)
@@ -162,18 +182,168 @@ def meshy_rig_and_animate(key: str, base_task_id: str, clips: list[str]) -> dict
         return None
 
 
-def download_glb(task: dict, dest: Path) -> None:
-    urls = task.get("model_urls") or {}
-    glb = urls.get("glb")
-    if not glb:
-        raise RuntimeError(f"No GLB in model_urls: {list(urls)}")
+def _meshy_glb_url(task: dict) -> str | None:
+    return (task.get("model_urls") or {}).get("glb")
+
+
+# ==================================================================== Tripo3D
+
+def _tripo_headers(key: str) -> dict:
+    return {"Authorization": f"Bearer {key}"}
+
+
+def _tripo_json_headers(key: str) -> dict:
+    return {"Authorization": f"Bearer {key}", "Content-Type": "application/json"}
+
+
+def _tripo_task_id(resp: dict) -> str:
+    data = resp.get("data") or resp
+    task_id = data.get("task_id")
+    if not task_id:
+        raise RuntimeError(f"Tripo did not return a task_id: {resp}")
+    return task_id
+
+
+def _tripo_poll(task_id: str, key: str, label: str) -> dict:
+    """Poll a Tripo task id until it succeeds; return the unwrapped task dict (the
+    `data` object — Tripo wraps every response as {code, data, message})."""
+    waited = 0
+    while True:
+        r = requests.get(f"{TRIPO}/task/{task_id}", headers=_tripo_json_headers(key), timeout=60)
+        r.raise_for_status()
+        payload = r.json()
+        task = payload.get("data", payload)
+        status = task.get("status")
+        prog = task.get("progress", 0)
+        sys.stdout.write(f"\r  {label}: {status} {prog:>3}%   ")
+        sys.stdout.flush()
+        if status == "success":
+            print()
+            return task
+        if status in ("failed", "cancelled", "unknown"):
+            print()
+            raise RuntimeError(f"{label} {status}: {task}")
+        time.sleep(POLL_EVERY)
+        waited += POLL_EVERY
+        if waited > POLL_MAX:
+            raise TimeoutError(f"{label} timed out after {POLL_MAX}s (id still running).")
+
+
+def tripo_text_to_3d(key: str, prompt: str, model_version: str = "") -> dict:
+    """Text -> textured PBR mesh in one task (Tripo doesn't split preview/refine).
+    Keep the prompt under ~1000 chars; longer is silently truncated server-side."""
+    print("[1/2] text -> 3D mesh (Tripo) ...")
+    body = {"type": "text_to_model", "prompt": prompt[:1000], "texture": True, "pbr": True}
+    if model_version:
+        body["model_version"] = model_version
+    r = requests.post(f"{TRIPO}/task", headers=_tripo_json_headers(key), json=body, timeout=60)
+    r.raise_for_status()
+    task_id = _tripo_task_id(r.json())
+    return _tripo_poll(task_id, key, "text-to-model")
+
+
+def tripo_image_to_3d(key: str, image_path: str) -> dict:
+    """Upload the reference image, then submit an image_to_model task against it."""
+    print("[1/2] mesh from image (Tripo) ...")
+    import mimetypes
+    mime = mimetypes.guess_type(image_path)[0] or "image/png"
+    with open(image_path, "rb") as f:
+        r = requests.post(f"{TRIPO}/upload", headers=_tripo_headers(key),
+                          files={"file": (Path(image_path).name, f, mime)}, timeout=120)
+    r.raise_for_status()
+    upload = r.json()
+    token = (upload.get("data") or upload).get("image_token")
+    if not token:
+        raise RuntimeError(f"Tripo upload did not return an image_token: {upload}")
+    ext = (Path(image_path).suffix.lstrip(".") or "png").lower()
+    r = requests.post(f"{TRIPO}/task", headers=_tripo_json_headers(key), json={
+        "type": "image_to_model", "file": {"type": ext, "file_token": token},
+        "texture": True, "pbr": True,
+    }, timeout=60)
+    r.raise_for_status()
+    task_id = _tripo_task_id(r.json())
+    return _tripo_poll(task_id, key, "image-to-model")
+
+
+def tripo_rig_and_animate(key: str, base_task_id: str, clips: list[str]) -> dict[str, dict]:
+    """Best-effort rig + retarget, one clip at a time (Tripo's animate_retarget takes a
+    single preset per call, unlike Meshy which bundles a clip list into one job).
+    Returns {clip_name: task} for every clip that succeeded — may be a subset of what
+    was requested, and may be empty. Never raises; a failed/unsupported clip is
+    reported and skipped so the rest of the batch (and the static mesh) still land."""
+    results: dict[str, dict] = {}
+    try:
+        print("[2/2] rig (Tripo) ...")
+        r = requests.post(f"{TRIPO}/task", headers=_tripo_json_headers(key), json={
+            "type": "animate_rig", "original_model_task_id": base_task_id, "out_format": "glb",
+        }, timeout=60)
+        r.raise_for_status()
+        rig_task_id = _tripo_task_id(r.json())
+        _tripo_poll(rig_task_id, key, "rig")
+    except (requests.HTTPError, RuntimeError, KeyError) as e:
+        print(f"  ! rigging unavailable via Tripo API ({e}). Keeping the static mesh — "
+              f"rig + animate it in the Tripo web UI and export the GLB alongside it.")
+        return results
+
+    for clip in clips:
+        preset = clip if clip.startswith("preset:") else f"preset:{clip}"
+        try:
+            r = requests.post(f"{TRIPO}/task", headers=_tripo_json_headers(key), json={
+                "type": "animate_retarget", "original_model_task_id": rig_task_id,
+                "out_format": "glb", "animation": preset,
+            }, timeout=60)
+            r.raise_for_status()
+            anim_task_id = _tripo_task_id(r.json())
+            results[clip] = _tripo_poll(anim_task_id, key, f"animate:{clip}")
+        except (requests.HTTPError, RuntimeError, KeyError) as e:
+            print(f"  ! clip '{clip}' failed ({e}) — skipping it, continuing with the rest.")
+    return results
+
+
+def _tripo_glb_url(task: dict) -> str | None:
+    out = task.get("output") or {}
+    return out.get("pbr_model") or out.get("model") or out.get("base_model")
+
+
+# ==================================================================== shared
+
+def generate_mesh(provider: str, key: str, *, prompt: str | None = None,
+                   image: str | None = None, refine: bool = True,
+                   ai_model: str = "") -> dict:
+    """Provider-agnostic entry point for the base (unrigged) mesh. Returns a normalised
+    dict {id, glb_url, raw} — `raw` is the provider's own task shape, kept for anything
+    caller-specific (e.g. Meshy's rig step needs raw["id"])."""
+    if provider == "tripo":
+        task = tripo_image_to_3d(key, image) if image else tripo_text_to_3d(key, prompt)
+        return {"id": task.get("task_id"), "glb_url": _tripo_glb_url(task), "raw": task}
+    task = meshy_image_to_3d(key, image) if image else meshy_text_to_3d(key, prompt, refine, ai_model)
+    return {"id": task.get("id"), "glb_url": _meshy_glb_url(task), "raw": task}
+
+
+def download_model(result: dict, dest: Path) -> None:
+    """Download the normalised `generate_mesh()` result to dest."""
+    url = result.get("glb_url")
+    if not url:
+        raise RuntimeError(f"No GLB URL in result: {result}")
+    download_url(url, dest)
+
+
+def download_url(url: str, dest: Path) -> None:
     print(f"  downloading GLB -> {dest}")
     dest.parent.mkdir(parents=True, exist_ok=True)
-    with requests.get(glb, stream=True, timeout=300) as r:
+    with requests.get(url, stream=True, timeout=300) as r:
         r.raise_for_status()
         with open(dest, "wb") as f:
             for chunk in r.iter_content(1 << 16):
                 f.write(chunk)
+
+
+def download_glb(task: dict, dest: Path) -> None:
+    """Legacy alias kept for callers that already hold a raw Meshy task dict."""
+    url = _meshy_glb_url(task)
+    if not url:
+        raise RuntimeError(f"No GLB in model_urls: {list((task.get('model_urls') or {}))}")
+    download_url(url, dest)
 
 
 def main() -> None:
@@ -183,32 +353,44 @@ def main() -> None:
     ap.add_argument("--image", help="reference image for image-to-3D (better likeness)")
     ap.add_argument("--animate", nargs="*", default=[], help="clips: walk idle swim run ...")
     ap.add_argument("--out", default="assets/models/fauna", help="output root dir")
-    ap.add_argument("--provider", default="meshy", choices=["meshy", "tripo"])
+    ap.add_argument("--provider", default="tripo", choices=["tripo", "meshy"])
     args = ap.parse_args()
 
     if not args.prompt and not args.image:
         sys.exit("Give --prompt or --image.")
-    if args.provider == "tripo":
-        sys.exit("Tripo path: mirror this flow against https://platform.tripo3d.ai "
-                 "(POST /v2/openapi/task type=text_to_model|image_to_model, poll, then "
-                 "type=animate_rig / animate_retarget; download output.model GLB).")
 
     key = load_key(args.provider)
-    base = meshy_image_to_3d(key, args.image) if args.image else meshy_text_to_3d(key, args.prompt)
-
-    final = base
-    if args.animate:
-        animated = meshy_rig_and_animate(key, base["id"], args.animate)
-        if animated:
-            final = animated
-
     dest = Path(args.out) / args.name / f"{args.name}.glb"
-    download_glb(final, dest)
+
+    result = generate_mesh(args.provider, key, prompt=args.prompt, image=args.image)
+    download_model(result, dest)
     print(f"\nDone -> {dest}")
+
+    if args.animate:
+        if not result.get("id"):
+            print("Note: no task id on the base mesh — skipping rig/animate.")
+        elif args.provider == "tripo":
+            clips = tripo_rig_and_animate(key, result["id"], args.animate)
+            for clip, task in clips.items():
+                clip_dest = dest.parent / f"{args.name}_{clip}.glb"
+                url = _tripo_glb_url(task)
+                if url:
+                    download_url(url, clip_dest)
+                    print(f"  clip '{clip}' -> {clip_dest}")
+            missing = [c for c in args.animate if c not in clips]
+            if missing:
+                print(f"  clips not obtained: {', '.join(missing)} "
+                      "(rig/animate it in the Tripo web UI if you need them)")
+        else:
+            animated = meshy_rig_and_animate(key, result["id"], args.animate)
+            if animated:
+                download_glb(animated, dest)
+                print(f"  animated (all clips bundled) -> {dest}")
+            else:
+                print("Note: only the STATIC mesh downloaded; add the rig+clips in the web UI.")
+
     print("Next:  godot --headless --path . --import   then swap into the creature "
           "script's _build_body() (see the skill, Step 5).")
-    if args.animate and final is base:
-        print("Note:  only the STATIC mesh downloaded; add the rig+clips in the web UI.")
 
 
 if __name__ == "__main__":

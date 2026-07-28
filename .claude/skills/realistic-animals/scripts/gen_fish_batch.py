@@ -1,10 +1,14 @@
 #!/usr/bin/env python3
 """Generate a 3-D model for EVERY catchable fish in data/fish.json, plus the upgraded
-hammerhead — in PARALLEL (6 concurrent Meshy jobs) because 21 sequential generations
-would take ~3 hours.
+hammerhead — in PARALLEL (6 concurrent jobs) because 21 sequential generations would
+take ~3 hours. Defaults to Tripo3D; pass --provider meshy for the original path.
 
 Prompts are hand-written per species from the fish table's name + note, all in the
 Bloom's mutated Avatar aesthetic. Resumable: skips slugs whose .glb already exists.
+
+--preview and --model are Meshy-only credit levers (see meshy_text_to_3d's docstring)
+and only apply with --provider meshy; they're rejected up front for Tripo rather than
+silently ignored.
 """
 from __future__ import annotations
 import json
@@ -14,7 +18,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from gen_animal import load_key, meshy_text_to_3d, download_glb  # noqa: E402
+from gen_animal import load_key, generate_mesh, download_model, meshy_text_to_3d, download_glb  # noqa: E402
 
 OUT = Path("assets/models/fauna")
 
@@ -242,7 +246,7 @@ def _is_credit_error(msg: str) -> bool:
             or "insufficient" in low or "payment" in low)
 
 
-def one(slug: str, prompt: str, key: str, refine: bool = True,
+def one(slug: str, prompt: str, key: str, provider: str, refine: bool = True,
         ai_model: str = "") -> tuple[str, str]:
     dest = OUT / slug / f"{slug}.glb"
     if dest.exists():
@@ -250,13 +254,17 @@ def one(slug: str, prompt: str, key: str, refine: bool = True,
     if _BROKE.is_set():
         return slug, "skip (out of credits)"
     try:
-        task = meshy_text_to_3d(key, prompt, refine, ai_model)
-        download_glb(task, dest)
-        if not refine:
-            # Keep the preview task id: it is the ONLY handle that can be refined into
-            # PBR textures later, and it is unrecoverable once this process exits.
-            _note_preview(slug, task.get("id", ""))
-        return slug, f"ok ({dest.stat().st_size / 1e6:.1f} MB){'' if refine else ' [untextured preview]'}"
+        if provider == "meshy":
+            task = meshy_text_to_3d(key, prompt, refine, ai_model)
+            download_glb(task, dest)
+            if not refine:
+                # Keep the preview task id: it is the ONLY handle that can be refined
+                # into PBR textures later, and it is unrecoverable once this exits.
+                _note_preview(slug, task.get("id", ""))
+            return slug, f"ok ({dest.stat().st_size / 1e6:.1f} MB){'' if refine else ' [untextured preview]'}"
+        result = generate_mesh(provider, key, prompt=prompt)
+        download_model(result, dest)
+        return slug, f"ok ({dest.stat().st_size / 1e6:.1f} MB)"
     except Exception as e:  # keep the batch going
         msg = f"{e}"
         if _is_credit_error(msg):
@@ -266,22 +274,33 @@ def one(slug: str, prompt: str, key: str, refine: bool = True,
 
 
 def main() -> None:
-    key = load_key("meshy")
     args = sys.argv[1:]
+    provider = "tripo"
+    if "--provider" in args:
+        i = args.index("--provider")
+        provider = args[i + 1]
+        del args[i:i + 2]
+    key = load_key(provider)
     # --preview: geometry only, no PBR pass. Six species for the price of one (see
-    # meshy_text_to_3d). Chosen 2026-07-26 when the account had 54 credits and 13
-    # species still unmodelled.
+    # meshy_text_to_3d). Meshy-only — Tripo doesn't split preview/refine into two
+    # billable passes, so there's no equivalent lever.
     refine = "--preview" not in args
+    if "--preview" in args and provider != "meshy":
+        sys.exit("--preview is a Meshy-only credit lever (see gen_fish_batch.py's "
+                 "docstring); it has no Tripo equivalent. Drop it or add --provider meshy.")
     args = [a for a in args if a != "--preview"]
     # --model meshy-5: THE budget lever, and by a mile. Measured 2026-07-26 on the live
     # account, a preview costs 20 credits on the default (latest = meshy-6) and 5 on
     # meshy-5 — four species for the price of one, on meshes that read the same at the
     # distance a school swims past. This is how the s15 wave got past three fish.
+    # Meshy-only, same reasoning as --preview.
     ai_model = ""
     if "--model" in args:
         i = args.index("--model")
         ai_model = args[i + 1]
         del args[i:i + 2]
+        if provider != "meshy":
+            sys.exit("--model is a Meshy-only lever; drop it or add --provider meshy.")
     # Honour the ORDER the slugs were given on the command line — with a hard credit
     # ceiling that matters more than throughput, "which six start first" is the whole
     # decision. No args = everything, in table order.
@@ -289,11 +308,11 @@ def main() -> None:
     unknown = [s for s in args if s not in PROMPTS]
     if unknown:
         sys.exit("Unknown slug(s): " + ", ".join(unknown))
-    print(f"{len(jobs)} generations, 6 concurrent{'' if refine else ', PREVIEW ONLY'}"
+    print(f"{len(jobs)} generations, 6 concurrent ({provider}){'' if refine else ', PREVIEW ONLY'}"
           f"{', ' + ai_model if ai_model else ''}")
     ok, bad = [], []
     with ThreadPoolExecutor(max_workers=6) as pool:
-        futs = {pool.submit(one, s, p, key, refine, ai_model): s for s, p in jobs}
+        futs = {pool.submit(one, s, p, key, provider, refine, ai_model): s for s, p in jobs}
         for fut in as_completed(futs):
             slug, status = fut.result()
             print(f"  {slug}: {status}", flush=True)
@@ -302,7 +321,7 @@ def main() -> None:
     if bad:
         print("  failed: " + ", ".join(bad) + "   (re-run to retry)")
     if _BROKE.is_set():
-        print("  ** stopped early: Meshy reported no credits left. **")
+        print(f"  ** stopped early: {provider} reported no credits left. **")
 
 
 if __name__ == "__main__":

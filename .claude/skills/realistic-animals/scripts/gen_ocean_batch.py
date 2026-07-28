@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 """Generate the OCEAN LIFE + underwater set-dressing pass, 6 jobs in parallel.
+Defaults to Tripo3D; pass --provider meshy to use Meshy AI instead.
 
 Fills out the reef around the rig legs: the sessile colonies that make a reef read as
 a reef, the slow invertebrates that reward looking closely, and a couple of deep
@@ -14,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from gen_animal import load_key, meshy_text_to_3d, download_glb  # noqa: E402
+from gen_animal import load_key, generate_mesh, download_model  # noqa: E402
 
 OUT = Path("assets/models/fauna")
 
@@ -96,26 +97,32 @@ OCEAN: dict[str, str] = {
 }
 
 
-def one(slug: str, prompt: str, key: str) -> tuple[str, str]:
+def one(slug: str, prompt: str, key: str, provider: str) -> tuple[str, str]:
     dest = OUT / slug / f"{slug}.glb"
     if dest.exists():
         return slug, "skip (exists)"
     try:
-        task = meshy_text_to_3d(key, prompt + STYLE)
-        download_glb(task, dest)
+        result = generate_mesh(provider, key, prompt=prompt + STYLE)
+        download_model(result, dest)
         return slug, f"ok ({dest.stat().st_size / 1e6:.1f} MB)"
     except Exception as e:
         return slug, f"FAILED: {e}"
 
 
 def main() -> None:
-    key = load_key("meshy")
-    only = set(sys.argv[1:])
+    args = sys.argv[1:]
+    provider = "tripo"
+    if "--provider" in args:
+        i = args.index("--provider")
+        provider = args[i + 1]
+        del args[i:i + 2]
+    key = load_key(provider)
+    only = set(args)
     jobs = {s: p for s, p in OCEAN.items() if not only or s in only}
-    print(f"{len(jobs)} ocean-life generations, 6 concurrent")
+    print(f"{len(jobs)} ocean-life generations, 6 concurrent ({provider})")
     ok, bad = [], []
     with ThreadPoolExecutor(max_workers=6) as pool:
-        futs = {pool.submit(one, s, p, key): s for s, p in jobs.items()}
+        futs = {pool.submit(one, s, p, key, provider): s for s, p in jobs.items()}
         for fut in as_completed(futs):
             slug, status = fut.result()
             print(f"  {slug}: {status}", flush=True)

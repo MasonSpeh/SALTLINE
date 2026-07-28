@@ -1,25 +1,27 @@
 #!/usr/bin/env python3
-"""Batch-generate the SALTLINE bestiary with Meshy AI, in priority order.
+"""Batch-generate the SALTLINE bestiary with an AI 3D generator, in priority order.
+Defaults to Tripo3D; pass --provider meshy to use Meshy AI instead.
 
 Avatar/Pandora-style bioluminescent creature design — which is already SALTLINE canon
 (the Bloom: teal/pearl glow, curious not hostile).
 
-NOTE: Meshy's auto-rig is HUMANOID-ONLY (it runs bipedal pose estimation and returns
-"Pose estimation failed" for any animal). So we generate the MESH only and animate it
-in Godot with a vertex-displacement shader + procedural node motion. See
+NOTE: neither provider's auto-rig can be trusted on this bestiary (Meshy's is CONFIRMED
+humanoid-only: 422 on any animal). So we generate the MESH only and animate it in Godot
+with a vertex-displacement shader + procedural node motion. See
 references/animating-static-meshes.md.
 
 Resumable: skips any species whose .glb already exists. Run again to fill gaps.
 
-  python3 gen_fauna_batch.py                 # all, priority order
-  python3 gen_fauna_batch.py hammerhead seal # just these
+  python3 gen_fauna_batch.py                       # all, priority order, Tripo
+  python3 gen_fauna_batch.py hammerhead seal        # just these
+  python3 gen_fauna_batch.py --provider meshy seal  # use Meshy instead
 """
 from __future__ import annotations
 import sys
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).parent))
-from gen_animal import load_key, meshy_text_to_3d, download_glb  # noqa: E402
+from gen_animal import load_key, generate_mesh, download_model  # noqa: E402
 
 OUT = Path("assets/models/fauna")
 
@@ -173,8 +175,14 @@ BESTIARY: list[tuple[str, str]] = [
 
 
 def main() -> None:
-    key = load_key("meshy")
-    wanted = set(sys.argv[1:])
+    args = sys.argv[1:]
+    provider = "tripo"
+    if "--provider" in args:
+        i = args.index("--provider")
+        provider = args[i + 1]
+        del args[i:i + 2]
+    key = load_key(provider)
+    wanted = set(args)
     todo = [(s, p) for s, p in BESTIARY if not wanted or s in wanted]
     if not todo:
         sys.exit(f"No match. Known: {', '.join(s for s, _ in BESTIARY)}")
@@ -188,8 +196,8 @@ def main() -> None:
             continue
         print(f"\n{'=' * 62}\n[{i}/{len(todo)}] {slug}\n{'=' * 62}")
         try:
-            task = meshy_text_to_3d(key, prompt)
-            download_glb(task, dest)
+            result = generate_mesh(provider, key, prompt=prompt)
+            download_model(result, dest)
             size = dest.stat().st_size / 1e6
             print(f"  ✓ {slug}  ({size:.1f} MB)")
             done.append(slug)

@@ -42,35 +42,55 @@ reference (text prompt + optional image)
 > eel — on both the preview and the refine task id. Do **not** plan on skeletal clips
 > from it for a bestiary. Mixamo is humanoid-only too. Assume **mesh generation only**
 > and animate on our side (Step 5) unless you have specifically confirmed otherwise.
+> Tripo's rigger is the same shape (`animate_rig` / `animate_retarget` against named
+> presets) but has **not** been battle-tested here against a non-bipedal creature —
+> `gen_animal.py`'s Tripo path wraps it defensively (see its module docstring) so a
+> rejected clip is reported and skipped rather than breaking the batch, same as the
+> confirmed-humanoid-only Meshy path already does.
 
 | Tool | Text→3D | Image→3D | Auto-rig **animals** | Output | Notes |
 |------|:---:|:---:|:---:|--------|-------|
-| **Meshy AI** (meshy.ai) | ✓ | ✓ | ✗ humanoid only (confirmed 422) | GLB/FBX | Excellent meshes + PBR, solid API, free monthly credits. **Default for geometry.** |
-| **Tripo3D** (tripo3d.ai) | ✓ | ✓ | partial — worth testing | GLB/FBX | Great quality; its rigger is also character-leaning. |
-| **Rodin / Hyper3D** | ✓ | ✓ | ✗ | GLB | Highest-fidelity static meshes. |
-| **Anything World** | ✓ | — | ✓ animal-specialised | GLB | The one built for animated animals; heavier setup, separate account. |
+| **Tripo3D** (tripo3d.ai) | ✓ | ✓ | unverified here, wrapped defensively | GLB/FBX | **Default as of s16.** Single-pass textured mesh (no separate preview/refine billing step). |
+| **Meshy AI** (meshy.ai) | ✓ | ✓ | ✗ humanoid only (confirmed 422) | GLB/FBX | Fallback provider (`--provider meshy`), still fully supported. Shipped the original bestiary. |
+| **Rodin / Hyper3D** | ✓ | ✓ | ✗ | GLB | Highest-fidelity static meshes. Not wired into `gen_animal.py`. |
+| **Anything World** | ✓ | — | ✓ animal-specialised | GLB | The one built for animated animals; heavier setup, separate account. Not wired in. |
 | **TripoSR / Hunyuan3D (local)** | — | ✓ | ✗ | OBJ/GLB | Free, offline; rig in Blender. See `references/local-fallback.md`. |
 
-Recommendation for this project: **Meshy for the mesh**, then animate with the vertex
-shader (Step 5). That combination is what shipped the whole bestiary — it looks alive,
-costs no bones, and never fights the movement code. Only reach for Anything World or a
-Blender rig when a species genuinely needs articulated limbs (a walking gait).
+Recommendation for this project: **Tripo (or Meshy) for the mesh**, then animate with the
+vertex shader (Step 5) — don't chase either provider's animal rigger for the bestiary.
+That combination is what shipped the whole bestiary — it looks alive, costs no bones, and
+never fights the movement code. Only reach for Anything World or a Blender rig when a
+species genuinely needs articulated limbs (a walking gait).
 
 ## Step 2 — set up the key (once)
 
-I can't create the account or paste the key for you (that's yours to hold). Once you have
-an API key from the chosen service:
+I can't create the account or paste the key for you (that's yours to hold) — but the repo
+is already wired for it, so this is a two-minute copy/paste:
+
+1. Go to **https://platform.tripo3d.ai**, sign in, and open the API section of your
+   dashboard (labelled **API Keys** / **Create API Key**).
+2. Copy the key it gives you (starts `tsk_...`).
+3. Open **`.env`** in the SALTLINE repo root — it already has a `TRIPO_API_KEY=` line
+   waiting. Paste the key after the `=` and save. Nothing else to edit.
 
 ```bash
-# In the SALTLINE repo root:
-printf 'MESHY_API_KEY=msy_xxx...\n' >> .env
-grep -qxF '.env' .gitignore || printf '\n.env\n' >> .gitignore   # never commit the key
+# .env already has this line — you're just filling in the value:
+TRIPO_API_KEY=tsk_paste_it_here
+
 python3 -m pip install requests            # only dependency the script needs
 ```
+
+`.env` is already in `.gitignore` — the key never gets committed.
+
+Meshy stays available as a fallback: its line and key are still in `.env`, and every
+script here accepts `--provider meshy` to use it instead.
 
 ## Step 3 — generate
 
 `scripts/gen_animal.py` (bundled with this skill) drives text→3D→(rig+animate)→download.
+Tripo is the default — no flag needed. The batch scripts (`gen_fauna_batch.py`,
+`gen_fish_batch.py`, `gen_ocean_batch.py`) are Tripo-default too; pass `--provider meshy`
+to any of them to use the fallback instead.
 
 ```bash
 python3 .claude/skills/realistic-animals/scripts/gen_animal.py \
@@ -78,6 +98,10 @@ python3 .claude/skills/realistic-animals/scripts/gen_animal.py \
   --prompt "a large deep-sea crab, mottled dark chitin, long jointed legs, raised pincer claws, a single bioluminescent lure on a stalk, photoreal, neutral pose, full body" \
   --animate walk idle \
   --out assets/models/fauna
+
+# fall back to Meshy for a single generation:
+python3 .claude/skills/realistic-animals/scripts/gen_animal.py \
+  --name lamplight_crab --provider meshy --prompt "..."
 ```
 
 It writes `assets/models/fauna/lamplight_crab/lamplight_crab.glb` (+ textures) and prints
@@ -85,8 +109,11 @@ the clip names it found. Re-run with `--image ref.png` to drive it from a refere
 instead of text (much better likeness). See prompting tips in
 `references/prompting.md`.
 
-> If a rigging/animation endpoint has moved, the script says so and still leaves you the
-> static mesh; finish rig+anim in the service's web UI and export the GLB to the same path.
+> If a rigging/animation endpoint has moved or rejects the model, the script says so and
+> still leaves you the static mesh; finish rig+anim in the service's web UI and export
+> the GLB to the same path. With Tripo and `--animate`, each requested clip that
+> succeeds downloads as its own `<name>_<clip>.glb` alongside the base `<name>.glb` —
+> Tripo bakes one glb per retargeted clip rather than bundling them like Meshy does.
 
 ## Step 4 — import in Godot
 
@@ -209,7 +236,7 @@ Each is a `scripts/world/*.gd` (see `bloom_fauna.gd` for the small ones) with th
 `_build_body`/`_animate`/behavior split — the swap recipe is identical.
 
 ## Files in this skill
-- `scripts/gen_animal.py` — text/image → 3D → rig+animate → GLB downloader (Meshy; Tripo notes inline).
+- `scripts/gen_animal.py` — text/image → 3D → rig+animate → GLB downloader (Tripo default, Meshy via `--provider meshy`).
 - `references/prompting.md` — how to prompt for a realistic, game-ready animal in a neutral pose.
 - `references/godot-fauna-integration.md` — deeper Godot import + per-species swap notes.
 - `references/local-fallback.md` — offline generation on an Apple-Silicon Mac (TripoSR), rig in Blender.
