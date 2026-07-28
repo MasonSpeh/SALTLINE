@@ -251,22 +251,127 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.08, 0.36, 0.08), Color(0.45, 0.35, 0.22), Vector3(-0.18, 0.18, 0))
 			_box(root, Vector3(0.08, 0.36, 0.08), Color(0.45, 0.35, 0.22), Vector3(0.18, 0.18, 0))
 		"fishing_rod":
-			# Long tapering rod, cork grip, a small reel drum under the seat.
-			var shaft := _box(root, Vector3(0.035, 1.5, 0.035), Color(0.45, 0.33, 0.2), Vector3(0, 0.55, 0))
-			shaft.rotation.z = deg_to_rad(14)
-			_box(root, Vector3(0.06, 0.3, 0.06), Color(0.65, 0.52, 0.35), Vector3(-0.14, 0.12, 0))
-			var reel := _cyl(root, 0.07, 0.06, Color(0.25, 0.27, 0.3), Vector3(-0.1, 0.26, 0.05))
-			reel.rotation.x = deg_to_rad(90)
-			# An exact marker at the working end of the shaft (the end away from the grip/
-			# reel), a child of the shaft itself so it inherits the shaft's own tilt and
+			# Owner call, 2026-07-27: this was a 3.5 cm box shaft, a cork-coloured handle box
+			# and a 7 cm cylinder for a reel — a pond whip. Nobody hauls 40 kg up 80 m of
+			# North Sea alongside a rig leg with that. What this is now is STAND-UP OFFSHORE
+			# GEAR: a stout tapering graphite blank, a lever-drag multiplier sat on top of the
+			# seat where an overhead reel goes, roller guides stepping down to the tip, and a
+			# notched gimbal butt cap that seats into a fighting belt. Working kit off a
+			# rusting rig — machined and salt-hazed, not a chromed sport-fishing showpiece.
+			#
+			# The whole rig hangs off ONE pivot rather than the root, so every part shares a
+			# single lean and the "hand_tip" marker at the end inherits it for free (see the
+			# marker note at the bottom of this case). Stations are measured in metres up the
+			# pivot's +Y from the butt cap at y = 0, so the layout reads as a real rod:
+			#   0.00 gimbal | 0.05-0.42 butt grip | 0.42-0.60 seat+reel | 0.60-0.90 foregrip
+			#   | 0.90-1.90 blank + six guides | 1.90 roller tip.
+			var fr := Node3D.new()
+			root.add_child(fr)
+			fr.rotation.z = deg_to_rad(14)
+			# The grips must NOT be the same near-black as the blank or the foregrip vanishes
+			# into it and the rod reads as seat-then-stick: they are a browner, flatter rubber.
+			var fr_blank := Color(0.17, 0.18, 0.21)    # dark graphite, salt-hazed
+			var fr_grip := Color(0.13, 0.12, 0.11)     # dark shrink-wrapped rubber grip
+			var fr_metal := Color(0.33, 0.35, 0.38)    # gunmetal reel castings
+			var fr_alloy := Color(0.42, 0.44, 0.47)    # machined seat and lock rings
+			var fr_brass := Color(0.44, 0.35, 0.21)    # dull anodised drag lever
+			var fr_wrap := Color(0.32, 0.17, 0.14)     # oxblood thread wraps at the guide feet
+			var fr_line := Color(0.50, 0.48, 0.42)     # dirty braid wound on the spool
+			# Gimbal butt cap: the notched cup that drops into a fighting belt, two lugs
+			# standing proud of the cap so the notch reads from any angle.
+			_cyl(fr, 0.055, 0.05, fr_metal, Vector3(0, 0.025, 0))
+			for fr_n in [-1.0, 1.0]:
+				_box(fr, Vector3(0.026, 0.032, 0.05), fr_metal.darkened(0.15), Vector3(fr_n * 0.036, -0.012, 0))
+			_cyl(fr, 0.05, 0.028, Color(0.5, 0.5, 0.47), Vector3(0, 0.062, 0))                  # salt crust above the cap
+			# Rear butt grip — the length you brace against the hip, ribbed for a wet glove.
+			_cyl(fr, 0.043, 0.37, fr_grip, Vector3(0, 0.235, 0))
+			for fr_i in range(4):
+				var fr_rib := _torus(fr, 0.041, 0.048, fr_grip.lightened(0.07),
+					Vector3(0, 0.115 + fr_i * 0.075, 0), 16, 6)
+				fr_rib.rotation.x = 0.0                                                          # rings AROUND the butt
+			# Machined reel seat with a knurled lock ring at each end.
+			_cyl(fr, 0.047, 0.18, fr_alloy.darkened(0.18), Vector3(0, 0.51, 0))
+			for fr_l in [0.432, 0.588]:
+				var fr_lock := _torus(fr, 0.046, 0.057, fr_alloy.darkened(0.25), Vector3(0, fr_l, 0), 16, 8)
+				fr_lock.rotation.x = 0.0
+			# The REEL: a lever-drag multiplier clamped ON TOP of the seat. This is the single
+			# thing that says "offshore" at a glance, so it is built as a real one — two
+			# machined side plates, a wide spool of braid between them, frame pillars, a thumb
+			# lever and a crank standing off the handle side. Its axis runs ACROSS the rod
+			# (local Z), so every round part of it is laid over with rotation.x = 90°.
+			_box(fr, Vector3(0.05, 0.034, 0.09), fr_metal, Vector3(0.065, 0.505, 0))             # foot clamped to the seat
+			var fr_rc := Vector3(0.142, 0.535, 0)
+			var fr_spool := _cyl(fr, 0.052, 0.145, fr_line, fr_rc)                               # wound braid on the arbor
+			fr_spool.rotation.x = deg_to_rad(90)
+			for fr_s in [-1.0, 1.0]:
+				var fr_plate := _cyl(fr, 0.082, 0.018, fr_metal, fr_rc + Vector3(0, 0, fr_s * 0.084))
+				fr_plate.rotation.x = deg_to_rad(90)                                             # side plates
+				# _torus already lies across the rod (rotation.x = 90°), which IS the reel's
+				# own axis — these rims are the one place in this case the default is right.
+				_torus(fr, 0.072, 0.085, fr_metal.darkened(0.25), fr_rc + Vector3(0, 0, fr_s * 0.094), 20, 8)
+			for fr_p in range(3):
+				var fr_pa: float = fr_p * TAU / 3.0 + 0.6
+				_box(fr, Vector3(0.02, 0.02, 0.16), fr_metal.darkened(0.12),
+					fr_rc + Vector3(cos(fr_pa) * 0.07, sin(fr_pa) * 0.07, 0))                    # frame pillars
+			var fr_cam := _cyl(fr, 0.024, 0.018, fr_brass.darkened(0.2), fr_rc + Vector3(0, 0, 0.1))
+			fr_cam.rotation.x = deg_to_rad(90)                                                   # drag cam boss
+			var fr_lever := _box(fr, Vector3(0.095, 0.02, 0.015), fr_brass, fr_rc + Vector3(0.034, 0.036, 0.108))
+			fr_lever.rotation.z = deg_to_rad(42)                                                 # thumb lever, drag off
+			var fr_stub := _cyl(fr, 0.014, 0.055, fr_alloy, fr_rc + Vector3(0, 0, 0.125))
+			fr_stub.rotation.x = deg_to_rad(90)                                                  # crank shaft
+			# The arm is the lighter alloy, not the plate's gunmetal: a dark bar on a dark
+			# plate disappears from every angle that matters.
+			var fr_arm := _box(fr, Vector3(0.14, 0.026, 0.016), fr_alloy, fr_rc + Vector3(0.043, -0.043, 0.155))
+			fr_arm.rotation.z = deg_to_rad(-42)                                                  # offset crank arm
+			var fr_knob := _cyl(fr, 0.019, 0.05, fr_grip.lightened(0.08), fr_rc + Vector3(0.088, -0.088, 0.155))
+			fr_knob.rotation.x = deg_to_rad(90)                                                  # fist-sized knob
+			# Long foregrip you pull against, then the blank proper: four stacked tapering
+			# segments, 3.6 cm at the butt down to 7 mm at the tip, so the taper actually
+			# reads instead of being one uniform stick.
+			_cone(fr, 0.045, 0.038, 0.30, fr_grip, Vector3(0, 0.75, 0))
+			for fr_f in range(3):
+				var fr_fr := _torus(fr, 0.039 - fr_f * 0.001, 0.047 - fr_f * 0.001,
+					fr_grip.lightened(0.07), Vector3(0, 0.655 + fr_f * 0.085, 0), 16, 6)
+				fr_fr.rotation.x = 0.0                                                           # foregrip ribs
+			_cyl(fr, 0.040, 0.02, fr_alloy, Vector3(0, 0.90, 0))                                 # ferrule collar
+			_cone(fr, 0.036, 0.028, 0.30, fr_blank, Vector3(0, 1.05, 0))
+			_cone(fr, 0.028, 0.021, 0.28, fr_blank, Vector3(0, 1.34, 0))
+			_cone(fr, 0.021, 0.014, 0.24, fr_blank, Vector3(0, 1.60, 0))
+			_cone(fr, 0.014, 0.007, 0.18, fr_blank, Vector3(0, 1.81, 0))
+			# Guides stepping down the blank, big at the butt to small at the tip — the thing
+			# that makes a rod read as a rod at a glance. Each is a ring on a short standoff
+			# post over a wrapped thread binding, on the SAME side as the reel, because that
+			# is where an overhead reel's line runs. Ring segment counts are cut hard (see
+			# _torus): six rings at the TorusMesh default would be 25k triangles in a 96 px
+			# inventory icon.
+			for fr_g in [[1.00, 0.054], [1.20, 0.043], [1.39, 0.033], [1.56, 0.025], [1.71, 0.019], [1.83, 0.014]]:
+				var fr_gy: float = fr_g[0]
+				var fr_gr: float = fr_g[1]
+				var fr_br: float = 0.036 - 0.029 * (fr_gy - 0.90)                                # blank radius at this station
+				var fr_post: float = 0.006 + fr_gr * 0.25
+				_cyl(fr, fr_br + 0.004, 0.032, fr_wrap, Vector3(0, fr_gy, 0))                    # thread wrap
+				_box(fr, Vector3(fr_post, 0.013, 0.014), fr_metal,
+					Vector3(fr_br + fr_post * 0.5, fr_gy, 0))                                    # standoff post
+				var fr_ring := _torus(fr, fr_gr, fr_gr + 0.006, fr_alloy,
+					Vector3(fr_br + fr_post + fr_gr, fr_gy, 0), 16, 8)
+				fr_ring.rotation.x = 0.0                                                         # hole up the blank
+			# Roller tip: the last bearing the line touches before it goes over the side.
+			_sph(fr, 0.008, fr_metal, Vector3(0, 1.90, 0))                                       # blank end cap
+			_box(fr, Vector3(0.024, 0.012, 0.013), fr_metal, Vector3(0.012, 1.888, 0))           # tip frame
+			var fr_tipring := _torus(fr, 0.010, 0.017, fr_alloy, Vector3(0.024, 1.902, 0), 16, 8)
+			fr_tipring.rotation.x = 0.0
+			var fr_roller := _cyl(fr, 0.009, 0.009, fr_alloy.lightened(0.12), Vector3(0.024, 1.888, 0))
+			fr_roller.rotation.x = deg_to_rad(90)                                                # the wheel itself
+			# An exact marker at the working end (the roller tip — where the line actually
+			# leaves the rig), a child of the rod pivot so it inherits the rig's own tilt and
 			# position automatically. player_controller.hand_tip_world() looks this up by
 			# name so the fishing line anchors to the ROD'S REAL RENDERED TIP instead of a
 			# generic "longest AABB axis" guess, which put the anchor near the grip for any
 			# item (like this rod) whose mesh is built along +Y rather than -Z.
 			var tip := Node3D.new()
 			tip.name = "hand_tip"
-			shaft.add_child(tip)
-			tip.position = Vector3(0, 0.75, 0)   # the shaft's own half-height: its far end
+			fr.add_child(tip)
+			tip.position = Vector3(0.024, 1.90, 0)   # the roller's own centre: the far end
 		"deep_rig_pole":
 			# A heavy deep-drop hand-line, not a delicate rod: a short braced pole, a big
 			# lead-weighted line drum, and terminal tackle slung under the tip. Built up its
@@ -1177,13 +1282,23 @@ static func _can(root: Node3D, metal: Color, label: Color) -> void:
 	_cyl(root, 0.11, 0.28, metal, Vector3(0, 0.14, 0))
 	_cyl(root, 0.115, 0.14, label, Vector3(0, 0.14, 0))   # label band around the middle
 
-static func _torus(root: Node3D, inner: float, outer: float, color: Color, pos: Vector3) -> MeshInstance3D:
+## Ring part — a rope coil, a growth ridge, a guard hoop, a rod guide. `rings` and
+## `ring_segments` default to TorusMesh's own 64x32, which is 4096 triangles for ONE ring:
+## affordable for the single hoops most cases build, ruinous for the fishing rod's six
+## guides plus reel rims, which is why those pass counts down at 16x8. A 2 cm ring is
+## indistinguishable at either count in the hand or in a 96 px icon.
+static func _torus(root: Node3D, inner: float, outer: float, color: Color, pos: Vector3,
+		rings: int = 64, ring_segments: int = 32) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var m := TorusMesh.new()
 	# TorusMesh renders inside-out (or not at all) if the inner radius reaches the outer;
 	# the outer is held at least one MIN_EXTENT clear of it rather than merely positive.
 	m.inner_radius = _ext(inner)
 	m.outer_radius = maxf(_ext(outer), m.inner_radius + MIN_EXTENT)
+	# A ring needs at least a triangle's worth of each: a 0 or negative count is the same
+	# degenerate-mesh hazard MIN_EXTENT guards against on the dimensions.
+	m.rings = maxi(rings, 3)
+	m.ring_segments = maxi(ring_segments, 3)
 	m.material = MatLib.flat(color)
 	mi.mesh = m
 	root.add_child(mi)
