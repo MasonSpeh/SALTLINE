@@ -68,16 +68,18 @@ const FOOD_MAP := {
 
 func _ready() -> void:
 	_wet_deck()
-	_galley()
+	_dining_hall()
 	_bunkhouse()
 	_rec_room()
 	_machine_shop()
+	_breaker_room()
 	_deck_b_cabins()
 	_deck_c_control()
 	_deck_d_works()
 	# Second pass — roughly doubles the density with the furniture/decor/plant
 	# library so every room reads densely inhabited, not just sketched.
-	_galley_more()
+	_dining_hall_more()
+	_dining_hall_kitchen()
 	_bunkhouse_more()
 	_rec_room_more()
 	_machine_shop_more()
@@ -92,10 +94,13 @@ func _ready() -> void:
 	# The wet deck's natural stock — tar seams, barnacle crust, snagged floats,
 	# kelp, the fish-cleaning board. Cheap CSG, so it goes up immediately.
 	add_child(HARVEST_NODES.new())
-	# Pull the galley bulkhead's two stray fittings into the composition documented
-	# above the galley section. Safe to run here: rig_builder calls _density_a()
-	# (which authors them) BEFORE it adds this node, so they already exist.
-	_galley_bulkhead_layout()
+	# Pull the dining hall's stray fittings into the composition documented above the
+	# dining-hall section, and retire the room's old name. Safe to run here: rig_builder
+	# calls _density_a() (which authors them) BEFORE it adds this node, so they exist.
+	_dining_hall_layout()
+	# Same contract for Breaker Room 4-A: rig_builder paints two wall stencils across the
+	# panel and hangs the doorway sign inside its own frame. See _breaker_room_layout().
+	_breaker_room_layout()
 	# Same deal for the rec room: rig_builder authors a rug, two legless table tops,
 	# a mid-air TV and a flat-colour bench block in there, and _decorate_rec_room() /
 	# _density_a() both run before this node is added. See _rec_room_layout().
@@ -258,6 +263,40 @@ func _lamp(pos: Vector3, color: Color = Color(1.0, 0.82, 0.5), energy: float = 0
 	add_child(l)
 	l.global_position = pos
 
+## A MAINS ceiling fixture: dead in the blackout, warm once the master breaker in 4-A is
+## closed. Same fixture and the same gate as rig_builder._mains_light (flush plate,
+## housing, lens, an omni hung just under it, staggered through PowerGrid.queue_light so
+## a whole rig's worth of lights never wake in one frame) — restated here rather than
+## called across files because rig_builder's copy is private to that node. `pos` is the
+## CEILING UNDERSIDE: the plate bolts to it and everything else hangs below.
+func _mains_lamp(pos: Vector3, energy: float, rng: float) -> void:
+	var dark: Material = MatLib.dark_metal()
+	_wall_mesh(pos + Vector3(0, -0.03, 0), Vector3(0.52, 0.06, 0.26), dark)   # flush ceiling plate
+	_wall_mesh(pos + Vector3(0, -0.13, 0), Vector3(0.5, 0.14, 0.22), dark)    # housing
+	var lens: MeshInstance3D = _wall_mesh(pos + Vector3(0, -0.22, 0), Vector3(0.44, 0.06, 0.16),
+		MatLib.flat(Color(0.85, 0.82, 0.72)))                                 # dark lens
+	var lamp := OmniLight3D.new()
+	lamp.omni_range = rng
+	lamp.light_energy = energy
+	lamp.light_color = Color(1.0, 0.93, 0.78)
+	lamp.shadow_enabled = false
+	lamp.visible = false                       # dead until the breaker closes
+	add_child(lamp)
+	lamp.global_position = pos - Vector3(0, 0.32, 0)
+	lamp.add_to_group("interior_mains")
+	PowerGrid.circuit_powered.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			PowerGrid.queue_light(func() -> void:
+				if is_instance_valid(lamp):
+					lamp.visible = true
+					if is_instance_valid(lens):
+						(lens.mesh as BoxMesh).material = MatLib.flat(Color(1.0, 0.96, 0.85), true, 2.0)))
+	PowerGrid.circuit_lost.connect(func(id: String) -> void:
+		if id == "topside_floodlights" and is_instance_valid(lamp):
+			lamp.visible = false
+			if is_instance_valid(lens):
+				(lens.mesh as BoxMesh).material = MatLib.flat(Color(0.85, 0.82, 0.72)))
+
 # ---- wet deck: the rigging bench & dock storeroom ----
 # The rigging CraftBench sits at (25.0, 2.0, -17.5) with a 1.6 x 0.9 x 0.7 hull CENTRED on
 # the deck, so its working top is y+0.45 and its footprint is x 24.2..25.8, z -17.85..-17.15.
@@ -316,14 +355,54 @@ func _wet_deck() -> void:
 	_pw("industrial_pipe_lamp", Vector3(14.3, y + 2.15, -6.3), 180)
 	_lamp(Vector3(14.3, y + 1.95, -6.75), Color(1.0, 0.83, 0.5), 0.55, 4.5)
 
-# ---- galley ----
-# Counter run: top y+1.0, x 1..11, z 16.4..17.6.  Mess tables: top y+0.49, 1.8 x 1.0, at
-# (2,11) (8,11) (2,14.5) (8,14.5).  Wall shelves x -1.6: tops y+1.63 / y+2.23, z 10.9..14.1
-# with canned rows already standing at z 11.2/11.8/12.4/13.0/13.6 — leave those gaps alone.
+# ============================================================ THE DINING HALL
 #
-# THE WEST BULKHEAD (galley wall). Its inner face is x = -1.875 (wall centreline x -2,
-# WALL_T 0.25) and it runs z 8.125..17.875. See _galley_bulkhead_layout() for the
-# composition; the zones it reserves are:
+# (The room the rest of the codebase still calls the "galley" — see _dining_hall_layout()
+# for the rename. Everything a PLAYER reads says Dining Hall.)
+#
+# THE ROOM, measured: interior x -1.875..13.875, z 8.125..17.875 — 15.75 x 9.75m, the
+# biggest enclosed space on the rig. Kitchen-tile floor top y+0.05 (the overlay spans
+# y+0.02..y+0.05, so anything standing on the deck seats its base at y+0.05, NOT y).
+# Deckhead underside y+3.075; ceiling beams at y+2.95 on z 10.5 / 15.5; the service pipe
+# run is on z 12.0 at y+2.7 — nothing of ours goes above y+2.6 except the extract duct,
+# which is threaded between the beams on purpose. THE DOOR is in the south wall at x 6.
+#
+# FIXED FURNITURE (rig_builder's, not ours to author — only to compose around):
+#   servery counter  x 1..11, z 16.4..17.6, top y+1.0
+#   the range        x 10.85..12.15, z 15.6..16.8, top y+1.0   (CookStove)
+#   the fridge       x -1.65..-0.75, z 14.75..15.65             (ColdStore)
+#   pantry shelves   x -1.6, tops y+1.63 / y+2.23, z 10.9..14.1, cans on z 11.2/11.8/
+#                    12.4/13.0/13.6 — leave those gaps alone
+#   pan rail         x 8..11 at y+2.2, z 17.4, with the drying line just above it
+#   FOUR MESS TABLES top y+0.49, 1.8 (x) x 1.0 (z), at (2,11) (8,11) (2,14.5) (8,14.5)
+#
+# THE COMPOSITION. The four fixed tables are already a 2 x 2 grid on x 2 / 8 and z 11 /
+# 14.5, so the room is laid out AS that grid rather than against it:
+#
+#   THE AISLE. The south door at x 6 opens onto a 4.4m clear run straight up the middle
+#   of the hall to the servery — x 2.77..7.23 has nothing in it at any point, because the
+#   east chairs of the west tables stop at x 2.77 and the west chairs of the east tables
+#   start at x 7.23. That aisle is the room: you walk in and see the whole kitchen.
+#   THE CROSS LANE. Between the two table rows, z 12.15..13.35 — 1.2m, the minimum walk
+#   width this file's placement doctrine allows — runs east-west from the pantry shelves
+#   to the prep counter.
+#   THE SEATING. Four chairs a table, one consistent set (painted_wooden_chair_01, the
+#   same piece the rec room's conversation square uses; the old WoodenChair_01 run and
+#   rig_builder's flat grey stool blocks are both gone — see _dining_hall_layout).
+#   SOUTH ROW tables seat two a side, long-side only. NORTH ROW tables seat two on their
+#   SOUTH side and one at each END — nobody sits with their back 60cm off the servery,
+#   and it keeps a 1.4m service lane along the whole counter run.
+#   THE KITCHEN is an L: rig_builder's servery counter along the north wall, and a new
+#   prep counter down the east wall (x 12.675..13.825, z 11.7..15.1) with the coffee urn
+#   and the pot rail on it. Wall shelves, the sink, the dish rack, the extract hood over
+#   the range and the dry-goods rail all hang off those two runs.
+#   LIGHT. Three mains fixtures on z 13 at x 1.8 / 6 / 10.2 (rig_builder owns the middle
+#   one) — the hall used to have a single hot spot over the aisle with both ends of a
+#   15.75m room in shadow. All three are on the same breaker.
+#
+# THE WEST BULKHEAD. Its inner face is x = -1.875 (wall centreline x -2, WALL_T 0.25) and
+# it runs z 8.125..17.875. See _dining_hall_layout() for the composition; the zones it
+# reserves are:
 #   z  8.3..8.9   deck corner: the potted plant
 #   z  8.95..10.15, y+1.38..y+2.18   the chalk/notice board (clear wall, nothing on it)
 #   z  9.55, y+2.65                  the mess clock, centred over the board
@@ -334,39 +413,78 @@ func _wet_deck() -> void:
 # The y+2.65 line is a deliberate datum: clock and paint share it, everything else sits
 # below, so the wall reads as composed rather than piled.
 
-## Repair the galley bulkhead's stacked fittings.
+## Repair the dining hall's stacked fittings, retire its old name, and clear out the
+## seating the owner rejected.
 ##
-## The board and the stencil are authored in rig_builder._density_a() at the SAME spot
-## (-1.86 / -1.82, DECK_Y+1.9, 12.5) — dead centre of the pantry-shelf run. The result
-## the owner photographed: painted lettering silk-screened across a dark notice board,
-## both shelves and both rows of cans cutting straight through the pair of them.
+## FOUR separate faults live in rig_builder and all four are fixed here rather than there:
 ##
-## Nothing here re-authors that dressing; it only moves two existing nodes into the free
-## zones the wall already has. This file settling other builders' props at runtime is an
-## established pattern (see _settle_pass, which sweeps the whole tree). Both lookups are
-## gated on an exact signature — position, size, text — so if rig_builder is ever fixed
-## at source this silently no-ops instead of fighting it. FOLD INTO rig_builder.gd AND
-## DELETE FROM HERE when that file is next opened.
-func _galley_bulkhead_layout() -> void:
+##  1. THE BOARD AND THE STENCIL ARE AUTHORED AT THE SAME SPOT. _density_a() puts both at
+##     (-1.86 / -1.82, DECK_Y+1.9, 12.5) — dead centre of the pantry-shelf run. The result
+##     the owner photographed: painted lettering silk-screened across a dark notice board,
+##     both shelves and both rows of cans cutting straight through the pair of them.
+##  2. THE ROOM IS CALLED THE GALLEY. Two things say so where a player can read them: the
+##     bulkhead stencil, and the display name on the south door ("OPEN Galley"). Both are
+##     renamed to Dining Hall. (Nothing else in the room is user-visibly named — the range
+##     and the fridge carry their own names, set in cook_stove.gd / cold_store.gd.)
+##  3. EIGHT FLAT GREY STOOL BLOCKS. _density_a() drops a 0.4 x 0.48 x 0.4 untextured box
+##     at each table's two ends as "stools at every table". They are the chairs the owner
+##     asked to be rid of: a saturated flat albedo cube reads as a placeholder next to this
+##     rig's textured steel and timber, and they stand exactly where the north tables' end
+##     chairs belong. Freed, not moved — the real seating is authored in _dining_hall().
+##
+## Nothing here re-authors dressing; it moves, renames or removes existing nodes. This
+## file editing other builders' output at runtime is an established pattern (see
+## _settle_pass, which sweeps the whole tree). Every lookup is gated on an exact signature
+## — position, size, text, display name — so if rig_builder is ever fixed at source this
+## silently no-ops instead of fighting it. FOLD INTO rig_builder.gd AND DELETE FROM HERE
+## when that file is next opened.
+func _dining_hall_layout() -> void:
 	var y: float = DECK_Y
 	var host: Node = get_parent()
 	if host == null:
 		return
+	# Table centres, so the grey stool blocks can be matched by where they stand.
+	var tables := [Vector3(2, y, 11), Vector3(8, y, 11), Vector3(2, y, 14.5), Vector3(8, y, 14.5)]
+	var junk: Array = []
 	for n in host.get_children():
-		# The notice board: 0.05 x 0.8 x 1.2 slab buried in the shelf run.
-		# Rehung on the clear south panel, back flush to the wall face (x -1.875).
 		if n is CSGBox3D:
 			var b := n as CSGBox3D
+			# The notice board: 0.05 x 0.8 x 1.2 slab buried in the shelf run.
+			# Rehung on the clear south panel, back flush to the wall face (x -1.875).
 			if b.size.is_equal_approx(Vector3(0.05, 0.8, 1.2)) \
 					and b.position.distance_to(Vector3(-1.86, y + 1.9, 12.5)) < 0.05:
 				b.position = Vector3(-1.85, y + 1.78, 9.55)
+			# The eight flat-colour stool blocks, matched on size AND on standing at a
+			# table end. Deleted: they are the seating this pass replaces.
+			elif b.size.is_equal_approx(Vector3(0.4, 0.48, 0.4)):
+				for tp in tables:
+					if b.position.distance_to(tp + Vector3(-1.2, 0.24, 0)) < 0.05 \
+							or b.position.distance_to(tp + Vector3(1.2, 0.24, 0)) < 0.05:
+						junk.append(b)
+						break
 		# The stencil is PAINT. It moves up onto the bare plate above the shelves, on the
 		# y+2.65 datum: clear of the upper shelf (top y+2.23, cans to y+2.41) and clear
 		# of the ceiling beam that lands at y+2.82. 0.01 proud of the wall so it does not
-		# z-fight the plate it is painted on.
+		# z-fight the plate it is painted on. And it stops calling the room the galley.
 		elif n is Label3D and (n as Label3D).text.contains("LAST MENU"):
+			(n as Label3D).text = "DINING HALL — LAST MENU: STEW"
 			n.position = Vector3(-1.865, y + 2.65, 12.6)
+		# The south door's interaction prompt is the other place the old name is read.
+		# The leaf hangs under a pivot Node3D (rig_builder._hang_door), so it is a
+		# GRANDCHILD of the host — check the node and one level under it.
+		elif n is InteractDoor:
+			_rename_door(n as InteractDoor)
+		else:
+			for c in n.get_children():
+				if c is InteractDoor:
+					_rename_door(c as InteractDoor)
+	for b in junk:
+		(b as Node).queue_free()
 	_galley_board_dressing()
+
+func _rename_door(d: InteractDoor) -> void:
+	if d.display_name == "Galley":
+		d.display_name = "Dining Hall"
 
 ## Put something ON the notice board, and give the bare north end of the bulkhead a fitting.
 ##
@@ -429,6 +547,29 @@ func _wall_mesh(pos: Vector3, size: Vector3, mat: Material) -> MeshInstance3D:
 	mi.add_to_group("placement_exempt")
 	return mi
 
+## Stencilled paint on a surface — the same fitting rig_builder._plabel makes, restated
+## here because that one is private to that node. Single-sided, unshaded by billboarding,
+## and weathered toward charcoal the way every painted marking on this rig is: the source
+## colour only says how FADED the lettering reads, never what colour it is.
+## yaw 0 faces +Z, 180 faces -Z (this file's convention throughout).
+func _paint(text: String, pos: Vector3, yaw: float, font_size: int = 12,
+		wear: float = 0.6) -> Label3D:
+	var l := Label3D.new()
+	l.text = text
+	l.font_size = maxi(12, int(font_size * 0.75))
+	l.pixel_size = 0.01
+	var k: float = lerpf(0.06, 0.17, clampf(wear, 0.0, 1.0))
+	l.modulate = Color(k, k, k * 1.08, 0.9)
+	l.outline_size = 0
+	l.shaded = true
+	l.double_sided = false
+	l.billboard = BaseMaterial3D.BILLBOARD_DISABLED
+	add_child(l)
+	l.global_position = pos
+	l.rotation.y = deg_to_rad(yaw)
+	l.add_to_group("placement_exempt")
+	return l
+
 ## Built-in joinery: a carcass the player actually bumps into. Same shape as _wall_mesh
 ## but a colliding CSGBox3D, because a credenza you can walk through is scenery, not
 ## furniture. Exempt from the settle for the same reason a wall is — it IS the surface.
@@ -442,7 +583,12 @@ func _carcass(pos: Vector3, size: Vector3, mat: Material) -> CSGBox3D:
 	b.add_to_group("placement_exempt")
 	return b
 
-func _galley() -> void:
+## The four fixed mess-table centres. Restated NOWHERE else in this file — every chair,
+## every tray and every mug in the hall is placed as an offset from one of these, so the
+## seating cannot drift away from the tables it belongs to.
+const MESS_TABLES := [Vector3(2, 0, 11), Vector3(8, 0, 11), Vector3(2, 0, 14.5), Vector3(8, 0, 14.5)]
+
+func _dining_hall() -> void:
 	var y: float = DECK_Y
 	var counter: float = y + 1.2       # counter top is y+1.0
 	_p("vintage_electric_kettle", Vector3(3.4, counter, 17.0), 180)
@@ -456,14 +602,49 @@ func _galley() -> void:
 	# and are 0.42m wide. x -1.58 puts them mid-depth on the 0.35-deep boards.
 	_p("long_life_food", Vector3(-1.58, y + 1.80, 12.1), 90)
 	_p("cleaner_tin_01", Vector3(-1.58, y + 2.40, 13.3), 90)
-	# A mess stool pushed back from a table, a thermos left on a table top. Was a white
-	# plastic garden monobloc — the one object in the galley that read as suburban patio
-	# furniture rather than as something a supply boat landed on a North Sea rig.
-	_pc("metal_stool_01", Vector3(4.3, y, 12.9), 30)
 	_p("modified_thermos", Vector3(8.5, y + 0.7, 11.3), 60)
 	_p("russian_food_cans_01", Vector3(2.5, y + 0.7, 14.15), -30)
 	# A trash can by the fridge, overflowing a little.
 	_pc("metal_trash_can", Vector3(0.2, y, 16.6), 0)
+	_mess_seating(y)
+
+## THE SEATING. Sixteen chairs, one set, four to a table, squared to the table grid.
+##
+## The old arrangement was two WoodenChair_01 a table on the long sides plus eight flat
+## grey blocks at the ends (rig_builder's, freed in _dining_hall_layout) — a mix of two
+## kinds of seat, none of which the owner wanted, and eight of which were untextured
+## primitives. This is one piece throughout: painted_wooden_chair_01, the same chair the
+## rec room's conversation square is built from, which is the best-looking seat in the
+## library and reads as furniture a supply boat landed rather than deck kit.
+##
+## Yaw convention (this file's, matching the rec room): 0 faces +Z, 90 faces +X.
+##
+## SOUTH ROW (z 11) seats two a side on the long faces. NORTH ROW (z 14.5) seats two on
+## its SOUTH face and one at each END: the counter run is at z 16.4, and a chair on the
+## north face would put a diner's back 0.7m off the servery and pinch the service lane
+## to nothing. Ends instead — same chair count, and the lane along the whole counter
+## stays 1.4m.
+##
+## Clearances this produces, all measured off a ~0.5m-square chair footprint:
+##   the aisle from the south door:  x 2.77..7.23  = 4.46m clear, floor to servery
+##   between the two table rows:     z 12.15..13.35 = 1.20m, the doctrine minimum
+##   between the end chairs mid-room: x 3.53..6.47 = 2.94m
+##   along the servery counter:      z 15.0..16.4  = 1.40m
+func _mess_seating(y: float) -> void:
+	var chair: String = "painted_wooden_chair_01"
+	for tp in MESS_TABLES:
+		var t := Vector3(tp.x, y, tp.z)
+		# The south face of every table: two chairs, tucked to the long edge.
+		for dx in [-0.52, 0.52]:
+			_pc(chair, t + Vector3(dx, 0, -0.90), 0)
+		if is_equal_approx(tp.z, 11.0):
+			# South row — the north face is open floor, so it seats two there as well.
+			for dx in [-0.52, 0.52]:
+				_pc(chair, t + Vector3(dx, 0, 0.90), 180)
+		else:
+			# North row — the ends, so nobody sits with their back to the servery.
+			_pc(chair, t + Vector3(-1.28, 0, 0.0), 90)
+			_pc(chair, t + Vector3(1.28, 0, 0.0), -90)
 
 # ---- bunkhouse ----
 # Six bunks at z 6.5 (south row) / z 15.5 (north row), x -25.5 / -18.8 / -12.0.
@@ -682,7 +863,7 @@ func _rec_room() -> void:
 ## Nothing here re-authors that furniture; this only moves existing nodes into the
 ## composition and builds the missing joinery under them. Every lookup is gated on an exact
 ## signature (size + position), so if rig_builder is ever fixed at source this silently
-## no-ops instead of fighting it — the same contract as _galley_bulkhead_layout(), and the
+## no-ops instead of fighting it — the same contract as _dining_hall_layout(), and the
 ## same hand-off note: FOLD INTO rig_builder.gd AND DELETE FROM HERE when that file is
 ## next opened. Legs are derived from each top's OWN measured underside, so they follow the
 ## slab rather than restating its height as a second literal.
@@ -796,6 +977,218 @@ func _machine_shop() -> void:
 	# The bench worklight is an anchored ceiling-hung fixture built in rig_builder
 	# (_worklight_ceiling) — the old industrial_wall_lamp floated mid-room over the bench.
 
+# ============================================================ BREAKER ROOM 4-A
+#
+# THE ROOM, measured off rig_builder._room_north(21,10,2 → 28,10,8.8): interior
+# x 21.125..27.875, z 2.125..8.675 — 6.75 x 6.55m, floor y10.0 (the annex floor slab's top
+# face IS y10, there is no overlay), ceiling underside y13.075. It is the power puzzle's
+# room, so it is the one interior on the rig that is allowed to look purely industrial.
+#
+# FIXED CONTENT (rig_builder's — nothing here may foul any of it):
+#   the master breaker  x 22.5..23.5, y 10.7..12.1, z 8.35..8.65, on the north wall
+#   its hazard placard + amber marker + stencils, above it (see _breaker_room_layout)
+#   the burned cable gap  x 27.55..27.65, z 4.85..7.15 at y10.9, on the EAST wall
+#   conduit stubs and cosmetic cable runs at x 27.64..27.76, z 2.5..4.7 and 7.1..8.6
+#   the maintenance-log readable at (24.6, 11.2, 8.62); E.V.'s note pinned to the panel
+#   the doorway, cut in the z2 shell wall at x 23.5 — clear opening x 22.79..24.21
+#   one mains ceiling fixture at (24, 13.07, 6)
+#
+# THE TWO LANES THAT STAY EMPTY, and every placement below is checked against them:
+#   THE PANEL WALK   x 22.0..24.4 from the door (z 2.1) to the panel face (z 8.35). That
+#                    is 2.4m wide, twice the 1.2m doctrine minimum, and NOTHING stands in
+#                    it — the desk stops at x 21.88, the stool at x 22.70, and everything
+#                    on the panel wall itself is bracketed to the plate.
+#   THE SPLICE BAY   z 4.4..7.6 along the east wall, so the burned gap can be reached and
+#                    worked with the cable in hand. The cart is south of it, the parts
+#                    drawers north of it.
+#
+# THE COMPOSITION. West wall = the maintenance run (desk, stool, tool chest, toolbox).
+# North wall = the panel and its spares. East wall = consumables and the splice bay.
+# South wall = the schematic board and the fire point, either side of the door. A cable
+# tray runs the top of all three long walls at y+2.35 with conduit dropping out of it
+# into the panel and the burned feed — which is the fitting that says "plant room" more
+# than any prop in the library does.
+
+func _breaker_room() -> void:
+	var by: float = 10.0
+	var steel: Material = MatLib.galvanized()
+	var dark: Material = MatLib.dark_metal()
+
+	# ---- WEST WALL (inner face 21.125): the maintenance run ----
+	_pc("metal_office_desk", Vector3(21.60, by, 6.30), 90)     # long axis along z, back to the wall
+	_pc("metal_stool_01", Vector3(22.40, by, 6.30), -90)       # pulled out, still west of the walk
+	_p("retro_multimeter", Vector3(21.60, by + 0.85, 5.95), 20)
+	_p("office_notepads", Vector3(21.66, by + 0.85, 6.68), -25)
+	_p("stationery_supplies", Vector3(21.48, by + 0.85, 6.32), 0)
+	_pc("metal_tool_chest", Vector3(21.50, by, 3.90), 90)
+	_p("adjustable_wrench", Vector3(21.50, by + 1.00, 3.72), 30)
+	_p("pliers", Vector3(21.56, by + 1.00, 4.10), -20)
+	_pc("metal_toolbox", Vector3(21.60, by + 0.02, 4.95), -90)
+	_p("utility_box_01", Vector3(21.55, by + 0.02, 5.55), 20)  # a parts bin set down beside it
+
+	# ---- NORTH WALL: the panel and its spares. Bracketed, never floor-standing. ----
+	_pw("power_box_01", Vector3(21.80, by + 1.45, 8.56), 180, 1.0)   # spare junction box
+	_pw("power_box_01", Vector3(25.85, by + 1.45, 8.56), 180, 1.0)   # spare fuse box
+
+	# ---- EAST WALL: consumables south of the splice bay, parts drawers north of it ----
+	_pc("industrial_storage_cart", Vector3(26.60, by, 3.10), 0)      # the one wheeled thing
+	_p("oil_tin", Vector3(26.35, by + 0.95, 3.10), 20)
+	_p("lubricant_spray", Vector3(26.88, by + 0.95, 3.05), -30)
+	_pc("metal_trash_can", Vector3(27.20, by, 4.35), 0)
+	_pc("drawer_cabinet", Vector3(27.35, by, 8.15), -90)             # parts drawers, NE corner
+	_p("can_rusted", Vector3(27.35, by + 1.00, 8.30), 0)
+
+	# ---- SOUTH WALL (inner face 2.125): the schematic board, either side of the door ----
+	_pw("korean_fire_extinguisher_01", Vector3(22.30, by + 0.95, 2.28), 0, 1.1)
+	_pw("wall_clock", Vector3(21.90, by + 2.10, 2.18), 0)
+	# The voltage placard goes by the DOOR, not on the panel wall: rig_builder already
+	# paints "1) SPLICE THE GAP / 2) CLOSE THIS MASTER" across x 24.5..25.9 up there, and a
+	# plate anywhere near it lands under the second line.
+	_wall_mesh(Vector3(24.30, by + 1.45, 2.16), Vector3(0.48, 0.42, 0.05), MatLib.hazard_stripe())
+	_wall_mesh(Vector3(24.30, by + 1.45, 2.185), Vector3(0.42, 0.34, 0.02), MatLib.painted_steel())
+	_paint("DANGER\n440 V", Vector3(24.30, by + 1.45, 2.20), 0, 13, 0.2)
+	_schematic_board(Vector3(25.70, by + 1.75, 2.17))
+	_pw("clipboard", Vector3(24.85, by + 1.50, 2.22), 0)
+	_pc("chinese_stool", Vector3(25.70, by, 2.72), 0)                # under the board
+	_paint("4-A  DISTRIBUTION", Vector3(25.70, by + 2.42, 2.19), 0, 14, 0.5)
+
+	# ---- CABLE TRAY + CONDUIT: the run that makes this a plant room ----
+	# Perimeter tray on the three long walls, cable bundles lying in it, and drops out of
+	# it into the two things this room exists for: the master breaker, and the burned feed
+	# on the east wall.
+	#
+	# THE TRAY HEIGHT IS SET BY THE PANEL WALL, NOT BY THE CEILING. At the obvious y+2.35
+	# the north run passed straight across the bottom of the hazard placard over the
+	# breaker (y 12.35..12.97 after _breaker_room_layout widens it), hiding the "v THIS
+	# PANEL v" line and the self-lit amber marker underneath it. y+2.20 threads the tray
+	# through the 0.25m of bare plate BETWEEN the cabinet top (12.10) and the placard
+	# bottom (12.35) — 7.5cm clear below, 5.5cm clear above — so it now reads as the
+	# feed arriving at the panel instead of as a bar drawn over the signage.
+	var tray: float = by + 2.20
+	_tray(Vector3(24.50, tray, 8.55), Vector3(6.30, 0.05, 0.24), true)
+	_tray(Vector3(21.30, tray, 5.40), Vector3(0.24, 0.05, 5.20), false)
+	_tray(Vector3(27.70, tray, 5.40), Vector3(0.24, 0.05, 5.20), false)
+	for dx in [22.65, 23.00, 23.35]:                 # drops onto the panel top (y12.1)
+		_wall_mesh(Vector3(dx, by + 2.14, 8.58), Vector3(0.06, 0.13, 0.06), dark)
+	_wall_mesh(Vector3(27.70, by + 1.55, 4.30), Vector3(0.07, 1.25, 0.07), dark)   # drop to the gap
+	_wall_mesh(Vector3(27.70, by + 1.55, 7.70), Vector3(0.07, 1.25, 0.07), dark)
+	_wall_mesh(Vector3(21.28, by + 1.80, 4.90), Vector3(0.20, 0.34, 0.26), MatLib.painted_steel())
+	_wall_mesh(Vector3(21.28, by + 1.80, 7.20), Vector3(0.20, 0.34, 0.26), MatLib.painted_steel())
+	_wall_mesh(Vector3(21.20, by + 1.62, 4.90), Vector3(0.04, 0.06, 0.04), steel)   # gland
+	_wall_mesh(Vector3(21.20, by + 1.62, 7.20), Vector3(0.04, 0.06, 0.04), steel)
+
+## A length of cable tray: the perforated channel, its two upstands, and the bundle of
+## cable lying in it. `along_x` picks which way the run goes.
+func _tray(pos: Vector3, size: Vector3, along_x: bool) -> void:
+	var steel: Material = MatLib.galvanized()
+	_wall_mesh(pos, size, steel)
+	var half: float = (size.z if along_x else size.x) * 0.5
+	for s in [-1.0, 1.0]:
+		var off := Vector3(0, 0.05, s * half) if along_x else Vector3(s * half, 0.05, 0)
+		var up := Vector3(size.x, 0.09, 0.02) if along_x else Vector3(0.02, 0.09, size.z)
+		_wall_mesh(pos + off, up, steel)
+	var bundle := Vector3(size.x * 0.99, 0.07, 0.14) if along_x else Vector3(0.14, 0.07, size.z * 0.99)
+	_wall_mesh(pos + Vector3(0, 0.06, 0), bundle, MatLib.flat(Color(0.10, 0.09, 0.08)))
+
+## The single-line schematic pinned by the door: a steel backboard, a drawing sheet, the
+## bus and its feeders inked on it, and one feeder ringed in red — the burned one.
+## `pos` is the board's centre, its face 0.02 proud of it toward the room (+Z).
+func _schematic_board(pos: Vector3) -> void:
+	_wall_mesh(pos, Vector3(1.20, 0.90, 0.05), MatLib.dark_metal())
+	var face: float = pos.z + 0.032
+	_wall_mesh(Vector3(pos.x, pos.y, face), Vector3(1.02, 0.74, 0.006),
+		MatLib.flat(Color(0.80, 0.82, 0.84)))
+	var ink: Material = MatLib.flat(Color(0.16, 0.17, 0.19))
+	_wall_mesh(Vector3(pos.x, pos.y + 0.26, face + 0.004), Vector3(0.86, 0.018, 0.004), ink)  # the bus
+	for i in range(5):
+		var fx: float = pos.x - 0.34 + i * 0.17
+		_wall_mesh(Vector3(fx, pos.y + 0.06, face + 0.004), Vector3(0.014, 0.42, 0.004), ink)
+		_wall_mesh(Vector3(fx, pos.y - 0.17, face + 0.004), Vector3(0.10, 0.12, 0.004), ink)  # a breaker
+	# The dead feeder, ringed in grease pencil, with the note somebody wrote beside it.
+	_wall_mesh(Vector3(pos.x + 0.34, pos.y - 0.17, face + 0.006), Vector3(0.17, 0.19, 0.004),
+		MatLib.flat(Color(0.62, 0.16, 0.13)))
+	_wall_mesh(Vector3(pos.x + 0.34, pos.y - 0.17, face + 0.008), Vector3(0.12, 0.14, 0.004),
+		MatLib.flat(Color(0.80, 0.82, 0.84)))
+	_paint("4-A SINGLE LINE", Vector3(pos.x, pos.y + 0.40, face + 0.010), 0, 12, 0.35)
+	for hx in [-0.55, 0.55]:                                        # bolts at the corners
+		for hy in [-0.41, 0.41]:
+			_wall_mesh(Vector3(pos.x + hx, pos.y + hy, face), Vector3(0.03, 0.03, 0.02),
+				MatLib.galvanized())
+
+## Repair Breaker Room 4-A's painted signage — the stencils on the panel wall, and the
+## sign over the doorway on stair landing 2.
+##
+## TWO faults, both authored in rig_builder and both the same class of bug as the dining
+## hall's stacked bulkhead (see _dining_hall_layout for the contract this follows):
+##
+##  1. THE PANEL-WALL PAINT SITS ON THE PANEL. "MASTER BREAKER 4-A" is authored at
+##     (23, 12.58, 8.58) — dead INSIDE the self-lit amber marker bar (z 8.575..8.605), so
+##     the lettering and the glowing bar fight for the same 3cm of depth — and
+##     "v THIS PANEL v" at y 12.28 straddles the bottom edge of the hazard placard with
+##     its lower half hanging over the 0.18m of bare plate between the placard and the
+##     breaker cabinet's top. The two lines and the marker are three fittings sharing one
+##     0.5m plate with no margin anywhere.
+##  2. THE DOORWAY SIGN HANGS IN THE DOOR. The landing-2 title is authored at y 12.40 —
+##     the exact top of a 2.4m opening — so a label 0.20m tall is cut in half by the
+##     doorframe HEAD (DoorFrame puts it at y 12.30..12.40, standing PROUD of the wall on
+##     both faces, so the paint is not merely level with the frame, it is inside it). Its
+##     subtitle and the self-lit marker over it are both authored at z 1.88/1.90, which is
+##     INSIDE the 0.25-thick wall (south face 1.875) rather than painted on it.
+##
+## The fix is the idiom the machinery-room door already uses one level down: everything
+## goes ABOVE the head, onto solid lintel plate, stacked title / marker / subtitle with
+## real gaps, and every piece is pushed a few millimetres proud of the face it is painted
+## on. Panel-wall side, the placard is widened to 1.6 x 0.62 so two lines and a marker
+## fit inside it with margin, and the whole group is lifted to leave 0.25m of clear plate
+## between the paint and the top of the breaker cabinet.
+##
+## Same contract as _dining_hall_layout: exact-signature lookups, so a source fix in
+## rig_builder silently no-ops this. FOLD INTO rig_builder.gd AND DELETE FROM HERE.
+func _breaker_room_layout() -> void:
+	var host: Node = get_parent()
+	if host == null:
+		return
+	for n in host.get_children():
+		if n is CSGBox3D:
+			var b := n as CSGBox3D
+			# The hazard placard over the panel: widened and lifted so the two stencil
+			# lines and the marker all land inside it with margin.
+			if b.size.is_equal_approx(Vector3(1.3, 0.5, 0.05)) \
+					and b.position.distance_to(Vector3(23, 12.55, 8.62)) < 0.05:
+				b.size = Vector3(1.6, 0.62, 0.05)
+				b.position = Vector3(23.0, 12.66, 8.62)
+				# A painted field across the top of the plate for the wording to sit on.
+				# Charcoal stencil paint on black-and-yellow hazard stripes is very nearly
+				# unreadable — the stripes win — so the two lines get a plain steel band
+				# and the striping is left showing as a border round it and under the
+				# self-lit marker. Built only when the plate was actually found, so a
+				# source fix in rig_builder takes this with it.
+				_wall_mesh(Vector3(23.0, 12.72, 8.585), Vector3(1.52, 0.46, 0.02),
+					MatLib.painted_steel())
+			# Its self-lit amber marker, dropped to the bottom of the plate where it
+			# underlines the wording instead of running through it.
+			elif b.size.is_equal_approx(Vector3(1.05, 0.16, 0.03)) \
+					and b.position.distance_to(Vector3(23, 12.58, 8.59)) < 0.05:
+				b.size = Vector3(1.36, 0.09, 0.03)
+				b.position = Vector3(23.0, 12.44, 8.575)
+			# The landing-2 door marker, lifted out of the frame and onto the wall face.
+			elif b.size.is_equal_approx(Vector3(1.1, 0.1, 0.03)) \
+					and b.position.distance_to(Vector3(23.5, 12.62, 1.9)) < 0.05:
+				b.position = Vector3(23.5, 12.70, 1.855)
+		elif n is Label3D:
+			var l := n as Label3D
+			if l.text == "MASTER BREAKER 4-A":
+				# Two labels share this text — one inside the room on the panel plate
+				# (z 8.58), one over the doorway out on landing 2 (z 1.88).
+				if absf(l.position.z - 8.58) < 0.05:
+					l.position = Vector3(23.0, 12.82, 8.560)
+				elif absf(l.position.z - 1.88) < 0.05:
+					l.position = Vector3(23.5, 12.90, 1.860)
+			elif l.text.contains("THIS PANEL"):
+				l.position = Vector3(23.0, 12.60, 8.560)
+			elif l.text.contains("STAIR LEVEL 2"):
+				l.position = Vector3(23.5, 12.52, 1.860)
+
 # ---- Deck B: crew cabins ----
 # Desks are 1.2 x 0.6 with a top at y+0.80; lockers are 0.55 square with a top at y+1.80.
 # Corridor z 11..13; cabin doors at x 0.5/5.5/10.5/15.5/20.5 (south) and 2/10/16.5/21 (north).
@@ -861,7 +1254,7 @@ func _deck_d_works() -> void:
 
 # ============================================================ second pass (2x)
 
-func _galley_more() -> void:
+func _dining_hall_more() -> void:
 	var y: float = DECK_Y
 	var tbl: float = y + 0.7          # mess table top is y+0.49
 	var counter: float = y + 1.2
@@ -869,12 +1262,23 @@ func _galley_more() -> void:
 	_p("carrot_cake", Vector3(2.4, tbl, 11.0), 0)
 	_p("croissant", Vector3(8.4, tbl, 14.5), 40)
 	_p("bananas", Vector3(1.6, tbl, 14.5), 0)
-	_p("brass_pot_01", Vector3(11.8, counter, 16.2), 0)     # on the stove
+	_p("brass_pot_01", Vector3(11.8, counter, 16.2), 0)     # on the range
 	_p("brass_pan_01", Vector3(11.2, counter, 15.9), 30)
-	# Chairs actually pulled up to the tables — the mess is a deliberate centre piece.
-	for tp in [Vector3(2, y, 11), Vector3(8, y, 11), Vector3(2, y, 14.5), Vector3(8, y, 14.5)]:
-		_pc("WoodenChair_01", tp + Vector3(0, 0, -1.0), 0)
-		_pc("WoodenChair_01", tp + Vector3(0, 0, 1.0), 180)
+	# TABLE DRESSING. A mess table with two coffee cups on it reads as a set dressing
+	# still waiting for its props; these are the things a shift actually leaves behind —
+	# a game somebody walked away from, the mugs, a tray, the smokes, the duty pad.
+	# Everything sits inside the table's own 1.8 x 1.0 top (x +-0.9, z +-0.5 of centre).
+	_p("chess_set", Vector3(2.62, tbl, 10.72), 20)              # (2,11) — the frozen game
+	_p("office_notepads", Vector3(1.35, tbl, 10.75), -15)
+	_p("tea_set_01", Vector3(1.45, tbl, 11.32), 30)
+	_p("brass_goblets", Vector3(7.45, tbl, 10.72), 0)           # (8,11)
+	_p("cigarette_pack", Vector3(8.65, tbl, 10.75), 40)
+	_p("carved_wooden_plate", Vector3(7.45, tbl, 11.35), -20)
+	_p("wooden_bowl_02", Vector3(2.60, tbl, 14.85), 0)          # (2,14.5)
+	_p("vintage_lighter", Vector3(1.30, tbl, 14.18), 60)
+	_p("tea_set_01", Vector3(7.45, tbl, 14.20), -25)            # (8,14.5)
+	_p("russian_food_cans_01", Vector3(8.72, tbl, 14.85), 10)
+	_p("office_notepads", Vector3(7.50, tbl, 14.82), 15)
 	# West bulkhead, south end: the plant tucked into the corner clear of the notice
 	# board above it (board bottom y+1.30, z 8.95..10.15 — the plant used to stand at
 	# z 9.0 with its leaves reaching into that panel), and the mess clock centred over
@@ -883,6 +1287,130 @@ func _galley_more() -> void:
 	_p("calathea_orbifolia_01", Vector3(-1.4, y + 0.6, 8.55), 0)
 	_pw("alarm_clock_01", Vector3(-1.8, y + 2.65, 9.55), 90)
 	_p("plastic_thermos", Vector3(6.0, counter, 17.0), -60)
+	# THE OTHER TWO LIGHTS. rig_builder hangs ONE mains fixture in here, on the centre of
+	# a 15.75 x 9.75m hall — the west end (the fridge and the pantry shelves) and the east
+	# end (the range and the prep counter) both sat outside its 8.5m falloff, so the room
+	# read as one hot pool with two dark ends. These flank it on the same z 13 line, on
+	# the same circuit and the same fixture, so all three wake together on the breaker.
+	# z 13 threads between the ceiling beams (z 10.5 / 15.5) and the service pipe (z 12).
+	var ceil_y: float = y + 3.2 - 0.13      # 21.07 — ceiling underside, rig_builder's datum
+	_mains_lamp(Vector3(1.8, ceil_y, 13.0), 1.8, 7.5)
+	_mains_lamp(Vector3(10.2, ceil_y, 13.0), 1.8, 7.5)
+
+## THE KITCHEN. rig_builder gives the hall a 10m steel counter, a range, a fridge and a
+## pan rail; on its own that is a servery, not a galley kitchen — there was nowhere to
+## prep, nothing to wash up in, nowhere for the dry goods, and the range vented into the
+## room. This builds the working half: an L of counter (the existing north run plus a new
+## prep counter down the east wall), the sink and drainer at the west end of the servery,
+## the dry-goods shelves over the middle of it, the extract hood over the range, and the
+## pot rail and urn on the prep counter.
+##
+## All joinery, so it is CSG and mesh rather than props: _carcass for anything the player
+## should bump into (it IS the surface, so it is settle-exempt by construction) and
+## _wall_mesh for fittings that hang off it. Only the stock on the shelves is queued as
+## props, so the settle pass rests every tin on the board actually under it.
+##
+## RESERVED LANES this must not touch: the servery service lane (z 15.0..16.4 along the
+## whole counter) and the 2.9m gap between the mess-table end chairs (x 3.53..6.47).
+## Nothing here stands on the floor at all — every piece is against the north or east
+## bulkhead or hangs over one of the two counters.
+func _dining_hall_kitchen() -> void:
+	var y: float = DECK_Y
+	var steel: Material = MatLib.galvanized()
+	var dark: Material = MatLib.dark_metal()
+
+	# ---- DRY GOODS: two boards over the servery, x 2.6..7.8 ----
+	# East limit 7.8 keeps them clear of the pan rail (x 8..11); west limit 2.6 leaves the
+	# sink bay and its splashback their own panel of wall. Depth 0.32 at z 17.70 puts the
+	# boards' backs on the bulkhead face (17.875) and their fronts just over the counter's
+	# back edge (17.6), so nothing overhangs into the cook's face.
+	var boards := [y + 1.60, y + 2.10]     # board CENTRES; tops land at +0.025
+	for b in boards:
+		_carcass(Vector3(5.20, b, 17.70), Vector3(5.20, 0.05, 0.32), MatLib.weathered_wood())
+		for bx in [2.85, 5.20, 7.55]:
+			_wall_mesh(Vector3(bx, b - 0.11, 17.70), Vector3(0.05, 0.17, 0.30), dark)
+	# Stocked. Tinned rows on the lower board where a hand reaches them, the bulk and the
+	# awkward shapes up top. The settle pass rests each on the board under it.
+	var low: float = y + 1.78
+	for spec in [["long_life_food", 3.05], ["russian_food_cans_01", 3.70], ["can_rusted", 4.20],
+			["pot_enamel_01", 4.85], ["jug_01", 5.55], ["russian_food_cans_01", 6.15],
+			["long_life_food", 6.75], ["CheeseBox_01", 7.35]]:
+		_p(String(spec[0]), Vector3(float(spec[1]), low, 17.68), 90)
+	var high: float = y + 2.28
+	for spec2 in [["can_rusted", 3.10], ["russian_food_cans_01", 3.75], ["wooden_bowl_01", 4.45],
+			["long_life_food", 5.20], ["pot_enamel_01", 5.95], ["can_rusted", 6.60],
+			["wicker_basket_02", 7.30]]:
+		_p(String(spec2[0]), Vector3(float(spec2[1]), high, 17.68), 90)
+
+	# ---- THE SINK, sunk into the servery's west end (basin x 1.47..2.33) ----
+	# Drawn as a rim of four bars round a dark well plate rather than as one solid tub:
+	# a box "basin" set into an opaque counter is a box you cannot see into.
+	_wall_mesh(Vector3(1.90, y + 1.28, 17.58), Vector3(1.24, 0.56, 0.03), steel)   # splashback
+	_wall_mesh(Vector3(1.90, y + 1.005, 17.02), Vector3(0.74, 0.02, 0.50),
+		MatLib.flat(Color(0.09, 0.10, 0.11)))                                       # the well
+	for bar in [[1.90, 16.745, 0.86, 0.07], [1.90, 17.295, 0.86, 0.07],
+			[1.505, 17.02, 0.07, 0.62], [2.295, 17.02, 0.07, 0.62]]:
+		_wall_mesh(Vector3(float(bar[0]), y + 1.025, float(bar[1])),
+			Vector3(float(bar[2]), 0.05, float(bar[3])), steel)                     # rim
+	_wall_mesh(Vector3(1.90, y + 1.20, 17.38), Vector3(0.05, 0.34, 0.05), steel)   # tap riser
+	_wall_mesh(Vector3(1.90, y + 1.35, 17.20), Vector3(0.045, 0.045, 0.36), steel) # swan neck
+	_p("all_purpose_cleaner", Vector3(2.50, y + 1.15, 17.42), 20)
+	# The drainer beside it: a wire rack on the counter, standing on its own tray.
+	_wall_mesh(Vector3(3.50, y + 1.02, 17.05), Vector3(0.82, 0.04, 0.46), steel)
+	for i in range(6):
+		_wall_mesh(Vector3(3.19 + i * 0.125, y + 1.14, 17.05), Vector3(0.02, 0.20, 0.42), steel)
+	_p("wooden_bowl_01", Vector3(4.20, y + 1.10, 16.80), 0)
+
+	# ---- THE EXTRACT HOOD over the range (x 10.85..12.15, z 15.6..16.8) ----
+	# Canopy, drip lip, a strip light under it and a duct up to the deckhead. The duct
+	# tops out at y+3.06 against the y+3.075 ceiling underside and stands on z 16.90,
+	# clear of the z 15.5 ceiling beam and the z 12.0 service pipe.
+	_wall_mesh(Vector3(11.50, y + 1.955, 16.25), Vector3(1.52, 0.30, 1.34), steel)
+	_wall_mesh(Vector3(11.50, y + 1.780, 16.25), Vector3(1.62, 0.05, 1.44), dark)
+	_wall_mesh(Vector3(11.50, y + 1.790, 15.72), Vector3(1.06, 0.04, 0.10),
+		MatLib.flat(Color(0.90, 0.88, 0.80)))
+	_wall_mesh(Vector3(11.50, y + 2.580, 16.90), Vector3(0.46, 0.96, 0.46), steel)
+	_wall_mesh(Vector3(11.50, y + 2.130, 16.90), Vector3(0.56, 0.06, 0.56), dark)   # duct collar
+
+	# ---- THE PREP COUNTER, down the east bulkhead (inner face x 13.875) ----
+	# x 12.63..13.87, z 11.66..15.14, top y+0.99. It stops 0.5m short of the range's
+	# z-run and 2.8m clear of the nearest mess chair, so the aisle and the service lane
+	# are both untouched. Plinth / carcass / top / drawer fronts — real joinery, the same
+	# way the rec room's credenza is built.
+	_carcass(Vector3(13.28, y + 0.10, 13.40), Vector3(1.02, 0.20, 3.20), dark)
+	_carcass(Vector3(13.28, y + 0.55, 13.40), Vector3(1.15, 0.70, 3.40), MatLib.dirty_white_panel())
+	_carcass(Vector3(13.25, y + 0.95, 13.40), Vector3(1.24, 0.08, 3.48), steel)
+	_wall_mesh(Vector3(13.845, y + 1.30, 13.40), Vector3(0.05, 0.62, 3.40), steel)  # splashback
+	for dz in [-1.05, 0.0, 1.05]:
+		_wall_mesh(Vector3(12.685, y + 0.55, 13.40 + dz), Vector3(0.03, 0.56, 0.96),
+			MatLib.painted_steel())
+		_wall_mesh(Vector3(12.655, y + 0.72, 13.40 + dz), Vector3(0.04, 0.04, 0.34), steel)
+	# What is out on it mid-prep.
+	var prep: float = y + 1.15
+	_p("wooden_cutting_board", Vector3(13.20, prep, 12.30), 0)
+	_p("yellow_onion", Vector3(13.45, prep, 12.05), 0)
+	_p("sweet_potato", Vector3(13.10, prep, 11.95), 30)
+	_p("wooden_bowl_01", Vector3(13.30, prep, 12.80), 0)
+	_p("jug_01", Vector3(13.50, prep, 13.35), 0)
+	_p("wooden_spoon", Vector3(13.20, prep, 13.85), 40)
+	_p("brass_goblets", Vector3(13.55, prep, 14.95), 0)
+	# THE COFFEE URN at the counter's north end — the one fixture a mess hall is measured
+	# by. Body, lid, tap and sight glass, standing on the prep top (y+0.99).
+	_wall_mesh(Vector3(13.30, y + 1.27, 14.60), Vector3(0.34, 0.54, 0.34), steel)
+	_wall_mesh(Vector3(13.30, y + 1.57, 14.60), Vector3(0.38, 0.06, 0.38), dark)
+	_wall_mesh(Vector3(13.30, y + 1.68, 14.60), Vector3(0.09, 0.10, 0.09), dark)   # lid knob
+	_wall_mesh(Vector3(13.30, y + 1.12, 14.43), Vector3(0.05, 0.05, 0.16), dark)   # tap
+	_wall_mesh(Vector3(13.14, y + 1.30, 14.43), Vector3(0.03, 0.34, 0.03),
+		MatLib.flat(Color(0.70, 0.72, 0.68)))                                       # sight glass
+	# ---- HANGING POTS over the prep counter ----
+	_wall_mesh(Vector3(13.55, y + 2.05, 13.10), Vector3(0.05, 0.05, 2.60), dark)
+	for hz in [12.20, 13.10, 13.95]:
+		_wall_mesh(Vector3(13.55, y + 1.94, hz), Vector3(0.03, 0.18, 0.03), steel)
+	_pw("brass_pan_01", Vector3(13.50, y + 1.76, 12.20), 0)
+	_pw("pot_enamel_01", Vector3(13.50, y + 1.74, 13.10), 0)
+	_pw("brass_pot_01", Vector3(13.50, y + 1.76, 13.95), 0)
+	# Kitchen fire point, on the east bulkhead between the prep counter and the range.
+	_pw("korean_fire_extinguisher_01", Vector3(13.72, y + 0.95, 16.55), -90, 1.1)
 
 func _bunkhouse_more() -> void:
 	var y: float = DECK_Y
@@ -1048,9 +1576,12 @@ func _scatter_wetdeck() -> void:
 	# Stair-tower machinery room (y6) — left-behind oddments (the spool moved to the pump room).
 	_p("oil_tin", Vector3(27.4, 6.0 + 1.15, 6.2), 20)
 	_p("garden_gloves_01", Vector3(25.0, 6.0 + 0.05, 8.6), -10)
-	# Breaker Room 4-A (y10) — utilitarian floor corners.
-	_p("clipboard", Vector3(26.6, 10.0 + 0.02, 3.2), 30)
-	_p("can_rusted", Vector3(27.0, 10.0 + 0.05, 8.8), 0)
+	# Breaker Room 4-A (y10). The room is furnished in _breaker_room() now; these two are
+	# the hand-put-down items, each named to the surface it lands on. The rusted can used
+	# to be authored at z 8.8 — that is 0.125m INSIDE the north wall (inner face 8.675),
+	# so it was a tin embedded in concrete beside the breaker.
+	_p("clipboard", Vector3(26.60, 10.0 + 0.95, 3.20), 30)   # tossed on the storage cart
+	_p("can_rusted", Vector3(21.80, 10.0 + 0.85, 6.28), 0)   # on the maintenance desk
 
 func _scatter_decka() -> void:
 	var y: float = DECK_Y
@@ -1073,7 +1604,7 @@ func _scatter_decka() -> void:
 	_p("brass_candleholders", Vector3(-15.7, y + 0.95, 13.45), 0)
 	_p("wooden_candlestick", Vector3(-15.7, y + 0.95, 13.15), 20)
 	_p("standing_picture_frame_01", Vector3(-27.35, y + 0.8, 14.15), 10)
-	# Galley: dishware + food on the counter (x 1..11, z 16.4..17.6) and the mess tables.
+	# Dining hall: dishware + food on the counter (x 1..11, z 16.4..17.6) and the mess tables.
 	_p("wooden_bowl_01", Vector3(6.5, counter, 17.0), 0)
 	_p("carved_wooden_plate", Vector3(7.6, counter, 17.1), 15)
 	_p("tea_set_01", Vector3(9.9, counter, 17.0), -10)

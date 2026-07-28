@@ -165,6 +165,34 @@ var _mantle_cd: float = 0.0        ## brief lockout so a mantle can't instantly 
 
 const JUMP_BUFFER_TIME: float = 0.15
 
+# ============================ not getting stuck on the rig ============================
+# The rig is not a level made of clean brushes — it is ~6,800 authored primitives, and the
+# walkways are lined with railings, coamings, kick plates, cleats, davit posts and hatch
+# stanchions. Every one of those is a box a 0.4 m capsule can find a corner on. Three
+# separate mechanisms below, because "the player keeps snagging" is three different bugs:
+#
+#   1. STEP-UP (_try_step_up) — a coaming, a kick plate, a door sill, a plate seam. A
+#      capsule of radius r rolls up only about r*(1-cos(floor_max_angle)) ~ 0.117 m before
+#      the contact normal tips past floor_max_angle and CharacterBody3D calls the lip a
+#      WALL. Everything from 0.12 m to knee height is therefore an invisible fence. This
+#      lifts the body over it the way a leg does.
+#   2. UNSTICK (_unstick_nudge) — the wedge. Two colliders meeting at a corner can trap the
+#      capsule in a pocket where every slide direction is blocked by the other face, and
+#      move_and_slide() will happily spend the rest of the session there. If the player is
+#      ASKING to move and the body has gone nowhere for several frames, we push it out.
+#   3. Solver margins, set in _ready() — safe_margin, floor_snap_length, max_slides.
+#
+# Deliberately NOT a fix for a genuinely embedded capsule: that is _leave_climb() and
+# _dismount_clear()'s job, and those run at the moment collision is re-armed.
+const PLAYER_RADIUS: float = 0.37       ## see _ready(): 0.40 minus a corner-forgiveness shave
+const STEP_MAX_HEIGHT: float = 0.34     ## lips up to this are stepped over, not walled off
+const STEP_PROBE_FWD: float = 0.30      ## how far past the lip we must land to call it a step
+const STEP_MIN_BLOCKED: float = 0.35    ## step only if we kept under this fraction of intended travel
+const STUCK_SPEED: float = 0.22         ## m/s of real travel under which a moving player counts as stuck
+const STUCK_FRAMES: float = 0.30        ## seconds of that before we push the body out
+const STUCK_NUDGE: float = 0.10         ## how hard the push is (a shove, not a teleport)
+var _stuck_t: float = 0.0
+
 ## How detectable the player is to creatures right now (1.0 standing, 0.5 crouched,
 ## 0.3 flat on the deck). The giant crab multiplies its detect radius by this.
 func detection_factor() -> float:
@@ -197,6 +225,7 @@ func _ready() -> void:
 	camera.fov = 75.0
 	_camera_base_y = head.position.y
 	_ensure_posture_bindings()
+	_configure_body()
 	Input.mouse_mode = Input.MOUSE_MODE_CAPTURED
 	var ray := InteractionRay.new()
 	camera.add_child(ray)
@@ -245,6 +274,41 @@ func _ready() -> void:
 	PlayerState.player_died.connect(_on_player_died)
 	_update_lantern()
 	_update_flashlight()
+
+## CharacterBody3D solver setup. Done here rather than in Player.tscn so the reasoning
+## lives next to the movement code that depends on it, and so a scene re-save can't quietly
+## drop it back to defaults.
+func _configure_body() -> void:
+	# CORNER FORGIVENESS: 0.40 -> 0.37. Every authored clearance on this rig (the crane
+	# hatch cheeks, the mid-landing mantle, the stair-tower flights) was measured against a
+	# 0.4 m-radius capsule and is asserted in tests/access_probe.gd, so a SMALLER body is
+	# strictly slack against all of them — it can never fail a gap that 0.4 fitted. What the
+	# 3 cm buys is the diagonal past a railing junction: two rail runs meeting at a right
+	# angle leave a corner the capsule has to round, and at 0.4 it arrives on both faces at
+	# once and stops dead instead of sliding along one.
+	var cap := _col.shape as CapsuleShape3D
+	if cap:
+		cap.radius = PLAYER_RADIUS
+	# Collision margin. The default 0.001 lets the solver resolve a contact so shallow that
+	# the next frame re-penetrates it, which on a seam between two butted deck plates reads
+	# as a stutter. 0.03 keeps the body a visible sliver off every surface.
+	safe_margin = 0.03
+	# Stay glued to the deck across plate seams, grating joins and the top of a stair run.
+	# Default 0.1 is shorter than the lips this rig is built from, so the body would go
+	# briefly airborne, lose is_on_floor(), and re-land — which is also what made walking
+	# off a small step feel like snagging.
+	floor_snap_length = 0.35
+	floor_max_angle = deg_to_rad(46.0)   # ~the rig's steepest walkable ramp, plus a hair
+	floor_stop_on_slope = true
+	floor_constant_speed = true          # a ramp costs no speed; it just goes up
+	# WALL SLIDE. This is what makes a glancing hit on a railing post slide along it instead
+	# of stopping the body. Both are Godot defaults and both are load-bearing here, so they
+	# are set explicitly: a future motion_mode/`stop_on_slope` edit can't silently turn the
+	# slide off. max_slides 4 -> 6 because a railing corner is genuinely 3+ contacts (post,
+	# rail run, deck) and the solver running out of iterations mid-corner IS the snag.
+	wall_min_slide_angle = deg_to_rad(12.0)
+	max_slides = 6
+	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
 
 ## Guarantee the posture actions exist even if project.godot lacks them. `crouch` is
 ## defined in the project map (Ctrl); `prone` is registered here at runtime (Z) so we
@@ -607,12 +671,109 @@ func _physics_process(delta: float) -> void:
 	velocity.x = move_toward(velocity.x, target_velocity.x, ACCELERATION * delta * target_speed)
 	velocity.z = move_toward(velocity.z, target_velocity.z, ACCELERATION * delta * target_speed)
 
+	var before: Vector3 = global_position
 	move_and_slide()
+	# The two anti-snag passes, in order: try to STEP the obstruction first (the common
+	# case — a coaming, a kick plate, a rail's own foot), and only if we are still pinned
+	# after several frames of asking to move does the unstick shove fire.
+	if not _try_step_up(direction, before):
+		_unstick_nudge(direction, before, delta)
+	else:
+		_stuck_t = 0.0
 	_update_fall_landing(was_on_floor)
 	_update_stamina(delta, wants_sprint and direction.length() > 0.0)
 	_update_head_bob(delta, direction.length() > 0.0, wants_sprint)
 	_update_footsteps(delta)
 	_check_water()
+
+## STEP-UP. Called right after move_and_slide(): if we are walking, on the floor, and the
+## frame ate our horizontal travel against a wall, see whether that "wall" is really a lip
+## a leg would step over — and if so, place the body on top of it.
+##
+## The probe is three tests and it refuses on any of them, which is what keeps this from
+## becoming a climbing exploit:
+##   1. Is there headroom to rise STEP_MAX_HEIGHT? (No: it's a wall with a shelf, or a
+##      low overhang — stepping would bury the head.)
+##   2. Raised by that much, is the lane forward clear for STEP_PROBE_FWD? (No: it's a
+##      wall, full stop.)
+##   3. Dropping back down from there, do we LAND on something walkable? (No: it was a
+##      railing bar or a hatch coaming with a hole behind it — refusing here is what stops
+##      the step-up from walking the player over a guard rail and off the deck.)
+## Returns true when a step was taken.
+func _try_step_up(wish: Vector3, before: Vector3) -> bool:
+	if not is_on_floor() or _posture == POSTURE_PRONE or wish.length_squared() < 0.0001:
+		return false
+	var dir: Vector3 = Vector3(wish.x, 0.0, wish.z)
+	if dir.length() < 0.001:
+		return false
+	dir = dir.normalized()
+	# Did the frame actually cost us travel? A clear walk moves ~speed*delta; a blocked one
+	# moves a rounding error. Only bother probing when we kept less than a third of it.
+	var moved: Vector3 = global_position - before
+	var got: float = Vector2(moved.x, moved.z).length()
+	var wanted: float = Vector2(velocity.x, velocity.z).length() * get_physics_process_delta_time()
+	if wanted < 0.001 or got > wanted * STEP_MIN_BLOCKED:
+		return false
+	var up := Vector3(0.0, STEP_MAX_HEIGHT, 0.0)
+	var base: Transform3D = global_transform
+	if test_move(base, up, null, safe_margin):
+		return false                                   # 1. no headroom to rise
+	var raised := Transform3D(base.basis, base.origin + up)
+	if test_move(raised, dir * STEP_PROBE_FWD, null, safe_margin):
+		return false                                   # 2. still a wall up there
+	var ahead := Transform3D(base.basis, raised.origin + dir * STEP_PROBE_FWD)
+	var land := KinematicCollision3D.new()
+	var fall: Vector3 = Vector3(0.0, -(STEP_MAX_HEIGHT + 0.02), 0.0)
+	if not test_move(ahead, fall, land, safe_margin):
+		return false                                   # 3. nothing to stand on — a hole, not a step
+	if land.get_normal().angle_to(Vector3.UP) > floor_max_angle:
+		return false                                   # landed on a slope too steep to be a step
+	var drop: float = land.get_travel().length()
+	if drop >= STEP_MAX_HEIGHT + 0.015:
+		return false                                   # fell the whole way back: nothing was there
+	var top: Vector3 = ahead.origin + Vector3(0.0, -drop, 0.0)
+	if top.y - base.origin.y < 0.01:
+		return false                                   # not actually a rise; let the solver have it
+	if test_move(Transform3D(base.basis, top), Vector3.ZERO, null, safe_margin, true):
+		return false                                   # the destination is occupied
+	global_position = top
+	velocity.y = maxf(velocity.y, 0.0)
+	apply_floor_snap()
+	return true
+
+## UNSTICK. The wedge case the step-up cannot help with: a capsule pinched in the pocket
+## where two colliders meet, where every slide direction move_and_slide() picks is blocked
+## by the other face. The signature is unambiguous — the player is HOLDING a movement key,
+## the body has a real target velocity, and it has travelled essentially nothing for
+## STUCK_FRAMES seconds — so we can act on it without ever firing on someone who is simply
+## standing still or pressed against a bulkhead on purpose (walking into a wall head-on
+## still moves you along it, and releasing the key resets the timer immediately).
+##
+## The push is small and it is tried in the least-surprising order: back the way we came
+## first (undo the wedge), then the two sideways slides, then a short hop's worth of lift.
+## Anything that does not land the capsule somewhere genuinely clear is discarded, so this
+## can never shove the player through a bulkhead or off a deck.
+func _unstick_nudge(wish: Vector3, before: Vector3, delta: float) -> void:
+	var dir: Vector3 = Vector3(wish.x, 0.0, wish.z)
+	if dir.length() < 0.001 or not is_on_floor():
+		_stuck_t = 0.0
+		return
+	dir = dir.normalized()
+	var moved: Vector3 = global_position - before
+	if Vector2(moved.x, moved.z).length() / maxf(delta, 0.0001) > STUCK_SPEED:
+		_stuck_t = 0.0
+		return
+	_stuck_t += delta
+	if _stuck_t < STUCK_FRAMES:
+		return
+	_stuck_t = 0.0
+	var side: Vector3 = dir.cross(Vector3.UP).normalized()
+	for d in [-dir, side, -side, dir + Vector3.UP, Vector3.UP]:
+		var off: Vector3 = d.normalized() * STUCK_NUDGE
+		var to := Transform3D(global_transform.basis, global_position + off)
+		if not test_move(to, Vector3.ZERO, null, safe_margin, true):
+			global_position += off
+			return
 
 ## Resolve the posture (crouch key + prone toggle), gate any RISE by a headroom check,
 ## then ease the capsule height, collider offset, and eye line toward it in lockstep so

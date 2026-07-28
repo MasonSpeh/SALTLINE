@@ -87,7 +87,7 @@ func _player_vessel() -> String:
 		if it != null and _is_vessel(String(it)):
 			return String(it)
 	for it in PlayerState.inventory:
-		if _is_vessel(String(it)):
+		if it != null and _is_vessel(String(it)):
 			return String(it)
 	return ""
 

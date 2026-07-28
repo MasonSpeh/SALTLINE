@@ -161,15 +161,77 @@ func _cyl(pos: Vector3, radius: float, height: float, mat: Material, parent: Nod
 ## The single smooth guard a railing presents to the player: one full-height box from
 ## just under the deck line to just over the top bar, with no posts, no gaps and no
 ## lips to wedge a capsule against. Invisible — the rail's own steel is what you see.
+##
+## The slab is also SHAVED BACK at both ends of its long axis by RAIL_END_SHAVE — see that
+## constant for why a square collider cap at a rail junction is the thing that stops a
+## player walking a corner diagonally. Every rail guard in this file goes through here, so
+## the forgiveness is applied once instead of at twenty call sites.
 func _rail_slab(pos: Vector3, size: Vector3) -> void:
 	var body := StaticBody3D.new()
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
+	# Shave the long horizontal axis only; the short one is the rail's thickness and the
+	# y is its height, and neither of those has an end cap anyone walks into.
+	if size.x >= size.z and size.x > RAIL_END_SHAVE * 3.0:
+		size.x -= RAIL_END_SHAVE * 2.0
+	elif size.z > size.x and size.z > RAIL_END_SHAVE * 3.0:
+		size.z -= RAIL_END_SHAVE * 2.0
 	box.size = size
 	shape.shape = box
 	body.add_child(shape)
 	add_child(body)
 	body.position = pos
+
+## How far a rail run's COLLISION stops short of its visual steel at each end.
+##
+## This is the corner-forgiveness shave. A rail run ends in a square cap, and where two runs
+## meet (or where the perimeter leaves a deliberate corner gap) those caps are two flat faces
+## at right angles to each other with an outside corner between them. A capsule cutting the
+## corner diagonally arrives on both faces in the same frame, gets a slide direction from
+## each, and they cancel: the player stops dead on thin air a hand's width from the rail.
+## Pulling the invisible barrier back from the visual end turns that hard corner into a
+## rounded one — you slide off the end of the slab instead of hitting its cap.
+##
+## It cannot open a hole: 0.18 m off each end of a run only ever widens a gap that is
+## already an intended opening, and the narrowest a player capsule (radius 0.37) can pass
+## through is 0.74 m — four times this.
+const RAIL_END_SHAVE: float = 0.18
+
+## One perimeter rail run in the rig's standard grammar: top rail, mid rail, toe board and
+## posts as VISUAL steel, and a single smooth full-height slab as the only thing the player
+## can actually touch. `along_x` picks the axis; `at` is the fixed coordinate (z for an
+## x-run, x for a z-run) and a0..a1 is the span along the axis.
+##
+## The visual/collision split is the whole point and it is the same lesson recorded in
+## rig_exterior._rail_x, _stair_run and _pump_roof_guard: a lone waist-high bar with open air
+## under it is not a guard, it is a capsule trap — the body wedges between the bar and the
+## deck edge with nothing to slide along. One box, floor to over-the-rail, has no gap to
+## wedge into and no post corners to catch on.
+func _deck_rail(along_x: bool, at: float, a0: float, a1: float, y: float) -> void:
+	var mat: Material = MatLib.rust_steel()
+	var mid: float = (a0 + a1) * 0.5
+	var span: float = a1 - a0
+	if span <= 0.0:
+		return
+	var c := func(a: float) -> Vector3:
+		return Vector3(a, 0.0, at) if along_x else Vector3(at, 0.0, a)
+	# Visual steel: top rail (the 0.12 bar this run has always shown), mid rail, toe board.
+	for spec in [[0.55, 0.12], [0.30, 0.06]]:
+		var h: float = float(spec[0])
+		var t: float = float(spec[1])
+		_dbox(c.call(mid) + Vector3(0, y + h, 0),
+			Vector3(span, t, t) if along_x else Vector3(t, t, span), mat)
+	_dbox(c.call(mid) + Vector3(0, y + 0.07, 0),
+		Vector3(span, 0.14, 0.03) if along_x else Vector3(0.03, 0.14, span), mat)
+	# Stanchions every ~2.2 m. Visual only — a colliding post every 2.2 m along 52 m of deck
+	# edge is 24 separate corners to catch on, for a shape the slab behind them already fills.
+	var n: int = maxi(2, int(span / 2.2))
+	for i in range(n + 1):
+		_dbox(c.call(a0 + span * i / float(n)) + Vector3(0, y + 0.28, 0),
+			Vector3(0.09, 0.56, 0.09), mat)
+	# The one collider: floor line to over the top rail. _rail_slab does the end shave.
+	_rail_slab(c.call(mid) + Vector3(0, y + 0.6, 0),
+		Vector3(span, 1.25, 0.07) if along_x else Vector3(0.07, 1.25, span))
 
 ## Guard rail round the pump-room roof vantage (top of the Roof Ladder). Fences the
 ## three open edges in the yard's top-rail + toe-board grammar and leaves the EAST
@@ -1186,15 +1248,17 @@ func _build_topside() -> void:
 	hole.position = Vector3(26, DECK_Y - 0.5, -2)
 
 	# Perimeter rails (gaps at corners — the sea is reachable, deliberately).
-	var rail_mat: Material = MatLib.rust_steel()
-	_box(Vector3(0, DECK_Y + 0.55, -19.8), Vector3(52, 0.12, 0.12), rail_mat)
-	_box(Vector3(0, DECK_Y + 0.55, 19.8), Vector3(52, 0.12, 0.12), rail_mat)
-	# West rail splits around the observation-platform ramp at z -11.
-	_box(Vector3(-29.8, DECK_Y + 0.55, -14.6), Vector3(0.12, 0.12, 4.8), rail_mat)
-	_box(Vector3(-29.8, DECK_Y + 0.55, 3.6), Vector3(0.12, 0.12, 26.8), rail_mat)
-	# East rail splits around the bridge exit at z 14.
-	_box(Vector3(29.8, DECK_Y + 0.55, 7.3), Vector3(0.12, 0.12, 10.6), rail_mat)
-	_box(Vector3(29.8, DECK_Y + 0.55, 17.2), Vector3(0.12, 0.12, 3.6), rail_mat)
+	# These are the longest rail runs on the rig and they were the worst snag on it: each
+	# was ONE colliding 0.12 m bar at waist height with open air above and below, so a
+	# capsule pressed against it caught at the waist while its feet slid under, and the
+	# bar's square END CAP at every corner gap was a post-shaped obstruction sticking out
+	# into the walk line. _deck_rail() builds them in the grammar the rest of the rig
+	# already uses (rig_exterior._rail_x): the steel you see is visual only, and the thing
+	# you touch is one smooth full-height slab.
+	for r in [[true, -19.8, -26.0, 26.0], [true, 19.8, -26.0, 26.0],
+			[false, -29.8, -17.0, -12.2], [false, -29.8, -9.8, 17.0],
+			[false, 29.8, 2.0, 12.6], [false, 29.8, 15.4, 19.0]]:
+		_deck_rail(bool(r[0]), float(r[1]), float(r[2]), float(r[3]), DECK_Y)
 
 	_build_bunkhouse()
 	_build_galley()
@@ -1538,13 +1602,16 @@ func _build_high_iron() -> void:
 	_crane_landing()
 	_ladder(Vector3(LAND_LADDER_X, DECK_Y, CRANE_Z), 8.0, 270.0, "Mast Ladder", LAND_LADDER_EXIT)
 	# The upper run faces NORTH (yaw 0), so it mantles you onto the plate NORTH of the hatch
-	# at (-0.40, 34.55, -13.2) — clear of the turret's west face by 0.6 m and of the slew
+	# at (-0.40, 34.75, -13.2) — clear of the turret's west face by 0.6 m and of the slew
 	# ring by 0.28 m — and, at its other end, sets you down on the mid landing at z -13.2,
 	# well inside its north rail. Facing is the only thing that decides BOTH those spots
 	# (exit is -face_dir at each end), so the two have to be solved together: exiting east
 	# put you inside the turret, exiting west put you off the machinery deck's west edge,
 	# and exiting south put you off the LANDING's south edge into an 8 m drop.
-	_ladder(Vector3(CRANE_X - 2.4, CRANE_LAND_Y, CRANE_Z - 0.6), 8.15, 0.0, "Mast Ladder — Upper", 1.4)
+	# THE LADDER IS MOUNTED ON THE HATCH'S NORTH CHEEK, NOT DOWN THE MIDDLE OF THE HOLE.
+	# See CRANE_LADDER_Z for why that is the difference between a hatch and a plug.
+	_ladder(Vector3(CRANE_X - 2.4, CRANE_LAND_Y, CRANE_LADDER_Z), CRANE_LADDER_H, 0.0,
+		"Mast Ladder — Upper", CRANE_LADDER_EXIT)
 
 	# --- machinery deck: the crane's own floor, the plate the head is bolted to ---
 	# BUILT AS FOUR STRIPS AROUND A LADDER HATCH, not one slab. The upper mast ladder tops
@@ -1592,8 +1659,39 @@ func _build_high_iron() -> void:
 ## of the opening rather than beside it.
 const CRANE_HATCH_X0: float = -0.95   ## hatch spans x -0.95..0.15 — ladder stiles at ±0.35 of -0.40
 const CRANE_HATCH_X1: float = 0.15
-const CRANE_HATCH_Z0: float = -15.35  ## and z -15.35..-13.85 — ladder rungs run -14.775..-14.425
+const CRANE_HATCH_Z0: float = -15.35  ## and z -15.35..-13.85 (1.50 m of depth to descend through)
 const CRANE_HATCH_Z1: float = -13.85
+
+## THE LADDER RUNS DOWN ONE CHEEK OF THE HATCH, NOT DOWN ITS CENTRE. This is the fix for
+## "climbed onto the crane and can never get off it again", and it is arithmetic, not taste.
+##
+## _ladder() gives every run a solid climb volume 0.70 m across by 0.35 m deep (a BoxShape3D,
+## because you have to be able to put a crosshair on the rungs). Stood on the hatch's centre
+## line at z -14.6 that box cut the 1.50 m opening into two strips 0.575 m deep, and left
+## 0.20 m either side of it in x. The player capsule is 0.74 m ACROSS. There was no route
+## through the hole for a body at all: the only reason the climb appeared to work at all is
+## that start_climb() disables world collision for the duration, so the descent flew through
+## the plate — and the moment the player let go of E anywhere near the opening, collision
+## re-armed around a capsule buried in either the ladder box or the deck.
+##
+## Mounted flush to the NORTH cheek instead — axis at z1 minus the box's own half-depth, so
+## its back face is against the coaming and nothing overhangs the hole — the opening keeps
+## 1.10 m x 1.15 m of clear air, which is 0.36 m and 0.41 m of slack on the capsule. That is
+## how a real deck hatch is fitted: the ladder is bolted to the coaming and you descend in
+## the clear half, facing it. The NORTH cheek specifically because this run faces yaw 0, so
+## the climber hangs on its -Z side — the open half of the hatch — rather than out over the
+## plate. Asserted in tests/access_probe.gd ("a capsule fits down the crane hatch").
+const CRANE_LADDER_D: float = 0.175   ## _ladder()'s climb box is 0.35 deep; axis -> face
+const CRANE_LADDER_Z: float = CRANE_HATCH_Z1 - CRANE_LADDER_D   ## -14.025, flush to the cheek
+## Head stands 0.20 m proud of the plate (and 0.11 m proud of the coaming), instead of
+## stopping dead flush with it. A ladder whose top rung is level with the deck is a ladder
+## you cannot see, cannot aim at from standing height, and have to step INTO the hole to
+## reach; every real deck ladder carries its stiles up past the coaming for exactly this.
+const CRANE_LADDER_H: float = 8.35
+## Both this run's mantles still land at z -13.2 — the machinery-deck spot that was solved
+## against the turret and the slew ring, and the mid-landing spot that sits inside its north
+## rail. The ladder moved 0.575 m north, so the exit shortens by the same 0.575 to hold both.
+const CRANE_LADDER_EXIT: float = 0.825
 func _crane_deck_with_hatch() -> void:
 	var plate: Material = MatLib.deck_plate()
 	var steel: Material = MatLib.rust_steel()

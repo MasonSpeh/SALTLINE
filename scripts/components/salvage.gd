@@ -160,7 +160,7 @@ func _free_slots() -> int:
 	for s in PlayerState.hotbar:
 		if s == null:
 			n += 1
-	n += maxi(0, PlayerState.backpack_capacity() - PlayerState.inventory.size())
+	n += maxi(0, PlayerState.backpack_capacity() - PlayerState.pack_used())
 	return n
 
 func _item_name(item_id: String) -> String:

@@ -57,6 +57,19 @@ const DEEP_MAX_DEPTH: float = 48.0    # end of the spool, measured from the wate
 const DEEP_BITE_FACTOR: float = 1.1   # the deep is patient, but the sink is the real wait
 const DEEP_FIGHT_SURGE: float = 1.6   # metres the lead is dragged about during the fight
 
+# ---------------------------------------------------------------- the big-bite jolt
+# What a monster taking the bait feels like in the hands. Fires ONCE, at the take — not at
+# the strike and not at the landing — because the moment worth selling is the one where you
+# still don't know if you have it. Only for a trophy species (FishTable.is_trophy: the
+# weight tier or the fight tier, both read off data/fish.json); a sprat gets nothing.
+const JOLT_WEAK: float = 0.7          ## low-frequency motor, gamepad
+const JOLT_STRONG: float = 0.9        ## high-frequency motor
+const JOLT_SEC: float = 0.35          ## short and hard — a hit, not a rumble
+const FLASH_COLOR := Color(0.93, 0.97, 1.0)   ## cold pale sea-white, not a camera bulb
+const FLASH_PEAK: float = 0.5         ## alpha at the snap
+const FLASH_IN: float = 0.04          ## it arrives instantly...
+const FLASH_OUT: float = 0.19         ## ...and is gone before you can look at it
+
 ## Any fish species read as legal deep-rig bait: "smaller than 2m" (owner spec 2026-07-27),
 ## not the old hardcoded five-species list. fish.json has no body-length field (size_kg is
 ## a landed WEIGHT, rolled per catch, nothing to do with the species' own size) — the best
@@ -87,6 +100,13 @@ var _bite_timer: float = 0.0
 var _bite_window: float = 0.0
 var _nibbles: int = 0
 var _fish: Dictionary = {}
+## WHAT TOOK THE BAIT, decided at the take rather than at the strike. The species used to be
+## rolled inside _hook(), on the strike — which meant that at the one instant the rod has to
+## say "this is a big one" (the take, and the 1.3 s of bite window after it) nothing in the
+## world yet knew what was on the hook. It is rolled at the take now and _hook() spends it,
+## so the fight character still comes from what took the bait: the same roll, from the same
+## live conditions, moved earlier by at most BITE_WINDOW. Cleared if the fish lets go.
+var _pending: Dictionary = {}
 var _tension: float = 0.3
 var _progress: float = 0.35
 var _fight_t: float = 0.0
@@ -227,7 +247,13 @@ func _build_lead() -> void:
 		bait_col = Color(0.6, 0.5, 0.38)
 	elif _bait_id == "crab_leg":
 		bait_col = Color(0.78, 0.36, 0.16)
-	bt.material = MatLib.flat(bait_col)
+	# A glow worm is the one bait that is its own lure, and it has to LOOK like one on the
+	# way down: emissive, so the last thing you see of the tackle as it sinks past the light
+	# is the bait itself. That is the whole reason it fishes the way it does at depth.
+	if _bait_id == "glow_worm":
+		bt.material = MatLib.glowing(Color(0.35, 0.95, 0.85), 2.2)
+	else:
+		bt.material = MatLib.flat(bait_col)
 	bait.mesh = bt
 	bait.position = Vector3(0.05, -0.26, 0)
 	_bob.add_child(bait)
@@ -358,7 +384,7 @@ static func try_bait_now(player: Node) -> bool:
 func _schedule_bite() -> void:
 	# The water read drives the wait: storms are a frenzy, feeding hours are
 	# brisk, dead calm afternoons make you earn it. Nibbles lie first.
-	var ctx: Dictionary = FISH.context(self, global_position)
+	var ctx: Dictionary = FISH.context(self, global_position, _bait_id)
 	var mean: float = 12.0 * FISH.bite_pace(ctx)
 	if _deep:
 		mean *= DEEP_BITE_FACTOR   # the deep is patient
@@ -433,7 +459,9 @@ func _physics_process(delta: float) -> void:
 					_bite_window = BITE_WINDOW
 					_dip = 0.45
 					AudioDirector.play_one_shot("splash", global_position, -8.0)
-					_prompt("!!!  [LMB] STRIKE")
+					_take()
+					_prompt("!!!  THAT IS A BIG ONE   [LMB] STRIKE" if _pending_is_trophy() \
+						else "!!!  [LMB] STRIKE")
 		State.SINK:
 			# THE DEEP RIG'S OWN STATE, and the whole point of the tool: the lead sinks and
 			# keeps sinking, and what can bite grows deeper the further down the bait gets.
@@ -442,7 +470,10 @@ func _physics_process(delta: float) -> void:
 			# The bait has to be in SOMEBODY's water before it can be taken; above the
 			# shallowest drop depth in the table the line is only falling through the light.
 			if _depth >= FISH.min_drop_depth():
-				_bite_timer -= delta
+				# A glowing bait in black water brings the bite on sooner, a dull one takes
+				# longer — read LIVE off the current depth (FishTable.bait_rate) rather than
+				# baked into the wait back at the cast, when the lead was still in the air.
+				_bite_timer -= delta * FISH.bait_rate(_bait_id, _depth)
 				if _bite_timer <= 0.0:
 					if _nibbles > 0:
 						_nibbles -= 1
@@ -461,7 +492,10 @@ func _physics_process(delta: float) -> void:
 						if _bait_id != "":
 							PlayerState.remove_item(_bait_id)
 						AudioDirector.play_one_shot("clang", _hand_pos(), -22.0)
-						_prompt("!!!  SOMETHING HAS IT AT %d m   [LMB] STRIKE" % int(_depth))
+						_take()
+						_prompt(("!!!  SOMETHING BIG HAS IT AT %d m   [LMB] STRIKE" \
+							if _pending_is_trophy() \
+							else "!!!  SOMETHING HAS IT AT %d m   [LMB] STRIKE") % int(_depth))
 		State.BITE:
 			if _deep:
 				_hold_depth()
@@ -470,6 +504,7 @@ func _physics_process(delta: float) -> void:
 			_bite_window -= delta
 			if _bite_window <= 0.0:
 				_state = State.SINK if _deep else State.DRIFT
+				_pending = {}   # whatever had it, it is not on the hook any more
 				if _deep:
 					_toast("It let go. The line goes slack.")
 					_shown_m = -1   # bring the depth readout (and the reel-in hint) back
@@ -525,7 +560,7 @@ func _hold_the_spool(thumbed: bool) -> void:
 	# hold and keep paying out: the bait is already spent, and "that is too shallow" teaches
 	# better with the line still running than with the drop thrown away. If the SPOOL ran
 	# out there is no deeper to go, so the line comes in and says why.
-	if FISH.pool_weight("deep", FISH.context(self, global_position), _depth) <= 0.0:
+	if FISH.pool_weight("deep", FISH.context(self, global_position, _bait_id), _depth) <= 0.0:
 		if thumbed:
 			_toast("Nothing lives as shallow as %d m — let the spool run." % int(_depth))
 		else:
@@ -543,14 +578,54 @@ func _hold_the_spool(thumbed: bool) -> void:
 func _hold_depth() -> void:
 	global_position.y = -_depth - _dip
 
+## SOMETHING TAKES THE BAIT. Rolls what it is — from the live conditions at THIS tackle,
+## THIS moment, off the pool the tool is fishing (the deep rig draws deep-flagged species
+## gated on how far the lead has sunk and on what is on the hook; the surface rod rolls
+## "rod" with no depth and no bait, exactly as before) — and, if it is a monster, throws the
+## jolt and the flash right now, while the player still has to decide whether to strike.
+func _take() -> void:
+	_pending = FISH.roll("deep" if _deep else "rod",
+		FISH.context(self, global_position, _bait_id), _rng, _depth if _deep else -1.0)
+	if _pending_is_trophy():
+		_big_bite_feedback()
+
+func _pending_is_trophy() -> bool:
+	return not _pending.is_empty() and FISH.is_trophy(String(_pending.get("id", "")))
+
+## The punch. A short hard rumble on the pad and a pale flash across the whole screen, both
+## gone inside a fifth of a second — you feel it before you have read anything.
+##
+## The overlay is OURS: its own CanvasLayer parented to the scene (not to this rod, which
+## frees itself the moment the line comes in) so it always survives long enough to fade,
+## and it never needs a line of hud.gd. MOUSE_FILTER_IGNORE so a flash can never eat the
+## click the player is about to make with it.
+func _big_bite_feedback() -> void:
+	# No pad plugged in, no vibration — start_joy_vibration on a device that isn't there is
+	# harmless, but asking first keeps it honest and costs one array length.
+	if not Input.get_connected_joypads().is_empty():
+		Input.start_joy_vibration(0, JOLT_WEAK, JOLT_STRONG, JOLT_SEC)
+	var scene: Node = get_tree().current_scene
+	if scene == null:
+		return
+	var layer := CanvasLayer.new()
+	layer.layer = 5
+	var rect := ColorRect.new()
+	rect.color = Color(FLASH_COLOR.r, FLASH_COLOR.g, FLASH_COLOR.b, 0.0)
+	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	rect.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
+	layer.add_child(rect)
+	scene.add_child(layer)
+	var tw: Tween = rect.create_tween()
+	tw.tween_property(rect, "color:a", FLASH_PEAK, FLASH_IN)
+	tw.tween_property(rect, "color:a", 0.0, FLASH_OUT).set_trans(Tween.TRANS_QUAD)
+	tw.tween_callback(layer.queue_free)
+
 func _hook() -> void:
-	# Roll the species now, from the live conditions at THIS float, THIS moment — the
-	# fight character comes from what took the bait. The deep rig draws its OWN pool
-	# (deep-flagged species, gated on how far the lead has actually sunk); the surface
-	# rod rolls "rod" with no depth at all, exactly as before.
-	var kind: String = "deep" if _deep else "rod"
-	var depth_m: float = _depth if _deep else -1.0
-	_fish = FISH.roll(kind, FISH.context(self, global_position), _rng, depth_m)
+	# Spend the roll made at the take (see _pending). Falling back to a fresh roll keeps the
+	# strike honest if the pre-roll was ever skipped.
+	_fish = _pending if not _pending.is_empty() else FISH.roll("deep" if _deep else "rod",
+		FISH.context(self, global_position, _bait_id), _rng, _depth if _deep else -1.0)
+	_pending = {}
 	if _fish.is_empty():
 		_finish("Whatever it was, it's gone.")
 		return
@@ -619,6 +694,7 @@ func _land() -> void:
 	# drying line can fillet THIS fish rather than an average one. Species with no size
 	# range in fish.json roll 0.0 and read exactly as they always did.
 	var kg: float = FISH.roll_size(id, _rng)
+	_log_catch(id, kg)
 	if kg <= 0.0:
 		_finish("Caught: %s" % _fish["name"])
 		return
@@ -647,6 +723,34 @@ func _fly_catch_to_player() -> void:
 		.set_trans(Tween.TRANS_QUAD).set_ease(Tween.EASE_IN)
 	tw.parallel().tween_property(fish_visual, "rotation:x", TAU * 1.5, 0.26)
 	tw.tween_callback(fish_visual.queue_free)
+
+## THE JOURNAL ENTRY. Everything the rail knows about this particular fish, handed to
+## Journal.record_catch — which writes it into the species' own {cat,title,body,hint} entry
+## on the FIRST catch and, after that, only updates the best-specimen line if this one beat
+## it. Nothing here is invented: the weight comes from fish.json's size_kg, the depth and
+## its plain-words band from the deep rig's own readout, phase/weather from the same catch
+## context the roll used, the bait from what was actually on the hook, and the flavour line
+## from the species' note in fish.json.
+func _log_catch(id: String, kg: float) -> void:
+	var ctx: Dictionary = FISH.context(self, global_position, _bait_id)
+	var conditions: Array[String] = []
+	if ctx["storming"]:
+		conditions.append("Storm sea")
+	if ctx["lit"]:
+		conditions.append("worklights burning")
+	if conditions.is_empty():
+		conditions.append("Quiet water")
+	conditions.append("open water" if ctx["open"] else "in the rig's shadow")
+	Journal.record_catch(id, {
+		"name": String(_fish.get("name", id)),
+		"flavour": String(_fish.get("note", "")),
+		"kg": kg,
+		"depth_m": _depth if _deep else -1.0,
+		"band": FISH.depth_read(_depth) if _deep else "",
+		"phase": String(ctx["phase"]),
+		"weather": ", ".join(conditions),
+		"bait": _bait_name(_bait_id) if _bait_id != "" else "",
+	})
 
 func _prompt(text: String) -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")

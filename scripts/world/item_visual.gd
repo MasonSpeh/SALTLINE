@@ -17,6 +17,11 @@ const FISH_TINT := {
 	"fish_gulper_eel": Color(0.28, 0.22, 0.3), "fish_bloom_dragon": Color(0.15, 0.35, 0.4),
 	"fish_fathom_sturgeon": Color(0.34, 0.36, 0.32), "fish_abyss_grenadier": Color(0.4, 0.38, 0.34),
 	"fish_coelacanth": Color(0.32, 0.34, 0.38), "fish_giant_oarfish": Color(0.6, 0.65, 0.58),
+	# Owner call, 2026-07-27: these two had no glb, no tint and no size, so they came out of
+	# build() as the DEFAULT un-tinted grey capsule — the same anonymous shape for a hagfish
+	# and for a fish that has gone off. Un-modelled is fine; un-identifiable is not.
+	"fish_trench_hagfish": Color(0.34, 0.3, 0.33),   # blind, slate-mauve, ropey
+	"fish_rotten": Color(0.46, 0.5, 0.36),           # gone green at the gills
 }
 ## Owner call, 2026-07-25b: every species now has its own entry. Before this, only 8 of
 ## the ~20 species were listed and everything else silently fell back to the default 1.0
@@ -47,6 +52,7 @@ const FISH_SIZE := {
 	"fish_gannet_mackerel": 0.7, "fish_rust_wrasse": 0.8,
 	"fish_tallow_pollock": 1.1, "fish_squall_garfish": 1.2,
 	"fish_lantern_dogfish": 1.5, "fish_anchor_ray": 1.6,       # both a two-handed lift
+	"fish_trench_hagfish": 0.9, "fish_rotten": 0.9,           # see the FISH_TINT note above
 }
 ## Real generated fish meshes (assets/models/fauna/<id>) when present; procedural
 ## silhouette when not. Preloaded — the class cache lags for this new file.
@@ -206,8 +212,34 @@ static func build(item_id: String) -> Node3D:
 				_cyl(root, 0.045, 0.045, Color(0.35, 0.24, 0.14),
 					Vector3(cos(a4) * 0.07, 0.045, sin(a4) * 0.07), true, 0.8)
 		"bloom_lamp_kit":
-			_box(root, Vector3(0.3, 0.3, 0.3), Color(0.3, 0.34, 0.36), Vector3(0, 0.16, 0))
-			_box(root, Vector3(0.16, 0.16, 0.16), Color(0.2, 0.9, 0.85), Vector3(0, 0.34, 0), true, 2.2)
+			# Owner call, 2026-07-27: was a 0.3 m grey cube with a 0.16 m emissive cube sat on
+			# it — two untextured boxes, i.e. a placeholder. What structures.bloom_lamp
+			# actually erects is a base plate, a post and a glowing head, so the KIT is those
+			# three parts flat-packed: the plate down, the post broken into two lengths and
+			# strapped beside it, and the live bloom cell caged on top (the cell is the part
+			# that has to survive the carry, so it travels sitting up in its guard).
+			_box(root, Vector3(0.34, 0.035, 0.34), Color(0.34, 0.35, 0.38), Vector3(0, 0.018, 0))   # base plate
+			for bl_c in [-0.13, 0.13]:                                                              # bolt holes
+				_cyl(root, 0.022, 0.012, Color(0.22, 0.23, 0.25), Vector3(bl_c, 0.04, -0.13))
+			for bl_i in range(2):
+				var bl_post := _cyl(root, 0.035, 0.32, Color(0.3, 0.31, 0.34),
+					Vector3(0.0, 0.075 + bl_i * 0.062, -0.09 + bl_i * 0.02))
+				bl_post.rotation.z = deg_to_rad(90)
+				bl_post.rotation.y = deg_to_rad(-6 + bl_i * 12)                                     # post halves
+			_box(root, Vector3(0.05, 0.13, 0.09), Color(0.74, 0.67, 0.5), Vector3(0.05, 0.1, -0.09))  # strap
+			# The bloom cell: a stoppered jar of live light standing in a four-bar guard.
+			_cyl(root, 0.062, 0.13, Color(0.2, 0.9, 0.85), Vector3(0, 0.105, 0.09), true, 2.2)
+			_cyl(root, 0.066, 0.018, Color(0.4, 0.42, 0.45), Vector3(0, 0.045, 0.09))               # cell foot
+			_cyl(root, 0.05, 0.03, Color(0.45, 0.34, 0.2), Vector3(0, 0.182, 0.09))                 # cork
+			for bl_g in range(4):
+				var bl_a: float = bl_g * TAU / 4.0 + 0.4
+				_box(root, Vector3(0.014, 0.16, 0.014), Color(0.42, 0.43, 0.46),
+					Vector3(cos(bl_a) * 0.072, 0.105, 0.09 + sin(bl_a) * 0.072))                    # guard bars
+			# A THIN ring tying the four bars off at the top. TorusMesh's inner_radius is the
+			# hole, so it has to be held just under the outer or the "hoop" is a solid disc
+			# capping the guard and hiding the one lit part of the kit.
+			var bl_hoop := _torus(root, 0.066, 0.08, Color(0.42, 0.43, 0.46), Vector3(0, 0.19, 0.09))
+			bl_hoop.rotation.x = 0.0                                                                # guard hoop, laid flat
 		"leanto_kit":
 			var roll := _cyl(root, 0.13, 0.5, Color(0.6, 0.64, 0.58), Vector3(0, 0.13, 0))
 			roll.rotation.z = deg_to_rad(90)
@@ -265,9 +297,19 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.4, 0.2, 0.32), Color(0.68, 0.62, 0.46), Vector3(0, 0.12, 0))
 			_box(root, Vector3(0.1, 0.08, 0.1), Color(0.3, 0.31, 0.34), Vector3(-0.12, 0.26, 0.05))
 			_box(root, Vector3(0.1, 0.08, 0.1), Color(0.3, 0.31, 0.34), Vector3(0.1, 0.26, -0.06))
-		"glow_worm", "glow_worm_cooked":
-			# Glowing sphere for raw/cooked worm (slightly different glow in hand)
-			_box(root, Vector3(0.25, 0.25, 0.25), Color(0.2, 0.9, 0.85), Vector3(0, 0.125, 0), true, 1.0)
+		"glow_worm":
+			# Owner call, 2026-07-27: this WAS a single 0.25 m emissive teal BoxMesh — a bare
+			# untextured cube, the one thing in the pack that read as an un-authored
+			# placeholder (the `glow_mucus` comment below already called it "the glow worm's
+			# cube"). It is a live animal you sneak up on in the dark and it is a crafting
+			# input for the bloom lamp, so it earns a real body: a fat segmented grub curled
+			# on itself, the lit gut showing through thinner skin between the rings.
+			_glow_worm(root, false)
+		"glow_worm_cooked":
+			# Same grub off the pan. The old case shared ONE cube with the raw worm — the
+			# comment promised "slightly different glow in hand" and the code was identical.
+			# Cooking a Bloom animal puts the light out: browned, shrunken, curled tighter.
+			_glow_worm(root, true)
 
 		# ---- SALVAGED MATERIALS: what the rig gives up when you take it apart ----
 		"steel_plate":
@@ -620,7 +662,13 @@ static func build(item_id: String) -> Node3D:
 			_cyl(root, 0.085, 0.035, Color(0.76, 0.58, 0.34), Vector3(0, 0.018, 0))
 			_cyl(root, 0.083, 0.01, Color(0.46, 0.33, 0.18), Vector3(0, 0.04, 0))                       # cut line
 			_cyl(root, 0.086, 0.03, Color(0.86, 0.72, 0.5), Vector3(0, 0.058, 0))
-			_sph(root, 0.086, Color(0.84, 0.63, 0.32), Vector3(0, 0.07, 0), Vector3(1.0, 0.5, 1.0))
+			# Z-FIGHT FIX, 2026-07-27: the dome used to be radius 0.086 centred at y 0.07 —
+			# EXACTLY the crown cylinder's radius, and its equator sits inside the cylinder's
+			# 0.043..0.073 span, so the two curved surfaces were coincident over a full band
+			# and the crown shimmered/flickered as the camera moved (the "glitching" item).
+			# Nothing else in the file shares a radius between a _cyl and a _sph. Pulled 4 mm
+			# inside the crown and lifted 2 mm, which also gives the bun a real shoulder.
+			_sph(root, 0.082, Color(0.84, 0.63, 0.32), Vector3(0, 0.072, 0), Vector3(1.0, 0.5, 1.0))
 			for bb_i in range(3):
 				var bb_a: float = bb_i * TAU / 3.0
 				_sph(root, 0.008, Color(0.94, 0.9, 0.76),
@@ -860,8 +908,35 @@ static func build(item_id: String) -> Node3D:
 			_cyl(root, 0.1, 0.012, Color(0.3, 0.32, 0.34), Vector3(0, 0.008, 0))                           # nacre floor
 			_box(root, Vector3(0.05, 0.012, 0.04), Color(0.82, 0.8, 0.74), Vector3(0.06, 0.028, 0.04))     # chipped rim
 		_:
-			_box(root, Vector3(0.28, 0.3, 0.28), Interactable.COLOR_TAKEABLE, Vector3(0, 0.15, 0))
+			# Owner call, 2026-07-27: this used to build a flat yellow 0.28 m BoxMesh —
+			# a blank untextured cube with no mesh and no texture, sitting on a deck full
+			# of authored props. An id with no entry in the table above is an AUTHORING
+			# BUG, and a placeholder cube hides that bug behind something that merely
+			# looks bad; drawing nothing surfaces it and guarantees no blank square can
+			# reach the world from a code path nobody audited.
+			#
+			# Verified safe before the change: every one of the 167 ids in data/items.json
+			# has a case above (or is a species fish handled by the early-out), every
+			# recipes.json `makes`/`needs`/`tool` id resolves to one of those, and no
+			# literal id spawned anywhere in scripts/ falls outside items.json — so no
+			# obtainable, craftable or quest item can land here. ui/item_icons.gd already
+			# documents and handles the empty-node case ("an unknown id yields an empty
+			# node ... which the AABB check turns into 'no art'"), and
+			# player_controller._normalize_hand_visual bails on `not found`.
+			_warn_unregistered(item_id)
 	return root
+
+## One push_warning per unknown id per run — an item with no registered mesh is a data
+## or authoring error worth seeing in the log, but a Takeable rebuilt every time it is
+## picked up, dropped and re-rendered for its icon must not spam it.
+static var _unregistered: Dictionary = {}
+
+static func _warn_unregistered(item_id: String) -> void:
+	if _unregistered.has(item_id):
+		return
+	_unregistered[item_id] = true
+	push_warning("ItemVisual: no mesh registered for item id '%s' — drawing nothing. "
+		% item_id + "Add a case to ItemVisual.build().")
 
 # ---- vessels, shared with the rain catcher ----
 
@@ -916,8 +991,17 @@ static func vessel_flask(root: Node3D, filled: bool) -> void:
 
 ## True for raw fish ("fish_*") and per-species cooked meals ("cooked_fish_*"),
 ## but NOT the legacy generic "cooked_fish"/"cooked_fish_prime" (their own fillet cases).
+##
+## Owner call, 2026-07-27: NOT_SPECIES exists because this prefix test runs BEFORE the
+## match statement and returns from build() on its own, so any id it claims can never
+## reach its own case. `fish_bone` was claimed by the `fish_` prefix — which made the
+## fully authored spine-and-ribs case below dead code and rendered a picked fish bone as
+## a whole grey FISH (no glb and no FISH_TINT entry, so the plain default capsule). It is
+## a crafting TOOL, not a species; it is excluded here so its real mesh is reached.
+const NOT_SPECIES := {"fish_bone": true, "cooked_fish_prime": true}
+
 static func _is_species_fish(id: String) -> bool:
-	if id == "cooked_fish_prime":
+	if NOT_SPECIES.has(id):
 		return false
 	return id.begins_with("fish_") or id.begins_with("cooked_fish_")
 
@@ -954,13 +1038,53 @@ static func _crab_shape(root: Node3D, cooked: bool) -> void:
 static func _squid_shape(root: Node3D, cooked: bool) -> void:
 	var mantle: Color = Color(0.6, 0.5, 0.42) if cooked else Color(0.45, 0.55, 0.6)  # grilled squid browns
 	var tent: Color = Color(0.5, 0.4, 0.33) if cooked else Color(0.4, 0.5, 0.55)
-	var cone := _cyl(root, 0.001, 0.3, mantle, Vector3(0, 0.24, 0))
-	(cone.mesh as CylinderMesh).bottom_radius = 0.09
+	# A tapered mantle. Was a _cyl built with top_radius 0.001 and its bottom_radius patched
+	# afterwards — a near-degenerate ring whose normals are undefined at the apex, which
+	# shades as a flickering point under a moving light. _cone builds the same silhouette
+	# with a real 6 mm top face and no post-hoc mesh surgery.
+	_cone(root, 0.09, 0.006, 0.3, mantle, Vector3(0, 0.24, 0))
 	for i in range(4):
 		_box(root, Vector3(0.03, 0.14, 0.03), tent,
 			Vector3(cos(i * TAU / 4) * 0.05, 0.05, sin(i * TAU / 4) * 0.05))
 	if not cooked:
 		_box(root, Vector3(0.06, 0.06, 0.06), Color(0.2, 0.9, 0.85), Vector3(0, 0.3, 0), true, 0.8)  # bio-glow
+
+## A Bloom grub, raw or off the pan. Six body segments swept along a C-curve (each yawed
+## to the tangent so they read as ONE animal rather than a row of beads — the same trick
+## the croissant uses), a blunt head with two feeler stubs, and the lit gut showing as a
+## thinner, brighter core between the rings. Cooking a Bloom animal puts the light out:
+## the shell browns, the glow drops to a dull ember and the body curls tighter.
+static func _glow_worm(root: Node3D, cooked: bool) -> void:
+	var skin: Color = Color(0.42, 0.32, 0.2) if cooked else Color(0.36, 0.86, 0.8)
+	var gut: Color = Color(0.62, 0.34, 0.14) if cooked else Color(0.2, 0.95, 0.88)
+	var glow: float = 0.35 if cooked else 1.6
+	var arc: float = 118.0 if cooked else 152.0     # the pan curls it tighter
+	var rad: float = 0.085
+	for i in range(6):
+		var a: float = deg_to_rad(-arc * 0.5 + arc * (float(i) / 5.0))
+		var taper: float = 0.036 - absf(float(i) - 1.6) * 0.0042
+		var seg := _cyl(root, maxf(taper, 0.014), 0.05, skin,
+			Vector3(cos(a) * rad, 0.038, sin(a) * rad), not cooked, glow * 0.35)
+		seg.rotation = Vector3(deg_to_rad(90), -a, 0)
+		# The gut: a narrower, brighter core riding inside the same segment.
+		var core := _cyl(root, maxf(taper - 0.012, 0.006), 0.056, gut,
+			Vector3(cos(a) * rad, 0.038, sin(a) * rad), true, glow)
+		core.rotation = Vector3(deg_to_rad(90), -a, 0)
+	# Head end: blunter than the tail, with a dark mouth and two short feelers.
+	var ha: float = deg_to_rad(-arc * 0.5 - 16.0)
+	var head_pos := Vector3(cos(ha) * rad, 0.04, sin(ha) * rad)
+	_sph(root, 0.032, skin, head_pos, Vector3(1.0, 0.85, 1.0), not cooked, glow * 0.3)
+	_sph(root, 0.012, Color(0.08, 0.09, 0.1), head_pos + Vector3(cos(ha) * 0.024, 0.004, sin(ha) * 0.024),
+		Vector3(1.0, 0.7, 1.0))
+	for f in [-1.0, 1.0]:
+		var feel := _cyl(root, 0.005, 0.045, gut,
+			head_pos + Vector3(cos(ha) * 0.03, 0.012, sin(ha) * 0.03 + f * 0.014), true, glow * 0.6)
+		feel.rotation = Vector3(deg_to_rad(74), -ha, deg_to_rad(f * 22.0))
+	# Tail: a short taper closing the curve off.
+	var ta: float = deg_to_rad(arc * 0.5 + 13.0)
+	var tail := _cone(root, 0.021, 0.004, 0.05, skin,
+		Vector3(cos(ta) * rad, 0.036, sin(ta) * rad), not cooked, glow * 0.3)
+	tail.rotation = Vector3(deg_to_rad(90), -ta, 0)
 
 static func _prawn_shape(root: Node3D, cooked: bool) -> void:
 	var a: Color = Color(0.85, 0.4, 0.3) if cooked else Color(0.75, 0.6, 0.55)      # prawns pink up
@@ -973,8 +1097,11 @@ static func _prawn_shape(root: Node3D, cooked: bool) -> void:
 static func _fish(root: Node3D, tint: Color, size_mul: float = 1.0) -> void:
 	var body := MeshInstance3D.new()
 	var bm := CapsuleMesh.new()
-	bm.radius = 0.06 * size_mul
-	bm.height = 0.4 * size_mul
+	bm.radius = _ext(0.06 * size_mul)
+	# CapsuleMesh needs height >= 2 * radius or it silently degenerates to a sphere with a
+	# pinched, flickering waist. The authored ratio (0.4 vs 0.12) is safe; the clamp is here
+	# so a future FISH_SIZE entry can't quietly break every un-modelled species at once.
+	bm.height = maxf(_ext(0.4 * size_mul), bm.radius * 2.0)
 	bm.material = MatLib.flat(tint)
 	body.mesh = bm
 	body.rotation.z = deg_to_rad(90)
@@ -990,8 +1117,8 @@ static func _fish(root: Node3D, tint: Color, size_mul: float = 1.0) -> void:
 	tail.position = Vector3(0.24 * size_mul, 0.08 * size_mul, 0)
 	var eye := MeshInstance3D.new()
 	var em := SphereMesh.new()
-	em.radius = 0.015 * size_mul
-	em.height = 0.03 * size_mul
+	em.radius = _ext(0.015 * size_mul)
+	em.height = em.radius * 2.0
 	em.material = MatLib.flat(Color(0.05, 0.05, 0.06))
 	eye.mesh = em
 	root.add_child(eye)
@@ -999,28 +1126,51 @@ static func _fish(root: Node3D, tint: Color, size_mul: float = 1.0) -> void:
 
 # ---- primitives ----
 
+## Smallest dimension any part is allowed to have. A zero, negative or non-finite extent
+## produces a mesh with a degenerate (or NaN) AABB, and a NaN AABB propagates: it poisons
+## the merged bounds in player_controller._normalize_hand_visual and in ui/item_icons'
+## framing camera, so ONE bad number makes the whole held item or its icon jump, invert or
+## disappear. Every dimension goes through here so a typo can only ever cost a sliver of
+## geometry instead of glitching the object it belongs to.
+const MIN_EXTENT: float = 0.0005
+
+static func _ext(v: float) -> float:
+	if not is_finite(v):
+		return MIN_EXTENT
+	return maxf(v, MIN_EXTENT)
+
+static func _ext3(v: Vector3) -> Vector3:
+	return Vector3(_ext(v.x), _ext(v.y), _ext(v.z))
+
+## A part's position must be finite too — a NaN position is a NaN world AABB even when the
+## mesh itself is sound.
+static func _pos(v: Vector3) -> Vector3:
+	if is_finite(v.x) and is_finite(v.y) and is_finite(v.z):
+		return v
+	return Vector3.ZERO
+
 static func _box(root: Node3D, size: Vector3, color: Color, pos: Vector3,
 		emissive: bool = false, energy: float = 1.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var m := BoxMesh.new()
-	m.size = size
+	m.size = _ext3(size)
 	m.material = MatLib.flat(color, emissive, energy)
 	mi.mesh = m
 	root.add_child(mi)
-	mi.position = pos
+	mi.position = _pos(pos)
 	return mi
 
 static func _cyl(root: Node3D, radius: float, h: float, color: Color, pos: Vector3,
 		emissive: bool = false, energy: float = 1.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var m := CylinderMesh.new()
-	m.top_radius = radius
-	m.bottom_radius = radius
-	m.height = h
+	m.top_radius = _ext(radius)
+	m.bottom_radius = _ext(radius)
+	m.height = _ext(h)
 	m.material = MatLib.flat(color, emissive, energy)
 	mi.mesh = m
 	root.add_child(mi)
-	mi.position = pos
+	mi.position = _pos(pos)
 	return mi
 
 static func _can(root: Node3D, metal: Color, label: Color) -> void:
@@ -1030,12 +1180,14 @@ static func _can(root: Node3D, metal: Color, label: Color) -> void:
 static func _torus(root: Node3D, inner: float, outer: float, color: Color, pos: Vector3) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var m := TorusMesh.new()
-	m.inner_radius = inner
-	m.outer_radius = outer
+	# TorusMesh renders inside-out (or not at all) if the inner radius reaches the outer;
+	# the outer is held at least one MIN_EXTENT clear of it rather than merely positive.
+	m.inner_radius = _ext(inner)
+	m.outer_radius = maxf(_ext(outer), m.inner_radius + MIN_EXTENT)
 	m.material = MatLib.flat(color)
 	mi.mesh = m
 	root.add_child(mi)
-	mi.position = pos
+	mi.position = _pos(pos)
 	mi.rotation.x = deg_to_rad(90)
 	return mi
 
@@ -1047,15 +1199,17 @@ static func _sph(root: Node3D, radius: float, color: Color, pos: Vector3,
 		stretch: Vector3 = Vector3.ONE, emissive: bool = false, energy: float = 1.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var m := SphereMesh.new()
-	m.radius = radius
-	m.height = radius * 2.0
+	m.radius = _ext(radius)
+	m.height = m.radius * 2.0
 	m.radial_segments = 12
 	m.rings = 6
 	m.material = MatLib.flat(color, emissive, energy)
 	mi.mesh = m
 	root.add_child(mi)
-	mi.position = pos
-	mi.scale = stretch
+	mi.position = _pos(pos)
+	# A zero or NaN component here collapses/inverts the node's basis, which is the other
+	# way a part turns into a flickering sliver. Uniform stretch stays exactly as authored.
+	mi.scale = Vector3(_ext(stretch.x), _ext(stretch.y), _ext(stretch.z))
 	return mi
 
 ## Tapered part — a bottle shoulder, a bowl flaring out, a shell cone. Same cylinder the
@@ -1064,14 +1218,14 @@ static func _cone(root: Node3D, bottom_r: float, top_r: float, h: float, color: 
 		pos: Vector3, emissive: bool = false, energy: float = 1.0) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var m := CylinderMesh.new()
-	m.bottom_radius = bottom_r
-	m.top_radius = top_r
-	m.height = h
+	m.bottom_radius = _ext(bottom_r)
+	m.top_radius = _ext(top_r)
+	m.height = _ext(h)
 	m.radial_segments = 12
 	m.material = MatLib.flat(color, emissive, energy)
 	mi.mesh = m
 	root.add_child(mi)
-	mi.position = pos
+	mi.position = _pos(pos)
 	return mi
 
 ## Wedge part — a cheese wedge, a dried tail fan. Apex along +Y, extruded through Z; lay it
@@ -1079,9 +1233,9 @@ static func _cone(root: Node3D, bottom_r: float, top_r: float, h: float, color: 
 static func _prism(root: Node3D, size: Vector3, color: Color, pos: Vector3) -> MeshInstance3D:
 	var mi := MeshInstance3D.new()
 	var m := PrismMesh.new()
-	m.size = size
+	m.size = _ext3(size)
 	m.material = MatLib.flat(color)
 	mi.mesh = m
 	root.add_child(mi)
-	mi.position = pos
+	mi.position = _pos(pos)
 	return mi

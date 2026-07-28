@@ -1,0 +1,140 @@
+====================================================================
+  S A L T L I N E   —   Beta
+  A first-person survival mystery on an abandoned North Sea oil rig
+====================================================================
+
+
+HOW TO START THE GAME
+---------------------
+1. Double-click  SALTLINE.exe
+2. That's it. There is no installer and nothing to set up.
+
+
+"WINDOWS PROTECTED YOUR PC" — THIS IS NORMAL
+--------------------------------------------
+Because this is an indie game and not signed with a paid Microsoft
+certificate, Windows may show a blue warning box the first time you
+run it.
+
+To play:
+
+    1. Click  "More info"
+    2. Click  "Run anyway"
+
+You only have to do this once. The game is a single self-contained
+program — it does not install anything, does not change any system
+settings, and does not need an internet connection.
+
+
+REQUIREMENTS
+------------
+  Windows 10 or 11, 64-bit
+  About 4 GB of RAM
+  A mouse (the game is mouse-look, a trackpad is painful)
+  A gamepad works too, but is optional
+
+If the game runs slowly, press Esc and turn the graphics settings
+down in the pause menu.
+
+
+THE FIRST FIVE MINUTES
+----------------------
+You wake in a survival pod at the waterline. The rig above you has
+no power and no crew.
+
+  * Walk out and look around. Follow the painted signage — the rig
+    labels its own decks and rooms.
+  * Pick things up. Almost anything loose can be grabbed with E.
+  * Find the master breaker room and get the power back on. Most of
+    the rig only becomes useful once the lights are running.
+  * Watch the four bars in the bottom-left: LIFE, HUNGER, THIRST,
+    WARMTH. Eat, drink, and stay dry and warm.
+  * When a storm rolls in, get inside.
+
+
+CONTROLS
+--------
+  MOVEMENT
+    W A S D ............ move
+    Mouse .............. look
+    Shift .............. sprint
+    Space .............. jump
+    Ctrl ............... crouch (quieter, harder for creatures to spot)
+
+  INTERACTION
+    E .................. interact / pick up / set down
+    Hold E on ladder ... climb  (E up, E+S down, release to let go)
+    LMB ................ throw the item you are carrying
+    F .................. throw the rigging hook
+
+  ITEMS
+    1 – 4 .............. select an item into your hand
+    Same number again .. eat / drink / use it
+    I .................. inventory
+    J .................. journal
+    H .................. help
+    Esc ................ pause and settings
+
+
+WHAT TO DO ON THE RIG
+---------------------
+  POWER      Find the master breaker room and restore the grid.
+             Lights, the stove, and the fridge all depend on it.
+
+  CRAFTING   Press E at a rigging bench. Lay parts from your pack
+             onto the bench; when they match a recipe, hold WORK or
+             Space to build it. A partial layout will tell you what
+             it wants to become and what is still missing.
+
+  BUILDING   Press B while carrying a crafted kit. A ghost preview
+             snaps to the deck grid. LMB places, R rotates,
+             Tab or scroll cycles kits, B or Esc exits.
+
+  FISHING    The rod is in the wet-deck storeroom — read the
+             Angler's Notes beside it, they list every species and
+             the hours, water and weather it runs in.
+             LMB casts. When the float plunges, LMB strikes, then
+             hold LMB to reel during the lulls and release during
+             the surges. Fight it wrong and the line breaks.
+             Craft a Drop Net at the bench for the species that
+             will not take a hook.
+
+  FOOD       Sear raw catch at the dining hall stove (E, then COOK).
+             Raw fish rots in about four game hours. Cooked fish
+             hung on a drying line cures to Dried Fish and keeps
+             forever, or you can stow it in the fridge.
+             Raw glow worms will make you sick. Cook them.
+
+  THE STACK  The accommodation block above the topside deck. Ramp up
+             from the deck following QUARTERS, then take the internal
+             stairwell up through the quarters, control, and works
+             decks to the roof mast deck.
+
+
+SAVING
+------
+The game autosaves. You can also save from the pause menu (Esc).
+
+
+TROUBLESHOOTING
+---------------
+  The game will not start
+      Right-click SALTLINE.exe, choose Properties, and if there is
+      an "Unblock" checkbox near the bottom, tick it and click OK.
+
+  It runs slowly or stutters
+      Press Esc and lower the graphics settings. Closing other
+      programs helps — this is a fairly heavy 3D game.
+
+  The mouse feels wrong
+      Mouse sensitivity is in the pause menu under settings.
+
+  I am stuck somewhere
+      Try crouching (Ctrl) and walking out slowly. If you are truly
+      stuck, load your last autosave from the pause menu.
+
+
+Thanks for playing. This is a beta — if you hit something broken,
+that is genuinely useful to hear about.
+
+====================================================================

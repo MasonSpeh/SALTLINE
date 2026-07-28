@@ -210,10 +210,23 @@ func _rail_z(z0: float, z1: float, y: float, x: float) -> void:
 ## The single smooth guard a railing presents to the player: one full-height box from
 ## just under the deck line to just over the top bar, with no posts, no gaps and no
 ## lips to wedge a capsule against. Invisible — the rail's own steel is what you see.
+##
+## CORNER FORGIVENESS: the slab is shaved back RAIL_END_SHAVE at each end of its long
+## horizontal axis. A rail run ends in a square cap, and where two runs meet at a right
+## angle a capsule cutting the corner diagonally hits both caps in the same frame; the two
+## slide directions cancel and the player stops dead a hand's width from the rail. Pulling
+## the invisible barrier back from the visual steel rounds that corner off. It cannot open a
+## hole — 0.18 m off each end only widens junctions and corners, and a player capsule needs
+## 0.74 m of clear width to pass anything at all.
+const RAIL_END_SHAVE: float = 0.18
 func _rail_slab(pos: Vector3, size: Vector3) -> void:
 	var body := StaticBody3D.new()
 	var shape := CollisionShape3D.new()
 	var box := BoxShape3D.new()
+	if size.x >= size.z and size.x > RAIL_END_SHAVE * 3.0:
+		size.x -= RAIL_END_SHAVE * 2.0
+	elif size.z > size.x and size.z > RAIL_END_SHAVE * 3.0:
+		size.z -= RAIL_END_SHAVE * 2.0
 	box.size = size
 	shape.shape = box
 	body.add_child(shape)

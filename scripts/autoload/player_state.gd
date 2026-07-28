@@ -75,14 +75,34 @@ var oxygen: float = 1.0 : set = set_oxygen
 var rest: float = 1.0 : set = set_rest
 var comfort: float = 0.0 : set = set_comfort
 var hotbar: Array = _new_hotbar()
-var inventory: Array = [] ## overflow list beyond the hotbar
+## Overflow slots beyond the hotbar. A SPARSE grid, not a packed list (owner call,
+## 2026-07-27c): a cell the player deliberately left empty holds null, so "put this in THAT
+## square" can be honoured literally instead of collapsing to the first free slot. Two
+## invariants keep that from leaking out to the dozens of `for it in inventory` readers
+## elsewhere in the game:
+##   · trailing nulls are always trimmed (see _trim_pack), so a pack that empties out is
+##     `[]` again and `inventory.size()` never counts phantom tail slots;
+##   · a null is only ever an EMPTY square — every reader that compares against an item id
+##     simply doesn't match it, and everything in this file that counts, fills or indexes
+##     the pack goes through the null-aware helpers below.
+var inventory: Array = []
 ## How many sit in each slot. Parallel to hotbar/inventory rather than folded into
 ## them, so every existing caller that reads `hotbar[i]` / iterates `inventory` still
 ## sees a plain item id (or null) — the count rides alongside. Counts are only ever
 ## meaningful where the matching slot holds an id; a null slot's count is ignored.
 var hotbar_counts: Array = _new_hotbar_counts()
 var inventory_counts: Array = [] ## parallel to inventory, one int per stack
-var selected_hotbar: int = -1  ## last hotbar slot pressed (#1-4)
+## Which hotbar slot is in hand (-1 = empty hands). Written from several places — the
+## number keys, the inventory panel's place-into-hotbar, scripted setups — so it carries a
+## setter that announces itself rather than making every writer remember to tell the HUD.
+## Deliberately fires on EVERY assignment, not just a changed value: pressing the same
+## number again is a re-select, and the HUD's name popup is expected to restart on it.
+signal hotbar_selection_changed(slot: int)
+var selected_hotbar: int = -1 : set = set_selected_hotbar
+
+func set_selected_hotbar(slot: int) -> void:
+	selected_hotbar = slot
+	hotbar_selection_changed.emit(slot)
 
 ## Environmental warmth modifier, set by cold/heat zones: -1 cold, 0 neutral, +1 heated.
 var warmth_zone: int = 0
@@ -301,6 +321,48 @@ static func _new_hotbar_counts() -> Array:
 func _stack_cap(item_id: String) -> int:
 	return MAX_STACK if is_stackable(item_id) else 1
 
+# ---------------------------------------------------------------- pack slots
+# The pack is a sparse grid (see `inventory`). These four helpers are the only places that
+# know it, so no caller outside this file has to.
+
+## Drop empty tail cells so an emptied pack is `[]` again and `inventory.size()` stays a
+## meaningful "how far the grid is used". Called after anything that vacates a cell.
+func _trim_pack() -> void:
+	while not inventory.is_empty() and inventory[inventory.size() - 1] == null:
+		inventory.remove_at(inventory.size() - 1)
+		inventory_counts.remove_at(inventory_counts.size() - 1)
+
+## How many pack cells actually hold something — NOT inventory.size(), which also counts
+## the gaps the player left between them.
+func pack_used() -> int:
+	var n: int = 0
+	for it in inventory:
+		if it != null:
+			n += 1
+	return n
+
+## The lowest pack index nothing is sitting in, or -1 when the pack is genuinely full.
+## Gaps are filled before the grid is grown, so auto-pickup still packs tight — only a
+## deliberate placement puts an item past a hole.
+func pack_first_free() -> int:
+	for i in range(inventory.size()):
+		if inventory[i] == null:
+			return i
+	if inventory.size() < backpack_capacity():
+		return inventory.size()
+	return -1
+
+## Write a stack into an EXACT pack index, growing the grid with empty cells if the target
+## sits past the end. This is what makes "put it in that square" literal.
+func _pack_put(i: int, item_id: Variant, count: int) -> void:
+	while inventory.size() <= i:
+		inventory.append(null)
+		inventory_counts.append(1)
+	inventory[i] = item_id
+	inventory_counts[i] = count
+	if item_id == null:
+		_trim_pack()
+
 func add_item(item_id: String) -> bool:
 	var cap: int = _stack_cap(item_id)
 	# Top up an existing stack before spending a fresh slot — hotbar first, then pack.
@@ -325,15 +387,15 @@ func add_item(item_id: String) -> bool:
 			inventory_changed.emit()
 			Journal.discover("item_" + item_id)
 			return true
-	if inventory.size() >= backpack_capacity():
+	var free: int = pack_first_free()
+	if free == -1:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud:
 			# Name the way out. The pack panel is where room gets made now — a full pack
 			# used to be a dead end the player had to guess their way out of.
 			hud.toast("Pack is full. [I] — click an item, then the empty space, to drop it.")
 		return false
-	inventory.append(item_id)
-	inventory_counts.append(1)
+	_pack_put(free, item_id, 1)
 	inventory_changed.emit()
 	Journal.discover("item_" + item_id)
 	return true
@@ -341,15 +403,14 @@ func add_item(item_id: String) -> bool:
 ## Inventory panel moves: click a pack item into a free hotbar slot, or stow a
 ## hotbar item back into the pack.
 func backpack_to_hotbar(inv_idx: int) -> bool:
-	if inv_idx < 0 or inv_idx >= inventory.size():
+	if inv_idx < 0 or inv_idx >= inventory.size() or inventory[inv_idx] == null:
 		return false
 	for i in range(HOTBAR_SIZE):
 		if hotbar[i] == null:
 			# The whole stack moves as a unit, count and all.
 			hotbar[i] = inventory[inv_idx]
 			hotbar_counts[i] = int(inventory_counts[inv_idx])
-			inventory.remove_at(inv_idx)
-			inventory_counts.remove_at(inv_idx)
+			_pack_put(inv_idx, null, 1)
 			inventory_changed.emit()
 			return true
 	return false
@@ -367,7 +428,7 @@ func backpack_to_hotbar(inv_idx: int) -> bool:
 ##    of the same thing back and forth; anything over the cap stays in the pack;
 ##  · anything else — a straight swap, counts included.
 func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
-	if inv_idx < 0 or inv_idx >= inventory.size():
+	if inv_idx < 0 or inv_idx >= inventory.size() or inventory[inv_idx] == null:
 		return false
 	if slot < 0 or slot >= HOTBAR_SIZE:
 		return false
@@ -381,8 +442,7 @@ func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
 		if moved > 0:
 			hotbar_counts[slot] = hand_n + moved
 			if pack_n - moved <= 0:
-				inventory.remove_at(inv_idx)
-				inventory_counts.remove_at(inv_idx)
+				_pack_put(inv_idx, null, 1)
 			else:
 				inventory_counts[inv_idx] = pack_n - moved
 			inventory_changed.emit()
@@ -390,8 +450,7 @@ func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
 	hotbar[slot] = pack_id
 	hotbar_counts[slot] = pack_n
 	if hand_id == null:
-		inventory.remove_at(inv_idx)
-		inventory_counts.remove_at(inv_idx)
+		_pack_put(inv_idx, null, 1)
 	else:
 		inventory[inv_idx] = hand_id
 		inventory_counts[inv_idx] = hand_n
@@ -413,11 +472,13 @@ func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
 ## this returns false is a move that means nothing (same slot, empty source, an
 ## out-of-range target, or a merge into a stack that is already at the cap).
 ##
-## `inventory` is a PACKED list, not a fixed grid — a null left in it would draw as a
-## phantom slot — so the two directions that vacate a pack cell remove it outright, and a
-## drop onto the empty cell past the end appends. Each direction is handled explicitly
-## rather than through a generic write helper, because a shared helper would have to
-## remove-then-insert and every pack index after the hole would shift under it.
+## `inventory` is a SPARSE grid (owner call, 2026-07-27c — see the `inventory` declaration).
+## Before that it was a packed list, and the difference is this whole feature: a drop onto
+## any empty pack square had nowhere stable to land, so it appended, and the item appeared in
+## the first free slot rather than the one the player clicked ("it refuses and instead always
+## drops into the first available slot"). Now the target index is written literally, the grid
+## growing empty cells beneath it if it sits past the end, and a vacated cell goes null in
+## place so no index after it shifts under the player's hands.
 func move_slot(from_u: int, to_u: int) -> bool:
 	if from_u == to_u or from_u < 0 or to_u < 0:
 		return false
@@ -429,21 +490,10 @@ func move_slot(from_u: int, to_u: int) -> bool:
 	if from_h:
 		if fi >= HOTBAR_SIZE or hotbar[fi] == null:
 			return false
-	elif fi >= inventory.size():
+	elif fi >= inventory.size() or inventory[fi] == null:
 		return false
-	# The target has to be a slot that exists. For the pack, ANY empty visual slot within
-	# capacity is a legal target, not just the one cell immediately past the end.
-	#
-	# Owner call, 2026-07-27: this used to reject ti > inventory.size(), i.e. every empty
-	# pack slot except the very next one. `inventory` is a packed list with no null padding,
-	# so a click on any later-looking empty square silently failed and cancelled the pick —
-	# which read as "clicking an item, clicking a new spot, and nothing happens", with the
-	# only thing that visibly worked being a swap onto an ALREADY-OCCUPIED slot. There is no
-	# stable identity for an empty pack cell beyond "some index not yet used" (see the
-	# append branch below), so every empty target — wherever the player clicked — resolves
-	# to the same append, and the item shows up at the first free slot rather than pinned to
-	# the exact square. That is a genuine MOVE, which is what was asked for; it just cannot
-	# be a positionally-stable one without turning `inventory` into a padded grid.
+	# The target has to be a slot that exists. For the pack, ANY empty square within capacity
+	# is a legal target — including one well past the last occupied cell.
 	if to_h:
 		if ti >= HOTBAR_SIZE:
 			return false
@@ -458,7 +508,7 @@ func move_slot(from_u: int, to_u: int) -> bool:
 		if hotbar[ti] != null:
 			t_id = String(hotbar[ti])
 			t_n = int(hotbar_counts[ti])
-	elif ti < inventory.size():
+	elif ti < inventory.size() and inventory[ti] != null:
 		t_id = String(inventory[ti])
 		t_n = int(inventory_counts[ti])
 
@@ -480,16 +530,13 @@ func move_slot(from_u: int, to_u: int) -> bool:
 		inventory_changed.emit()
 		return true
 
-	# ---- otherwise the two slots exchange contents outright.
+	# ---- otherwise the two slots exchange contents outright. The target index is written
+	# literally in both directions — that is the whole point of the sparse pack.
 	if to_h:
 		hotbar[ti] = f_id
 		hotbar_counts[ti] = f_n
-	elif ti < inventory.size():
-		inventory[ti] = f_id
-		inventory_counts[ti] = f_n
 	else:
-		inventory.append(f_id)          # the empty cell past the end
-		inventory_counts.append(f_n)
+		_pack_put(ti, f_id, f_n)
 	if t_id == "":
 		_clear_slot(from_h, fi)
 	elif from_h:
@@ -501,23 +548,22 @@ func move_slot(from_u: int, to_u: int) -> bool:
 	inventory_changed.emit()
 	return true
 
-## Empty one slot. A hotbar slot goes null in place (it is a fixed grid); a pack entry is
-## removed outright, because the pack is a packed list.
+## Empty one slot. Both grids go null in place; the pack then trims any empty tail, so
+## indices the player can still see never shift under them but an emptied pack is still `[]`.
 func _clear_slot(is_hotbar: bool, i: int) -> void:
 	if is_hotbar:
 		hotbar[i] = null
 		hotbar_counts[i] = 1
 	else:
-		inventory.remove_at(i)
-		inventory_counts.remove_at(i)
+		_pack_put(i, null, 1)
 
 func hotbar_to_backpack(slot: int) -> bool:
 	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:
 		return false
-	if inventory.size() >= backpack_capacity():
+	var free: int = pack_first_free()
+	if free == -1:
 		return false
-	inventory.append(hotbar[slot])
-	inventory_counts.append(int(hotbar_counts[slot]))
+	_pack_put(free, hotbar[slot], int(hotbar_counts[slot]))
 	hotbar[slot] = null
 	hotbar_counts[slot] = 1
 	inventory_changed.emit()
@@ -548,12 +594,12 @@ func _dec_hotbar(i: int) -> void:
 	else:
 		hotbar_counts[i] = c
 
-## Take one off a pack stack; drop the slot entirely when it runs out.
+## Take one off a pack stack; empty the square when it runs out (and let _trim_pack collapse
+## the grid if that square was the last one in use).
 func _dec_inventory(i: int) -> void:
 	var c: int = int(inventory_counts[i]) - 1
 	if c <= 0:
-		inventory.remove_at(i)
-		inventory_counts.remove_at(i)
+		_pack_put(i, null, 1)
 	else:
 		inventory_counts[i] = c
 
@@ -578,7 +624,7 @@ func hotbar_stack(slot: int) -> int:
 	return int(hotbar_counts[slot])
 
 func inventory_stack(idx: int) -> int:
-	if idx < 0 or idx >= inventory.size():
+	if idx < 0 or idx >= inventory.size() or inventory[idx] == null:
 		return 0
 	return int(inventory_counts[idx])
 
@@ -595,7 +641,7 @@ func take_one_from_slot(unified_idx: int) -> String:
 		inventory_changed.emit()
 		return String(id)
 	var inv_i: int = unified_idx - HOTBAR_SIZE
-	if inv_i >= inventory.size():
+	if inv_i >= inventory.size() or inventory[inv_i] == null:
 		return ""
 	var iid: String = String(inventory[inv_i])
 	_dec_inventory(inv_i)
@@ -615,11 +661,15 @@ func load_inventory(hb: Variant, hb_counts: Variant, inv: Variant, inv_counts: V
 	inventory = []
 	inventory_counts = []
 	if inv is Array:
+		# Nulls are KEPT now, not skipped: the pack is a sparse grid, so a saved gap between
+		# two items is part of how the player arranged their pack and has to come back where
+		# they left it. The on-disk shape is unchanged — still a plain array of ids, with a
+		# JSON null wherever a square is empty — so old saves (which simply have no nulls in
+		# them) load exactly as they always did.
 		for v in (inv as Array):
-			if v == null:
-				continue
-			inventory.append(String(v))
+			inventory.append(String(v) if v != null else null)
 			inventory_counts.append(1)
+	_trim_pack()
 	# Overlay saved counts where present, clamped to each item's stack cap.
 	if hb_counts is Array:
 		for i in range(mini((hb_counts as Array).size(), HOTBAR_SIZE)):
@@ -627,7 +677,8 @@ func load_inventory(hb: Variant, hb_counts: Variant, inv: Variant, inv_counts: V
 				hotbar_counts[i] = clampi(int((hb_counts as Array)[i]), 1, _stack_cap(hotbar[i]))
 	if inv_counts is Array:
 		for i in range(mini((inv_counts as Array).size(), inventory.size())):
-			inventory_counts[i] = clampi(int((inv_counts as Array)[i]), 1, _stack_cap(inventory[i]))
+			if inventory[i] != null:
+				inventory_counts[i] = clampi(int((inv_counts as Array)[i]), 1, _stack_cap(inventory[i]))
 	inventory_changed.emit()
 
 ## An upgraded tool does everything the crude one did. Without this the honed knife
@@ -694,9 +745,15 @@ func use_hotbar(slot: int) -> void:
 		else:
 			hotbar[slot] = null
 			hotbar_counts[slot] = 1
-			if not inventory.is_empty():
-				hotbar[slot] = inventory.pop_front()
-				hotbar_counts[slot] = int(inventory_counts.pop_front())
+			# Refill the hand from the pack's first OCCUPIED square (the grid is sparse now,
+			# so the front cell may legitimately be an empty one the player left).
+			for i in range(inventory.size()):
+				if inventory[i] == null:
+					continue
+				hotbar[slot] = inventory[i]
+				hotbar_counts[slot] = int(inventory_counts[i])
+				_pack_put(i, null, 1)
+				break
 		inventory_changed.emit()
 		item_eaten.emit(id)
 		AudioDirector.play_one_shot("eat", Vector3.ZERO)

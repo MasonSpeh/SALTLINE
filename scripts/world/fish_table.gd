@@ -23,6 +23,80 @@ class_name FishTable extends RefCounted
 ## surface for "how deep do I have to go for a grouper".
 const DROP_FADE_PER_M: float = 0.035
 
+## ---------------------------------------------------------------- what counts as BIG
+## The rod needs to know, at the instant something takes the bait, whether this is a
+## nothing-fish or the one you will remember — that is what the controller jolt and the
+## screen flash are for (fishing_rod._big_bite_feedback). No new field was invented for it:
+## the table already carries two independent statements of "this animal is big", and a
+## species only has to make one of them.
+##   size_kg[1] >= TROPHY_KG — the landed WEIGHT tier. 20 kg picks up the grouper (48),
+##       the halibut (70), the coelacanth (35), the oarfish (85) and the sturgeon (95) and
+##       leaves the abyss grenadier (16 kg top) out with the ordinary catches, which is
+##       where a 5-16 kg rattail belongs.
+##   pull >= TROPHY_PULL — the FIGHT tier, for the deep species that carry no weight range
+##       at all (the gulper eel pulls 1.7 and would otherwise read as a sprat to this test).
+## Everything shallow and small — sprat 0.4, blenny 0.35, herring 0.65 — is far under both.
+const TROPHY_KG: float = 20.0
+const TROPHY_PULL: float = 1.6
+
+## ---------------------------------------------------------------- bait
+## WHAT IS ON THE HOOK CHANGES WHAT LOOKS AT IT. Bait is the deep rig's alone (the surface
+## rod fishes bare — see fishing_rod.gd), and until now every legal bait fished identically:
+## the hook was either armed or it wasn't. This is the one table that says otherwise, and it
+## is deliberately a table of EXCEPTIONS — a bait with no entry here is BAIT_NEUTRAL and
+## behaves exactly as it always did, so nothing about the existing baits is retuned.
+##
+## Per entry:
+##   deep_from — the species drop_m at or past which this bait is in its element
+##   deep      — weight multiplier for species that live at/below deep_from
+##   shallow   — weight multiplier for species shallower than that
+##   drawn     — extra multiplier for species with light "drawn", i.e. the ones fish.json
+##               already marks as coming to a light. A glowing worm is a lure as much as a
+##               meal, so this is where the bioluminescence actually pays.
+##   rate      — bite-clock multiplier once the lead is past deep_from (>1 = bites sooner);
+##               rate_shallow applies above it. Read live off the current depth by
+##               bait_rate(), so a glow worm starts working as the lead sinks INTO the dark.
+const BAIT_NEUTRAL := {"deep_from": 0.0, "deep": 1.0, "shallow": 1.0, "drawn": 1.0,
+	"rate": 1.0, "rate_shallow": 1.0}
+const BAIT_TABLE := {
+	# GLOW WORM. Harvested off the dens in the rig's dark corners (bloom_fauna.gd) and, on a
+	# hook, the only bait that supplies its own light. Its niche is the black water past
+	# 24 m — the drop_m band where the rare deep species start (grenadier 24, hagfish 28,
+	# gulper 34, dragonfish 38, oarfish 42, sturgeon 44) — where it nearly doubles their
+	# share of the roll and brings the bite on a third sooner. Above that it is a small
+	# soft-bodied worm competing with cut fish, and it fishes worse than one.
+	"glow_worm": {"deep_from": 24.0, "deep": 1.9, "shallow": 0.7, "drawn": 1.6,
+		"rate": 1.35, "rate_shallow": 0.75},
+	# Seared, it stops glowing. Still edible, still legal bait, no lure left in it.
+	"glow_worm_cooked": {"deep_from": 24.0, "deep": 1.15, "shallow": 0.85, "drawn": 1.0,
+		"rate": 1.0, "rate_shallow": 1.0},
+}
+
+static func bait_def(bait_id: String) -> Dictionary:
+	return BAIT_TABLE.get(bait_id, BAIT_NEUTRAL)
+
+## How this bait skews ONE species' share of the roll. Keyed off the species' own drop_m —
+## not off how far the lead happens to have sunk — because a uniform multiplier over the
+## whole pool would cancel out in the weighted draw and change nothing at all. This is what
+## makes a glow worm a DEEP bait rather than just a good one.
+static func bait_mult(bait_id: String, def: Dictionary) -> float:
+	if bait_id == "" or not BAIT_TABLE.has(bait_id):
+		return 1.0
+	var b: Dictionary = BAIT_TABLE[bait_id]
+	var m: float = float(b["deep"]) if float(def.get("drop_m", 0.0)) >= float(b["deep_from"]) \
+		else float(b["shallow"])
+	if def.get("light", "any") == "drawn":
+		m *= float(b["drawn"])
+	return m
+
+## Bite-clock multiplier for the bait currently on the hook at the depth the lead is at
+## right now. 1.0 for no bait and for every bait without a table entry.
+static func bait_rate(bait_id: String, depth_m: float) -> float:
+	if bait_id == "" or not BAIT_TABLE.has(bait_id):
+		return 1.0
+	var b: Dictionary = BAIT_TABLE[bait_id]
+	return float(b["rate"]) if depth_m >= float(b["deep_from"]) else float(b["rate_shallow"])
+
 static var _data: Dictionary = {}
 ## Shallowest drop_m in the deep pool, computed once — see min_drop_depth().
 static var _min_drop: float = -1.0
@@ -38,7 +112,12 @@ static func all() -> Dictionary:
 	return _data
 
 ## Build the catch context for a fishing spot (world position of float/net).
-static func context(node: Node, spot: Vector3) -> Dictionary:
+##
+## `bait` is the item id on the hook, and only the deep rig ever passes one — the surface
+## rod and the drop net leave it "" and roll exactly as they always have. It rides in the
+## context dict rather than in a fourth argument to weight_for() because it is a fact about
+## the SPOT, the same as the phase and the weather.
+static func context(node: Node, spot: Vector3, bait: String = "") -> Dictionary:
 	var phase: String = "day"
 	match GameClock.current_phase:
 		GameClock.Phase.DAWN: phase = "dawn"
@@ -54,7 +133,8 @@ static func context(node: Node, spot: Vector3) -> Dictionary:
 	var dx: float = maxf(absf(spot.x) - 32.0, 0.0)
 	var dz: float = maxf(absf(spot.z) - 24.0, 0.0)
 	var rim_dist: float = Vector2(dx, dz).length()
-	return {"phase": phase, "storming": storming, "lit": lit, "open": rim_dist > 10.0}
+	return {"phase": phase, "storming": storming, "lit": lit, "open": rim_dist > 10.0,
+		"bait": bait}
 
 ## Weight of one species under a context, for "rod", "net" or "deep". Zero = can't catch.
 ##
@@ -91,6 +171,9 @@ static func weight_for(id: String, kind: String, ctx: Dictionary, depth_m: float
 		if depth_m < drop:
 			return 0.0
 		w /= 1.0 + (depth_m - drop) * DROP_FADE_PER_M
+	# ...and last, what is actually on the hook. .get() with a default so a context built
+	# before bait existed (or by the net, which has none) is untouched.
+	w *= bait_mult(String(ctx.get("bait", "")), def)
 	return w
 
 ## Every species that can be caught right now, as [[id, weight], ...]. Shared by roll()
@@ -222,6 +305,18 @@ static func fillets_for(id: String, kg: float) -> int:
 static func is_big(id: String) -> bool:
 	var f: Array = all().get(id, {}).get("fillets", [])
 	return f.size() >= 2 and int(f[1]) > 1
+
+## True for a species worth JUMPING at — the weight tier or the fight tier, see TROPHY_KG /
+## TROPHY_PULL above. Distinct from is_big(), which asks a kitchen question (does it fillet
+## out?); this asks a rail question (is the thing on the end of my line a monster?).
+static func is_trophy(id: String) -> bool:
+	var def: Dictionary = all().get(id, {})
+	if def.is_empty():
+		return false
+	var s: Array = def.get("size_kg", [])
+	if s.size() >= 2 and float(s[1]) >= TROPHY_KG:
+		return true
+	return float(def.get("pull", 0.0)) >= TROPHY_PULL
 
 ## One call for the preserving paths (stove, drying line): what this fish weighed and
 ## how many portions it makes. {"kg": float (0.0 = unsized species), "n": int >= 1}.

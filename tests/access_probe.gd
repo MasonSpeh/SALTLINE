@@ -45,10 +45,16 @@ const CRANE_X_T: float = 2.0           ## rig_builder CRANE_X — the tower/slew
 const CAP_R: float = 0.4               ## Player.tscn CapsuleShape3D.radius
 const CAP_H: float = 1.8               ## PlayerController.STAND_HEIGHT
 const CLIMB_SPEED: float = 1.8         ## PlayerController.CLIMB_SPEED
-## Machinery deck. The upper run stands at x -0.40 / z -14.6 facing north with
-## exit_forward 1.4, so both its mantles land 1.4 m to the NORTH.
-const UP_LADDER := Vector2(-0.40, -14.6)
-const DECK_EXIT := Vector3(-0.40, 34.55, -13.2)   ## machinery-deck mantle spot
+## Machinery deck. The upper run is mounted flush to the hatch's NORTH cheek (not down the
+## middle of the hole — see rig_builder.CRANE_LADDER_Z) at x -0.40 / z -14.025, facing north,
+## with exit_forward 0.825, so both its mantles still land at z -13.2.
+const UP_LADDER := Vector2(-0.40, -14.025)
+const UP_LADDER_HEAD: float = 34.35               ## stiles stand 0.20 m proud of the plate
+const UP_LADDER_FACE: float = -14.20              ## south face of its 0.35 m-deep climb box
+## The clear half of the hatch: everything south of the ladder's face, which is the lane a
+## body actually descends through. 1.10 m (x) x 1.15 m (z) against a 0.80 m-wide capsule.
+const DESCENT_LANE := Vector2(-0.40, -14.775)
+const DECK_EXIT := Vector3(-0.40, 34.75, -13.2)   ## machinery-deck mantle spot
 const KING_POST_R: float = 1.15        ## rig_builder KING_POST_R
 const RACE_R1: float = 1.85            ## rig_builder RACE_R1
 const RACE_PROUD: float = 0.10         ## race height — must stay under the capsule roll-up
@@ -75,8 +81,57 @@ func _process(delta: float) -> void:
 func _finish() -> void:
 	_run()
 	await _run_landing()
+	await _run_perimeter()
 	print("\n[access_probe] FAILURES: %d" % _fails)
 	get_tree().quit()
+
+## THE TOPSIDE PERIMETER GUARD still guards. rig_builder._build_topside() used to fence the
+## deck with a single colliding 0.12 m bar at waist height — the shape a capsule wedges
+## under — and now fences it the way the rest of the rig does: visual steel plus one smooth
+## full-height slab, shaved back RAIL_END_SHAVE at each end so a diagonal past a junction
+## slides instead of catching. Swapping a collider for a different collider is exactly the
+## edit that quietly turns a deck into a hole, so walk into all four runs and check.
+##
+## The three numbers that matter: you must NOT end up in the sea, you must NOT end up past
+## the rail line, and you must actually be STOPPED (a guard you slide along forever is fine;
+## one you walk through is not).
+const TOPSIDE_Y: float = 18.0
+func _run_perimeter() -> void:
+	print("\n=== topside perimeter rail: rebuilt collision still stops you at the edge ===")
+	var p: CharacterBody3D = _main.get("player") as CharacterBody3D
+	if p == null:
+		_check("player found", false)
+		return
+	p.input_locked = false
+	# [label, start x, start z, yaw (faces the rail), axis, rail coordinate, outward sign]
+	for spec in [["south rail  (z -19.8)", 0.0, -18.2, 0.0, "z", -19.8, -1.0],
+			["north rail  (z  19.8)", 0.0, 18.2, PI, "z", 19.8, 1.0],
+			["west rail   (x -29.8)", -28.2, 0.0, PI / 2.0, "x", -29.8, -1.0],
+			["east rail   (x  29.8)", 28.2, 6.0, -PI / 2.0, "x", 29.8, 1.0]]:
+		p.global_position = Vector3(float(spec[1]), TOPSIDE_Y + 0.1, float(spec[2]))
+		p.velocity = Vector3.ZERO
+		p.rotation.y = float(spec[3])
+		await _settle(20)
+		if absf(p.global_position.y - TOPSIDE_Y) > 0.5:
+			_check("%s — start point is on the topside deck" % spec[0], false,
+				"y%.2f" % p.global_position.y)
+			continue
+		Input.action_press("move_forward")
+		for i in range(150):     # 5 s at 30 Hz — long enough to cross 1.6 m at walk pace
+			await get_tree().physics_frame
+			if p.global_position.y < TOPSIDE_Y - 2.0:
+				break
+		Input.action_release("move_forward")
+		await _settle(10)
+		var out: float = p.global_position.x if String(spec[4]) == "x" else p.global_position.z
+		var rail: float = float(spec[5])
+		var sign_: float = float(spec[6])
+		_check("%s — did not fall off the deck" % spec[0],
+			p.global_position.y > TOPSIDE_Y - 1.0, "ended at y%.2f" % p.global_position.y)
+		_check("%s — stopped inboard of the rail line" % spec[0],
+			(out - rail) * sign_ < 0.0,
+			"walked to %s %.2f, rail is at %.2f" % [spec[4], out, rail])
+	Input.action_release("move_forward")
 
 ## Height of the first surface under (x,z), or NAN if the column is empty down to y30.
 func _floor_at(x: float, z: float) -> float:
@@ -96,16 +151,21 @@ func _check(label: String, ok: bool, detail: String = "") -> void:
 func _run() -> void:
 	print("\n=== CRANE machinery deck — the ladder hatch is a real hole ===")
 	# Inside the hatch but CLEAR OF THE LADDER (its collider legitimately fills
-	# x -0.75..-0.05, z -14.775..-14.425 and tops out at the plate line).
+	# x -0.75..-0.05, z -14.20..-13.85 — the north cheek — and stands 0.20 m proud).
 	for p in [Vector2(-0.88, -14.60), Vector2(0.08, -14.60), Vector2(-0.40, -15.20),
-			Vector2(-0.40, -14.00)]:
+			Vector2(-0.40, -14.90), DESCENT_LANE]:
 		var y: float = _floor_at(p.x, p.y)
 		_check("hatch open at (%.2f, %.2f)" % [p.x, p.y], is_nan(y),
 			"found a surface at y%.2f" % y if not is_nan(y) else "")
-	# The ladder must still be there, in the hole, to climb down.
+	# The ladder must still be there, in the hole, to climb down — and its head must stand
+	# PROUD of the plate rather than stopping flush with it, so it can be seen and aimed at
+	# from standing height on the deck instead of only from inside the opening.
 	var yl: float = _floor_at(UP_LADDER.x, UP_LADDER.y)
-	_check("ladder is present inside the hatch", not is_nan(yl) and absf(yl - PLATE_TOP) < 0.2,
-		"ray under the ladder line found y%.2f" % yl)
+	_check("ladder is present inside the hatch", not is_nan(yl) and yl >= PLATE_TOP - 0.05,
+		"ray down the ladder line found y%.2f" % yl)
+	_check("ladder head stands proud of the plate, not flush with it",
+		not is_nan(yl) and yl > PLATE_TOP + 0.1 and yl < PLATE_TOP + 0.45,
+		"head at y%.2f, plate at %.2f" % [yl, PLATE_TOP])
 	# ...and the plate all round it must still carry you.
 	# NEVER sample a strip's exact CENTRE LINE. CSG boxes are triangulated, and a ray fired
 	# straight down the middle of one can slip through the seam where the tessellation splits:
@@ -132,8 +192,37 @@ func _run() -> void:
 		var inside: bool = lp.x > HX0 and lp.x < HX1 and lp.z > HZ0 and lp.z < HZ1
 		_check("ladder axis inside the hatch footprint", inside, "at %s" % str(lp.snappedf(0.01)))
 		_check("ladder reaches the plate line",
-			absf(lp.y + lad.get("height") - PLATE_TOP) < 0.25,
+			lp.y + float(lad.get("height")) >= PLATE_TOP,
 			"top at y%.2f, plate at %.2f" % [lp.y + float(lad.get("height")), PLATE_TOP])
+		# OFF-CENTRE, FLUSH TO THE NORTH CHEEK. This is the whole fix: a run standing on the
+		# hatch's centre line splits a 1.50 m opening into two 0.575 m strips, and a player
+		# capsule is 0.80 m across, so there is no route through the hole for a BODY — only
+		# for the climb state, which turns world collision off and therefore hid it.
+		_check("ladder is mounted on the hatch cheek, not down the middle",
+			absf(lp.z - (HZ1 - 0.175)) < 0.02,
+			"axis at z%.3f; flush to the north cheek is z%.3f" % [lp.z, HZ1 - 0.175])
+		_check("nothing of the ladder overhangs the opening",
+			lp.z + 0.175 <= HZ1 + 0.001,
+			"climb box reaches z%.3f, cheek is at z%.3f" % [lp.z + 0.175, HZ1])
+
+	print("\n=== a player-sized body actually FITS down the crane hatch ===")
+	# The assertion the old probe never made, and the reason the owner ended up stranded on
+	# the crane. Every earlier check here was a RAY — rays are 0 m wide and will happily
+	# thread a gap no body can use. These are the real capsule, in the real descent lane,
+	# straddling the plate plane: feet below it, shoulders above it, which is the moment a
+	# descending player is half in and half out of the hole.
+	for feet_y in [PLATE_TOP - 1.6, PLATE_TOP - 0.85, PLATE_TOP - 0.4, PLATE_TOP + 0.05]:
+		_clear_check("capsule fits in the descent lane with feet at y%.2f" % feet_y,
+			Vector3(DESCENT_LANE.x, feet_y, DESCENT_LANE.y))
+	# ...and it has slack, so this is a hatch and not a keyhole the next edit closes.
+	for off in [Vector2(0.14, 0.0), Vector2(-0.14, 0.0), Vector2(0.0, -0.14)]:
+		_clear_check("descent lane has slack at (%+.2f, %+.2f)" % [off.x, off.y],
+			Vector3(DESCENT_LANE.x + off.x, PLATE_TOP - 0.85, DESCENT_LANE.y + off.y))
+	# The lane must be open ABOVE the plate too — a coaming, a guard hoop or a rail closing
+	# the top of the opening would mean you can never step over the lip onto the rungs.
+	var cap_top: float = _surface(DESCENT_LANE.x, DESCENT_LANE.y, PLATE_TOP + 2.4, PLATE_TOP + 0.12)
+	_check("nothing caps the hatch from above", is_nan(cap_top),
+		"something at y%.2f is roofing the opening" % cap_top)
 
 	print("\n=== the slew bearing is a race round a king post, not a 4 m plateau ===")
 	# The old solid disc (r 1.95, 0.4 m proud) is why this deck could not be walked. What

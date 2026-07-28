@@ -293,6 +293,31 @@ func _rig_underlights() -> void:
 ## even a tight orbit around the leg's own footprint can never put a 4 m fish inside it.
 const LEG_HOME := Vector3(24.0, 0.0, 12.0)
 
+## THE HUGE GROUPER (2026-07-27, owner: "20% smaller, 40 m deeper, and give it a proper
+## slow lap of the leg it lives on"). This is the LEVIATHAN — the game's one landmark
+## specimen, the colossal grouper every other fish down here is measured against — not the
+## 4.4 m resident, which is only "the huge one" to a player who never met this.
+##
+##   AXIS, not a neighbour point. LEG_HOME is a point just off the SE caisson's east face
+##   and it was fine for a drifting circuit, but "orbit the pillar" means orbiting the
+##   PILLAR: the centre below is the caisson's own axis (LEGS[3]), so the animal actually
+##   laps the steel instead of laps a point beside it. Written out rather than indexed off
+##   LEGS so it reads at the call site.
+##   RADIUS. The caisson is a 6 m square (CAISSON_HALF 3 in seabed.gd), so its corners
+##   stand 4.25 m off the axis. A ~14 m fish held tangent to a 12 m circle bows its
+##   mid-body in to r*cos(asin(L/2r)) ~ 9.4 m — still 5 m clear of the corner — while a
+##   9 m orbit would put the belly inside the steel on every pass.
+##   DEPTH. -36 - 40 = -76. The caissons run in one casting to -92 (seabed.CAISSON_BOTTOM),
+##   so the pillar is still there to orbit at this depth, and the mudline out at r 12 sits
+##   around -91..-95, so a 1.1 m bob never touches bottom. Far below the 13 m death line
+##   and far below the lit band underwater_fx grades (-17..-29): this is a shape you find
+##   with a light, or never.
+const LEG_PILLAR := Vector3(22.0, 0.0, 12.0)   # SE caisson axis == LEGS[3]
+const LEVIATHAN_SCALE: float = 0.8      # 20% smaller: 16-19 m becomes 12.8-15.2 m
+const LEVIATHAN_Y: float = -76.0        # was -36.0
+const LEVIATHAN_R: float = 12.0         # orbit radius about the pillar axis
+const LEVIATHAN_LAP_SEC: float = 58.0   # one full circuit, ~1.3 m/s: 0.09 body-lengths/s
+
 func _deep_giants() -> void:
 	# The always-present residents on slow circuits under the rig: three original plus a
 	# second halibut and a lesser grouper on the shallow edge, so there is a spread of BIG
@@ -332,14 +357,12 @@ func _deep_giants() -> void:
 		var host := DeepGiant.new(sz, s[2], s[3], s[4], s[5], s[6])
 		host.slug = s[0]
 		add_child(host)
-	# THE LEVIATHAN. A rare colossal grouper — ~5x the residents, a slow shape the size of
-	# the escape pod itself — patrolling the deep dark below the death line. It is NOT on
-	# every dive: seeing one is meant to be an event, so ~45% of playthroughs get one.
-	# Deep (-36 m) and barely lit, so it reads as a moving wall at the very edge of the
-	# floodlight throw. Its lap is now centred on the SE leg rather than on the rig's
-	# midpoint (LEG_HOME) and tightened to radius 7, so THE huge grouper holds station
-	# under one specific leg you can go and find instead of touring the whole footprint.
-	# 13 m clear below the caisson bottom, so the tighter orbit costs nothing in clearance.
+	# THE LEVIATHAN. A rare colossal grouper — the biggest animal in the sea, a slow shape
+	# the size of the escape pod itself — patrolling the deep dark below the death line. It
+	# is NOT on every dive: seeing one is meant to be an event, so ~45% of playthroughs get
+	# one. Since 2026-07-27 it is 20% smaller, 40 m deeper (-76) and running a true circular
+	# patrol about the SE caisson's own axis rather than a drifting circuit — see LEG_PILLAR
+	# and the PillarPatrol class for the numbers and why each one is what it is.
 	#
 	# THE ROLL GETS ITS OWN RANDOM STREAM (2026-07-26). It used to be drawn from the shared
 	# _rng, which meant the biggest animal in the game was decided by however many draws
@@ -352,8 +375,11 @@ func _deep_giants() -> void:
 	var lev_rng := RandomNumberGenerator.new()
 	lev_rng.seed = 7411
 	if lev_rng.randf() < 0.45:
-		var leviathan := DeepGiant.new(lev_rng.randf_range(16.0, 19.0), -36.0, 7.0, 0.024,
-			lev_rng.randf() * TAU, LEG_HOME)
+		# The two draws below are kept in their original ORDER and count — the size roll then
+		# the phase roll — so this build's fixed leviathan is still the same fish it always
+		# was, only smaller, deeper and on a tighter lap.
+		var leviathan := PillarPatrol.new(lev_rng.randf_range(16.0, 19.0) * LEVIATHAN_SCALE,
+			LEVIATHAN_Y, LEVIATHAN_R, TAU / LEVIATHAN_LAP_SEC, lev_rng.randf() * TAU, LEG_PILLAR)
 		leviathan.slug = "fish_barrel_grouper"
 		add_child(leviathan)
 
@@ -598,6 +624,42 @@ class DeepGiant extends Node3D:
 		var flat := Vector3(vel.x, 0.0, vel.z)
 		if flat.length_squared() > 0.00001:
 			look_at(next + flat, Vector3.UP)
+
+## THE HUGE GROUPER'S PATROL. A DeepGiant that holds one TRUE circle about a pillar's axis
+## instead of the parent's drifting ellipse — see LEG_PILLAR above for the placement.
+##
+## Three things this does that the parent does not, all of them the point of the brief:
+##
+##  1. A CIRCLE, not an ellipse. The parent squashes z by 0.8, which is a lap that speeds up
+##     and slows down twice a turn and reads as drift. Here x and z share one radius, so the
+##     animal holds a constant distance off the steel and a constant speed all the way round.
+##  2. THE HEADING IS THE TANGENT, taken analytically (d/da of the circle is (-sin a, 0,
+##     cos a)) rather than measured from last frame's displacement. The parent's
+##     frame-difference method is undefined on the first frame and jitters whenever the step
+##     is tiny — and at a 58 s lap the steps ARE tiny — so a slow fish computed its facing
+##     out of near-zero noise. From the tangent the nose is exactly on the direction of
+##     travel every frame, at any speed, including frame one.
+##     FACING: CreatureAnim.attach() has already yawed the model 180 (Meshy authors +Z, Godot
+##     is -Z) and set flow_axis/flow_flip to match, so look_at() — which aims the host's -Z at
+##     the target — puts this animal head-first. Nothing here may re-correct that; doing the
+##     180 twice is exactly how a fish ends up swimming backwards.
+##  3. A GENTLE BOB. One slow sine, ~22 s a cycle, ±1.1 m: enough that it is never a
+##     cardboard cut-out sliding on a plane, small enough that it never reads as a dive.
+##
+## Bounded by construction — position is a function of the home, the radius and the clock, so
+## there is no integrated state that can wander off and no tether needed to stop it.
+class PillarPatrol extends DeepGiant:
+	const BOB_M: float = 1.1     ## amplitude of the vertical bob, metres
+	const BOB_HZ: float = 0.045  ## ~22 s a cycle, independent of the lap
+
+	func _process(delta: float) -> void:
+		_t += delta
+		var a: float = _t * _rate + _ph
+		var pos := Vector3(_home.x + cos(a) * _r,
+			_band_y + sin(_t * TAU * BOB_HZ + _ph) * BOB_M,
+			_home.z + sin(a) * _r)
+		global_position = pos
+		look_at(pos + Vector3(-sin(a), 0.0, cos(a)), Vector3.UP)
 
 ## Marine snow: slow drifting particulate that sells the water as a medium.
 func _marine_snow() -> void:

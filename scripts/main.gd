@@ -188,6 +188,17 @@ func _build_environment() -> void:
 	# are on and the ironwork immediately around it, which is all a shadow is legible on.
 	sun.directional_shadow_max_distance = 45.0
 	sun.directional_shadow_split_1 = 0.14
+	# Bias and blur are measured in TEXELS in effect, and the directional map went 2048 ->
+	# 4096 over the same 45 m (project.godot), so every default here is now worth twice what
+	# it was authored to be. Godot's directional defaults (normal_bias 1.0, bias 0.1, blur
+	# 1.0) at ~91 texels/metre detach a shadow from the thing casting it by a visible finger's
+	# width and smear the edge back into the mush the extra resolution was bought to remove.
+	# NOTE: the property is shadow_normal_bias (inherited from Light3D). There is no
+	# directional_shadow_normal_bias in Godot 4 — writing that name silently does nothing
+	# and leaves the sun at the 1.0 default this line exists to bring down.
+	sun.shadow_normal_bias = 0.45
+	sun.shadow_bias = 0.035
+	sun.shadow_blur = 0.7
 	add_child(sun)
 	var moon := DirectionalLight3D.new()
 	moon.light_color = Color(0.62, 0.72, 0.95)

@@ -13,6 +13,11 @@ extends Node3D
 ## Everything sits on the wet deck (floor y = 2.0, x 8..30, z -22..2) and on the
 ## SE caisson's west face (x = 19, z -15..-9), which is the only leg that comes up
 ## through this deck.
+##
+## GLOW WORM CLUSTERS (2026-07-27) are the newest of these and the one that feeds another
+## system rather than the crafting bench: they are the deep rig's best bait. See
+## _glowworm_clusters() for where they sit and why, and fish_table.gd's BAIT_TABLE for what
+## a glowing bait does on a hook.
 
 const SALVAGE := preload("res://scripts/components/salvage.gd")
 const WET_Y: float = 2.0
@@ -42,6 +47,7 @@ func _ready() -> void:
 	_snagged_floats()
 	_kelp_growth()
 	_cleaning_board()
+	_glowworm_clusters()
 
 func _mat(color: Color, roughness: float) -> StandardMaterial3D:
 	var m := StandardMaterial3D.new()
@@ -211,6 +217,138 @@ func _cleaning_board() -> void:
 		"done": "You lift the frame clear of the board, picked clean.",
 	}
 	SALVAGE.from_visual(self, _board_visual(), Vector3(13.2, WET_Y, -19.4), 18.0, def, 0.6)
+
+# ---- glow worm clusters: the Bloom's own light, and the deep rig's best bait ----
+#
+# NOT the same animal as bloom_fauna.GlowWorm. That one is a single skittish night-dweller
+# that feels you coming and sinks into its den — you sneak up on it and GRAB it, one worm,
+# once a night. This is the other half of the same species: the packed brood colonies that
+# never leave the plate, in the permanently wet dark where nothing dries. You gather those
+# by the handful, and the patch comes back.
+#
+# WHERE. Two habitats, both already proven clear of geometry by what is planted on them:
+# the SE caisson's west face (the barnacle crust's own plane, x 18.93, at z values the
+# crust does not use) and the wet-deck floor a metre off three of the colony's den mouths
+# (bloom_fauna.GlowWormColony.DENS) — beside the dens, never on them, so the interaction
+# ray is never choosing between a cluster and a live worm at the same point.
+const GLOW_REGROW: float = 220.0   ## roughly a night-phase: the brood repopulates the patch
+
+func _glowworm_clusters() -> void:
+	var def := {
+		"tools": [], "speed": [], "verb": "GATHER", "work": 1.4,
+		"sound": "hiss", "regrow": GLOW_REGROW, "name": "Glow Worm Cluster",
+		"yields": {"glow_worm": 1},   # re-rolled to 1-3 per growth — see GlowCluster below
+		"hint": "", "start": "You cup a hand around the light.",
+		"done": "They come away cold, curling, and still lit.",
+	}
+	# [position, is it growing out of a vertical face]
+	var spots := [
+		[Vector3(18.93, WET_Y + 0.45, -14.4), true],   # SE caisson west face, below the crust
+		[Vector3(18.93, WET_Y + 0.8, -9.6), true],     # same face, up under the deck lip
+		[Vector3(26.3, WET_Y, -5.0), false],           # stair-ramp shadow, off the den mouth
+		[Vector3(17.7, WET_Y, -10.6), false],          # SE leg base, west of the steel
+		[Vector3(11.5, WET_Y, -20.5), false],          # loot-room inner corner
+	]
+	for spot in spots:
+		var vis := _glow_visual(bool(spot[1]), fmod(absf((spot[0] as Vector3).z) * 1.7, TAU))
+		var node: Salvage = SALVAGE.from_visual(self, vis, spot[0],
+			fmod((spot[0] as Vector3).x * 41.0, 360.0), def, 0.4)
+		vis.bind(node)
+		# Gathering a patch is also how a player who never crept up on a lone worm at night
+		# learns what these are.
+		node.interacted.connect(func(_v: String) -> void: Journal.discover("creature_glow_worm"))
+
+## One patch: a dark wet smear of den mouths with the brood packed into it. Each cluster
+## OWNS its material — MatLib.flat() and a shared local material would dim every patch on
+## the rig the moment one of them was gathered.
+func _glow_visual(wall: bool, phase: float) -> GlowCluster:
+	var root := GlowCluster.new()
+	root.phase = phase
+	root.mat = StandardMaterial3D.new()
+	root.mat.albedo_color = Color(0.16, 0.42, 0.4)
+	root.mat.roughness = 0.55
+	root.mat.emission_enabled = true
+	root.mat.emission = Color(0.25, 0.95, 0.85)
+	root.mat.emission_energy_multiplier = GlowCluster.LIT
+	var damp := _mat(Color(0.06, 0.08, 0.08), 0.35)
+	damp.metallic_specular = 0.8              # the wet patch they live in, catching light
+	var patch := MeshInstance3D.new()
+	var pm := CylinderMesh.new()
+	pm.top_radius = 0.22
+	pm.bottom_radius = 0.22
+	pm.height = 0.015
+	pm.material = damp
+	patch.mesh = pm
+	patch.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(patch)
+	# The worms themselves: eleven short lit bodies at every angle out of the patch, so a
+	# third of them coming off (Salvage._strip pulls meshes) still leaves a colony behind.
+	for i in range(11):
+		var mi := MeshInstance3D.new()
+		var cm := CapsuleMesh.new()
+		cm.radius = 0.018 + fmod(i * 0.007, 0.012)
+		cm.height = 0.09 + fmod(i * 0.023, 0.08)
+		cm.material = root.mat
+		mi.mesh = cm
+		mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		root.add_child(mi)
+		var a: float = i * 2.399963
+		var r: float = 0.045 + 0.028 * (i % 4)
+		mi.position = Vector3(cos(a) * r, 0.035 + fmod(i * 0.019, 0.05), sin(a) * r)
+		# Curled over on the plate, not standing up like candles.
+		mi.rotation = Vector3(deg_to_rad(52.0 + fmod(i * 21.0, 40.0)), a, 0.0)
+	if wall:
+		# Growing out of a vertical face: the whole patch lies on its side.
+		root.rotation.z = deg_to_rad(90.0)
+	return root
+
+## The live half of a cluster. Salvage already hides parts, soots what is left and heals it
+## all again on regrow, but soot cannot take the LIGHT out of an emissive body — a gathered
+## patch would have kept glowing exactly as brightly with a third of its worms missing. So
+## this eases the emission down to embers while the node is spent and brings it back up as
+## the brood regrows, and it is also where the 1-3 yield lives: the count is re-rolled on
+## every regrowth, which keeps the grant inside Salvage's all-or-nothing pack check instead
+## of bolting extra add_item() calls onto the end of it.
+class GlowCluster extends Node3D:
+	const LIT: float = 1.15
+	const EMBERS: float = 0.1
+	const FADE: float = 0.55        ## how fast the light follows the state, energy/sec
+
+	var mat: StandardMaterial3D
+	var phase: float = 0.0
+	var _node: Salvage
+	var _level: float = LIT
+	var _was_spent: bool = false
+	## Salvage._strip() knocks a small prop askew and _restore() does not put it back, so a
+	## renewable node would lean a little further every cycle. The patch remembers how it was
+	## planted and sits back down when it grows in.
+	var _base_rot: Vector3
+	var _t: float = 0.0
+	var _rng := RandomNumberGenerator.new()
+
+	func bind(node: Salvage) -> void:
+		_node = node
+		_base_rot = rotation
+		_rng.randomize()
+		_reroll()
+
+	func _reroll() -> void:
+		if _node and is_instance_valid(_node):
+			_node.yields = {"glow_worm": _rng.randi_range(1, 3)}
+
+	func _process(delta: float) -> void:
+		if mat == null:
+			return
+		_t += delta
+		var spent: bool = _node != null and is_instance_valid(_node) and _node.spent
+		if spent != _was_spent:
+			_was_spent = spent
+			if not spent:
+				_reroll()   # the patch has grown back: a fresh handful is in it
+				rotation = _base_rot
+		_level = move_toward(_level, EMBERS if spent else LIT, delta * FADE)
+		# The colony breathes even at rest — that slow swell is how you spot one in the dark.
+		mat.emission_energy_multiplier = _level * (1.0 + 0.22 * sin(_t * 1.3 + phase))
 
 func _board_visual() -> Node3D:
 	var root := Node3D.new()

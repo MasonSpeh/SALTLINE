@@ -664,11 +664,19 @@ func _run() -> void:
 
 	# Stove: sear the herring, then eat the meal.
 	var stove: Node = _find_class(main, "cook_stove")
-	_check(stove != null, "galley stove exists")
+	_check(stove != null, "dining hall range exists")
 	if stove:
 		# Per-species cooking: a herring sears to its OWN meal, not a generic fillet.
+		# The range now takes CookStove.COOK_SECONDS and needs mains power (the breaker
+		# was closed above), so the cook is started and then driven to completion rather
+		# than resolving inside interact().
 		var cooked_before: int = _item_count("cooked_fish_herring")
 		stove.interact("COOK", player)
+		_check(stove._cooking, "the range lights up and starts cooking")
+		_check(_item_count("fish_herring") == herring_before, "the raw fish goes in when the cook starts")
+		stove._timer = 0.0
+		stove._process(0.016)
+		_check(not stove._cooking, "the cook finishes and the range goes cold")
 		_check(_item_count("cooked_fish_herring") > cooked_before, "stove sears raw fish into its species meal")
 		_check(_item_count("fish_herring") == herring_before, "searing consumes the raw fish")
 		PlayerState.hunger = 0.2
@@ -820,13 +828,24 @@ func _run() -> void:
 	_check(line._hung[1]["id"] == "dried_fish", "cooked fish cures to dried on the line")
 	line._take()
 	_check(PlayerState.has_item("dried_fish"), "taking from the line returns the cured fish")
+	# The fridge is a LootContainer now: it uses the ordinary crate ⇄ pack panel instead
+	# of its own STOW/TAKE verbs, and what makes it a fridge is that its contents only
+	# spoil while it is UNPOWERED. The breaker was closed earlier in this run.
 	var fridge: Node = preload("res://scripts/components/cold_store.gd").new()
 	main.add_child(fridge)
-	PlayerState.add_item("fish_herring")
-	fridge.interact("STOW", player)
-	_check(fridge._stored.size() == 1, "fridge stows fish")
-	fridge.interact("TAKE", player)
-	_check(PlayerState.has_item("fish_herring"), "fridge returns fish, forever fresh")
+	fridge.items = ["fish_herring"] as Array[String]
+	_check(fridge.get_prompt().contains("1 cold"), "powered fridge reports its contents")
+	fridge._warm_h = fridge.FRESH_HOURS + 0.1
+	fridge._process(0.016)
+	_check(fridge.items[0] == "fish_herring", "a powered fridge holds the catch fresh")
+	PowerGrid.lose_circuit("topside_floodlights")
+	_check(fridge.get_prompt().contains("no power"), "an unpowered fridge says so")
+	fridge.interact("OPEN", player)   # refuses, quietly — must not throw or lose contents
+	_check(fridge.items.size() == 1, "an unpowered fridge keeps hold of what is in it")
+	fridge._warm_h = fridge.FRESH_HOURS + 0.1
+	fridge._process(0.016)
+	_check(fridge.items[0] == "fish_rotten", "a warm fridge lets the catch turn")
+	PowerGrid.power_circuit("topside_floodlights")
 
 	# Drop net reaches water from the topside deck now (DROP_MAX fix).
 	var top_net: Node3D = Structures.build("drop_net_kit", false)
@@ -1053,6 +1072,8 @@ func _run() -> void:
 			PlayerState.hunger = 0.2
 			PlayerState.comfort = 0.0
 			stove3.interact("COOK", player)
+			stove3._timer = 0.0
+			stove3._process(0.016)
 			_check(PlayerState.has_item("escargot"), "the stove sears snail_live into escargot")
 			_check(not PlayerState.has_item("snail_live"), "cooking consumes the raw snail")
 			var eslot: int = PlayerState.hotbar.find("escargot")

@@ -398,7 +398,7 @@ func _free_slots() -> int:
 	for s in PlayerState.hotbar:
 		if s == null:
 			n += 1
-	return n + maxi(0, PlayerState.backpack_capacity() - PlayerState.inventory.size())
+	return n + maxi(0, PlayerState.backpack_capacity() - PlayerState.pack_used())
 
 # ---------------------------------------------------------------- display
 
@@ -418,7 +418,9 @@ func refresh() -> void:
 	for it in PlayerState.hotbar:
 		if it != null:
 			all_items.append(it)
-	all_items.append_array(PlayerState.inventory)
+	for it in PlayerState.inventory:
+		if it != null:
+			all_items.append(it)
 	for it in all_items:
 		var b := Button.new()
 		b.custom_minimum_size = Vector2(130, 40)

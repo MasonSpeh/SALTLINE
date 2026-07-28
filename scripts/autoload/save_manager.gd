@@ -136,6 +136,9 @@ func save_game() -> void:
 		data["player_yaw"] = (pl as Node3D).rotation.y
 	# rest / comfort / camp_found live with the stats that feed them.
 	data.merge(PlayerState.comfort_payload())
+	# Discoveries, read logs and catch records. The journal also keeps its own per-slot
+	# sidecar, but the slot save is authoritative — this is what survives a slot copy.
+	data.merge(Journal.payload())
 	var file: FileAccess = FileAccess.open(slot_path(active_slot), FileAccess.WRITE)
 	if file:
 		file.store_string(JSON.stringify(data))
@@ -165,6 +168,9 @@ func load_game() -> bool:
 		data.get("inventory", []),
 		data.get("inventory_counts", []))
 	PlayerState.apply_comfort_payload(data)
+	# Non-destructive merge: discoveries union and a catch record keeps the heavier fish,
+	# so this layers cleanly over whatever the journal's own sidecar already restored.
+	Journal.restore(data)
 	GameClock.day_count = int(data.get("day_count", 0))
 	for id in data.get("powered", []):
 		PowerGrid.power_circuit(id)

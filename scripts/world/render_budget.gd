@@ -73,7 +73,22 @@ const SWEEP_EVERY: float = 3.0
 ## to be near or far from.
 const SHADOW_NEAR: float = 20.0     ## a shadow-casting light further than this stops casting
 const SHADOW_ALWAYS: float = 9.0    ## ...but this close it casts even when the fixture is off screen
-const SHADOW_BUDGET: int = 3        ## owner call, 2026-07-27: 2 -> 3, to see how the frame takes it
+## AT MOST TWO SHADOW-CASTING POSITIONAL LIGHTS AT A TIME. This is deliberate and it is a
+## PERFORMANCE cap, not an aesthetic one — do not raise it again without re-measuring.
+##
+## It was tried at 3 on 2026-07-27 and reverted the same day. Two things went wrong, and the
+## second one is the non-obvious one:
+##   * FRAME. Each live caster re-renders every mesh in its range into a shadow map every
+##     frame. tests/PowerPerf.tscn measured five casters at ~700 draw calls, i.e. ~140 draw
+##     calls per caster — a third more shadow work for a third light nobody was looking at.
+##   * RESOLUTION. The positional shadow ATLAS is a fixed budget split between whoever is
+##     casting. Three lights contending for it drove Godot's allocator into more finely
+##     subdivided quadrants, so every live shadow got a SMALLER map than it had at two —
+##     which is exactly the "shadows look more pixelated than before" the owner reported
+##     alongside the chop. Adding a caster made the other two worse.
+## At 2, project.godot hands each caster a whole 2048x2048 atlas quadrant (see the
+## atlas_quadrant_*_subdiv block there — those numbers assume this cap).
+const SHADOW_BUDGET: int = 2
 ## A currently-casting light needs to fall this many metres further back than a currently-
 ## dark one before the ranking swaps them. Two lights sitting near the SHADOW_BUDGET cutoff
 ## (a player walking a corridor lined with fixtures, say) used to trade the last slot back
@@ -181,6 +196,23 @@ func _budget_light(l: Light3D) -> void:
 	l.set_meta("budgeted", true)
 	if l is DirectionalLight3D or not l.shadow_enabled:
 		return
+	# SHADOW QUALITY, applied once, centrally. Only SHADOW_BUDGET of these are ever live at
+	# a time and project.godot gives each of those a full 2048x2048 atlas quadrant, so the
+	# texel these values are fighting is ~4x smaller than Godot's per-light defaults were
+	# tuned for. Left at the defaults, the same world-space bias that used to be a texel or
+	# two is now eight — contact shadows detach from their object (peter-panning) and the
+	# stepped edge that reads as "pixelated" is a bias artefact as much as a resolution one.
+	#   normal_bias 2.0 -> 0.55 : the big one. Offsets the sample along the surface normal;
+	#                             at 2048 per light it can come right in without acne.
+	#   bias        0.03 -> 0.012 : depth offset, scaled down with the texel for the same reason.
+	#   blur         1.0 -> 0.7  : PCF kernel width in texels. Wider blur on a now-4x-finer
+	#                             map just throws away the resolution we bought.
+	# Every shadow-casting fixture on the rig comes through here (structures.gd braziers and
+	# lamps, env_objects.gd fires, rig_builder.gd's four deck floodlights, comfort_furniture
+	# stoves), so this is the one place that reaches all of them without editing five files.
+	l.shadow_normal_bias = 0.55
+	l.shadow_bias = 0.012
+	l.shadow_blur = 0.7
 	_shadow_lights.append(l)
 	_lights_faded += 1
 

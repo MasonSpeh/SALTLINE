@@ -22,6 +22,12 @@ func _ready() -> void:
 	if main.hud != null and main.hud.fade_rect != null:
 		main.hud.fade_rect.color.a = 0.0
 	GameClock.force_phase(GameClock.Phase.DAY)
+	# Interiors are BLACK until the master breaker in 4-A is closed — every enclosed room
+	# on this rig photographs as an unlit box otherwise, which tells you nothing about its
+	# dressing. Close the circuit so the rooms are lit the way a player who has finished
+	# the power slice sees them, and give the staggered wake-up a moment to drain.
+	PowerGrid.power_circuit("topside_floodlights")
+	await get_tree().create_timer(1.5).timeout
 	# Positions are FEET, one deck-plate above the floor, so the eye lands ~1.7m up and
 	# stays inside the room. Yaw convention: forward = (-sin(yaw), 0, -cos(yaw)).
 	# Corridors first — the complaint that started this pass.
@@ -33,7 +39,17 @@ func _ready() -> void:
 	await _shot(Vector3(-17.5, 18.15, 16.6), -29.0, -10.0, "fs_bunk_cabin")
 	await _shot(Vector3(19.0, 18.15, 11.2), -106.0, -8.0, "fs_rec_room")
 	await _shot(Vector3(25.2, 18.15, 15.4), -170.0, -4.0, "fs_rec_shelf")
-	await _shot(Vector3(6.0, 18.15, 12.0), 180.0, -8.0, "fs_galley")
+	# The dining hall, from the south door looking up the aisle at the servery, and from
+	# the west end looking down the kitchen run at the range, hood and prep counter.
+	await _shot(Vector3(6.0, 18.15, 9.2), 180.0, -4.0, "fs_dining_aisle")
+	await _shot(Vector3(1.5, 18.15, 15.6), -80.0, -4.0, "fs_dining_kitchen")
+	await _shot(Vector3(6.0, 18.15, 12.0), 180.0, -8.0, "fs_dining_hall")
+	# Breaker Room 4-A: standing in the doorway looking at the panel wall, and turned
+	# round on the schematic board and the maintenance run.
+	await _shot(Vector3(23.5, 10.1, 2.9), 180.0, 2.0, "fs_breaker_panel")
+	await _shot(Vector3(23.5, 10.1, 7.4), -20.0, 0.0, "fs_breaker_south")
+	await _shot(Vector3(24.6, 10.1, 5.6), 90.0, 0.0, "fs_breaker_west")
+	await _shot(Vector3(23.5, 10.1, -1.9), 180.0, 6.0, "fs_breaker_door")
 	await _shot(Vector3(22.5, 2.15, -16.0), -59.0, -16.0, "fs_wet_bench")
 	await _shot(Vector3(19.5, 28.75, 15.9), 155.0, -12.0, "fs_workshop")
 	print("[fs] done")

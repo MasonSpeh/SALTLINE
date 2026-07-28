@@ -27,6 +27,11 @@ var item_name_label: Label
 var _item_name_tween: Tween
 const ITEM_NAME_HOLD: float = 1.0   ## seconds the name sits fully visible before it fades
 const ITEM_NAME_FADE: float = 0.5
+## The hotbar-selection name (owner spec, 2026-07-27c: "fade out and disappear after 2
+## seconds"). Hold + fade is that 2.0s in full, spent mostly at full alpha so the name is
+## readable, with the tail doing the getting-out-of-the-way.
+const SELECTED_NAME_HOLD: float = 1.4
+const SELECTED_NAME_FADE: float = 0.6
 var crosshair: Label
 var objective_label: Label
 var hotbar_slots: Array[PanelContainer] = []
@@ -100,6 +105,11 @@ func _ready() -> void:
 	_build()
 	_build_panels()
 	PlayerState.inventory_changed.connect(_refresh_hotbar)
+	# Which slot is in hand is written from the number keys, the inventory panel and scripted
+	# setups alike — PlayerState announces it so the outline and the name popup never depend
+	# on every writer remembering to call us. Bound defensively, like the stat signals below.
+	if PlayerState.has_signal("hotbar_selection_changed"):
+		PlayerState.connect("hotbar_selection_changed", _on_hotbar_selection_changed)
 	PlayerState.inventory_changed.connect(_refresh_inventory_panel)
 	PlayerState.inventory_changed.connect(_refresh_crate_panel)
 	GameClock.phase_changed.connect(_on_phase_changed)
@@ -294,6 +304,7 @@ func _build() -> void:
 		# name in that same label, so the bar is never blank while icons are still baking.
 		var slot := PanelContainer.new()
 		slot.custom_minimum_size = Vector2(58, 58)
+		slot.add_theme_stylebox_override("panel", _hotbar_slot_style(false))
 		var pic := TextureRect.new()
 		pic.name = "Pic"
 		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
@@ -311,6 +322,9 @@ func _build() -> void:
 		slot.modulate = Color(1, 1, 1, 0.65)
 		bar.add_child(slot)
 		hotbar_slots.append(slot)
+	# The selection outline has to be live before the first frame, not only after the first
+	# key press — the slice can start with something already in hand.
+	_refresh_hotbar_selection()
 
 	# Survival bars: LIFE / HUNGER / THIRST / WARMTH, always visible, stacked just
 	# above the hotbar. The stack grows upward so the SICK chip never covers slots.
@@ -489,15 +503,37 @@ func _set_chip(text: String) -> void:
 ## it stays on the same thing. Appearing is instant, same reasoning as the prompt chip:
 ## the player already looked, the answer should already be there.
 func show_item_name(text: String) -> void:
+	_flash_item_name(text, ITEM_NAME_HOLD, ITEM_NAME_FADE)
+
+## The held-item name, shown whenever the hotbar selection changes. Same label and the same
+## bottom-centre slot as the look-at notice above (they can never be wanted at once — the
+## latest thing the player did is the thing worth naming), on the owner's 2-second budget:
+## full alpha immediately, hold, then fade out so it is gone at 2.0s exactly.
+func show_selected_item_name(text: String) -> void:
+	_flash_item_name(text, SELECTED_NAME_HOLD, SELECTED_NAME_FADE)
+
+## Snap to full alpha, hold, fade. Killing the running tween first is what makes a re-select
+## or a switch mid-fade RESTART the notice at full alpha instead of racing the fade already
+## in flight — otherwise the second name would inherit whatever alpha the first was down to.
+func _flash_item_name(text: String, hold: float, fade: float) -> void:
 	if item_name_label == null or text == "":
 		return
 	if _item_name_tween:
-		_item_name_tween.kill()   # re-acquiring mid-fade restarts the notice, doesn't fight it
+		_item_name_tween.kill()
 	item_name_label.text = text
 	item_name_label.modulate.a = 1.0
 	_item_name_tween = create_tween()
-	_item_name_tween.tween_interval(ITEM_NAME_HOLD)
-	_item_name_tween.tween_property(item_name_label, "modulate:a", 0.0, ITEM_NAME_FADE)
+	_item_name_tween.tween_interval(hold)
+	_item_name_tween.tween_property(item_name_label, "modulate:a", 0.0, fade)
+
+## Take the name down NOW (selecting an empty slot). Nothing is left mid-fade.
+func _hide_item_name() -> void:
+	if item_name_label == null:
+		return
+	if _item_name_tween:
+		_item_name_tween.kill()
+	item_name_label.modulate.a = 0.0
+	item_name_label.text = ""
 
 func set_targeting(on: bool) -> void:
 	if not crosshair:
@@ -567,7 +603,41 @@ func _unhandled_input(event: InputEvent) -> void:
 		elif event.keycode == KEY_Q:
 			get_tree().quit()
 
+## One hotbar socket's frame. Unselected is the same dark chip the prompt uses, so the bar
+## reads as one family of HUD furniture; SELECTED is the crosshair's warm amber at 3px —
+## the one high-contrast box on the screen (owner call, 2026-07-27c: the box belongs on the
+## hotbar, never around a world object), so "what is in my hand" is answerable at a glance.
+func _hotbar_slot_style(selected: bool) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.04, 0.05, 0.06, 0.72)
+	s.set_corner_radius_all(4)
+	if selected:
+		s.border_color = Color(1.0, 0.92, 0.6, 0.95)
+		s.set_border_width_all(3)
+	else:
+		s.border_color = Color(0.55, 0.6, 0.62, 0.5)
+		s.set_border_width_all(1)
+	return s
+
+## Paint the outline on exactly one slot — the held one — and plain frames on the rest.
+func _refresh_hotbar_selection() -> void:
+	var sel: int = PlayerState.selected_hotbar
+	for i in range(hotbar_slots.size()):
+		hotbar_slots[i].add_theme_stylebox_override("panel", _hotbar_slot_style(i == sel))
+
+## The player changed what's in hand: move the outline, and name the item under the
+## crosshair for a couple of seconds (owner request, 2026-07-27c). An empty slot gets the
+## outline but no name — there is nothing to announce, and a stale name over an empty hand
+## would be worse than silence.
+func _on_hotbar_selection_changed(slot: int) -> void:
+	_refresh_hotbar_selection()
+	if slot < 0 or slot >= PlayerState.HOTBAR_SIZE or PlayerState.hotbar[slot] == null:
+		_hide_item_name()
+		return
+	show_selected_item_name(_item_name(String(PlayerState.hotbar[slot])))
+
 func _refresh_hotbar() -> void:
+	_refresh_hotbar_selection()
 	for i in range(hotbar_slots.size()):
 		var lbl: Label = hotbar_slots[i].get_node("L")
 		var pic: TextureRect = hotbar_slots[i].get_node("Pic")
@@ -1165,7 +1235,10 @@ func _inv_slot_item(unified_idx: int) -> String:
 		var h: Variant = PlayerState.hotbar[unified_idx]
 		return String(h) if h != null else ""
 	var i: int = unified_idx - PlayerState.HOTBAR_SIZE
-	if i >= PlayerState.inventory.size():
+	# The pack is a sparse grid — an index inside it can hold null, meaning "the player left
+	# this square empty". String(null) would hand back "<null>" and make an empty slot look
+	# picked, so nulls have to be answered as "" here like any other empty slot.
+	if i >= PlayerState.inventory.size() or PlayerState.inventory[i] == null:
 		return ""
 	return String(PlayerState.inventory[i])
 
@@ -1409,6 +1482,8 @@ func _pack_groups() -> Array:
 			seen[it] = true
 			order.append(str(it))
 	for it in PlayerState.inventory:
+		if it == null:
+			continue   # an empty square in the sparse pack grid, not an item
 		if not seen.has(it):
 			seen[it] = true
 			order.append(str(it))

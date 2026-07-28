@@ -105,7 +105,7 @@ func _player_fish() -> String:
 		if it != null and _hangable(String(it)):
 			return String(it)
 	for it in PlayerState.inventory:
-		if _hangable(String(it)):
+		if it != null and _hangable(String(it)):
 			return String(it)
 	return ""
 
