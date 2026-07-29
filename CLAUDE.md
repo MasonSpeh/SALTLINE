@@ -4,6 +4,25 @@ Godot 4 game (gl_compatibility) — an oil-rig survival slice. The rig is
 built **in code** by `scripts/world/rig_builder.gd` (+ dressing scripts it
 spawns); positions in those scripts ARE the level design.
 
+## Start here
+
+This is a long-running, multi-session build. Before doing anything:
+
+1. **`DEVLOG.md`** — current state, what is in flight, what is open, and the
+   working agreements. Add an entry at the end of every session.
+2. **`docs/AGENT_TRAPS.md`** — things that have already cost hours here. Most
+   are silent failures that look like success. Read it; add to it when
+   something new bites you.
+3. **`KNOWN_ISSUES.md`** — open bugs.
+
+Non-negotiables, learned the expensive way:
+
+- **Probe, don't guess** — never hand-type a Y coordinate (see sonar, below).
+- **Verify by looking** — render it, read the PNG back, iterate, *then* report.
+- **Measure, don't assert** — numbers, not impressions.
+- **Commit verified work immediately** — sessions have been lost to crashes.
+- **Report honestly** — blocked and partial work gets said out loud.
+
 ## Spatial ground truth (sonar)
 
 This project has a live spatial oracle: the **sonar MCP server** is wired
