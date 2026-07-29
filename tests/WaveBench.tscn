@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://wave_bench_rig"]
+
+[ext_resource type="Script" path="res://tests/wave_bench.gd" id="1"]
+
+[node name="WaveBench" type="Node"]
+script = ExtResource("1")

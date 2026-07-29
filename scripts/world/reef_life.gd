@@ -16,6 +16,14 @@ class_name ReefLife extends Node3D
 
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 const SEABED := preload("res://scripts/world/seabed.gd")
+## Preloaded by PATH, not by its class_name: the global class cache lags for a new file and
+## the failure surfaces as an unrelated "Could not resolve class" somewhere else entirely.
+const AIB := preload("res://scripts/world/ai_budget.gd")
+## The reef on the CAISSON LEGS and the starfish on the foundation. Same domain, same
+## subtree, same visual-only contract — its own file because it shares nothing with the
+## wreck-field communities above: steel instead of mud, raycast seating instead of
+## floor_height, and a MultiMesh per species instead of a node per animal.
+const LEG_REEF := preload("res://scripts/world/leg_reef.gd")
 
 const TEAL := Color(0.25, 0.95, 0.88)
 const AMBER := Color(1.0, 0.62, 0.22)
@@ -34,6 +42,7 @@ func _ready() -> void:
 	_populate_soft_bottom()
 	_denning_octopus(Vector3(-8.5, 0, -57.0))       # a pipe end in the main wreck field
 	_deep_anglerfish(Vector3(-19.0, 0, -45.0))       # rare, far out, all you see is the lure
+	add_child(LEG_REEF.new())                        # coral down the legs + foundation starfish
 
 # ------------------------------------------------------------ helpers
 
@@ -255,6 +264,7 @@ class Nudibranch extends Node3D:
 	var _mats: Array = []
 	var _t: float = 0.0
 	var _glow: float = 0.25
+	var _ai_acc: float = 0.0
 
 	func _init(home: Vector3) -> void:
 		_home = home
@@ -271,6 +281,14 @@ class Nudibranch extends Node3D:
 		_t = randf() * 100.0
 
 	func _process(delta: float) -> void:
+		# Decimated: this animal lives on the wreck field 40+ m down and is hidden outright
+		# whenever the camera is topside. AiBudget hands back the time it missed, so the
+		# graze loop covers the same ground per second either way.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		# slow graze loop, hugging the plate
 		var a: float = _t * 0.12
@@ -304,6 +322,7 @@ class FurlStar extends Node3D:
 	var _model: Node3D
 	var _open: float = 0.0
 	var _base_scale: float = 1.0
+	var _ai_acc: float = 0.0
 
 	func _init(slug: String, home: Vector3) -> void:
 		_slug = slug
@@ -322,6 +341,14 @@ class FurlStar extends Node3D:
 		BloomFauna.ground_model(self, _model)
 
 	func _process(delta: float) -> void:
+		# Decimated (see Nudibranch). The furl is a day/night lerp, so it MUST keep
+		# accumulating rather than freeze — a star that stopped counting while the camera was
+		# on deck would still be furled at midnight.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		var want: float = 1.0 if BloomFauna.is_dark_phase() else 0.0
 		_open = lerpf(_open, want, delta * 0.4)
 		if _model != null:
@@ -341,6 +368,7 @@ class Isopod extends Node3D:
 	var _mats: Array = []
 	var _t: float = 0.0
 	var _frozen: float = 0.0
+	var _ai_acc: float = 0.0
 
 	func _init(home: Vector3, slug: String = "bloom_isopod", size: float = 0.4, rate: float = 0.9) -> void:
 		_home = home
@@ -360,6 +388,14 @@ class Isopod extends Node3D:
 		_t = randf() * 100.0
 
 	func _process(delta: float) -> void:
+		# Decimated (see Nudibranch) — but NEVER while the player is close enough to trigger
+		# the freeze reaction: _is_watched() reaches 12 m and AiBudget runs everything inside
+		# NEAR_M (18 m) at full rate, so the vanishing act is always judged frame by frame.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		var watched: bool = _is_watched()
 		_frozen = lerpf(_frozen, 1.0 if watched else 0.0, delta * (6.0 if watched else 2.0))
 		var move: float = 1.0 - _frozen
@@ -401,6 +437,7 @@ class DenningOctopus extends Node3D:
 	var _model: Node3D
 	var _emerge: float = 0.0
 	var _t: float = 0.0
+	var _ai_acc: float = 0.0
 
 	func _init(den: Vector3) -> void:
 		_den = den
@@ -420,6 +457,13 @@ class DenningOctopus extends Node3D:
 		_t = randf() * 100.0
 
 	func _process(delta: float) -> void:
+		# Decimated (see Nudibranch). Same reason as the furl star: the emergence is a
+		# day/night lerp and has to keep its place in the clock while nobody is watching.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		var want: float = 1.0 if BloomFauna.is_dark_phase() else 0.0
 		_emerge = lerpf(_emerge, want, delta * 0.3)
@@ -446,6 +490,7 @@ class DeepAngler extends Node3D:
 	var _lure: MeshInstance3D
 	var _lure_light: OmniLight3D
 	var _lure_mat: StandardMaterial3D
+	var _ai_acc: float = 0.0
 
 	func _init(home: Vector3) -> void:
 		_home = home
@@ -481,6 +526,14 @@ class DeepAngler extends Node3D:
 		_t = randf() * 100.0
 
 	func _process(delta: float) -> void:
+		# Decimated (see Nudibranch). The lure's jig is the fastest thing here at ~2 Hz; it
+		# is also 45 m out in the dark, well past MID_M, and the whole point of the animal is
+		# that you see one bob of light and not the fish.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		# a slow prowl in a small deep patch
 		var tgt := _home + Vector3(cos(_t * 0.06) * 4.0, sin(_t * 0.05) * 0.6, sin(_t * 0.045) * 4.0)
@@ -501,9 +554,18 @@ class DeepAngler extends Node3D:
 ## Rides its parent (the salp host) so the model actually drifts, not this empty node.
 class SalpDrift extends Node3D:
 	var _t: float = 0.0
+	var _ai_acc: float = 0.0
 	func _ready() -> void:
 		_t = randf() * 100.0
 	func _process(delta: float) -> void:
+		# Decimated (see Nudibranch). This one drives its PARENT's position by += per frame,
+		# which is exactly the case the accumulate-the-delta rule exists for: skipping frames
+		# without it would slow the drift to a quarter speed.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		var host: Node3D = get_parent() as Node3D
 		if host == null:

@@ -56,6 +56,54 @@ const W_STEEP: Array[float] = [0.62, 0.68, 0.72, 0.80, 0.82, 0.85, 0.85, 0.90, 0
 const SET_DIR_A: Vector2 = Vector2(0.97, 0.24)
 const SET_DIR_B: Vector2 = Vector2(0.20, -0.98)
 
+## PRECOMPUTED BAND CONSTANTS. `k = TAU/L` and `omega = sqrt(g*k)` are facts about the wave
+## band, not about the sample — but they were being recomputed inside the 11-iteration loop
+## on EVERY call, which is 11 divisions and 11 square roots per sample. The ocean is sampled
+## a few hundred times a frame (every school fish clamps against the surface; so do the
+## player, the rod, the hook, the debris and the storm), so that was thousands of sqrt calls
+## a frame for eleven numbers that never change. Derived here from W_LEN/W_STEEP rather than
+## typed out, so they cannot drift if a band is retuned.
+##   QA_BASE[i] == W_STEEP[i] / (k * 11.0), i.e. the horizontal-displacement coefficient with
+##   the sea-state term (steep_scale) factored out — that part still multiplies in per call.
+## Plain Array[float], NOT PackedFloat32Array: GDScript floats are doubles, and a float32
+## `omega` costs ~1e-7 of relative precision, which `omega * t` turns into a visible phase
+## error once the clock has been running for an hour. Precision here is not optional — the
+## CPU sea has to stay the sea the shader draws.
+static var _K: Array[float] = []
+static var _OMEGA: Array[float] = []
+static var _QA_BASE: Array[float] = []
+
+static var _floor: float = 0.0
+
+static func _static_init() -> void:
+	# Cleared first: an editor hot-reload runs _static_init again on an already-populated
+	# static, and appending a second time would give the loop 22 bands to walk — silently,
+	# and only in the editor, which is the worst way for a difference to exist.
+	_K.clear()
+	_OMEGA.clear()
+	_QA_BASE.clear()
+	for i in range(11):
+		var k: float = TAU / W_LEN[i]
+		_K.append(k)
+		_OMEGA.append(sqrt(G_WAVE * k))
+		_QA_BASE.append(W_STEEP[i] / (k * 11.0))
+	var swell: float = W_AMP[0] + W_AMP[1] + W_AMP[2]
+	var wind: float = 0.0
+	for i in range(3, 11):
+		wind += W_AMP[i]
+	_floor = -(0.18 + 0.92) * (swell + wind * 1.42)
+
+## THE DEEPEST THE SEA CAN EVER GET, metres. Analytic, not sampled: every band's contribution
+## to `h` is bounded by its own amplitude times the largest multiplier that band can take
+## (1.0 for the three swell bands' set envelope, 1.42 for the wind bands' patchiness), and
+## amp_scale peaks at 1.10 when the sea state is fully up. Nothing below this line can ever
+## be reached by the surface, WHATEVER the weather — which is what lets a caller skip the
+## Gerstner sum outright for anything provably deeper. Deliberately computed against sea
+## state 1.0 rather than the live one, so a squall arriving cannot invalidate a decision
+## something made in calm water.
+static func trough_floor() -> float:
+	return _floor
+
 static func _warp(p: Vector2, t: float) -> Vector2:
 	return p + 3.0 * Vector2(sin(p.y * 0.018 + t * 0.05), sin(p.x * 0.015 - t * 0.04))
 
@@ -80,8 +128,6 @@ static func wave_offset(raw_p: Vector2, t: float) -> Vector3:
 	var h: float = 0.0
 	for i in range(11):
 		var dir: Vector2 = W_DIR[i]
-		var k: float = TAU / W_LEN[i]
-		var omega: float = sqrt(G_WAVE * k)
 		var a: float = W_AMP[i] * amp_scale
 		if i < 3:
 			var sd: Vector2 = SET_DIR_B if i == 1 else SET_DIR_A
@@ -89,17 +135,51 @@ static func wave_offset(raw_p: Vector2, t: float) -> Vector3:
 			a *= 0.55 + 0.45 * sin(env)
 		else:
 			a *= gust
-		var steep_eff: float = W_STEEP[i] * steep_scale
-		var qa: float = steep_eff / (k * 11.0)
-		var phase: float = k * dir.dot(w) - omega * t
+		var qa: float = _QA_BASE[i] * steep_scale
+		var phase: float = _K[i] * dir.dot(w) - _OMEGA[i] * t
 		var c: float = cos(phase)
 		dx += qa * dir.x * c
 		dz += qa * dir.y * c
 		h += a * sin(phase)
 	return Vector3(dx, h, dz)
 
+## SURFACE HEIGHT ONLY — the same number `wave_offset().y` returns, without computing the
+## horizontal displacement nobody asked for.
+##
+## This is the hot entry point by a wide margin: the debris and the foam streaks want the
+## full offset, but every fish in the ocean, the player, the rod, the hook, the storm and
+## main.gd's own "am I underwater" test only ever read `.y` — and each of those calls was
+## paying for `qa` (a multiply per band), the two horizontal accumulators, the Vector3
+## construction, and, most of all, ELEVEN `cos()` calls whose only consumer was `dx`/`dz`.
+## Splitting the height path drops all of that.
+##
+## THE ONE WAY THE ANSWER CHANGED, and it is the opposite of a regression: this returns the
+## accumulated double, where the old `wave_offset(p, t).y` returned it after a round trip
+## through a Vector3 — whose components are single-precision. So the old height was silently
+## rounded to float32 and this one is not, and the two disagree by up to ~1.2e-7 m: a tenth
+## of a micrometre on a wave several metres tall, in the direction of MORE accuracy.
+## tests/WaveBench.tscn and the suite both assert the difference stays inside one float32
+## ULP, which pins it as exactly that rounding and nothing else.
 static func wave_height(raw_p: Vector2, t: float) -> float:
-	return wave_offset(raw_p, t).y
+	var w: Vector2 = _warp(raw_p, t)
+	var ss: float = _sea_state
+	var amp_scale: float = 0.18 + 0.92 * ss
+	var gust: float = _patchiness(raw_p, t)
+	var h: float = 0.0
+	for i in range(11):
+		# Kept structurally identical to wave_offset's loop above, statement for statement, so
+		# the two can be read side by side and confirmed to be the same sum.
+		var dir: Vector2 = W_DIR[i]
+		var a: float = W_AMP[i] * amp_scale
+		if i < 3:
+			var sd: Vector2 = SET_DIR_B if i == 1 else SET_DIR_A
+			var env: float = sd.dot(raw_p) * 0.010 - t * (0.045 + 0.02 * float(i))
+			a *= 0.55 + 0.45 * sin(env)
+		else:
+			a *= gust
+		var phase: float = _K[i] * dir.dot(w) - _OMEGA[i] * t
+		h += a * sin(phase)
+	return h
 
 static func water_time() -> float:
 	return Time.get_ticks_msec() * 0.001

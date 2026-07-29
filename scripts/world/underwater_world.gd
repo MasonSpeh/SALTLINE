@@ -10,6 +10,8 @@ const ANIM := preload("res://scripts/world/creature_anim.gd")
 const SEABED := preload("res://scripts/world/seabed.gd")
 const FX := preload("res://scripts/world/underwater_fx.gd")
 const MOVE := preload("res://scripts/world/fauna_move.gd")
+## Preloaded by PATH, not by its class_name — the global class cache lags for a new file.
+const AIB := preload("res://scripts/world/ai_budget.gd")
 
 const LEGS := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 const DEPTH_BAND := {"surface": -1.2, "mid": -4.5, "deep": -9.5}
@@ -85,6 +87,10 @@ var _t: float = 0.0
 var _rng := RandomNumberGenerator.new()
 var _snow: GPUParticles3D          # marine snow, storm/depth-reactive in _process
 var _storm: Node = null
+## The camera position, taken once a frame by _cull_topside and reused by _pod_due.
+## NOT `_eye` — that name is already the fish silhouette's eye-material helper below.
+var _cam_eye: Vector3 = Vector3.ZERO
+var _cam_eye_ok: bool = false
 
 func _ready() -> void:
 	_rng.seed = 7411
@@ -459,6 +465,7 @@ class GliderRay extends Node3D:
 	## the path (there is nothing left to measure — the roll dictates it), but it keeps the
 	## name because tests/ray_roll.gd finds the rays by it.
 	var _turn_smooth: float = 0.0
+	var _ai_acc: float = 0.0
 
 	func _init(span: float, band_y: float, r: float, rate: float, ph: float) -> void:
 		_span = span
@@ -494,6 +501,17 @@ class GliderRay extends Node3D:
 		global_position = Vector3(cos(_ph) * _r, _band_y, sin(_ph) * _r)
 
 	func _process(delta: float) -> void:
+		# DECIMATED (scripts/world/ai_budget.gd). This is the most expensive per-frame body in
+		# the file — a coordinated-turn integration, a look_at and a local roll — and for most
+		# of a session it runs behind a hidden flag, because the whole underwater world is
+		# culled while the camera is topside. AiBudget hands back every skipped frame's delta,
+		# so the bank integration, the heading and the glide speed are unchanged; the roll is
+		# eased with `clampf(delta * BANK_RESP, 0, 1)` already, which is stable at any step.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		var pos: Vector3 = global_position
 		# --- depth: a slow independent vertical wander within the band ---------------------
@@ -588,6 +606,7 @@ class DeepGiant extends Node3D:
 	var _home: Vector3
 	var _t: float = 0.0
 	var _mats: Array = []
+	var _ai_acc: float = 0.0
 
 	func _init(size: float = 3.5, band_y: float = -20.0, r: float = 12.0,
 			rate: float = 0.05, ph: float = 0.0, home: Vector3 = Vector3.ZERO) -> void:
@@ -614,6 +633,15 @@ class DeepGiant extends Node3D:
 		_t = _ph * 20.0
 
 	func _process(delta: float) -> void:
+		# DECIMATED (see GliderRay). Position is a pure function of the accumulated clock, so
+		# handing over the skipped time reproduces the circuit exactly — a lap still takes
+		# TAU/_rate seconds. These nine giants live 12-76 m down and are hidden outright
+		# whenever the camera is above the wave line.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		var a: float = _t * _rate + _ph
 		var next := Vector3(_home.x + cos(a) * _r,
@@ -653,6 +681,15 @@ class PillarPatrol extends DeepGiant:
 	const BOB_HZ: float = 0.045  ## ~22 s a cycle, independent of the lap
 
 	func _process(delta: float) -> void:
+		# DECIMATED (see DeepGiant). Bounded by construction — position is a function of the
+		# clock, the home and the radius — so a skipped frame plus its delta is arithmetically
+		# the same circuit. The leviathan patrols at -76 m; nothing about this is ever seen
+		# at a range where an 8 Hz update could read as anything.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		var a: float = _t * _rate + _ph
 		var pos := Vector3(_home.x + cos(a) * _r,
@@ -858,6 +895,15 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		"ph": phases, "spd": speeds, "head": heads, "climb": climbs,
 		"warm": false,
 		"t": _rng.randf_range(0, 100.0),
+		# Per-pod AI decimation state — see the block in _process. `acc` is the delta this pod
+		# has accumulated but not yet spent; `centre` is where it was last seen, which is what
+		# the distance ranking uses (the root node never leaves the origin).
+		"acc": 0.0,
+		"centre": Vector3(0.0, band_y - POD_DROP[pod], 0.0),
+		# A stable per-pod number to offset the tick phase by, so the 48 pods spread across the
+		# stride instead of all updating on the same frame. Taken at spawn — looking the pod's
+		# own index up per frame would be a linear scan comparing dictionaries.
+		"phase": _schools.size(),
 	})
 
 ## Give one fish — generated mesh or fallback silhouette — its own distance budget; see
@@ -977,8 +1023,13 @@ const TOPSIDE_MARGIN: float = 4.0
 func _cull_topside() -> void:
 	var cam: Camera3D = get_viewport().get_camera_3d()
 	if cam == null:
+		_cam_eye_ok = false
 		return
 	var cp: Vector3 = cam.global_position
+	# Cached for _pod_due: 48 pods asking the viewport for its camera every frame is 48 tree
+	# lookups for one value that is already in hand here.
+	_cam_eye = cp
+	_cam_eye_ok = true
 	var surf: float = Gyre.wave_height(Vector2(cp.x, cp.z), Gyre.water_time()) * 0.85
 	var want: bool = cp.y < surf + TOPSIDE_MARGIN
 	if visible != want:
@@ -1019,6 +1070,16 @@ func _process(delta: float) -> void:
 		GameClock.Phase.DUSK: phase_key = "dusk"
 		GameClock.Phase.NIGHT: phase_key = "night"
 	var storming: bool = _storm_intensity() > 0.15
+	# THE SWELL CLOCK, SAMPLED ONCE A FRAME. It used to be read inside the per-fish loop, so
+	# `Time.get_ticks_msec()` was being called once per fish per frame — 512 engine calls to
+	# fetch a number that cannot change within a frame. It is also the only honest way to
+	# read it: two fish in the same shoal were clamping against seas a fraction of a
+	# millisecond apart.
+	var wave_t: float = Gyre.water_time()
+	# Below this line the surface cannot reach, at ANY sea state (Gyre.trough_floor is
+	# analytic — see there). A pod whose highest reachable fish still sits below it can skip
+	# the Gerstner sum outright, because the clamp it feeds could never bind.
+	var floor_y: float = Gyre.trough_floor()
 	for s in _schools:
 		var active: Array = s["def"]["school"].get("active", [])
 		# An EMPTY active list is not "never". It is how data/fish.json says this shoal
@@ -1033,7 +1094,29 @@ func _process(delta: float) -> void:
 		root.visible = want
 		if not want or not swim:
 			continue
-		s["t"] += delta
+		# --- PER-POD DECIMATION -----------------------------------------------------------
+		# 512 fish across 48 pods, every one of them re-solving its slot on the ring, sampling
+		# the swell and running a look_at, every frame. The pods are 24-60 m across the water
+		# from the camera at any moment, and a shoal at that range moving in 5 cm steps at 8 Hz
+		# is indistinguishable from one moving in 1 cm steps at 30. So a pod that is far away
+		# thinks less often — and is handed the time it missed, which is the ONLY way to do this
+		# without slowing the shoal down (see scripts/world/ai_budget.gd for the trap).
+		#
+		# It lands especially cleanly here because the pod's update is already frame-rate
+		# independent BY CONSTRUCTION: position is a function of the pod's own clock `t`, and
+		# both easings are `1 - exp(-k * delta)`, which closes the same fraction of the gap per
+		# SECOND however the seconds arrive — and, unlike `delta * k`, can never overshoot at a
+		# long step. Advancing `t` by the accumulated delta puts the shoal exactly where it
+		# would have arrived tick by tick.
+		#
+		# The accumulator lives on the POD's dictionary, not on a node: the pod root sits at the
+		# world origin and never moves, so it cannot be asked how far away it is.
+		s["acc"] += delta
+		var pod_delta: float = s["acc"]
+		if not _pod_due(s, pod_delta):
+			continue
+		s["acc"] = 0.0
+		s["t"] += pod_delta
 		var t: float = s["t"]
 		# THE POD'S OWN WANDER. Two incommensurate octaves per axis instead of one, so the
 		# centre never retraces the same lap — the jelly's trick, at shoal scale.
@@ -1042,6 +1125,7 @@ func _process(delta: float) -> void:
 		var cx: float = cos(t * rates.x) * spread.x + sin(t * rates.x * 0.37 + 1.3) * spread.x * 0.16
 		var cz: float = sin(t * rates.y) * spread.y + cos(t * rates.y * 0.43 + 2.1) * spread.y * 0.16
 		var center := Vector3(cx, s["band_y"] + sin(t * 0.11) * 0.8 + sin(t * 0.037) * 0.5, cz)
+		s["centre"] = center
 		var members: Array = s["fish"]
 		var n: int = members.size()
 		var mph: Array = s["ph"]
@@ -1057,9 +1141,22 @@ func _process(delta: float) -> void:
 		# very first live frame the fish are still stacked at the origin, so that one frame
 		# seats them outright instead of letting them swoop in from the middle of the world.
 		var warm: bool = s["warm"]
-		var follow: float = (1.0 - exp(-FISH_EASE * delta)) if warm else 1.0
-		var turn: float = 1.0 - exp(-FISH_TURN * delta)
+		var follow: float = (1.0 - exp(-FISH_EASE * pod_delta)) if warm else 1.0
+		var turn: float = 1.0 - exp(-FISH_TURN * pod_delta)
 		s["warm"] = true
+		# CAN THE SURFACE CLAMP EVER BIND FOR THIS POD? The clamp below is a safety rail —
+		# it stops a shallow shoal breaching through the swell — and for the deep pods it has
+		# never once fired. Their ceiling is bounded by construction: the pod centre rides at
+		# most band_y + 1.3 (its two vertical octaves, 0.8 + 0.5) and a member adds at most
+		# another 0.60 of bob (0.34 + 0.26); `follow` only ever lerps toward that target, so
+		# no fish can be above it once seated. If that ceiling still clears the deepest
+		# trough the sea can produce plus the clamp's own margin, the sample is dead work and
+		# the whole 11-band sum is skipped. Computed per pod, per frame, from the pod's own
+		# numbers rather than a hand-typed depth, so retuning POD_DROP or a species' depth
+		# band cannot leave a stale exemption behind. Every fish still swims — this drops the
+		# arithmetic, never the animal.
+		var pod_ceiling: float = s["band_y"] + 1.3 + 0.60
+		var needs_surface: bool = pod_ceiling > floor_y - 0.5 - s["size"] * 0.5
 		for i in range(n):
 			var f: Node3D = members[i]
 			var ph: float = mph[i]
@@ -1080,8 +1177,9 @@ func _process(delta: float) -> void:
 			# Clamp to the live surface, so a squall pushes the shallow bands down with it.
 			# Full wave height: the 0.85 camera-test factor lifts a point above the true
 			# surface in troughs, which is exactly where a shallow school would breach.
-			var surf: float = Gyre.wave_height(Vector2(next.x, next.z), Gyre.water_time())
-			next.y = minf(next.y, surf - 0.5 - s["size"] * 0.5)
+			if needs_surface:
+				var surf: float = Gyre.wave_height(Vector2(next.x, next.z), wave_t)
+				next.y = minf(next.y, surf - 0.5 - s["size"] * 0.5)
 			# A school's drift band overlaps the rig legs — don't let fish swim through a
 			# caisson. Only pay for the raycast near a leg (the schools spend most of their
 			# orbit in open water), and if the step would enter the steel, stop the fish at
@@ -1090,7 +1188,7 @@ func _process(delta: float) -> void:
 				var res: Dictionary = MOVE.swim_clear(f, cur, next, 0.3)
 				next = res["pos"]
 				if bool(res["blocked"]):
-					next = _slide_leg(next, target, delta)
+					next = _slide_leg(next, target, pod_delta)
 			var step: Vector3 = next - cur
 			f.global_position = next
 			if not warm:
@@ -1107,9 +1205,31 @@ func _process(delta: float) -> void:
 			# below can never be handed a direction parallel to UP (that error-spams hard
 			# enough to choke the editor debugger).
 			mclimb[i] = lerpf(mclimb[i],
-				clampf(step.y / maxf(delta, 0.0001) * FISH_PITCH, -0.5, 0.5), turn)
+				clampf(step.y / maxf(pod_delta, 0.0001) * FISH_PITCH, -0.5, 0.5), turn)
 			var hd: float = mhead[i]
 			f.look_at(next + Vector3(sin(hd), mclimb[i], cos(hd)), Vector3.UP)
+
+## Does this pod get to think this frame? The node-level rule (ai_budget.gd) keyed to a
+## POD, which is a dictionary rather than a node.
+##
+## Ranked on the pod's last known centre, which is honest for a shoal: `radius` is a couple
+## of metres, so the whole school is effectively at one distance. A pod inside AiBudget's
+## NEAR_M runs every frame — the shoal you are actually swimming through is never decimated.
+## The instance-free phase comes from the pod's own index so the 48 pods do not all land on
+## the same frame, and the MAX_STEP guarantee is honoured for the same reason it exists
+## there: nothing may go longer than that without an update.
+func _pod_due(s: Dictionary, acc: float) -> bool:
+	if not AIB.enabled or acc >= AIB.MAX_STEP or not _cam_eye_ok:
+		return true
+	var d2: float = _cam_eye.distance_squared_to(s["centre"])
+	var stride: int = 1
+	if d2 > AIB.MID_M * AIB.MID_M:
+		stride = AIB.FAR_STRIDE
+	elif d2 > AIB.NEAR_M * AIB.NEAR_M:
+		stride = 2
+	if stride <= 1:
+		return true
+	return (Engine.get_process_frames() + int(s["phase"])) % stride == 0
 
 ## Is `p` close enough to a rig leg (in plan) that a wall test is worth casting? The legs
 ## are 6 m square; 4.5 m from a centre clears the caisson plus a fish's turn radius.

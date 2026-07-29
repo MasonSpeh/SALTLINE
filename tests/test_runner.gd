@@ -75,6 +75,18 @@ func _item_count(id: String) -> int:
 			n += 1
 	return n
 
+## Drive a decimated creature's _process until it is GUARANTEED to have thought at least
+## once. AiBudget runs distant animals on every 2nd or 4th frame, so a single hand-driven
+## `_process(0.016)` may legitimately be a frame that animal skips — which turned four
+## snail-breeding checks into coin flips. AiBudget's own contract is that nothing ever goes
+## longer than MAX_STEP without a tick, so pumping past that is deterministic, and it is a
+## STRONGER test than one call was: the rule under test (two fed snails in range breed
+## exactly one baby) has to hold across repeated ticks, not just land on the first.
+func _pump(node: Node, seconds: float = AiBudget.MAX_STEP + 0.05, step: float = 0.016) -> void:
+	var n: int = int(ceil(seconds / step))
+	for i in range(n):
+		node._process(step)
+
 func _check(cond: bool, label: String) -> void:
 	if cond:
 		print("PASS  ", label)
@@ -536,7 +548,12 @@ func _run() -> void:
 			if n is OmniLight3D and n.shadow_enabled == false \
 					and n.omni_range >= 2.5 and n.omni_range <= 3.5:
 				snail_lights.append(n)
-	_check(snail_lights.size() == 6, "lamp snails have 6 bioluminescent lights")
+	# One light each, so this is a head count. s20 added lamp snails on the CAISSON FACES
+	# (leg_reef.gd::_grow_snails) on top of BloomFauna's six on the pontoon tops, so the
+	# invariant worth asserting is "every lamp snail owns exactly one" rather than a fixed
+	# total that any new habitat breaks.
+	_check(snail_lights.size() == get_tree().get_nodes_in_group("snail_lamp").size(),
+		"every lamp snail owns exactly one bioluminescent light (%d)" % snail_lights.size())
 	# Check that lights have proper range (2.5-3.5m) and are shadows-off for gl_compatibility.
 	var snail_light_range_ok: bool = true
 	for light in snail_lights:
@@ -814,9 +831,16 @@ func _run() -> void:
 	PlayerState.add_item("fish_herring")
 	line._hang()
 	_check(line._hung.size() == 1, "raw fish hangs on the line")
+	# WHICH fish actually went on the hook matters, and the old assertion did not say.
+	# _hang() takes the first hangable thing in the player's hotbar/pack, not necessarily
+	# the herring this block just added — so anything an earlier check left in the pack can
+	# be hung instead, and a BIG fish cures to dried_fish rather than rotting. That made
+	# this check a silent hostage to test order. Report what was hung and what it became.
+	var hung_id: String = String(line._hung[0]["id"])
 	line._hung[0]["age_h"] = 4.1
 	line._process(0.016)
-	_check(line._hung[0]["id"] == "fish_rotten", "raw fish rots after 4 game hours hung")
+	_check(line._hung[0]["id"] == "fish_rotten",
+		"raw fish rots after 4 game hours hung (hung %s -> %s)" % [hung_id, line._hung[0]["id"]])
 	# Isolate the cure test: the drop-net haul above leaves random raw species in the
 	# pack, and _hang() takes the first hangable fish it finds — so without clearing,
 	# slot 1 sometimes got a leftover raw fish (which rots) instead of the cooked one.
@@ -1038,7 +1062,15 @@ func _run() -> void:
 	_check(_find_takeable(main, "kelp_bundle") != null, "kelp bundle is harvestable on the open deck")
 
 	var lamp_snails: Array = get_tree().get_nodes_in_group("snail_lamp")
-	_check(lamp_snails.size() == 6, "six lamp snails spawn before any breeding")
+	# BloomFauna seeds six on the pontoon tops; LegReef seeds more on the submerged caisson
+	# faces (s20). Both are deterministic, and what this guards is that nothing has BRED yet
+	# — every snail standing at this point must be an adult with a distinct index.
+	var lamp_ids: Dictionary = {}
+	for ls in lamp_snails:
+		lamp_ids[int(ls.get("_idx"))] = true
+	_check(lamp_snails.size() >= 6 and lamp_ids.size() == lamp_snails.size()
+			and not lamp_snails.any(func(n: Node) -> bool: return bool(n.get("_is_baby"))),
+		"lamp snails spawn as %d distinct adults before any breeding" % lamp_snails.size())
 	if lamp_snails.size() >= 3:
 		var sa: Node3D = lamp_snails[0]
 		var sb: Node3D = lamp_snails[1]
@@ -1050,7 +1082,7 @@ func _run() -> void:
 		sa._feed(player)
 		_check(sa._fed, "feeding a lamp snail sets its fed flag")
 		sb._feed(player)
-		sb._process(0.016)   # the breed check runs continuously in _process, not in _feed
+		_pump(sb)   # the breed check runs continuously in _process, not in _feed
 		var babies: Array = get_tree().get_nodes_in_group("snail_lamp").filter(
 			func(n: Node) -> bool: return bool(n.get("_is_baby")))
 		_check(babies.size() == 1, "two fed lamp snails within range spawn exactly one permanent baby")
@@ -1059,7 +1091,7 @@ func _run() -> void:
 			var baby: Node3D = babies[0]
 			_check(is_instance_valid(baby) and baby.get_parent() != null, "the baby is a live node in the tree")
 			baby.set("_grow_h", 999.0)
-			baby._process(0.016)
+			_pump(baby)
 			_check(not bool(baby.get("_is_baby")), "a baby fully grows into an adult after enough game-hours")
 		# COLLECT (crouch-gated in play; called directly here like every other private
 		# interaction method the suite exercises) removes the snail and yields snail_live.
@@ -1096,7 +1128,7 @@ func _run() -> void:
 		PlayerState.add_item("kelp_bundle")
 		ra._feed(player)
 		rb._feed(player)
-		rb._process(0.016)
+		_pump(rb)
 		var rust_babies: Array = get_tree().get_nodes_in_group("snail_rust").filter(
 			func(n: Node) -> bool: return bool(n.get("_is_baby")))
 		_check(rust_babies.size() == 1, "two fed rust snails within range spawn a baby")
@@ -1111,7 +1143,7 @@ func _run() -> void:
 		PlayerState.add_item("kelp_bundle")
 		ga._feed(player)
 		gb._feed(player)
-		gb._process(0.016)
+		_pump(gb)
 		var glass_babies: Array = get_tree().get_nodes_in_group("snail_glass").filter(
 			func(n: Node) -> bool: return bool(n.get("_is_baby")))
 		_check(glass_babies.size() == 1, "two fed glass snails within range spawn a baby")
@@ -1131,7 +1163,7 @@ func _run() -> void:
 		PlayerState.add_item("kelp_bundle")
 		pd._feed(player)
 		pe._feed(player)
-		pe._process(0.016)
+		_pump(pe)
 		var baby_before: int = get_tree().get_nodes_in_group("snail_lamp").filter(
 			func(n: Node) -> bool: return bool(n.get("_is_baby"))).size()
 		_check(baby_before == 1, "a fresh pair breeds a second baby for the persistence check")
@@ -1202,3 +1234,106 @@ func _run() -> void:
 		SaveManager.erase_slot(s)
 	SaveManager.slot_file_prefix = "saltline_slot_"
 	SaveManager.active_slot = 1
+
+	_check_wave_math()
+	_check_ai_budget()
+	await _check_decimation_equivalence(main)
+
+## The CPU sea and the drawn sea have to be the same sea, and Gyre's Gerstner sum was
+## optimised (precomputed band constants, a height-only path that skips the horizontal
+## displacement). Guard the two properties that could regress silently: the height path must
+## agree with the full offset EXACTLY, and the analytic trough floor — which underwater_world
+## uses to skip the sum for pods it can never reach — must really bound every sample.
+func _check_wave_math() -> void:
+	var worst: float = 0.0
+	var lowest: float = 0.0
+	for ss in [0.0, 0.4, 1.0]:
+		Gyre.set_sea_state(ss)
+		for i in range(400):
+			var p := Vector2(float(i % 20) * 9.3 - 90.0, float(i / 20) * 9.7 - 90.0)
+			var t: float = float(i) * 13.7
+			var h: float = Gyre.wave_height(p, t)
+			worst = maxf(worst, absf(h - Gyre.wave_offset(p, t).y))
+			lowest = minf(lowest, h)
+	Gyre.set_sea_state(Gyre.WAVE_SEA_STATE)
+	# One float32 ULP, not zero: wave_offset returns a Vector3, whose components are single
+	# precision, so reading `.y` rounds. wave_height now returns the raw double. The bound is
+	# what proves the gap is that rounding and not an arithmetic difference.
+	_check(worst <= 2.0e-6,
+		"wave_height agrees with wave_offset().y to float32 (worst %.17f)" % worst)
+	_check(Gyre.trough_floor() < -5.0 and lowest > Gyre.trough_floor(),
+		"trough floor %.2f really bounds the sea (deepest sampled %.2f)"
+			% [Gyre.trough_floor(), lowest])
+
+## THE CLAIM DECIMATION RESTS ON, ASSERTED RATHER THAN ARGUED.
+##
+## AiBudget lets a distant creature think once every N frames and hands it the N frames'
+## worth of delta. The claim is that this puts the animal in EXACTLY the place it would
+## have reached thinking every frame. tests/AiBudgetProbe measures that on the live world
+## and finds the clock conserved to 0.1%, but a live world also contains coin flips (the
+## seal decides at random whether to haul out), so the probe's speed column can never be
+## perfectly clean. This is the clean version: one creature stepped 300 times at 1/30 s,
+## an identical one stepped 75 times at 4/30 s — the same elapsed time, at stride 1 and at
+## stride 4 — and they must finish at the same point.
+##
+## Only valid for the species whose position is a pure function of their own clock, which
+## is what DeepGiant and PillarPatrol are (`pos = f(_t, home, radius)`). Creatures that
+## INTEGRATE state instead — the glider ray banks with `lerp(delta * k)` — are rate-correct
+## but not step-size-independent, and are covered by the probe's speed column instead.
+func _check_decimation_equivalence(main: Node) -> void:
+	var UW := preload("res://scripts/world/underwater_world.gd")
+	var was: bool = AiBudget.enabled
+	AiBudget.enabled = false          # drive the step sizes by hand, not the scheduler
+	for spec in [["DeepGiant", UW.DeepGiant], ["PillarPatrol", UW.PillarPatrol]]:
+		var fine: Node3D = (spec[1] as GDScript).new(3.0, -20.0, 12.0, 0.05, 1.0, Vector3.ZERO)
+		var coarse: Node3D = (spec[1] as GDScript).new(3.0, -20.0, 12.0, 0.05, 1.0, Vector3.ZERO)
+		main.add_child(fine)
+		main.add_child(coarse)
+		await get_tree().process_frame
+		if not is_instance_valid(fine) or not is_instance_valid(coarse):
+			_check(false, "%s: could not build a pair to compare (missing mesh?)" % spec[0])
+			continue
+		for i in range(300):
+			fine._process(1.0 / 30.0)
+		for i in range(75):
+			coarse._process(4.0 / 30.0)     # stride 4, four frames of delta at a time
+		var gap: float = fine.global_position.distance_to(coarse.global_position)
+		_check(gap < 0.001,
+			"%s ends in the same place at stride 1 and stride 4 (%.6f m apart over 10 s)"
+				% [spec[0], gap])
+		fine.queue_free()
+		coarse.queue_free()
+	AiBudget.enabled = was
+	_check(AiBudget.enabled, "decimation is left enabled after the equivalence check")
+
+## THE DECIMATION INVARIANT. AiBudget runs distant creatures on every Nth frame; the whole
+## thing is only correct because the skipped frames' delta is handed over on the frame that
+## does run. If that ever stops holding, every decimated animal silently runs at 1/N speed —
+## which is the failure this project was warned about and which no screenshot would catch.
+##
+## Simulated rather than measured off a live creature so it runs headless with the rest of
+## the suite: drive the same accumulate/spend loop the species prologues use and assert the
+## time handed out equals the time that passed, and that no single step exceeds MAX_STEP.
+func _check_ai_budget() -> void:
+	var frame: float = 1.0 / 30.0
+	for stride in [1, 2, 4]:
+		var acc: float = 0.0
+		var spent: float = 0.0
+		var worst_step: float = 0.0
+		var ticks: int = 0
+		for f in range(600):
+			acc += frame
+			var due: bool = acc >= AiBudget.MAX_STEP or stride <= 1 or (f % stride) == 0
+			if not due:
+				continue
+			worst_step = maxf(worst_step, acc)
+			spent += acc
+			acc = 0.0
+			ticks += 1
+		var elapsed: float = 600.0 * frame
+		_check(absf((spent + acc) - elapsed) < 1e-6,
+			"AiBudget stride %d conserves elapsed time (%.4f vs %.4f)" % [stride, spent + acc, elapsed])
+		_check(worst_step <= AiBudget.MAX_STEP + frame + 1e-6,
+			"AiBudget stride %d never hands over more than MAX_STEP (%.4f)" % [stride, worst_step])
+		_check(ticks > 0, "AiBudget stride %d still ticks" % stride)
+	_check(AiBudget.enabled, "AiBudget is left enabled for the game")

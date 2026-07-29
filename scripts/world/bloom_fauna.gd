@@ -20,6 +20,9 @@ class_name BloomFauna extends Node3D
 ##   KingCrab     — two boss-tier giants in the deep; each rolls 50% a night to come up
 
 const ANIMH := preload("res://scripts/world/creature_anim.gd")
+## AI decimation. Preloaded by PATH, not by its class_name — the global class cache lags
+## for a new file and the failure surfaces as an unrelated "Could not resolve class".
+const AIB := preload("res://scripts/world/ai_budget.gd")
 const CRAB := preload("res://scripts/world/crab.gd")   # by path: class cache lags new names
 ## Shell patterning: marble veining, spiral banding and soft flesh, all in one shader.
 ## See materials/shell_marble.gdshader for why the lamp snail's glow stopped being
@@ -863,7 +866,19 @@ class Gull extends Node3D:
 		tip.rotation.y = deg_to_rad(-28 * side)
 		return w
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		var day: bool = GameClock.current_phase == GameClock.Phase.DAY \
 			or GameClock.current_phase == GameClock.Phase.DAWN
 		_leave = move_toward(_leave, 0.0 if day else 1.0, delta * 0.12)
@@ -944,7 +959,19 @@ class JellyDrifter extends Node3D:
 			_gen_mats = gen["mats"]
 			ANIM.drive(_gen_mats, 0.6, 0.8)   # steady — no per-frame cost
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_presence = move_toward(_presence, 1.0 if BloomFauna.is_dark_phase() else 0.0, delta * 0.1)
 		visible = _presence > 0.02
 		_mat.emission_energy_multiplier = _presence * (1.0 + 0.4 * sin(_t * 1.1))
@@ -1024,7 +1051,19 @@ class BarnacleCluster extends Node3D:
 			_gen_mats = gen["mats"]
 			ANIM.drive(_gen_mats, 0.5, 0.5)
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		var target: float = 0.05
 		var feeding: bool = false
@@ -1135,7 +1174,19 @@ class LampEel extends Node3D:
 		# Generated mesh: the whole ribbon body waves; the lantern chain is its own light.
 		# (Meshy auto-rigs humanoids only, so the motion is CreatureAnim's vertex shader.)
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.15)
 		visible = _presence > 0.02
 		for i in range(_mats.size()):
@@ -1253,7 +1304,19 @@ class FiddlerShoal extends Node3D:
 		if hud and hud.has_method("toast"):
 			hud.toast("You close your hand in the shoal and come up with a bait-fish.")
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		var active: bool = GameClock.current_phase != GameClock.Phase.NIGHT
 		visible = active   # they hide from what walks at night
 		if not active:
@@ -1354,7 +1417,19 @@ class MantleRay extends Node3D:
 			_gen_mats = gen["mats"]
 			ANIM.drive(_gen_mats, 0.45, 0.5)   # steady — no per-frame cost
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		if not _flying:
 			if GameClock.current_phase == GameClock.Phase.NIGHT:
@@ -1432,7 +1507,19 @@ class TideWorm extends Node3D:
 			_gen_mats = gen["mats"]
 			ANIM.drive(_gen_mats, 1.1, 0.45)
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		var tide_time: bool = GameClock.current_phase == GameClock.Phase.DAWN \
 			or GameClock.current_phase == GameClock.Phase.DUSK
@@ -1549,7 +1636,19 @@ class GlowWorm extends Interactable:
 		_respawn_sec = randf_range(90.0, 150.0)   # den re-opens later in the night
 		super.interact(verb, _player)
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		var dark: bool = BloomFauna.is_dark_phase()
 		if _respawn_sec > 0.0 and dark:
@@ -1703,7 +1802,19 @@ class Epic4EyedWhale extends Node3D:
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.08)
 		visible = _presence > 0.02
@@ -1892,7 +2003,19 @@ class HarborSeal extends Node3D:
 		add_child(touch)
 		touch.position = Vector3(0, 0.3, 0)
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		# Deferred out of _ready: the rig is CSG and has no collider to probe until physics
 		# has stepped once, so a haul height taken in _ready would find nothing.
@@ -2306,7 +2429,19 @@ class LampSnail extends Node3D:
 			hud.toast("Into the pack it goes, shell dimming, foot still working the air.")
 		queue_free()
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		# Baby growth: scale eases from BABY_SCALE to full over GROW_HOURS game-hours.
 		# Feeding (and so breeding) stays off-limits until it graduates (verbs_fn gates
@@ -2472,7 +2607,19 @@ class DeckGull extends Node3D:
 		var touch := FaunaTouch.new("Deck Gull", 0.9, _grab_verbs, _grab_act)
 		add_child(touch)
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		if _regen > 0.0:
 			_regen -= delta
@@ -2700,7 +2847,19 @@ class ReefFish extends Node3D:
 		if hud and hud.has_method("toast"):
 			hud.toast("A quick grab in the deep colour and you've got one.")
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		for f in _fish:
 			if f["gone"] > 0.0:
 				f["gone"] -= delta
@@ -2891,7 +3050,19 @@ class RustSnail extends Node3D:
 			hud.toast("Into the pack it goes, still working the rail with its foot.")
 		queue_free()
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		if _is_baby:
 			_grow_h += delta * GameClock.time_scale * BloomFauna.game_hour_per_sec()
@@ -3063,7 +3234,19 @@ class GlassSnail extends Node3D:
 			hud.toast("Into the pack — the lit coil dims to nothing in the dark.")
 		queue_free()
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		if _is_baby:
 			_grow_h += delta * GameClock.time_scale * BloomFauna.game_hour_per_sec()
@@ -3640,7 +3823,19 @@ class PyramidSnail extends Node3D:
 			_steer(h)
 			_turn_cd = maxf(_turn_cd, 6.0)   # hold the new heading long enough to get clear
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		if _is_baby:
 			_grow_h += delta * GameClock.time_scale * BloomFauna.game_hour_per_sec()
@@ -3759,7 +3954,19 @@ class AnchorLimpet extends Node3D:
 			hud.toast("It fights the bar the whole way, then POPS free — an iron-hard dome in your hands.")
 		queue_free()
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		# Footsteps through the plate: it seals long before you can reach it.
 		var player: Node3D = get_tree().get_first_node_in_group("player")
@@ -3879,7 +4086,19 @@ class CorvidGull extends Node3D:
 			ANIM.ground(self, gen["model"])
 			ANIM.drive(_gen_mats, 1.0, 0.2)   # steady — no per-frame cost
 
+	## AI decimation state — see scripts/world/ai_budget.gd.
+	var _ai_acc: float = 0.0
+
 	func _process(delta: float) -> void:
+		# DECIMATED when far away or not being drawn, and handed every skipped frame's delta
+		# so the animal covers the same ground per second (ai_budget.gd explains why that is
+		# not optional). Inside AiBudget.NEAR_M this is a no-op — nothing the player is close
+		# enough to read the motion of is ever run at less than full rate.
+		_ai_acc += delta
+		if not AIB.due(self, _ai_acc):
+			return
+		delta = _ai_acc
+		_ai_acc = 0.0
 		_t += delta
 		# Deferred out of _ready for the same reason DeckGull._snap_to_deck is: the rig is
 		# CSG and has no collider to probe against until physics has stepped once.

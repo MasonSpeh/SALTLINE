@@ -1,0 +1,1081 @@
+class_name LegReef extends Node3D
+## The coral reef growing down the four caisson legs, and the starfish on the rig's
+## submerged foundation.
+##
+## s20 — LUSH (owner brief). The s19 reef was corals in patches on bare concrete. This is
+## an ecosystem: pre-sculpted REEF MASSES (four growth forms fused into one piece) anchor
+## every colony and the singles grow out of them, so the wall reads as a continuous living
+## crust rather than ornaments hung on it; SPONGES and BARNACLE crusts fill between the
+## colonies and run the whole leg from the pontoon down; four big STARFISH species ride the
+## legs as well as the foundation; and two species of snail actually CRAWL the concrete.
+## Emission was raised from 0.15 to a value that clears the environment's glow threshold —
+## see GLOW.
+##
+## This is the reef a diving player actually swims through. underwater_world's
+## `_leg_reef_growth` already dresses the *reachable* band on the legs (anemones,
+## sponges, sea grass, y -2.5..-10.5) and `_kelp_forest` stands a kelp ring around
+## each footing. Below that the concrete ran bare all the way to the mud. This grows
+## the real reef into that gap: seven coral forms in patchy colonies down the steel,
+## thinning with depth, and three starfish species scattered over the pontoon slabs.
+##
+## Spawned by reef_life.gd (which reef_detail spawns, which seabed spawns) so it lives
+## in the same subtree and inherits the same visual-only, no-collision contract. It is
+## its own file rather than more of reef_life because it shares nothing with the wreck-
+## field communities: different geometry (steel, not mud), different seating (probed
+## surfaces, not floor_height) and a different renderer path (MultiMesh, not one node
+## and one ShaderMaterial per animal).
+##
+## WHAT IS MEASURED RATHER THAN TYPED
+##   * the caisson faces — sonar scan says every one is exactly 3.0 m from its centre
+##     line at every depth; a physics raycast per instance confirms it at build time
+##     and supplies the exact seating point, so nothing here hand-types an X, Y or Z
+##     against the concrete
+##   * the top of the reef band — derived from the real world AABB of the vegetation
+##     already standing on the legs, so the reef starts BELOW whatever kelp and grass
+##     actually reach rather than below where the source says they should
+##   * the foundation planes — probed the same way, from a point known to be in open
+##     water toward the slab
+##
+## WHY MULTIMESH
+## gl_compatibility is draw-call bound (see mesh_batcher.gd: frame time tracks call
+## count almost linearly and barely notices triangles). Three hundred corals as three
+## hundred nodes with three hundred ShaderMaterials would be a straight regression on
+## a rig already measured at 9.3 fps. One MultiMesh per species PER LEG is 4 calls a
+## species with a tight AABB, so looking at one leg frustum-culls the other three.
+
+const REEF_PATH := "res://assets/models/fauna/reef/%s/%s.glb"
+## The tropical fish that live ON this reef. Preloaded by PATH, not by class_name — the
+## global class cache lags for a new file.
+const REEF_FISH := preload("res://scripts/world/reef_fish.gd")
+
+## Verified by sonar (`spatial_raycast` along -x into the leg at eight depths, all
+## hitting x=25.000 for the leg centred on x=22) and re-checked every run by
+## tests/ReefProbe.tscn. The caisson is one casting from the deck rim to y -92, so
+## this holds at every depth in the band.
+const LEG_HALF: float = 3.0
+const LEGS: Array[Vector2] = [Vector2(-22, -12), Vector2(22, -12),
+		Vector2(-22, 12), Vector2(22, 12)]
+
+## The pontoon skirt that sleeves all four footings: slab top y 0.95, underside
+## y -3.05, plan x[-28,28] and |z| in [8,16]. Probed, not read off rig_builder —
+## a ray up from y -40 at (22,-12) first meets solid at y -3.050.
+const SKIRT_BOTTOM: float = -3.05
+const SKIRT_X: float = 28.0
+const SKIRT_Z_OUT: float = 16.0
+const SKIRT_Z_IN: float = 8.0
+
+## How far below the deepest vegetation the reef starts, and how far down it runs.
+## The floor is at -92 but the fog grade swallows everything past ~40 m and the band
+## a breath-hold dive can reach tops out around -13, so growing coral below -30 is
+## triangles nobody will ever see.
+const BAND_GAP: float = 0.6
+const BAND_BOTTOM: float = -22.0
+## Fallback if the vegetation walk finds nothing (it never has in practice) — the
+## authored bottom of underwater_world's growth band, minus the gap.
+const BAND_TOP_FALLBACK: float = -12.6
+
+## Prevailing set. The gyre eye is at (0,0,-52), i.e. the water sets south past the
+## rig, so a face looking north (+z) takes the oncoming flow. Colonies favour that,
+## and favour the outboard faces over the ones standing in the structure's own wake.
+const CURRENT := Vector3(0.0, 0.0, -1.0)
+
+## Nothing may grow in these — the Dock Ladder's climb column (rig_builder puts the
+## ladder at 24.6, -1.4, -22.42) and the open water a swimmer uses to reach the wet
+## deck. Both are well clear of the leg faces and the pontoon, but they are checked
+## rather than assumed, because "well clear" is what every floating prop in this repo
+## was before somebody measured it.
+const KEEP_OUT := [
+	{"c": Vector3(24.6, -1.0, -22.42), "r": 2.2},   # Dock Ladder + its latch point
+	{"c": Vector3(20.0, -4.0, -19.0), "r": 3.0},    # wet-deck swim approach
+]
+
+## slug, min/max longest-axis metres, spacing radius factor, tilt range (deg off the
+## surface normal, toward the light), depth bias (0 = crowds the top of the band,
+## 1 = crowds the bottom), colony weight, and the tint pair its per-instance colour
+## is drawn between. Weights are per-colony DOMINANCE, so a reef reads as patches of
+## one species with a few others in them rather than a uniform species soup.
+##
+## coral_whip was generated, decimated and PLACED before being cut: a sea whip is a
+## 2 cm wand, and at any distance you actually see the caisson from, a colony of them
+## renders as red scratches on the concrete — it read as paint damage, not as life.
+## The asset judged fine in isolation; it lost on the wall. Looked at, not assumed.
+## s20 REWEIGHT. The generated albedos skew pale — cream staghorn, off-white bubble, chalk
+## barnacle — and the first lush render came back monochrome cream even though four of the
+## species are strongly coloured. So weight moved off the pale-and-expensive species
+## (coral_brain was the single biggest triangle line in the reef at 100 x 5,000) and onto the
+## purple fan and the warm plate. Same total density, more hue.
+const CORALS := [
+	{"slug": "coral_branch_a", "lo": 0.55, "hi": 1.40, "space": 0.55, "tilt": [12.0, 38.0],
+		"depth": 0.15, "w": 0.95, "a": Color(0.86, 0.84, 0.74), "b": Color(1.00, 0.96, 0.88)},
+	{"slug": "coral_branch_b", "lo": 0.35, "hi": 0.90, "space": 0.60, "tilt": [8.0, 30.0],
+		"depth": 0.35, "w": 1.10, "a": Color(0.62, 0.86, 1.00), "b": Color(0.88, 0.98, 1.00)},
+	{"slug": "coral_plate", "lo": 0.60, "hi": 1.70, "space": 0.50, "tilt": [18.0, 44.0],
+		"depth": 0.55, "w": 1.05, "a": Color(0.92, 0.68, 0.44), "b": Color(1.00, 0.88, 0.70)},
+	{"slug": "coral_brain", "lo": 0.35, "hi": 0.95, "space": 0.62, "tilt": [4.0, 22.0],
+		"depth": 0.50, "w": 0.75, "a": Color(0.72, 0.90, 0.68), "b": Color(0.92, 1.00, 0.82)},
+	{"slug": "coral_fan_a", "lo": 0.95, "hi": 1.95, "space": 0.42, "tilt": [10.0, 34.0],
+		"depth": 0.45, "w": 1.20, "planar": true, "tilt_planar": [40.0, 70.0],
+		"a": Color(0.62, 0.56, 0.92), "b": Color(0.90, 0.80, 0.96)},
+	{"slug": "coral_bubble", "lo": 0.25, "hi": 0.58, "space": 0.68, "tilt": [4.0, 20.0],
+		"depth": 0.30, "w": 0.32, "a": Color(0.94, 0.74, 0.72), "b": Color(1.00, 0.94, 0.90)},
+]
+
+## THE STRUCTURAL BASE (s20). Each of these is four or five growth forms fused into ONE
+## piece — branching coral out of a domed head beside a plate and a field of knobs, on a
+## crust rather than a rock. That is the whole answer to why the s19 reef read as
+## decoration: a real reef is a continuous calcareous crust that individual colonies grow
+## OUT of, and no arrangement of separate 60 cm ornaments makes that shape. So a colony now
+## starts with one or two of these at its centre, at 1.6-3.2 m, and the singles are
+## scattered into and around them.
+##
+## They are also the most expensive pieces in the set (7,000 tris), which is exactly right:
+## one of them carries a whole patch's silhouette, and it replaces coral that would
+## otherwise have been placed one instance at a time.
+const MASSES := [
+	{"slug": "reefmass_a", "lo": 1.60, "hi": 3.00, "space": 0.42, "tilt": [4.0, 18.0],
+		"depth": 0.30, "w": 1.0, "a": Color(0.88, 0.86, 0.78), "b": Color(1.00, 0.98, 0.92)},
+	{"slug": "reefmass_b", "lo": 1.70, "hi": 3.20, "space": 0.42, "tilt": [4.0, 18.0],
+		"depth": 0.40, "w": 1.0, "a": Color(0.94, 0.78, 0.62), "b": Color(1.00, 0.96, 0.86)},
+	{"slug": "reefmass_c", "lo": 1.60, "hi": 2.90, "space": 0.44, "tilt": [4.0, 16.0],
+		"depth": 0.55, "w": 1.0, "a": Color(0.78, 0.72, 0.94), "b": Color(1.00, 0.94, 0.96)},
+	# The flattest of the four (0.30 of its longest axis) — this is the sheet that knits
+	# two colonies together instead of standing proud between them.
+	{"slug": "reefmass_d", "lo": 1.80, "hi": 3.40, "space": 0.38, "tilt": [2.0, 12.0],
+		"depth": 0.60, "w": 1.0, "a": Color(0.86, 0.88, 0.68), "b": Color(1.00, 1.00, 0.88)},
+]
+
+## SPONGES (s20). Filter feeders take the same schema as the corals and are drawn from the
+## same colony pool at a lower weight, so a patch is coral WITH sponges in it rather than a
+## sponge stripe next to a coral stripe.
+##
+## `sponge_fan` (elephant ear) was generated and REJECTED on the render: two thirds of the
+## model is a smooth pale trumpet foot, which is the same "reads as a plinth" failure that
+## cut coral_encrust in s19 — there is no way to seat it that does not show a bare stalk
+## against the concrete.
+##
+## `rough` exists for sponge_tube_cluster: the generator returned a glassy violet skin
+## (the documented default failure mode) and the specular on it read as plastic. Forcing
+## roughness up is a one-line fix that keeps an otherwise strong silhouette and colour.
+const SPONGES := [
+	{"slug": "sponge_barrel", "lo": 0.50, "hi": 1.25, "space": 0.60, "tilt": [6.0, 22.0],
+		"depth": 0.55, "w": 0.90, "a": Color(0.90, 0.66, 0.48), "b": Color(1.00, 0.90, 0.76)},
+	{"slug": "sponge_tube_cluster", "lo": 0.55, "hi": 1.35, "space": 0.52, "tilt": [8.0, 26.0],
+		"depth": 0.35, "w": 1.00, "rough": 0.88,
+		"a": Color(0.68, 0.62, 1.00), "b": Color(0.94, 0.86, 1.00)},
+	{"slug": "sponge_rope", "lo": 0.65, "hi": 1.60, "space": 0.46, "tilt": [12.0, 40.0],
+		"depth": 0.25, "w": 0.85, "a": Color(0.96, 0.72, 0.44), "b": Color(1.00, 0.92, 0.74)},
+]
+
+## BARNACLE CRUSTS (s20) — the filler, and the reason the legs stop reading as concrete
+## with things stuck to it. These are placed over the WHOLE leg face (CRUST_TOP down to
+## BAND_BOTTOM), not just the coral band, so the bare stripe between underwater_world's
+## shallow growth and the reef proper is encrusted too. Cheapest pieces in the set and by
+## far the most numerous.
+##
+## They lie flat, like the starfish: `tilt` is near zero, because a barnacle does not lean.
+const CRUSTS := [
+	# Weight and tint were both moved after looking at the first render. cluster_a is the
+	# whitest AND the most expensive crust (4,000 tris against giant's 1,400 — it shatters
+	# below that, see tools/decimate_reef.py), and at w 1.30 there were 181 of them: the
+	# legs read as whitewash and the crust alone cost 724k triangles. Halving its weight and
+	# giving the warm, cheap species the bulk fixed the colour and the budget in one move.
+	# The tint is chalk-grey rather than white for the same reason — a barnacle is dead
+	# calcite on concrete, not a light source.
+	{"slug": "barnacle_cluster_a", "lo": 0.35, "hi": 0.95, "space": 0.52, "tilt": [0.0, 9.0],
+		"depth": 0.35, "w": 0.70, "glow": 0.40,
+		"a": Color(0.68, 0.72, 0.76), "b": Color(0.90, 0.92, 0.92)},
+	{"slug": "barnacle_giant", "lo": 0.28, "hi": 0.70, "space": 0.58, "tilt": [0.0, 12.0],
+		"depth": 0.45, "w": 1.45, "glow": 0.40,
+		"a": Color(0.88, 0.74, 0.72), "b": Color(1.00, 0.92, 0.90)},
+	# `barnacle_goose` was generated twice (the first attempt 502'd mid-poll) and REJECTED
+	# both on the render and on the numbers: the generator returned a radially symmetric
+	# spiky ball — 0.97/0.99/0.93 on its three axes — not a bunch of stalked shells hanging
+	# off a face, and decimation turned the spines into loose shards. Two crust species is
+	# enough; the third would have been a sea urchin with the wrong name.
+]
+
+## BIG STARFISH (s20, owner call: larger, more prominent, and DOWN THE LEGS). These are
+## 0.65-1.75 m — two to three times the s19 stars — and they ride the caisson faces over
+## the full leg as well as the foundation, which is where the owner actually meets one.
+##
+## `star_big_blue` was generated and REJECTED on the render: glassy cobalt with bent,
+## tapering arms, the textbook plastic-toy failure the traps file warns about, and its side
+## profile is a warped disc rather than a star lying flat. Red, spiny (7-arm) and sunflower
+## (10-arm) are three clearly different silhouettes and three clearly different colours,
+## which is what the set needed.
+const BIG_STARS := [
+	{"slug": "star_big_red", "lo": 0.70, "hi": 1.30, "w": 1.15,
+		"a": Color(1.00, 0.62, 0.52), "b": Color(1.00, 0.92, 0.82)},
+	{"slug": "star_big_spiny", "lo": 0.80, "hi": 1.55, "w": 0.80,
+		"a": Color(0.74, 0.68, 1.00), "b": Color(0.98, 0.92, 1.00)},
+	{"slug": "star_big_sunflower", "lo": 0.90, "hi": 1.75, "w": 0.55,
+		"a": Color(1.00, 0.72, 0.50), "b": Color(1.00, 0.94, 0.80)},
+]
+
+## How many big starfish ride each caisson leg, and how many extra go on the foundation.
+## These are ATTEMPTS — the spacing rejection turns some of them down, and on a leg that is
+## now nearly covered in coral it turns down a lot. Counted off the build report: 11 a leg
+## produced 41 big stars in the whole ocean, which is not the "starfish all down the legs"
+## the brief asked for, so the attempt count went up and the claim radius (below) came down.
+const BIG_STARS_PER_LEG: int = 18
+const BIG_STARS_FOUNDATION: int = 26
+
+## The top of everything this file places on a leg face. The coral band still starts below
+## the MEASURED vegetation floor (see _vegetation_floor), but the crust and the starfish run
+## the whole leg from just under the pontoon skirt, which is what closes the bare stripe
+## between underwater_world's shallow growth and the reef.
+const CRUST_TOP: float = SKIRT_BOTTOM - 0.35
+
+const STARS := [
+	{"slug": "star_small", "lo": 0.30, "hi": 0.55, "w": 1.55,
+		"a": Color(0.90, 0.62, 0.36), "b": Color(1.00, 0.94, 0.80)},
+	{"slug": "star_mid", "lo": 0.42, "hi": 0.72, "w": 0.62,
+		"a": Color(0.70, 0.62, 1.00), "b": Color(1.00, 0.86, 0.94)},
+]
+## The seven-arm giant. Placed by hand-picked count, not by weight — it is meant to be
+## a find, so there are exactly this many in the whole ocean.
+const STAR_HUGE := {"slug": "star_huge", "lo": 0.95, "hi": 1.25,
+	"a": Color(0.66, 0.70, 1.00), "b": Color(0.92, 0.90, 1.00)}
+const HUGE_COUNT: int = 3
+
+## Deepest a piece may be sunk into the concrete, metres. See _add.
+const RECESS_MAX: float = 0.22
+
+## BLOOM EMISSION (owner call, s20: "turn up bloom emission to brighten the coral").
+##
+## Measured rather than tasted. main.gd runs the world environment with `glow_enabled` and
+## `glow_hdr_threshold = 0.8`, so a surface only BLOOMS once its lit pixel clears 0.8 — and
+## the s19 value of 0.15, keyed off the albedo map, put the emission term at roughly 0.1 of
+## a mid-tone. That is nowhere near the threshold: the coral was brighter than unlit, and
+## contributed nothing whatever to the glow buffer. There was never any bloom on this reef.
+##
+## Two changes get it there. The energy goes to GLOW, which pushes the brighter parts of a
+## coral's own albedo over 0.8 and lets the post-process take them; and the emission COLOUR
+## goes from the old cyan-white to near-white, so raising it brightens each piece in ITS OWN
+## colour instead of washing the whole reef toward teal. (The s19 note that 0.24 "washed its
+## colour out" was the tint doing that, not the energy — an emission of 0.78/0.96/0.93 pulls
+## everything green-blue the harder you drive it.)
+##
+## THE VALUE IS THE RESULT OF A SWEEP, NOT A GUESS. `tests/ReefShot.tscn --glow=a,b,c` exists
+## for this: it re-exposes the same frame at each value off one world build. The first attempt
+## at 1.35 rendered the entire reef as featureless WHITE — emission is added after the
+## instance tint, so past ~0.7 it swamps every colour the pieces have. Read off the ladder
+## 0.10 / 0.20 / 0.30 / 0.45 / 0.65 / 0.90 at the SE leg, day and night:
+##   0.10-0.20  a dark texture on dark concrete. This is roughly where s19 shipped.
+##   0.30       reads, but flat — no bloom, colour muted.
+##   0.50       bright, tips clear the glow threshold and actually bloom, hue intact.
+##   0.65+      the massive species start fusing into one cream smear.
+##   0.90       no colour left.
+## 0.50 is 3.3x s19 and the top of the range that keeps the reef's own colours.
+const GLOW: float = 0.50
+## Not pure white: a faint cool cast keeps the reef reading as bioluminescence in teal water
+## rather than as a lit shop display, without bending the piece's hue the way the old value
+## did. Species that are chalk rather than living tissue (the barnacles) scale this down
+## with their own `glow` factor.
+const GLOW_TINT := Color(0.94, 1.00, 0.99)
+
+var _rng := RandomNumberGenerator.new()
+var _space: PhysicsDirectSpaceState3D
+## slug -> {"mesh": Mesh, "mat": Material, "xf": Array[Transform3D], "col": Array[Color]}
+var _batches: Dictionary = {}
+var _placed: Array = []          ## [pos, radius] rejection list, for spacing
+var _band_top: float = 0.0
+## Where the coral ACTUALLY went: one {pos, n} per colony that seated at least one piece,
+## in world space. reef_fish.gd anchors its shoals to these, so a reef fish cannot end up
+## hovering over a patch of bare concrete the spacing rejection threw away.
+var colony_seats: Array = []
+
+func _ready() -> void:
+	_rng.seed = 90210
+	# Physics is not queryable until a physics frame has run, and underwater_world's
+	# kelp is built in its own _ready — so both of the things this measures need the
+	# world to have ticked at least once. Building on frame 0 measured an empty space
+	# state and seated the entire reef on the fallback.
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_space = get_world_3d().direct_space_state
+	_band_top = _vegetation_floor() - BAND_GAP
+	for leg in LEGS:
+		_placed.clear()
+		_grow_leg(leg)
+		_flush("Leg_%d_%d" % [int(leg.x), int(leg.y)])
+	_placed.clear()
+	_dress_foundation()
+	_flush("Foundation")
+	_grow_snails()
+	_report()
+	add_child(REEF_FISH.new(colony_seats, _band_top, BAND_BOTTOM, KEEP_OUT))
+
+## Numbers, not impressions — this is what the session reports and what ReefProbe
+## re-derives independently from the built tree.
+func _report() -> void:
+	var inst: int = 0
+	var tris: int = 0
+	var calls: int = 0
+	var per_slug: Dictionary = {}
+	var per_group: Dictionary = {}
+	for node in find_children("LegReef_*", "MultiMeshInstance3D", false, false):
+		var mmi: MultiMeshInstance3D = node
+		var n: int = mmi.multimesh.instance_count
+		var each: int = int(mmi.multimesh.mesh.get_faces().size() / 3.0)
+		inst += n
+		calls += 1
+		tris += n * each
+		var slug: String = String(mmi.name).split("_")[-1]
+		for s in _batches.keys():
+			if String(mmi.name).ends_with(String(s)):
+				slug = String(s)
+		per_slug[slug] = [int(per_slug.get(slug, [0, each])[0]) + n, each]
+		var grp: String = String(mmi.name).trim_prefix("LegReef_").split("_" + slug)[0]
+		per_group[grp] = int(per_group.get(grp, 0)) + n * each
+	print("[leg_reef] band y %.2f .. %.2f · %d instances · %d MultiMesh draws · %d tris"
+		% [_band_top, BAND_BOTTOM, inst, calls, tris])
+	for slug in per_slug.keys():
+		print("[leg_reef]   %-16s %4d x %5d tris = %8d"
+			% [slug, per_slug[slug][0], per_slug[slug][1],
+				per_slug[slug][0] * per_slug[slug][1]])
+	for grp in per_group.keys():
+		print("[leg_reef]   group %-16s %8d tris (its own MultiMesh AABB, culled as one)"
+			% [grp, per_group[grp]])
+	var lo: float = 1.0e9
+	var hi: float = -1.0e9
+	for c in _climbers:
+		var y: float = (c["s"] as Node3D).global_position.y
+		lo = minf(lo, y)
+		hi = maxf(hi, y)
+	if not _climbers.is_empty():
+		print("[leg_reef] snails: %d climbing the caissons, seated y %.2f .. %.2f (%d refused — no collider)"
+			% [_climbers.size(), lo, hi, _snails_refused])
+	print("[leg_reef] seating rays %d, of which %d fell back to the sonar-measured face"
+		% [_rays, _fallbacks])
+
+# ------------------------------------------------------------ measurement
+
+## The lowest point the existing VEGETATION reaches on the legs, measured off the live
+## tree so the reef starts below whatever is actually there rather than below where
+## underwater_world's source says its kelp should be.
+##
+## WHAT COUNTS AS VEGETATION, and why this is not just "everything nearby".
+## The first version of this walked every drawable underwater_world had built within
+## 9 m of a footing and took the lowest. That measured -20.38 and collapsed the whole
+## reef into a 1 m band — because the deepest things near a leg are not plants. They
+## are the 15 m CYLINDER CONES of the floodlights bolted under the pontoons, the 17 m
+## god-ray QUADS, and whatever FISH happened to be swimming past when the walk ran.
+## A moving animal must never be allowed to set a level-design constant.
+##
+## So: vegetation is the kelp stand, identified by the `sway` meta that _kelp_forest
+## puts on every strand it plants. The generated fronds and the leg growth are seated
+## on the same holdfast ring by BloomFauna.ground_model, so the strands are the deepest
+## of the three and measuring them measures the stand.
+##
+## The result is then held inside a sanity envelope. If the measurement ever lands
+## outside it, something has changed shape and this should be looked at rather than
+## quietly obeyed — so it warns and uses the authored fallback instead of silently
+## building a one-metre reef again.
+const VEG_FLOOR_MIN: float = -19.0
+const VEG_FLOOR_MAX: float = -6.0
+
+func _vegetation_floor() -> float:
+	var uw: Node = self
+	while uw != null and (uw.get_script() == null
+			or not String(uw.get_script().resource_path).ends_with("underwater_world.gd")):
+		uw = uw.get_parent()
+	if uw == null:
+		return BAND_TOP_FALLBACK + BAND_GAP
+	var low: float = 1.0e9
+	var strands: int = 0
+	for node in uw.get_children():
+		if not (node is Node3D) or not node.has_meta("sway"):
+			continue
+		strands += 1
+		for child in (node as Node3D).find_children("*", "MeshInstance3D", true, false):
+			var mi: MeshInstance3D = child
+			if mi.mesh == null:
+				continue
+			low = minf(low, (mi.global_transform * mi.get_aabb()).position.y)
+	if strands == 0 or low > 1.0e8:
+		push_warning("[leg_reef] no kelp strands found — using the authored band top")
+		return BAND_TOP_FALLBACK + BAND_GAP
+	if low < VEG_FLOOR_MIN or low > VEG_FLOOR_MAX:
+		push_warning("[leg_reef] kelp floor measured %.2f, outside [%.1f, %.1f] — using the authored band top"
+			% [low, VEG_FLOOR_MIN, VEG_FLOOR_MAX])
+		return BAND_TOP_FALLBACK + BAND_GAP
+	print("[leg_reef] kelp stand: %d strands, floor y %.2f" % [strands, low])
+	return low
+
+## Fire a ray at a surface from a point known to be in open water and return the exact
+## hit point and normal.
+##
+## FALLBACK, and why it is not "guessing a Y". The rig's colliders do not necessarily
+## run the full depth of the casting — seabed.gd states outright that nothing below the
+## death line carries collision — so a raycast at y -25 can legitimately find nothing
+## even though 25 m of concrete is drawn there. When that happens this falls back to the
+## face the SONAR SCAN measured (every caisson face exactly 3.0 m from its centre line,
+## checked at eight depths), which is a measurement of the real geometry, not an
+## authored constant. Every fallback is counted and reported so the ratio is visible
+## rather than silent.
+var _rays: int = 0
+var _fallbacks: int = 0
+
+func _probe(target: Vector3, normal: Vector3, from_out: float = 1.8) -> Dictionary:
+	_rays += 1
+	var q := PhysicsRayQueryParameters3D.create(target + normal * from_out,
+		target - normal * 0.6)
+	q.collision_mask = 1
+	var hit: Dictionary = _space.intersect_ray(q)
+	if not hit.is_empty():
+		return hit
+	_fallbacks += 1
+	return {"position": target, "normal": normal, "measured": false}
+
+func _blocked(p: Vector3) -> bool:
+	for k in KEEP_OUT:
+		if p.distance_to(k["c"]) < float(k["r"]):
+			return true
+	return false
+
+# ------------------------------------------------------------ the legs
+
+## How exposed a face is: half its weight from standing outboard of the rig (the
+## inboard faces sit in the structure's wake), half from facing into the set.
+func _exposure(leg: Vector2, n: Vector3) -> float:
+	var outboard := Vector3(leg.x, 0.0, leg.y).normalized()
+	var out_dot: float = maxf(0.0, n.dot(outboard))
+	var up_dot: float = maxf(0.0, n.dot(-CURRENT))
+	# The floor used to be 0.35, which left the two sheltered faces of every leg bare
+	# concrete — the reef read as something that had been painted onto one side rather
+	# than grown. A wake is a weaker settlement, not a sterile one.
+	return 0.55 + 0.28 * out_dot + 0.17 * up_dot
+
+## THE PER-LEG PALETTE, and why the whole species list is not on every leg.
+##
+## Each family is now four species deep, and one MultiMesh per species PER LEG is what buys
+## the frustum culling — so putting every family member on every leg would take the leg's
+## draw count from 6 to 21 for a variety nobody can see (you cannot look at two legs' worth
+## of detail at once anyway). Instead each leg gets a SLICE of each family, rotated by leg
+## index, which costs a third of the draws and has the side effect of making the four legs
+## genuinely different communities: the NE leg is a purple-and-gold reef, the SW an
+## orange-and-rust one.
+func _palette(pool: Array, leg_i: int, n: int) -> Array:
+	var out: Array = []
+	for k in range(mini(n, pool.size())):
+		out.append(pool[(leg_i * n + k) % pool.size()])
+	return out
+
+## Weighted pick from any species table. `depth_t` >= 0 biases toward the species whose
+## preferred depth is nearest; -1 ignores depth (used to choose a colony's dominant).
+func _pick(pool: Array, depth_t: float) -> Dictionary:
+	if pool.is_empty():
+		return {}
+	var total: float = 0.0
+	var w: Array[float] = []
+	for sp in pool:
+		var weight: float = float(sp["w"])
+		if depth_t >= 0.0 and sp.has("depth"):
+			# a species' weight peaks at its preferred depth and falls off either side
+			weight *= 0.35 + 0.65 * (1.0 - absf(depth_t - float(sp["depth"])))
+		w.append(weight)
+		total += weight
+	var roll: float = _rng.randf() * total
+	for i in range(pool.size()):
+		roll -= w[i]
+		if roll <= 0.0:
+			return pool[i]
+	return pool[0]
+
+func _pick_coral(depth_t: float) -> Dictionary:
+	return _pick(CORALS, depth_t)
+
+## This leg's slice of each family, set once per leg by _grow_leg and read by the passes.
+var _mass_pool: Array = []
+var _sponge_pool: Array = []
+var _crust_pool: Array = []
+var _bigstar_pool: Array = []
+
+func _grow_leg(leg: Vector2) -> void:
+	var leg_i: int = maxi(0, LEGS.find(leg))
+	_mass_pool = _palette(MASSES, leg_i, 2)
+	_sponge_pool = _palette(SPONGES, leg_i, 2)
+	_crust_pool = _palette(CRUSTS, leg_i, 2)
+	_bigstar_pool = _palette(BIG_STARS, leg_i, 2)
+	for n in [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]:
+		var ex: float = _exposure(leg, n)
+		# Colony COUNT is what makes a reef read as patchy, so the exposure difference is
+		# spent here rather than on making every face denser. s19 ran 3..9; s20 runs 5..12,
+		# because with a reef mass anchoring each one the patches now overlap and knit
+		# instead of sitting as separate islands on bare concrete.
+		var patches: int = int(round(lerpf(5.0, 12.0, ex)))
+		for c in range(patches):
+			_colony(leg, n, ex)
+		# and the crust BETWEEN the patches, over the whole leg rather than the coral band
+		_crust_face(leg, n, ex)
+	_stars_down_leg(leg)
+
+## One patch. Reefs grow out from a settled larva, so a colony is a dominant species
+## with one accent in it, clustered on a centre, not a random draw per piece.
+func _colony(leg: Vector2, n: Vector3, ex: float) -> void:
+	var dom: Dictionary = _pick_coral(-1.0)
+	# Colonies crowd the top of the band: light, food and the depth a player reaches.
+	var t: float = pow(_rng.randf(), 1.15)
+	var cy: float = lerpf(_band_top, BAND_BOTTOM, t)
+	var ca: float = _rng.randf_range(-2.4, 2.4)
+	var depth_t: float = clampf((cy - _band_top) / (BAND_BOTTOM - _band_top), 0.0, 1.0)
+	var acc: Dictionary = _pick_coral(depth_t)
+	var sponge: Dictionary = _pick(_sponge_pool, depth_t)
+	var spread: float = _rng.randf_range(0.65, 2.05)
+	var seated: int = _placed.size()
+	# THE ANCHOR, placed FIRST so it wins the spacing rejection against its own colony and
+	# the singles settle around it rather than the other way round. Most patches get one;
+	# some get two overlapping, which is what makes a run of them read as continuous crust.
+	if not _mass_pool.is_empty() and _rng.randf() < 0.82:
+		for k in range(1 if _rng.randf() < 0.6 else 2):
+			var mass: Dictionary = _pick(_mass_pool, depth_t)
+			_seat_on_face(leg, n, ca + _rng.randf_range(-0.55, 0.55),
+				cy + _rng.randf_range(-0.4, 0.4), mass)
+	var members: int = int(round(lerpf(6.0, 15.0, ex) * _rng.randf_range(0.7, 1.3)))
+	for m in range(members):
+		var sp: Dictionary = dom if _rng.randf() < 0.58 else acc
+		# A fifth of the members are sponges, so a patch is a MIXED community. Drawn from
+		# this leg's sponge slice, not the whole family — see _palette.
+		if not sponge.is_empty() and _rng.randf() < 0.22:
+			sp = sponge
+		# denser toward the colony centre, and elongated along the face rather than
+		# circular — growth spreads sideways on a wall far more than it climbs
+		var r: float = spread * pow(_rng.randf(), 0.65)
+		var a: float = _rng.randf_range(0.0, TAU)
+		var along: float = ca + cos(a) * r * 1.35
+		var depth: float = cy + sin(a) * r * 0.8
+		if depth > _band_top or depth < BAND_BOTTOM:
+			continue
+		if absf(along) > 2.55:      # stay off the caisson's corners
+			continue
+		_seat_on_face(leg, n, along, depth, sp)
+	# Record the patch for the life that lives on it. Only if something actually grew here:
+	# _placed gains one entry per accepted piece (and, during _grow_leg, only from coral), so
+	# a colony the depth thinning or the spacing rejected outright is bare wall and must not
+	# become somebody's address.
+	if _placed.size() > seated:
+		colony_seats.append({"pos": Vector3(leg.x, cy, leg.y) + n * LEG_HALF
+			+ Vector3(n.z, 0.0, -n.x) * ca, "n": n})
+
+## THE CRUST. Barnacles scattered over the whole face, from just under the pontoon skirt to
+## the bottom of the reef band — deliberately NOT clustered into colonies, because what this
+## is for is the concrete BETWEEN the colonies and the bare stripe above them. It is the
+## cheapest pass in the file (1.4-4k tris a piece) and the one that does the most to stop a
+## caisson reading as a painted wall.
+func _crust_face(leg: Vector2, n: Vector3, ex: float) -> void:
+	if _crust_pool.is_empty():
+		return
+	var count: int = int(round(lerpf(13.0, 25.0, ex)))
+	for i in range(count):
+		var y: float = _rng.randf_range(CRUST_TOP, BAND_BOTTOM)
+		var depth_t: float = clampf((y - _band_top) / (BAND_BOTTOM - _band_top), 0.0, 1.0)
+		_seat_on_face(leg, n, _rng.randf_range(-2.5, 2.5), y, _pick(_crust_pool, depth_t))
+
+## Big starfish DOWN THE LEG (owner call — they were only on the foundation in s19). Seated
+## flat like the foundation ones, spread over the whole face rather than the coral band, and
+## on a random face each so they are a thing you come across rather than a row.
+func _stars_down_leg(leg: Vector2) -> void:
+	if _bigstar_pool.is_empty():
+		return
+	const FACES := [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]
+	for i in range(BIG_STARS_PER_LEG):
+		var n: Vector3 = FACES[_rng.randi_range(0, 3)]
+		var tangent := Vector3(n.z, 0.0, -n.x)
+		var y: float = _rng.randf_range(CRUST_TOP, BAND_BOTTOM)
+		var target := Vector3(leg.x, y, leg.y) + n * LEG_HALF \
+			+ tangent * _rng.randf_range(-2.3, 2.3)
+		_seat_star(target, n, _pick(_bigstar_pool, -1.0))
+
+## Put one coral on a caisson face. `along` is the offset across the face and `depth`
+## the world y; the exact seating point and normal come from a raycast into the
+## concrete, so this never assumes where the surface is.
+func _seat_on_face(leg: Vector2, n: Vector3, along: float, depth: float, sp: Dictionary) -> void:
+	var tangent := Vector3(n.z, 0.0, -n.x)
+	var target := Vector3(leg.x, depth, leg.y) + n * LEG_HALF + tangent * along
+	var hit: Dictionary = _probe(target, n)
+	if hit.is_empty():
+		return
+	var surface: Vector3 = hit["position"]
+	if _blocked(surface):
+		return
+	var size: float = _rng.randf_range(float(sp["lo"]), float(sp["hi"]))
+	# depth thins the reef out: the top of the band is a wall of coral, the bottom is
+	# scattered survivors
+	var t: float = clampf((surface.y - _band_top) / (BAND_BOTTOM - _band_top), 0.0, 1.0)
+	# s19 thinned to 0.60 keep / 0.72 size at the bottom of the band, which photographed as a
+	# rich top and an almost bare deep half — the "colony_close2" frame at y -18.5 had two
+	# pieces in it. Softened: still a gradient (reefs really do thin with light), but the
+	# deep band is now scattered survivors rather than nothing.
+	if _rng.randf() > lerpf(1.0, 0.78, t):
+		return
+	size *= lerpf(1.0, 0.80, t)
+	var space: float = size * float(sp["space"])
+	if not _claim(surface, space):
+		return
+	# A gorgonian on a vertical wall does not stand out of it like a signpost — it hugs
+	# the concrete and fans UP and outward, which is also the only orientation that does
+	# not read as a smear when you swim up to it face-on. So the planar species lean far
+	# further off the normal than the massive ones do.
+	var tilt: Array = sp.get("tilt_planar", sp["tilt"])
+	var grow: Vector3 = _grow_axis(hit["normal"], deg_to_rad(_rng.randf_range(tilt[0], tilt[1])))
+	_add(sp, surface, hit["normal"], grow, size)
+
+## The growth direction: the surface normal, leaned toward the surface (up-current for a
+## fan, toward the light for everything else). A coral on a vertical wall does not grow
+## straight out of it.
+func _grow_axis(normal: Vector3, tilt: float) -> Vector3:
+	var lean := Vector3.UP
+	if absf(normal.dot(Vector3.UP)) > 0.8:
+		# a horizontal surface (the pontoon underside): lean in a random direction
+		var a: float = _rng.randf_range(0.0, TAU)
+		lean = Vector3(cos(a), 0.0, sin(a))
+	return (normal * cos(tilt) + lean * sin(tilt)).normalized()
+
+## Spacing rejection — this is what stops the scatter reading as a repeating pattern
+## or as one interpenetrating blob.
+func _claim(pos: Vector3, radius: float) -> bool:
+	for p in _placed:
+		if pos.distance_to(p[0]) < (radius + p[1]) * 0.50:
+			return false
+	_placed.append([pos, radius])
+	return true
+
+# ------------------------------------------------------------ the foundation
+
+## Starfish over the rig's submerged foundation: the pontoon slabs' outer walls, their
+## inner walls, and the big shadowed underside a swimmer sees looking up. A handful
+## also ride the leg faces in the band between the skirt and the coral, so the two
+## communities meet instead of sitting in separate stripes.
+func _dress_foundation() -> void:
+	var faces: Array = []
+	for sz in [-1.0, 1.0]:
+		var zo: float = SKIRT_Z_OUT * sz
+		var zi: float = SKIRT_Z_IN * sz
+		# outer long wall, inner long wall
+		faces.append({"n": Vector3(0, 0, sz), "fix": zo, "axis": "z", "span": [-27.0, 27.0], "n_inst": 26})
+		faces.append({"n": Vector3(0, 0, -sz), "fix": zi, "axis": "z", "span": [-27.0, 27.0], "n_inst": 15})
+		# the two end walls of this pontoon
+		for sx in [-1.0, 1.0]:
+			faces.append({"n": Vector3(sx, 0, 0), "fix": SKIRT_X * sx, "axis": "x",
+				"span": [minf(zi, zo) + 0.8, maxf(zi, zo) - 0.8], "n_inst": 5})
+	# The whole family is available down here — the foundation is one continuous surface,
+	# so there is no per-leg culling argument for slicing it.
+	_bigstar_pool = BIG_STARS
+	for f in faces:
+		_scatter_wall(f)
+	_scatter_underside()
+	_scatter_leg_shallows()
+	_scatter_big_stars(faces)
+	_place_giants()
+
+## The big starfish on the foundation, in among the small ones. Same probed seating; the
+## split between wall and underside is deliberate — a 1.5 m sunflower star hanging off the
+## ceiling of the space under the rig is the single most findable animal down there.
+func _scatter_big_stars(faces: Array) -> void:
+	for i in range(BIG_STARS_FOUNDATION):
+		var sp: Dictionary = _pick(BIG_STARS, -1.0)
+		if _rng.randf() < 0.42:
+			var x: float = _rng.randf_range(-26.0, 26.0)
+			var sz: float = [-1.0, 1.0][_rng.randi_range(0, 1)]
+			var z: float = sz * _rng.randf_range(SKIRT_Z_IN + 1.0, SKIRT_Z_OUT - 1.0)
+			_seat_star(Vector3(x, SKIRT_BOTTOM, z), Vector3(0, -1, 0), sp)
+			continue
+		var f: Dictionary = faces[_rng.randi_range(0, faces.size() - 1)]
+		var along: float = _rng.randf_range(f["span"][0], f["span"][1])
+		var y: float = _rng.randf_range(SKIRT_BOTTOM + 0.5, -0.6)
+		if f["axis"] == "z":
+			_seat_star(Vector3(along, y, float(f["fix"])), f["n"], sp)
+		else:
+			_seat_star(Vector3(float(f["fix"]), y, along), f["n"], sp)
+
+## A vertical foundation wall. The band is the skirt underside up to just under the
+## waterline; every candidate is raycast onto the real slab.
+func _scatter_wall(f: Dictionary) -> void:
+	var n: Vector3 = f["n"]
+	for i in range(int(f["n_inst"])):
+		var along: float = _rng.randf_range(f["span"][0], f["span"][1])
+		var y: float = _rng.randf_range(SKIRT_BOTTOM + 0.25, -0.35)
+		var target: Vector3
+		if f["axis"] == "z":
+			target = Vector3(along, y, float(f["fix"]))
+		else:
+			target = Vector3(float(f["fix"]), y, along)
+		_seat_star(target, n, _pick_star())
+
+## The pontoon underside — the ceiling of the space under the rig. Stars hang from it,
+## which is both true to the animal and the single best place to notice one.
+func _scatter_underside() -> void:
+	var n := Vector3(0, -1, 0)
+	for i in range(52):
+		var x: float = _rng.randf_range(-27.0, 27.0)
+		var sz: float = [-1.0, 1.0][_rng.randi_range(0, 1)]
+		var z: float = sz * _rng.randf_range(SKIRT_Z_IN + 0.6, SKIRT_Z_OUT - 0.6)
+		_seat_star(Vector3(x, SKIRT_BOTTOM, z), n, _pick_star())
+
+## A few on the caisson faces between the skirt and the top of the coral band.
+func _scatter_leg_shallows() -> void:
+	for leg in LEGS:
+		for i in range(5):
+			var n: Vector3 = [Vector3(1, 0, 0), Vector3(-1, 0, 0),
+				Vector3(0, 0, 1), Vector3(0, 0, -1)][_rng.randi_range(0, 3)]
+			var tangent := Vector3(n.z, 0.0, -n.x)
+			var y: float = _rng.randf_range(SKIRT_BOTTOM - 0.6, _band_top + 0.4)
+			var target := Vector3(leg.x, y, leg.y) + n * LEG_HALF \
+				+ tangent * _rng.randf_range(-2.4, 2.4)
+			_seat_star(target, n, _pick_star())
+
+## The seven-arm giant, HUGE_COUNT of them, on the faces a swimmer actually meets: the
+## south pontoon's outer wall (the side you enter the water from), the underside on the
+## way in to the wet deck, and one out on the far north wall for whoever swims the whole
+## foundation. Positions are candidate targets — the raycast still decides the seat.
+func _place_giants() -> void:
+	var picks := [
+		[Vector3(-6.0, -1.7, -SKIRT_Z_OUT), Vector3(0, 0, -1)],
+		[Vector3(9.5, SKIRT_BOTTOM, -12.6), Vector3(0, -1, 0)],
+		[Vector3(-15.5, -1.5, SKIRT_Z_OUT), Vector3(0, 0, 1)],
+	]
+	for i in range(mini(HUGE_COUNT, picks.size())):
+		_seat_star(picks[i][0], picks[i][1], STAR_HUGE, true)
+
+func _pick_star() -> Dictionary:
+	var total: float = 0.0
+	for s in STARS:
+		total += float(s["w"])
+	var roll: float = _rng.randf() * total
+	for s in STARS:
+		roll -= float(s["w"])
+		if roll <= 0.0:
+			return s
+	return STARS[0]
+
+## Seat one starfish flat against a probed surface. A star lies ON the rock — no tilt
+## off the normal, just a random roll about it and a little wobble so a wall of them
+## does not read as a decal sheet.
+func _seat_star(target: Vector3, n: Vector3, sp: Dictionary, force: bool = false) -> void:
+	var hit: Dictionary = _probe(target, n)
+	if hit.is_empty():
+		return
+	var surface: Vector3 = hit["position"]
+	if _blocked(surface):
+		return
+	var size: float = _rng.randf_range(float(sp["lo"]), float(sp["hi"]))
+	# A star claims LESS room than a coral of the same size, because it is a flat animal that
+	# lies ON the reef rather than a colony competing for space in it — 0.62 was rejecting big
+	# stars against coral they would in reality be sitting on top of.
+	if not _claim(surface, size * (0.85 if force else 0.44)) and not force:
+		return
+	var grow: Vector3 = _grow_axis(hit["normal"], deg_to_rad(_rng.randf_range(0.0, 11.0)))
+	_add(sp, surface, hit["normal"], grow, size)
+
+# ------------------------------------------------------------ batching
+
+## Queue one instance. Nothing is built until _flush, so a leg's whole colony becomes
+## one MultiMesh per species.
+func _add(sp: Dictionary, surface: Vector3, normal: Vector3, grow: Vector3, size: float) -> void:
+	var slug: String = sp["slug"]
+	if not _batches.has(slug):
+		var loaded: Dictionary = _load(sp)
+		if loaded.is_empty():
+			return
+		_batches[slug] = loaded
+	var b: Dictionary = _batches[slug]
+	# RECESS — bite the base into the concrete so no flat cut edge shows against the
+	# wall, and so a piece leaning off the normal does not lift one side of its base
+	# off it. Scaled by how far it leans (that is what opens the gap) and capped at a
+	# third of the piece's OWN height along its growth axis, which is the measurement
+	# that matters: a 1.7 m table coral is only half a metre tall, and a recess sized
+	# off its longest axis buried it.
+	var height: float = size * float(b["hnorm"])
+	var lean: float = sqrt(maxf(0.0, 1.0 - pow(grow.dot(normal), 2.0)))
+	# The absolute ceiling matters as much as the proportional one. What the recess has
+	# to hide is the lift of the BASE edge, which is at most half a holdfast wide — a
+	# few centimetres. Scaling by lean alone drove the planar species (which lean 40-70
+	# deg on purpose) to 385 mm and started swallowing whole sea fans.
+	var recess: float = minf(0.035 + size * 0.26 * lean, minf(height * 0.32, RECESS_MAX))
+	var origin: Vector3 = surface - normal * recess
+	# A right-handed basis with +Y on the growth axis. The ROLL about that axis is what
+	# decides whether a sea fan stands out from the wall or lies flat on it — a random
+	# roll gave a wall of purple smears, because a fan seen edge-on IS a smear. Planar
+	# species (fan, whip: blade plane = local XY, blade normal = local +Z) get their
+	# blade normal aligned to the wall's horizontal tangent, so the blade plane contains
+	# the wall normal and the fan presents its face to the flow, the way a gorgonian
+	# actually grows. Everything else rolls freely.
+	var basis: Basis
+	if bool(sp.get("planar", false)):
+		# blade normal (local +Z) points away from the wall, so the blade plane lies
+		# roughly PARALLEL to the concrete and a swimmer meets its face, not its edge
+		var z_ax: Vector3 = (normal - grow * normal.dot(grow)).normalized()
+		if z_ax.length() < 0.5:
+			z_ax = Vector3.FORWARD
+		basis = Basis(grow.cross(z_ax), grow, z_ax)
+		basis = basis.rotated(grow, _rng.randf_range(-0.38, 0.38))
+	else:
+		var ref := Vector3.UP if absf(grow.dot(Vector3.UP)) < 0.9 else Vector3.RIGHT
+		var x_ax: Vector3 = ref.cross(grow).normalized()
+		basis = Basis(x_ax, grow, x_ax.cross(grow))
+		basis = basis.rotated(grow, _rng.randf_range(0.0, TAU))
+	# the mesh is normalised to a 1 m longest axis by _load, so scale IS the size
+	basis = basis.scaled(Vector3.ONE * size * float(b["norm"]))
+	b["xf"].append(Transform3D(basis, origin))
+	b["col"].append(Color(sp["a"]).lerp(Color(sp["b"]), _rng.randf()))
+
+## Load a reef piece once: its mesh, and a material that takes the per-instance colour.
+## Returns {} when the .glb is missing, which drops that species instead of crashing —
+## the same degradation every other generated asset in this project has.
+func _load(sp: Dictionary) -> Dictionary:
+	var slug: String = sp["slug"]
+	var path: String = REEF_PATH % [slug, slug]
+	if not ResourceLoader.exists(path):
+		push_warning("[leg_reef] missing %s" % path)
+		return {}
+	var packed := load(path) as PackedScene
+	if packed == null:
+		return {}
+	var inst := packed.instantiate()
+	var found: MeshInstance3D = null
+	for node in inst.find_children("*", "MeshInstance3D", true, false):
+		found = node
+		break
+	if found == null or found.mesh == null:
+		inst.queue_free()
+		return {}
+	var mesh: Mesh = found.mesh
+	var aabb: AABB = mesh.get_aabb()
+	var longest: float = maxf(aabb.size.x, maxf(aabb.size.y, aabb.size.z))
+	var src: Material = found.get_active_material(0)
+	inst.queue_free()
+	var mat: StandardMaterial3D = null
+	if src is StandardMaterial3D:
+		mat = (src as StandardMaterial3D).duplicate()
+	else:
+		mat = StandardMaterial3D.new()
+	# per-instance MultiMesh colour multiplies albedo — this is where the scale/rotation
+	# variation gets its colour partner, at no extra material and no extra draw call
+	mat.vertex_color_use_as_albedo = true
+	# The generators return a glassy skin by default (docs/AGENT_TRAPS.md) and on some
+	# pieces the specular reads as plastic under the floodlight cones. Per-species, opt-in.
+	if sp.has("rough"):
+		mat.roughness = float(sp["rough"])
+		mat.metallic = 0.0
+	# BLOOM GLOW — see GLOW. Keyed off the albedo map so it lights the living tissue rather
+	# than glowing uniformly like a lamp, and scaled per species: chalk barnacles are not
+	# bioluminescent and take a fraction of what a living coral does.
+	if mat.albedo_texture != null:
+		mat.emission_enabled = true
+		mat.emission_texture = mat.albedo_texture
+		mat.emission = GLOW_TINT
+		mat.emission_energy_multiplier = GLOW * float(sp.get("glow", 1.0))
+	return {"mesh": mesh, "mat": mat, "norm": 1.0 / maxf(longest, 0.001),
+		"hnorm": aabb.size.y / maxf(longest, 0.001), "xf": [] as Array, "col": [] as Array}
+
+## Build the queued instances into one MultiMeshInstance3D per species and reset.
+func _flush(tag: String) -> void:
+	for slug in _batches.keys():
+		var b: Dictionary = _batches[slug]
+		var xf: Array = b["xf"]
+		if xf.is_empty():
+			continue
+		var mm := MultiMesh.new()
+		mm.transform_format = MultiMesh.TRANSFORM_3D
+		mm.use_colors = true
+		mm.mesh = b["mesh"]
+		mm.instance_count = xf.size()
+		var mmi := MultiMeshInstance3D.new()
+		mmi.name = "LegReef_%s_%s" % [tag, slug]
+		mmi.multimesh = mm
+		mmi.material_override = b["mat"]
+		# decoration: it must not add to the shadow cost of a rig that was measured at
+		# 9.3 fps, and it is under water where the sun does not reach anyway
+		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		mmi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		add_child(mmi)
+		# instance transforms were built in world space; the MultiMesh wants them in
+		# the instance's own space
+		var inv: Transform3D = mmi.global_transform.affine_inverse()
+		for i in range(xf.size()):
+			# NB if you are here because get_instance_transform() read back identity:
+			# MultiMesh instance data lives in the RenderingServer, and under --headless
+			# the dummy renderer drops every write and returns identity to every read.
+			# The data is fine; the harness reading it has to run WINDOWED. Measured both
+			# ways in one sitting — see docs/AGENT_TRAPS.md.
+			var t: Transform3D = xf[i]
+			mm.set_instance_transform(i, inv * t)
+			mm.set_instance_color(i, b["col"][i])
+		b["xf"] = [] as Array
+		b["col"] = [] as Array
+
+# ------------------------------------------------------------ snails on the concrete
+
+## THE CLIMBERS (owner brief, s20: "pyramid/glow snails climbing there").
+##
+## Both species already exist and already know how to be on a wall — BloomFauna.LampSnail
+## and BloomFauna.PyramidSnail run FaunaMove.SurfaceCrawler, whose whole design is that
+## geometry is the thing an animal travels ON, and whose `basis()` puts the body's +Y on the
+## face normal so a snail on the caisson reads as a snail stuck to the caisson. What they
+## have never had is anywhere underwater to do it: BloomFauna seeds the lamp snails on the
+## pontoon TOPS and the pyramid snails on the topside plate, both on level plating.
+##
+## bloom_fauna.gd is shared with another live session, so nothing there is touched. Both
+## species are spawned from here and the three things a wall crawler needs that a deck
+## crawler does not are set on the crawler afterwards — which is safe because _ready() runs
+## inside add_child(), so the crawler exists by the time add_child returns.
+const BF := preload("res://scripts/world/bloom_fauna.gd")
+
+## Indices are offset well past BloomFauna's own (lamp 0-5, pyramid 0-2). Snail save/restore
+## keys the `fed` flag by species+idx, so a collision would silently share state between two
+## animals on opposite sides of the rig.
+const SNAIL_IDX_LAMP: int = 300
+const SNAIL_IDX_PYR: int = 340
+
+## How far a climber may wander above and below the depth it settled at, and how long it
+## holds one heading. The crawler's own leash only steers on LEVEL plating (a climbing snail
+## is deliberately not dragged sideways halfway up a bulkhead), so on a vertical face there
+## is nothing keeping it in its band — this is that.
+const SNAIL_RANGE: float = 4.5
+const SNAIL_TURN: Array = [8.0, 20.0]
+
+## Where they go. `d` is the fraction down the reachable leg (0 = just under the pontoon
+## skirt, 1 = the bottom of the coral band), so the actual Y is derived from the MEASURED
+## band rather than typed.
+##
+## THE DEPTHS ARE WHERE THE REEF IS, and that was corrected by looking. The first pass spread
+## these from d 0.16 to 0.72, i.e. y -6.4 to -16.8, and photographed the shallow half as solid
+## green: y -6 to -12 on a caisson is the middle of underwater_world's kelp stand (44 tagged
+## strands, floor measured at y -12.09), so those snails were real, seated, crawling, and
+## completely invisible behind fronds. They now run d 0.44-0.86 — under the kelp floor, in
+## among the coral, which is both where a reef grazer belongs and the only band you can
+## actually see one in. The lamp snails take the deeper spots (a moon is worth more in the
+## dark) and the pyramid snails the shallower.
+const SNAIL_SPOTS := [
+	# leg index, face normal, offset across the face, depth fraction, species
+	[1, Vector3(1, 0, 0), -1.3, 0.46, "pyr"],    # SE leg, outboard: first thing you meet
+	[1, Vector3(1, 0, 0), 1.1, 0.62, "lamp"],
+	[1, Vector3(0, 0, -1), 0.6, 0.52, "lamp"],
+	[1, Vector3(0, 0, -1), -1.7, 0.74, "pyr"],
+	[3, Vector3(1, 0, 0), 0.9, 0.48, "pyr"],     # NE leg
+	[3, Vector3(1, 0, 0), -1.5, 0.68, "lamp"],
+	[3, Vector3(0, 0, 1), 1.4, 0.58, "lamp"],
+	[0, Vector3(-1, 0, 0), -0.8, 0.50, "pyr"],   # SW leg
+	[0, Vector3(-1, 0, 0), 1.6, 0.80, "lamp"],
+	[0, Vector3(0, 0, -1), -1.2, 0.64, "lamp"],
+	[2, Vector3(-1, 0, 0), 1.2, 0.44, "pyr"],    # NW leg
+	[2, Vector3(0, 0, 1), -0.9, 0.72, "lamp"],
+	[2, Vector3(0, 0, 1), 1.5, 0.86, "pyr"],
+]
+
+## [{s, lo, hi, t}] — the climbers this file steers. See _process.
+var _climbers: Array = []
+var _snails_refused: int = 0
+
+func _grow_snails() -> void:
+	var lamp_i: int = 0
+	var pyr_i: int = 0
+	for spec in SNAIL_SPOTS:
+		var leg: Vector2 = LEGS[int(spec[0])]
+		var n: Vector3 = spec[1]
+		var tangent := Vector3(n.z, 0.0, -n.x)
+		var y: float = lerpf(CRUST_TOP, BAND_BOTTOM, float(spec[3]))
+		var target := Vector3(leg.x, y, leg.y) + n * LEG_HALF + tangent * float(spec[2])
+		var hit: Dictionary = _probe(target, n)
+		# REFUSED, not faked. _probe falls back to the sonar-measured face when the raycast
+		# finds nothing, which is right for a MultiMesh instance (it is only drawn) and wrong
+		# for a crawler: a SurfaceCrawler with no collider under its foot has nothing to stick
+		# to and would hang in the water re-probing for ever. So a snail is only seeded where
+		# a real collider answered.
+		if not bool(hit.get("measured", true)) or _blocked(hit["position"]):
+			_snails_refused += 1
+			continue
+		var seat: Vector3 = hit["position"]
+		var face: Vector3 = (hit["normal"] as Vector3).normalized()
+		var snail: Node3D
+		if String(spec[4]) == "lamp":
+			snail = BF.LampSnail.new(SNAIL_IDX_LAMP + lamp_i, seat + face * 0.06)
+			lamp_i += 1
+		else:
+			snail = BF.PyramidSnail.new(SNAIL_IDX_PYR + pyr_i, seat + face * 0.06)
+			pyr_i += 1
+		add_child(snail)                       # _ready() runs INSIDE this call
+		snail.global_position = seat + face * 0.06
+		_attach_to_wall(snail, face, seat.y)
+		_climbers.append({"s": snail, "lo": maxf(seat.y - SNAIL_RANGE, BAND_BOTTOM + 0.4),
+			"hi": minf(seat.y + SNAIL_RANGE, CRUST_TOP - 0.2),
+			"t": _rng.randf_range(0.5, float(SNAIL_TURN[1]))})
+	set_process(not _climbers.is_empty())
+
+## Hand the crawler the frame it needs to be ON a vertical face instead of standing on the
+## floor: `up` is the concrete's normal, the heading is a tangent IN that face, and the climb
+## ceiling is measured from where it started rather than from y = 0 (CLIMB_MAX is "six metres
+## above the foothold", and a crawler seeded at y -14 with climb_base still 0 would think it
+## had twenty metres of credit).
+func _attach_to_wall(snail: Node3D, face: Vector3, y: float) -> void:
+	var cr: Object = snail.get("_crawler")
+	if cr == null:
+		return
+	cr.set("up", face)
+	cr.set("home", snail.global_position)
+	cr.set("y_fallback", y)
+	cr.set("climb_base", y)
+	cr.set("climbing", true)
+	# PyramidSnail re-picks a heading in world XZ every 16-42 s, which projects to PURE
+	# SIDEWAYS on a vertical wall — a wall snail would sidle back and forth for ever and
+	# never climb. Pushing its timer out of reach hands direction to _process below, which
+	# picks in the FACE plane. (LampSnail has no such timer.)
+	if snail.has_method("_pick_heading"):
+		snail.set("_turn_cd", 1.0e9)
+	_aim_climb(snail, cr, _rng.randf_range(0.45, 0.9) * (1.0 if _rng.randf() < 0.6 else -1.0))
+
+## Point the crawler along a heading that lies in its current face and has a real VERTICAL
+## component — `vy` is that component, +1 straight up the wall, -1 straight down.
+func _aim_climb(snail: Node3D, cr: Object, vy: float) -> void:
+	var up_n: Vector3 = cr.get("up")
+	if not up_n.is_finite() or up_n.length() < 0.5:
+		return
+	up_n = up_n.normalized()
+	# world up, projected into the face — on a vertical caisson this is just Vector3.UP
+	var vert: Vector3 = Vector3.UP - up_n * up_n.y
+	if vert.length() < 0.05:
+		return
+	vert = vert.normalized()
+	var side: Vector3 = up_n.cross(vert).normalized()
+	vy = clampf(vy, -0.96, 0.96)
+	var across: float = sqrt(maxf(0.0, 1.0 - vy * vy)) * (1.0 if _rng.randf() < 0.5 else -1.0)
+	var h: Vector3 = (vert * vy + side * across)
+	if h.length() < 0.01:
+		return
+	cr.set("heading", h.normalized())
+	if vy > 0.0:
+		cr.set("climb_base", snail.global_position.y)
+
+## Steer the climbers. Deliberately tiny — it does two things the crawler cannot do for
+## itself on a vertical face, and nothing else: keep each snail inside the depth band it
+## settled in, and hand it a fresh heading that actually goes up or down the wall every ten
+## seconds or so instead of only across it.
+func _process(delta: float) -> void:
+	var alive: Array = []
+	for c in _climbers:
+		var s: Node3D = c["s"]
+		if not is_instance_valid(s):
+			continue
+		alive.append(c)
+		var cr: Object = s.get("_crawler")
+		# Being carried by the player, or set down somewhere else entirely: hands off. The
+		# species' own snail_carry/reseat owns the animal then.
+		if cr == null or s.get("_carried_by") != null:
+			continue
+		var up_n: Vector3 = cr.get("up")
+		if not up_n.is_finite() or absf(up_n.y) > 0.7:
+			continue                            # it has crawled onto level plating: its own
+		c["t"] = float(c["t"]) - delta
+		var y: float = s.global_position.y
+		var h: Vector3 = cr.get("heading")
+		if y > float(c["hi"]) and h.y > 0.0:
+			_aim_climb(s, cr, -_rng.randf_range(0.5, 0.95))
+			c["t"] = _rng.randf_range(SNAIL_TURN[0], SNAIL_TURN[1])
+		elif y < float(c["lo"]) and h.y < 0.0:
+			_aim_climb(s, cr, _rng.randf_range(0.5, 0.95))
+			c["t"] = _rng.randf_range(SNAIL_TURN[0], SNAIL_TURN[1])
+		elif float(c["t"]) <= 0.0:
+			_aim_climb(s, cr, _rng.randf_range(-0.9, 0.9))
+			c["t"] = _rng.randf_range(SNAIL_TURN[0], SNAIL_TURN[1])
+	_climbers = alive

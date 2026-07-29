@@ -29,6 +29,19 @@ landed and nobody updated the file.
   intersecting props or each other. Grid snap keeps it mostly sane; needs a
   shape sweep.
 
+- **`TestRunner`'s "raw fish rots after 4 game hours hung" is intermittently
+  flaky, and it is a test bug rather than a game bug.** `hang_line._hang()` takes
+  the first *hangable* item in the player's pack, which is not necessarily the
+  herring that check just added — anything an earlier fishing/net check left
+  behind can be hung instead, and a BIG fish cures to `dried_fish` instead of
+  rotting. What is in the pack there depends on RNG draws and on how many engine
+  frames elapse inside the suite's `await` timers, so machine load changes the
+  outcome. Reported failing once by a coordinator; **not reproduced in 5
+  consecutive local runs**, including with the leg reef present. The assertion now
+  prints what it hung and what it became, so the next occurrence names the
+  culprit. The real fix is to clear the pack before hanging, which first needs a
+  check that the following assertions do not depend on those items. *Found s19.*
+
 ## Watch items
 
 - **NaN source upstream of `fauna_move.gd` is unidentified.** s18 added
@@ -37,12 +50,42 @@ landed and nobody updated the file.
   *quiet*, not absent. If a creature is ever seen freezing or teleporting, start
   here.
 
-- **Fish cost ~3.7 ms at the waterline** — pure CPU, not draw calls. Every fish
-  sums 11 Gerstner waves in GDScript every frame (~3300 iterations). Zero cost
-  on deck (the topside cull freezes the subtree). The lever, if it is ever
-  needed, is hoisting `Gyre.water_time()` out of the per-fish loop and skipping
-  `wave_height` for pods provably below any trough — *not* cutting population,
-  which was measured and buys nothing. *Measured s18.*
+- **Fish cost at the waterline — FIXED s19.** `Gyre.water_time()` is hoisted out
+  of the per-fish loop, the surface clamp is skipped for pods provably below
+  `Gyre.trough_floor()`, `wave_height` no longer computes the horizontal
+  displacement it never used (1.44x, `tests/WaveBench.tscn`), and the 48 pods are
+  distance-decimated. Population untouched, as the s18 measurement said it should
+  be. Waterline went 22.22 -> 16.67 ms/frame.
+
+- **Where the remaining headroom is (measured s19).** The heaviest vantage is
+  `submerged_deep` at 23.81 ms / 2.83 M primitives / 1330 draws, of which the new
+  leg reef accounts for 1.98 ms (8.5%) — affordable, and the only vantage where
+  the reef is measurable above noise at all. `wet_deck` is the noisiest place in
+  the game to measure: its own repeat-visit spread is 7.2 ms and its primitive
+  count swings 2.1-3.6 M between visits, so no optimisation can currently be
+  *proved* there. Worth understanding before more content lands on that deck.
+  Any NEW per-frame creature should take the four-line `AiBudget` prologue (see
+  `scripts/world/ai_budget.gd`); the incoming reef fish especially, since they
+  will be beyond 18 m from the player almost always.
+
+- **The 13 caisson snails put 13 solid spheres in the dive band (s20).** Every
+  creature's `FaunaTouch` is an `Interactable`, i.e. a `StaticBody3D` on the
+  default layer — that is how the interaction ray finds it, and it is the same on
+  deck. But these ones (0.6 m pyramid, 0.85 m lamp) stand proud of the caisson
+  faces between y −11.6 and −19.4, so a diving player can bump one. Intended
+  behaviour, not obviously *good* behaviour underwater; worth a look with a
+  controller in hand. Note what it already broke: it silently corrupted
+  `ReefProbe`'s raycasts until they excluded fauna (see `docs/AGENT_TRAPS.md`), so
+  any new probe aimed at leg geometry needs the same skip list.
+
+- **The reef costs ~0.95–1.03 M triangles per leg (s20), up from 0.62–0.72 M.**
+  1,170 instances in 62 MultiMesh draws, ~15 of them for whichever leg you are
+  looking at. s19 measured the 560-instance version at 1.98 ms (8.5%) at
+  `submerged_deep`; this is roughly 1.45x the per-leg triangle count and 2.1x the
+  instances, and has **not** been re-profiled. If `submerged_deep` regresses, the
+  cheapest levers in order are `barnacle_cluster_a`'s 4,000-tri budget (it cannot
+  go lower without shattering — cut its weight instead), `coral_brain` at 100 x
+  5,000, and `_crust_face`'s instance count.
 
 ## Accepted / by design
 

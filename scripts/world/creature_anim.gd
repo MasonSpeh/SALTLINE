@@ -90,10 +90,30 @@ const FACING_DEFAULT := {"yaw": 180.0, "pitch": 0.0, "axis": 0, "flip": 1.0, "li
 ## lobe. So: yaw +90 swings local +X onto Godot's -Z (R_y(90) takes +X to -Z) and leaves
 ## +Y up, and the shader is told the body runs along X (axis 1) with the head at the MAX
 ## end (flip 1) so the undulation still travels head -> tail and leaves the hammer rigid.
+## trop_* (the ten tropical reef fish, MEASURED 2026-07-29 off tests/CandShot side and front
+## views before any of them was wired in — the hammerhead shipped swimming broadside because
+## somebody skipped this). One Tripo batch, one prompt template, and it came back in THREE
+## different conventions, which is the whole argument for measuring every model:
+##   * blue_tang, yellow_tang, wrasse, triggerfish — head at local +Z. The default exactly,
+##     so they take no entry here. Recorded so the next person knows it was checked.
+##   * clown, parrot, anthias, damsel — head at local -Z. From the +X side camera their
+##     mouths point screen-RIGHT, which is world -Z, i.e. already Godot's forward: the
+##     default's 180 yaw would swim them backwards, tail first. Same case as herring_gull.
+##   * angel, butterfly — body authored along local X (AABB 1.00 x 0.88 x 0.32 and
+##     1.00 x 0.67 x 0.20), head at MAX X: the front camera, whose screen-right is world +X,
+##     shows both in full profile facing right. Same case as ultra_hammerhead — yaw +90
+##     takes local +X onto Godot's -Z, and the shader is told the body runs along X so the
+##     undulation still travels head -> tail instead of shearing the fish sideways.
 const FACING_OVERRIDES: Dictionary = {
 	"mantle_ray": {"yaw": 180.0, "pitch": 90.0, "axis": 0, "flip": 1.0, "lift": 1},
 	"herring_gull": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"ultra_hammerhead": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
+	"trop_clown": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
+	"trop_parrot": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
+	"trop_anthias": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
+	"trop_damsel": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
+	"trop_angel": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
+	"trop_butterfly": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
 }
 
 static func facing_for(path: String) -> Dictionary:

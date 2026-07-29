@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://vantage_perf_rig"]
+
+[ext_resource type="Script" path="res://tests/vantage_perf.gd" id="1"]
+
+[node name="VantagePerf" type="Node"]
+script = ExtResource("1")
