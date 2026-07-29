@@ -79,9 +79,21 @@ const FACING_DEFAULT := {"yaw": 180.0, "pitch": 0.0, "axis": 0, "flip": 1.0, "li
 ## forward. The default's 180 yaw would spin it and the deck gull would strut backwards
 ## down the plating, tail first. So: no yaw, and the head is at the MIN end of local Z
 ## (flip 0), which is also what the shader needs to keep the wave running head -> tail.
+## ultra_hammerhead (owner-picked photoreal hammerhead, MEASURED 2026-07-29 — not read off
+## a render). Its body is authored along local X, which is neither the Meshy +Z convention
+## nor Godot's -Z, so the default 180 yaw left it swimming BROADSIDE: tests/HammerheadProbe
+## correlated 238 frames of real patrol travel against the model node's six local axes and
+## got +Z 0.989 / +X -0.014 — the animal was being dragged sideways through the water.
+## Raw mesh (tests/SharkProbe, one surface, 81622 verts): AABB 1.000 x 0.338 x 0.517 with
+## the NOSE at max X — the top and side views both put the cephalofoil at world +X, and the
+## centreline's min-X end is the one that lifts (y +0.13), which is the caudal fin's upper
+## lobe. So: yaw +90 swings local +X onto Godot's -Z (R_y(90) takes +X to -Z) and leaves
+## +Y up, and the shader is told the body runs along X (axis 1) with the head at the MAX
+## end (flip 1) so the undulation still travels head -> tail and leaves the hammer rigid.
 const FACING_OVERRIDES: Dictionary = {
 	"mantle_ray": {"yaw": 180.0, "pitch": 90.0, "axis": 0, "flip": 1.0, "lift": 1},
 	"herring_gull": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
+	"ultra_hammerhead": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
 }
 
 static func facing_for(path: String) -> Dictionary:

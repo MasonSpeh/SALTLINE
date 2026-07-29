@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://crab_life_probe"]
+[ext_resource type="Script" path="res://tests/crab_life_probe.gd" id="1"]
+[node name="CrabLifeProbe" type="Node"]
+script = ExtResource("1")

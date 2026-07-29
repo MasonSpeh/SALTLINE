@@ -119,6 +119,9 @@ var hook_out: bool = false         ## throwing hook is in flight / reeling
 ## Both fishing tools. FishingRod itself decides which behaviour to run from the selected
 ## hotbar item (`_is_deep_selected()`); this list is only "what can start a cast at all".
 const ROD_ITEMS: Array[String] = ["fishing_rod", "deep_rig_pole"]
+## The carryable readable. Preloaded by path (handbook.gd is newer than the class cache
+## this file parses against) and used for exactly one thing: the [F] branch in _f_pressed.
+const HANDBOOK := preload("res://scripts/components/handbook.gd")
 
 var fishing: Node3D = null         ## a cast is out (FishingRod owns the line)
 var ui_locked: bool = false        ## a HUD panel (inventory/journal/help/bench) is open
@@ -478,6 +481,12 @@ func _f_pressed() -> void:
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud and hud.has_method("toast"):
 			hud.toast("Flashlight %s." % ("on" if _flashlight_on else "off"))
+		return
+	# The Fisherman's Handbook, on the same "F is whatever the hand is holding" principle:
+	# it pockets the book you are standing over reading, and it opens the one you are
+	# carrying. Handbook.f_pressed() answers false in every other situation, so the hook
+	# and the double-tap below are untouched. See scripts/components/handbook.gd.
+	if HANDBOOK.f_pressed(self):
 		return
 	var now: int = Time.get_ticks_msec()
 	if now - _last_f_ms <= DOUBLE_TAP_MS:

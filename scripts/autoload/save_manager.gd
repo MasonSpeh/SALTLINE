@@ -16,6 +16,10 @@ const LEGACY_PATH: String = "user://saltline_autosave.json"
 const SAVE_VERSION: int = 2
 
 const TAKEABLE := preload("res://scripts/components/takeable.gd")
+## By path rather than by class name: handbook.gd is newer than the class cache this
+## autoload is parsed against, and a dropped handbook has to rebuild as a readable book
+## rather than a bare Takeable. See _make_drop().
+const HANDBOOK := preload("res://scripts/components/handbook.gd")
 const FAUNA := preload("res://scripts/world/bloom_fauna.gd")
 
 ## Which slot (1..SLOT_COUNT) autosaves and loads. Set by the start screen; defaults to
@@ -181,6 +185,10 @@ func load_game() -> bool:
 	restore_structures(data.get("structures", []))
 	_apply_pending_to_existing()
 	restore_dropped(data.get("dropped", []))
+	# The world rebuild always respawns the wet-deck handbook, because the world is built
+	# before any save is read. Now that the pack and the dropped items are back, the book
+	# knows where it really is and can delete the duplicate. Must run AFTER both.
+	HANDBOOK.sync_world(get_tree())
 	var snails: Variant = data.get("snails", {})
 	if typeof(snails) == TYPE_DICTIONARY:
 		FAUNA.snail_restore(get_tree(), snails)
@@ -330,6 +338,13 @@ func restore_dropped(list: Variant) -> int:
 ## Build a dropped-item Takeable: its real world visual plus an interaction collider,
 ## tagged so it persists. Not yet parented.
 func _make_drop(item_id: String) -> Node3D:
+	# THE HANDBOOK IS NOT A TAKEABLE. Set down anywhere on the rig it has to still be the
+	# book — [E] READs it where it sits, [F] pockets it again (Handbook) — where a plain
+	# Takeable would offer nothing but TAKE and make "place it where you fish and read it
+	# there" a lie. It saves through the same "dropped_item" group as everything else, so
+	# the only special case is which node gets built. See scripts/components/handbook.gd.
+	if item_id == HANDBOOK.ITEM_ID:
+		return HANDBOOK.make_dropped()
 	var t: Node3D = TAKEABLE.new()
 	t.set("item_id", item_id)
 	t.set("display_name", String(PlayerState.items.get(item_id, {}).get("name", item_id.capitalize())))

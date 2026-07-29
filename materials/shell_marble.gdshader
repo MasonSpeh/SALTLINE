@@ -29,7 +29,9 @@ render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 //   * budget: worst case is PATTERN_MARBLE at 3 fbm octaves = 24 hash evaluations plus a
 //     handful of sin/smoothstep. That is one small creature's worth of arithmetic and no
 //     new texture fetches, which is cheaper than the geometry + extra draw calls it
-//     replaced.
+//     replaced. The 2026-07-28 morph pass (see fbm_flow and the morph clock in the marble
+//     branch) held that line exactly: still 3 vnoise calls / 24 hash evaluations, plus
+//     three vec3 multiply-adds and two sines. Making the pattern live cost ~5 ALU ops.
 
 const float TAU_ = 6.28318530718;
 
@@ -79,7 +81,30 @@ uniform float vein_energy = 0.0;
 uniform float vein_width : hint_range(0.02, 0.9) = 0.34;   // how broad a ribbon runs
 uniform float vein_sharp : hint_range(0.0, 0.99) = 0.72;   // 1 = knife edge, 0 = smoke
 uniform float pattern_scale = 3.2;      // veins per unit of normalised body
-uniform float pattern_scroll = 0.03;    // slow drift through the marbling (0 = frozen)
+// HOW FAST THE MARBLING EVOLVES, in noise cells per second of the coarsest octave.
+// 0 freezes the shell. This used to be a rigid scroll — the whole field translated along
+// object-space +Y, which is also the axis mask_lo/mask_hi cuts on, so the pattern visibly
+// climbed the shell and vanished into the mask like a conveyor. It now drives fbm_flow's
+// per-octave currents (see there) and the two warp-gain cycles below, so the veins change
+// SHAPE: channels fork, close and wander instead of marching.
+//
+// THE TIMESCALE IS THE POINT, it is very low, and it was MEASURED rather than guessed —
+// tests/ShellMorphShot.tscn photographs the animal at 0, 2, 20, 60 and 120 s and diffs
+// each frame against the same instant with this forced to 0.
+//
+// The number is small because the shader AMPLIFIES it hard. The veins are the crossings of
+// a field that fbm displaces by warp_strength * 4, i.e. about 6.8 ribbon widths, so a
+// change of 0.06 in the field moves every vein a full spacing — a completely different
+// shell. The first pass ran at 0.006 and reached exactly that in twenty seconds, which
+// photographed as a shell you could sit and watch rearranging itself. That is a lava lamp.
+//
+// At 0.001 the coarse octave crosses one noise cell in ~1000 s and the veining takes about
+// a minute to fully re-cut. Two seconds of that is under 4% of a reorganisation — about
+// one pixel per second on a shell filling half the screen, below the speed anything reads
+// as motion, and a third of that at the distance you actually meet the animal. A minute is
+// the whole thing. That is the brief: never an animal you can watch changing, always an
+// animal you notice HAS changed.
+uniform float pattern_scroll = 0.001;
 uniform float warp_strength = 1.5;      // domain warp: 0 = stripes, high = liquid marble
 // Where on the body the pattern lives, along normalised height. The lamp snail's
 // generated mesh is ONE surface covering shell AND foot, so the shell pattern is masked
@@ -130,6 +155,8 @@ float vnoise(vec3 p) {
 }
 
 // Three octaves. More than that stops reading as marble and starts reading as grain.
+// Still — SPIRAL and FLESH only want this to roughen an edge, and a mineral band or a
+// patch of skin that crawled would be a bug, not a feature.
 float fbm(vec3 p) {
 	float v = 0.0;
 	float a = 0.5;
@@ -139,6 +166,38 @@ float fbm(vec3 p) {
 		a *= 0.5;
 	}
 	return v;
+}
+
+// THE SAME FBM, WITH EVERY OCTAVE ON ITS OWN SLOW CURRENT.
+//
+// This is the whole trick behind the marbling MORPHING rather than SLIDING, and it is
+// worth being precise about the difference. A single time offset added to `p` before the
+// octave loop — which is what the marble branch used to do — translates all three octaves
+// TOGETHER. The field keeps its shape exactly and the veins ride past on a conveyor: a
+// printed pattern being pulled through the shell. Nothing branches, nothing merges,
+// nothing wanders, and you can see the direction of travel.
+//
+// Give each octave its OWN drift vector and the octaves slide THROUGH one another. Where a
+// ridge of octave 1 currently sits on a ridge of octave 0 the sum bulges and a vein
+// forks; a minute later they have slipped apart and that fork has closed while a new one
+// has opened somewhere else. The large structure creeps, the filigree reorganises, and
+// there is no direction of travel to read because there are three of them.
+//
+// It costs NOTHING. The loop is unrolled here into the three terms it already compiled
+// down to (frequencies 1, 2.03, 2.03^2 = 4.1209 — identical), so this is still exactly
+// three vnoise calls / 24 hash evaluations, plus three vec3 multiply-adds. And because the
+// drift is a pure offset, fbm_flow(p, 0.0) is bit-identical to fbm(p): t only ever adds to
+// what was already there, so the marbling at t = 0 is the marbling that was authored.
+//
+// The directions are non-parallel, none of them axis-aligned (an axis-aligned drift on a
+// radially symmetric shell reads as the pattern climbing the spire), and their RATES rise
+// with frequency — but by less than the frequency does, so in world terms the fine octave
+// still travels more slowly than the coarse one while decorrelating from its own past
+// about twice as fast. Fine detail should churn; the trunk of a vein should not.
+float fbm_flow(vec3 p, float t) {
+	return 0.5   * vnoise(p          + vec3( 0.61, -0.30,  0.73) * t)
+		+  0.25  * vnoise(p * 2.03   + vec3(-0.47,  0.80, -0.37) * (t * 1.6))
+		+  0.125 * vnoise(p * 4.1209 + vec3( 0.33,  0.42,  0.84) * (t * 2.3));
 }
 
 // One vein ribbon. `s` is a scalar field; the veins are its zero crossings, so warping
@@ -195,9 +254,22 @@ void fragment() {
 		// ribbon families off it at different projections so the veining branches and
 		// crosses the way real marble does instead of running as one combed direction.
 		vec3 q = v_obj * pattern_scale;
-		float w = fbm(q + vec3(0.0, TIME * pattern_scroll, 0.0));
-		float s1 = (q.x + q.y * 1.6 + q.z * 0.7) + w * warp_strength * 4.0;
-		float s2 = (q.z * 1.3 - q.x * 0.5 + q.y * 0.9) * 0.7 + w * warp_strength * 5.5;
+		// THE MORPH CLOCK. One number drives both of the things below that move; keeping
+		// them on the same clock means pattern_scroll = 0 still freezes the shell outright.
+		float mt = TIME * pattern_scroll;
+		float w = fbm_flow(q, mt);
+		// THE SECOND LEVER. The two ribbon families warp off the SAME field w (sampling a
+		// second one would be another 8 hash evaluations for a creature that does not need
+		// them), so on their own they would always wander in step and their crossings would
+		// be pinned. Instead each family's warp GAIN breathes on its own slow, incommensurate
+		// cycle — ~340 s and ~490 s at the authored rate, which never come back into phase on
+		// any timescale a player is standing there for. The families slip relative to each
+		// other, so the places where veins cross and branch migrate around the shell even
+		// where the underlying field is locally calm. Two sines, and nothing samples anything.
+		float g1 = warp_strength * (1.0 + 0.15 * sin(mt * 3.1));
+		float g2 = warp_strength * (1.0 + 0.15 * sin(mt * 2.17 + 2.4));
+		float s1 = (q.x + q.y * 1.6 + q.z * 0.7) + w * g1 * 4.0;
+		float s2 = (q.z * 1.3 - q.x * 0.5 + q.y * 0.9) * 0.7 + w * g2 * 5.5;
 		float vein = max(ribbon(s1, vein_width, vein_sharp),
 						 ribbon(s2, vein_width * 0.8, vein_sharp) * 0.75);
 		// THE HALO. A ribbon on its own reads as a drawn line — a topographic contour

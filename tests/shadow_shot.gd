@@ -2,9 +2,14 @@ extends Node
 ## Visual check on the sun's shadow quality and budget. Run WINDOWED (and --always-on-top:
 ## an occluded window presents nothing and saves black or stale frames).
 ##
-##   godot --path . --resolution 1280x720 --always-on-top res://tests/ShadowShot.tscn -- matrix
-##   godot --path . --resolution 1280x720 --always-on-top res://tests/ShadowShot.tscn -- dusk
-##   godot --path . --resolution 1280x720 --always-on-top res://tests/ShadowShot.tscn -- shot after
+## Always redirect stderr (2>/dev/null): a per-frame warning anywhere in the project turns
+## this into gigabytes of log, and piping that to `head` SIGPIPEs the engine mid-run. Every
+## result line is written to results.txt beside the PNGs regardless.
+##
+##   godot --path . --resolution 1280x720 --always-on-top res://tests/ShadowShot.tscn -- matrix 2>/dev/null
+##   godot --path . --resolution 1280x720 --always-on-top res://tests/ShadowShot.tscn -- perf 2>/dev/null
+##   godot --path . --resolution 1280x720 --always-on-top res://tests/ShadowShot.tscn -- shot after 2>/dev/null
+##   godot --path . --resolution 1280x720 --always-on-top res://tests/ShadowShot.tscn -- dusk 2>/dev/null
 ##
 ## MATRIX mode is the one that settles arguments. It boots the world ONCE, parks the camera
 ## on the open deck, and then re-shoots the SAME frame under a list of candidate shadow
@@ -18,15 +23,22 @@ extends Node
 ## must be compared as images; if the PNGs are byte-identical the setting is inert here.
 ##
 ## SHOT mode takes the single canonical deck frame under whatever the project currently
-## configures — that is the before/after pair.
+## configures — that is the before/after pair. It measures fps with the world LIVE and then
+## freezes it to take the picture, because those two answers need two different worlds.
+##
+## PERF mode is the framerate answer on its own: shipped settings and fixed settings
+## alternated in one boot, vsync off, frame time in milliseconds, at two vantages.
 ##
 ## DUSK mode is the original transition guard: sun_controller.gd switches the whole cascade
 ## off under 0.03 energy and back on over 0.08, and walking the sun down must not show a
 ## frame where shadows visibly snap out.
 ##
-## Saves to /tmp/shadowfix/ (matrix, shot) or /tmp/shadow_<phase>.png (dusk).
+## Saves to builds/shadow_proof/ (matrix, shot, perf) or /tmp/shadow_<phase>.png (dusk).
 
-const OUT_DIR: String = "/tmp/shadowfix"
+## builds/ is gitignored, so this keeps the evidence next to the project without putting
+## PNGs in the repo — and unlike /tmp it survives a reboot, which matters when the whole
+## point of the run is a before/after pair somebody else has to be able to open later.
+const OUT_DIR: String = "res://builds/shadow_proof"
 ## Two crop windows over the canonical frame, upscaled NEAREST so a shadow-map texel is
 ## countable by eye in the saved PNG rather than being a claim a reviewer has to take on
 ## trust. DECK is the long shallow shadow boundary running across the sunlit plating —
@@ -48,12 +60,24 @@ var main: Node3D
 var sun: DirectionalLight3D
 
 func _ready() -> void:
-	DirAccess.make_dir_recursive_absolute(OUT_DIR)
+	DirAccess.make_dir_recursive_absolute(ProjectSettings.globalize_path(OUT_DIR))
+	_log("[shadow] writing to %s" % ProjectSettings.globalize_path(OUT_DIR))
 	var args: PackedStringArray = OS.get_cmdline_user_args()
 	var mode: String = args[0] if args.size() > 0 else "shot"
 	var tag: String = args[1] if args.size() > 1 else "current"
 
 	_api_audit()
+
+	# ENGINE DIAGNOSTICS OFF for the whole run. Not tidiness — measurement hygiene. Unrelated
+	# in-flight work elsewhere in the project emits a Vector3-normalize warning from _process
+	# and _physics_process on EVERY frame; one run of this harness wrote 4.4 GB of stderr, and
+	# each of those warnings walks the GDScript stack to build a backtrace. Formatting them is
+	# expensive whether or not anyone is reading, and it dragged a 30-second world build out
+	# past nine minutes. It has to go off BEFORE Main is instantiated, because most of the
+	# spam is per-frame from the moment the fauna exist. The cost lands on both halves of an
+	# A/B equally, so muting it does not flatter either — it just stops both from measuring
+	# somebody else's logging.
+	Engine.print_error_messages = false
 
 	main = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
@@ -76,11 +100,20 @@ func _ready() -> void:
 				break
 	_park_camera()
 	_kill_pause()
+	# macOS throttles an occluded window's presentation almost to a stop, and this project is
+	# worked on by several agents at once, more than one of which boots its own windowed Godot
+	# to take screenshots. When one of those lands in front of this one, RenderingServer's
+	# frame_post_draw slows to a crawl and a capture run that takes a minute takes twenty.
+	# --always-on-top is not enough on its own once a later window claims the same flag.
+	DisplayServer.window_move_to_foreground()
+	_log("[shadow] world up, running '%s'" % mode)
 
 	match mode:
 		"matrix":
 			await _freeze()
 			await _matrix()
+		"perf":
+			await _perf()
 		"dusk":
 			await _dusk()
 		_:
@@ -132,6 +165,20 @@ func _frames(n: int) -> void:
 	for i in range(n):
 		await RenderingServer.frame_post_draw
 
+## Every result line also goes to a file beside the PNGs. stdout is not a reliable channel
+## here: an unrelated per-frame warning elsewhere in the project once buried a whole matrix
+## run under 64 million lines of stderr, and piping that to `head` killed the engine with
+## SIGPIPE before it shot a single config. The numbers belong next to the pictures anyway.
+func _log(s: String) -> void:
+	print(s)
+	var f: FileAccess = FileAccess.open(OUT_DIR + "/results.txt",
+		FileAccess.READ_WRITE if FileAccess.file_exists(OUT_DIR + "/results.txt") else FileAccess.WRITE)
+	if f == null:
+		return
+	f.seek_end()
+	f.store_line(s)
+	f.close()
+
 ## EVERY name this harness pokes, checked for existence before it is trusted. Assigning a
 ## property Godot does not have is a silent no-op and calling a RenderingServer method it
 ## does not have is a hard error one frame later; both have bitten this file's subject
@@ -181,14 +228,14 @@ func _single(tag: String) -> void:
 	var fps: float = await _measure()
 	await _freeze()
 	var step: float = await _save(tag)
-	print("[shadow] %s: mode=%d max_dist=%.1f split1=%.2f blend=%s nbias=%.3f bias=%.4f blur=%.2f dsize=%s d16=%s dfilter=%s pfilter=%s"
+	_log("[shadow] %s: mode=%d max_dist=%.1f split1=%.2f blend=%s nbias=%.3f bias=%.4f blur=%.2f dsize=%s d16=%s dfilter=%s pfilter=%s"
 		% [tag, sun.directional_shadow_mode, sun.directional_shadow_max_distance,
 			sun.directional_shadow_split_1, str(sun.directional_shadow_blend_splits),
 			sun.shadow_normal_bias, sun.shadow_bias, sun.shadow_blur,
 			str(_s("directional_shadow/size")), str(_s("directional_shadow/16_bits")),
 			str(_s("directional_shadow/soft_shadow_filter_quality")),
 			str(_s("positional_shadow/soft_shadow_filter_quality"))])
-	print("[shadow] %s: fps %5.1f  draws %6d  objs %5d  edge-step %.2f px"
+	_log("[shadow] %s: fps %5.1f  draws %6d  objs %5d  edge-step %.2f px"
 		% [tag, fps,
 			int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
 			int(Performance.get_monitor(Performance.RENDER_TOTAL_OBJECTS_IN_FRAME)), step])
@@ -211,6 +258,29 @@ const BASE: Dictionary = {
 	"dsize": 4096, "d16": true, "dfilt": 1, "pfilt": 3,
 	"nbias": 0.45, "bias": 0.035, "blur": 0.7,
 }
+## The three configurations `perf` mode weighs against each other.
+##   SHIPPED  — what main.gd and project.godot did BEFORE this batch.
+##   ORTHO4K  — the free half of the fix: one split instead of two, same 4096 atlas, same
+##              45 m range. 91 texels/m instead of 53, and SIXTY FEWER draw calls, because
+##              nothing gets rasterised into two cascades any more. Costs no memory at all.
+##   FIXED    — that, plus the atlas doubled to 8192: 182 texels/m. Same draw calls as
+##              ORTHO4K; the question this mode exists to answer is whether four times the
+##              depth-only fill area is free in TIME as well as in draw calls, because that
+##              is the claim project.godot makes and nobody had measured it.
+## FIXED must mirror what main.gd + project.godot ship now. If one changes and the other
+## does not, the perf delta is measuring a fiction.
+const SHIPPED: Dictionary = BASE
+const ORTHO4K: Dictionary = {
+	"mode": 0, "md": 45.0, "s1": 0.14, "blend": false,
+	"dsize": 4096, "d16": true, "dfilt": 1, "pfilt": 3,
+	"nbias": 0.45, "bias": 0.035, "blur": 0.7,
+}
+const FIXED: Dictionary = {
+	"mode": 0, "md": 45.0, "s1": 0.14, "blend": false,
+	"dsize": 8192, "d16": true, "dfilt": 1, "pfilt": 3,
+	"nbias": 0.45, "bias": 0.035, "blur": 0.7,
+}
+const PERF_SET: Dictionary = {"shipped": SHIPPED, "ortho4k": ORTHO4K, "fixed": FIXED}
 
 func _matrix() -> void:
 	var configs: Array = [
@@ -254,13 +324,19 @@ func _matrix() -> void:
 		{"n": "K_ortho_8192_lowbias", "mode": 0, "dsize": 8192, "nbias": 0.2, "bias": 0.02},
 		{"n": "A3_shipped"},
 	]
+	_log("[matrix] frozen, %d configs" % configs.size())
+	# NO fps HERE, deliberately. The matrix answers "what does it look like, and how much
+	# geometry does it rasterise" — draw calls are exact and need one frame, pixels need two.
+	# Timing belongs to `perf`, which alternates A/B with the world live. Measuring fps here
+	# as well cost 65 extra frames per config for a number that other Godot instances sharing
+	# this GPU were already making meaningless, and it turned the run from one minute into
+	# more than ten whenever another window was in front of this one.
 	for cfg in configs:
 		_apply(cfg)
-		await _frames(45)
-		var fps: float = await _measure()
+		await _frames(12)
 		var step: float = await _save(cfg["n"])
-		print("[matrix] %-22s fps %5.1f  draws %6d  edge-step %5.2f px   (%s)"
-			% [cfg["n"], fps,
+		_log("[matrix] %-22s draws %6d  edge-step %5.2f px   (%s)"
+			% [cfg["n"],
 				int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME)),
 				step, _desc(cfg)])
 
@@ -293,6 +369,82 @@ func _apply(cfg: Dictionary) -> void:
 	RenderingServer.directional_shadow_atlas_set_size(int(_v(cfg, "dsize")), bool(_v(cfg, "d16")))
 	RenderingServer.directional_soft_shadow_filter_set_quality(_v(cfg, "dfilt"))
 	RenderingServer.positional_soft_shadow_filter_set_quality(_v(cfg, "pfilt"))
+
+# ---------------------------------------------------------------- live A/B frame time
+## The shipped settings and the fixed ones, measured against each other IN ONE BOOT with the
+## world LIVE — physics, fauna, weather, the lot. Two things make this the only honest way
+## to answer "do the better shadows cost framerate":
+##
+##   * ALTERNATING. The first version of this matrix reported 35 fps for its first config
+##     and 52 for its last, on settings that cannot possibly differ by 50%. That was the
+##     machine warming up and the shader cache filling, not the settings. Running
+##     old/new/old/new/old/new and taking the MEDIAN of each cancels a drift that a single
+##     ordered pass reads as a result.
+##   * VSYNC OFF. With vsync on, anything that gets fast enough pins to 60 and the win
+##     disappears into the swap interval. This measures frame TIME, in milliseconds, which
+##     is the thing that adds up; fps is printed alongside because that is what the budget
+##     is stated in.
+##
+## Two vantages, because they stress different halves of the renderer: the deck (railings,
+## props, the ironwork close in — the worst case for shadow DRAW CALLS, and the view the
+## complaint is about) and the horizon (the long view that historically sat at 9.3 fps).
+const PERF_REPEATS: int = 3
+
+func _perf() -> void:
+	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
+	Engine.max_fps = 0
+	_day()
+	await get_tree().create_timer(2.0).timeout
+	for pose in ["deck", "horizon"]:
+		if pose == "horizon":
+			_park_camera_horizon()
+		else:
+			_park_camera()
+		await get_tree().create_timer(1.0).timeout
+		var samples: Dictionary = {}
+		var draws: Dictionary = {}
+		for key in PERF_SET:
+			samples[key] = []
+			draws[key] = 0
+		for r in range(PERF_REPEATS):
+			for key in PERF_SET:
+				_apply(PERF_SET[key])
+				await _frames(40)
+				var ms: float = await _measure_ms()
+				(samples[key] as Array).append(ms)
+				draws[key] = int(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
+		var ref: float = _median(samples["shipped"])
+		for key in PERF_SET:
+			var m: float = _median(samples[key])
+			_log("[perf] %-8s %-8s frame %6.2f ms (%5.1f fps)  draws %5d  vs shipped %+6.2f ms (%+.1f%%)  samples %s"
+				% [pose, key, m, 1000.0 / maxf(m, 0.001), draws[key], m - ref,
+					100.0 * (m - ref) / maxf(ref, 0.001),
+					str(samples[key]).replace(", ", " ")])
+
+## Same spot, but looking out along the deck to the open horizon: the long view where the
+## whole rig is in frame and the draw-call count peaks.
+func _park_camera_horizon() -> void:
+	var p: Node3D = main.player
+	p.global_position = Vector3(2.0, 18.1, 2.0)
+	p.rotation.y = deg_to_rad(35.0)
+	p.get_node("Head").rotation.x = deg_to_rad(-2.0)
+	p.set("velocity", Vector3.ZERO)
+	p.set("input_locked", true)
+
+## True wall-clock milliseconds per presented frame, not Engine.get_frames_per_second()'s
+## one-second running average — 120 frames is long enough to swallow a stutter and short
+## enough that six of them fit in a run.
+func _measure_ms() -> float:
+	await _frames(30)
+	var t0: int = Time.get_ticks_usec()
+	var n: int = 120
+	await _frames(n)
+	return float(Time.get_ticks_usec() - t0) / float(n) / 1000.0
+
+func _median(a: Array) -> float:
+	var s: Array = a.duplicate()
+	s.sort()
+	return s[s.size() / 2]
 
 ## Average fps over ~45 settled frames, so a config is never judged on the frame that
 ## reallocated its shadow map.

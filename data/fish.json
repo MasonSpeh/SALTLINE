@@ -1,5 +1,5 @@
 {
-  "_schema": "fish_id -> { name, rod, net, deep:true (deep-drop RIG pool ONLY \u2014 bait-gated, never rolls on the surface rod/net), w:{dawn,day,dusk,night}, storm: ok|only|never|bonus, light: any|drawn, water: any|near|open, depth: surface|mid|deep (the band the visible school swims in), drop_m (DEEP POOL ONLY: metres the deep rig's lead must sink before this species will take the bait \u2014 the ladder that makes a long drop fish deeper; past it the species thins out by FishTable.DROP_FADE_PER_M), size_kg:[min,max] landed weight rolled per catch, fillets:[min,max] portions ONE fish gives the stove or the drying line, scaled across its own size_kg (a species with fillets is a 'big' fish: it also cures straight from raw on a drying line instead of turning), fight, pull, cooked_to, school:{count,size,tint:[r,g,b],active:phases}, note }. One source of truth: rod rolls, net rolls, deep-drop rolls, stove map, visible schools, and the Angler's Notes readable are ALL generated from this table.",
+  "_schema": "fish_id -> { name, rod, net, deep:true (deep-drop RIG pool ONLY — bait-gated, never rolls on the surface rod/net), w:{dawn,day,dusk,night}, WEATHER IN THREE TIERS (calm / rain / storm, mutually exclusive — see FishTable.RAIN_MIN): storm: ok|only|never|bonus for a full squall, rain: ok|only|never|bonus for the drizzle either side of one, fog: ok|only|never|bonus for the sea-fog bank a squall leaves behind, light: any|drawn (comes UP to lit water after dark)|shy (will not come up while the floodlights burn, hour irrelevant — kill the breaker to fish it), water: any|near|open (open = >10 m off the rig rim; on the DEEP rig that is a function of DROP HEIGHT, since the lead's throw is fixed and only a fall from the topside plate or higher carries it clear), depth: surface|mid|deep (the band the visible school swims in), drop_m (DEEP POOL ONLY: metres the deep rig's lead must sink before this species will take the bait — the ladder that makes a long drop fish deeper; past it the species thins out by FishTable.DROP_FADE_PER_M), bait:{item_id: multiplier} this species' OWN opinion of what is on the hook, on top of the general deep/shallow/rate profile in FishTable.BAIT_TABLE (deep pool only — the surface rod and the net fish bare), size_kg:[min,max] landed weight rolled per catch, fillets:[min,max] portions ONE fish gives the stove or the drying line, scaled across its own size_kg (a species with fillets is a 'big' fish: it also cures straight from raw on a drying line instead of turning), fight, pull, cooked_to, school:{count,size,tint:[r,g,b],active:phases}, note }. One source of truth: rod rolls, net rolls, deep-drop rolls, stove map, visible schools, and the Fisherman's Handbook readable are ALL generated from this table.",
   "fish_copper_sprat": {
     "name": "Copper Sprat",
     "rod": true,
@@ -81,6 +81,7 @@
       "night": 4
     },
     "storm": "bonus",
+    "rain": "bonus",
     "light": "any",
     "water": "any",
     "depth": "mid",
@@ -100,7 +101,7 @@
       ],
       "shape": "fusiform"
     },
-    "note": "Loves a gray sky \u2014 bites double under storm cloud. Heavy, honest meat."
+    "note": "Loves a gray sky — bites double under storm cloud. Heavy, honest meat."
   },
   "fish_mirrorjack": {
     "name": "Mirrorjack",
@@ -113,6 +114,7 @@
       "night": 2
     },
     "storm": "ok",
+    "rain": "bonus",
     "light": "any",
     "water": "open",
     "depth": "surface",
@@ -133,7 +135,7 @@
       ],
       "shape": "deep"
     },
-    "note": "A dawn and dusk feeder in open water \u2014 fast, chrome, furious on the line."
+    "note": "A dawn and dusk feeder in open water — fast, chrome, furious on the line."
   },
   "fish_chimefish": {
     "name": "Chimefish",
@@ -146,6 +148,8 @@
       "night": 6
     },
     "storm": "never",
+    "rain": "never",
+    "fog": "bonus",
     "light": "any",
     "water": "any",
     "depth": "mid",
@@ -166,7 +170,7 @@
       ],
       "shape": "fusiform"
     },
-    "note": "Calm seas only \u2014 they won't ring in weather. Worth more traded than eaten, someday."
+    "note": "Calm seas only — they won't ring in weather. Worth more traded than eaten, someday."
   },
   "fish_silver_ladder": {
     "name": "Silver Ladder",
@@ -179,6 +183,8 @@
       "night": 1
     },
     "storm": "ok",
+    "rain": "never",
+    "fog": "bonus",
     "light": "any",
     "water": "open",
     "depth": "mid",
@@ -198,7 +204,7 @@
       ],
       "shape": "slender"
     },
-    "note": "Dawn columns over open water \u2014 the shoal stacks vertical, a shimmering pillar."
+    "note": "Dawn columns over open water — the shoal stacks vertical, a shimmering pillar."
   },
   "fish_ember_snapper": {
     "name": "Ember Snapper",
@@ -231,7 +237,7 @@
       ],
       "shape": "fusiform"
     },
-    "note": "Warm-bodied \u2014 crowds the rig's outfalls and warm steel. Fish the shadow of the deck."
+    "note": "Warm-bodied — crowds the rig's outfalls and warm steel. Fish the shadow of the deck."
   },
   "fish_sable_hake": {
     "name": "Sable Hake",
@@ -309,7 +315,8 @@
       "night": 12
     },
     "storm": "never",
-    "light": "any",
+    "rain": "never",
+    "light": "shy",
     "water": "open",
     "depth": "surface",
     "fight": 1.15,
@@ -328,7 +335,7 @@
       ],
       "shape": "pike"
     },
-    "note": "Clear still nights, open water \u2014 a pike you see through, found by the grit in its gut."
+    "note": "Clear still nights, open water — a pike you see through, found by the grit in its gut."
   },
   "fish_lodestone_bream": {
     "name": "Lodestone Bream",
@@ -360,7 +367,7 @@
       ],
       "shape": "deep"
     },
-    "note": "Deep daylight water. Its magnetized bones spin a compass \u2014 catch enough, craft crude magnets, someday."
+    "note": "Deep daylight water. Its magnetized bones spin a compass — catch enough, craft crude magnets, someday."
   },
   "fish_drum_croaker": {
     "name": "Drum Croaker",
@@ -373,6 +380,7 @@
       "night": 10
     },
     "storm": "only",
+    "rain": "bonus",
     "light": "any",
     "water": "any",
     "depth": "mid",
@@ -390,7 +398,7 @@
       "active": [],
       "shape": "fusiform"
     },
-    "note": "Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes \u2014 then they bite like they mean it."
+    "note": "Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes — then they bite like they mean it."
   },
   "fish_inkwell_squid": {
     "name": "Inkwell Squid",
@@ -422,7 +430,7 @@
       ],
       "shape": "squid"
     },
-    "note": "Night jigging. Comes up backwards in a huff of luminous ink \u2014 the ink's worth keeping too, someday."
+    "note": "Night jigging. Comes up backwards in a huff of luminous ink — the ink's worth keeping too, someday."
   },
   "fish_ribbon_eel": {
     "name": "Ribbon Eel",
@@ -436,10 +444,14 @@
       "night": 12
     },
     "storm": "ok",
+    "rain": "bonus",
     "light": "any",
     "water": "open",
     "depth": "deep",
     "drop_m": 8,
+    "bait": {
+      "snail_live": 1.9
+    },
     "fight": 1.5,
     "pull": 1.4,
     "cooked_to": "cooked_fish_ribbon_eel",
@@ -456,7 +468,7 @@
       ],
       "shape": "eel"
     },
-    "note": "The first thing the deep rig reaches \u2014 8 m down is enough. Dark water only. Comes up faintly crackling; the Bloom keeps strange batteries."
+    "note": "The first thing the deep rig reaches — 8 m down is enough. Dark water only. Comes up faintly crackling; the Bloom keeps strange batteries."
   },
   "fish_barrel_grouper": {
     "name": "Barrel Grouper",
@@ -474,11 +486,21 @@
     "water": "open",
     "depth": "deep",
     "drop_m": 16,
+    "bait": {
+      "crab_leg": 2.0,
+      "fish_rotten": 1.3
+    },
+    "size_kg": [
+      12.0,
+      48.0
+    ],
+    "fillets": [
+      6,
+      12
+    ],
     "fight": 2.3,
     "pull": 1.7,
     "cooked_to": "cooked_fish_barrel_grouper",
-    "size_kg": [12.0, 48.0],
-    "fillets": [6, 12],
     "school": {
       "count": 2,
       "size": 2.6,
@@ -493,7 +515,7 @@
       ],
       "shape": "barrel"
     },
-    "note": "The hardest fight on any rod, and the whole reason for the deep rig: drop a baited lead past 16 m of open water and hold on. A storm stirs them up off the bottom. One fish breaks down into six to twelve fillets, by its size \u2014 a big one feeds you for a week."
+    "note": "The hardest fight on any rod, and the whole reason for the deep rig: drop a baited lead past 16 m of open water and hold on. A storm stirs them up off the bottom. One fish breaks down into six to twelve fillets, by its size — a big one feeds you for a week."
   },
   "fish_stone_crab": {
     "name": "Stone Crab",
@@ -522,7 +544,7 @@
       ],
       "active": []
     },
-    "note": "Walks into a soaked net, never onto a hook. Shell's ceramic-hard \u2014 keep the pieces, someday."
+    "note": "Walks into a soaked net, never onto a hook. Shell's ceramic-hard — keep the pieces, someday."
   },
   "fish_gutter_prawn": {
     "name": "Gutter Prawn",
@@ -551,7 +573,7 @@
       ],
       "active": []
     },
-    "note": "Net filler. A soak rarely comes up without a few \u2014 the pens will want them, someday."
+    "note": "Net filler. A soak rarely comes up without a few — the pens will want them, someday."
   },
   "fish_miller_flounder": {
     "name": "Miller's Flounder",
@@ -599,8 +621,14 @@
     "fight": 2.0,
     "pull": 1.5,
     "cooked_to": "cooked_fish_fathom_halibut",
-    "size_kg": [20.0, 70.0],
-    "fillets": [1, 3],
+    "size_kg": [
+      20.0,
+      70.0
+    ],
+    "fillets": [
+      1,
+      3
+    ],
     "school": {
       "count": 1,
       "size": 3.2,
@@ -614,7 +642,7 @@
       ],
       "shape": "flat"
     },
-    "note": "Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Breaks down into one to three fillets \u2014 careful with that filet."
+    "note": "Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Breaks down into one to three fillets — careful with that filet."
   },
   "the_looker": {
     "name": "The Looker",
@@ -624,10 +652,11 @@
     "w": {
       "dawn": 1,
       "day": 1,
-      "dusk": 1,
-      "night": 2
+      "dusk": 2,
+      "night": 3
     },
     "storm": "ok",
+    "fog": "bonus",
     "light": "any",
     "water": "any",
     "depth": "deep",
@@ -662,6 +691,10 @@
     "water": "any",
     "depth": "deep",
     "drop_m": 34,
+    "bait": {
+      "fish_rotten": 2.0,
+      "glow_worm": 1.4
+    },
     "fight": 2.2,
     "pull": 1.7,
     "cooked_to": "cooked_fish_prime",
@@ -675,7 +708,7 @@
       ],
       "active": []
     },
-    "note": "Deep-drop rig only, and not until the lead is 34 m down. All jaw and gut \u2014 it swallows things bigger than itself. Night water, off the bottom, on a baited hook."
+    "note": "Deep-drop rig only, and not until the lead is 34 m down. All jaw and gut — it swallows things bigger than itself. Night water, off the bottom, on a baited hook."
   },
   "fish_bloom_dragon": {
     "name": "Bloom Dragonfish",
@@ -693,6 +726,9 @@
     "water": "any",
     "depth": "deep",
     "drop_m": 38,
+    "bait": {
+      "glow_worm": 2.0
+    },
     "fight": 2.0,
     "pull": 1.55,
     "cooked_to": "cooked_fish_prime",
@@ -724,11 +760,20 @@
     "water": "any",
     "depth": "deep",
     "drop_m": 44,
+    "bait": {
+      "crab_leg": 2.4
+    },
+    "size_kg": [
+      30.0,
+      95.0
+    ],
+    "fillets": [
+      5,
+      9
+    ],
     "fight": 3.0,
     "pull": 2.1,
     "cooked_to": "cooked_fish_prime",
-    "size_kg": [30.0, 95.0],
-    "fillets": [5, 9],
     "school": {
       "count": 0,
       "size": 0,
@@ -739,7 +784,7 @@
       ],
       "active": []
     },
-    "note": "Deep-drop rig only, and the deepest thing the spool reaches \u2014 44 m, the end of the line. Armoured, ancient, patient: the longest fight in the sea. A storm stirs them up off the bottom, and one breaks down into five to nine prime fillets."
+    "note": "Deep-drop rig only, and the deepest thing the spool reaches — 44 m, the end of the line. Armoured, ancient, patient: the longest fight in the sea. A storm stirs them up off the bottom, and one breaks down into five to nine prime fillets."
   },
   "fish_abyss_grenadier": {
     "name": "Abyss Grenadier",
@@ -757,11 +802,20 @@
     "water": "open",
     "depth": "deep",
     "drop_m": 24,
+    "bait": {
+      "crab_leg": 1.7
+    },
+    "size_kg": [
+      5.0,
+      16.0
+    ],
+    "fillets": [
+      3,
+      6
+    ],
     "fight": 1.9,
     "pull": 1.5,
     "cooked_to": "cooked_fish_prime",
-    "size_kg": [5.0, 16.0],
-    "fillets": [3, 6],
     "school": {
       "count": 0,
       "size": 0,
@@ -820,6 +874,7 @@
       "night": 4
     },
     "storm": "bonus",
+    "rain": "bonus",
     "light": "any",
     "water": "any",
     "depth": "mid",
@@ -853,6 +908,7 @@
       "night": 2
     },
     "storm": "never",
+    "rain": "never",
     "light": "any",
     "water": "open",
     "depth": "surface",
@@ -918,6 +974,7 @@
       "night": 6
     },
     "storm": "never",
+    "rain": "never",
     "light": "any",
     "water": "near",
     "depth": "surface",
@@ -984,6 +1041,7 @@
       "night": 9
     },
     "storm": "only",
+    "fog": "never",
     "light": "any",
     "water": "open",
     "depth": "surface",
@@ -1014,6 +1072,7 @@
       "night": 10
     },
     "storm": "ok",
+    "rain": "bonus",
     "light": "any",
     "water": "near",
     "depth": "deep",
@@ -1051,6 +1110,9 @@
     "water": "any",
     "depth": "deep",
     "drop_m": 28,
+    "bait": {
+      "fish_rotten": 2.6
+    },
     "fight": 1.7,
     "pull": 1.3,
     "cooked_to": "cooked_fish_prime",
@@ -1072,21 +1134,31 @@
     "net": false,
     "deep": true,
     "w": {
-      "dawn": 0,
-      "day": 0,
-      "dusk": 1,
-      "night": 1
+      "dawn": 1,
+      "day": 1,
+      "dusk": 4,
+      "night": 6
     },
-    "storm": "ok",
+    "storm": "bonus",
+    "fog": "bonus",
     "light": "any",
-    "water": "open",
+    "water": "any",
     "depth": "deep",
     "drop_m": 42,
+    "bait": {
+      "glow_worm": 2.4
+    },
+    "size_kg": [
+      40.0,
+      85.0
+    ],
+    "fillets": [
+      4,
+      4
+    ],
     "fight": 3.2,
     "pull": 2.3,
     "cooked_to": "cooked_fish_prime",
-    "size_kg": [40.0, 85.0],
-    "fillets": [4, 4],
     "school": {
       "count": 0,
       "size": 0,
@@ -1111,15 +1183,24 @@
       "night": 6
     },
     "storm": "ok",
-    "light": "any",
-    "water": "open",
+    "light": "shy",
+    "water": "any",
     "depth": "deep",
     "drop_m": 20,
+    "bait": {
+      "snail_live": 2.2
+    },
+    "size_kg": [
+      15.0,
+      35.0
+    ],
+    "fillets": [
+      4,
+      4
+    ],
     "fight": 2.5,
     "pull": 1.9,
     "cooked_to": "cooked_fish_prime",
-    "size_kg": [15.0, 35.0],
-    "fillets": [4, 4],
     "school": {
       "count": 0,
       "size": 0,

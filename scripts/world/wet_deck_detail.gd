@@ -515,9 +515,12 @@ func _scatter_items() -> void:
 	# (x16.125) its tip grazes the wall and it reads as leant, not levitating.
 	_takeable("fishing_rod", "Fishing Rod", Vector3(16.5, y + 0.05, -16.75))
 	_takeable("prybar", "Prybar", Vector3(16.3, y + 0.05, -17.1))
-	# The Angler's Notes beside it: every species, its hours, its water, its
-	# weather — generated from the same table the rod actually rolls against.
-	_readable("anglers_notes", "Angler's Notes", Vector3(11.7, y + 0.62, -16.6), Vector3(0.32, 0.4, 0.05))
+	# The Fisherman's Handbook beside it: every species, its hours, its weather tier, its
+	# water, its depth and what it wants on the hook — read against the same table the rod
+	# actually rolls. Unlike every other readable on this rig it is a real object: [E] reads
+	# it where it lies, [F] pockets it, and it can be set down at whatever rail you fish.
+	# See scripts/components/handbook.gd.
+	preload("res://scripts/components/handbook.gd").place_origin(self, Vector3(11.7, y + 0.62, -16.6))
 	# Drying lines: catch goes straight from the water to the wind. Strung by the
 	# rigging bench (west of the SPHL exit) and along the loot-room wall — clear of
 	# the pod's hatch corridor (x18.6–21.4, z-22.9→-21), and raised above head.

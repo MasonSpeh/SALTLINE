@@ -107,6 +107,71 @@ const EMERGE_STAGGER: float = 2.0   ## seconds between pack members leaving the 
 ## even set off, on top of a 60 m swim in from the west legs. Halved: the whole pack is
 ## committed within ~30 s of nightfall and up on the plating well inside the night.
 
+## ================= THE DAY COLUMN ====================================================
+##
+## MEASURED, NOT GUESSED (tests/crab_life_probe.gd sweeps this every run). Swim in at any
+## caisson and the first surface you meet says which band you are in:
+##
+##     y  +0.5 .. -3.0     the PONTOON SKIRT, at |x| 28
+##     everywhere else     the CAISSON's own face, at |x| 25, down past y -23
+##
+## The skirt is ONE 56 x 8 x 4 m casting sleeved over all four legs
+## (rig_builder._build_structure), and the pack's authored cling band — y -0.35 to -1.35 —
+## sat squarely inside it. So the day roost was seated perfectly, on the real concrete, and
+## SEALED: three of eight crabs measured with no line of sight out through the slab, and the
+## rest only visible because they had wandered onto the skirt's own outer wall. A day spent
+## inside the foundations is a day nobody can see.
+##
+## Below the skirt the leg is bare concrete for eighty metres. That is where a crab that
+## crawls "up and down the rig legs" actually lives, so the day column starts just under the
+## slab and ranges down. It is deliberately not the whole leg: past about fifteen metres the
+## water is too dark and too far off any rim for the crawl to be worth anything to look at.
+const SKIRT_BOTTOM: float = -3.05   ## underside of the pontoon skirt
+const SKIRT_TOP: float = 0.95       ## and its walking top — the leg-climb haul-out
+const DAY_Y_TOP: float = -4.0       ## highest a day crawl goes: a clear body under the slab
+## (was -3.6, which is only half a metre below the skirt's underside at -3.05: close enough
+## that a crab at the top of its column grazed the concrete it was hanging beneath)
+const DAY_Y_DEEP: float = -15.0     ## and the bottom of the column it works
+const DAY_STEP: float = 3.2         ## ordinary depth change between two roam targets
+const DEEP_TRIP: float = 0.3        ## chance a target is a full-column haul instead
+## Where a route out from under the slab passes. The skirt's plan is x -28..28, |z| 8..16,
+## so |z| 16.8 is outboard of it by a body length, and |x| 30.5 is outboard of the whole
+## rig — which is where every authored emergence lane already starts.
+const SKIRT_OUT: float = 16.8
+const RIM_OUT: float = 30.5
+const SWIM_UP_Y: float = -1.2       ## transit depth of the authored rim lanes
+const HAUL_Y: float = 1.6           ## just over the skirt top: where a leg climb begins
+
+## HOME IS A PLACE YOU CHECK IN AT (owner spec). A den the animal sits in all day is not a
+## den, it is a parking space; these are the seconds a crab is free to work its column
+## before the next visit falls due, and how long it stays when it gets there.
+const DEN_RANGE_MIN: float = 55.0
+const DEN_RANGE_MAX: float = 145.0
+const DEN_DWELL_MIN: float = 4.0
+const DEN_DWELL_MAX: float = 11.0
+
+## ================= THE NIGHT RAMP ====================================================
+##
+## Owner spec: "at night they begin to emerge, randomly, and then in increasing number over
+## time". The old code had no schedule at all — one coin at nightfall and everyone who won
+## it was over the rim inside the first minute, which measured as a dead-flat 3-of-8 from
+## the first sample to the last. A night should FILL UP.
+##
+## Each crab now draws its own first-attempt time as a fraction of the ramp, weighted late,
+## so early night is one or two animals and the deck keeps gaining them. SURFACE_CHANCE is
+## NOT deleted and NOT retuned — it keeps its authored meaning exactly, but it is now rolled
+## at each attempt rather than once for the whole night: a crab that thinks better of it at
+## dusk can still come up at two in the morning, which is both what the spec asks for and
+## what makes the turnout a curve instead of a step. Deep night therefore approaches the
+## full pack, while any single moment early on is as sparse as the 50% coin ever made it.
+const EMERGE_WINDOW: float = 0.8    ## last FIRST attempt, as a fraction of the ramp
+const EMERGE_BIAS: float = 0.65     ## <1 weights the draw late; 1.0 would be a flat ramp
+const EMERGE_RETRY_MIN: float = 0.14
+const EMERGE_RETRY_MAX: float = 0.30
+## How much of the ramp belongs to DUSK. The back half of dusk is already the crab's cue
+## (the light is more than half gone by then), so the keenest few come up before true night.
+const DUSK_SHARE: float = 0.12
+
 ## Corpse + harvest. The touch collider is built by the SPAWNER (BloomFauna owns the
 ## FaunaTouch class), handed over here, and kept on collision_layer 0 until the crab dies:
 ## a live crab must not shove the player around or answer [E], and FaunaMove.kin_bodies
@@ -130,6 +195,12 @@ var _fleeing_home: bool = false     ## FLEE reached the water and is walking to 
 var _scare_retreat: bool = false    ## FLEE is a short back-off from a beam, not a rout
 var _retreat_t: float = 0.0
 var _commit: float = 0.0            ## pursuit grace while you are out of reach
+var _home: Vector3 = Vector3.ZERO   ## the den: where this crab checks back in (see _roost)
+var _range_t: float = 0.0           ## seconds of free ranging left before the next check-in
+var _at_den: bool = false           ## the current roam leg IS the trip home
+var _emerge_at: float = 0.0         ## ramp fraction at which it next considers coming up
+var _emerge_run: Array = []         ## haul-out riser + the authored emergence lane
+var _home_run: Array = []           ## the dive back down to the den, built when FLEE needs it
 var _sense_cd: float = 0.0          ## brief blindness after a blocked approach, so a crab
 ## boxed in behind a crate walks a new roam leg instead of re-acquiring you on the very
 ## next frame and pressing the same crate again.
@@ -354,9 +425,40 @@ func _ready() -> void:
 	_last_pos = global_position
 	_guard_pos = global_position
 	_night_wait = float(spawn_index) * EMERGE_STAGGER
-	_roam_target = global_position
+	# THE PACK USED TO SWIM TO THE WORLD ORIGIN. _ready() runs inside add_child(), and the
+	# spawner assigns global_position on the line AFTER it — so `global_position` is still
+	# (0,0,0) here, and seeding the roam target from it pointed every crab at the middle of
+	# the rig. ROOST only re-picks a target when it ARRIVES, so the whole pack then swam a
+	# dead-straight 25 m line across the waterline, through the heart of the rig, for the
+	# first ~50 s of every session — measured, not theorised (CrabLifeProbe traced crab 0
+	# from (20.6,-0.3,-7.4) to (2.5,-0.03,-0.9) with its target pinned at Vector3.ZERO).
+	# The roost IS known at this point, because the spawner writes roost_loop before adding
+	# the child, so the first target comes off the crab's own leg instead.
+	_home = _make_den()
+	_range_t = _rng.randf_range(DEN_RANGE_MIN, DEN_RANGE_MAX)
+	_roll_night_schedule()
+	_roam_target = _pick_water_target()
 	if not roost_loop.is_empty():
 		_wp_index = spawn_index % roost_loop.size()
+
+## THE DEN. Its face and its footprint are the spawner's (the authored cling loop names both);
+## its DEPTH is the crab's own, drawn from its per-index seed. That is what spaces the pack
+## out vertically as well as around the four caissons — ten dens on ten faces all at one
+## height would still read as a row of crabs on a shelf, and the whole point of a den is that
+## it is somewhere particular.
+func _make_den() -> Vector3:
+	if roost_loop.is_empty():
+		return global_position
+	var p: Vector3 = roost_loop[0]
+	p.y = _rng.randf_range(DAY_Y_DEEP + 1.5, DAY_Y_TOP - 0.8)
+	return p
+
+## Where the spawner should set this crab down. Its own den — NOT the authored cling point,
+## which sits inside the pontoon skirt (see THE DAY COLUMN): seating the pack there and
+## letting it crawl clear would spend the first ten seconds of every session with crabs
+## inside the foundations.
+func den_seat() -> Vector3:
+	return _home
 
 ## ---------- body ----------
 
@@ -594,11 +696,19 @@ func _respawn() -> void:
 	_level = L_WATER
 	_wp_index = 0
 	_climb_path = []
+	_emerge_run = []
+	_home_run = []
 	_night_wait = float(spawn_index) * EMERGE_STAGGER
 	up = roost_up
 	_seated = false
+	# The sea puts the replacement back in the DEN, not on the authored cling point: that
+	# point is inside the pontoon skirt (see THE DAY COLUMN), so respawning onto it would
+	# start every new crab entombed. It also gets tonight's schedule, not last night's.
 	if not roost_loop.is_empty():
-		global_position = roost_loop[0]
+		global_position = _home
+	_at_den = false
+	_range_t = _rng.randf_range(DEN_RANGE_MIN, DEN_RANGE_MAX)
+	_roll_night_schedule()
 	_roam_target = _pick_water_target()
 	if corpse_touch is CollisionObject3D:
 		(corpse_touch as CollisionObject3D).collision_layer = 0
@@ -634,6 +744,9 @@ func _start_flee() -> void:
 	state = State.FLEE
 	_fleeing_home = false
 	_leg_descent = false
+	_home_run = []
+	if _emerge_run.is_empty():
+		_emerge_run = emerge_path
 	# Caught on the leg (dawn, or a rout, while it is still on the concrete): back DOWN the
 	# same face, starting from the point of the route it is nearest. Anything else would
 	# have sent it swimming to the top of the east rim lane from halfway up a caisson.
@@ -649,7 +762,7 @@ func _start_flee() -> void:
 		return
 	_descending = _level > L_WET and _set_link(next_toward(_level, L_WET))
 	if not _descending:
-		_wp_index = maxi(emerge_path.size() - 1, 0)   # walk the emergence path backwards
+		_wp_index = maxi(_emerge_run.size() - 1, 0)   # walk the emergence run backwards
 
 ## ---------- the bite ----------
 
@@ -726,22 +839,67 @@ func _aggression() -> float:
 		_:
 			return 0.0
 
-## Is it time to be up on the rig? All night, and the back half of dusk — the light is
-## more than half gone by then and the first of them are already over the rim.
-func _wants_up() -> bool:
-	if not _surface_tonight:
-		return false
+## Is the rig OPEN to crabs at all? All night, and the back half of dusk — the light is
+## more than half gone by then and the first of them are already over the rim. This is the
+## phase alone; whether THIS crab has decided to be out in it is _surface_tonight.
+func _night_window() -> bool:
 	if GameClock.current_phase == GameClock.Phase.NIGHT:
 		return true
 	return GameClock.current_phase == GameClock.Phase.DUSK and GameClock.phase_fraction() > 0.45
 
-## The nightly coin: independent per crab, same rule the King Crab already used.
-func _on_night_roll() -> void:
-	_surface_tonight = _rng.randf() < SURFACE_CHANCE
+## Is it time for this crab to be up on the rig?
+func _wants_up() -> bool:
+	return _surface_tonight and _night_window()
 
-## Day home: a free wander over the crab's own submerged leg face — not a lap of a
-## four-point rectangle. When the light goes it heads for its emergence lane, unless it
-## is beaten or freshly scared.
+## How far through the crab's night we are, 0 at the moment the light goes to 1 at the end
+## of it. GameClock has no such number — phase_fraction() restarts at every phase boundary
+## and SunController's own night ramp is pinned flat at 1.0 for the whole of NIGHT — so the
+## two phases a crab cares about are stitched together here: the back half of DUSK is the
+## run-up (worth DUSK_SHARE of the ramp, which is what lets the first one or two be over the
+## rim before true dark) and NIGHT is the rest.
+func _night_progress() -> float:
+	match GameClock.current_phase:
+		GameClock.Phase.DUSK:
+			return clampf((GameClock.phase_fraction() - 0.45) / 0.55, 0.0, 1.0) * DUSK_SHARE
+		GameClock.Phase.NIGHT:
+			return DUSK_SHARE + (1.0 - DUSK_SHARE) * GameClock.phase_fraction()
+		_:
+			return 0.0
+
+## Draw this crab's hour. Weighted late (EMERGE_BIAS < 1), so the pack does not arrive in a
+## block: a handful are out early and the rest keep joining as the night goes on.
+func _roll_night_schedule() -> void:
+	_surface_tonight = false
+	_emerge_at = EMERGE_WINDOW * pow(_rng.randf(), EMERGE_BIAS)
+
+## The coin, at this crab's hour. SURFACE_CHANCE is unchanged and still means what it always
+## meant — "does it fancy it?" — but a crab that declines does not sit out the whole night
+## any more; it goes back to its column and thinks about it again later. That single change
+## is the entire ramp: the chance of being up rises with every hour that passes.
+func _tick_night_schedule() -> void:
+	if _surface_tonight or _beaten:
+		return
+	if not _night_window():
+		return
+	if _night_progress() < _emerge_at:
+		return
+	if _rng.randf() < SURFACE_CHANCE:
+		_surface_tonight = true
+	else:
+		_emerge_at = _night_progress() + _rng.randf_range(EMERGE_RETRY_MIN, EMERGE_RETRY_MAX)
+
+## The nightly reset. Kept on the GameClock.night signal (and re-run at dusk) so a crab that
+## was killed, beaten or simply left over from last night starts the new one with a fresh
+## schedule rather than yesterday's answer.
+func _on_night_roll() -> void:
+	if not _surface_tonight:
+		_roll_night_schedule()
+
+## THE DAY. A slow, unhurried crawl up and down the crab's own submerged caisson face — not
+## a lap of a four-point rectangle, and not a shift spent sitting in a den. It works the
+## column, checks back in at home every minute or two, and leaves again. Then, once its own
+## hour of the night comes round (THE NIGHT RAMP), it goes up: its own leg if that leg is
+## climbable, the east rim lane if not. Unless it is beaten or freshly scared.
 func _roost(delta: float) -> void:
 	# ROOST means "in the water, on my leg", so say so. Without this a crab forced into
 	# ROOST from outside (TestRunner parks one back on its roost) would keep the deck roam
@@ -753,10 +911,30 @@ func _roost(delta: float) -> void:
 		_roam_hold -= delta
 		_orient(delta)
 	elif _step_free(_roam_target, ROOST_SPEED, delta):
-		_roam_target = _pick_water_target()
-		_roam_hold = _rng.randf_range(0.6, 3.0)
+		# CHECK IN, THEN LEAVE AGAIN (owner spec: "they shouldn't stay there really, just
+		# check back in"). _range_t is how much longer this crab is free to work its column;
+		# when it runs out the NEXT leg is the trip home, it sits in the den for a moment,
+		# and then it is off again with a fresh licence. So the den is a place that keeps
+		# appearing in the animal's day rather than a place the animal is parked.
+		if _at_den:
+			_at_den = false
+			_range_t = _rng.randf_range(DEN_RANGE_MIN, DEN_RANGE_MAX)
+			_roam_target = _pick_water_target()
+			_roam_hold = _rng.randf_range(DEN_DWELL_MIN, DEN_DWELL_MAX)
+		elif _range_t <= 0.0:
+			_at_den = true
+			_roam_target = _home
+			_roam_hold = 0.0
+		else:
+			_roam_target = _pick_water_target()
+			_roam_hold = _rng.randf_range(0.6, 3.0)
 		if _rng.randf() < 0.35:
 			_sidle_sign = -_sidle_sign   # crabs swap their leading side
+	if not _at_den:
+		_range_t -= delta
+	# The night's own schedule. Until this crab's hour comes round it is simply a crab on a
+	# leg; _wants_up() stays false and the block below never fires.
+	_tick_night_schedule()
 	if _wants_up() and not _beaten and _scare_cd <= 0.0:
 		_night_wait -= delta
 		if _night_wait <= 0.0:
@@ -768,12 +946,20 @@ func _roost(delta: float) -> void:
 			if _begin_leg_climb():
 				return
 			state = State.EMERGE
+			_emerge_run = _haul_out(SWIM_UP_Y, true) + emerge_path
 			_wp_index = 0
 
-## Free wander on the cling face. Grown out from the authored loop so the pack drifts
-## over the WHOLE submerged face, then clamped back inside the caisson's own footprint
-## (|x| 17.6..26.4, |z| 7.6..16.4, y -2.2..-0.3) so a day roost is always ON its leg and
-## never adrift in open water.
+## Free wander on the cling face, and UP AND DOWN IT. Grown out from the authored loop so
+## the pack drifts over the whole submerged face, then clamped back inside the caisson's own
+## footprint (|x| 17.6..26.4, |z| 7.6..16.4) so a day roost is always ON its leg and never
+## adrift in open water.
+##
+## The depth is the part that makes it a leg rather than a shelf. Most targets are a short
+## move from the crab's current height — an unhurried sidle, which is what the owner asked
+## the day to look like — but roughly one in three is a full-column haul to wherever else on
+## the leg it fancies, and those are the trips you actually notice from a rim. The band is
+## the exposed concrete below the pontoon skirt; see THE DAY COLUMN for why the old one was
+## inside it.
 func _pick_water_target() -> Vector3:
 	if roost_loop.is_empty():
 		return global_position
@@ -785,21 +971,72 @@ func _pick_water_target() -> Vector3:
 	if t1.length() < 0.2:
 		t1 = up.cross(Vector3.FORWARD)
 	t1 = t1.normalized()
-	p += t1 * _rng.randf_range(-1.6, 1.6) + Vector3.UP * _rng.randf_range(-0.5, 0.5)
+	p += t1 * _rng.randf_range(-1.6, 1.6)
+	if _rng.randf() < DEEP_TRIP:
+		p.y = _rng.randf_range(DAY_Y_DEEP, DAY_Y_TOP)
+	else:
+		p.y = clampf(global_position.y, DAY_Y_DEEP, DAY_Y_TOP) \
+			+ _rng.randf_range(-DAY_STEP, DAY_STEP)
 	var sx: float = signf(p.x) if absf(p.x) > 0.01 else 1.0
 	var sz: float = signf(p.z) if absf(p.z) > 0.01 else 1.0
 	p.x = sx * clampf(absf(p.x), 17.6, 26.4)
 	p.z = sz * clampf(absf(p.z), 7.6, 16.4)
-	p.y = clampf(p.y, -2.2, -0.3)
+	p.y = clampf(p.y, DAY_Y_DEEP, DAY_Y_TOP)
 	return p
 
+## ---------- out from under the slab ----------
+##
+## The day column lies BELOW the pontoon skirt, and the skirt is one continuous casting over
+## every leg (x -28..28, |z| 8..16, y -3.05..0.95). So a crab that simply swam up toward its
+## emergence lane would swim into four metres of concrete. It leaves the way anything under a
+## jetty leaves: sideways out from under the slab first — keeping its own x, so the line never
+## crosses the leg it is clinging to — then up the open water outboard of it.
+##
+## Two flavours, because there are two ways up. The RIM lane wants the crab at transit depth
+## and outboard of the whole rig, which is where every authored lane already begins. The LEG
+## climb wants it at the skirt's own edge, just above the top it is about to haul out onto.
+func _haul_out(rise_y: float, to_rim: bool) -> Array:
+	if global_position.y > SKIRT_BOTTOM:
+		return []                       # already clear of the slab: nothing to duck out from
+	var sz: float = signf(_home.z) if absf(_home.z) > 0.01 else 1.0
+	var sx: float = signf(_home.x) if absf(_home.x) > 0.01 else 1.0
+	var out_z: float = sz * SKIRT_OUT
+	# Back off the face by a body before turning along it. The inboard cling faces sit only
+	# a hand's breadth outside the caisson's own footprint (|x| 18.9 against a leg that runs
+	# to 19.0), so a turn taken from the seat itself would drag the shell through the corner.
+	var off: float = (global_position + up * BODY_R).x
+	var path: Array = [
+		Vector3(off, global_position.y, out_z),   # out from under the slab, at depth
+		Vector3(off, rise_y, out_z),              # up the open water outboard of it
+	]
+	if to_rim:
+		path.append(Vector3(sx * RIM_OUT, rise_y, out_z))       # and clear of the rig's beam
+	return path
+
+## The way back down, and the exact reverse problem: a crab coming home off the rim (or off
+## the top of its own leg) is ABOVE the slab and its den is under it. Out clear of the plan
+## first, then down the open water, then in along the face. Diving before stepping out is
+## what would put it through the pontoon.
+func _dive_home() -> Array:
+	var sz: float = signf(_home.z) if absf(_home.z) > 0.01 else 1.0
+	var out_z: float = sz * SKIRT_OUT
+	var path: Array = []
+	if global_position.y > SKIRT_BOTTOM:
+		path.append(Vector3(global_position.x, maxf(global_position.y, SWIM_UP_Y), out_z))
+	path.append(Vector3(_home.x, _home.y, out_z))
+	path.append(_home)
+	return path
+
 ## The visible climb out of the sea: water -> rim -> deck, no teleporting. Direct motion
-## along the authored, sonar-validated lane; the surface frame grabs the deck at the lip.
+## along the authored, sonar-validated lane, with the haul-out riser in front of it; the
+## surface frame grabs the deck at the lip.
 func _emerge(delta: float) -> void:
 	if not _wants_up():
 		_start_flee()
 		return
-	if _follow_path_free(emerge_path, SWIM_SPEED, delta):
+	if _emerge_run.is_empty():
+		_emerge_run = emerge_path
+	if _follow_path_free(_emerge_run, SWIM_SPEED, delta):
 		_level = L_WET
 		state = State.PATROL
 		_roam_target = _pick_roam_target()
@@ -808,6 +1045,15 @@ func _emerge(delta: float) -> void:
 ## Up on the rig: roam this level, and hunt. Sensing owns the state — roaming only fills
 ## the time between one sighting and the next.
 func _patrol(delta: float, player: Node3D) -> void:
+	# ALREADY OUT OF THE WATER COUNTS AS HAVING DECIDED. A crab can arrive on the plating
+	# without ever running the schedule — TestRunner and the shot scripts stage the pack by
+	# writing `state` and `global_position` straight onto it — and sending those home for
+	# never having rolled would be the code arguing with the evidence in front of it. The
+	# night schedule governs when a crab LEAVES THE WATER, not whether it is allowed to be
+	# standing on a deck it is demonstrably standing on. (Same spirit as the level self-heal
+	# just below, and the reason both exist: authored state has to survive being staged.)
+	if not _surface_tonight and _night_window() and global_position.y > 1.0:
+		_surface_tonight = true
 	if not _wants_up():
 		_start_flee()    # dawn / daylight: visibly go home over the rim
 		return
@@ -945,27 +1191,35 @@ func _flee(delta: float, player: Node3D) -> void:
 			_seated = false
 			_descending = _level > L_WET and _set_link(next_toward(_level, L_WET))
 			if not _descending:
-				_wp_index = maxi(emerge_path.size() - 1, 0)
+				_wp_index = maxi(_emerge_run.size() - 1, 0)
 		return
 	if not _fleeing_home:
-		# Walk the emergence path backwards: deck -> rim -> water.
-		if _wp_index < 0 or emerge_path.is_empty():
+		# Walk the emergence run backwards: deck -> rim -> out from under the slab.
+		if _wp_index < 0 or _emerge_run.is_empty():
 			_fleeing_home = true
 			return
-		if _step_free(emerge_path[_wp_index], SWIM_SPEED, delta):
+		if _step_free(_emerge_run[_wp_index], SWIM_SPEED, delta):
 			_wp_index -= 1
 			if _wp_index < 0:
 				_fleeing_home = true
 				AudioDirector.play_one_shot("splash", global_position, -8.0)
 	else:
-		var home: Vector3 = roost_loop[0] if not roost_loop.is_empty() else global_position
-		if _step_free(home, SWIM_SPEED * 0.7, delta):
+		# And back in under it to the den. Built once, on arrival, because where the dive
+		# starts depends on which way home the crab took — off the rim, or down its own leg.
+		if _home_run.is_empty():
+			_home_run = _dive_home()
+			_wp_index = 0
+		if _follow_path_free(_home_run, SWIM_SPEED * 0.7, delta):
 			state = State.ROOST
 			_level = L_WATER
 			_wp_index = 0
 			up = roost_up            # back on its leg face: cling frame restored
 			_seated = false
-			_roam_target = _pick_water_target()
+			_home_run = []
+			_emerge_run = []
+			_at_den = true           # it is home: dwell a moment, then range again
+			_roam_target = _home
+			_roam_hold = _rng.randf_range(DEN_DWELL_MIN, DEN_DWELL_MAX)
 			_night_wait = float(spawn_index) * EMERGE_STAGGER
 
 func _on_dawn() -> void:
@@ -976,6 +1230,10 @@ func _on_dawn() -> void:
 	_beaten = false
 	_scare_retreat = false
 	_night_wait = float(spawn_index) * EMERGE_STAGGER
+	# Tonight is over; draw the schedule for the NEXT one now. Without this a crab that came
+	# up last night carries `_surface_tonight` true straight into the following dusk and goes
+	# over the rim the instant the light drops, which is the flat turnout the ramp replaces.
+	_roll_night_schedule()
 	if state == State.PATROL or state == State.PURSUE or state == State.EMERGE \
 			or state == State.CLIMB:
 		_start_flee()
@@ -1089,7 +1347,9 @@ func _begin_climb_toward(target: int) -> bool:
 func _begin_leg_climb() -> bool:
 	if leg_climb.is_empty():
 		return false
-	_climb_path = leg_climb.duplicate()
+	# The riser first: the authored route starts on TOP of the pontoon skirt, and a crab that
+	# has spent the day down the column has to get out from under it before it can stand there.
+	_climb_path = _haul_out(HAUL_Y, false) + leg_climb
 	_climb_i = 0
 	_climb_to = L_TOPSIDE
 	_stalled = 0.0
@@ -1432,8 +1692,11 @@ func _unstick_guard(delta: float) -> void:
 			if state == State.CLIMB:
 				_climb_i += 1
 			elif state == State.EMERGE:
-				if not emerge_path.is_empty():
-					_relocate(emerge_path[_nearest_index(emerge_path)])
+				# The RUN, not the bare authored lane: _wp_index indexes the run (haul-out
+				# riser + lane), so dropping the crab onto a point of the lane alone would
+				# leave the index pointing at a completely different waypoint.
+				if not _emerge_run.is_empty():
+					_relocate(_emerge_run[_nearest_index(_emerge_run)])
 			else:
 				# Back to a known-good point on this level, then a fresh roam leg.
 				if _level == L_WET and not patrol_loop.is_empty():

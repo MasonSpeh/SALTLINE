@@ -145,6 +145,15 @@ static func build(item_id: String) -> Node3D:
 			return root
 		_fish_body(root, species, cooked, size_mul)
 		return root
+	# Real geometry for everything else — a generated mesh under assets/models/items/, or
+	# a mapped prop from the CC0 library (PropLib.item_model tries them in that order).
+	# Null is the normal answer for most of the roster and simply falls through to the
+	# procedural silhouette below, so this can only ever add: deleting a PropLib entry
+	# restores the old look with no edit here.
+	var real: Node3D = PropLib.item_model(item_id)
+	if real != null:
+		root.add_child(real)
+		return root
 	match item_id:
 		"canned_food":
 			_can(root, Color(0.7, 0.72, 0.75), Color(0.6, 0.3, 0.2))

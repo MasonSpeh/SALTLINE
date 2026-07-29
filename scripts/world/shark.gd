@@ -139,7 +139,18 @@ func _ready() -> void:
 	_tail.add_child(lower)
 	# Swap in the generated hammerhead if it's been produced; the body wave comes from
 	# CreatureAnim's vertex shader (Meshy can't rig animals), driven below by swim effort.
-	var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 5.0, ANIM.Mode.UNDULATE,
+	#
+	# 7 m, not the 5 m the procedural body above is built at. That is a deliberate change,
+	# and it is about MASS rather than about the number: the generated mesh spends its last
+	# 40% of length on a thin caudal whip (tests/SharkProbe's X slice profile — the
+	# cross-section collapses to 0.10 at the peduncle and only recovers past x -0.08), so a
+	# 5 m normalisation leaves under 3 m of actual animal and reads as a mid-sized shark
+	# with a long tail. At 7 m the solid part of the body is ~4.1 m, the cephalofoil spans
+	# 2.1 m and the pectorals 3.6 m — bigger than the 6.1 m record for a real great
+	# hammerhead, which is the point of "grown past reason", and unmistakable next to the
+	# rig's 6 m caisson legs. NOTICE/BITE radii are measured from this node's origin and
+	# are deliberately left alone: they are the encounter's tuning, not the model's.
+	var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 7.0, ANIM.Mode.UNDULATE,
 		0.09, 1.1, GLOW)
 	if not gen.is_empty():
 		_mats = gen["mats"]

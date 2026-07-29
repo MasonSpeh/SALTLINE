@@ -172,33 +172,61 @@ func _build_environment() -> void:
 	add_child(we)
 	var sun := DirectionalLight3D.new()   # must be first DirectionalLight: sky tracks it
 	sun.shadow_enabled = true
-	# FRAME BUDGET. In gl_compatibility every PSSM split re-draws every shadow caster it
-	# contains, so the 4-split default multiplied this rig's ~6,800 mesh surfaces into
-	# ~20,000 draw calls and held the two commonest vantages (standing on deck, sitting at
-	# sea level) at 9-10 fps on an M1. Two splits over 80 m covers everything the player
-	# reads shadows on — the deck they stand on and the structure immediately around it —
-	# and the far rig reads by silhouette and fog anyway.
-	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_PARALLEL_2_SPLITS
-	# 60 -> 45 m. max_distance IS the caster cull for the cascades: nothing past it is
+	# ONE SPLIT, NOT TWO. This is the whole of the "shadows look blocky" fix and it was
+	# counter-intuitive enough to survive two rounds of tuning that never touched it.
+	#
+	# PARALLEL_2_SPLITS does not give each cascade the shadow atlas. It gives each cascade
+	# HALF the atlas edge — 2048 out of 4096 — and then split_1 decided how the world was
+	# divided between them. At 0.14 the near cascade spent its entire 2048 map on the first
+	# 6.3 metres (325 texels/metre, far finer than anything can show) and left 6.3-45 m —
+	# every railing, stanchion and stair the player actually looks at — on the other 2048
+	# map: 53 texels/metre, a shadow texel nearly 2 cm across. That is the staircase in the
+	# owner's screenshots. It is not a filtering problem and no amount of bias fixes it.
+	#
+	# ORTHOGONAL gives the single cascade the WHOLE atlas over the whole 45 m. Measured with
+	# tests/ShadowShot.tscn (matrix mode, frozen world, same frame): 91 texels/metre at the
+	# same 4096, and SIXTY FEWER draw calls per frame, because nothing near the split
+	# boundary is rasterised into two cascades any more. Better and cheaper, both.
+	# Combined with the 8192 atlas in project.godot it is 182 texels/metre — 3.4x what the
+	# mid-field had. Cost, measured over 120 frames alternating live: +0.5 ms/frame.
+	#
+	# The one thing given up is the near cascade's excess: inside ~6 m, shadows go from 325
+	# to 182 texels/metre. Nothing in the capture shows that as a loss — 182/m is a 5 mm
+	# texel — and it buys the other 39 metres.
+	sun.directional_shadow_mode = DirectionalLight3D.SHADOW_ORTHOGONAL
+	# 60 -> 45 m. max_distance IS the caster cull for the cascade: nothing past it is
 	# drawn into a shadow map at all, so this is the one knob that removes shadow DRAW
 	# CALLS rather than just making them cheaper to rasterise. tests/FrameAttrib.tscn put
 	# the sun's pass at 31-42% of every draw call in the frame, and the rig is ~50 m
 	# across, so 60 m was paying to shadow the far side of a structure that reads as
 	# silhouette and fog from anywhere you can stand. 45 m still covers the whole deck you
 	# are on and the ironwork immediately around it, which is all a shadow is legible on.
+	#
+	# It is ALSO the other resolution knob now that there is one cascade: texels/metre is
+	# simply atlas/max_distance. 32 m would buy another 40% sharpness for one fewer draw
+	# call — it was measured, it looks good, and it is not taken, because at 32 m the far
+	# derrick stops casting onto the deck you are standing on and that is a visible loss.
 	sun.directional_shadow_max_distance = 45.0
-	sun.directional_shadow_split_1 = 0.14
-	# Bias and blur are measured in TEXELS in effect, and the directional map went 2048 ->
-	# 4096 over the same 45 m (project.godot), so every default here is now worth twice what
-	# it was authored to be. Godot's directional defaults (normal_bias 1.0, bias 0.1, blur
-	# 1.0) at ~91 texels/metre detach a shadow from the thing casting it by a visible finger's
-	# width and smear the edge back into the mush the extra resolution was bought to remove.
+	# No split_1 here on purpose: SHADOW_ORTHOGONAL has one cascade and the split fractions
+	# are ignored. Setting it would read like a tuned value and be dead.
+	#
+	# Bias is measured in TEXELS in effect — Godot scales it by the cascade's texel size —
+	# so tripling the resolution has already tightened these by the same factor and they do
+	# NOT want re-tuning downward on top of that. Godot's directional defaults (normal_bias
+	# 1.0, bias 0.1) detach a shadow from the thing casting it by a visible finger's width.
+	# 0.2 was tried against 0.45 at 8192 in the matrix and changed nothing legible, so the
+	# already-proven value stays rather than walking toward acne for no gain.
+	#
 	# NOTE: the property is shadow_normal_bias (inherited from Light3D). There is no
 	# directional_shadow_normal_bias in Godot 4 — writing that name silently does nothing
 	# and leaves the sun at the 1.0 default this line exists to bring down.
 	sun.shadow_normal_bias = 0.45
 	sun.shadow_bias = 0.035
-	sun.shadow_blur = 0.7
+	# NO shadow_blur. The property exists on Light3D, so assigning it is not an error — it
+	# is simply ignored by this renderer. gl_compatibility's scene shader hands its PCF
+	# kernel the raw shadow_atlas_pixel_size with no blur term anywhere in the path, and
+	# the matrix proved it: blur 0.0 and blur 4.0 produced BYTE-IDENTICAL frames. A line
+	# setting it would be a tuning knob that does not turn.
 	add_child(sun)
 	var moon := DirectionalLight3D.new()
 	moon.light_color = Color(0.62, 0.72, 0.95)

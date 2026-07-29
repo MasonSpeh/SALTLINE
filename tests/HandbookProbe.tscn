@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://handbook_probe"]
+
+[ext_resource type="Script" path="res://tests/handbook_probe.gd" id="1"]
+
+[node name="HandbookProbe" type="Node"]
+script = ExtResource("1")

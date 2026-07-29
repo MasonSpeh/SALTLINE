@@ -1,0 +1,421 @@
+extends Node
+## THE CRAB'S WHOLE DAY, MEASURED. CrabNightProbe already proves the JOURNEY works (roost
+## -> support/rim -> plating); what it never asked is whether the pack behaves like an
+## animal on either side of that journey:
+##
+##   * DAY   — do they actually move? over what VERTICAL range (the owner wants them
+##             crawling up and down the legs, not idling in one band)? are their home
+##             dens spread around all four caissons, or piled on three of them? and is
+##             any of them standing INSIDE the concrete rather than on it?
+##   * NIGHT — does the turnout RAMP? A pack that is all out ten seconds after nightfall
+##             is a switch, not a night. This samples the emerged count at ten points
+##             across the real 780 s NIGHT phase and prints the curve.
+##   * SEAT  — every crab's origin, measured against the face under it, held to crab.gd's
+##             own CLEAR and never more than a FaunaMove.SurfaceCrawler.FOOT slack either
+##             side of it.
+##
+## It also sweeps the caisson columns themselves, because "crawl up and down the legs"
+## is only meaningful where a leg HAS an exposed face: the pontoon skirt (y -3.05..0.95)
+## is one solid casting wrapping all four legs, so the column report below is what says
+## which depths are real surface and which are the inside of a slab.
+##
+## Run: godot --headless --path . res://tests/CrabLifeProbe.tscn
+
+const MOVE := preload("res://scripts/world/fauna_move.gd")
+const CRAWLER_FOOT: float = 0.02      ## FaunaMove.SurfaceCrawler.FOOT — the crawler's own
+## clearance. The crab holds a deliberately larger CLEAR (0.10) because its body origin sits
+## inside a 1.1 m shell rather than under a snail's foot; FOOT is the tolerance we allow
+## around that, so "seated" means |gap - CLEAR| <= FOOT.
+const TIME_SCALE: float = 6.0
+const DAY_SAMPLE_SEC: float = 240.0   ## game seconds of daylight to watch. Long enough to
+## cover a whole check-in cycle: crab.gd ranges for DEN_RANGE_MIN..MAX (55-145 s) before the
+## den falls due, so a 45 s window measured the crawl but could never have caught a visit.
+const DEN_HIT: float = 0.8            ## how close counts as "checked in"
+const RAMP_SAMPLES: int = 10          ## points across the night
+const EMERGED_Y: float = 0.5          ## above this it is out of the water (test convention)
+const LOG_PATH: String = "/tmp/crab_life_probe.txt"
+## How far off the face a crab has to have open water before we call it VISIBLE. The rig is
+## built out of CSG boxes, whose collision is a trimesh — and Godot's point query cannot see
+## inside a concave shape at all, so point_solid() reports "open water" for a body sealed in
+## the middle of a four-metre concrete slab. The honest test is the one a diver would run:
+## cast from open water BACK at the animal along the face normal it is clinging to, because
+## a trimesh front face does stop that ray.
+const SIGHT: float = 6.0
+
+var failures: int = 0
+var _lines: PackedStringArray = PackedStringArray()
+var _only: String = ""
+
+func _ready() -> void:
+	for a in OS.get_cmdline_user_args():
+		_only = String(a).lstrip("-")
+	await _run()
+	_say("---")
+	_say("FAILURES: %d" % failures)
+	get_tree().quit(1 if failures > 0 else 0)
+
+func _say(msg: String) -> void:
+	print(msg)
+	_lines.append(msg)
+	var f := FileAccess.open(LOG_PATH, FileAccess.WRITE)
+	if f != null:
+		f.store_string("\n".join(_lines) + "\n")
+		f.close()
+
+func _check(label: String, cond: bool, detail: String = "") -> void:
+	if cond:
+		_say("PASS  " + label + ("  — " + detail if detail != "" else ""))
+	else:
+		failures += 1
+		_say("FAIL  " + label + ("  — " + detail if detail != "" else ""))
+
+## Land the clock on an exact fraction of a phase. force_phase() alone always starts a
+## phase at 0.0, which is useless for measuring a ramp; the documented way to sit at an
+## arbitrary point is to write _phase_elapsed_sec afterwards (tests/photo_shoot.gd).
+func _set_time(phase: int, frac: float) -> void:
+	GameClock.force_phase(phase)
+	var dur: float = float(GameClock.phase_durations_minutes[phase]) * 60.0
+	GameClock.set("_phase_elapsed_sec", clampf(frac, 0.0, 0.999) * dur)
+
+## Which caisson a point sits over: "SE"/"NE"/"SW"/"NW", or "" for none. The legs are 6x6
+## boxes centred on (+-22, +-12); the test convention for "at a leg" (content_probe,
+## test_runner) is 5 m of slack around those centres, so the same window is used here.
+func _leg_of(p: Vector3) -> String:
+	if absf(absf(p.x) - 22.0) >= 5.0 or absf(absf(p.z) - 12.0) >= 5.0:
+		return ""
+	return ("N" if p.z > 0.0 else "S") + ("E" if p.x > 0.0 else "W")
+
+## Gap between a crab's origin and the face its own `up` says it is standing on. Negative
+## means the origin is on the wrong side of the surface — i.e. inside it.
+func _seat_gap(c: Node3D) -> float:
+	var up: Vector3 = c.up
+	var hit: Dictionary = MOVE.surface_hit(c, c.global_position, up, 0.9, 1.6,
+		MOVE.kin_bodies(c))
+	if hit.is_empty():
+		return INF
+	return (c.global_position - (hit["point"] as Vector3)).dot(up)
+
+## Could anyone SEE this crab? Ray from SIGHT metres out along the face normal of the leg it
+## lives on, back to just off its shell. Anything in the way means it is crawling inside a
+## casting or in a sealed pocket, however clean its seat reads.
+##
+## The AUTHORED normal (roost_up), not the crab's live `up`. A crab that is momentarily
+## unseated — between faces, or drifting a hand's breadth off the concrete — has its `up`
+## eased back toward +Y, and casting DOWNWARD at an animal that is legitimately underneath
+## the pontoon slab hits the slab every time. That is a diver standing on the deck, not a
+## diver in the water, and it failed a crab that was exactly where it was supposed to be.
+func _exposed(c: Node3D) -> bool:
+	var world: World3D = c.get_world_3d()
+	if world == null:
+		return true
+	var up: Vector3 = (c.roost_up as Vector3).normalized()
+	var q := PhysicsRayQueryParameters3D.create(c.global_position + up * SIGHT,
+		c.global_position + up * 0.25)
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = MOVE.kin_bodies(c)
+	return world.direct_space_state.intersect_ray(q).is_empty()
+
+func world_of(n: Node3D) -> World3D:
+	return n.get_world_3d()
+
+## ---------------------------------------------------------------- the caisson columns
+##
+## For each leg, walk the outboard face from above the pontoon down into the deep and
+## report where a body clinging at the authored 0.3 m stand-off would actually BE: in
+## open water with concrete under it (a real cling face) or inside a casting.
+func _sweep_columns(host: Node3D) -> void:
+	_say("caisson column sweep — is there an exposed face to crawl, and where?")
+	var skip: Array[RID] = MOVE.kin_bodies(host)
+	for leg in [Vector3(22, 0, -12), Vector3(22, 0, 12), Vector3(-22, 0, -12), Vector3(-22, 0, 12)]:
+		var sx: float = signf(leg.x)
+		var sz: float = signf(leg.z)
+		var name: String = ("N" if sz > 0.0 else "S") + ("E" if sx > 0.0 else "W")
+		# Swim in from open water at each depth and see WHAT you hit. The leg's own face is
+		# at |x| 25; the pontoon skirt that sleeves it is at |x| 28. Which one answers tells
+		# us, depth by depth, whether a crab clinging here is on the caisson or on the skirt
+		# — and point_solid() cannot: CSG collision is a trimesh, and Godot's point query
+		# never reports a point inside a concave shape, which is why the first version of
+		# this sweep cheerfully called four metres of solid concrete "open water".
+		var bands := {}
+		var y: float = 2.0
+		while y > -24.0:
+			var from := Vector3(leg.x + sx * 12.0, y, leg.z)
+			var to := Vector3(leg.x + sx * 1.0, y, leg.z)
+			var q := PhysicsRayQueryParameters3D.create(from, to)
+			q.collision_mask = 1
+			q.collide_with_areas = false
+			q.exclude = skip
+			var hit: Dictionary = world_of(host).direct_space_state.intersect_ray(q)
+			var face: String = "OPEN (nothing out to |x|%.0f)" % absf(to.x)
+			if not hit.is_empty():
+				face = "face at |x| %.2f" % absf((hit["position"] as Vector3).x)
+			if not bands.has(face):
+				bands[face] = [y, y]
+			else:
+				(bands[face] as Array)[1] = y
+			y -= 0.5
+		_say("   %s leg, swimming in along +-x:" % name)
+		for k in bands:
+			_say("      y %6.1f .. %6.1f   %s" % [(bands[k] as Array)[0], (bands[k] as Array)[1], k])
+
+## ---------------------------------------------------------------- day
+func _day_audit(crabs: Array) -> void:
+	_say("")
+	_say("=== DAY ===")
+	_set_time(GameClock.Phase.DAY, 0.4)
+	await get_tree().process_frame
+	for i in range(30):
+		await get_tree().physics_frame
+
+	var n: int = crabs.size()
+	var start: Array = []
+	var lo_y: Array = []
+	var hi_y: Array = []
+	var travelled: Array = []
+	var prev: Array = []
+	var buried_frames: Array = []
+	var worst_gap: Array = []
+	# The check-in. HOME IS NOT WHERE THEY SIT (owner spec) — so this counts two different
+	# things: how many separate visits each crab paid its den, and what share of the day it
+	# spent parked in it. A pack that never goes home fails the first; a pack that lives at
+	# home fails the second, and the old always-at-the-roost behaviour would have.
+	var den_visits: Array = []
+	var at_den: Array = []
+	var den_frames: Array = []
+	for c in crabs:
+		start.append((c as Node3D).global_position)
+		prev.append((c as Node3D).global_position)
+		lo_y.append(99.0)
+		hi_y.append(-99.0)
+		travelled.append(0.0)
+		buried_frames.append(0)
+		worst_gap.append(0.0)
+		den_visits.append(0)
+		at_den.append(false)
+		den_frames.append(0)
+
+	Engine.time_scale = TIME_SCALE
+	var elapsed: float = 0.0
+	var samples: int = 0
+	var skip: Array[RID] = MOVE.kin_bodies(crabs[0])
+	while elapsed < DAY_SAMPLE_SEC:
+		await get_tree().process_frame
+		elapsed += get_process_delta_time()
+		samples += 1
+		for i in range(n):
+			var c: Node3D = crabs[i]
+			if not is_instance_valid(c):
+				continue
+			var p: Vector3 = c.global_position
+			travelled[i] = float(travelled[i]) + (p - (prev[i] as Vector3)).length()
+			prev[i] = p
+			lo_y[i] = minf(float(lo_y[i]), p.y)
+			hi_y[i] = maxf(float(hi_y[i]), p.y)
+			if MOVE.point_solid(c, p, skip):
+				buried_frames[i] = int(buried_frames[i]) + 1
+			var g: float = _seat_gap(c)
+			if g != INF:
+				worst_gap[i] = maxf(float(worst_gap[i]), absf(g - c.CLEAR))
+			var home: bool = p.distance_to(c._home as Vector3) < DEN_HIT
+			if home:
+				den_frames[i] = int(den_frames[i]) + 1
+				if not bool(at_den[i]):
+					den_visits[i] = int(den_visits[i]) + 1
+			at_den[i] = home
+		# Trace one crab's drift, so a pack that walks off its leg says WHERE it went and
+		# where it thought it was going, rather than only showing up as a bad end position.
+		if samples % 120 == 0:
+			var t: Node3D = crabs[0]
+			_say("      [t+%5.1fs] crab 0 %s at %s -> %s  up %s  %s"
+				% [elapsed, preload("res://scripts/world/crab.gd").State.keys()[int(t.state)],
+					str(t.global_position.snapped(Vector3.ONE * 0.1)),
+					str((t._roam_target as Vector3).snapped(Vector3.ONE * 0.1)),
+					str((t.up as Vector3).snapped(Vector3.ONE * 0.01)),
+					"seated" if bool(t._seated) else "ADRIFT"])
+		# Hold the phase: at 6x the 34-minute DAY still cannot roll over, but a probe that
+		# silently drifted into DUSK would be measuring the wrong animal.
+		if GameClock.current_phase != GameClock.Phase.DAY:
+			_set_time(GameClock.Phase.DAY, 0.4)
+	Engine.time_scale = 1.0
+
+	var legs := {}
+	var total_buried: int = 0
+	var moved_any: int = 0
+	var seen: int = 0
+	var vert: Array = []
+	for i in range(n):
+		var c: Node3D = crabs[i]
+		var p: Vector3 = c.global_position
+		var leg: String = _leg_of(p)
+		legs[leg] = int(legs.get(leg, 0)) + 1
+		total_buried += int(buried_frames[i])
+		var span: float = float(hi_y[i]) - float(lo_y[i])
+		vert.append(span)
+		if float(travelled[i]) > 1.0:
+			moved_any += 1
+		if _exposed(c):
+			seen += 1
+		var CrabS := preload("res://scripts/world/crab.gd")
+		_say("   crab %d  leg %-3s  %-7s L%-2d  at %-22s up %-18s %s  -> target %-22s  crawled %5.1fm  y %6.2f..%6.2f (span %4.2f)  seat err %.3f  %s"
+			% [i, leg if leg != "" else "--", CrabS.State.keys()[int(c.state)], int(c._level),
+				str(p.snapped(Vector3.ONE * 0.01)),
+				str((c.up as Vector3).snapped(Vector3.ONE * 0.01)),
+				"seated" if bool(c._seated) else "ADRIFT",
+				str((c._roam_target as Vector3).snapped(Vector3.ONE * 0.01)),
+				float(travelled[i]),
+				float(lo_y[i]), float(hi_y[i]), span, float(worst_gap[i]),
+				"visible" if _exposed(c) else "BURIED"])
+	_say("   den spread by caisson: %s" % str(legs))
+
+	_check("every crab is awake and crawling by day", moved_any == n,
+		"%d of %d moved more than a metre in %.0fs" % [moved_any, n, DAY_SAMPLE_SEC])
+	_check("the dens are spread over all four caissons", legs.size() >= 4 and not legs.has(""),
+		"occupied: %s" % str(legs))
+	var max_per_leg: int = 0
+	for k in legs:
+		max_per_leg = maxi(max_per_leg, int(legs[k]))
+	_check("no caisson carries more than a quarter of the pack, rounded up",
+		max_per_leg <= int(ceil(float(n) / 4.0)), "busiest leg has %d of %d" % [max_per_leg, n])
+	var climbers: int = 0
+	for v in vert:
+		if float(v) > 2.0:
+			climbers += 1
+	_check("the day crawl works the leg VERTICALLY, not one flat band", climbers >= n / 2,
+		"%d of %d crabs covered more than 2 m of depth in %.0fs" % [climbers, n, DAY_SAMPLE_SEC])
+	_check("no crab spends the day inside the concrete", total_buried == 0,
+		"%d buried crab-frames across %d samples" % [total_buried, samples])
+	_check("every day roost is out in the open water where it can be seen", seen == n,
+		"%d of %d have %.0f m of clear water off the face they cling to" % [seen, n, SIGHT])
+	var seated_ok: int = 0
+	for g in worst_gap:
+		if float(g) <= CRAWLER_FOOT:
+			seated_ok += 1
+	_check("every crab is seated flush (|gap - CLEAR| <= SurfaceCrawler.FOOT)",
+		seated_ok == n, "%d of %d within %.2f m" % [seated_ok, n, CRAWLER_FOOT])
+	var checked_in: int = 0
+	var homebodies: int = 0
+	var visit_total: int = 0
+	for i in range(n):
+		visit_total += int(den_visits[i])
+		if int(den_visits[i]) > 0:
+			checked_in += 1
+		if float(den_frames[i]) / float(maxi(samples, 1)) > 0.5:
+			homebodies += 1
+	_say("   den visits in %.0fs: %s   (frames spent at home: %s of %d samples)"
+		% [DAY_SAMPLE_SEC, str(den_visits), str(den_frames), samples])
+	_check("the pack checks back in at its dens", checked_in >= n / 2,
+		"%d of %d crabs visited home, %d visits total in %.0fs"
+			% [checked_in, n, visit_total, DAY_SAMPLE_SEC])
+	_check("but none of them LIVES there — home is a visit, not a seat", homebodies == 0,
+		"%d of %d spent over half the day parked at the den" % [homebodies, n])
+	return
+
+## ---------------------------------------------------------------- night
+func _night_ramp(crabs: Array) -> Array:
+	_say("")
+	_say("=== NIGHT (the emergence ramp) ===")
+	var n: int = crabs.size()
+	_set_time(GameClock.Phase.NIGHT, 0.0)
+	GameClock.night.emit()          # force_phase already emitted; harmless, and it makes the
+	# per-night roll explicit even if a future refactor moves the hook.
+	await get_tree().process_frame
+
+	var night_sec: float = float(GameClock.phase_durations_minutes[GameClock.Phase.NIGHT]) * 60.0
+	_say("   night is %.0fs of game time; sampling %d points at %.0fx" % [night_sec, RAMP_SAMPLES, TIME_SCALE])
+	Engine.time_scale = TIME_SCALE
+	var curve: Array = []
+	# High-water marks. Where a crab IS at a sample says little — it may be halfway up a leg,
+	# or already walking back down the tower — so the peak is what proves the climb happened.
+	var peak: Array = []
+	for i in range(n):
+		peak.append(-99.0)
+	for s in range(RAMP_SAMPLES):
+		var want_frac: float = float(s + 1) / float(RAMP_SAMPLES)
+		while GameClock.phase_fraction() < want_frac \
+				and GameClock.current_phase == GameClock.Phase.NIGHT:
+			await get_tree().process_frame
+			for i in range(n):
+				if is_instance_valid(crabs[i]):
+					peak[i] = maxf(float(peak[i]), (crabs[i] as Node3D).global_position.y)
+		var out: int = 0
+		var climbed: int = 0
+		for i in range(n):
+			var c: Node3D = crabs[i]
+			if not is_instance_valid(c):
+				continue
+			if c.global_position.y > EMERGED_Y:
+				out += 1
+			if float(peak[i]) > 16.0:
+				climbed += 1
+		curve.append(out)
+		_say("   night %3d%%   emerged %d/%d   (have reached the topside plate: %d)"
+			% [int(want_frac * 100.0), out, n, climbed])
+		if GameClock.current_phase != GameClock.Phase.NIGHT:
+			break
+	Engine.time_scale = 1.0
+	var CrabS := preload("res://scripts/world/crab.gd")
+	for i in range(n):
+		var c: Node3D = crabs[i]
+		_say("   crab %d  %-7s  y%6.2f  peak y%6.2f  %s"
+			% [i, CrabS.State.keys()[int(c.state)], c.global_position.y, float(peak[i]),
+				"[support route]" if not (c.leg_climb as Array).is_empty() else "[rim lane]"])
+	return curve
+
+func _run() -> void:
+	var main: Node3D = load("res://scenes/Main.tscn").instantiate()
+	add_child(main)
+	await get_tree().process_frame
+	await get_tree().create_timer(4.0).timeout
+	for i in range(10):
+		await get_tree().physics_frame
+
+	var crabs: Array = get_tree().get_nodes_in_group("giant_crab")
+	crabs.sort_custom(func(a, b): return int(a.spawn_index) < int(b.spawn_index))
+	var want: int = int(preload("res://scripts/world/bloom_fauna.gd").CRAB_COUNT)
+	_check("the pack spawned at its authored cap", crabs.size() == want,
+		"%d crabs (cap %d)" % [crabs.size(), want])
+	if crabs.is_empty():
+		return
+
+	# Park the player far away and non-colliding: a nearby player turns PATROL into PURSUE
+	# and the day/night measurement would be measuring a chase instead.
+	var p: Node3D = main.get("player")
+	if p != null and p is CollisionObject3D:
+		var pc := p as CollisionObject3D
+		pc.set_collision_layer_value(1, false)
+		pc.set_collision_mask_value(1, false)
+		(p as Node3D).global_position = Vector3(-150, 40, 150)
+
+	_sweep_columns(crabs[0])
+	if _only != "night":
+		await _day_audit(crabs)
+	var curve: Array = []
+	if _only != "day":
+		curve = await _night_ramp(crabs)
+
+	# THE RAMP ITSELF. Not "some crabs came out" — the turnout has to GROW: the first
+	# tenth of the night must be quieter than the last, and the peak must be a real pack.
+	if curve.size() >= RAMP_SAMPLES:
+		var early: int = int(curve[0]) + int(curve[1])          # first 20% of the night
+		var late: int = int(curve[curve.size() - 2]) + int(curve[curve.size() - 1])
+		var peak: int = 0
+		for v in curve:
+			peak = maxi(peak, int(v))
+		_check("early night is sparse", int(curve[0]) <= maxi(1, crabs.size() / 4),
+			"%d of %d out at 10%% of the night" % [int(curve[0]), crabs.size()])
+		_check("the turnout RAMPS across the night", late > early,
+			"first 20%%: %d crab-samples, last 20%%: %d" % [early, late])
+		_check("deep night is a real pack", peak >= crabs.size() / 2,
+			"peak %d of %d" % [peak, crabs.size()])
+		_say("   ramp: %s" % str(curve))
+
+	if _only == "day":
+		return
+	# Nothing may finish the night standing in solid geometry.
+	var skip: Array[RID] = MOVE.kin_bodies(crabs[0])
+	var buried: Array[String] = []
+	for c in crabs:
+		if MOVE.point_solid(c, (c as Node3D).global_position, skip):
+			buried.append("crab %d at %s" % [int(c.spawn_index), str((c as Node3D).global_position)])
+	_check("no crab ends the night inside a collider", buried.is_empty(), str(buried))

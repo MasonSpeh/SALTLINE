@@ -31,11 +31,16 @@ const PEARL := Color(0.88, 0.94, 0.92)
 
 ## --- Giant crabs: a pool of EIGHT, spread around the four caisson legs --------------
 ## DAY: every crab clings to a submerged face of one of the 4 caisson legs (6x6 boxes at
-## x=±22 z=±12 — SE fills x[19,25] z[-15,-9]), sidling its cling loop — visible to anyone
-## who leans over a rim or swims. The crab carries a snail-style surface frame now
-## (crab.gd `up` + per-frame seat), so each loop names the FACE NORMAL it clings to and
-## the seat pins the feet to the real concrete: no more hovering at hand-typed heights.
-## NIGHT: on a staggered cue each goes up. A crab on one of the three free-standing legs
+## x=±22 z=±12 — SE fills x[19,25] z[-15,-9]) and crawls slowly UP AND DOWN it, below the
+## pontoon skirt, checking back in at its own den every minute or two rather than sitting in
+## it. The crab carries a snail-style surface frame (crab.gd `up` + per-frame seat), so each
+## loop names the FACE NORMAL it clings to and the seat pins the feet to the real concrete:
+## no more hovering at hand-typed heights. The cling loops below still name the face and the
+## footprint; the DEPTH each crab works is crab.gd's (see THE DAY COLUMN there — the band
+## these loops are written at turned out to be inside the skirt, where nothing can see it).
+## NIGHT: they come up on a SCHEDULE, not a cue — each crab draws its own hour, weighted
+## late, so early night is one or two animals and the deck keeps gaining them until dawn
+## (crab.gd THE NIGHT RAMP). A crab on one of the three free-standing legs
 ## CLIMBS ITS OWN SUPPORT — straight up the concrete and over the topside rim, see
 ## _crab_leg_climbs; the SE trio (the caisson the wet deck is built through) crosses to the
 ## EAST rim (x~30.25, the one clean water edge) and climbs its authored lane. Either way it
@@ -97,6 +102,16 @@ const CRAB_ROOSTS: Array = [
 	{"up": Vector3(0, 0, 1), "loop": [Vector3(-24.0, -0.35, 15.3), Vector3(-20.0, -0.35, 15.3),
 		Vector3(-20.0, -1.35, 15.3), Vector3(-24.0, -1.35, 15.3)]},
 ]
+
+## WHICH LOOP EACH CRAB GETS, and it is not simply the first eight. Handing them out in
+## authored order (SE, SE, SE, NE, NE, SW, SW, SW, ...) filled three caissons and left the
+## NW leg empty every single run — measured, not assumed: CrabLifeProbe reported the day
+## spread as {SE:3, NE:2, SW:3} with nothing on the fourth leg at all. The owner's brief is
+## that the dens should be "spaced out naturally around", so the loops are dealt ROUND THE
+## RIG instead of down the list: one leg after another, so the first eight land two per
+## caisson and a ninth or tenth crab would still spread rather than double anything up.
+## The authored loops themselves are untouched; only the order they are handed out in.
+const CRAB_ROOST_ORDER: Array = [0, 3, 5, 8, 1, 4, 6, 9, 2, 7]
 
 ## Build one emergence climb up the east deck rim at depth-lane z: open water beyond the
 ## rim (x31) -> up the rim face -> onto the deck lip (x29.3, y2.6). Walked in reverse at
@@ -199,25 +214,33 @@ func _spawn_giant_crabs() -> void:
 	for i in range(CRAB_COUNT):
 		var crab: Node3D = CRAB.new()
 		crab.spawn_index = i
-		var roost: Dictionary = CRAB_ROOSTS[i % CRAB_ROOSTS.size()]
+		# One index for all three: the loop, the face normal and the support route are the
+		# SAME leg face, so they have to be dealt together or a crab sleeps on one caisson
+		# and climbs another.
+		var rk: int = CRAB_ROOST_ORDER[i % CRAB_ROOST_ORDER.size()]
+		var roost: Dictionary = CRAB_ROOSTS[rk]
 		crab.roost_loop = roost["loop"]
 		crab.roost_up = roost["up"]
-		crab.leg_climb = leg_routes[i % leg_routes.size()]
+		crab.leg_climb = leg_routes[rk]
 		# Transit legs: the climb lanes are all on the EAST rim, so crabs roosting on
 		# the west and north legs get authored swim waypoints routing them AROUND the
 		# solid pontoon (x16..28, z-16..-8) and the deck structures instead of straight
 		# through them — the emergence is direct (probe-free) motion, so without these
 		# a NW crab would swim through 40m of concrete on its way to the rim. FLEE walks
 		# the same list backwards, so the retreat retraces the same honest route home.
+		# Every lane below stays OUTBOARD of the pontoon's plan (x -28..28, |z| 8..16): the
+		# corner points at |z| 16.8 / |x| 30.5 are there so the turn from the north or south
+		# face onto the east rim happens in open water instead of cutting the slab's corner.
+		# crab.gd's haul-out riser hands the animal over at exactly those coordinates.
 		var lead: Array = []
-		var rk: int = i % CRAB_ROOSTS.size()
 		if rk in [3, 4]:        # NE leg: east around the rim, outside x30.25
-			lead = [Vector3(30.8, -1.2, 4.0)]
+			lead = [Vector3(30.5, -1.2, 16.8), Vector3(30.8, -1.2, 4.0)]
 		elif rk in [5, 6, 7]:   # SW leg: south of the pontoon, along the dock lane
 			lead = [Vector3(-22.0, -1.2, -18.5), Vector3(0.0, -1.4, -19.8),
-				Vector3(22.0, -1.2, -20.5)]
+				Vector3(22.0, -1.2, -20.5), Vector3(30.5, -1.2, -19.0)]
 		elif rk in [8, 9]:      # NW leg: across the north face, then down the east rim
-			lead = [Vector3(0.0, -1.2, 17.0), Vector3(30.8, -1.2, 4.0)]
+			lead = [Vector3(0.0, -1.2, 16.8), Vector3(30.5, -1.2, 16.8),
+				Vector3(30.8, -1.2, 4.0)]
 		crab.emerge_path = lead + _crab_climb(CRAB_EMERGE_Z[i % CRAB_EMERGE_Z.size()])
 		crab.patrol_loop = CRAB_PATROL_EAST if (i % 2) == 0 else CRAB_PATROL_SOUTH
 		crab.patrol_offset = offsets[i % offsets.size()]
@@ -232,11 +255,12 @@ func _spawn_giant_crabs() -> void:
 		crab.add_child(corpse)
 		crab.corpse_touch = corpse
 		add_child(crab)
-		var seat: Vector3 = crab.roost_loop[0]
-		if i >= CRAB_ROOSTS.size():
-			var loop: Array = crab.roost_loop
-			seat = (loop[0] as Vector3).lerp(loop[1] as Vector3, 0.55)
-		crab.global_position = seat
+		# Set down in its OWN DEN, which crab.gd picked in _ready off the loop it was just
+		# handed. The authored cling point is not a legal resting place any more: it sits at
+		# y -0.35, inside the pontoon skirt that sleeves all four legs, so a crab seated there
+		# spends its first seconds buried in the foundations before it crawls clear. The den
+		# is the same face, at this crab's own depth down the exposed column.
+		crab.global_position = crab.den_seat()
 
 ## --- KING CRABS (s16): exactly TWO, and neither is a given -------------------------
 ## Two boss-tier animals, and that is the hard cap — the owner's spec is "at most 2 active
@@ -2109,7 +2133,13 @@ class LampSnail extends Node3D:
 			"tint": Color(1, 1, 1, 1),
 			"roughness_v": 0.38,
 			"pattern_scale": 2.8, "vein_width": 0.40, "vein_sharp": 0.52,
-			"warp_strength": 1.7, "pattern_scroll": 0.03,
+			# MORPH RATE. The veins are not a fixed pattern being scrolled — the field they
+			# are drawn from slowly reshapes, so channels fork, close and wander. 0.001 is
+			# about a minute per full re-cut of the veining and ~1% of one in the couple of
+			# seconds you might stand and stare: imperceptible while you watch it, a
+			# different shell if you look back later. Photographed at 0/2/20/60/120 s by
+			# tests/ShellMorphShot.tscn; see pattern_scroll in shell_marble.gdshader.
+			"warp_strength": 1.7, "pattern_scroll": 0.001,
 			"mask_lo": -0.5, "mask_hi": -0.4,
 			"mode": 0,   # static: the procedural dome has no foot to ripple
 		})
@@ -2202,7 +2232,7 @@ class LampSnail extends Node3D:
 				"vein_color": SHELL_VEIN,
 				"roughness_v": 0.36,
 				"pattern_scale": 2.9, "vein_width": 0.40, "vein_sharp": 0.52,
-				"warp_strength": 1.7, "pattern_scroll": 0.03,
+				"warp_strength": 1.7, "pattern_scroll": 0.001,   # see the dome above
 				"mask_lo": 0.24, "mask_hi": 0.44,
 			}))
 			BloomFauna.ground_model(self, gen["model"])   # foot on the surface, not floating

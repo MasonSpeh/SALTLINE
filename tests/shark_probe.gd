@@ -42,7 +42,10 @@ func _ready() -> void:
 ## keeps a wide cross-section for several slices is the head; the end that thins to almost
 ## nothing over the last slices is the tail.
 func _profile(verts: PackedVector3Array, box: AABB, axis: int) -> void:
-	var name := ["X", "Y", "Z"][axis]
+	# Typed explicitly and NOT called `name`: 4.7's parser cannot infer an element type out
+	# of an untyped Array literal, and `name` shadows Node.name. The old `var name := [...]`
+	# stopped this whole probe loading with a parse error.
+	var axis_name: String = ["X", "Y", "Z"][axis]
 	var lo: float = box.position[axis]
 	var span: float = maxf(box.size[axis], 0.0001)
 	var counts := PackedInt32Array()
@@ -59,7 +62,7 @@ func _profile(verts: PackedVector3Array, box: AABB, axis: int) -> void:
 		counts[i] += 1
 		mins[i] = (mins[i] as Vector3).min(v)
 		maxs[i] = (maxs[i] as Vector3).max(v)
-	var line := "[shark] %s profile  " % name
+	var line := "[shark] %s profile  " % axis_name
 	for i in range(SLICES):
 		var s: float = 0.0
 		if counts[i] > 0:

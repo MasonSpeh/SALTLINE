@@ -733,11 +733,20 @@ func _fly_catch_to_player() -> void:
 ## from the species' note in fish.json.
 func _log_catch(id: String, kg: float) -> void:
 	var ctx: Dictionary = FISH.context(self, global_position, _bait_id)
+	# The weather goes in as the tier it actually was — the journal is the player's own
+	# record of what worked, so "rain" and "storm" have to stay different things in it,
+	# the same way FishTable rolls them as different things.
 	var conditions: Array[String] = []
 	if ctx["storming"]:
 		conditions.append("Storm sea")
+	elif bool(ctx.get("raining", false)):
+		conditions.append("Rain on the water")
+	if bool(ctx.get("fogged", false)):
+		conditions.append("fog bank")
 	if ctx["lit"]:
 		conditions.append("worklights burning")
+	elif bool(ctx.get("powered", false)):
+		conditions.append("floodlights up")
 	if conditions.is_empty():
 		conditions.append("Quiet water")
 	conditions.append("open water" if ctx["open"] else "in the rig's shadow")

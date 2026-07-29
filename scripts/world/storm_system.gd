@@ -94,6 +94,16 @@ func trigger_storm() -> void:
 func is_storming() -> bool:
 	return _intensity > 0.25
 
+## How hard it is raining right now, 0..1 — the WHOLE curve, not the squall flag above it.
+## A storm ramps in over 22 s and back out over 32 s, and for all of that time there is
+## weather in the water that is not yet (or no longer) a squall. is_storming() throws that
+## band away; FishTable reads this so the drizzle either side of a gale can be its own
+## fishing condition (see FishTable.RAIN_MIN and the `rain` field in data/fish.json).
+## (The sea-fog bank a squall leaves behind is already exposed further down as fog_level();
+## FishTable reads that one for the `fog` field in data/fish.json.)
+func rain_level() -> float:
+	return _intensity
+
 # ---------------------------------------------------------------- build
 
 func _build_rain() -> void:

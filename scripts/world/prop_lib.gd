@@ -149,6 +149,14 @@ const ITEM_MODEL := {
 	"storm_lantern": {"id": "Lantern_01", "m": 0.32, "glow": "glass",
 		"glow_color": Color(0.2, 0.9, 0.85), "glow_energy": 1.6},
 	"life_ring": {"id": "lifebuoy", "m": 0.72},
+	# ---- the one book you carry ----
+	# binder_notebook is TWO objects in one file: an open leather folio with a legal pad and
+	# a pen laid in it, and — `closed` — a battered leather notebook shut with a strap. The
+	# closed one is the handbook exactly: a working field book, not a library volume.
+	# (book_encyclopedia_set_01 was the other candidate and is a twenty-volume gilt
+	# ENCYCLOPEDIA shelf; one volume picked out of it reads as a reference set from a study,
+	# which is the wrong object for a rigger's notes. Both were rendered before choosing.)
+	"fishermans_handbook": {"id": "binder_notebook", "m": 0.22, "pick": "closed"},
 	# ---- medical ----
 	"medkit": {"id": "medical_box", "m": 0.38},
 	"bandage": {"id": "medical_tape", "m": 0.08},

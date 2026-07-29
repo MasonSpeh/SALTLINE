@@ -16,6 +16,31 @@ class_name FaunaMove extends RefCounted
 ##   const MOVE := preload("res://scripts/world/fauna_move.gd")
 ##   var moved: Vector3 = MOVE.step(self, heading * speed * delta, BODY_R, PROBE_H, _skip)
 
+## Squared length under which a vector is noise rather than a direction — (0.1 mm)^2.
+const EPS_SQ: float = 1e-8
+
+## CAN THIS VECTOR BE USED AS A DIRECTION? Finite first, then long enough to normalize.
+##
+## THE PART THAT IS NOT OBVIOUS IS THE `is_finite()`, and it is the entire reason this
+## helper exists. Every guard in this file used to be a plain `<` comparison against a
+## small epsilon — `if dist < 0.0001`, `if dir.length() < 0.5` — and EVERY comparison
+## against a NaN is false. So one NaN in a creature's position or heading walked straight
+## through guards that look like they cover it and reached the physics server, which
+## normalizes the ray direction for you; Godot 4.7 answers a non-finite normalize with
+##
+##   WARNING: Vector3 cannot be normalized, the elements must be finite.
+##
+## and attaches a full GDScript backtrace to it. obstruction() fires three body probes per
+## call and is called every frame per animal, so a single NaN-frame crawler produced a
+## steady four-plus warnings a frame — and it is the BACKTRACE, not the text, that costs:
+## a measured harness run wrote 4.4 GB of stderr and stretched a 30-second world build
+## past nine minutes. Guarding the maths (rather than muting the printer) is what fixes it.
+##
+## Zero-length is a separate and much tamer case — Godot returns (0,0,0) silently — but it
+## is just as wrong for a heading, so both are refused here through one test.
+static func usable(v: Vector3) -> bool:
+	return v.is_finite() and v.length_squared() > EPS_SQ
+
 ## Apply as much of `step_vec` as the world allows this frame and return what actually
 ## moved (the move is added to node.global_position). Compare the returned length to
 ## step_vec's: a large shortfall means the creature is blocked — the caller turns away.
@@ -35,12 +60,14 @@ static func step(node: Node3D, step_vec: Vector3, body_radius: float = 0.42,
 ## Vector3.ZERO. Kept horizontal — these are deck walkers, not climbers.
 static func resolve(node: Node3D, step_vec: Vector3, body_radius: float = 0.42,
 		probe_height: float = 0.35, exclude: Array[RID] = []) -> Vector3:
+	if not usable(step_vec):
+		return Vector3.ZERO          # nothing asked for, nothing granted — never a NaN back
 	var n: Vector3 = hit_normal(node, step_vec, body_radius, probe_height, exclude)
 	if n == Vector3.ZERO:
 		return step_vec
 	var slide: Vector3 = step_vec - n * step_vec.dot(n)
 	slide.y = 0.0
-	if slide.length() < 0.0001 or hit_normal(node, slide, body_radius, probe_height, exclude) != Vector3.ZERO:
+	if not usable(slide) or hit_normal(node, slide, body_radius, probe_height, exclude) != Vector3.ZERO:
 		return Vector3.ZERO
 	return slide
 
@@ -53,9 +80,12 @@ static func hit_normal(node: Node3D, step_vec: Vector3, body_radius: float = 0.4
 	var world: World3D = node.get_world_3d()
 	if world == null:
 		return Vector3.ZERO
-	var dir: Vector3 = step_vec.normalized()
-	if dir == Vector3.ZERO:
+	# Refused BEFORE the normalize, and before the ray is built: a zero step has no
+	# direction to be blocked along, and a non-finite one would be normalized twice — once
+	# here and once inside intersect_ray — for a warning apiece, every frame.
+	if not usable(step_vec) or not node.global_position.is_finite():
 		return Vector3.ZERO
+	var dir: Vector3 = step_vec.normalized()
 	var side: Vector3 = Vector3(-dir.z, 0.0, dir.x) * body_radius   # perpendicular, body width
 	var reach: float = step_vec.length() + body_radius
 	var base: Vector3 = node.global_position + Vector3(0.0, probe_height, 0.0)
@@ -86,7 +116,7 @@ static func hit_normal(node: Node3D, step_vec: Vector3, body_radius: float = 0.4
 static func surface_hit(node: Node3D, pos: Vector3, up: Vector3, lift: float,
 		drop: float, exclude: Array[RID] = []) -> Dictionary:
 	var world: World3D = node.get_world_3d()
-	if world == null or up.length() < 0.001:
+	if world == null or not usable(up) or not pos.is_finite():
 		return {}
 	var u: Vector3 = up.normalized()
 	var q := PhysicsRayQueryParameters3D.create(pos + u * lift, pos - u * drop)
@@ -129,8 +159,14 @@ static func surface_hit(node: Node3D, pos: Vector3, up: Vector3, lift: float,
 static func seat(node: Node3D, up: Vector3, heading: Vector3, seated: bool, delta: float,
 		reach: float, clear: float, ease: float, catchup: float,
 		exclude: Array[RID] = []) -> Dictionary:
-	var u: Vector3 = up.normalized()
-	var h: Vector3 = heading
+	# A frame handed in degenerate is REPAIRED rather than propagated: an animal whose up
+	# has been zeroed (or NaN'd) still has to stand on something, and returning that same
+	# broken axis to the caller only guarantees it comes straight back next frame. World up
+	# is the honest fallback for a body that has lost its face — it is what an unseated
+	# crawler starts from — and the surface probe below immediately eases it onto whatever
+	# is really under the feet.
+	var u: Vector3 = up.normalized() if usable(up) else Vector3.UP
+	var h: Vector3 = heading if heading.is_finite() else Vector3.ZERO
 	var lift: float = reach
 	var drop: float = reach * 1.75
 	if not seated:
@@ -153,7 +189,11 @@ static func seat(node: Node3D, up: Vector3, heading: Vector3, seated: bool, delt
 		return {"up": u, "heading": h, "seated": false}
 	var n: Vector3 = hit["normal"]
 	if n.dot(u) > 0.2:
-		u = u.lerp(n, clampf(delta * ease, 0.0, 1.0)).normalized()
+		# Only commit the eased axis if it survived the ease. Normalizing a collapsed lerp
+		# returns (0,0,0) silently, which hands the caller an up it cannot stand on.
+		var eased: Vector3 = u.lerp(n, clampf(delta * ease, 0.0, 1.0))
+		if usable(eased):
+			u = eased.normalized()
 	var target: Vector3 = (hit["point"] as Vector3) + u * clear
 	var to_t: Vector3 = target - node.global_position
 	# SNAP ONLY WHEN GENUINELY RE-ACQUIRING A SURFACE — never as a "the seat has drifted"
@@ -173,7 +213,7 @@ static func seat(node: Node3D, up: Vector3, heading: Vector3, seated: bool, delt
 ## tell "a kerb I can crest" from "a wall whose top is nowhere near me".
 static func point_solid(node: Node3D, pos: Vector3, exclude: Array[RID] = []) -> bool:
 	var world: World3D = node.get_world_3d()
-	if world == null:
+	if world == null or not pos.is_finite():
 		return false
 	var q := PhysicsPointQueryParameters3D.new()
 	q.position = pos
@@ -200,6 +240,16 @@ static func swim_clear(node: Node3D, from: Vector3, to: Vector3, radius: float =
 	var world: World3D = node.get_world_3d()
 	if world == null:
 		return {"pos": to, "blocked": false}
+	# A NON-FINITE endpoint is refused here, ahead of the `dist` test, because the `dist`
+	# test cannot see it: NaN < 0.0001 is false, so a NaN target used to pass straight
+	# through and be handed to intersect_ray, which normalizes (to - from) internally and
+	# warns with a backtrace for it — every frame, for as long as the creature stayed lost.
+	# Worse, the old code then RETURNED that NaN as the new position, so one bad frame from
+	# a caller became a permanently NaN animal. Hold the last good point instead and report
+	# `blocked`, which is the signal every caller here already handles by picking a new
+	# heading — the same answer a swimmer gets from a wall.
+	if not from.is_finite() or not to.is_finite():
+		return {"pos": from if from.is_finite() else to, "blocked": true}
 	var seg: Vector3 = to - from
 	var dist: float = seg.length()
 	if dist < 0.0001:
@@ -227,13 +277,19 @@ static func obstruction(node: Node3D, pos: Vector3, heading: Vector3, up: Vector
 	var world: World3D = node.get_world_3d()
 	if world == null:
 		return {}
+	# GUARD BEFORE NORMALIZING, not after. The old order normalized first and only then
+	# asked `if dir.length() < 0.5`, which is two engine warnings already spent on a NaN
+	# frame — and the test itself never fires for one, because NaN < 0.5 is false. So the
+	# probes below were built and fired anyway: three more warnings, every frame. `reach`
+	# is checked too, since a zero-length ray is a ray with no direction to normalize.
+	if not usable(heading) or not usable(up) or not pos.is_finite() \
+			or not is_finite(reach) or reach <= 0.0:
+		return {}
 	var dir: Vector3 = heading.normalized()
 	var u: Vector3 = up.normalized()
-	if dir.length() < 0.5 or u.length() < 0.5:
-		return {}
 	var side: Vector3 = u.cross(dir)
-	if side.length() < 0.001:
-		return {}
+	if not usable(side):
+		return {}                                    # heading parallel to up: no body width
 	side = side.normalized() * body_radius
 	var base: Vector3 = pos + u * probe_height
 	var space: PhysicsDirectSpaceState3D = world.direct_space_state
@@ -394,6 +450,7 @@ class SurfaceCrawler extends RefCounted:
 		if not _bound:
 			_skip = FaunaMove.kin_bodies(host)   # never read another animal as wall/floor
 			_bound = true
+		_repair()
 		blocked = false
 		_commit = maxf(_commit - delta, 0.0)
 		paused = _pause > 0.0
@@ -403,6 +460,51 @@ class SurfaceCrawler extends RefCounted:
 			_advance(host, delta)
 		_stick(host, delta)
 
+	## PUT THE FRAME BACK together if something has taken it apart, at the top of every tick.
+	##
+	## `up` and `heading` are public and species code writes them (BloomFauna._steer, the
+	## crab's climb states, a snail set down by the player). A caller that hands over a
+	## zeroed or NaN axis used to poison the crawler PERMANENTLY, because every recovery
+	## path in here is multiplicative: `_unstick` rotates the heading, and rotating a zero
+	## vector leaves a zero vector, so the stall watchdog fired forever without ever
+	## producing a direction to walk in. Meanwhile the frame was fed to obstruction() and
+	## surface_hit() every frame — a NaN one warns from inside the physics server on each
+	## body probe, which is the spam. Repairing here means one bad assignment costs one
+	## frame of drift instead of an animal that is stuck and shouting for the rest of the
+	## session. Deliberately silent: it is a self-heal, not a diagnosis, and a per-frame
+	## push_warning would recreate exactly the cost this exists to remove.
+	func _repair() -> void:
+		if not FaunaMove.usable(up):
+			up = Vector3.UP
+		if not FaunaMove.usable(heading):
+			# A tangent in the current face, taken at random — the same thing _init does
+			# when it has no seam to follow.
+			var a: float = _rng.randf() * TAU
+			var t: Vector3 = Vector3(cos(a), 0.0, sin(a))
+			t = t - up * t.dot(up)
+			if not FaunaMove.usable(t):
+				# Heading picked parallel to up (the foot is on a floor-or-ceiling face):
+				# any axis perpendicular to up will do.
+				t = up.cross(Vector3.RIGHT)
+				if not FaunaMove.usable(t):
+					t = up.cross(Vector3.FORWARD)
+			heading = t.normalized()
+		else:
+			heading = heading.normalized()
+
+	## Swing `dir` by `ang` about the current up and drop it back into the face — the one
+	## place a heading is rotated, so the "axis must be normalized" precondition is met once
+	## instead of at four call sites. Returns the existing heading unchanged when the turn
+	## degenerates (a `dir` parallel to up projects to nothing), which is a refused turn
+	## rather than a zeroed one: the caller's next decision gets a real vector to work from.
+	func _turn(dir: Vector3, ang: float) -> Vector3:
+		var axis: Vector3 = up.normalized() if FaunaMove.usable(up) else Vector3.UP
+		if not FaunaMove.usable(dir) or not is_finite(ang):
+			return heading
+		var t: Vector3 = dir.normalized().rotated(axis, ang)
+		t = t - axis * t.dot(axis)
+		return t.normalized() if FaunaMove.usable(t) else heading
+
 	## Yaw so the yaw-normalised (-Z-forward) model leads its travel; snails add the +PI.
 	## Kept for level crawlers; basis() is the full frame once a species may leave level.
 	func face_yaw() -> float:
@@ -411,6 +513,10 @@ class SurfaceCrawler extends RefCounted:
 	## The full orientation for a body standing on the current face: -Z leads the
 	## heading, +Y is the surface normal. A snail on a wall reads as a snail on a wall.
 	func basis() -> Basis:
+		# `absf(NaN) > 0.99` is false, so the parallel test alone would let a degenerate
+		# frame reach Basis.looking_at, which errors on a zero or non-finite target.
+		if not FaunaMove.usable(heading) or not FaunaMove.usable(up):
+			return Basis()
 		if absf(heading.dot(up)) > 0.99:
 			return Basis()
 		return Basis.looking_at(heading, up)
@@ -420,8 +526,10 @@ class SurfaceCrawler extends RefCounted:
 	## the face, so a curious snail on a wall turns across the wall rather than peeling its
 	## foot off it.
 	func look_basis(dir: Vector3) -> Basis:
+		if not FaunaMove.usable(dir) or not FaunaMove.usable(up):
+			return basis()
 		var t: Vector3 = dir - up * dir.dot(up)
-		if t.length() < 0.001:
+		if not FaunaMove.usable(t):
 			return basis()
 		return Basis.looking_at(t.normalized(), up)
 
@@ -598,7 +706,12 @@ class SurfaceCrawler extends RefCounted:
 				choice = "over"
 				_commit = COMMIT
 				return
-		heading = (-heading).rotated(up, _rng.randf_range(-0.4, 0.4)).normalized()
+		# TURN BACK FROM THE EDGE. `rotated` demands a normalized AXIS and errors loudly on a
+		# zero one — this exact line was the per-frame shouter, reached from both _advance
+		# and _stick, whenever a caller had zeroed the frame. _repair() at the top of tick()
+		# now guarantees both axes, so the turn is taken through the shared helper that
+		# refuses to produce garbage rather than through a bare rotate.
+		heading = _turn(-heading, _rng.randf_range(-0.4, 0.4))
 		choice = "crest" if climbing else "edge"
 		_leg = _rng.randf_range(leash * 0.5, leash * 1.1)
 		_commit = COMMIT
@@ -698,10 +811,11 @@ class SurfaceCrawler extends RefCounted:
 	## Wedged (an inside corner, a pipe cluster): swing hard onto a new tangent.
 	func _unstick(host: Node3D) -> void:
 		var turn: float = _rng.randf_range(PI * 0.45, PI * 0.95) * (1.0 if _rng.randf() < 0.5 else -1.0)
-		var t: Vector3 = heading.rotated(up, turn)
-		t = t - up * t.dot(up)
-		if t.length() > 0.001:
-			heading = t.normalized()
+		# Always through _turn: this is the STALL watchdog, so it is the one path that runs
+		# when everything else has already failed, and a rotate of a zero heading returns a
+		# zero heading — the animal would have gone on being stuck forever, firing the
+		# watchdog (and the rotate's error) once a second for the rest of the session.
+		heading = _turn(heading, turn)
 		_pause = 0.0
 		_leg = _rng.randf_range(leash * 0.5, leash * 1.2)
 		_commit = COMMIT

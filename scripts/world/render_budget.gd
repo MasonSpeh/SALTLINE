@@ -205,14 +205,17 @@ func _budget_light(l: Light3D) -> void:
 	#   normal_bias 2.0 -> 0.55 : the big one. Offsets the sample along the surface normal;
 	#                             at 2048 per light it can come right in without acne.
 	#   bias        0.03 -> 0.012 : depth offset, scaled down with the texel for the same reason.
-	#   blur         1.0 -> 0.7  : PCF kernel width in texels. Wider blur on a now-4x-finer
-	#                             map just throws away the resolution we bought.
+	# There used to be a third line here, `shadow_blur = 0.7`, and it never did anything.
+	# The property is real on Light3D so it raised no error, but gl_compatibility's scene
+	# shader passes its PCF kernel the raw shadow_atlas_pixel_size with no blur term in the
+	# path; tests/ShadowShot.tscn shot blur 0.0 against blur 4.0 on a frozen frame and got
+	# BYTE-IDENTICAL PNGs. Removed rather than left as a comment-shaped promise that some
+	# future reader tunes for an afternoon.
 	# Every shadow-casting fixture on the rig comes through here (structures.gd braziers and
 	# lamps, env_objects.gd fires, rig_builder.gd's four deck floodlights, comfort_furniture
 	# stoves), so this is the one place that reaches all of them without editing five files.
 	l.shadow_normal_bias = 0.55
 	l.shadow_bias = 0.012
-	l.shadow_blur = 0.7
 	_shadow_lights.append(l)
 	_lights_faded += 1
 

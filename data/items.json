@@ -726,6 +726,11 @@
     "use": "tool",
     "effect": "The weighted hand-line, and its own game rather than a longer cast: BAIT IT FIRST (a live snail, or any cut bait) or it will not leave the drum, then heave the lead over the side from anywhere that overlooks water. It plumbs straight down and the readout counts the metres — every species in fish.json only takes a bait that has reached its own drop_m, so the deeper the lead the deeper and bigger the pool (grouper at 16 m, sturgeon at 44). LMB thumbs the drum to hold a depth, a second LMB reels in. See FishingRod._deep."
   },
+  "fishermans_handbook": {
+    "name": "Fisherman's Handbook",
+    "use": "tool",
+    "effect": "The wet-deck angling log, and the only readable on this rig you can carry. READ it where it lies [E], press [F] while it is open to pocket it, then [F] with it selected to read it anywhere, or drop it (right-click the pack slot) to leave it by the rail you fish. It documents the live catch conditions in data/fish.json — hours, weather tier, worklights, water, depth ladder and bait. See scripts/components/handbook.gd."
+  },
   "bottle_empty": {
     "name": "Salvaged Bottle",
     "use": "tool",
