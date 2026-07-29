@@ -201,7 +201,17 @@ func _boat_landing() -> void:
 	_dbox(Vector3(26.7, y + 0.16, -20.5), Vector3(0.5, 0.3, 0.3), MatLib.flat(Color(0.85, 0.45, 0.1)))
 	_plabel("LINE THROWER", Vector3(26.7, y + 0.2, -20.34), 180, 10, Color(0.92, 0.92, 0.88))
 	# Dock locker — first honest loot of the game, off to the side of the landing.
-	_crate(["rope", "flare", "sealed_tin"], "Dock Locker", Vector3(28.6, y + 0.01, -19.6))
+	#
+	# PULLED 1 m INBOARD (z -19.6 -> -18.6). The crate is 1.1 x 0.8 x 0.8 and settles to
+	# x 28.05..29.15, z -20.0..-19.2; rig_builder's tide-line drum row puts a 0.45 m
+	# rusted drum at (28.6, -20.2), spanning x 28.15..29.05, z -20.65..-19.75. That is
+	# 0.90 x 0.80 x 0.25 m of the crate INSIDE the drum — 0.18 m3, by far the largest
+	# clip on the wet deck. The drums are a deliberate run along the south deck edge, so
+	# the single crate moves rather than the row. At z -18.6 the crate clears the drum by
+	# 0.75 m, still stands on deck plate (measured y 2.000 under it, base settles to
+	# 2.005) and still sits off to the side of the landing, out of the walk from the
+	# gangplank across to the stair tower.
+	_crate(["rope", "flare", "sealed_tin"], "Dock Locker", Vector3(28.6, y + 0.01, -18.6))
 	# Inspection tag wired to the frame.
 	_readable("fender_tag", "Inspection Tag", Vector3(23.55, y + 1.15, -22.1), Vector3(0.22, 0.3, 0.05))
 	# Two dead caged bulkhead lamps on the storeroom's south face.

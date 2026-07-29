@@ -1,4 +1,4 @@
-[gd_scene load_steps=2 format=3 uid="uid://shark_probe_x"]
+[gd_scene load_steps=2 format=3 uid="uid://shark_probe_2026"]
 [ext_resource type="Script" path="res://tests/shark_probe.gd" id="1"]
-[node name="SharkProbe" type="Node3D"]
+[node name="SharkProbe" type="Node"]
 script = ExtResource("1")

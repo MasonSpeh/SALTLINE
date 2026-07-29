@@ -13,7 +13,7 @@ const SUBJECTS := [
 	["epic_four_eyed_whale", 14.0, 0, 0.22, 0.28, 1.2],
 	["harbor_seal", 1.8, 0, 0.05, 1.0, 0.4],
 	["mantle_ray", 6.0, 1, 0.14, 0.45, 0.7],
-	["corvid_gull", 0.55, 3, 0.05, 1.0, 0.35],
+	["herring_gull", 0.42, 3, 0.05, 1.0, 0.35],
 	["lamp_eel", 4.5, 0, 0.14, 1.6, 1.0],
 	["jelly_drifter", 1.1, 2, 0.08, 0.6, 1.0],
 	# Small fauna

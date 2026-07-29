@@ -57,6 +57,66 @@ const FISH_SIZE := {
 ## Real generated fish meshes (assets/models/fauna/<id>) when present; procedural
 ## silhouette when not. Preloaded — the class cache lags for this new file.
 const FISH_MODEL := preload("res://scripts/world/fish_model_lib.gd")
+
+## HOW BIG A SPECIES REALLY IS, in metres of body length. Used by the pack's fish preview
+## (ui/item_icons.gd) to frame a caught fish at its own size instead of a uniform thumbnail.
+##
+## data/fish.json's schema carries exactly one size field: `size_kg:[min,max]` — "landed
+## weight rolled per catch". It is a WEIGHT, not a length, and it is only authored on the
+## seven deep/trophy species, which is why fishing_rod.gd already reaches for FISH_SIZE
+## when it needs a body length. Both facts are honoured here rather than papered over:
+##
+##   * where fish.json HAS size_kg, the heaviest a species lands converts to a length by
+##     the isometric relation every length-weight table in fisheries uses (mass grows with
+##     the cube of length). KG_TO_M is calibrated on the barrel grouper — its generated
+##     mesh measures 1.90 m nose to tail (see underwater_world.gd's DeepGiant) and its
+##     heaviest roll is 48 kg — so the constant is read off the game's own geometry.
+##   * where it does not (28 of 35 species), FISH_SIZE above is the length, exactly as
+##     fishing_rod.gd's 2 m bait rule already treats it.
+##
+## The two are combined with max(), never averaged: a species is at least as long as the
+## body its own mesh is built at, and size_kg can only ever reveal that it lands BIGGER.
+## That matters for the ribbon-bodied oarfish, which is long out of all proportion to its
+## weight — the cube law under-reads it at 2.3 m and its authored 3.5 m stands instead.
+const KG_TO_M: float = 0.523        ## 1.90 m / 48 kg^(1/3), the barrel grouper
+## Nothing to preview: crab, prawn and squid are species ids but not fish shapes, and
+## `fish_rotten` is a state rather than an animal. They still get icons; they just do not
+## claim a body length.
+const NO_LENGTH := {"fish_stone_crab": true, "fish_gutter_prawn": true,
+	"fish_inkwell_squid": true, "fish_rotten": true}
+
+## True for an id the pack should offer a real-size preview of.
+static func is_species_fish(item_id: String) -> bool:
+	return _is_species_fish(item_id) and not NO_LENGTH.has(FISH_MODEL.species_of(item_id))
+
+## Body length in metres for a species (or a cooked fillet of one); 0.0 if it is not a fish.
+static func fish_length_m(item_id: String) -> float:
+	if not _is_species_fish(item_id):
+		return 0.0
+	var species: String = FISH_MODEL.species_of(item_id)
+	var authored: float = float(FISH_SIZE.get(species, 1.0))
+	var kg: Array = FishTable.all().get(species, {}).get("size_kg", [])
+	if kg.size() < 2:
+		return authored
+	return maxf(authored, KG_TO_M * pow(maxf(float(kg[1]), 0.0), 1.0 / 3.0))
+
+## The heaviest this species lands, in kg; 0.0 when fish.json gives it no size_kg. The
+## preview caption says so out loud, so the framing can be checked against the data.
+static func fish_max_kg(item_id: String) -> float:
+	var kg: Array = FishTable.all().get(FISH_MODEL.species_of(item_id), {}).get("size_kg", [])
+	return float(kg[1]) if kg.size() >= 2 else 0.0
+
+static var _longest_m: float = 0.0
+## The longest species in the roster, which is what the pack preview scales everything
+## against. DERIVED, not written down: add a species to fish.json or to FISH_SIZE and the
+## whole preview ladder re-bases itself instead of quietly measuring against a stale record.
+static func longest_fish_m() -> float:
+	if _longest_m <= 0.0:
+		for species in FISH_SIZE:
+			_longest_m = maxf(_longest_m, fish_length_m(String(species)))
+		for species in FishTable.all():
+			_longest_m = maxf(_longest_m, fish_length_m(String(species)))
+	return _longest_m
 ## Structure parts, for the vessel builders below: they are the rain catcher's own
 ## geometry and are built out of the same vocabulary every player-built thing uses.
 const SL := preload("res://scripts/world/structure_lib.gd")

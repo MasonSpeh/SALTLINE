@@ -1020,8 +1020,22 @@ func _build_stair_tower() -> void:
 	_plabel("BREAKER 4-A", Vector3(22.6, 10.02, -0.4), 90, 12, Color(0.9, 0.7, 0.15), -90.0)
 	# Inside the room: the ORDER, at a glance, right on the panel wall. The full
 	# maintenance log (why, and the arc-flash warning) is the readable beside it.
-	_plabel("1) SPLICE THE GAP", Vector3(25.2, 12.0, 8.65), 180, 13, Color(0.95, 0.72, 0.2))
-	_plabel("2) CLOSE THIS MASTER", Vector3(25.2, 11.65, 8.65), 180, 13, Color(0.95, 0.72, 0.2))
+	#
+	# THE BLOCK RAN INTO THE SPARE FUSE BOX. Centred at x 25.2 the two lines measured
+	# x 24.550..25.850 and 24.675..25.725, and InteriorProps brackets a power_box_01 on
+	# this same wall at x 25.641..26.053 — so "2) CLOSE THIS MASTER" overlapped it by
+	# 0.209 m with the text plane (z 8.650) BEHIND the box front (z 8.504): the last
+	# characters ran into a box standing proud of them.
+	#
+	# These labels are yawed 180, so the text's own +X — the direction a reader calls
+	# "right", and the direction the viewer standing in the room facing +Z calls right —
+	# is world MINUS X. Shifting the block 0.40 m that way clears the fuse box by 0.191 m
+	# and still stops 0.65 m short of the breaker cabinet's east edge (x 23.5) and 0.475 m
+	# short of the hazard placard above it. Both lines move together so the numbered list
+	# stays one block; y is untouched, which keeps "1)" 0.09 m clear under the cable tray
+	# and "2)" 0.14 m clear over the maintenance-log readable.
+	_plabel("1) SPLICE THE GAP", Vector3(24.8, 12.0, 8.65), 180, 13, Color(0.95, 0.72, 0.2))
+	_plabel("2) CLOSE THIS MASTER", Vector3(24.8, 11.65, 8.65), 180, 13, Color(0.95, 0.72, 0.2))
 	# At the burned gap on the east wall, facing back into the room (-x).
 	_plabel("BURNED FEED - SPLICE HERE", Vector3(27.82, 11.5, 6.0), -90, 11, Color(0.95, 0.72, 0.2))
 
@@ -2328,7 +2342,11 @@ func _build_access() -> void:
 	_ladder(Vector3(7.8, 0.95, -12), 1.2, 90.0, "Pontoon Ladder", 0.9)
 	# Sea -> dock: the swimmer's way back up, at the relocated boat landing east
 	# of the pod. Starts below the swell so falling in is survivable (GDD §31).
-	_ladder(Vector3(24.6, -1.4, -22.42), WET_Y + 1.6, 180.0, "Dock Ladder", 0.9)
+	# Yaw 0, not 180: this ladder is on the SOUTH edge, so the swimmer hangs on its
+	# seaward (-Z) face and mantles NORTH onto the deck. At 180 the mantle aimed further
+	# out to sea and _dismount_clear found no ground under any candidate (measured), so
+	# the climb ended by dropping the player straight back into the water.
+	_ladder(Vector3(24.6, -1.4, -22.42), WET_Y + 1.6, 0.0, "Dock Ladder", 0.9)
 	# Two more sea->wet-deck ladders so a swimmer is never far from a way back up,
 	# spread onto clear edges away from the deck clutter. Base below the swell (y-1.4),
 	# rising to just over the deck (top y2.2); facing chosen so the climber mantles
@@ -2342,7 +2360,12 @@ func _build_access() -> void:
 	_crate(["flare", "canned_peaches"], "Weather Crate", Vector3(14, WET_Y + WALL_H + 0.13, -8.5))
 	# (C-deck terrace access is the external west stair — see RigExterior.)
 	# Topside -> bunkhouse roof (vent fans, antenna array, and the long view west).
-	_ladder(Vector3(-7.75, DECK_Y, 15.5), 3.55, 90.0, "Bunkhouse Roof Ladder", 1.0)
+	# Yaw -90, not 90: the bunkhouse is WEST of this ladder (east wall face x -7.875), so
+	# face_dir must point +X at the open deck the climber stands on and the mantle must
+	# go -X onto the roof. At 90 it was the exact inversion the machine-shop roof ladder
+	# had — the latch buried the capsule in the wall (measured climb clearance 0.00 m of
+	# radius) and the top exit threw the player 3.95 m off the roof onto the deck.
+	_ladder(Vector3(-7.75, DECK_Y, 15.5), 3.55, -90.0, "Bunkhouse Roof Ladder", 1.0)
 	_readable("roof_mark", "Chalk Tally", Vector3(-18, DECK_Y + WALL_H + 0.4, 8), Vector3(0.4, 0.05, 0.3))
 	# Osk's last note, folded under a shell beside his tally — the payoff of his trail.
 	_readable("osk_last_note", "Folded Note", Vector3(-17.3, DECK_Y + WALL_H + 0.42, 8.5), Vector3(0.26, 0.05, 0.32))
@@ -3025,16 +3048,23 @@ func _build_lamps() -> void:
 ## is never pitch black. Each dims to steady standby once the grid is live (they do NOT
 ## make a safe LightZone — the dark still belongs to the crabs).
 func _build_emergency_beacons() -> void:
-	# [pos, range, peak, housing scale, flash period]
+	# [pos, range, peak, housing scale, flash period, hung from a ceiling]
+	# The first three are pole/mast/wall beacons and stand the right way up on their own.
+	# The breaker-room one is a CEILING fixture: it was authored standing at y12.6, which
+	# put the lens above the housing (upside down for a deckhead fitting) with its top
+	# 0.155 m short of the slab — a red lamp visibly hanging in the air. Its Y is now the
+	# MEASURED ceiling underside of Breaker Room 4-A, 13.075 (raycast, five points across
+	# the room; the room's floor is y10 and WALL_H 3.2 less the 0.125 slab overlap), and
+	# the flip puts the mounting flange flat against it with the lens hanging below.
 	var specs := [
-		[GANTRY_APEX + Vector3(0, 0.35, 0), 14.0, 4.0, 1.6, 1.6],   # crane gantry apex — highest landmark
-		[Vector3(-16.8, 25.1, 8.4), 9.0, 3.0, 1.0, 1.2],           # antenna mast tip (on the array)
-		[Vector3(26.0, 21.0, -5.75), 14.0, 3.8, 2.0, 1.5],         # LARGE, in the stair shaft (south wall)
-		[Vector3(25.5, 12.6, 6.0), 8.0, 2.6, 1.0, 1.1],            # breaker landing (find the panel)
+		[GANTRY_APEX + Vector3(0, 0.35, 0), 14.0, 4.0, 1.6, 1.6, false],  # crane gantry apex — highest landmark
+		[Vector3(-16.8, 25.1, 8.4), 9.0, 3.0, 1.0, 1.2, false],           # antenna mast tip (on the array)
+		[Vector3(26.0, 21.0, -5.75), 14.0, 3.8, 2.0, 1.5, false],         # LARGE, in the stair shaft (south wall)
+		[Vector3(25.5, 13.075, 6.0), 8.0, 2.6, 1.0, 1.1, true],           # breaker room ceiling (find the panel)
 	]
 	for s in specs:
 		var b := EnvObjects.RedFlasher.new()
-		b.setup(float(s[1]), float(s[2]), float(s[3]), float(s[4]))
+		b.setup(float(s[1]), float(s[2]), float(s[3]), float(s[4]), bool(s[5]))
 		add_child(b)
 		b.global_position = s[0]
 

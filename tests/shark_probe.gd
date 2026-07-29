@@ -1,94 +1,132 @@
-extends Node3D
-## Measures the generated hammerhead's attached bounds in HOST-local space, so the
-## procedural armour / eye-stalk / tooth overlays in shark.gd can be placed against the
-## real mesh instead of guessed numbers.
+extends Node
+## ULTRA HAMMERHEAD — mesh geometry ground truth (2026-07-28 model swap).
+##
+## The new hammerhead is NOT authored the way every other generated model here is: it is
+## posed in a crescent, so its bounding box is nearly cubic and the "longest axis" that
+## CreatureAnim.load_model() normalises is no longer the animal's length. Guessing from a
+## turntable render is what produced the last rejected pass; this prints numbers instead.
+##
+## Reports, for the raw GLB:
+##   * the local AABB, so you can see which axis is actually longest
+##   * a slice profile along each axis — vertex count and cross-section span per slice —
+##     because a shark's HEAD end is bulky (skull + four eye stalks) and its TAIL end
+##     tapers to a fluke, which is a signature you can read off numbers
+##   * the arc length of the body centreline, which for a curved pose is the real
+##     nose-to-tail length and is always longer than any AABB edge
+##
+## Run: godot --headless --path . res://tests/SharkProbe.tscn
 
-const ANIM := preload("res://scripts/world/creature_anim.gd")
-const MODEL_PATH := "res://assets/models/fauna/ultra_hammerhead/ultra_hammerhead.glb"
+const PATH := "res://assets/models/fauna/ultra_hammerhead/ultra_hammerhead.glb"
+const SLICES: int = 12
 
 func _ready() -> void:
-	var host := Node3D.new()
-	add_child(host)
-	var gen: Dictionary = ANIM.attach(host, MODEL_PATH, 5.0, ANIM.Mode.UNDULATE, 0.09, 1.1)
-	if gen.is_empty():
-		print("MISSING MODEL")
+	if not ResourceLoader.exists(PATH):
+		print("[shark] MISSING: ", PATH)
 		get_tree().quit()
 		return
-	var pts: PackedVector3Array = PackedVector3Array()
-	for n in host.find_children("*", "MeshInstance3D", true, false):
-		var mi := n as MeshInstance3D
+	var model: Node3D = (load(PATH) as PackedScene).instantiate()
+	add_child(model)
+	await get_tree().process_frame
+	var verts: PackedVector3Array = _verts(model)
+	print("[shark] surfaces=%d verts=%d" % [_mesh_count(model), verts.size()])
+	var box: AABB = _bounds(model)
+	print("[shark] local AABB pos=%s size=%s  (longest=%.3f)"
+		% [str(box.position.snappedf(0.001)), str(box.size.snappedf(0.001)),
+			maxf(box.size.x, maxf(box.size.y, box.size.z))])
+	for axis in range(3):
+		_profile(verts, box, axis)
+	_arc(verts, box)
+	get_tree().quit()
+
+## Slice the cloud along `axis` and report how much animal is in each slice. The end that
+## keeps a wide cross-section for several slices is the head; the end that thins to almost
+## nothing over the last slices is the tail.
+func _profile(verts: PackedVector3Array, box: AABB, axis: int) -> void:
+	var name := ["X", "Y", "Z"][axis]
+	var lo: float = box.position[axis]
+	var span: float = maxf(box.size[axis], 0.0001)
+	var counts := PackedInt32Array()
+	var spans := PackedFloat32Array()
+	counts.resize(SLICES)
+	spans.resize(SLICES)
+	var mins: Array = []
+	var maxs: Array = []
+	for i in range(SLICES):
+		mins.append(Vector3(INF, INF, INF))
+		maxs.append(Vector3(-INF, -INF, -INF))
+	for v in verts:
+		var i: int = clampi(int((v[axis] - lo) / span * SLICES), 0, SLICES - 1)
+		counts[i] += 1
+		mins[i] = (mins[i] as Vector3).min(v)
+		maxs[i] = (maxs[i] as Vector3).max(v)
+	var line := "[shark] %s profile  " % name
+	for i in range(SLICES):
+		var s: float = 0.0
+		if counts[i] > 0:
+			var d: Vector3 = (maxs[i] as Vector3) - (mins[i] as Vector3)
+			# cross-section = the two axes that are NOT the slicing axis
+			var a: float = d[(axis + 1) % 3]
+			var b: float = d[(axis + 2) % 3]
+			s = maxf(a, b)
+		line += "%.2f/%d " % [s, counts[i]]
+	print(line)
+
+## Centreline arc length: per slice along the longest axis, take the centroid; the polyline
+## through the centroids is the animal's spine. For a straight mesh this equals the AABB
+## edge; for this crescent it is substantially more, and it is the number that answers
+## "how long is the shark".
+func _arc(verts: PackedVector3Array, box: AABB) -> void:
+	var axis: int = 0
+	for a in range(3):
+		if box.size[a] > box.size[axis]:
+			axis = a
+	var lo: float = box.position[axis]
+	var span: float = maxf(box.size[axis], 0.0001)
+	var n: int = 24
+	var sums: Array = []
+	var cnt := PackedInt32Array()
+	sums.resize(n)
+	cnt.resize(n)
+	for i in range(n):
+		sums[i] = Vector3.ZERO
+	for v in verts:
+		var i: int = clampi(int((v[axis] - lo) / span * n), 0, n - 1)
+		sums[i] = (sums[i] as Vector3) + v
+		cnt[i] += 1
+	var pts: Array = []
+	for i in range(n):
+		if cnt[i] > 0:
+			pts.append((sums[i] as Vector3) / float(cnt[i]))
+	var arc: float = 0.0
+	for i in range(1, pts.size()):
+		arc += (pts[i] as Vector3).distance_to(pts[i - 1] as Vector3)
+	print("[shark] centreline along %s: %d nodes, arc=%.3f (AABB edge %.3f)"
+		% [["X", "Y", "Z"][axis], pts.size(), arc, box.size[axis]])
+	print("[shark] centreline head end=%s tail end=%s"
+		% [str((pts[0] as Vector3).snappedf(0.01)), str((pts[pts.size() - 1] as Vector3).snappedf(0.01))])
+
+func _verts(root: Node) -> PackedVector3Array:
+	var out := PackedVector3Array()
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = n
 		if mi.mesh == null:
 			continue
-		var xf: Transform3D = host.global_transform.affine_inverse() * mi.global_transform
+		var xf: Transform3D = mi.transform   # models here are flat under the root
 		for s in range(mi.mesh.get_surface_count()):
-			var arrs: Array = mi.mesh.surface_get_arrays(s)
-			for v in (arrs[Mesh.ARRAY_VERTEX] as PackedVector3Array):
-				pts.append(xf * v)
-	print("verts=", pts.size())
-	# --- head region: where are the existing horns, and how wide is the cephalofoil?
-	print("--- head slices (z bucket 0.1) x-halfwidth / y range / top-of-body ---")
-	var b: Dictionary = {}
-	for p in pts:
-		if p.z > -1.4:
-			continue
-		var k: int = int(floor(p.z * 10.0))
-		var e: Array = b.get(k, [0.0, -9.0, 9.0])
-		e[0] = maxf(e[0], absf(p.x))
-		e[1] = maxf(e[1], p.y)
-		e[2] = minf(e[2], p.y)
-		b[k] = e
-	var ks: Array = b.keys()
-	ks.sort()
-	for k in ks:
-		print("z %+.2f  halfwidth %.3f  y %+.3f .. %+.3f" % [k / 10.0, b[k][0], b[k][2], b[k][1]])
-	# --- the horns: everything above y 0.20 forward of z -1.6
-	print("--- horn cloud (y>0.20, z<-1.6) ---")
-	var hx := [9.0, -9.0]
-	var hy := [9.0, -9.0]
-	var hz := [9.0, -9.0]
-	var n_h: int = 0
-	for p in pts:
-		if p.y > 0.20 and p.z < -1.6:
-			n_h += 1
-			hx[0] = minf(hx[0], p.x); hx[1] = maxf(hx[1], p.x)
-			hy[0] = minf(hy[0], p.y); hy[1] = maxf(hy[1], p.y)
-			hz[0] = minf(hz[0], p.z); hz[1] = maxf(hz[1], p.z)
-	print("n=%d  x %+.3f..%+.3f  y %+.3f..%+.3f  z %+.3f..%+.3f" % [n_h, hx[0], hx[1], hy[0], hy[1], hz[0], hz[1]])
-	# --- dorsal top line, coarse: highest y on the CENTRE line (|x|<0.12) per z
-	print("--- spine line (|x|<0.15) ---")
-	var sp: Dictionary = {}
-	for p in pts:
-		if absf(p.x) > 0.15:
-			continue
-		var k: int = int(round(p.z * 5.0))
-		sp[k] = maxf(sp.get(k, -9.0), p.y)
-	var sk: Array = sp.keys()
-	sk.sort()
-	for k in sk:
-		print("z %+.2f  spine_top %+.3f" % [k / 5.0, sp[k]])
-	# --- flank line: at each z, the most-lateral vertex and its y
-	print("--- flank line (widest |x| per z, with its y) ---")
-	var fl: Dictionary = {}
-	for p in pts:
-		var k: int = int(round(p.z * 5.0))
-		var e: Array = fl.get(k, [0.0, 0.0])
-		if absf(p.x) > e[0]:
-			e[0] = absf(p.x); e[1] = p.y
-			fl[k] = e
-	var fk: Array = fl.keys()
-	fk.sort()
-	for k in fk:
-		print("z %+.2f  |x| %.3f  y %+.3f" % [k / 5.0, fl[k][0], fl[k][1]])
-	# --- belly line: lowest y per z on the centre line
-	print("--- belly line (|x|<0.25) ---")
-	var bl: Dictionary = {}
-	for p in pts:
-		if absf(p.x) > 0.25:
-			continue
-		var k: int = int(round(p.z * 5.0))
-		bl[k] = minf(bl.get(k, 9.0), p.y)
-	var bk: Array = bl.keys()
-	bk.sort()
-	for k in bk:
-		print("z %+.2f  belly %+.3f" % [k / 5.0, bl[k]])
-	get_tree().quit()
+			var arr: Array = mi.mesh.surface_get_arrays(s)
+			for v in (arr[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+				out.append(xf * v)
+	return out
+
+func _mesh_count(root: Node) -> int:
+	return root.find_children("*", "MeshInstance3D", true, false).size()
+
+func _bounds(root: Node3D) -> AABB:
+	var acc := AABB()
+	var first := true
+	for n in root.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = n
+		var w: AABB = mi.transform * mi.get_aabb()
+		acc = w if first else acc.merge(w)
+		first = false
+	return acc

@@ -6,7 +6,7 @@ extends Node3D
 ## Saves /tmp/face_<slug>.png. Raw meshes, no motion shader — pose only.
 
 const SLUGS := [
-	"ultra_hammerhead", "epic_four_eyed_whale", "mantle_ray", "corvid_gull",
+	"ultra_hammerhead", "epic_four_eyed_whale", "mantle_ray", "herring_gull",
 	"lamp_eel", "sea_gull", "tide_worm", "lamp_snail", "rust_snail", "glass_snail",
 	"jelly_drifter", "barnacle_cluster", "anchor_limpet", "glow_worm",
 	"harbor_seal", "bait_fish", "lamplight_crab", "giant_crab",   # post-regen

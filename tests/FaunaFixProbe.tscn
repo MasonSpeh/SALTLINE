@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://fauna_fix_probe"]
+[ext_resource type="Script" path="res://tests/fauna_fix_probe.gd" id="1"]
+[node name="FaunaFixProbe" type="Node3D"]
+script = ExtResource("1")

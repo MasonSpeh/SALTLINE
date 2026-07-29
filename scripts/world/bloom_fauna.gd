@@ -377,10 +377,26 @@ func _ready() -> void:
 	twigs.use_collision = false
 	add_child(twigs)
 	twigs.global_position = Vector3(-20, 21.42, 12)
-	var perches := [Vector3(24.9, 2.75, -16.0), Vector3(-8.6, 18.75, 6.4), Vector3(27.6, 18.75, 4.0)]
+	# PERCHES: an XZ each, and a y that only has to BRACKET the real surface — CorvidGull
+	# probes for it (_snap_to_perch) the way the deck gulls do. All three used to be typed
+	# at "rail height", 0.75 m over a rail rig_builder does not put at that XZ, so all three
+	# hovered (measured: +750.0 mm each, tests/FaunaSpotProbe) and the middle one hung
+	# 0.48 m off a blank bunkhouse wall.
+	#
+	# NOT ON THE PERIMETER RAILS, deliberately. rig_builder draws the top bar at y18.61 and
+	# fences the run with one smooth collision slab whose top is y19.225 — so a bird that
+	# honestly probes down onto a rail lands 615 mm above the steel you can see, which is
+	# the same bug in a new place. Every spot below is a surface whose collider IS its
+	# visible top (verified 0.0 mm gap, tests/FaunaFixProbe), with open sky over it:
+	#   0  a tide-line drum on the wet deck, 6.0 m of clear air, over the dock walk
+	#   1  the bunkhouse EAST roofline — the thief's own roof, its nest 12 m behind it
+	#   2  the roof of container SLN-098 on the south deck, 2.6 m up, watching the yard
+	# The rec-room roof looks like the obvious third one and is not: deck B's floor is
+	# 0.28 m above it, so a bird up there is a bird in a room.
+	var perches := [Vector3(26.0, 3.4, -21.4), Vector3(-8.6, 21.7, 14.0), Vector3(26.6, 21.0, -15.6)]
 	for i in range(perches.size()):
 		var cg := CorvidGull.new(perches[i])
-		cg.thief = i == 1   # the bunkhouse-rail bird works the topside deck
+		cg.thief = i == 1   # the bunkhouse-roof bird works the topside deck
 		add_child(cg)
 	# Glow worms — rare, edible; a den network wakes two dark corners per night.
 	add_child(GlowWormColony.new())
@@ -1725,20 +1741,40 @@ class HarborSeal extends Node3D:
 	var _pet_bump: float = 0.0    ## seconds of happy-wiggle left after a pet
 	var _fed: bool = false        ## took a fish from your hand — bonded for the day
 	## A befriended-able fishing partner (Codex §29). Cruises the water south of
-	## the rig, porpoising up to breathe, and by day hauls out to bask on the wet
-	## deck edge. Curious, never afraid — it turns to watch a nearby player.
+	## the rig, porpoising up to breathe, and by day hauls out to bask on the pontoon
+	## shelf under the rig. Curious, never afraid — it turns to watch a nearby player.
 	var _t: float = 0.0
 	var _head: Node3D
 	var _mat: StandardMaterial3D
 	var _flippers: Array = []
-	var _hauled: bool = false            ## day rest on the dock corner
+	var _hauled: bool = false            ## day rest on the pontoon
 	var _haul_timer: float = 0.0
-	const HAUL_SPOT := Vector3(9.0, 2.25, -21.2)    # SW tide-line corner, off the walk lanes
-## Twice moved, now settled: (25.8,-20.6) put its head inside a rusted drum, and
-## (24.2,-19.2) parked it in the respawn->stairs walk lane where players tripped over
-## it. The south-west corner by the deck edge is off every route (dock gangplank lands
-## x19.5, stairs are x23.6, stores door faces north) and its head hangs over open
-## water at the rim, which is exactly where a hauled-out seal would point.
+	## WHERE IT HAULS OUT — in PLAN ONLY. The height is measured off the world at runtime
+	## (_snap_haul), never typed, because every hand-typed y this animal has ever had was
+	## wrong within a batch or two.
+	##
+	## Four moves now, and the first three were all the same mistake — looking for a clear
+	## patch of WET DECK. (25.8,-20.6) put its head inside a rusted drum; (24.2,-19.2)
+	## parked it in the respawn->stairs walk lane; (9.0,2.25,-21.2) looked clear to a
+	## point-probe and was not — a body-sized box on that spot intersects FIVE colliders
+	## (measured, tests/FaunaFixProbe), the deck-edge pipework among them, because a 1.8 m
+	## animal's flanks reach a metre either side of the point anyone checks.
+	##
+	## The wet deck is simply the wrong deck for it: it is the rig's working floor, wall to
+	## wall with pipe banks, drums and walk lanes. So it moved DOWN a level, to the open
+	## foundation — the south pontoon walkway (slab top y0.95, x-28..28, z-16..-8, reached
+	## by the Pontoon Ladder that lands at 7.8,-12). That is a bare concrete shelf a metre
+	## off the water with nothing built on it, which is exactly what a real seal hauls out
+	## on, and it is 1.05 m BELOW the wet deck so the animal is finally under the rig rather
+	## than in the middle of it. x3/z-12 is 4.8 m west of the ladder foot — the first thing
+	## you see stepping off it — with 5 m of clear air around and clear of the lamp snails
+	## that ride this same pontoon at x-17.2 / -10 / 17.2.
+	const HAUL_XZ := Vector2(3.0, -12.0)
+	var _haul: Vector3 = Vector3(HAUL_XZ.x, 1.5, HAUL_XZ.y)   ## y replaced by _snap_haul
+	var _haul_snapped: bool = false
+	var _haul_floor: float = 0.95        ## measured shelf height under HAUL_XZ
+	var _belly: float = 0.0              ## model half-depth: node origin -> lowest point
+	var _model: Node3D                   ## the generated mesh, for the haul-out seat
 
 	func _ready() -> void:
 		_t = randf() * 10.0
@@ -1823,6 +1859,10 @@ class HarborSeal extends Node3D:
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 			ANIM.drive(_gen_mats, 1.0, 0.22)   # re-driven per frame below
+			# Measured, NOT grounded: it swims centred on its node and only needs the
+			# offset when it hauls out (see HAUL_XZ / _snap_haul).
+			_model = gen["model"]
+			_belly = ANIM.belly(self, _model)
 		# Touchable when hauled out: pet it, or offer a fish (Codex §29 befriending).
 		var touch := FaunaTouch.new("Harbor Seal", 0.95, _touch_verbs, _touch_act)
 		add_child(touch)
@@ -1830,8 +1870,13 @@ class HarborSeal extends Node3D:
 
 	func _process(delta: float) -> void:
 		_t += delta
+		# Deferred out of _ready: the rig is CSG and has no collider to probe until physics
+		# has stepped once, so a haul height taken in _ready would find nothing.
+		if not _haul_snapped:
+			_haul_snapped = true
+			_snap_haul()
 		var player: Node3D = get_tree().get_first_node_in_group("player")
-		# Haul-out: by day it sometimes lugs itself onto the tide-line corner and
+		# Haul-out: by day it sometimes lugs itself onto the pontoon shelf under the rig and
 		# just... lies there, watching you work. The rig has a resident now.
 		_haul_timer -= delta
 		if _haul_timer <= 0.0:
@@ -1846,9 +1891,14 @@ class HarborSeal extends Node3D:
 		ANIM.drive(_gen_mats, (0.4 if _hauled else 1.3) * wiggle, bond_glow + _pet_bump * 0.8,
 			(0.025 if _hauled else 0.11) * wiggle)
 		if _hauled:
-			global_position = global_position.lerp(HAUL_SPOT, delta * 1.5)
+			global_position = global_position.lerp(_haul, delta * 1.5)
 			rotation.z = lerp_angle(rotation.z, 0.0, delta * 2.0)
 			rotation.x = lerp_angle(rotation.x, -0.12, delta * 2.0)   # chest-up rest pose
+			# THE SEAT owns the height once it has arrived — see _seat(). Gated on being
+			# over the spot so the approach lerp isn't yanked down onto the shelf while the
+			# animal is still out over the water.
+			if Vector2(global_position.x - _haul.x, global_position.z - _haul.z).length() < 1.0:
+				_seat()
 			for f in _flippers:
 				(f as Node3D).rotation.x = lerp_angle((f as Node3D).rotation.x, 0.0, delta * 3.0)
 			if player:
@@ -1859,8 +1909,18 @@ class HarborSeal extends Node3D:
 					_head.rotation.y = lerp_angle(_head.rotation.y, atan2(flat_pl.x, flat_pl.z) - rotation.y, delta * 2.0)
 			return
 		# A long looping patrol south of the rig, near the surface.
+		#
+		# THE RADIUS IS A CLEARANCE, not a taste call. The loop is an ellipse of x-radius
+		# 0.7r and z-radius r about (0, -34), so its northernmost point is z = -34 + r_max.
+		# r used to swing 14..26, which put that point at z -8 — INSIDE the south pontoon
+		# (x-28..28, z-16..-8, slab y-3.05..0.95) at the y0-ish depth this animal swims,
+		# so every wide lap drove it straight through the concrete. r_max 16 stops it at
+		# z -18: two metres clear of the pontoon's south face, and clear of the submerged
+		# work plate's hanger rods (x12/21, z-19/-21) because the loop only reaches x ±11
+		# at z -34, far south of them. Closer to the rig than the old loop, and visible
+		# from the wet-deck south rail the whole way round.
 		var ang: float = _t * 0.16
-		var r: float = 20.0 + sin(_t * 0.1) * 6.0
+		var r: float = 12.0 + sin(_t * 0.1) * 4.0
 		var breathe: float = sin(_t * 0.6)          # porpoising rhythm
 		var y: float = -0.15 + maxf(breathe, 0.0) * 0.5   # crests above the surface to breathe
 		var pos := Vector3(cos(ang) * r * 0.7, y, -34.0 + sin(ang) * r)
@@ -1881,6 +1941,40 @@ class HarborSeal extends Node3D:
 				_head.rotation.y = lerp_angle(_head.rotation.y, atan2(flat.x, flat.z) - rotation.y, delta * 2.0)
 		# Body roll as it swims.
 		rotation.z = sin(_t * 1.2) * 0.15
+
+	## Find the pontoon shelf under HAUL_XZ and seat the animal ON it: the node goes the
+	## model's own belly depth above whatever the ray hits, so the flippers rest on the
+	## concrete instead of the body being buried to its waterline in it.
+	func _snap_haul() -> void:
+		var world: World3D = get_world_3d()
+		if world == null:
+			return
+		var from := Vector3(HAUL_XZ.x, 4.0, HAUL_XZ.y)
+		var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 7.0, 0))
+		q.collision_mask = 1          # world geometry
+		q.collide_with_areas = false
+		q.exclude = BloomFauna.fauna_bodies(self)   # not another animal's touch collider
+		var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+		if hit.is_empty():
+			return                    # nothing under it — keep the conservative default
+		_haul_floor = hit["position"].y
+		_haul = Vector3(HAUL_XZ.x, _haul_floor + _belly, HAUL_XZ.y)
+
+	## Rest the animal ON the shelf whatever pose it settled into.
+	##
+	## _snap_haul's height comes off the model's UNPITCHED bounds, and the rest pose is
+	## pitched: chest up, tail down. On this 2 m body that buried the tail 105 mm in the
+	## concrete (measured). Correcting the constant would only hold until the pose changed,
+	## so the live low point is what the height is derived from instead — the same "the seat
+	## owns the floor" rule the crab and the snails already run on. One model, so the cost is
+	## a couple of AABB transforms on the frames it is actually hauled out.
+	func _seat() -> void:
+		if _model == null:
+			return
+		var low: float = ANIM.low_point(_model)
+		if low == INF:
+			return
+		global_position.y += _haul_floor - low
 
 	## Only the first seal hauls out — one resident, one patroller.
 	func _idx_zero() -> bool:
@@ -1936,11 +2030,40 @@ class LampSnail extends Node3D:
 	const MODEL_PATH := "res://assets/models/fauna/lamp_snail/lamp_snail.glb"
 	var _gen_mats: Array = []
 	## Wheelbarrow-sized gastropods (Codex §54). The shell is BACKLIT MARBLE — wavy
-	## luminous veins flowing through a dark shell body, like light behind alabaster —
-	## not the old scatter of star-dots. By night they drift the rig-leg bases; their
-	## glow is visible through the water: the "lean over the rail" wonder-beat.
+	## luminous veins flowing through a pale MOON-ROCK shell body, like light behind
+	## alabaster — not the old scatter of star-dots. They drift the rig-leg bases day and
+	## night and never go dark (see VEIN_FLOOR / LIGHT_FLOOR): the read is a small moon
+	## crossing the plating, its own light travelling with it. Brightest after dark, where
+	## the glow through the water is the "lean over the rail" wonder-beat.
 	var _t: float
 	var _base: Vector3
+	## THE NEVER-DARK FLOOR (owner call, 2026-07-28: "a small moving moon").
+	##
+	## The glow used to be a pure day/night switch multiplied by a harvest penalty and a
+	## fed bonus, all of which bottomed out at literal zero — so by day, or for the two and
+	## a half minutes after a harvest, the animal was an unlit lump you could stand on top
+	## of and not find. The bright/dim states are worth keeping (they are the whole read on
+	## "I fed it" / "I just harvested it"), so they stay as RELATIVE variation and this goes
+	## under them as an absolute minimum: whatever the state, the shell emits at least this
+	## much and the lamp casts at least LIGHT_FLOOR onto whatever it is crawling over.
+	##
+	## Values are set where they land, not by taste. VEIN_FLOOR 0.42 puts the shader's
+	## emission term (vein_color * vein_energy * ribbon) at ~0.35 of a near-white — plainly
+	## visible in an unlit interior, invisible against a lit deck by day, which is exactly
+	## "faint glow in the dark, never fully dark". Night peaks at 2.0 (x1.3 fed), so the
+	## floor is ~20% of full and the dynamic range the player reads is untouched.
+	const VEIN_FLOOR: float = 0.42
+	## The cast light's floor. The shell alone would be a glow that lights nothing — the
+	## thing that sells a moon is the pool it puts on the plating under it, and that pool
+	## has to survive daylight and the harvest penalty too. Night peak is 0.65 (see the
+	## x0.325 below), so 0.20 is a third of full: a soft disc that moves with the animal.
+	const LIGHT_FLOOR: float = 0.20
+	## MOON PALETTE (owner call: white / light blue, not teal/green). The shell body is
+	## pale blue-grey rock and the veins are cold moonlight. Kept slightly blue rather than
+	## pure white so it separates from the rig's warm sodium floodlights at night.
+	const SHELL_BODY := Color(0.62, 0.68, 0.80)
+	const SHELL_VEIN := Color(0.82, 0.90, 1.00)
+	const MOON_LIGHT := Color(0.70, 0.82, 1.00)
 	## THE SHELL'S LIGHT. This replaces the old `_spots` array of glowing sphere meshes
 	## one-for-one: same job (a handle the game dims and lights every frame), same call
 	## sites, but it is now the shell SURFACE — materials/shell_marble.gdshader draws
@@ -1975,14 +2098,14 @@ class LampSnail extends Node3D:
 		sm.radius = 0.45
 		sm.height = 0.7
 		sm.is_hemisphere = true
-		# MARBLED, not spotted. The dome is a dark teal shell body with luminous ribbons
-		# running through it — backlit nacre. Bounds come off the mesh so the veining is
-		# scaled to this dome and not to some assumed unit size. mask_lo/hi are pushed
-		# below zero because this mesh is ALL shell (nothing to mask the foot out of).
+		# MARBLED, not spotted. The dome is a pale moon-rock shell body with luminous
+		# ribbons running through it — backlit nacre. Bounds come off the mesh so the
+		# veining is scaled to this dome and not to some assumed unit size. mask_lo/hi are
+		# pushed below zero because this mesh is ALL shell (nothing to mask the foot out of).
 		var shell_mat: ShaderMaterial = BloomFauna.shell_mat(sm.get_aabb(), {
 			"pattern_mode": 0,
-			"base_color": Color(0.09, 0.30, 0.30),
-			"vein_color": Color(0.40, 1.0, 0.92),
+			"base_color": SHELL_BODY,
+			"vein_color": SHELL_VEIN,
 			"tint": Color(1, 1, 1, 1),
 			"roughness_v": 0.38,
 			"pattern_scale": 2.8, "vein_width": 0.40, "vein_sharp": 0.52,
@@ -2000,14 +2123,14 @@ class LampSnail extends Node3D:
 		fm.radius = 0.2
 		fm.height = 0.9
 		# The foot glows fainter than the dome — light bleeding through soft tissue.
-		fm.material = BloomFauna.glow_mat(Color(0.10, 0.24, 0.24), 0.30)
+		fm.material = BloomFauna.glow_mat(Color(0.26, 0.30, 0.36), 0.30)
 		foot.mesh = fm
 		foot.rotation.x = deg_to_rad(90)
 		foot.position.y = -0.15
 		add_child(foot)
 		# Two optic tentacles reaching off the leading edge of the foot (+Z), each
 		# tipped with a small light-sensing eye bulb — the snail "reads" the dark.
-		_eye_mat = BloomFauna.glow_mat(BloomFauna.TEAL, 1.5)
+		_eye_mat = BloomFauna.glow_mat(SHELL_VEIN, 1.5)
 		for sx in [-0.11, 0.11]:
 			var pivot := Node3D.new()
 			add_child(pivot)
@@ -2030,11 +2153,14 @@ class LampSnail extends Node3D:
 			eye.position = Vector3(0, 0.22, 0.24)   # at the stalk tip
 			pivot.add_child(eye)
 			_stalks.append(pivot)
-		# A gentle pool of light cast on the deck plate — warm teal, soft attenuation, no shadow.
+		# A gentle pool of MOONLIGHT cast on the plate — cold white-blue, soft attenuation,
+		# no shadow. It is parented to the animal, so the pool travels with it: a shell that
+		# glowed without lighting anything under it would read as a decal, not a lamp.
+		# Starts at the floor rather than at zero so the very first frame is already lit.
 		_lamp_light = OmniLight3D.new()
-		_lamp_light.light_energy = 0.65
+		_lamp_light.light_energy = LIGHT_FLOOR
 		_lamp_light.omni_range = 3.0
-		_lamp_light.light_color = Color(0.35, 0.95, 0.88)  # warm teal
+		_lamp_light.light_color = MOON_LIGHT
 		_lamp_light.shadow_enabled = false
 		add_child(_lamp_light)
 		# The journal's promised beat: a gentle harvest takes the glow-mucus, leaves the
@@ -2057,7 +2183,10 @@ class LampSnail extends Node3D:
 		add_child(touch)
 		# Generated mesh: a faint shell flex; the marbling does the real work.
 		# PEDAL: the foot ripples back-to-front, which is how a snail actually travels.
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.9, ANIM.Mode.PEDAL, 0.03, 0.55, BloomFauna.TEAL)
+		# The rim colour is the MOON vein, not the house teal — the base shader's fresnel
+		# term rides on top of the marbling, and a teal rim over white-blue veins was reading
+		# as a green fringe on every ribbon.
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.9, ANIM.Mode.PEDAL, 0.03, 0.55, SHELL_VEIN)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
 			# Swap the generated surfaces onto the shell shader — the GlassSnail move. The
@@ -2068,9 +2197,9 @@ class LampSnail extends Node3D:
 			# authored facing all ride across the shader swap untouched.
 			_vein_mats.append_array(BloomFauna.reshell(_gen_mats, {
 				"pattern_mode": 0,
-				"base_color": Color(0.17, 0.32, 0.33),
+				"base_color": SHELL_BODY,
 				"base_desat": 1.0, "skin_mix": 0.12,   # the baked star decals go
-				"vein_color": Color(0.45, 1.0, 0.93),
+				"vein_color": SHELL_VEIN,
 				"roughness_v": 0.36,
 				"pattern_scale": 2.9, "vein_width": 0.40, "vein_sharp": 0.52,
 				"warp_strength": 1.7, "pattern_scroll": 0.03,
@@ -2167,33 +2296,46 @@ class LampSnail extends Node3D:
 				_breed_with(partner)
 		_harvest_cd = maxf(_harvest_cd - delta, 0.0)
 		var night: bool = GameClock.current_phase == GameClock.Phase.NIGHT
-		var glow: float = 2.0 if night else 0.0
+		# Day is no longer OFF, it is DIM: the animal is a lamp that happens to be brighter
+		# after dark, not a lamp that gets switched off at dawn.
+		var glow: float = 2.0 if night else 0.6
 		if _harvest_cd > 120.0:
 			glow *= 0.15   # freshly wiped — the shell's veining re-charges slowly
 		# Fed reads as visibly brighter and a touch faster — the "I fed it" feedback.
 		var pulse_rate: float = 1.05 if _fed else 0.8
 		var pulse_mul: float = 1.3 if _fed else 1.0
 		# THE DIMMER (was the per-spot emission loop). Same eased level, same rate, same
-		# semantics — 0.0 by day, full at night, knocked to 15% while the shell recharges
+		# semantics — full at night, dim by day, knocked to 15% while the shell recharges
 		# after a harvest — pushed into one shader uniform instead of eleven materials.
 		# The per-spot twinkle offset is now spatial: the shader varies the ribbons across
 		# the shell so the marbling breathes unevenly rather than as one flat lamp.
-		_vein_energy = lerpf(_vein_energy, glow * pulse_mul * (0.55 + 0.45 * sin(_t * pulse_rate)),
-			delta * 1.5)
+		#
+		# maxf, not lerp-toward-zero: every one of those multipliers can reach zero, and the
+		# floor is what stops the animal ever going dark. It is applied to the FINAL level so
+		# the pulse still breathes above it instead of being clamped flat.
+		var level: float = maxf(glow * pulse_mul * (0.55 + 0.45 * sin(_t * pulse_rate)), VEIN_FLOOR)
+		_vein_energy = lerpf(_vein_energy, level, delta * 1.5)
 		for m in _vein_mats:
 			m.set_shader_parameter("vein_energy", _vein_energy)
-		# The lamp light pulses with the shell, dimming when freshly harvested.
+		# The cast light rides the SAME eased level as the shell, so the pool on the plating
+		# can never disagree with the glow that is supposed to be making it — including at
+		# the floor, where the animal is still a small moon crossing a dark deck.
 		if _lamp_light:
-			var light_energy: float = glow * pulse_mul * (0.55 + 0.45 * sin(_t * pulse_rate)) * 0.325
-			_lamp_light.light_energy = lerpf(_lamp_light.light_energy, light_energy, delta * 1.5)
-		visible = night or global_position.y > 0.0
-		# The pedal wave runs only while it is out crawling.
-		ANIM.drive(_gen_mats, 0.55 if night else 0.0, glow * 0.35, 0.03 if night else 0.0)
+			_lamp_light.light_energy = maxf(_vein_energy * 0.325, LIGHT_FLOOR)
+		# ALWAYS DRAWN. This used to read `night or global_position.y > 0.0`, which hid a
+		# submerged snail by day — but the animal is now findable at all times by design, and
+		# a carried one dipped below the waterline blinking out is the bug that rule buys.
+		visible = true
+		# The pedal wave never fully stops either: the crawler walks it round the clock, and
+		# a sliding snail with a frozen foot is worse than a slow one. Rim glow rides the
+		# eased level so it, too, has the floor under it.
+		ANIM.drive(_gen_mats, 0.55 if night else 0.3, _vein_energy * 0.35, 0.03 if night else 0.02)
 		if night:
 			Journal.discover_if_near(self, "creature_lamp_snail", 12.0)
-		# Eye stalks sway on their own slow rhythm; the eye bulbs pick up the glow.
+		# Eye stalks sway on their own slow rhythm; the eye bulbs pick up the glow — and
+		# keep a lit ember by day for the same reason the shell does.
 		if _eye_mat:
-			_eye_mat.emission_energy_multiplier = lerpf(_eye_mat.emission_energy_multiplier, 1.5 if night else 0.0, delta * 2.0)
+			_eye_mat.emission_energy_multiplier = lerpf(_eye_mat.emission_energy_multiplier, 1.5 if night else 0.5, delta * 2.0)
 		for i in range(_stalks.size()):
 			var s: Node3D = _stalks[i]
 			s.rotation.z = sin(_t * 0.6 + i * PI) * 0.22
@@ -2245,7 +2387,11 @@ class DeckGull extends Node3D:
 	## climbs away to nothing, and lands again somewhere else a minute later.
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MOVE := preload("res://scripts/world/fauna_move.gd")
-	const MODEL_PATH := "res://assets/models/fauna/corvid_gull/corvid_gull.glb"
+	const MODEL_PATH := "res://assets/models/fauna/herring_gull/herring_gull.glb"
+	## Standing height at the crown, metres — a real herring gull is 0.35-0.40m on its
+	## feet. attach() normalises the LONGEST axis, which on this mesh is bill-to-tail
+	## (1.00 raw against 0.94 of height), so 0.42 lands the crown at 0.396m.
+	const SIZE_M := 0.42
 	var _home: Vector3
 	var _target: Vector3
 	var _t: float = 0.0
@@ -2260,52 +2406,41 @@ class DeckGull extends Node3D:
 	var _closest: float = 1e9     ## closest the player has crept this landing (threat roll)
 	var _look_cd: float = 0.0     ## idle head-turn clock
 	var _look_yaw: float = 0.0
-	## Legs: the generated body (like every text-to-3D asset here — see
-	## creature_anim.gd) is a single static mesh with no skeleton to animate, so a
-	## real walk cycle needs its own procedural pivots, the same way crab.gd's 8 legs
-	## do. Two is enough to read as a strutting bird; ANIM.attach (unlike .replace)
-	## never hides pre-existing geometry, so these stay visible next to the model.
-	var _leg_l: Node3D
-	var _leg_r: Node3D
+	## LEGS: there are none, and that is deliberate (2026-07-28).
+	## The old mesh was a dark long-legged wader whose model sank a quarter-metre into the
+	## plating, so two procedural pivot-and-shin legs were built here to be the feet the
+	## player actually saw — which is why this class uses ANIM.attach rather than .replace
+	## (attach does not hide pre-existing geometry). The herring gull that replaced it
+	## brings its own pink legs and webbed feet, modelled and textured. Keeping the
+	## procedural pair would put FOUR legs under one bird — and the built ones are glowing
+	## amber cylinders that would look nothing like the mesh's. They are gone; the gait
+	## now lives in the body (see the strut below), which costs a stiffer stride and buys
+	## a bird that reads as a real animal from two metres away. attach() is still the right
+	## call: .replace would hide nothing here now, but attach is what this class means.
+	var _lift: float = 0.0   ## metres the model was raised to stand its feet on the deck
+	var _snapped: bool = false   ## has the deck under this landing been probed yet?
 
 	func _init(home: Vector3) -> void:
 		_home = home
 		_target = home
 
 	func _ready() -> void:
-		var gen: Dictionary = ANIM.attach(self, MODEL_PATH, 0.5, ANIM.Mode.FLAP,
+		var gen: Dictionary = ANIM.attach(self, MODEL_PATH, SIZE_M, ANIM.Mode.FLAP,
 			0.012, 0.6, Color(0.30, 0.85, 0.80), randf() * TAU)
 		if gen.is_empty():
 			queue_free()   # no mesh, no bird — walkers have no procedural fallback
 			return
 		_model = gen["model"]
 		_gen_mats = gen["mats"]
+		# The mesh is authored centred on its bounds, so left alone the bird stands with
+		# its knees in the plating. Lift it by its own measured half-height instead.
+		_lift = ANIM.ground(self, _model)
 		ANIM.drive(_gen_mats, 0.6, 0.15)
 		global_position = _home
 		_peck = randf_range(2.0, 5.0)
-		_leg_l = _build_leg(-0.045)
-		_leg_r = _build_leg(0.045)
 		# Grab it if you can reach it before it flushes — crouch-sneak to close the gap.
 		var touch := FaunaTouch.new("Deck Gull", 0.9, _grab_verbs, _grab_act)
 		add_child(touch)
-
-	## A hip pivot at the body with a thin shin hanging from it, so rotating the
-	## pivot swings the whole leg from the top the way a real stride works instead
-	## of just tilting a stick planted at the ground.
-	func _build_leg(side_x: float) -> Node3D:
-		var hip := Node3D.new()
-		add_child(hip)
-		hip.position = Vector3(side_x, 0.16, 0.0)
-		var shin := MeshInstance3D.new()
-		var cm := CylinderMesh.new()
-		cm.top_radius = 0.008
-		cm.bottom_radius = 0.011
-		cm.height = 0.14
-		cm.material = BloomFauna.glow_mat(Color(0.8, 0.6, 0.2), 0.0)
-		shin.mesh = cm
-		hip.add_child(shin)
-		shin.position = Vector3(0, -0.07, 0)
-		return hip
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -2315,8 +2450,14 @@ class DeckGull extends Node3D:
 				# Lands again a few metres from home, grounded state reset.
 				global_position = _home + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
 				_flushing = -1.0
+				_snapped = false   # new spot, new deck height — re-probe before it struts
 				visible = true
 				_closest = 1e9   # a fresh bird lets the player re-earn the flush
+				if _model:
+					# Out of the climb attitude — it comes down level, on its feet.
+					_model.rotation.x = 0.0
+					_model.rotation.z = 0.0
+					_model.position.y = _lift
 				ANIM.drive(_gen_mats, 0.6, 0.15, 0.012)
 			return
 		var player: Node3D = get_tree().get_first_node_in_group("player")
@@ -2325,14 +2466,18 @@ class DeckGull extends Node3D:
 			_flushing += delta
 			global_position += _flush_dir * delta * 6.5 + Vector3(0, delta * 3.2, 0)
 			rotation.y = atan2(_flush_dir.x, _flush_dir.z) + PI
-			# Legs tuck up under the body in flight, not stay planted for the ground stride.
-			if _leg_l and _leg_r:
-				_leg_l.rotation.x = lerpf(_leg_l.rotation.x, deg_to_rad(-100.0), delta * 6.0)
-				_leg_r.rotation.x = lerpf(_leg_r.rotation.x, deg_to_rad(-100.0), delta * 6.0)
+			# Nose-up as it claws for height, and the waddle roll flattens out — the
+			# posture change is what sells the leap now that there are no legs to tuck.
+			if _model:
+				_model.rotation.x = lerpf(_model.rotation.x, 0.30, delta * 5.0)
+				_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 5.0)
 			if _flushing > 3.0:
 				visible = false
 				_regen = randf_range(45.0, 90.0)
 			return
+		if not _snapped:
+			_snapped = true
+			_snap_to_deck()
 		# Grounded threat: track the closest the player has crept and roll a flush at each
 		# ~1m they close inside 10m. Crouch-sneaking CUTS the odds (crouch_factor 0.3)
 		# rather than skipping the roll: sneaking should improve your chances, not make
@@ -2365,24 +2510,56 @@ class DeckGull extends Node3D:
 			rotation.y = lerp_angle(rotation.y, atan2(to.x, to.z) + PI, delta * 5.0)
 			if _model:
 				_model.rotation.z = sin(_t * 7.0) * 0.06   # the waddle
-			if _leg_l and _leg_r:
-				# Opposite-phase stride, same swing frequency as the waddle above so the
-				# legs and the body roll read as one gait rather than two separate ticks.
-				_leg_l.rotation.x = sin(_t * 7.0) * 0.5
-				_leg_r.rotation.x = sin(_t * 7.0 + PI) * 0.5
+				# The stride, without legs to swing: the body rocks side to side and rides
+				# up on each step. UPWARD only (absf) and a centimetre at most, so the
+				# webbed feet skim the plating and never dip through it. Both run at the
+				# waddle's frequency — one gait, not two ticks — and the pitch lags a
+				# quarter cycle so the head leads the body the way a walking gull's does.
+				_model.position.y = _lift + absf(sin(_t * 7.0)) * 0.010
+				_model.rotation.x = sin(_t * 7.0 - PI * 0.5) * 0.035
 		elif _model:
-			# Pecking: quick bow, twice, then upright — reads as feeding.
-			_model.rotation.x = maxf(sin(_t * 5.0), 0.0) * 0.5 * maxf(sin(_t * 0.7), 0.0)
+			# Pecking: quick bow, twice, then upright — reads as feeding. NEGATIVE x is
+			# the bow: this mesh faces -Z (see FACING_OVERRIDES), so +x pitches it nose-UP.
+			_model.rotation.x = -maxf(sin(_t * 5.0), 0.0) * 0.5 * maxf(sin(_t * 0.7), 0.0)
 			_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 4.0)
-			if _leg_l and _leg_r:
-				_leg_l.rotation.x = lerpf(_leg_l.rotation.x, 0.0, delta * 5.0)
-				_leg_r.rotation.x = lerpf(_leg_r.rotation.x, 0.0, delta * 5.0)
+			_model.position.y = lerpf(_model.position.y, _lift, delta * 8.0)
 			# Idle head-turns: it glances around on its own organic clock.
 			_look_cd -= delta
 			if _look_cd <= 0.0:
 				_look_cd = randf_range(1.4, 4.2)
 				_look_yaw = rotation.y + randf_range(-1.3, 1.3)
 			rotation.y = lerp_angle(rotation.y, _look_yaw, delta * 2.5)
+
+	## Put the bird down on whatever it is actually standing over, and remember that as the
+	## height of this patch.
+	##
+	## Two of the four spawn points are hand-typed at y 18.75 against a topside deck that
+	## rig_builder.gd puts at DECK_Y = 18.0 — three quarters of a metre of daylight under
+	## the bird. It went unnoticed for as long as it did because the OLD mesh was a wader
+	## whose visible feet were procedural sticks nobody had measured, and because the
+	## constants read plausibly next to the rail perches at the same y. A photoreal gull
+	## hovering over the plating is the first thing anyone sees. Probing beats re-typing
+	## the constants: it also re-grounds the bird wherever it happens to land after a
+	## flush, and it stays right the next time a deck moves.
+	## Deferred out of _ready deliberately — the deck is CSG and has no collider to hit
+	## until physics has stepped once.
+	func _snap_to_deck() -> void:
+		var world: World3D = get_world_3d()
+		if world == null:
+			return
+		var from: Vector3 = global_position + Vector3(0, 1.0, 0)
+		var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 4.0, 0))
+		q.collision_mask = 1          # world geometry, same as the strut probe
+		q.collide_with_areas = false
+		if not _bound:
+			_skip = BloomFauna.fauna_bodies(self)
+			_bound = true
+		q.exclude = _skip             # don't perch on another animal's collider
+		var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+		if hit.is_empty():
+			return                    # nothing under it — leave the authored height alone
+		global_position.y = hit["position"].y
+		_home.y = global_position.y
 
 	## Airborne flush: leap up and away from the player, then gone until it re-lands.
 	func _flush(player: Node3D) -> void:
@@ -2391,7 +2568,7 @@ class DeckGull extends Node3D:
 		away.y = 0.0
 		_flush_dir = away.normalized() if away.length() > 0.1 else Vector3(1, 0, 0)
 		ANIM.drive(_gen_mats, 3.2, 0.25, 0.07)   # wings open, full beat
-		AudioDirector.play_one_shot("gull", global_position, -8.0)
+		AudioDirector.play_one_shot("wingbeat", global_position, -8.0)   # wings, not voice
 		Journal.discover("creature_corvid_gull")
 
 	## Grabbable only while grounded and within reach — sneak in before it bolts.
@@ -2412,7 +2589,7 @@ class DeckGull extends Node3D:
 				hud.toast("No room for it — the gull thrashes free.")
 			return
 		Journal.discover("creature_corvid_gull")
-		AudioDirector.play_one_shot("gull", global_position, -6.0)
+		AudioDirector.play_one_shot("wingbeat", global_position, -6.0)   # it thrashes, it doesn't sing
 		visible = false
 		_flushing = -1.0
 		_regen = randf_range(60.0, 120.0)   # another gull drops onto the deck later
@@ -3576,12 +3753,17 @@ class AnchorLimpet extends Node3D:
 # ------------------------------------------------- Corvid-Gull (perched)
 class CorvidGull extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
-	const MODEL_PATH := "res://assets/models/fauna/corvid_gull/corvid_gull.glb"
+	const MODEL_PATH := "res://assets/models/fauna/herring_gull/herring_gull.glb"
+	## Same bird as the deck gulls (DeckGull.SIZE_M) — the thief on the bunkhouse rail is
+	## the same species standing on a different surface, so it is the same size.
+	const SIZE_M := 0.42
 	const GLOW := Color(0.30, 0.85, 0.80)
 	var _gen_mats: Array = []
-	## A Bloom-intelligent gull (Codex §26) perched on a rail, watching. Tilts its
-	## head to track the player — and one of them STEALS: loose takeables on the
+	## A Bloom-intelligent gull (Codex §26) perched on a high point of the rig, watching.
+	## Tilts its head to track the player — and one of them STEALS: loose takeables on the
 	## topside deck get carried, visibly, to the nest on the bunkhouse roof.
+	## The perch heights are PROBED, never authored — see _snap_to_perch and the perch list
+	## in BloomFauna._ready for why not one of them stands on a rail.
 	## Story-critical tools are beneath its interest (and our mercy).
 	const NEVER_STEAL := ["cable_spool", "fishing_rod", "throwing_hook", "prybar"]
 
@@ -3600,6 +3782,7 @@ class CorvidGull extends Node3D:
 	var _flee_dir: Vector3
 	var _look_cd: float = 0.0          ## idle head-turn clock
 	var _look_yaw: float = 0.0
+	var _snapped: bool = false         ## has the surface under this perch been probed yet?
 
 	func _init(perch: Vector3) -> void:
 		_perch = perch
@@ -3658,13 +3841,21 @@ class CorvidGull extends Node3D:
 			add_child(leg)
 		# Generated mesh: wing filaments twitch even while it's perched and watching.
 		# (Meshy auto-rigs humanoids only, so the motion is CreatureAnim's vertex shader.)
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.55, ANIM.Mode.FLAP, 0.05, 1.0, GLOW)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, SIZE_M, ANIM.Mode.FLAP, 0.05, 1.0, GLOW)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
+			# Perched means STANDING on the rail, so the same grounding the deck gulls get:
+			# the mesh is centred on its bounds and would otherwise hang half through it.
+			ANIM.ground(self, gen["model"])
 			ANIM.drive(_gen_mats, 1.0, 0.2)   # steady — no per-frame cost
 
 	func _process(delta: float) -> void:
 		_t += delta
+		# Deferred out of _ready for the same reason DeckGull._snap_to_deck is: the rig is
+		# CSG and has no collider to probe against until physics has stepped once.
+		if not _snapped:
+			_snapped = true
+			_snap_to_perch()
 		var day: bool = GameClock.current_phase == GameClock.Phase.DAY \
 			or GameClock.current_phase == GameClock.Phase.DAWN
 		# Flee (Codex threat behaviour): it bolts off the perch and returns later.
@@ -3733,6 +3924,28 @@ class CorvidGull extends Node3D:
 		# Occasional preen bob.
 		_head.position.y = 0.28 + maxf(sin(_t * 0.5) - 0.7, 0.0) * 0.3
 
+	## Stand the bird on whatever its perch XZ is actually over, and keep that as the perch —
+	## _perch is also the flee-return and the end of the heist, so correcting the constant
+	## itself is what stops the bird flying home to the old floating height.
+	##
+	## ANIM.ground() has already put the model's feet on this node's origin, so the hit point
+	## is the answer directly. Authored y only has to bracket the surface: the ray runs from
+	## a metre above it to four below.
+	func _snap_to_perch() -> void:
+		var world: World3D = get_world_3d()
+		if world == null:
+			return
+		var from: Vector3 = _perch + Vector3(0, 1.0, 0)
+		var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 5.0, 0))
+		q.collision_mask = 1          # world geometry
+		q.collide_with_areas = false
+		q.exclude = BloomFauna.fauna_bodies(self)   # don't perch on another animal
+		var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+		if hit.is_empty():
+			return                    # nothing under it — leave the authored height alone
+		_perch.y = hit["position"].y
+		global_position.y = _perch.y
+
 	## Bolt off the perch away from the player; gone until it settles back later.
 	func _begin_flee(player: Node3D) -> void:
 		_fleeing = 0.0
@@ -3744,7 +3957,7 @@ class CorvidGull extends Node3D:
 			_carry.queue_free()
 			_carry = null
 		ANIM.drive(_gen_mats, 3.0, 0.2, 0.07)
-		AudioDirector.play_one_shot("gull", global_position, -8.0)
+		AudioDirector.play_one_shot("wingbeat", global_position, -8.0)   # wings, not voice
 		Journal.discover("creature_corvid_gull")
 
 	## The heist loop: pick a loose topside takeable, swoop, carry it — in view,

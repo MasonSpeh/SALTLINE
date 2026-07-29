@@ -1042,11 +1042,24 @@ func _breaker_room() -> void:
 	_pw("korean_fire_extinguisher_01", Vector3(22.30, by + 0.95, 2.28), 0, 1.1)
 	_pw("wall_clock", Vector3(21.90, by + 2.10, 2.18), 0)
 	# The voltage placard goes by the DOOR, not on the panel wall: rig_builder already
-	# paints "1) SPLICE THE GAP / 2) CLOSE THIS MASTER" across x 24.5..25.9 up there, and a
-	# plate anywhere near it lands under the second line.
-	_wall_mesh(Vector3(24.30, by + 1.45, 2.16), Vector3(0.48, 0.42, 0.05), MatLib.hazard_stripe())
-	_wall_mesh(Vector3(24.30, by + 1.45, 2.185), Vector3(0.42, 0.34, 0.02), MatLib.painted_steel())
-	_paint("DANGER\n440 V", Vector3(24.30, by + 1.45, 2.20), 0, 13, 0.2)
+	# paints "1) SPLICE THE GAP / 2) CLOSE THIS MASTER" up there, and a plate anywhere near
+	# it lands under the second line.
+	#
+	# IT WAS HUNG IN THE DOORWAY. Centred at x 24.30 it looked like it was beside the
+	# opening, but the opening (measured: CSG cut x 22.70..24.30, y 10.0..12.40, with
+	# DoorFrame's jamb at x 24.21..24.304 standing proud to z 2.155) ends at exactly
+	# 24.30 — so half of the 0.48 m plate hung over the hole and the other half fouled
+	# the proud jamb. Solid plate on this wall starts at x >= 24.30 and ABOVE y 12.40.
+	#
+	# Same fix as the landing-2 signage one file over (_breaker_room_layout): everything
+	# goes on the LINTEL over the frame head, centred on the opening. The band is y
+	# 12.40 (head) .. 13.075 (measured ceiling underside) = 0.675 m; a 0.42 m plate
+	# centred at 12.74 leaves 0.13 m of clear plate below and 0.125 m above, and its
+	# 0.48 m width sits inside the 1.6 m of lintel. Everything stays on the room-side
+	# face (wall face z 2.125) with each layer a few mm proud of the one behind it.
+	_wall_mesh(Vector3(23.50, by + 2.74, 2.16), Vector3(0.48, 0.42, 0.05), MatLib.hazard_stripe())
+	_wall_mesh(Vector3(23.50, by + 2.74, 2.185), Vector3(0.42, 0.34, 0.02), MatLib.painted_steel())
+	_paint("DANGER\n440 V", Vector3(23.50, by + 2.74, 2.20), 0, 13, 0.2)
 	_schematic_board(Vector3(25.70, by + 1.75, 2.17))
 	_pw("clipboard", Vector3(24.85, by + 1.50, 2.22), 0)
 	_pc("chinese_stool", Vector3(25.70, by, 2.72), 0)                # under the board

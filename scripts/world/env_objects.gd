@@ -362,15 +362,30 @@ class RedFlasher extends Node3D:
 	var _peak: float = 3.0
 	var _scale: float = 1.0
 	var _period: float = 1.3
+	var _ceiling: bool = false
 
 	## rng = light range, peak = flash energy, sz = housing scale, period = seconds/flash.
-	func setup(rng: float, peak: float, sz: float = 1.0, period: float = 1.3) -> void:
+	##
+	## The fixture is BUILT STANDING: the origin is the base of the housing and the lens
+	## sits 0.2 m above it, which is right for a mast head or a pole top. `ceiling` flips
+	## the whole assembly so the housing's wide end becomes the mounting flange, the lens
+	## and its guard ribs hang BELOW it, and the origin becomes the point that goes hard
+	## against the deckhead. Without it, a beacon placed on a ceiling reads upside down —
+	## and, because the fixture is 0.32 m tall, its position has to be the ceiling
+	## underside for the flange to be flush instead of hanging in mid-air.
+	func setup(rng: float, peak: float, sz: float = 1.0, period: float = 1.3,
+			ceiling: bool = false) -> void:
 		_rng = rng
 		_peak = peak
 		_scale = sz
 		_period = period
+		_ceiling = ceiling
 
 	func _ready() -> void:
+		# Hung fixture: everything below is authored upward from the base, so one flip
+		# about X turns the whole thing over and leaves the origin on the mounting face.
+		if _ceiling:
+			rotation.x = PI
 		# Dark housing can on a short stalk, a red lens dome, and a small guard cage.
 		var housing := MeshInstance3D.new()
 		var hm := CylinderMesh.new()

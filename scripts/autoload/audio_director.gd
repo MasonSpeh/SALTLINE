@@ -25,6 +25,9 @@ const ONE_SHOTS: Dictionary = {
 	"thunder": "res://audio/thunder.wav",
 	"groan": "res://audio/groan.wav",
 	"gull": "res://audio/gull.wav",
+	# Takeoff is WINGS ONLY — a flushed bird beats air, it does not announce itself.
+	# gull.wav stays for the distant ambient cries (_random_gull) and nothing else.
+	"wingbeat": "res://audio/wingbeat.wav",
 	"pa_crackle": "res://audio/pa_crackle.wav",
 	"hiss": "res://audio/hiss.wav",
 	"clang": "res://audio/clang.wav",
@@ -83,7 +86,7 @@ var wildlife_machinery_on: bool = true
 var atmosphere_on: bool = true
 
 ## Creature and machinery sources: animal calls and the idle plant hum.
-const WILDLIFE_MACHINERY: Array[String] = ["gull", "groan", "scuttle_a", "scuttle_b", "scuttle_c", "crab_snap"]
+const WILDLIFE_MACHINERY: Array[String] = ["gull", "wingbeat", "groan", "scuttle_a", "scuttle_b", "scuttle_c", "crab_snap"]
 ## The scored-feeling layer: randomized structural events.
 const ATMOSPHERE_EVENTS: Array[String] = ["deep_groan", "sheet_bang", "drip"]
 

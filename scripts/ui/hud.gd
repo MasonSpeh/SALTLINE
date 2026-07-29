@@ -77,6 +77,12 @@ var _inv_hovered_idx: int = -1   ## last unified slot the cursor was over (for D
 ## it is the difference between dropping what the player chose and dropping their dinner.
 var _inv_selected_idx: int = -1
 var _inv_selected_id: String = ""
+## Click a slot holding a fish and the fish itself comes up over the pack, rendered at the
+## size that species really is (item_icons.get_preview). Nodes built in _build_fish_preview.
+var _fish_preview: Control
+var _fish_preview_pic: TextureRect
+var _fish_preview_caption: Label
+var _fish_preview_id: String = ""
 var bench_panel: BenchPanel
 var crate_panel: Panel
 var crate_title: Label
@@ -100,6 +106,12 @@ func _ready() -> void:
 	_icons.icon_ready.connect(func(_id: String) -> void:
 		_refresh_hotbar()
 		_refresh_inventory_panel())
+	# A preview is rendered a frame or two after the click that asked for it; this is what
+	# raises the overlay when it lands, and it must not raise a fish the player has since
+	# put down, so it re-asks _sync rather than assuming the id is still the picked one.
+	_icons.preview_ready.connect(func(id: String) -> void:
+		if id == _fish_preview_id:
+			_sync_fish_preview())
 	layer = 10
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_build()
@@ -1015,6 +1027,85 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	bench_panel.offset_top = -270
 	bench_panel.offset_right = 310
 	bench_panel.offset_bottom = 270
+	_build_fish_preview()
+
+## THE FISH PREVIEW — click a slot with a catch in it and see how big the thing actually is.
+##
+## Owner spec, 2026-07-28. A 74 px slot icon is normalised: a copper sprat and a giant
+## oarfish fill their squares identically, which is right for FINDING an item and wrong for
+## understanding one. So the pack keeps its icons and gains this: the fish over the whole
+## screen at the size its species really is, scaled off data/fish.json.
+##
+## It is an OVERLAY, not a panel — full-rect, above everything, and MOUSE_FILTER_IGNORE all
+## the way down. That matters: clicking a slot is still pick-and-place, and the second click
+## that puts the fish down has to reach the slot underneath this. Nothing here consumes a
+## click, so the whole pack keeps working with a 3 m oarfish lying across it.
+func _build_fish_preview() -> void:
+	_fish_preview = Control.new()
+	_fish_preview.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fish_preview.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fish_preview.z_index = PANEL_Z + 5
+	_fish_preview.visible = false
+	add_child(_fish_preview)
+	# A scrim, so a dark deep-water fish still reads over the daylit sea and the pack's own
+	# steel. Low enough that the slots stay legible through it — the player is mid-gesture.
+	var scrim := ColorRect.new()
+	scrim.set_anchors_preset(Control.PRESET_FULL_RECT)
+	scrim.color = Color(0.02, 0.03, 0.04, 0.62)
+	scrim.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fish_preview.add_child(scrim)
+	_fish_preview_pic = TextureRect.new()
+	_fish_preview_pic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	_fish_preview_pic.offset_top = 40
+	_fish_preview_pic.offset_bottom = -64
+	# The render is already framed to real size — KEEP_ASPECT_CENTERED only letterboxes it
+	# into whatever window the player is running. STRETCH would throw the framing away and
+	# with it the entire point, so it must never become one.
+	_fish_preview_pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_fish_preview_pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_fish_preview_pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fish_preview.add_child(_fish_preview_pic)
+	_fish_preview_caption = Label.new()
+	_fish_preview_caption.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	_fish_preview_caption.offset_top = -52
+	_fish_preview_caption.offset_bottom = -16
+	_fish_preview_caption.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_fish_preview_caption.add_theme_font_size_override("font_size", 19)
+	_fish_preview_caption.add_theme_color_override("font_color", Color(0.86, 0.74, 0.42))
+	_fish_preview_caption.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_fish_preview.add_child(_fish_preview_caption)
+
+## Raise the preview for a picked slot, or drop it. Called from every place the pack's
+## selection can change, because a preview left up over an item the player already put down
+## is worse than no preview at all.
+func _sync_fish_preview() -> void:
+	if _fish_preview == null:
+		return
+	var id: String = _inv_selected_id if _inv_selection_valid() else ""
+	if id != "" and not ItemVisual.is_species_fish(id):
+		id = ""              # tools, tins and kits keep their slot icon and nothing more
+	if id == "":
+		_fish_preview_id = ""
+		_fish_preview.visible = false
+		return
+	_fish_preview_id = id
+	var tex: Texture2D = _icons.get_preview(id)
+	# Not rendered yet: hold the overlay back rather than flash an empty scrim. The
+	# preview_ready signal calls straight back here when the render lands, a frame or two on.
+	_fish_preview.visible = tex != null
+	_fish_preview_pic.texture = tex
+	_fish_preview_caption.text = _fish_caption(id)
+
+## What the picture is: the species, the body length the framing was built from, and the
+## weight fish.json actually rolls for it. Straight off the data, so a suspicious-looking
+## frame can be checked against the numbers that produced it.
+func _fish_caption(id: String) -> String:
+	var parts: PackedStringArray = [_item_name(id).to_upper()]
+	parts.append("%.2f m" % ItemVisual.fish_length_m(id))
+	var kg: float = ItemVisual.fish_max_kg(id)
+	if kg > 0.0:
+		parts.append("up to %d kg" % roundi(kg))
+	return "   ·   ".join(parts)
 
 func any_panel_open() -> bool:
 	return help_panel.visible or journal_panel.visible or inventory_panel.visible \
@@ -1161,6 +1252,9 @@ const INV_TITLE: String = "PACK        (click: into your hand · right-click: dr
 
 func _refresh_inventory_panel() -> void:
 	if inventory_panel == null or not inventory_panel.visible:
+		if _fish_preview != null:
+			_fish_preview.visible = false
+			_fish_preview_id = ""
 		return
 	# A pick only survives while the item it named is still in the slot it named. Eating,
 	# a crate exchange or a craft can all move things under an open panel.
@@ -1207,6 +1301,8 @@ func _refresh_inventory_panel() -> void:
 			glyphs.insert(0, "▸")
 			_inv_buttons[i].modulate = Color(0.68, 1.0, 0.78)
 		_inv_buttons[i].text = " ".join(glyphs)
+	# Whatever the pack just did to the selection, the fish over the top of it must agree.
+	_sync_fish_preview()
 
 ## The always-visible name+count strip's text. A 74px slot at 9pt fits roughly 11-12
 ## narrow characters before Label.clip_text starts eating the tail, so long item names
@@ -1255,6 +1351,10 @@ func _inv_select(idx: int) -> void:
 func _inv_clear_selection() -> void:
 	_inv_selected_idx = -1
 	_inv_selected_id = ""
+	# Nothing is picked, so nothing is being looked at. This also covers closing the pack,
+	# which clears the selection but never refreshes the (now hidden) panel.
+	if _fish_preview != null:
+		_sync_fish_preview()
 
 ## True while the picked slot still holds the item that was picked.
 func _inv_selection_valid() -> bool:

@@ -1058,13 +1058,44 @@ func _dismount_clear(anchor: Vector3, into: Vector3, ef: float) -> void:
 		cands.append(anchor + flat * d)
 		cands.append(anchor + flat * d + side * 0.55)
 		cands.append(anchor + flat * d - side * 0.55)
+	# THEN THE OTHER SIDE. `into` is derived from the ladder's facing, and the two ends of
+	# one ladder do not agree on which way "off" is: a roof-access ladder mantles at the
+	# top TOWARD the building it is bolted to, and steps off at the bottom AWAY from it.
+	# The caller can only pass one direction, so when every spot on that side is solid —
+	# which is exactly what "the intended side is the wall" looks like — try the mirror
+	# before falling through. Only reached when the preferred side has already failed, so
+	# a working exit never changes; this replaces "give up and bury the player".
+	for d in [ef, ef + 0.6]:
+		cands.append(anchor - flat * d)
+		cands.append(anchor - flat * d + side * 0.55)
+		cands.append(anchor - flat * d - side * 0.55)
 	cands.append(anchor + Vector3(0, 1.3, 0))   # last resort: straight up
+	# "Clear" is not enough on its own: the far side of a bulkhead is beautifully clear,
+	# and taking it teleports the player THROUGH the wall into the next room. The shaft
+	# well's exit landed 1.1 m past the shaft wall that way, and the machine-shop roof
+	# ladder's bottom exit landed inside the shop. So a candidate must also be REACHABLE —
+	# nothing solid on the straight line from the anchor to it, tested at body height.
+	var open: Vector3 = Vector3.INF
 	for c in cands:
 		var xf := Transform3D(global_transform.basis, c)
-		if not test_move(xf, Vector3(0, -0.05, 0), null, 0.001, true):
+		if test_move(xf, Vector3(0, -0.05, 0), null, 0.001, true):
+			continue
+		if open == Vector3.INF:
+			open = c          # clear but maybe behind something — the old behaviour
+		if _exit_reachable(anchor, c):
 			global_position = c
 			return
-	global_position = cands[0]   # nothing clear anywhere — take the intended spot
+	# Nothing both clear and reachable: a clear spot still beats being buried.
+	global_position = open if open != Vector3.INF else cands[0]
+
+## Is there a straight, unobstructed line from the dismount anchor to `to`? Cast at the
+## capsule's centre height so the deck underfoot is never the obstruction.
+func _exit_reachable(from: Vector3, to: Vector3) -> bool:
+	var lift := Vector3(0, _col.position.y, 0)
+	var q := PhysicsRayQueryParameters3D.create(from + lift, to + lift)
+	q.exclude = [get_rid()]
+	q.collide_with_areas = false
+	return get_world_3d().direct_space_state.intersect_ray(q).is_empty()
 
 ## Entering the water no longer teleports you out — you swim (GDD §31). The sea
 ## takes warmth constantly, ladders are the way back up, and your breath (oxygen) is
@@ -1374,7 +1405,13 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	if _held_item_id in ROD_ITEMS:
 		# Angle the rod out over the water like it's actually being fished.
 		container.rotation = Vector3(deg_to_rad(-24), deg_to_rad(-14), 0)
-		container.position += Vector3(0.05, -0.05, -0.1)
+		# LIFTED, because a rod is recentred on its AABB and its reel is not at its middle.
+		# The rebuilt rod carries the reel a quarter of the way up from the butt, so centring
+		# the 0.9 m rig on the hand point put the one part that says "offshore gear" — the
+		# lever-drag multiplier — just under the bottom edge of the screen, and the player
+		# held a bare stick. This raises the whole rig by about half a reel so the seat, the
+		# reel and the tip are all in frame at once.
+		container.position += Vector3(0.05, 0.12, -0.1)
 	# Half the item's longest dimension, in CONTAINER-local units (after the
 	# recentre above, the visual's AABB is symmetric about the container origin).
 	# hand_tip_world() uses this to find the far end of whatever is held, so a

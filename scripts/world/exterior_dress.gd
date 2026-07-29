@@ -815,9 +815,15 @@ func _welding_bay() -> void:
 	_bx(a, Vector3(tx, DECK_Y + 0.60, z), Vector3(0.42, 0.04, 0.04),
 		MatLib.flat(Color(0.65, 0.45, 0.12)))
 
-	# Two screens on castor feet, standing an L round the bay.
+	# Two screens on castor feet, standing an L round the bay. The side leg is on the WEST
+	# flank, not the east: at x + 1.62 it stood 0.32 m off the roof-ladder climb axis
+	# (x -14.8), which is inside the LADDER KEEP-OUT band at the top of this file. Measured,
+	# a 0.37 m player capsule could only reach 0.31 m of radius for the bottom 1.6 m of that
+	# climb, and the ladder's own step-off apron ran straight through the screen. West of the
+	# set it clears the gas-bottle cage by 0.28 m and the north screen by 0.23 m, and the
+	# lane it actually has to shield — the alley walk at z -2.4..0.4 — is the north one.
 	_welding_screen(a, Vector3(x - 0.15, DECK_Y, z + 1.30), 2.0, 0.0)
-	_welding_screen(a, Vector3(x + 1.62, DECK_Y, z + 0.45), 1.4, 90.0)
+	_welding_screen(a, Vector3(x - 1.45, DECK_Y, z + 0.45), 1.4, 90.0)
 	_solid(a, Vector3(x, DECK_Y + 0.6, z), Vector3(1.5, 1.2, 1.0))
 	_solid(a, Vector3(tx, DECK_Y + 0.8, z), Vector3(0.55, 1.6, 0.65))
 
@@ -901,6 +907,18 @@ func _roof_ladder() -> void:
 	l.exit_forward = 1.35
 	a.add_child(l)
 	l.position = Vector3(x, DECK_Y, z)
+	# YAW 180 IS LOAD-BEARING, NOT DRESSING. Ladder.face_dir() is the node's local -Z, and
+	# PlayerController uses it for BOTH ends of the climb: it latches the capsule at
+	# base + face_dir * 0.45 (so face_dir must point at the open air the climber's body
+	# occupies) and it mantles off the top toward -face_dir (so the OPPOSITE side must be
+	# the ground you step onto). Left unrotated, this ladder's -Z pointed at the shop wall
+	# 0.325 m behind it: the latch put the player at z -6.00, INSIDE the north wall
+	# (face -5.875, centreline -6.0) — capsule fit measured 0.00 m of radius from y19.5 to
+	# y21.0, mathematically buried — and the top mantle threw them to z -4.20, which is
+	# 1.55 m past the roof edge over the alley, a 3.95 m fall. Facing +Z puts the latch in
+	# the alley (z -5.10, clear) and the mantle at z -6.90, 1.15 m in on the roof slab.
+	# The rails, rungs and collider are all symmetric about both axes, so nothing moves.
+	l.rotation.y = deg_to_rad(180)
 	var rail_mat: Material = MatLib.flat(Interactable.COLOR_TAKEABLE)
 	var rung_mat: Material = MatLib.flat(Color(0.75, 0.65, 0.15))
 	for side in [-0.24, 0.24]:

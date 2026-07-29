@@ -73,8 +73,15 @@ const FACING_DEFAULT := {"yaw": 180.0, "pitch": 0.0, "axis": 0, "flip": 1.0, "li
 ## That is the convention exactly, so it takes NO entry here — the default's 180 yaw and
 ## flip 1.0 land it head-first on Godot's -Z, right side up. Recorded so the next person
 ## knows it was verified and not skipped.
+## herring_gull (owner-picked photoreal gull, CHECKED 2026-07-28 through CandShot's side
+## view before it was wired in): it is the FIRST model here authored the other way round.
+## From the +X camera its bill points screen-RIGHT, which is world -Z — already Godot's
+## forward. The default's 180 yaw would spin it and the deck gull would strut backwards
+## down the plating, tail first. So: no yaw, and the head is at the MIN end of local Z
+## (flip 0), which is also what the shader needs to keep the wave running head -> tail.
 const FACING_OVERRIDES: Dictionary = {
 	"mantle_ray": {"yaw": 180.0, "pitch": 90.0, "axis": 0, "flip": 1.0, "lift": 1},
+	"herring_gull": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 }
 
 static func facing_for(path: String) -> Dictionary:
@@ -171,6 +178,61 @@ static func attach(host: Node3D, path: String, target_m: float, mode: int,
 		(m as ShaderMaterial).set_shader_parameter("flow_flip", fac["flip"])
 		(m as ShaderMaterial).set_shader_parameter("lift_axis", fac["lift"])
 	return {"model": model, "mats": mats}
+
+## Stand an attached model ON the host's origin plane and return the lift applied, metres.
+##
+## Every generated mesh here is authored CENTRED on its own bounding box, so a walker
+## whose host node sits on the deck plating gets buried to the waist — the old long-legged
+## gull hid a quarter-metre of leg under the deck and nobody noticed, because the visible
+## feet were procedural. A model with its OWN feet has to be lifted by its own half-height
+## or it sinks. Measured off the post-scale, post-facing bounds rather than a hand-typed
+## offset, so it stays right if the target size or the facing table changes.
+## Call it AFTER attach() — it needs the final scale and rotation — and only for creatures
+## that stand on something. Swimmers and perched-on-nothing species want the centre.
+static func ground(host: Node3D, model: Node3D) -> float:
+	var lift := belly(host, model)
+	model.position.y += lift
+	return lift
+
+## How far the model's LOWEST point hangs below the host origin, metres — the lift ground()
+## applies, without applying it.
+##
+## Split out for the amphibians: the harbor seal swims CENTRED on its node (the patrol code
+## drives the node along the body's own axis, so a grounded model would ride half a body
+## high through the water) but hauls out ON a surface, where the node has to sit this far
+## above the plating or the animal is buried to the flippers in it. One measurement, two
+## uses, and the haul height stays derived from the mesh instead of typed.
+static func belly(host: Node3D, model: Node3D) -> float:
+	var acc := AABB()
+	var first := true
+	var inv: Transform3D = host.global_transform.affine_inverse()
+	for m in _mesh_instances(model):
+		var inst: MeshInstance3D = m
+		if inst.mesh == null:
+			continue
+		var box: AABB = (inv * inst.global_transform) * inst.get_aabb()
+		acc = box if first else acc.merge(box)
+		first = false
+	if first:
+		return 0.0
+	return -acc.position.y
+
+## WORLD y of the model's lowest point right now, in whatever pose it is currently in.
+##
+## belly() answers the same question in the host's frame at BUILD time, which is the number
+## you want for a fixed stance. It is the wrong number for a body that is posed after it has
+## been placed: pitching the harbor seal into its -0.12 rad chest-up rest tips the tail down
+## about 0.1 m on a 2 m animal, and a haul height derived from the unpitched bounds buried it
+## exactly that far in the concrete (measured -105 mm). Seat against this instead and the
+## pose can change freely without the placement going wrong. INF when there is no mesh.
+static func low_point(model: Node3D) -> float:
+	var low: float = INF
+	for m in _mesh_instances(model):
+		var inst: MeshInstance3D = m
+		if inst.mesh == null:
+			continue
+		low = minf(low, (inst.global_transform * inst.get_aabb()).position.y)
+	return low
 
 ## Attach the generated mesh and hide the procedural geometry it supersedes.
 ##
