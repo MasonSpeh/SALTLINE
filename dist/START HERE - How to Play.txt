@@ -1,140 +1,112 @@
-====================================================================
-  S A L T L I N E   —   Beta
-  A first-person survival mystery on an abandoned North Sea oil rig
-====================================================================
+========================================================================
+  SALTLINE
+  a first-person survival mystery on an abandoned North-Sea oil rig
+========================================================================
+
+WHAT'S HERE
+-----------
+  SALTLINE-Windows.exe   - the game for Windows (64-bit). One file. (1.3 GB)
+  SALTLINE-Mac.zip       - the game for macOS (Intel + Apple Silicon). (1.0 GB)
+  README-HOW-TO-PLAY.txt - this file.
+
+You only need the file for YOUR computer.
 
 
-HOW TO START THE GAME
----------------------
-1. Double-click  SALTLINE.exe
-2. That's it. There is no installer and nothing to set up.
+DO I NEED TO INSTALL ANYTHING?
+------------------------------
+No. These are complete, standalone builds. You do NOT need Godot, a launcher,
+or an internet connection to play.
 
 
-"WINDOWS PROTECTED YOUR PC" — THIS IS NORMAL
---------------------------------------------
-Because this is an indie game and not signed with a paid Microsoft
-certificate, Windows may show a blue warning box the first time you
-run it.
+-------------------------  WINDOWS  -------------------------
+1. Double-click  SALTLINE-Windows.exe.
 
-To play:
+2. First time only: Windows may show a blue "Windows protected your PC" box,
+   because the game isn't code-signed. This is normal for indie builds.
+   Click  "More info"  ->  "Run anyway".
 
-    1. Click  "More info"
-    2. Click  "Run anyway"
-
-You only have to do this once. The game is a single self-contained
-program — it does not install anything, does not change any system
-settings, and does not need an internet connection.
+3. If your antivirus is nervous, that's a false positive from an unsigned new
+   file. The .exe is self-contained: no installer, no system changes.
 
 
-REQUIREMENTS
-------------
-  Windows 10 or 11, 64-bit
-  About 4 GB of RAM
-  A mouse (the game is mouse-look, a trackpad is painful)
-  A gamepad works too, but is optional
+-------------------------  macOS  -------------------------
+1. Unzip  SALTLINE-Mac.zip  to get  SALTLINE.app.
 
-If the game runs slowly, press Esc and turn the graphics settings
-down in the pause menu.
+2. First time only: the app isn't notarized by Apple, so a plain double-click
+   gets refused. Open it this way instead:
+       RIGHT-CLICK (or Control-click) SALTLINE.app  ->  Open  ->  Open
+   After the first time it opens normally.
 
+3. If macOS insists the app "is damaged", that's the quarantine flag, not
+   damage. Open Terminal and run (drag the app onto the window to fill the path):
+       xattr -dr com.apple.quarantine /path/to/SALTLINE.app
 
-THE FIRST FIVE MINUTES
-----------------------
-You wake in a survival pod at the waterline. The rig above you has
-no power and no crew.
-
-  * Walk out and look around. Follow the painted signage — the rig
-    labels its own decks and rooms.
-  * Pick things up. Almost anything loose can be grabbed with E.
-  * Find the master breaker room and get the power back on. Most of
-    the rig only becomes useful once the lights are running.
-  * Watch the four bars in the bottom-left: LIFE, HUNGER, THIRST,
-    WARMTH. Eat, drink, and stay dry and warm.
-  * When a storm rolls in, get inside.
+Universal binary: Apple Silicon and Intel.
 
 
-CONTROLS
---------
-  MOVEMENT
-    W A S D ............ move
-    Mouse .............. look
-    Shift .............. sprint
-    Space .............. jump
-    Ctrl ............... crouch (quieter, harder for creatures to spot)
+-------------------------  CONTROLS  -------------------------
+  Move .................. W A S D
+  Look .................. mouse
+  Sprint ................ Shift
+  Jump / swim up ........ Space
+  Crouch / dive ......... Ctrl (hold)
+  Lie prone ............. Z
+  Interact .............. E    (hatches, notes, breakers, taking items, harvesting)
+  Use held item ......... Left mouse   (cast, swing, strike)
+  Hotbar ................ 1 - 6
+  Drop selected ......... G
+  Context key ........... F    (throws the hook; reads the handbook you're holding;
+                                baits the deep rig winch when you're at it)
+  Inventory ............. I
+  Journal ............... J
+  Help .................. H
+  Build mode ............ B
+  Pause / options ....... Esc  (volume, mouse sensitivity, sound toggles)
 
-  INTERACTION
-    E .................. interact / pick up / set down
-    Hold E on ladder ... climb  (E up, E+S down, release to let go)
-    LMB ................ throw the item you are carrying
-    F .................. throw the rigging hook
-
-  ITEMS
-    1 – 4 .............. select an item into your hand
-    Same number again .. eat / drink / use it
-    I .................. inventory
-    J .................. journal
-    H .................. help
-    Esc ................ pause and settings
-
-
-WHAT TO DO ON THE RIG
----------------------
-  POWER      Find the master breaker room and restore the grid.
-             Lights, the stove, and the fridge all depend on it.
-
-  CRAFTING   Press E at a rigging bench. Lay parts from your pack
-             onto the bench; when they match a recipe, hold WORK or
-             Space to build it. A partial layout will tell you what
-             it wants to become and what is still missing.
-
-  BUILDING   Press B while carrying a crafted kit. A ghost preview
-             snaps to the deck grid. LMB places, R rotates,
-             Tab or scroll cycles kits, B or Esc exits.
-
-  FISHING    The rod is in the wet-deck storeroom — read the
-             Angler's Notes beside it, they list every species and
-             the hours, water and weather it runs in.
-             LMB casts. When the float plunges, LMB strikes, then
-             hold LMB to reel during the lulls and release during
-             the surges. Fight it wrong and the line breaks.
-             Craft a Drop Net at the bench for the species that
-             will not take a hook.
-
-  FOOD       Sear raw catch at the dining hall stove (E, then COOK).
-             Raw fish rots in about four game hours. Cooked fish
-             hung on a drying line cures to Dried Fish and keeps
-             forever, or you can stow it in the fridge.
-             Raw glow worms will make you sick. Cook them.
-
-  THE STACK  The accommodation block above the topside deck. Ramp up
-             from the deck following QUARTERS, then take the internal
-             stairwell up through the quarters, control, and works
-             decks to the roof mast deck.
+  The game auto-saves at dawn and dusk. Three save slots on the start screen —
+  pick one to begin, or Continue a saved run.
 
 
-SAVING
-------
-The game autosaves. You can also save from the pause menu (Esc).
+-------------------------  YOUR FIRST FIVE MINUTES  -------------------------
+  You wake in a survival pod at the waterline. Open the hatch (E) and climb out.
+
+  The rig has no power, and that's the first job. The trail is signposted:
+  find the CABLE SPOOL in the pump room, take it up the STAIR TOWER to Level 2
+  and splice Breaker 4-A, then throw the master breaker.
+
+  Power brings up the floodlights, the interior lights, the stove and the
+  fridge. It matters more than it sounds: until then your only light is the red
+  emergency beacons, and after dark the deck is not empty.
+
+  Take the FISHERMAN'S HANDBOOK from the wet deck — it's a real object, so you
+  can carry it and set it down wherever you're fishing. It tells you what bites,
+  when, in what weather, at what depth, and on what bait. It's the difference
+  between fishing and guessing.
 
 
-TROUBLESHOOTING
----------------
-  The game will not start
-      Right-click SALTLINE.exe, choose Properties, and if there is
-      an "Unblock" checkbox near the bottom, tick it and click OK.
+-------------------------  STAYING ALIVE  -------------------------
+  HUNGER   catch fish, cook it on the stove. Raw fish makes you sick.
+  THIRST   rain catchers, or bottled water you find.
+  WARMTH   get out of the wet, get inside, sleep in a bunk.
+  REST     sleep in a bed at dusk or night to skip to dawn.
+  OXYGEN   only shown while swimming. Watch it on deep dives.
 
-  It runs slowly or stutters
-      Press Esc and lower the graphics settings. Closing other
-      programs helps — this is a fairly heavy 3D game.
+  Three ways to fish: a rod off any rail, a drop net, or the deep rig winch on
+  the crane machinery deck for the things that live 40 m down. Bait the deep rig
+  before you drop it — nothing in the dark rises to a bare hook.
 
-  The mouse feels wrong
-      Mouse sensitivity is in the pause menu under settings.
-
-  I am stuck somewhere
-      Try crouching (Ctrl) and walking out slowly. If you are truly
-      stuck, load your last autosave from the pause menu.
+  Go underwater. There's a reef down the caisson legs: coral, sponges,
+  barnacles, starfish, ten kinds of tropical fish, mussel beds you can harvest
+  and boil, and snails that glow in the dark. There is also a hammerhead.
 
 
-Thanks for playing. This is a beta — if you hit something broken,
-that is genuinely useful to hear about.
+-------------------------  IF IT WON'T START  -------------------------
+  - Make sure the download finished completely (it's a 1+ GB file).
+  - Windows: 64-bit Windows 10 or newer.
+  - Mac: macOS 11 (Big Sur) or newer.
+  - The game ships the OpenGL Compatibility renderer deliberately, so it runs on
+    a wide range of hardware. If you get a black or grey screen anyway, your GPU
+    driver is likely very old — update it.
+  - Running slowly? Try a smaller window. The rig is dense.
 
-====================================================================
+  Enjoy SALTLINE.
