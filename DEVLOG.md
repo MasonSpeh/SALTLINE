@@ -120,6 +120,96 @@ Tests: `TestRunner` 241 pass, **FAILURES: 0**. `RodHandProbe` **FAILURES: 0**. N
 and `tests/BenchShot.tscn`. Screenshots: `/tmp/winch_s23/`, `/tmp/bench_final/`. Six new traps in
 `docs/AGENT_TRAPS.md`. **Not committed** — the owner asked for the work uncommitted.
 
+### s23 — 2026-07-30 (five owner-reported fauna bugs)
+
+**1. The pyramid snails were crawling BACKWARDS, and it was the mesh, not the code.** A
+`pyramid_snail.glb` landed in s20 for a class explicitly written expecting `ANIM.replace` to
+return `{}`, so its authored facing had never been checked. `tests/FaunaBugsProbe` correlated
+**2,691 frames of real crawl** on three live deck snails against the model node's six local
+axes: **model +Z . travel = +0.9991** (+X +0.005, +Y 0.000), and CandShot's side view puts the
+eye stalks and both oral tentacles at the **min-Z** end while the front view photographs the
+back of the shell with no head in it. Head at local −Z, i.e. the default's 180 yaw was putting
+the tail on Godot's forward. `FACING_OVERRIDES["pyramid_snail"] = yaw 0, flip 0` — the
+herring_gull case. Re-measured after: **−0.9989**, and photographed from the animal's own live
+heading (`snail*_ahead_MUST_SHOW_HEAD.png`) so a reversed mesh could not pass.
+
+**2. THIRTEEN species have been rendering as black mirrors.** The owner's "they seem extra dark
+in game, moreso than their model" is not a snail problem: Godot's glTF importer writes
+metallicFactor/roughnessFactor into the material SCALARS and the real values into a texture,
+and every Tripo-era asset here ships **metallic = roughness = 1.0** with the map in
+`metallic_texture`. `creature_swim` read only the scalars, so `pyramid_snail`, `herring_gull`,
+`ultra_hammerhead`, all ten `trop_*` and five deep fish were fully metallic with no reflection
+probe under them. The three shaders now sample the map through a channel mask read off the
+material. That alone brings the three DECK snails up to the model render; the six on the
+caisson faces 11–19 m down still photographed as pure black silhouettes (the s21 "a lit surface
+at depth is black whatever its albedo" trap), so the species carries an albedo-keyed
+`body_glow` — **0.95 submerged, 0.12 on deck**, deliberately under leg_reef's 1.35 and
+reef_fish's 1.25 so it never out-glows the coral it sits on.
+
+**3. The reef fish glitch was `rate` being a TIME MULTIPLIER, twice — once in the shader and
+once in GDScript.** `reef_fish.gd` pushed `pace * 2 * lerp(1, 2.2, alarm)` through `drive()`
+every frame the player walked toward a shoal (at TIME 100 s a 0.02 step is two whole cycles of
+phase teleport) AND sampled its own octaves at `st["t"] * pace` off a clock seeded up to 400 s.
+Measured on a 10-fish damsel shoal, player closing 12 m → 1.2 m: mean speed **0.13 m/s at
+alarm 0 → 1.13 m/s at alarm 0.105**, mean |acceleration| **0.2 → 45 m/s²**. The shoal detonated
+at the first touch of alarm and then jittered. Fixed by integrating the PACED time
+(`t += dt * pace`) and spending the alarm on AMPLITUDE, which lives outside the sine; the wave
+rate is now build state and is never written to a different value. Third fault in the same
+loop: `maxf(out, MIN_STAND)` was rectifying the standoff — the probe measured **exactly
+0.450 m** at every sample of a 420-frame approach at every alarm level — so clearance is now
+structural (`MIN_STAND + span * a_non_negative`) and the clamp is gone. After:
+0.148 → 0.227 m/s across the approach, |acceleration| **0.2 m/s²** throughout, min wall gap
+0.476 m. `ReefFishProbe` 7/7, startle intact (shoal still pulls 0.86 → 0.62 m off the wall).
+
+**4. Ray heights staggered, and the ceiling is not what it looks like.** Owner: "stagger ray
+height… up to 15ft higher depending on randomness". The three band_y values are now the FLOOR
+of each animal's range. Worth writing down: the obvious cap is the caisson feet and there
+aren't any — `rig_builder` makes each leg ONE 6 × 109 m casting from y +17 to −92, so the
+horizontal orbit is the only thing that has ever kept a ray clear. What a lift can actually hit
+is the reef overhead (coral band bottom −22.00, deepest tropical station −21.4), so the cap is
+band + lift + wander + a banked half-span ≤ **−24.0**. Three independent uniform draws
+collapsed the bands from a 4.0 m spread onto **2.1 m** on the first seed tried — less staggered
+than before — so the draw is stratified by depth rank: shallowest animal, top third of the
+range. Shipped: floors −36.0/−33.5/−32.0 + lifts **0.34 / 2.99 / 2.60 m** → bands
+−35.66 / −30.51 / −29.40, a **6.26 m** spread, wingtip tops −29.46 / −24.76 / −24.00.
+
+**5. The grubs were tide worms, and `replace()` had orphaned their whole behaviour.**
+`TideWorm` drives emergence, retraction, sway and visibility on `_body` — four procedural
+spheres — but `CreatureAnim.replace()` hides those and parents the generated mesh to the HOST.
+Measured at all five spots: 6 meshes of which exactly **1 visible**, `_emerge` 0.000 and
+`_body.visible` false, i.e. the code believed the animal was underground while a 0.32 m worm
+sat on the plating. And its per-frame drive was `rate = 1.1 * _emerge`, so at rest the vertex
+wave was multiplied to **zero** — a frozen grub, all day, every day. The generated mesh now
+rides `_body` and SINKS through the plate (it is one closed mesh; squashing it would pancake
+it), the beat is constant with amplitude carrying the emergence, the den mouth is built AFTER
+the replace so it is not hidden, and crouching halves the animal's spook radius so it can be
+watched. Measured at dawn with the player 8 m off: `_emerge` 1.000, the body's low point
+travels **y 1.772 → 2.009** (the plate top is 2.000), and at 0.9 m it is back to 0.000.
+**Not made collectable, deliberately** — a new bait item needs a mesh registered in
+`item_visual.gd`, which another session owns; filed as a follow-up.
+
+**6. The seal's haul-out was already right; the SWIMMING seal was the one hovering.** The
+pontoon seat measures a **0.0 mm** gap (independent floor probe, fauna colliders excluded), so
+`_snap_haul`/`low_point` are fine. The patrol wrote a fixed `y = −0.15 + porpoise` into an
+ocean whose surface is an 11-band Gerstner sum: measured over 600 frames, the belly was clear
+of the water on **134 of them (22.3%)**, by up to 379 mm. Depth is now taken from
+`Gyre.wave_height()` at the animal's own xz — **0 of 600** frames above the surface, worst
+belly-to-sea −0.502 m, so the arc still lifts its back and head clear to breathe.
+
+Tests: `TestRunner` **FAILURES: 0**, `ReefFishProbe` **7/7**, `PyramidWanderProbe` 0 failures.
+`ReefProbe` reports **FAILURES: 2** — both PRE-EXISTING and proved so by an A/B with the new
+facing entry removed (identical failures, identical counts): one climbing snail's crawler frame
+has gone degenerate (tilt exactly 0.00 is `SurfaceCrawler.basis()` returning identity) and the
+same animal leaves its face. Filed, not fixed.
+
+**Also found, not fixed:** `pyramid_snail.glb` shipped **undecimated at 482,018 triangles**,
+nine instances = 4.34 M tris, about the whole leg reef again. Filed.
+
+Screenshots: `/tmp/fauna_s23/` (snails ahead/behind/side, seal hauled + swimming, damsel and
+anthias approach ladders) and `/tmp/fauna_s23c/` (snails after the body_glow, incl. three on
+the caisson faces). New harnesses: `tests/FaunaBugsProbe.tscn` (headless, all five bugs
+measured off one world build) and `tests/FaunaBugsShot.tscn` (windowed, the three visual ones).
+
 ### s22 — 2026-07-29 (the owner's two fishing tools, installed and aimed)
 
 **The owner picked from the contact sheet and both picks are in.** `deep_rig_pole` is now

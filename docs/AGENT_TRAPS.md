@@ -640,3 +640,61 @@ clearance along world −Y at animals clinging to a vertical wall ("hovering 62.
 gaps to 3.36 m: stable, confident, meaningless). Fixed: 480 s / 300 s at `Engine.time_scale`
 6 (every figure either probe takes is a position, never a rate), and the gap is cast along the
 animal's own `up`. 62.7% → 0.4% hovering, 9.1% → 0% sunk, NEVER → contact at 195.9 s.
+
+## Found fixing the owner's five fauna bugs (s23)
+
+**Godot's glTF importer puts metallicFactor/roughnessFactor in the SCALARS and the real
+values in a TEXTURE, and every Tripo-era asset here ships both factors at 1.0.** So a shader
+that reads `BaseMaterial3D.metallic` / `.roughness` and ignores `metallic_texture` /
+`roughness_texture` renders those models **fully metallic**, and a metal with no reflection
+probe under it is BLACK. Thirteen species were affected — `pyramid_snail`, `herring_gull`,
+`ultra_hammerhead`, all ten `trop_*` and five deep fish — and the only reason it was ever
+reported is that the pyramid snail is a WHITE animal on a sunlit deck, so it was the one where
+the difference from the model render was unmissable. The older Meshy assets carry honest
+0.0 / 0.8 scalars and no map, which is exactly why this survived three asset generations
+without anybody seeing it. The tell is a one-line dump: `metallic=1.000 rough=1.000` with
+`has_metal_tex=true`. `creature_swim`, `creature_swim_glass` and `reef_fish` now sample the
+map through a channel mask read off the material rather than assuming glTF's G/B.
+
+**`rate` being a time multiplier is not only a SHADER trap — the same bug writes itself in
+GDScript as `t * pace`.** `underwater_world.GliderRay` already carries the shader half of this
+in a comment ("writing a new rate at second T teleports the wave phase"). `reef_fish.gd` had
+BOTH halves and neither was noticed: it drove the shader's `rate` from `alarm` every frame the
+player was walking toward a shoal, AND it sampled its own multi-octave offsets at
+`st["t"] * pace` off a clock seeded up to 400 s and only growing. A 10% pace change at t = 400
+moves the argument of every sine by **58 radians**. Measured on a 10-fish damsel shoal with the
+player closing from 12 m to 1.2 m: mean speed 0.13 m/s at alarm 0 → **1.13 m/s at alarm 0.105**,
+mean |acceleration| 0.2 → **45 m/s²** — the shoal detonating at the first touch of alarm and
+then jittering, which is what "glitchy near the player" looks like. **Integrate the paced time
+(`t += dt * pace`) and spend the intensity on AMPLITUDE**, which is a multiplier outside the
+sine. After: 0.148 → 0.227 m/s and |acceleration| 0.2 m/s² across the whole approach.
+Rule of thumb: if a tuning value ends up INSIDE a `sin()` argument multiplied by an
+accumulating clock, it cannot be animated at all.
+
+**`maxf(x, FLOOR)` on a value that is already near its floor is not a safety net, it is a
+rectifier.** `reef_fish` clamped each fish's wall standoff to `MIN_STAND` while ALSO lerping
+the shoal's standoff down to `MIN_STAND` when it ducked — so most of a shoal sat on **exactly
+0.450 m**, at every alarm level, for every sample of a 420-frame approach, with a corner in its
+velocity every time it arrived on the clamp and left it again. A constant in a measurement that
+equals a named constant to three decimals is the signature. Make the clearance structural
+(`floor + span * something_that_cannot_go_negative`) and delete the clamp.
+
+**`CreatureAnim.replace()` swaps the BODY but not the BEHAVIOUR, and the behaviour keeps
+running on the hidden one.** `TideWorm` drove emergence, retraction, sway and visibility on
+`_body` — four procedural spheres — while `replace()` hid those and parented the generated mesh
+to the HOST. The animal was therefore permanently, fully out, never moving, and (because its
+per-frame drive was `rate = 1.1 * _emerge`) frozen at a wave rate of ZERO: the owner's "weird
+grubs on the wet deck that dont move". Nothing errors and the class still reads correctly.
+**When a species gets its first real mesh, grep its `_process` for every node handle it poses
+and check which of them the generated model is actually under.** The generated mesh was also
+centred on its own box, so it sat half inside the plating — `belly()`/`ground()` exist for that
+and the fallback path never needed them.
+
+**A fauna patrol that writes a FIXED y into a moving sea is flying.** The harbor seal's haul-out
+had been probed, seated and asserted at a 0.0 mm gap — and the owner still reported it hovering,
+because the OTHER half of the animal swims a loop at `y = -0.15 + porpoise`, in an ocean whose
+surface is an 11-band Gerstner sum with a −6.44 m trough floor. Measured over 600 frames: the
+belly was clear of the water on **134 of them (22.3%)**, by up to 379 mm. A correct seat on the
+concrete says nothing about the 90% of the time the animal is in the water. Take the depth from
+`Gyre.wave_height()` at the animal's own xz; two calls a frame is nothing (the term s19 profiled
+out was 512 of them).

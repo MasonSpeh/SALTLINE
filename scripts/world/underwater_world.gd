@@ -1098,16 +1098,33 @@ func _eye() -> StandardMaterial3D:
 ##
 ## Referencing still water makes the test independent of the sea state, which is the whole
 ## point, and drops a Gerstner sum from every frame as a side effect. Nothing is given up: the
-## crest of a full storm swell is ~1.5 m, so 4 m of still-water clearance still has the world
+## crest of a full storm swell is ~1.5 m, so the still-water clearance still has the world
 ## standing well before the camera can reach the surface. What is NOT claimed here is that the
 ## water is see-through-proof — measured, it is not quite: at an eye height of 2.05 m leaning
 ## over open water, hiding this subtree changes 17 sampled pixels against a 6-pixel motion
-## floor (fish just under the surface). That is why the margin stays at 4 m rather than being
-## tightened to where the reef cull sits. See tests/vantage_perf.gd --cullproof.
-const TOPSIDE_MARGIN: float = 4.0
+## floor (fish just under the surface). See tests/vantage_perf.gd --cullproof.
+##
+## s24: 4.0 was costing the WET DECK the whole underwater world for nothing. A standing eye
+## there is 3.6 m (floor 2.0 + 1.6 eye) and the visible-state threshold was 4.0 + 1.0 = 5.0,
+## so the player stood permanently on the visible side — 206-214 draw calls (~7.5%) and ~1.3 M
+## primitives drawn every frame at the vantage that is already the heaviest in the game, and
+## the same --cullproof measurement says that at 3.60 m hiding it changes **2 sampled pixels
+## against a 0-pixel null floor**. It is invisible there and it was being drawn.
+##
+## 2.8 hides above 3.4 and shows below 2.8, which keeps BOTH measurements honest: the standing
+## wet-deck eye (3.6) clears the hide threshold by 0.2 m, and the lean-over-water case (2.05)
+## and the pontoon walkway (2.55) both still sit on the visible side, so the 17-pixel case above
+## is unaffected.
+const TOPSIDE_MARGIN: float = 2.8
 ## Deadband, so a camera parked exactly on the threshold cannot flip-flop. Only ever widens
 ## the VISIBLE state, so the transition into the water is the reliable direction.
-const TOPSIDE_HYST: float = 1.0
+##
+## MUST come down with the margin. s21 found this subtree flipping 1-2 times a SECOND at the
+## wet deck, which is what made that vantage unmeasurable (9.52 ms spread). At 2.8 + 1.0 the
+## hide threshold would land on 3.8 and the show threshold on 2.8 — putting a boundary within
+## 0.2 m of the standing eye, i.e. re-creating exactly that flip-flop. 0.6 keeps the nearest
+## boundary 0.2 m away on both sides.
+const TOPSIDE_HYST: float = 0.6
 
 func _cull_topside() -> void:
 	var cam: Camera3D = get_viewport().get_camera_3d()
