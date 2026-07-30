@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://qxoe2sw2846o"
-path="res://.godot/imported/fish_giant_oarfish_NormalGL_ad760ac6-0098-4b5d-b2ef-d4cfd3bac79c.jpg-3530dbba12e7fbf89224a6c2e2d001f4.ctex"
+uid="uid://bgckn83jbxndx"
+path="res://.godot/imported/pyramid_snail_NormalGL_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-8447ec269831153703f7aa73bb6a1444.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "ee163d45ecd052c6ba75e0568596b6e9"
+"md5": "5c22da9b4787b1a7db9546752ea81f99"
 }
 
 [deps]
 
-source_file="res://assets/models/fauna/fish_giant_oarfish/fish_giant_oarfish_NormalGL_ad760ac6-0098-4b5d-b2ef-d4cfd3bac79c.jpg"
-dest_files=["res://.godot/imported/fish_giant_oarfish_NormalGL_ad760ac6-0098-4b5d-b2ef-d4cfd3bac79c.jpg-3530dbba12e7fbf89224a6c2e2d001f4.ctex"]
+source_file="res://assets/models/fauna/pyramid_snail/pyramid_snail_NormalGL_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg"
+dest_files=["res://.godot/imported/pyramid_snail_NormalGL_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-8447ec269831153703f7aa73bb6a1444.ctex"]
 
 [params]
 

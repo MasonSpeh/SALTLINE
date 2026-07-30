@@ -72,7 +72,7 @@ const LIGHT_SHY_MULT: float = 0.15
 ## the table already carries two independent statements of "this animal is big", and a
 ## species only has to make one of them.
 ##   size_kg[1] >= TROPHY_KG — the landed WEIGHT tier. 20 kg picks up the grouper (48),
-##       the halibut (70), the coelacanth (35), the oarfish (85) and the sturgeon (95) and
+##       the halibut (70), the coelacanth (35) and the sturgeon (95) and
 ##       leaves the abyss grenadier (16 kg top) out with the ordinary catches, which is
 ##       where a 5-16 kg rattail belongs.
 ##   pull >= TROPHY_PULL — the FIGHT tier, for the deep species that carry no weight range
@@ -104,7 +104,7 @@ const BAIT_TABLE := {
 	# GLOW WORM. Harvested off the dens in the rig's dark corners (bloom_fauna.gd) and, on a
 	# hook, the only bait that supplies its own light. Its niche is the black water past
 	# 24 m — the drop_m band where the rare deep species start (grenadier 24, hagfish 28,
-	# gulper 34, dragonfish 38, oarfish 42, sturgeon 44) — where it nearly doubles their
+	# gulper 34, dragonfish 38, sturgeon 44) — where it nearly doubles their
 	# share of the roll and brings the bite on a third sooner. Above that it is a small
 	# soft-bodied worm competing with cut fish, and it fishes worse than one.
 	"glow_worm": {"deep_from": 24.0, "deep": 1.9, "shallow": 0.7, "drawn": 1.6,

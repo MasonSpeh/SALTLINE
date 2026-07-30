@@ -17,6 +17,7 @@ const SLUGS := [
 	"fish_bilge_blenny", "fish_tallow_pollock", "fish_gannet_mackerel",
 	"fish_rust_wrasse", "fish_kelp_pipefish", "fish_squall_garfish",
 	"fish_lantern_dogfish", "fish_anchor_ray",
+	"pyramid_snail",   # s20 (2026-07-29): first real mesh installed for this species
 ]
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 var _cam: Camera3D

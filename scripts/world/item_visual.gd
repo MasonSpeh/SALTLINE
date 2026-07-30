@@ -16,7 +16,7 @@ const FISH_TINT := {
 	# Deep-drop rig species — the big ones from the dark.
 	"fish_gulper_eel": Color(0.28, 0.22, 0.3), "fish_bloom_dragon": Color(0.15, 0.35, 0.4),
 	"fish_fathom_sturgeon": Color(0.34, 0.36, 0.32), "fish_abyss_grenadier": Color(0.4, 0.38, 0.34),
-	"fish_coelacanth": Color(0.32, 0.34, 0.38), "fish_giant_oarfish": Color(0.6, 0.65, 0.58),
+	"fish_coelacanth": Color(0.32, 0.34, 0.38),
 	# Owner call, 2026-07-27: these two had no glb, no tint and no size, so they came out of
 	# build() as the DEFAULT un-tinted grey capsule — the same anonymous shape for a hagfish
 	# and for a fish that has gone off. Un-modelled is fine; un-identifiable is not.
@@ -44,7 +44,6 @@ const FISH_SIZE := {
 	"fish_gulper_eel": 1.6, "fish_bloom_dragon": 1.4,
 	"fish_fathom_sturgeon": 2.0, "fish_abyss_grenadier": 1.3,
 	"fish_coelacanth": 0.9,                                    # half the grouper
-	"fish_giant_oarfish": 3.5,                                 # largest in the game, a ribbon of meat
 	# The 2026-07-26 Meshy batch. Without these the whole new intake defaulted to 1.0 and a
 	# bilge blenny weighed the same in the hand as a dogfish — the exact flattening this
 	# table was written to stop.
@@ -76,7 +75,7 @@ const FISH_MODEL := preload("res://scripts/world/fish_model_lib.gd")
 ##
 ## The two are combined with max(), never averaged: a species is at least as long as the
 ## body its own mesh is built at, and size_kg can only ever reveal that it lands BIGGER.
-## That matters for the ribbon-bodied oarfish, which is long out of all proportion to its
+## That matters for the long-bodied sturgeon, which is long out of all proportion to its
 ## weight — the cube law under-reads it at 2.3 m and its authored 3.5 m stands instead.
 const KG_TO_M: float = 0.523        ## 1.90 m / 48 kg^(1/3), the barrel grouper
 ## Nothing to preview: crab, prawn and squid are species ids but not fish shapes, and

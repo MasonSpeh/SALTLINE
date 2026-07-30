@@ -1032,14 +1032,14 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 ## THE FISH PREVIEW — click a slot with a catch in it and see how big the thing actually is.
 ##
 ## Owner spec, 2026-07-28. A 74 px slot icon is normalised: a copper sprat and a giant
-## oarfish fill their squares identically, which is right for FINDING an item and wrong for
+## sturgeon fill their squares identically, which is right for FINDING an item and wrong for
 ## understanding one. So the pack keeps its icons and gains this: the fish over the whole
 ## screen at the size its species really is, scaled off data/fish.json.
 ##
 ## It is an OVERLAY, not a panel — full-rect, above everything, and MOUSE_FILTER_IGNORE all
 ## the way down. That matters: clicking a slot is still pick-and-place, and the second click
 ## that puts the fish down has to reach the slot underneath this. Nothing here consumes a
-## click, so the whole pack keeps working with a 3 m oarfish lying across it.
+## click, so the whole pack keeps working with a 2 m sturgeon lying across it.
 func _build_fish_preview() -> void:
 	_fish_preview = Control.new()
 	_fish_preview.set_anchors_preset(Control.PRESET_FULL_RECT)

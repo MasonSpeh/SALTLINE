@@ -80,14 +80,14 @@ func _ready() -> void:
 
 	# ---------------------------------------------------------------- 2. the pack
 	for id in ["fish_copper_sprat", "fish_slate_cod", "fish_barrel_grouper",
-			"fish_coelacanth", "fish_giant_oarfish"]:
+			"fish_coelacanth", "fish_fathom_sturgeon"]:
 		PlayerState.add_item(id)
 	main.hud.toggle_panel("inventory")
 	await get_tree().create_timer(1.5).timeout
 	_save("pack_icons")
 	# Click each fish slot in turn and photograph the preview it raises.
 	for id in ["fish_copper_sprat", "fish_slate_cod", "fish_coelacanth",
-			"fish_giant_oarfish", "fish_barrel_grouper"]:
+			"fish_fathom_sturgeon", "fish_barrel_grouper"]:
 		var idx: int = _slot_of(id)
 		if idx < 0:
 			print("[itemshot] %s not in any slot" % id)

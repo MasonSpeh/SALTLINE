@@ -1128,49 +1128,6 @@
     },
     "note": "Deep-drop rig only, from 28 m down. Comes up in a rope of its own slime and keeps moving after it should have stopped. Sears to a prime fillet regardless."
   },
-  "fish_giant_oarfish": {
-    "name": "Giant Oarfish",
-    "rod": false,
-    "net": false,
-    "deep": true,
-    "w": {
-      "dawn": 1,
-      "day": 1,
-      "dusk": 4,
-      "night": 6
-    },
-    "storm": "bonus",
-    "fog": "bonus",
-    "light": "any",
-    "water": "any",
-    "depth": "deep",
-    "drop_m": 42,
-    "bait": {
-      "glow_worm": 2.4
-    },
-    "size_kg": [
-      40.0,
-      85.0
-    ],
-    "fillets": [
-      4,
-      4
-    ],
-    "fight": 3.2,
-    "pull": 2.3,
-    "cooked_to": "cooked_fish_prime",
-    "school": {
-      "count": 0,
-      "size": 0,
-      "tint": [
-        0.6,
-        0.65,
-        0.58
-      ],
-      "active": []
-    },
-    "note": "Deep-drop rig only, 42 m down in open water. Rarest thing on a line — a ribbon of muscle and bone, ancient and almost mythical. One lands you a week of meals."
-  },
   "fish_coelacanth": {
     "name": "Coelacanth",
     "rod": false,

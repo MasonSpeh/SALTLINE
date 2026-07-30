@@ -91,16 +91,6 @@ bait_hook={
 
 common/physics_ticks_per_second=30
 3d/physics_engine="JoltPhysics3D"
-; GHOST COLLISIONS — the single biggest cause of "the player keeps catching on nothing".
-; Almost every collider on this rig is a CSGBox3D with use_collision, and CSG bakes its
-; collision as a ConcavePolygonShape3D: a soup of triangles, not a box. Sliding a capsule
-; across one, the solver keeps finding the INTERNAL edge between two coplanar triangles and
-; reporting it as a contact with a bogus normal — the body stops on a perfectly flat deck
-; plate, or refuses to round a railing corner, for geometry that has no corner there at all.
-; Jolt can detect and ignore those internal edges; Godot just ships it off by default.
-; motion_queries is the one that matters for CharacterBody3D (move_and_slide and test_move
-; both go through body_test_motion); simulation covers thrown props and the rest of the
-; rigid bodies so a crate does not snag on the same seams the player used to.
 physics/jolt_physics_3d/motion_queries/use_enhanced_internal_edge_removal=true
 physics/jolt_physics_3d/simulation/use_enhanced_internal_edge_removal=true
 
@@ -108,88 +98,12 @@ physics/jolt_physics_3d/simulation/use_enhanced_internal_edge_removal=true
 
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
-; ETC2/ASTC must stay ON, and it is NOT "the mobile format" here: Apple Silicon has no
-; S3TC/BPTC, so a universal macOS build REQUIRES ASTC and the export refuses outright
-; ("Cannot export for universal or arm64 if ETC2 ASTC texture format is disabled").
-; Turning it off to save space broke the Mac build entirely.
-; Per-BUILD size is handled where it belongs — in the export presets, which choose formats
-; per platform (the Windows preset packs s3tc_bptc only). So both formats exist in the local
-; import cache, but no single shipped build carries both.
 textures/vram_compression/import_etc2_astc=true
-; SHADOW QUALITY. All four of these were still on Godot's desktop defaults (4096 maps,
-; medium PCF) — defaults chosen for a Forward+ desktop GPU, not for a Compatibility/GL
-; build whose stated target is a MacBook. Measured with tests/FrameAttrib.tscn, the sun's
-; shadow pass alone is 31-42% of EVERY draw call in the frame (658 of 2147 at the wet
-; deck, 1036 of 2447 on the topside deck), and the maps it renders into were 4x larger
-; than the geometry can use.
-;
-; The CASTER CULL (sun max_distance 45 m, render_budget.gd's 2-light positional cap) is what
-; costs DRAW CALLS, and it stays exactly where it was measured. Map RESOLUTION costs
-; depth-only fill and no draw calls at all, so on a draw-call-bound GL renderer it is the
-; cheap half of the shadow budget — and it is the half that decides whether an edge reads as
-; an edge or as a staircase.
-;
-; DIRECTIONAL 4096 -> 8192 (2026-07-29). Read this together with main.gd's switch from
-; PARALLEL_2_SPLITS to SHADOW_ORTHOGONAL; neither is worth much alone.
-;   Two splits did NOT give each cascade the atlas — each got half its EDGE, 2048 — and
-;   split_1 = 0.14 then spent one whole 2048 map on the nearest 6.3 m and left 6.3-45 m on
-;   the other: 53 texels/metre, a 19 mm shadow texel. That is the blockiness the owner kept
-;   reporting through two rounds of tuning that never touched it.
-;   One cascade over the same 45 m at 8192 is 182 texels/metre — 3.4x — and it renders
-;   SIXTY FEWER draw calls than the two-split version, because nothing straddling the split
-;   is rasterised twice.
-; Measured with tests/ShadowShot.tscn `perf` (vsync off, live world, three configs
-; alternated and median-of-3 taken, so warm-up cannot be mistaken for a result):
-;   topside deck  shipped 26.81 ms -> 27.32 ms   (+0.51 ms, +1.9%; 37.3 -> 36.6 fps)
-;   horizon       shipped 25.64 ms -> 25.90 ms   (+0.26 ms, +1.0%)
-; So: 3.4x the shadow resolution for two percent of a frame. The 8192 map costs ~134 MB of
-; depth texture against ~34 MB at 4096 — that +100 MB is the real price here, not the fill.
-; If a machine ever needs it back, drop this to 4096 and KEEP the orthogonal mode: that is
-; still 91 texels/metre (1.7x the old mid-field) and it measured as free, 26.81 ms against
-; 26.81 ms at the deck and 0.7 ms CHEAPER at the horizon.
-;   directional: 8192 over the 45 m cascade = ~182 texels/metre.
-;   positional : 4096 atlas, quadranted below so each live caster gets 2048x2048 to itself.
 lights_and_shadows/directional_shadow/size=8192
-lights_and_shadows/positional_shadow/atlas_size=4096
-; ATLAS QUADRANTS — these numbers are the other half of render_budget.gd's SHADOW_BUDGET=2.
-; The atlas is four quadrants and each subdiv says how many shadows that quadrant is cut
-; into (1 = one shadow, 2 = four, 3 = sixteen...). Godot's defaults (2/2/3/4 = 4/4/16/64
-; slots) are sized for a scene with dozens of casters and they are why raising the cap to 3
-; made the SURVIVING shadows worse: more contenders, finer subdivision, smaller map each.
-; With at most two casters, quadrants 0 and 1 hold exactly one shadow apiece — 2048x2048
-; each, sixteen times the texels a slot carried before. Quadrants 2 and 3 stay subdivided as
-; a spillover for anything that enrols before RenderBudget's first sweep rations it.
+lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
+lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3
+limits/opengl/max_renderable_lights=160
 lights_and_shadows/positional_shadow/atlas_quadrant_0_subdiv=1
 lights_and_shadows/positional_shadow/atlas_quadrant_1_subdiv=1
 lights_and_shadows/positional_shadow/atlas_quadrant_2_subdiv=2
 lights_and_shadows/positional_shadow/atlas_quadrant_3_subdiv=2
-; PCF tap count per shadowed fragment. THESE TWO DO NOT DO WHAT THE PREVIOUS COMMENT HERE
-; CLAIMED, and the claim cost a round of tuning, so the correction is worth the space.
-;
-; It is true that gl_compatibility's scene shader carries SHADOW_MODE_PCF_5 and
-; SHADOW_MODE_PCF_13. What it does NOT have is one of each: the GLES3 scene shader declares a
-; SINGLE PCF specialisation shared by the directional and the spot path, so these two keys
-; cannot both be honoured, and neither reaches the sun. tests/ShadowShot.tscn drove each of
-; them from its value to HARD on a frozen frame and diffed the PNGs: byte-identical, maximum
-; per-pixel difference ZERO, while the geometry changes in the same run moved 2-3% of pixels.
-; The sun's shadow edge is not filtered on this backend and there is no setting here that
-; will filter it. Resolution is the only lever, which is why the fix above is resolution.
-;
-; They are left at these values rather than deleted because they are correct values, not
-; because they are doing anything: POSITIONAL 3 still governs SPOT shadows (the four deck
-; floodlights), where the GLES3 shader does run the PCF kernel. OMNI shadows take a single
-; hardware comparison sample with no kernel at all, so no setting softens a brazier's edge.
-lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
-lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3
-limits/opengl/max_renderable_lights=160
-; max_lights_per_object is the size of the per-fragment light loop the GL shader runs on
-; EVERY object, everywhere — it is not a budget that only bites when it is reached. It was
-; raised to 16 (double Godot's default) so a corridor lined with fixtures would not drop
-; one; measured with tests/PowerPerf.tscn, the accommodation corridor has 23 light volumes
-; covering a single point once the breaker is closed, so the loop really was running the
-; full 16 per fragment there. Back to 8: the renderer keeps the 8 strongest lights for each
-; object, and the 9th-through-16th contribution on a given surface is not something you can
-; see against seven others. Halves the worst-case fragment cost in exactly the lit interiors
-; that got glitchy. max_renderable_lights stays at 160 — that one is a scene-wide cap, not a
-; per-fragment cost, and the rig legitimately has 187 lights in it.
-limits/opengl/max_lights_per_object=8

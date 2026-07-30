@@ -66,7 +66,7 @@ var _oven_light: OmniLight3D = null
 ##
 ## The result is VALIDATED against the live item list: data/fish.json names a cooked_to
 ## for every species, but only the species that earned one have a cooked_fish_<species>
-## entry in data/items.json — the deep oddities (hagfish, oarfish, coelacanth and the
+## entry in data/items.json — the deep oddities (hagfish, coelacanth and the
 ## rest) resolve to the generic meal. Anything that resolves to an id the game does not
 ## actually have falls back to GENERIC_COOKED rather than cooking a fish into nothing.
 func _cooked_for(id: String) -> String:

@@ -210,12 +210,12 @@ func _run() -> void:
 		common_share += float(int(totals.get(c, 0))) / float(play_total)
 	_check(common_share > 0.12,
 		"commons stayed common — sprat + herring are %.1f%% of everything landed" % (common_share * 100.0))
-	var trophies: Array[String] = ["fish_giant_oarfish", "fish_fathom_halibut", "the_looker"]
+	var trophies: Array[String] = ["fish_fathom_sturgeon", "fish_fathom_halibut", "the_looker"]
 	var worst: float = 0.0
 	for t in trophies:
 		worst = maxf(worst, float(int(totals.get(t, 0))) / float(play_total))
 	_check(worst < 0.03,
-		"trophies stayed rare — the commonest of oarfish/halibut/Looker is %.2f%% of the catch" % (worst * 100.0))
+		"trophies stayed rare — the commonest of sturgeon/halibut/Looker is %.2f%% of the catch" % (worst * 100.0))
 	var thin: Array[String] = []
 	for id in meshed:
 		if int(totals.get(id, 0)) == 0:
@@ -255,9 +255,9 @@ func _run() -> void:
 	_check(FISH.weight_for("fish_trench_hagfish", "deep", chum_deep, 30.0)
 			> FISH.weight_for("fish_trench_hagfish", "deep", bare_deep, 30.0),
 		"BAIT — the hagfish wants rotten chum, as the handbook says")
-	_check(FISH.weight_for("fish_giant_oarfish", "deep", worm_deep, 44.0)
-			> FISH.weight_for("fish_giant_oarfish", "deep", chum_deep, 44.0),
-		"BAIT — a glow worm beats chum for the oarfish at the end of the spool")
+	_check(FISH.weight_for("fish_bloom_dragon", "deep", worm_deep, 38.0)
+			> FISH.weight_for("fish_bloom_dragon", "deep", chum_deep, 38.0),
+		"BAIT — a glow worm beats chum for the dragonfish down in the black")
 	_check(FISH.weight_for("fish_fathom_sturgeon", "deep", bare_deep, 30.0) == 0.0
 			and FISH.weight_for("fish_fathom_sturgeon", "deep", bare_deep, 46.0) > 0.0,
 		"DEPTH — the sturgeon is unreachable at 30 m and live at 46 m")

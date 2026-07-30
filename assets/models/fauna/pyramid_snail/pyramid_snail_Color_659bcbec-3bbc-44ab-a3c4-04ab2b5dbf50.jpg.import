@@ -2,19 +2,19 @@
 
 importer="texture"
 type="CompressedTexture2D"
-uid="uid://c8rbr66aum3lw"
-path="res://.godot/imported/fish_giant_oarfish_Color_ad760ac6-0098-4b5d-b2ef-d4cfd3bac79c.jpg-e09cf039771600de9339964b1e7e01cd.ctex"
+uid="uid://yoctk3r3jqk6"
+path="res://.godot/imported/pyramid_snail_Color_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-6a7f8512fc010670cce04594d1a68943.ctex"
 metadata={
 "vram_texture": false
 }
 generator_parameters={
-"md5": "90cc36279bfea50f7b3a154a7d8a0f70"
+"md5": "dc7123c20a1d39150de3a3168c38c28f"
 }
 
 [deps]
 
-source_file="res://assets/models/fauna/fish_giant_oarfish/fish_giant_oarfish_Color_ad760ac6-0098-4b5d-b2ef-d4cfd3bac79c.jpg"
-dest_files=["res://.godot/imported/fish_giant_oarfish_Color_ad760ac6-0098-4b5d-b2ef-d4cfd3bac79c.jpg-e09cf039771600de9339964b1e7e01cd.ctex"]
+source_file="res://assets/models/fauna/pyramid_snail/pyramid_snail_Color_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg"
+dest_files=["res://.godot/imported/pyramid_snail_Color_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-6a7f8512fc010670cce04594d1a68943.ctex"]
 
 [params]
 

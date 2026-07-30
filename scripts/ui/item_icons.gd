@@ -14,7 +14,7 @@ class_name ItemIcons extends Node
 ## Consequences worth knowing:
 ##   * Icons can never drift from the world. Re-model an item and its icon re-renders to
 ##     match, because it IS the model. A hand-drawn icon set would have to be chased.
-##   * Framing is per-item from its AABB, so scale is normalised: a 3.5 m oarfish and a
+##   * Framing is per-item from its AABB, so scale is normalised: a 2 m sturgeon and a
 ##     4 cm bolt both fill their slot. Real size is what the hand and the world are for.
 ##   * A species fish gets its actual species mesh and tint, so the pack distinguishes a
 ##     herring from a grouper without reading a word.
@@ -64,14 +64,14 @@ signal preview_ready(item_id: String)
 
 # ======================= the pack's real-size fish preview =======================
 # Owner spec, 2026-07-28: clicking a slot that holds a fish shows that fish AT ITS REAL
-# SIZE, not a uniform thumbnail — a sprat and a giant oarfish must be obviously different
+# SIZE, not a uniform thumbnail — a sprat and a barrel grouper must be obviously different
 # animals, and the deep-water giants must fill the screen.
 #
 # Size comes from data/fish.json via ItemVisual.fish_length_m() — see the long note there
 # for why the schema's size_kg (a landed WEIGHT) and this file's authored body lengths are
 # combined the way they are. Everything below is FRAMING; none of it invents a size.
 
-## Rendered wide, because the extreme case is a ribbon: the giant oarfish is 3.5 m of fish
+## Rendered wide, because the extreme case is a long fish: the fathom sturgeon is 2 m of fish
 ## about 0.3 m deep, and a square frame would fit it by shrinking it to a thread.
 const PREVIEW_PX := Vector2i(1180, 660)
 ## Near side-on, lifted a little. Fish meshes are built nose-to-−X (item_visual.build yaws
@@ -84,7 +84,7 @@ const PREVIEW_MAX_FILL: float = 0.94
 ## ...and the smallest never drops below this, or a sprat would be a speck with no shape.
 const PREVIEW_MIN_FILL: float = 0.17
 ## Frame share against real length. A straight ratio across a 7.8:1 length spread (sprat
-## 0.45 m to oarfish 3.5 m) is honest but leaves everything under a metre tiny and pushes
+## 0.45 m to sturgeon 2.0 m) is honest but leaves everything under a metre tiny and pushes
 ## the mid-range fish together; a mild gamma keeps the ORDER and the obviousness of the
 ## spread while giving the deep-water giants the screen the owner asked for.
 const PREVIEW_GAMMA: float = 0.75
@@ -258,7 +258,7 @@ func _drop_stage(vp: SubViewport) -> void:
 ##
 ## The frame is fixed by the species' body length, so the picture answers "how big is this
 ## thing" rather than "what shape is it": a copper sprat comes back a fifth of the frame, a
-## giant oarfish fills it corner to corner, and the difference between them is the data's,
+## barrel grouper fills it corner to corner, and the difference between them is the data's,
 ## not a designer's. See ItemVisual.fish_length_m() for where the length comes from.
 func _render_preview(item_id: String) -> void:
 	var model: Node3D = ItemVisual.build(item_id)
@@ -300,7 +300,7 @@ func _render_preview(item_id: String) -> void:
 	else:
 		# Frame share from real length, then the frame that gives the fish exactly that
 		# share of whichever axis binds first — so a deep-bodied grouper is held by its
-		# shoulder and a ribbon oarfish by its length, and NEITHER touches an edge.
+		# shoulder and a long sturgeon by its length, and NEITHER touches an edge.
 		var fill: float = clampf(pow(ItemVisual.fish_length_m(item_id)
 			/ maxf(ItemVisual.longest_fish_m(), 0.001), PREVIEW_GAMMA),
 			PREVIEW_MIN_FILL, PREVIEW_MAX_FILL)

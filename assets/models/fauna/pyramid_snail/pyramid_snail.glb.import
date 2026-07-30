@@ -3,13 +3,13 @@
 importer="scene"
 importer_version=1
 type="PackedScene"
-uid="uid://c27s6obiwtysa"
-path="res://.godot/imported/fish_giant_oarfish.glb-c9bb4d37f3999af2983247f0447d0d94.scn"
+uid="uid://bdl8hb5vplorb"
+path="res://.godot/imported/pyramid_snail.glb-055684b9fb59605d1a28bc026cba812a.scn"
 
 [deps]
 
-source_file="res://assets/models/fauna/fish_giant_oarfish/fish_giant_oarfish.glb"
-dest_files=["res://.godot/imported/fish_giant_oarfish.glb-c9bb4d37f3999af2983247f0447d0d94.scn"]
+source_file="res://assets/models/fauna/pyramid_snail/pyramid_snail.glb"
+dest_files=["res://.godot/imported/pyramid_snail.glb-055684b9fb59605d1a28bc026cba812a.scn"]
 
 [params]
 

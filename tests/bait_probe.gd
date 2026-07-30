@@ -107,5 +107,5 @@ func _run() -> void:
 	_check(not FISHING_ROD._is_bait_item("chocolate_cake"), "a birthday cake is not legal bait")
 	_check(FISHING_ROD._is_bait_item("raw_fillet"), "a raw fillet (flesh scrap) is legal bait")
 	_check(FISHING_ROD._is_bait_item("crab_leg"), "a crab leg is still legal bait (named special)")
-	_check(not FISHING_ROD._is_bait_item("fish_giant_oarfish"),
-		"the giant oarfish (3.5m, item_visual.gd FISH_SIZE) is too big to be legal bait")
+	_check(not FISHING_ROD._is_bait_item("fish_fathom_sturgeon"),
+		"the fathom sturgeon (2.0m, item_visual.gd FISH_SIZE) is too big to be legal bait")

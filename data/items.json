@@ -247,12 +247,6 @@
     "hunger": 0.08,
     "side_effect": "sick"
   },
-  "fish_giant_oarfish": {
-    "name": "Giant Oarfish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
   "fish_coelacanth": {
     "name": "Coelacanth",
     "use": "eat",
