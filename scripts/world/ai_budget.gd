@@ -38,7 +38,29 @@ const MID_M: float = 42.0
 const FAR_STRIDE: int = 4
 ## Anything not actually being drawn — the whole underwater world while the camera is
 ## topside (underwater_world._cull_topside), a flushed gull, a species outside its hours.
-const HIDDEN_STRIDE: int = 4
+##
+## THIS IS DELIBERATELY LOOSER THAN FAR_STRIDE, and MAX_STEP is what makes that safe. A far
+## creature is still on screen, so its motion has to hold up to being watched; a hidden one
+## is not being drawn at all, and the only thing that has to hold up is that its state
+## machine and its position agree with wall-clock time when it comes back — which the delta
+## accumulation guarantees exactly, at any stride.
+##
+## So the real ceiling here is not visual, it is numerical: the species code smooths with
+## `lerpf(x, target, delta * k)` and the largest k is 6.0, so no accumulated step may exceed
+## MAX_STEP. `due()` enforces that unconditionally, which means raising this number cannot
+## make any creature take a bigger step than it already can — it can only stop the stride
+## being the binding constraint before MAX_STEP is. At a 20 ms frame, 8 frames is 0.16 s and
+## MAX_STEP releases it at 7; at 60 fps it releases at 9. Either way the animal thinks at
+## ~6 Hz instead of ~12 Hz while nobody is looking at it.
+##
+## Worked, because the bound moved and the next reader deserves the number rather than the
+## reassurance: at 30 fps the accumulator crosses MAX_STEP on the 5th frame at 0.1667 s, so
+## k_max * step is 6.0 * 0.1667 = 1.000 — `lerpf`'s snap point, the last stable value, where
+## stride 4 sat at 0.800. Above 4 the stride stops setting the worst step at all (MAX_STEP
+## plus one frame does), which is why there is nothing to gain from going higher and why
+## MAX_STEP is the constant that must not move. tests/TestRunner asserts both bounds directly
+## for every stride these constants name.
+const HIDDEN_STRIDE: int = 8
 
 ## THE CEILING ON HOW MUCH TIME MAY BE HANDED OVER AT ONCE, seconds.
 ##

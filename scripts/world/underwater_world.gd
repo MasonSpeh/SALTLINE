@@ -78,6 +78,9 @@ const FISH_TURN: float = 2.4     ## how fast the remembered heading eases onto t
 const FISH_PITCH: float = 0.42   ## how much of its own vertical speed a fish noses into
 
 var _kelp: Array[Node3D] = []
+## Parallel to _kelp, so the per-frame sway is two array reads instead of two get_meta().
+var _kelp_sway: PackedFloat32Array = PackedFloat32Array()
+var _kelp_phase: PackedFloat32Array = PackedFloat32Array()
 ## One entry per POD, not per species — see SCHOOL_PODS.
 ## [{root, fish[], def, id, pod, band_y, size, spread, rates, radius, ph[], spd[], head[],
 ##   climb[], warm, t}]. The four parallel arrays are the per-member swim state; `warm` is
@@ -160,9 +163,17 @@ func _kelp_forest() -> void:
 				strand.add_child(blade)
 				blade.position = Vector3(0, (s + 0.5) * h / segs, 0)
 				blade.rotation.y = _rng.randf_range(0, TAU)
-			strand.set_meta("sway", _rng.randf_range(0.8, 1.4))
-			strand.set_meta("phase", _rng.randf_range(0, TAU))
+			# The metas stay: leg_reef._vegetation_floor() identifies a kelp strand by
+			# `has_meta("sway")` and measures the reef band top off it. But the SWAY LOOP
+			# must not read them — two get_meta() string lookups per strand per frame is 88
+			# dictionary probes a frame to fetch two numbers that never change after build.
+			var sway_k: float = _rng.randf_range(0.8, 1.4)
+			var phase_k: float = _rng.randf_range(0, TAU)
+			strand.set_meta("sway", sway_k)
+			strand.set_meta("phase", phase_k)
 			_kelp.append(strand)
+			_kelp_sway.append(sway_k)
+			_kelp_phase.append(phase_k)
 		# A few real GENERATED kelp fronds (glow_kelp.glb) mixed in among the procedural
 		# strands — same holdfast ring, a richer silhouette than boxes alone can give.
 		for i in range(4):
@@ -1021,7 +1032,32 @@ func _eye() -> StandardMaterial3D:
 ##
 ## The margin keeps everything alive well before the camera reaches the water, so nothing
 ## pops in as you climb down the tidal ladder or a fish breaks the surface beside you.
-const TOPSIDE_MARGIN: float = 4.0
+##
+## THE MARGIN IS MEASURED FROM STILL WATER, AND IT USED TO BE MEASURED FROM THE SWELL. That
+## one word cost the wet deck a third of its frame, and it is worth writing down because the
+## swell-relative version looks strictly more correct and is strictly worse.
+##
+## The Wet Deck floor is y 2.0 (rig_builder.WET_Y), so a standing player's eye is at y ~3.6
+## and a 4.0 m margin put the threshold at `wave_height(here) > 0` — i.e. the SIGN OF THE
+## WAVE UNDER THE RIG. The swell is always running (SunController.BASE_SEA_STATE 0.4), so
+## standing still on the wet deck showed and hid this entire subtree once or twice a SECOND,
+## every second, for as long as the player stood there. Each flip walks several thousand
+## nodes calling instance_set_visible, and on the visible frames the deck was submitting the
+## whole ocean — 2.0 M primitives one visit and 3.6 M the next, 24 ms medians with a 33 ms
+## outlier. It is also exactly why KNOWN_ISSUES said no optimisation could be *proved* at the
+## wet deck: its 7-9 ms "noise" was not noise, it was this.
+##
+## Referencing still water instead makes the test independent of the sea state, which is the
+## whole point — and it is free of the Gerstner sum this used to run every frame. Nothing is
+## given up: ocean_water.gdshader is `depth_draw_opaque` with no blend mode, i.e. a genuinely
+## OPAQUE surface, so there is no angle or distance from which anything below it is visible.
+## The margin's only remaining job is to have the world already standing before the camera
+## crosses the surface, and 2 m of still-water clearance does that with the crest of a full
+## storm swell (~1.5 m) still below the camera.
+const TOPSIDE_MARGIN: float = 2.0
+## Deadband, so a camera parked exactly on the threshold cannot flip-flop. Only ever widens
+## the VISIBLE state, so the transition into the water is the reliable direction.
+const TOPSIDE_HYST: float = 1.0
 
 func _cull_topside() -> void:
 	var cam: Camera3D = get_viewport().get_camera_3d()
@@ -1033,8 +1069,7 @@ func _cull_topside() -> void:
 	# lookups for one value that is already in hand here.
 	_cam_eye = cp
 	_cam_eye_ok = true
-	var surf: float = Gyre.wave_height(Vector2(cp.x, cp.z), Gyre.water_time()) * 0.85
-	var want: bool = cp.y < surf + TOPSIDE_MARGIN
+	var want: bool = cp.y < TOPSIDE_MARGIN + (TOPSIDE_HYST if visible else 0.0)
 	if visible != want:
 		visible = want
 
@@ -1060,11 +1095,14 @@ func _process(delta: float) -> void:
 	var swim: bool = visible
 	# Kelp sways in the set of the current.
 	if swim:
-		for strand in _kelp:
-			var sway: float = strand.get_meta("sway")
-			var phase: float = strand.get_meta("phase")
-			strand.rotation.x = sin(_t * 0.4 * sway + phase) * 0.1
-			strand.rotation.z = cos(_t * 0.33 * sway + phase) * 0.1
+		var t_x: float = _t * 0.4
+		var t_z: float = _t * 0.33
+		for i in range(_kelp.size()):
+			var sway: float = _kelp_sway[i]
+			var phase: float = _kelp_phase[i]
+			var strand: Node3D = _kelp[i]
+			strand.rotation = Vector3(sin(t_x * sway + phase) * 0.1, strand.rotation.y,
+				cos(t_z * sway + phase) * 0.1)
 	# Schools: wander their band, members ease around the moving centre. Species keep
 	# their active hours — the night shift appears as the day shoals thin out.
 	var phase_key: String = "day"

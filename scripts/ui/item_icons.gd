@@ -53,8 +53,13 @@ const ICON_FOCUS := {
 	# Reel seat, lever-drag multiplier, foregrip and the first two guides — the part of a
 	# stand-up rod you would recognise it from across a deck.
 	"fishing_rod": {"centre": Vector3(0.06, 0.62, 0.0), "size": 0.62},
-	# The deep rig reads from its line drum and the taped grip.
-	"deep_rig_pole": {"centre": Vector3(-0.02, 0.36, 0.02), "size": 0.44},
+	# The deep rig is a 1.23 m braced frame — a far kinder 2.7:1 than the rod, but a square
+	# slot still spends most of its width on air if the whole thing is fitted. So the frame is
+	# held on the WINCH: the flanged drum with its braid, the crank, the ratchet, the brake
+	# lever, and enough of the mast and its diagonal strut for the machine to read as a frame
+	# rather than as a wheel. The head, the sheave and the terminal tackle run off the top of
+	# the frame on purpose — length and tackle are what the hand and the world show.
+	"deep_rig_pole": {"centre": Vector3(-0.100, 0.50, 0.05), "size": 0.58},
 	# 1.35 m of driftwood shaft; the lashing and the shard point are the whole read.
 	"crude_spear": {"centre": Vector3(0.17, 1.16, 0.0), "size": 0.5},
 }

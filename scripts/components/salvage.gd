@@ -34,6 +34,16 @@ var start_line: String = ""
 var done_line: String = "You work it loose."
 var bare_hand_risk: float = 0.0    ## life cost for doing it bare-handed (glass, shell)
 var regrow_sec: float = 0.0        ## > 0 makes this a renewable harvest node
+## THE OTHER KIND OF REGROWTH, in GAME HOURS off GameClock instead of real seconds.
+##
+## `regrow_sec` is right for a patch that comes back inside one visit — the tar seams and
+## the glow-worm broods are 200-300 s, i.e. "later this session". It is the wrong shape for
+## anything measured in DAYS (the mussel beds are five), because a real-seconds countdown
+## cannot see a night the player slept through: skip_to_next_dawn() advances the calendar
+## without spending any real time, so a five-day bed would sit bare through five slept
+## nights and then regrow after five real hours of standing next to it. Set from a def's
+## `regrow_days`; when > 0 it takes precedence over regrow_sec.
+var regrow_game_hours: float = 0.0
 var sound: String = "clang"
 
 # ---- state ----
@@ -46,6 +56,16 @@ var _model: Node3D = null          ## the visual we tilt / gut / darken
 var _hidden: Array = []            ## MeshInstance3D we stripped off, for regrow
 var _overlaid: Array = []          ## MeshInstance3D we sooted, for regrow
 var _added: Array = []             ## wound geometry we spawned, for regrow
+## GameClock.game_time_hours() at the moment it was last harvested; < 0 = never.
+var _picked_at_h: float = -1.0
+
+func _ready() -> void:
+	# A harvested node has to STAY harvested across a save. The node may not exist yet when
+	# load_game() runs (the reef waits two physics frames, and Main defers the load by one),
+	# so it claims its own saved state on arrival — the same deferred hand-off LootContainer
+	# uses for its contents. Deferred, because the factories set global_position AFTER
+	# add_child() and the save is keyed by where the node stands.
+	SaveManager.claim_harvest.call_deferred(self)
 
 # ============================================================ interaction
 
@@ -84,9 +104,17 @@ func interact(_verb: String, player: Node3D) -> void:
 	if player:
 		set_meta("worker", player)
 
+## True for a harvest node (comes back) rather than a salvage node (spent forever).
+func renewable() -> bool:
+	return regrow_sec > 0.0 or regrow_game_hours > 0.0
+
 func _process(delta: float) -> void:
 	if _working:
 		_work(delta)
+	elif spent and regrow_game_hours > 0.0:
+		# Measured on the calendar, not on delta — see regrow_game_hours.
+		if GameClock.game_time_hours() - _picked_at_h >= regrow_game_hours:
+			_restore()
 	elif spent and regrow_sec > 0.0:
 		_regrow_left -= delta
 		if _regrow_left <= 0.0:
@@ -124,7 +152,8 @@ func _finish() -> void:
 				got.append(_item_name(item_id))
 	spent = true
 	_regrow_left = regrow_sec
-	set_process(regrow_sec > 0.0)
+	_picked_at_h = GameClock.game_time_hours()
+	set_process(renewable())
 	AudioDirector.play_one_shot(sound, global_position, -2.0)
 	_strip()
 	if bare_hand_risk > 0.0 and not _has_any(speed_tools):
@@ -286,9 +315,43 @@ func _improvise_wound(target: MeshInstance3D) -> void:
 			deg_to_rad(12.0 + 9.0 * t), 0.0, deg_to_rad(-38.0 - 14.0 * t))
 		_added.append(strip)
 
+# ============================================================ save / load
+# A rig the player has stripped has to STILL be stripped after a night's sleep — and a
+# five-day mussel bed that reset to full on every reload would make its whole regrowth
+# meaningless. SaveManager keys these by where the node stands (positions are deterministic:
+# every harvest node is built by world construction, not by the player) and hands the state
+# back through claim_harvest, which _ready above asks for.
+#
+# NB the key cannot include display_name: _strip() renames the node to "Stripped X".
+
+## What this node needs to come back the way the player left it.
+func harvest_state() -> Dictionary:
+	return {"spent": spent, "at_h": _picked_at_h, "left": _regrow_left}
+
+## Put it back into that state. Idempotent, and safe to call on an untouched node with a
+## payload that says untouched (which is what a fresh slot hands every node).
+func harvest_restore(state: Dictionary) -> void:
+	var want: bool = bool(state.get("spent", false))
+	if want and not spent:
+		spent = true
+		_picked_at_h = float(state.get("at_h", GameClock.game_time_hours()))
+		_regrow_left = float(state.get("left", regrow_sec))
+		_strip()
+		# If the calendar has already passed the regrow point (a save loaded days later),
+		# _process restores it on the next frame rather than here — one code path for
+		# regrowth, not two.
+		set_process(renewable())
+	elif not want and spent:
+		_restore()
+	elif want and spent:
+		# Same state, different clocks: a reload must not restart the countdown.
+		_picked_at_h = float(state.get("at_h", _picked_at_h))
+		_regrow_left = float(state.get("left", _regrow_left))
+
 ## Renewable nodes only: the sea puts it back.
 func _restore() -> void:
 	spent = false
+	_picked_at_h = -1.0
 	set_process(false)
 	remove_from_group("salvaged")
 	display_name = display_name.trim_prefix("Stripped ")

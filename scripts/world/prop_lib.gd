@@ -200,6 +200,9 @@ const ITEM_SIZE := {
 	# food
 	"cooked_fish": 0.3, "cooked_fish_prime": 0.42, "raw_fillet": 0.32,
 	"raw_sea_bird": 0.28, "cooked_sea_bird": 0.28, "water_ration": 0.24,
+	# A double handful of Mytilus edulis: five shells, a big one about 9 cm, so the heap is
+	# roughly 20 cm across. The cooked plate is wider because the shells are hinged open.
+	"mussels": 0.2, "mussels_boiled": 0.24,
 }
 
 ## Path a generated item mesh would live at. Public so a test harness can photograph one

@@ -2454,7 +2454,11 @@ func _decorate_galley() -> void:
 	_plabel("LPG", Vector3(12.5, y + 0.55, 16.92), 180, 10, Color(0.8, 0.3, 0.2))
 	_cyl_nc(Vector3(11.2, y + 1.02, 15.9), 0.18, 0.03, MatLib.flat(Color(0.1, 0.1, 0.1)))
 	_cyl_nc(Vector3(11.8, y + 1.02, 16.5), 0.18, 0.03, MatLib.flat(Color(0.1, 0.1, 0.1)))
-	_cyl_nc(Vector3(11.2, y + 1.15, 15.9), 0.2, 0.24, MatLib.painted_steel())
+	# THE POT that used to stand on the left hob is now built by cook_stove.gd itself, in the
+	# stove's own local space. s21 gave the range a BOIL cycle (mussels), and the pot has to
+	# come to the boil while it runs — steam, a lit hob, water that moves. A CSG cylinder
+	# dropped here as dressing could not do any of that, and two pots would have overlapped.
+	# Same object, same place; it just belongs to the component that drives it now.
 	# Fridge, door ajar — and still cold inside: STOW fish, it keeps forever.
 	var fridge: Interactable = preload("res://scripts/components/cold_store.gd").new()
 	add_child(fridge)
@@ -3671,10 +3675,38 @@ func _arrival_dressing() -> void:
 	# Dock apron under the gangplank — checker plate, seated flush.
 	_box(Vector3(19.5, WET_Y + 0.015, -21.4), Vector3(4.6, 0.03, 1.4), MatLib.checker_plate(), self, false)
 	# Bollards with a slack chain, either side of the gangplank.
+	#
+	# Owner report, repeated: "an uninteractable blank yellow block on the wet deck". THIS WAS
+	# IT — both of them. Each bollard was one bare CSGCylinder3D in
+	# `MatLib.flat(Color(0.75, 0.65, 0.15))`, and `_cyl` builds CSGCylinder3D at Godot's
+	# default EIGHT sides, so a 0.30 x 0.55 m octagon in an untextured flat fill reads as a
+	# yellow box, not as a bollard. It is also the first thing the player walks past coming off
+	# the gangplank at spawn, which is why it got reported and re-reported.
+	#
+	# That exact colour is `hazard_stripe()`'s own fallback tint — i.e. somebody wrote the
+	# fallback by hand instead of calling the material, and the rusted yellow/black chevron
+	# texture that belongs on dock hardware never got used. So these are REBUILT rather than
+	# deleted: the docstring above this function promises "chained bollards at the edge", the
+	# chain hangs off them, and a real bollard is honest dressing here — it was the placeholder
+	# rendering of one that was wrong. Bolted flange, hazard-painted body, a rust-steel mushroom
+	# head that a loop would actually hold under, and a galvanised bar through the neck for the
+	# chain. The body keeps the collider the old block had, at a real bollard's girth.
 	for bx in [17.4, 21.6]:
-		_cyl(Vector3(bx, WET_Y + 0.28, -21.7), 0.15, 0.55, MatLib.flat(Color(0.75, 0.65, 0.15)))
-	_wire(Vector3(17.4, WET_Y + 0.6, -21.7), Vector3(19.5, WET_Y + 0.42, -21.7), 0.03, dark)
-	_wire(Vector3(19.5, WET_Y + 0.42, -21.7), Vector3(21.6, WET_Y + 0.6, -21.7), 0.03, dark)
+		_dbox(Vector3(bx, WET_Y + 0.022, -21.7), Vector3(0.46, 0.045, 0.46), MatLib.rust_steel())
+		for hx in [-0.17, 0.17]:
+			for hz in [-0.17, 0.17]:
+				_dcyl(Vector3(bx + hx, WET_Y + 0.058, -21.7 + hz), 0.028, 0.05, MatLib.galvanized())
+		_cyl(Vector3(bx, WET_Y + 0.23, -21.7), 0.175, 0.42, MatLib.hazard_stripe())   # solid body
+		_dcyl(Vector3(bx, WET_Y + 0.435, -21.7), 0.155, 0.07, dark)                   # neck
+		_dcyl(Vector3(bx, WET_Y + 0.51, -21.7), 0.225, 0.10, MatLib.rust_steel())     # mushroom head
+		_dcyl(Vector3(bx, WET_Y + 0.572, -21.7), 0.20, 0.025, MatLib.galvanized())    # crown cap
+		var eye := _dcyl(Vector3(bx, WET_Y + 0.435, -21.7), 0.022, 0.44, MatLib.galvanized())
+		eye.rotation.z = deg_to_rad(90)                                               # chain bar through the neck
+		_dbox(Vector3(bx, WET_Y + 0.26, -21.53), Vector3(0.05, 0.30, 0.02), MatLib.rusty_metal())
+	# The chain now hangs off the eye bars at y+0.435 instead of ending 45 mm above where the
+	# old block stopped — the sag is unchanged, the ends land on real hardware.
+	_wire(Vector3(17.4, WET_Y + 0.435, -21.7), Vector3(19.5, WET_Y + 0.255, -21.7), 0.03, dark)
+	_wire(Vector3(19.5, WET_Y + 0.255, -21.7), Vector3(21.6, WET_Y + 0.435, -21.7), 0.03, dark)
 	# Tire fenders hung on the dock edge.
 	for fx in [18.2, 20.8]:
 		var tire := MeshInstance3D.new()

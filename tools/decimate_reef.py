@@ -70,6 +70,15 @@ TARGET_OVERRIDE = {
     # silhouette is the whole animal, so they get more than the small ones.
     "star_big_red": 3000, "star_big_blue": 2600, "star_big_spiny": 3400,
     "star_big_sunflower": 3600,
+    # s21 — MUSSEL BEDS. These are the one thing on the reef the player takes APART, so
+    # unlike the barnacle crust they get walked right up to and looked at from 1 m.
+    # A mussel bed is also exactly the surface type the traps file warns about (a dense
+    # field of small hard bumps — thirty separate shells), so it does NOT get the crust's
+    # 1.4-4k: below ~4k the individual shells stop closing and the bed reads as gravel.
+    # The clump is the small accent scattered around a bed and can take half of that.
+    "mussel_bed_a": 4200, "mussel_bed_b": 4200, "mussel_bed_c": 4200,
+    "mussel_clump_d": 2200,
+    "mussel_clump": 3000, "mussel_bed_e": 4200, "mussel_bed_f": 4200,
 }
 MAX_TEX = 1024
 
@@ -112,7 +121,12 @@ ROTATE = {
 # Both print the measured extents so the choice is auditable in the log rather than
 # asserted here.
 AUTO_FLAT = {"star_big_red", "star_big_blue", "star_big_spiny", "star_big_sunflower",
-             "barnacle_cluster_a"}
+             "barnacle_cluster_a",
+             # s21 — a mussel bed is the flattest thing on the reef (the brief calls for a
+             # low encrusting mat, near-zero tilt, flush to the face), so FLAT is the right
+             # rule for all four: thinnest axis is the bed's up, rotated onto glTF +Y.
+             "mussel_bed_a", "mussel_bed_b", "mussel_bed_c", "mussel_clump_d",
+             "mussel_clump", "mussel_bed_e", "mussel_bed_f"}
 AUTO_BLADE = {"sponge_fan"}
 
 # thin blender axis -> rotation that puts it on blender +Z (glTF +Y)

@@ -394,6 +394,12 @@ func _process(_delta: float) -> void:
 		return
 	var wave_y: float = Gyre.wave_height(Vector2(cam.global_position.x, cam.global_position.z), Gyre.water_time()) * 0.85
 	var under: bool = cam.global_position.y < wave_y
+	# The sun's shadow cascade is not worth rendering once the water has taken the sun (see
+	# SunController.set_dive_depth — measured at 3.33 ms and 796 draw calls at -12 m). The
+	# depth is already in hand here, so this is one float compare a frame and a flip on the
+	# frames the state actually changes.
+	if sun_ctl != null:
+		sun_ctl.set_dive_depth(maxf(wave_y - cam.global_position.y, 0.0) if under else 0.0)
 	if under:
 		# Deeper = darker and thicker; near the surface the world still glows.
 		var depth: float = maxf(wave_y - cam.global_position.y, 0.0)

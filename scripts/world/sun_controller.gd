@@ -205,13 +205,47 @@ func _on_tick(f: float) -> void:
 		_sun_shadow_on = false
 	elif not _sun_shadow_on and sun.light_energy > 0.08:
 		_sun_shadow_on = true
-	sun.shadow_enabled = _sun_shadow_on
+	sun.shadow_enabled = _sun_shadow_on and not _deep_water
 
 	# Interior daylight-spill lights track the sun; interiors go black at night (Rule 7)
 	# unless the player flips the switches they earned.
 	var spill_energy: float = 0.55 * clampf(sun.light_energy, 0.0, 1.0)
 	for l in get_tree().get_nodes_in_group("spill_lights"):
 		l.light_energy = spill_energy
+
+## THE SAME ARGUMENT, ONE MEDIUM DOWN. Under water the sun is not a light that casts a
+## readable shadow either, and for the same reason: underwater_fx._grade_sun attenuates the
+## directional light on a measured extinction curve — 0.26 of its topside energy at 4 m
+## down, 0.10 at 12 m, floor 0.06 — and the camera's own environment is fogging at 0.055 to
+## 0.17 per metre on top of that. A cascade rendered into that is a hard-edged shadow from a
+## light contributing a tenth of the ambient, seen through teal murk.
+##
+## Measured (tests/VantagePerf.tscn, A/B/A, each row against its own noise floor and the
+## vantage's null pair): the sun's shadow pass cost 3.33 ms and 796 draw calls at
+## `submerged_deep` (-12 m) and 1.54 ms / 26 draws at `submerged_mid` (-5 m) — 14.6% and
+## 10.0% of those frames, for shadows that cannot be resolved.
+##
+## The night latch above already reaches this eventually (deep enough, the graded energy
+## falls under its 0.03 threshold on its own), but only on the next GameClock tick and only
+## in the abyss. This is the same test applied at dive depth and applied IMMEDIATELY, which
+## is what a dive needs — hence a setter that re-applies rather than waiting for _apply.
+const DEEP_SHADOW_OFF: float = 3.6    ## metres below the surface: stop casting
+const DEEP_SHADOW_ON: float = 2.2     ## ...and start again here. Deadband, not one cutoff.
+var _deep_water: bool = false
+
+## Called every frame by main.gd, which already computes the camera's depth for the
+## environment swap. Early-outs on no change, so the cost is one float compare a frame.
+func set_dive_depth(depth: float) -> void:
+	var want: bool = _deep_water
+	if depth > DEEP_SHADOW_OFF:
+		want = true
+	elif depth < DEEP_SHADOW_ON:
+		want = false
+	if want == _deep_water:
+		return
+	_deep_water = want
+	if sun != null:
+		sun.shadow_enabled = _sun_shadow_on and not _deep_water
 
 func _global_day_fraction(phase: GameClock.Phase, f: float) -> float:
 	match phase:

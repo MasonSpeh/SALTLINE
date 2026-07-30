@@ -46,6 +46,43 @@ func phase_fraction() -> float:
 	var duration_sec: float = phase_durations_minutes[current_phase] * 60.0
 	return clampf(_phase_elapsed_sec / duration_sec, 0.0, 1.0)
 
+## One in-game day in real seconds, off the clock's own phase plan (60 min as tuned).
+## hang_line.gd and BloomFauna.game_hour_per_sec() both derive their own rate from this
+## same sum; this is that arithmetic in one place so a system measuring a span in DAYS
+## does not have to re-derive it.
+func real_sec_per_game_day() -> float:
+	var day_sec: float = 0.0
+	for phase in phase_durations_minutes:
+		day_sec += float(phase_durations_minutes[phase]) * 60.0
+	return maxf(day_sec, 1.0)
+
+## How far through the current day it is, in game hours — 0.0 the instant DAWN begins,
+## 24.0 as NIGHT ends. Derived from the phase plan, so re-tuning a phase re-bases it.
+func hours_into_day() -> float:
+	var total: float = 0.0
+	var before: float = 0.0
+	for phase in phase_durations_minutes:
+		var mins: float = float(phase_durations_minutes[phase])
+		if int(phase) < int(current_phase):
+			before += mins
+		total += mins
+	if total <= 0.0:
+		return 0.0
+	var mins_in: float = before + float(phase_durations_minutes[current_phase]) * phase_fraction()
+	return 24.0 * mins_in / total
+
+## ABSOLUTE game time in hours since the run began: whole days plus the part-day.
+##
+## THIS IS WHAT ANYTHING MEASURED IN GAME DAYS MUST KEY OFF, and it is not the same as a
+## countdown in real seconds. Sleeping calls skip_to_next_dawn(), which bumps day_count and
+## resets the phase — so a night the player slept through costs no real seconds at all but
+## is unarguably a day that passed. A five-day regrowth counted in delta would therefore be
+## five real HOURS of standing about, and a player who slept five nights would still find
+## the patch bare. Monotonic across both a natural phase advance (end of NIGHT is 24.0, and
+## the next DAWN is (day+1)*24 + 0.0) and a sleep.
+func game_time_hours() -> float:
+	return float(day_count) * 24.0 + hours_into_day()
+
 func _advance_phase() -> void:
 	if current_phase == Phase.NIGHT:
 		day_count += 1

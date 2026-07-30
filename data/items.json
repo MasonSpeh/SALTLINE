@@ -287,6 +287,19 @@
     "name": "Limpet Shell",
     "use": "tool"
   },
+  "mussels": {
+    "name": "Mussels",
+    "use": "eat",
+    "hunger": 0.05,
+    "side_effect": "sick"
+  },
+  "mussels_boiled": {
+    "name": "Boiled Mussels",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.06,
+    "comfort": 0.04
+  },
   "snail_live": {
     "name": "Live Snail",
     "use": "eat",

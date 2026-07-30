@@ -190,10 +190,30 @@ func _ready() -> void:
 		_spawn_debris(true)
 	_build_surface_hints()
 
+## The gyre only ever wants to know one thing about the player — has it come within 45 m,
+## once, ever. That was costing a group lookup, a global_transform resolve and a square root
+## on every frame of the entire game, for a fact that stops mattering the first time it is
+## true. Latched, and checked four times a second instead of sixty: the player cannot cross
+## 45 m of open sea in 250 ms.
+var _found_gyre: bool = false
+var _find_t: float = 0.0
+## The nine foam streaks, held directly rather than re-fetched from their group every tick.
+var _streaks: Array[Node3D] = []
+## float64 for the angle specifically: it ACCUMULATES for the whole session (delta * 0.25
+## per tick), and this repo has already been bitten once by a running total rounded through
+## single precision (see the wave_offset().y note in docs/AGENT_TRAPS.md).
+var _streak_ang: PackedFloat64Array = PackedFloat64Array()
+var _streak_rad: PackedFloat32Array = PackedFloat32Array()
+
 func _process(_delta: float) -> void:
-	var _pl: Node3D = get_tree().get_first_node_in_group("player")
-	if _pl and _pl.global_position.distance_to(CENTER) < 45.0:
-		Journal.discover("place_gyre")
+	if not _found_gyre:
+		_find_t -= _delta
+		if _find_t <= 0.0:
+			_find_t = 0.25
+			var pl: Node3D = get_tree().get_first_node_in_group("player")
+			if pl != null and pl.global_position.distance_squared_to(CENTER) < 45.0 * 45.0:
+				_found_gyre = true
+				Journal.discover("place_gyre")
 	# The Bloom gathers faintly under the eye at night.
 	var want: float = 0.0
 	if GameClock.current_phase == GameClock.Phase.NIGHT:
@@ -203,8 +223,12 @@ func _process(_delta: float) -> void:
 	_sheen_mat.emission_energy_multiplier = lerpf(_sheen_mat.emission_energy_multiplier, want, _delta * 1.5)
 	# By day the eye is just faintly slicked water; the teal belongs to the night.
 	_sheen_mat.albedo_color.a = 0.04 + _sheen_mat.emission_energy_multiplier * 0.22
-	# Keep the eye stocked.
-	if get_tree().get_nodes_in_group("floating_debris").size() < MAX_DEBRIS and _rng.randf() < 0.002:
+	# Keep the eye stocked. get_node_count_in_group, not get_nodes_in_group: the same number,
+	# without building and throwing away an Array of every piece of flotsam in the ocean once
+	# a frame. The order of the `and` is deliberate and must not be swapped for the same
+	# reason — _rng is only advanced when the count test passes, and reordering it would
+	# consume a different RNG stream and change which flotsam the seeded gyre spawns.
+	if get_tree().get_node_count_in_group("floating_debris") < MAX_DEBRIS and _rng.randf() < 0.002:
 		_spawn_debris(false)
 
 func _spawn_debris(anywhere: bool) -> void:
@@ -247,8 +271,16 @@ func _build_surface_hints() -> void:
 		streak.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		streak.add_to_group("gyre_streaks")
 		add_child(streak)
-		streak.set_meta("angle", _rng.randf_range(0, TAU))
-		streak.set_meta("radius", _rng.randf_range(4.0, 12.0))
+		var ang: float = _rng.randf_range(0, TAU)
+		var rad: float = _rng.randf_range(4.0, 12.0)
+		# The group is kept (other code may look for it); the per-tick loop reads these
+		# arrays instead, so nine foam streaks stop costing a group-array allocation plus
+		# three meta lookups each, thirty times a second, for numbers held right here.
+		streak.set_meta("angle", ang)
+		streak.set_meta("radius", rad)
+		_streaks.append(streak)
+		_streak_ang.append(ang)
+		_streak_rad.append(rad)
 	# Faint teal sheen in the eye — at night the Bloom answers the turning water.
 	_sheen_mat = StandardMaterial3D.new()
 	_sheen_mat.albedo_color = Color(0.2, 0.9, 0.85, 0.18)
@@ -268,10 +300,11 @@ func _build_surface_hints() -> void:
 
 func _physics_process(delta: float) -> void:
 	var t: float = water_time()
-	for s in get_tree().get_nodes_in_group("gyre_streaks"):
-		var a: float = s.get_meta("angle") + delta * 0.25
-		s.set_meta("angle", a)
-		var r: float = s.get_meta("radius")
+	for i in range(_streaks.size()):
+		var s: Node3D = _streaks[i]
+		var a: float = _streak_ang[i] + delta * 0.25
+		_streak_ang[i] = a
+		var r: float = _streak_rad[i]
 		var sx: float = CENTER.x + cos(a) * r
 		var sz: float = CENTER.z + sin(a) * r
 		var so: Vector3 = wave_offset(Vector2(sx, sz), t)

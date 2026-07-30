@@ -1314,9 +1314,17 @@ func _check_decimation_equivalence(main: Node) -> void:
 ## Simulated rather than measured off a live creature so it runs headless with the rest of
 ## the suite: drive the same accumulate/spend loop the species prologues use and assert the
 ## time handed out equals the time that passed, and that no single step exceeds MAX_STEP.
+## The largest `k` in any `lerpf(x, target, delta * k)` across the decimated species (the
+## isopod's freeze reaction). See AiBudget.MAX_STEP.
+const K_MAX_SMOOTH: float = 6.0
+
 func _check_ai_budget() -> void:
 	var frame: float = 1.0 / 30.0
-	for stride in [1, 2, 4]:
+	# Read the strides OFF THE CONSTANTS rather than hard-coding them. This list used to be
+	# [1, 2, 4], which silently stopped covering the stride actually in use the moment
+	# HIDDEN_STRIDE moved off 4 — and the whole point of this check is that the stride in use
+	# conserves time.
+	for stride in [1, 2, AiBudget.FAR_STRIDE, AiBudget.HIDDEN_STRIDE]:
 		var acc: float = 0.0
 		var spent: float = 0.0
 		var worst_step: float = 0.0
@@ -1335,5 +1343,17 @@ func _check_ai_budget() -> void:
 			"AiBudget stride %d conserves elapsed time (%.4f vs %.4f)" % [stride, spent + acc, elapsed])
 		_check(worst_step <= AiBudget.MAX_STEP + frame + 1e-6,
 			"AiBudget stride %d never hands over more than MAX_STEP (%.4f)" % [stride, worst_step])
+		# THE INVARIANT MAX_STEP EXISTS TO PROTECT, asserted directly instead of implied by a
+		# constant. The species code smooths with `lerpf(x, target, delta * k)`, whose largest
+		# k in the decimated classes is 6.0; that form overshoots the target past k*step > 1
+		# and oscillates away from it past 2. So the number that must hold is k*step <= 1, and
+		# it is the STRIDE CEILING — once the stride is above 4 the worst step stops being set
+		# by the stride at all and is set by MAX_STEP plus one frame, which is why raising
+		# HIDDEN_STRIDE further buys nothing and why lowering MAX_STEP would cost the existing
+		# far-stride win. At 30 fps this lands on exactly 1.0: lerpf's snap point, the last
+		# stable value, and reached only by creatures that are not being drawn.
+		_check(K_MAX_SMOOTH * worst_step <= 1.0 + 1e-6,
+			"AiBudget stride %d keeps k*step within lerpf's stable range (%.4f <= 1.0)"
+				% [stride, K_MAX_SMOOTH * worst_step])
 		_check(ticks > 0, "AiBudget stride %d still ticks" % stride)
 	_check(AiBudget.enabled, "AiBudget is left enabled for the game")

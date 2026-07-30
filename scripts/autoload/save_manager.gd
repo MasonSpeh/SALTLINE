@@ -38,6 +38,11 @@ var _pending_load: bool = false
 ## their saved contents when they come up (see claim_container).
 var _pending_containers: Dictionary = {}
 
+## Harvest/salvage state pulled from the last load, keyed the same way. Held for the same
+## reason: the reef's mussel beds are built two physics frames after the load runs, so they
+## have to be able to come and ask for their state (see claim_harvest).
+var _pending_harvest: Dictionary = {}
+
 func _ready() -> void:
 	_migrate_legacy()
 	GameClock.dawn.connect(save_game)
@@ -130,6 +135,7 @@ func save_game() -> void:
 		"containers": _containers_payload(),
 		"dropped": _dropped_payload(),
 		"snails": FAUNA.snail_payload(get_tree()),
+		"harvest": _harvest_payload(),
 	}
 	# Where the player stood at save time, so Continue resumes them there rather than
 	# back at the pod. Only written when a player is actually in the tree.
@@ -182,6 +188,7 @@ func load_game() -> bool:
 	# Stash container contents BEFORE rebuilding structures, so a storage crate that
 	# comes back as part of a rebuilt camp can claim its items the moment it spawns.
 	_pending_containers = data.get("containers", {}) if typeof(data.get("containers")) == TYPE_DICTIONARY else {}
+	restore_harvest(data.get("harvest", {}))
 	restore_structures(data.get("structures", []))
 	_apply_pending_to_existing()
 	restore_dropped(data.get("dropped", []))
@@ -295,6 +302,66 @@ func claim_container(c: Node3D) -> void:
 	for it in (saved as Array):
 		restored.append(String(it))
 	c.set("items", restored)
+
+# ------------------------------------------------------------- harvest / salvage
+# A rig you have stripped should stay stripped, and this is the gap that closed it: before
+# s21 NOTHING about Salvage persisted, so a player could gut every locker, scrape every tar
+# seam, save, reload, and find the whole rig whole again. It matters most for the mussel beds,
+# whose regrowth is FIVE GAME DAYS — a bed that grew back on every load would have no
+# regrowth at all.
+#
+# Keyed by where the node stands. That is stable for exactly the reason container keys are:
+# harvest nodes are placed by world construction from seeded RNG, so the same spot comes back
+# on the same spot. Only SPENT nodes are written — an untouched node is the default, and
+# writing 60 "false" entries a save would bloat every slot for nothing.
+
+func _harvest_key(s: Node3D) -> String:
+	var p: Vector3 = s.global_position
+	return "%.2f,%.2f,%.2f" % [p.x, p.y, p.z]
+
+func _harvest_payload() -> Dictionary:
+	var out: Dictionary = {}
+	for s in get_tree().get_nodes_in_group("salvageable"):
+		if not (s is Node3D) or not is_instance_valid(s) or not s.has_method("harvest_state"):
+			continue
+		var st: Variant = s.call("harvest_state")
+		if typeof(st) != TYPE_DICTIONARY or not bool((st as Dictionary).get("spent", false)):
+			continue
+		out[_harvest_key(s as Node3D)] = st
+	return out
+
+## Reapply saved harvest state. AUTHORITATIVE in both directions: a node the save does not
+## mention is put back to untouched, so loading a fresh slot over a session in which the
+## player stripped half the rig does not leave those wounds standing.
+func restore_harvest(data: Variant) -> int:
+	_pending_harvest = data if typeof(data) == TYPE_DICTIONARY else {}
+	var n: int = 0
+	for s in get_tree().get_nodes_in_group("salvageable"):
+		if not (s is Node3D) or not is_instance_valid(s) or not s.has_method("harvest_restore"):
+			continue
+		var key: String = _harvest_key(s as Node3D)
+		var st: Variant = _pending_harvest.get(key, {"spent": false})
+		if typeof(st) != TYPE_DICTIONARY:
+			continue
+		s.call("harvest_restore", st)
+		if bool((st as Dictionary).get("spent", false)):
+			n += 1
+	return n
+
+## Called (deferred) by a Salvage node once it is in the tree WITH ITS FINAL POSITION. The
+## reef's mussel beds do not exist when load_game() runs — LegReef waits two physics frames
+## and Main defers the load by one — so they claim their own saved state on arrival, exactly
+## as a rebuilt storage crate claims its contents.
+func claim_harvest(s: Node3D) -> void:
+	if _pending_harvest.is_empty() or not is_instance_valid(s) \
+			or not s.has_method("harvest_restore"):
+		return
+	var key: String = _harvest_key(s)
+	if not _pending_harvest.has(key):
+		return
+	var st: Variant = _pending_harvest[key]
+	if typeof(st) == TYPE_DICTIONARY:
+		s.call("harvest_restore", st)
 
 # ---------------------------------------------------------------- dropped items
 # Items the player tosses out of the pack become real Takeables on the deck. They are

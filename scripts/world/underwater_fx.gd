@@ -272,7 +272,26 @@ func _process(_delta: float) -> void:
 
 	# Only render the FX when the camera is at/under the surface (small margin so the
 	# caustics on the legs are already there as you break through).
-	_root.visible = cam_y < surf + 1.5
+	var showing: bool = cam_y < surf + 1.5
+	_root.visible = showing
+
+	# NOTHING BELOW THIS LINE HAS AN EFFECT WHILE `showing` IS FALSE, and all of it was
+	# running anyway on every frame of a game that is mostly played on deck: the Snell
+	# window's 4 uniforms, 2 uniforms on each of the 6 light-shaft materials and 2 on the
+	# caustic material — ~19 RenderingServer parameter writes a frame into materials on
+	# hidden meshes — plus a `look_at`-grade basis read and the Gerstner surface sample they
+	# are fed from. Same contract as underwater_world's topside cull: every one of these is
+	# a pure function of the CURRENT frame's surf/day/storm, so there is no state to carry
+	# and the first frame back under the surface writes them all again before it is drawn.
+	#
+	# _grade_sun is the exception and stays outside the gate: it OWNS a restore (it puts the
+	# sun's topside energy and colour back when you surface), so skipping it while topside
+	# would leave a dive's attenuation latched on above water.
+	if not showing:
+		# `under` is false by construction here (surf + 1.5 > surf), and _grade_sun ignores
+		# `storm` unless under — so this is bit-for-bit the call the full path would make.
+		_grade_sun(surf, cam_y, false, 0.0)
+		return
 
 	var day: float = _daylight()
 	var storm: float = _storm_intensity()

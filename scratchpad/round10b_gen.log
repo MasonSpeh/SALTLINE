@@ -1,0 +1,12 @@
+2 mussel generations (40 credits), 4 concurrent
+  SUBMIT mussel_bed_e -> task c5ae0b98-082d-4e40-8fba-6c9220249d6e
+  SUBMIT mussel_bed_f -> task 835126d1-877f-4828-abf3-53fd1fdff2d2
+  mussel_bed_e: queued   0%     mussel_bed_f: queued   0%     mussel_bed_f: running  10%     mussel_bed_e: running  10%     mussel_bed_f: running  17%     mussel_bed_e: running  17%     mussel_bed_e: running  27%     mussel_bed_f: running  27%     mussel_bed_e: running  35%     mussel_bed_f: running  35%     mussel_bed_e: running  42%     mussel_bed_f: running  42%     mussel_bed_e: running  52%     mussel_bed_f: running  52%     mussel_bed_e: running  60%     mussel_bed_f: running  60%     mussel_bed_e: running  68%     mussel_bed_f: running  68%     mussel_bed_e: running  77%     mussel_bed_f: running  77%     mussel_bed_f: running  85%     mussel_bed_e: running  85%     mussel_bed_e: running  93%     mussel_bed_f: running  93%     mussel_bed_f: running  99%     mussel_bed_e: success 100%   
+  downloading GLB -> assets/models/fauna/_cand10/mussel_bed_e/mussel_bed_e.glb
+  mussel_bed_e: ok (15.3 MB) task c5ae0b98-082d-4e40-8fba-6c9220249d6e
+  mussel_bed_f: running  99%     mussel_bed_f: running  99%     mussel_bed_f: running  99%     mussel_bed_f: running  99%     mussel_bed_f: running  99%     mussel_bed_f: running  99%     mussel_bed_f: success 100%   
+  downloading GLB -> assets/models/fauna/_cand10/mussel_bed_f/mussel_bed_f.glb
+  mussel_bed_f: ok (16.5 MB) task 835126d1-877f-4828-abf3-53fd1fdff2d2
+
+DONE  2 ok, 0 failed
+task ids -> scratchpad/round10b_task_ids.json

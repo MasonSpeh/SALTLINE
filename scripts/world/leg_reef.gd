@@ -47,6 +47,10 @@ const REEF_PATH := "res://assets/models/fauna/reef/%s/%s.glb"
 ## The tropical fish that live ON this reef. Preloaded by PATH, not by class_name — the
 ## global class cache lags for a new file.
 const REEF_FISH := preload("res://scripts/world/reef_fish.gd")
+## The harvestable mussel beds among the coral (s21). Same contract as REEF_FISH: it is
+## handed `colony_seats` and owns everything else itself, so this file stays the reef's LOOK
+## and nothing about harvesting, saving or the game calendar lands in here.
+const MUSSELS := preload("res://scripts/world/mussel_beds.gd")
 
 ## Verified by sonar (`spatial_raycast` along -x into the leg at eight depths, all
 ## hitting x=25.000 for the leg centred on x=22) and re-checked every run by
@@ -311,6 +315,7 @@ func _ready() -> void:
 	_grow_snails()
 	_report()
 	add_child(REEF_FISH.new(colony_seats, _band_top, BAND_BOTTOM, KEEP_OUT))
+	add_child(MUSSELS.new(colony_seats, _band_top, BAND_BOTTOM, KEEP_OUT))
 
 ## Numbers, not impressions — this is what the session reports and what ReefProbe
 ## re-derives independently from the built tree.

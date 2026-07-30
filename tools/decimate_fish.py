@@ -52,6 +52,20 @@ BUDGET = {
     "trop_angel": BIG,
     "trop_parrot": BIG,
     "trop_triggerfish": BIG,
+    # s21 — the MUSSEL PACK ITEMS, which are not fish but want exactly this pass rather
+    # than the reef one: an inventory item is previewed and held about its CENTRE, not
+    # seated on a wall, and PropLib._fit re-centres X/Z and drops the base to y=0 itself,
+    # so normalising a growth axis here would be work thrown away. 3,000 is the item
+    # ration: seen at 96 px in the pack and at arm's length on the deck, and its identity
+    # is four or five closed teardrop shells — an outline, not a surface.
+    "mussels_hand_a": 3000,
+    "mussels_hand_b": 3000,
+    # The winner, re-cut under its shipping item id (mussels_hand_a lost on the
+    # render: a lumpier heap whose shells stop reading as separate shells).
+    "mussels": 3000,
+    # The cooked one has to show OPEN shells with meat in them, which is real interior
+    # geometry rather than a silhouette, so it earns half again.
+    "mussels_boiled": 4500,
 }
 # The colour IS the fish here — every one of these species is identified by its
 # pattern, not its shape — so the albedo map keeps more resolution than the coral
