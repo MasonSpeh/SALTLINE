@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b8wwmptc15hhv"
-path="res://.godot/imported/tar_lump_NormalGL_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-1dc316d529c85c379d5af64b8829c05e.ctex"
+path.s3tc="res://.godot/imported/tar_lump_NormalGL_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-1dc316d529c85c379d5af64b8829c05e.s3tc.ctex"
+path.etc2="res://.godot/imported/tar_lump_NormalGL_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-1dc316d529c85c379d5af64b8829c05e.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "3d8d2ff444502e020d3ce4ca4a3049f4"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/tar_lump/tar_lump_NormalGL_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg"
-dest_files=["res://.godot/imported/tar_lump_NormalGL_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-1dc316d529c85c379d5af64b8829c05e.ctex"]
+dest_files=["res://.godot/imported/tar_lump_NormalGL_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-1dc316d529c85c379d5af64b8829c05e.s3tc.ctex", "res://.godot/imported/tar_lump_NormalGL_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-1dc316d529c85c379d5af64b8829c05e.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

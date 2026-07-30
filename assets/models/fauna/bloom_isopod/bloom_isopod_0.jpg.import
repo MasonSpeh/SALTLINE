@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d3gv7o28grwtq"
-path="res://.godot/imported/bloom_isopod_0.jpg-621f230573cb79cca1f7acf79b5805d1.ctex"
+path.s3tc="res://.godot/imported/bloom_isopod_0.jpg-621f230573cb79cca1f7acf79b5805d1.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_isopod_0.jpg-621f230573cb79cca1f7acf79b5805d1.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "39ef98af8a2a5ae98d78db3e38c09a7c"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_isopod/bloom_isopod_0.jpg"
-dest_files=["res://.godot/imported/bloom_isopod_0.jpg-621f230573cb79cca1f7acf79b5805d1.ctex"]
+dest_files=["res://.godot/imported/bloom_isopod_0.jpg-621f230573cb79cca1f7acf79b5805d1.s3tc.ctex", "res://.godot/imported/bloom_isopod_0.jpg-621f230573cb79cca1f7acf79b5805d1.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

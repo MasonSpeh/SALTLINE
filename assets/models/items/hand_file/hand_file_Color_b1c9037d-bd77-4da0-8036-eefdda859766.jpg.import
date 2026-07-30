@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://btkt46pyujvd7"
-path="res://.godot/imported/hand_file_Color_b1c9037d-bd77-4da0-8036-eefdda859766.jpg-c1c5d594ead27e2988e4c349b2ec535c.ctex"
+path.s3tc="res://.godot/imported/hand_file_Color_b1c9037d-bd77-4da0-8036-eefdda859766.jpg-c1c5d594ead27e2988e4c349b2ec535c.s3tc.ctex"
+path.etc2="res://.godot/imported/hand_file_Color_b1c9037d-bd77-4da0-8036-eefdda859766.jpg-c1c5d594ead27e2988e4c349b2ec535c.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f44558684ac1c9e091a744d0187a4906"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/hand_file/hand_file_Color_b1c9037d-bd77-4da0-8036-eefdda859766.jpg"
-dest_files=["res://.godot/imported/hand_file_Color_b1c9037d-bd77-4da0-8036-eefdda859766.jpg-c1c5d594ead27e2988e4c349b2ec535c.ctex"]
+dest_files=["res://.godot/imported/hand_file_Color_b1c9037d-bd77-4da0-8036-eefdda859766.jpg-c1c5d594ead27e2988e4c349b2ec535c.s3tc.ctex", "res://.godot/imported/hand_file_Color_b1c9037d-bd77-4da0-8036-eefdda859766.jpg-c1c5d594ead27e2988e4c349b2ec535c.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://u64uvsoyredt"
-path="res://.godot/imported/crude_knife_NormalGL_3dd7d101-edd1-4a9f-97c8-d140d3fdb2d4.jpg-cf4339656e8eefc0ed0b119b5754d131.ctex"
+path.s3tc="res://.godot/imported/crude_knife_NormalGL_3dd7d101-edd1-4a9f-97c8-d140d3fdb2d4.jpg-cf4339656e8eefc0ed0b119b5754d131.s3tc.ctex"
+path.etc2="res://.godot/imported/crude_knife_NormalGL_3dd7d101-edd1-4a9f-97c8-d140d3fdb2d4.jpg-cf4339656e8eefc0ed0b119b5754d131.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "642c66661d065045293875b70d8aa6e9"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/crude_knife/crude_knife_NormalGL_3dd7d101-edd1-4a9f-97c8-d140d3fdb2d4.jpg"
-dest_files=["res://.godot/imported/crude_knife_NormalGL_3dd7d101-edd1-4a9f-97c8-d140d3fdb2d4.jpg-cf4339656e8eefc0ed0b119b5754d131.ctex"]
+dest_files=["res://.godot/imported/crude_knife_NormalGL_3dd7d101-edd1-4a9f-97c8-d140d3fdb2d4.jpg-cf4339656e8eefc0ed0b119b5754d131.s3tc.ctex", "res://.godot/imported/crude_knife_NormalGL_3dd7d101-edd1-4a9f-97c8-d140d3fdb2d4.jpg-cf4339656e8eefc0ed0b119b5754d131.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

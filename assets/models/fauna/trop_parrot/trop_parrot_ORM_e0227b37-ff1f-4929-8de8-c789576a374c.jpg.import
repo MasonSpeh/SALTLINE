@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://xi5hjjiwe6om"
-path="res://.godot/imported/trop_parrot_ORM_e0227b37-ff1f-4929-8de8-c789576a374c.jpg-11a35528355dc0c9c5b48a8a31ac682a.ctex"
+path.s3tc="res://.godot/imported/trop_parrot_ORM_e0227b37-ff1f-4929-8de8-c789576a374c.jpg-11a35528355dc0c9c5b48a8a31ac682a.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_parrot_ORM_e0227b37-ff1f-4929-8de8-c789576a374c.jpg-11a35528355dc0c9c5b48a8a31ac682a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "c8027fcd69b6f91c02e3daf7471586a6"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_parrot/trop_parrot_ORM_e0227b37-ff1f-4929-8de8-c789576a374c.jpg"
-dest_files=["res://.godot/imported/trop_parrot_ORM_e0227b37-ff1f-4929-8de8-c789576a374c.jpg-11a35528355dc0c9c5b48a8a31ac682a.ctex"]
+dest_files=["res://.godot/imported/trop_parrot_ORM_e0227b37-ff1f-4929-8de8-c789576a374c.jpg-11a35528355dc0c9c5b48a8a31ac682a.s3tc.ctex", "res://.godot/imported/trop_parrot_ORM_e0227b37-ff1f-4929-8de8-c789576a374c.jpg-11a35528355dc0c9c5b48a8a31ac682a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

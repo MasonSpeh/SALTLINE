@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://7v0dft77qn5v"
-path="res://.godot/imported/herring_gull_Color_8c63e174-3c66-42fe-9df2-bc3ce4062458.jpg-38b655efc7baf6c6d0b71c35014329ee.ctex"
+path.s3tc="res://.godot/imported/herring_gull_Color_8c63e174-3c66-42fe-9df2-bc3ce4062458.jpg-38b655efc7baf6c6d0b71c35014329ee.s3tc.ctex"
+path.etc2="res://.godot/imported/herring_gull_Color_8c63e174-3c66-42fe-9df2-bc3ce4062458.jpg-38b655efc7baf6c6d0b71c35014329ee.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "631e469969d7c11e8434374d5a924c7d"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/herring_gull/herring_gull_Color_8c63e174-3c66-42fe-9df2-bc3ce4062458.jpg"
-dest_files=["res://.godot/imported/herring_gull_Color_8c63e174-3c66-42fe-9df2-bc3ce4062458.jpg-38b655efc7baf6c6d0b71c35014329ee.ctex"]
+dest_files=["res://.godot/imported/herring_gull_Color_8c63e174-3c66-42fe-9df2-bc3ce4062458.jpg-38b655efc7baf6c6d0b71c35014329ee.s3tc.ctex", "res://.godot/imported/herring_gull_Color_8c63e174-3c66-42fe-9df2-bc3ce4062458.jpg-38b655efc7baf6c6d0b71c35014329ee.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

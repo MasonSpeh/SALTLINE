@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b5p4acsguf64e"
-path="res://.godot/imported/sponge_rope_ORM_a15e1585-e675-43ee-9a00-13b1e72c6073.jpg-3bb649d193bd60fe331cf0e57de5d2ea.ctex"
+path.s3tc="res://.godot/imported/sponge_rope_ORM_a15e1585-e675-43ee-9a00-13b1e72c6073.jpg-3bb649d193bd60fe331cf0e57de5d2ea.s3tc.ctex"
+path.etc2="res://.godot/imported/sponge_rope_ORM_a15e1585-e675-43ee-9a00-13b1e72c6073.jpg-3bb649d193bd60fe331cf0e57de5d2ea.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "d28fc8fd0853e57747261c2bdb4d68fc"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/sponge_rope/sponge_rope_ORM_a15e1585-e675-43ee-9a00-13b1e72c6073.jpg"
-dest_files=["res://.godot/imported/sponge_rope_ORM_a15e1585-e675-43ee-9a00-13b1e72c6073.jpg-3bb649d193bd60fe331cf0e57de5d2ea.ctex"]
+dest_files=["res://.godot/imported/sponge_rope_ORM_a15e1585-e675-43ee-9a00-13b1e72c6073.jpg-3bb649d193bd60fe331cf0e57de5d2ea.s3tc.ctex", "res://.godot/imported/sponge_rope_ORM_a15e1585-e675-43ee-9a00-13b1e72c6073.jpg-3bb649d193bd60fe331cf0e57de5d2ea.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

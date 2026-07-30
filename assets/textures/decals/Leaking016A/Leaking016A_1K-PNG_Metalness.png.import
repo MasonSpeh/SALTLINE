@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d0o0lgpyl0moy"
-path="res://.godot/imported/Leaking016A_1K-PNG_Metalness.png-61243a05ca3f63d3535bad6cbc7eeaac.ctex"
+path.s3tc="res://.godot/imported/Leaking016A_1K-PNG_Metalness.png-61243a05ca3f63d3535bad6cbc7eeaac.s3tc.ctex"
+path.etc2="res://.godot/imported/Leaking016A_1K-PNG_Metalness.png-61243a05ca3f63d3535bad6cbc7eeaac.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/decals/Leaking016A/Leaking016A_1K-PNG_Metalness.png"
-dest_files=["res://.godot/imported/Leaking016A_1K-PNG_Metalness.png-61243a05ca3f63d3535bad6cbc7eeaac.ctex"]
+dest_files=["res://.godot/imported/Leaking016A_1K-PNG_Metalness.png-61243a05ca3f63d3535bad6cbc7eeaac.s3tc.ctex", "res://.godot/imported/Leaking016A_1K-PNG_Metalness.png-61243a05ca3f63d3535bad6cbc7eeaac.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

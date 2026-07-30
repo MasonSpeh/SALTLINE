@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://fe0gdoksyevi"
-path="res://.godot/imported/RustyPaintedMetal_1K-JPG_NormalGL.jpg-e838038b35a57bf0719cb8d289918495.ctex"
+path.s3tc="res://.godot/imported/RustyPaintedMetal_1K-JPG_NormalGL.jpg-e838038b35a57bf0719cb8d289918495.s3tc.ctex"
+path.etc2="res://.godot/imported/RustyPaintedMetal_1K-JPG_NormalGL.jpg-e838038b35a57bf0719cb8d289918495.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/RustyPaintedMetal/RustyPaintedMetal_1K-JPG_NormalGL.jpg"
-dest_files=["res://.godot/imported/RustyPaintedMetal_1K-JPG_NormalGL.jpg-e838038b35a57bf0719cb8d289918495.ctex"]
+dest_files=["res://.godot/imported/RustyPaintedMetal_1K-JPG_NormalGL.jpg-e838038b35a57bf0719cb8d289918495.s3tc.ctex", "res://.godot/imported/RustyPaintedMetal_1K-JPG_NormalGL.jpg-e838038b35a57bf0719cb8d289918495.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

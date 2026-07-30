@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d2k3lpmqi2tmb"
-path="res://.godot/imported/star_big_spiny_NormalGL_2a6883da-51bd-4301-b0ed-1d5385cc1012.jpg-1700081dec3ace4480c81e94dbc2b6cb.ctex"
+path.s3tc="res://.godot/imported/star_big_spiny_NormalGL_2a6883da-51bd-4301-b0ed-1d5385cc1012.jpg-1700081dec3ace4480c81e94dbc2b6cb.s3tc.ctex"
+path.etc2="res://.godot/imported/star_big_spiny_NormalGL_2a6883da-51bd-4301-b0ed-1d5385cc1012.jpg-1700081dec3ace4480c81e94dbc2b6cb.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "c7972b878874e3bc4df3ad5fb30a4907"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/star_big_spiny/star_big_spiny_NormalGL_2a6883da-51bd-4301-b0ed-1d5385cc1012.jpg"
-dest_files=["res://.godot/imported/star_big_spiny_NormalGL_2a6883da-51bd-4301-b0ed-1d5385cc1012.jpg-1700081dec3ace4480c81e94dbc2b6cb.ctex"]
+dest_files=["res://.godot/imported/star_big_spiny_NormalGL_2a6883da-51bd-4301-b0ed-1d5385cc1012.jpg-1700081dec3ace4480c81e94dbc2b6cb.s3tc.ctex", "res://.godot/imported/star_big_spiny_NormalGL_2a6883da-51bd-4301-b0ed-1d5385cc1012.jpg-1700081dec3ace4480c81e94dbc2b6cb.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

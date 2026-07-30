@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://df3vi68r81owq"
-path="res://.godot/imported/tide_worm_0.jpg-93cdac818a04b6aae976d38f55199c8a.ctex"
+path.s3tc="res://.godot/imported/tide_worm_0.jpg-93cdac818a04b6aae976d38f55199c8a.s3tc.ctex"
+path.etc2="res://.godot/imported/tide_worm_0.jpg-93cdac818a04b6aae976d38f55199c8a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "936949585f29c3478fc6e94b9f33aa1c"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/tide_worm/tide_worm_0.jpg"
-dest_files=["res://.godot/imported/tide_worm_0.jpg-93cdac818a04b6aae976d38f55199c8a.ctex"]
+dest_files=["res://.godot/imported/tide_worm_0.jpg-93cdac818a04b6aae976d38f55199c8a.s3tc.ctex", "res://.godot/imported/tide_worm_0.jpg-93cdac818a04b6aae976d38f55199c8a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://byxiwgp1kgupe"
-path="res://.godot/imported/RoadLines021A_1K-PNG_NormalGL.png-da8623a88d460c5a780873f598a28fdb.ctex"
+path.s3tc="res://.godot/imported/RoadLines021A_1K-PNG_NormalGL.png-da8623a88d460c5a780873f598a28fdb.s3tc.ctex"
+path.etc2="res://.godot/imported/RoadLines021A_1K-PNG_NormalGL.png-da8623a88d460c5a780873f598a28fdb.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/decals/RoadLines021A/RoadLines021A_1K-PNG_NormalGL.png"
-dest_files=["res://.godot/imported/RoadLines021A_1K-PNG_NormalGL.png-da8623a88d460c5a780873f598a28fdb.ctex"]
+dest_files=["res://.godot/imported/RoadLines021A_1K-PNG_NormalGL.png-da8623a88d460c5a780873f598a28fdb.s3tc.ctex", "res://.godot/imported/RoadLines021A_1K-PNG_NormalGL.png-da8623a88d460c5a780873f598a28fdb.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

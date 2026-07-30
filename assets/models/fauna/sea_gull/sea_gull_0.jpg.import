@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bmajt8bk2v5nh"
-path="res://.godot/imported/sea_gull_0.jpg-2f82dcc32561611080e445db30f00009.ctex"
+path.s3tc="res://.godot/imported/sea_gull_0.jpg-2f82dcc32561611080e445db30f00009.s3tc.ctex"
+path.etc2="res://.godot/imported/sea_gull_0.jpg-2f82dcc32561611080e445db30f00009.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "96ae6c3861482e3c3458c47f43da4fb5"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/sea_gull/sea_gull_0.jpg"
-dest_files=["res://.godot/imported/sea_gull_0.jpg-2f82dcc32561611080e445db30f00009.ctex"]
+dest_files=["res://.godot/imported/sea_gull_0.jpg-2f82dcc32561611080e445db30f00009.s3tc.ctex", "res://.godot/imported/sea_gull_0.jpg-2f82dcc32561611080e445db30f00009.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

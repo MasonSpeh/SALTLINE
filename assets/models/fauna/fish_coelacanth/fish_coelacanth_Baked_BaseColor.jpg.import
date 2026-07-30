@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://uijvvhtaod0r"
-path="res://.godot/imported/fish_coelacanth_Baked_BaseColor.jpg-8b906f7ac96eb71b4b174eff41fcd540.ctex"
+path.s3tc="res://.godot/imported/fish_coelacanth_Baked_BaseColor.jpg-8b906f7ac96eb71b4b174eff41fcd540.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_coelacanth_Baked_BaseColor.jpg-8b906f7ac96eb71b4b174eff41fcd540.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "56cfe4006b4947219bac70e47d338480"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_coelacanth/fish_coelacanth_Baked_BaseColor.jpg"
-dest_files=["res://.godot/imported/fish_coelacanth_Baked_BaseColor.jpg-8b906f7ac96eb71b4b174eff41fcd540.ctex"]
+dest_files=["res://.godot/imported/fish_coelacanth_Baked_BaseColor.jpg-8b906f7ac96eb71b4b174eff41fcd540.s3tc.ctex", "res://.godot/imported/fish_coelacanth_Baked_BaseColor.jpg-8b906f7ac96eb71b4b174eff41fcd540.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

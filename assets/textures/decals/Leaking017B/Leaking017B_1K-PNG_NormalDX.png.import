@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://x7xadcsmx6ew"
-path="res://.godot/imported/Leaking017B_1K-PNG_NormalDX.png-30c609166a99c9b00b0768a0952c39cb.ctex"
+path.s3tc="res://.godot/imported/Leaking017B_1K-PNG_NormalDX.png-30c609166a99c9b00b0768a0952c39cb.s3tc.ctex"
+path.etc2="res://.godot/imported/Leaking017B_1K-PNG_NormalDX.png-30c609166a99c9b00b0768a0952c39cb.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/decals/Leaking017B/Leaking017B_1K-PNG_NormalDX.png"
-dest_files=["res://.godot/imported/Leaking017B_1K-PNG_NormalDX.png-30c609166a99c9b00b0768a0952c39cb.ctex"]
+dest_files=["res://.godot/imported/Leaking017B_1K-PNG_NormalDX.png-30c609166a99c9b00b0768a0952c39cb.s3tc.ctex", "res://.godot/imported/Leaking017B_1K-PNG_NormalDX.png-30c609166a99c9b00b0768a0952c39cb.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

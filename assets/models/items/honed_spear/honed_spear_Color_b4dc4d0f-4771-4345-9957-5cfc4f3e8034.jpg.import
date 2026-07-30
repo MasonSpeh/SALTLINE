@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b17g2n6rg2g3"
-path="res://.godot/imported/honed_spear_Color_b4dc4d0f-4771-4345-9957-5cfc4f3e8034.jpg-3ed2f6eeae37dbe7bfc126757a4b12b8.ctex"
+path.s3tc="res://.godot/imported/honed_spear_Color_b4dc4d0f-4771-4345-9957-5cfc4f3e8034.jpg-3ed2f6eeae37dbe7bfc126757a4b12b8.s3tc.ctex"
+path.etc2="res://.godot/imported/honed_spear_Color_b4dc4d0f-4771-4345-9957-5cfc4f3e8034.jpg-3ed2f6eeae37dbe7bfc126757a4b12b8.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "1a1b2b990fb789ed5891d5195cdbad70"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/honed_spear/honed_spear_Color_b4dc4d0f-4771-4345-9957-5cfc4f3e8034.jpg"
-dest_files=["res://.godot/imported/honed_spear_Color_b4dc4d0f-4771-4345-9957-5cfc4f3e8034.jpg-3ed2f6eeae37dbe7bfc126757a4b12b8.ctex"]
+dest_files=["res://.godot/imported/honed_spear_Color_b4dc4d0f-4771-4345-9957-5cfc4f3e8034.jpg-3ed2f6eeae37dbe7bfc126757a4b12b8.s3tc.ctex", "res://.godot/imported/honed_spear_Color_b4dc4d0f-4771-4345-9957-5cfc4f3e8034.jpg-3ed2f6eeae37dbe7bfc126757a4b12b8.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

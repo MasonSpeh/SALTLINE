@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bc7rph1mr53xv"
-path="res://.godot/imported/coral_plate_NormalGL_98f03ac6-d365-4192-b8ac-459b0ddf9cfa.jpg-23b56fa41fe740c258f689e8cfbc587e.ctex"
+path.s3tc="res://.godot/imported/coral_plate_NormalGL_98f03ac6-d365-4192-b8ac-459b0ddf9cfa.jpg-23b56fa41fe740c258f689e8cfbc587e.s3tc.ctex"
+path.etc2="res://.godot/imported/coral_plate_NormalGL_98f03ac6-d365-4192-b8ac-459b0ddf9cfa.jpg-23b56fa41fe740c258f689e8cfbc587e.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "9ab7d84beda6c1ba98108f58417d560b"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/coral_plate/coral_plate_NormalGL_98f03ac6-d365-4192-b8ac-459b0ddf9cfa.jpg"
-dest_files=["res://.godot/imported/coral_plate_NormalGL_98f03ac6-d365-4192-b8ac-459b0ddf9cfa.jpg-23b56fa41fe740c258f689e8cfbc587e.ctex"]
+dest_files=["res://.godot/imported/coral_plate_NormalGL_98f03ac6-d365-4192-b8ac-459b0ddf9cfa.jpg-23b56fa41fe740c258f689e8cfbc587e.s3tc.ctex", "res://.godot/imported/coral_plate_NormalGL_98f03ac6-d365-4192-b8ac-459b0ddf9cfa.jpg-23b56fa41fe740c258f689e8cfbc587e.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

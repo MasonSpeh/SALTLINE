@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cgywf8w4y31qv"
-path="res://.godot/imported/bloom_sea_spider_0.jpg-be653113fd405e85f1d53fd4850c78bf.ctex"
+path.s3tc="res://.godot/imported/bloom_sea_spider_0.jpg-be653113fd405e85f1d53fd4850c78bf.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_sea_spider_0.jpg-be653113fd405e85f1d53fd4850c78bf.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "d628cb11391588ce0784321d68bff7d3"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_sea_spider/bloom_sea_spider_0.jpg"
-dest_files=["res://.godot/imported/bloom_sea_spider_0.jpg-be653113fd405e85f1d53fd4850c78bf.ctex"]
+dest_files=["res://.godot/imported/bloom_sea_spider_0.jpg-be653113fd405e85f1d53fd4850c78bf.s3tc.ctex", "res://.godot/imported/bloom_sea_spider_0.jpg-be653113fd405e85f1d53fd4850c78bf.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

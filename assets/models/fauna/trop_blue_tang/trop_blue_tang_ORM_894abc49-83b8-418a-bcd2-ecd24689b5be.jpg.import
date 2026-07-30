@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c77w208xis78o"
-path="res://.godot/imported/trop_blue_tang_ORM_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-72610a1e53ddc36d80e530dad1b5c0f8.ctex"
+path.s3tc="res://.godot/imported/trop_blue_tang_ORM_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-72610a1e53ddc36d80e530dad1b5c0f8.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_blue_tang_ORM_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-72610a1e53ddc36d80e530dad1b5c0f8.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "d28a85bff7b04246b3df076ab05d1ff1"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_blue_tang/trop_blue_tang_ORM_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg"
-dest_files=["res://.godot/imported/trop_blue_tang_ORM_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-72610a1e53ddc36d80e530dad1b5c0f8.ctex"]
+dest_files=["res://.godot/imported/trop_blue_tang_ORM_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-72610a1e53ddc36d80e530dad1b5c0f8.s3tc.ctex", "res://.godot/imported/trop_blue_tang_ORM_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-72610a1e53ddc36d80e530dad1b5c0f8.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

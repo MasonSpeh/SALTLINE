@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c8xm0yh4jgv2e"
-path="res://.godot/imported/star_big_sunflower_NormalGL_631b7e7a-84b0-4f78-ab16-8d2ae673efd1.jpg-2d66d1bef1d08947961f9058fc058deb.ctex"
+path.s3tc="res://.godot/imported/star_big_sunflower_NormalGL_631b7e7a-84b0-4f78-ab16-8d2ae673efd1.jpg-2d66d1bef1d08947961f9058fc058deb.s3tc.ctex"
+path.etc2="res://.godot/imported/star_big_sunflower_NormalGL_631b7e7a-84b0-4f78-ab16-8d2ae673efd1.jpg-2d66d1bef1d08947961f9058fc058deb.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "52b464ba3633ea6852a7db849bff693e"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/star_big_sunflower/star_big_sunflower_NormalGL_631b7e7a-84b0-4f78-ab16-8d2ae673efd1.jpg"
-dest_files=["res://.godot/imported/star_big_sunflower_NormalGL_631b7e7a-84b0-4f78-ab16-8d2ae673efd1.jpg-2d66d1bef1d08947961f9058fc058deb.ctex"]
+dest_files=["res://.godot/imported/star_big_sunflower_NormalGL_631b7e7a-84b0-4f78-ab16-8d2ae673efd1.jpg-2d66d1bef1d08947961f9058fc058deb.s3tc.ctex", "res://.godot/imported/star_big_sunflower_NormalGL_631b7e7a-84b0-4f78-ab16-8d2ae673efd1.jpg-2d66d1bef1d08947961f9058fc058deb.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

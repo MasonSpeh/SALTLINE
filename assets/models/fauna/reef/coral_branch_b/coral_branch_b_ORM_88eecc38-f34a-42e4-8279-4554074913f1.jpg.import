@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://csm8ki74blikl"
-path="res://.godot/imported/coral_branch_b_ORM_88eecc38-f34a-42e4-8279-4554074913f1.jpg-65b34e2a9067497e7d334a8f68aedad8.ctex"
+path.s3tc="res://.godot/imported/coral_branch_b_ORM_88eecc38-f34a-42e4-8279-4554074913f1.jpg-65b34e2a9067497e7d334a8f68aedad8.s3tc.ctex"
+path.etc2="res://.godot/imported/coral_branch_b_ORM_88eecc38-f34a-42e4-8279-4554074913f1.jpg-65b34e2a9067497e7d334a8f68aedad8.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "835caa7f65c8a34429e8258efe560b72"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/coral_branch_b/coral_branch_b_ORM_88eecc38-f34a-42e4-8279-4554074913f1.jpg"
-dest_files=["res://.godot/imported/coral_branch_b_ORM_88eecc38-f34a-42e4-8279-4554074913f1.jpg-65b34e2a9067497e7d334a8f68aedad8.ctex"]
+dest_files=["res://.godot/imported/coral_branch_b_ORM_88eecc38-f34a-42e4-8279-4554074913f1.jpg-65b34e2a9067497e7d334a8f68aedad8.s3tc.ctex", "res://.godot/imported/coral_branch_b_ORM_88eecc38-f34a-42e4-8279-4554074913f1.jpg-65b34e2a9067497e7d334a8f68aedad8.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

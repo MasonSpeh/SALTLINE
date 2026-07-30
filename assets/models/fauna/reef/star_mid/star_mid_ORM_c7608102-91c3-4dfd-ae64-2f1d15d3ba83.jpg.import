@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bgttt6qceenvm"
-path="res://.godot/imported/star_mid_ORM_c7608102-91c3-4dfd-ae64-2f1d15d3ba83.jpg-4664612d0ea81e9aaf05d9b281cbeddc.ctex"
+path.s3tc="res://.godot/imported/star_mid_ORM_c7608102-91c3-4dfd-ae64-2f1d15d3ba83.jpg-4664612d0ea81e9aaf05d9b281cbeddc.s3tc.ctex"
+path.etc2="res://.godot/imported/star_mid_ORM_c7608102-91c3-4dfd-ae64-2f1d15d3ba83.jpg-4664612d0ea81e9aaf05d9b281cbeddc.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "a6a82c383b49307b574c44babdfc1ff3"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/star_mid/star_mid_ORM_c7608102-91c3-4dfd-ae64-2f1d15d3ba83.jpg"
-dest_files=["res://.godot/imported/star_mid_ORM_c7608102-91c3-4dfd-ae64-2f1d15d3ba83.jpg-4664612d0ea81e9aaf05d9b281cbeddc.ctex"]
+dest_files=["res://.godot/imported/star_mid_ORM_c7608102-91c3-4dfd-ae64-2f1d15d3ba83.jpg-4664612d0ea81e9aaf05d9b281cbeddc.s3tc.ctex", "res://.godot/imported/star_mid_ORM_c7608102-91c3-4dfd-ae64-2f1d15d3ba83.jpg-4664612d0ea81e9aaf05d9b281cbeddc.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

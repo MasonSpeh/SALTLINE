@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://csjmedov1h44a"
-path="res://.godot/imported/trop_anthias_Color_88f77587-e3b9-4d8a-829b-64c5d208a5de.jpg-a3c2a52f797c672ac2d3d13bdfa56da7.ctex"
+path.s3tc="res://.godot/imported/trop_anthias_Color_88f77587-e3b9-4d8a-829b-64c5d208a5de.jpg-a3c2a52f797c672ac2d3d13bdfa56da7.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_anthias_Color_88f77587-e3b9-4d8a-829b-64c5d208a5de.jpg-a3c2a52f797c672ac2d3d13bdfa56da7.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8f02c0f7a48e93adc422db5b3d006302"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_anthias/trop_anthias_Color_88f77587-e3b9-4d8a-829b-64c5d208a5de.jpg"
-dest_files=["res://.godot/imported/trop_anthias_Color_88f77587-e3b9-4d8a-829b-64c5d208a5de.jpg-a3c2a52f797c672ac2d3d13bdfa56da7.ctex"]
+dest_files=["res://.godot/imported/trop_anthias_Color_88f77587-e3b9-4d8a-829b-64c5d208a5de.jpg-a3c2a52f797c672ac2d3d13bdfa56da7.s3tc.ctex", "res://.godot/imported/trop_anthias_Color_88f77587-e3b9-4d8a-829b-64c5d208a5de.jpg-a3c2a52f797c672ac2d3d13bdfa56da7.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

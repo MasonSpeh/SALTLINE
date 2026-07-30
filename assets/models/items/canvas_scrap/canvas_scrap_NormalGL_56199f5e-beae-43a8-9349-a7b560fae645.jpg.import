@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b164apip4dyo"
-path="res://.godot/imported/canvas_scrap_NormalGL_56199f5e-beae-43a8-9349-a7b560fae645.jpg-2fab194a1038bf1e0d73b178260c036f.ctex"
+path.s3tc="res://.godot/imported/canvas_scrap_NormalGL_56199f5e-beae-43a8-9349-a7b560fae645.jpg-2fab194a1038bf1e0d73b178260c036f.s3tc.ctex"
+path.etc2="res://.godot/imported/canvas_scrap_NormalGL_56199f5e-beae-43a8-9349-a7b560fae645.jpg-2fab194a1038bf1e0d73b178260c036f.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "38415172a5e14297573d7ec53a5c90af"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/canvas_scrap/canvas_scrap_NormalGL_56199f5e-beae-43a8-9349-a7b560fae645.jpg"
-dest_files=["res://.godot/imported/canvas_scrap_NormalGL_56199f5e-beae-43a8-9349-a7b560fae645.jpg-2fab194a1038bf1e0d73b178260c036f.ctex"]
+dest_files=["res://.godot/imported/canvas_scrap_NormalGL_56199f5e-beae-43a8-9349-a7b560fae645.jpg-2fab194a1038bf1e0d73b178260c036f.s3tc.ctex", "res://.godot/imported/canvas_scrap_NormalGL_56199f5e-beae-43a8-9349-a7b560fae645.jpg-2fab194a1038bf1e0d73b178260c036f.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

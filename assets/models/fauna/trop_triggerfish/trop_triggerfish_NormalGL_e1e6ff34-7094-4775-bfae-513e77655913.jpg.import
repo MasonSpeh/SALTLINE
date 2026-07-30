@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkx04wgog4wdp"
-path="res://.godot/imported/trop_triggerfish_NormalGL_e1e6ff34-7094-4775-bfae-513e77655913.jpg-00a73b204e5d60504be30fcb466820b4.ctex"
+path.s3tc="res://.godot/imported/trop_triggerfish_NormalGL_e1e6ff34-7094-4775-bfae-513e77655913.jpg-00a73b204e5d60504be30fcb466820b4.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_triggerfish_NormalGL_e1e6ff34-7094-4775-bfae-513e77655913.jpg-00a73b204e5d60504be30fcb466820b4.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e25b792d93e1ad5dc1b625ba0d0976df"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_triggerfish/trop_triggerfish_NormalGL_e1e6ff34-7094-4775-bfae-513e77655913.jpg"
-dest_files=["res://.godot/imported/trop_triggerfish_NormalGL_e1e6ff34-7094-4775-bfae-513e77655913.jpg-00a73b204e5d60504be30fcb466820b4.ctex"]
+dest_files=["res://.godot/imported/trop_triggerfish_NormalGL_e1e6ff34-7094-4775-bfae-513e77655913.jpg-00a73b204e5d60504be30fcb466820b4.s3tc.ctex", "res://.godot/imported/trop_triggerfish_NormalGL_e1e6ff34-7094-4775-bfae-513e77655913.jpg-00a73b204e5d60504be30fcb466820b4.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

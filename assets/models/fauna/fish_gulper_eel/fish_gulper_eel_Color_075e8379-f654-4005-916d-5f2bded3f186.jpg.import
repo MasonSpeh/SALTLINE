@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dtt8mt41sgu20"
-path="res://.godot/imported/fish_gulper_eel_Color_075e8379-f654-4005-916d-5f2bded3f186.jpg-4042cc5f42e9c07cdcc2ddf25723fd58.ctex"
+path.s3tc="res://.godot/imported/fish_gulper_eel_Color_075e8379-f654-4005-916d-5f2bded3f186.jpg-4042cc5f42e9c07cdcc2ddf25723fd58.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_gulper_eel_Color_075e8379-f654-4005-916d-5f2bded3f186.jpg-4042cc5f42e9c07cdcc2ddf25723fd58.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "1e5e2d6e9938da2a048a9df96f0b025b"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_gulper_eel/fish_gulper_eel_Color_075e8379-f654-4005-916d-5f2bded3f186.jpg"
-dest_files=["res://.godot/imported/fish_gulper_eel_Color_075e8379-f654-4005-916d-5f2bded3f186.jpg-4042cc5f42e9c07cdcc2ddf25723fd58.ctex"]
+dest_files=["res://.godot/imported/fish_gulper_eel_Color_075e8379-f654-4005-916d-5f2bded3f186.jpg-4042cc5f42e9c07cdcc2ddf25723fd58.s3tc.ctex", "res://.godot/imported/fish_gulper_eel_Color_075e8379-f654-4005-916d-5f2bded3f186.jpg-4042cc5f42e9c07cdcc2ddf25723fd58.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

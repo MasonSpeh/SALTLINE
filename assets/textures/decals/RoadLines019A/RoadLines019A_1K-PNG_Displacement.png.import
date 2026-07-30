@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dh6x1txasvphg"
-path="res://.godot/imported/RoadLines019A_1K-PNG_Displacement.png-1d9cc0204e3d491e2d7864f318ceed54.ctex"
+path.s3tc="res://.godot/imported/RoadLines019A_1K-PNG_Displacement.png-1d9cc0204e3d491e2d7864f318ceed54.s3tc.ctex"
+path.etc2="res://.godot/imported/RoadLines019A_1K-PNG_Displacement.png-1d9cc0204e3d491e2d7864f318ceed54.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/decals/RoadLines019A/RoadLines019A_1K-PNG_Displacement.png"
-dest_files=["res://.godot/imported/RoadLines019A_1K-PNG_Displacement.png-1d9cc0204e3d491e2d7864f318ceed54.ctex"]
+dest_files=["res://.godot/imported/RoadLines019A_1K-PNG_Displacement.png-1d9cc0204e3d491e2d7864f318ceed54.s3tc.ctex", "res://.godot/imported/RoadLines019A_1K-PNG_Displacement.png-1d9cc0204e3d491e2d7864f318ceed54.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

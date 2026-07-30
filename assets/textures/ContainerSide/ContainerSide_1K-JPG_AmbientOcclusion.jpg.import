@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dud70n6q7u2d7"
-path="res://.godot/imported/ContainerSide_1K-JPG_AmbientOcclusion.jpg-bbfe6a506c39ebe7d88605f6a17d29d3.ctex"
+path.s3tc="res://.godot/imported/ContainerSide_1K-JPG_AmbientOcclusion.jpg-bbfe6a506c39ebe7d88605f6a17d29d3.s3tc.ctex"
+path.etc2="res://.godot/imported/ContainerSide_1K-JPG_AmbientOcclusion.jpg-bbfe6a506c39ebe7d88605f6a17d29d3.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/ContainerSide/ContainerSide_1K-JPG_AmbientOcclusion.jpg"
-dest_files=["res://.godot/imported/ContainerSide_1K-JPG_AmbientOcclusion.jpg-bbfe6a506c39ebe7d88605f6a17d29d3.ctex"]
+dest_files=["res://.godot/imported/ContainerSide_1K-JPG_AmbientOcclusion.jpg-bbfe6a506c39ebe7d88605f6a17d29d3.s3tc.ctex", "res://.godot/imported/ContainerSide_1K-JPG_AmbientOcclusion.jpg-bbfe6a506c39ebe7d88605f6a17d29d3.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

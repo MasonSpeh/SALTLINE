@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://g8i7834syjpa"
-path="res://.godot/imported/bloom_octopus_0.jpg-90d27927545340adfe4d9b97e0babfae.ctex"
+path.s3tc="res://.godot/imported/bloom_octopus_0.jpg-90d27927545340adfe4d9b97e0babfae.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_octopus_0.jpg-90d27927545340adfe4d9b97e0babfae.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "173e8e6e966e7af403114e1a08c4cf25"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_octopus/bloom_octopus_0.jpg"
-dest_files=["res://.godot/imported/bloom_octopus_0.jpg-90d27927545340adfe4d9b97e0babfae.ctex"]
+dest_files=["res://.godot/imported/bloom_octopus_0.jpg-90d27927545340adfe4d9b97e0babfae.s3tc.ctex", "res://.godot/imported/bloom_octopus_0.jpg-90d27927545340adfe4d9b97e0babfae.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

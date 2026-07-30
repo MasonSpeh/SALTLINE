@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c5vnhx25iocky"
-path="res://.godot/imported/RoadLines021A_1K-PNG_AmbientOcclusion.png-2eec01f23aa38575a7e857c378b39f05.ctex"
+path.s3tc="res://.godot/imported/RoadLines021A_1K-PNG_AmbientOcclusion.png-2eec01f23aa38575a7e857c378b39f05.s3tc.ctex"
+path.etc2="res://.godot/imported/RoadLines021A_1K-PNG_AmbientOcclusion.png-2eec01f23aa38575a7e857c378b39f05.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/decals/RoadLines021A/RoadLines021A_1K-PNG_AmbientOcclusion.png"
-dest_files=["res://.godot/imported/RoadLines021A_1K-PNG_AmbientOcclusion.png-2eec01f23aa38575a7e857c378b39f05.ctex"]
+dest_files=["res://.godot/imported/RoadLines021A_1K-PNG_AmbientOcclusion.png-2eec01f23aa38575a7e857c378b39f05.s3tc.ctex", "res://.godot/imported/RoadLines021A_1K-PNG_AmbientOcclusion.png-2eec01f23aa38575a7e857c378b39f05.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

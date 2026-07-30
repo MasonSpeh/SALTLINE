@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bxiyowctj5upn"
-path="res://.godot/imported/coral_fan_a_Color_6ba0572a-7542-42d5-b8fa-c49b231f6e15.jpg-f56477aa911e2edb9600a94a5126f590.ctex"
+path.s3tc="res://.godot/imported/coral_fan_a_Color_6ba0572a-7542-42d5-b8fa-c49b231f6e15.jpg-f56477aa911e2edb9600a94a5126f590.s3tc.ctex"
+path.etc2="res://.godot/imported/coral_fan_a_Color_6ba0572a-7542-42d5-b8fa-c49b231f6e15.jpg-f56477aa911e2edb9600a94a5126f590.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "4cb4874281757b5ff105d67ac4c60327"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/coral_fan_a/coral_fan_a_Color_6ba0572a-7542-42d5-b8fa-c49b231f6e15.jpg"
-dest_files=["res://.godot/imported/coral_fan_a_Color_6ba0572a-7542-42d5-b8fa-c49b231f6e15.jpg-f56477aa911e2edb9600a94a5126f590.ctex"]
+dest_files=["res://.godot/imported/coral_fan_a_Color_6ba0572a-7542-42d5-b8fa-c49b231f6e15.jpg-f56477aa911e2edb9600a94a5126f590.s3tc.ctex", "res://.godot/imported/coral_fan_a_Color_6ba0572a-7542-42d5-b8fa-c49b231f6e15.jpg-f56477aa911e2edb9600a94a5126f590.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

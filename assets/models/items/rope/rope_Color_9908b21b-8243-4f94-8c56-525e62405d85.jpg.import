@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://vjje7rlvsywn"
-path="res://.godot/imported/rope_Color_9908b21b-8243-4f94-8c56-525e62405d85.jpg-d54db62829fa078de5aa42b5e7c99804.ctex"
+path.s3tc="res://.godot/imported/rope_Color_9908b21b-8243-4f94-8c56-525e62405d85.jpg-d54db62829fa078de5aa42b5e7c99804.s3tc.ctex"
+path.etc2="res://.godot/imported/rope_Color_9908b21b-8243-4f94-8c56-525e62405d85.jpg-d54db62829fa078de5aa42b5e7c99804.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "7ef59c3332dd2d1846e644d956a35677"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/rope/rope_Color_9908b21b-8243-4f94-8c56-525e62405d85.jpg"
-dest_files=["res://.godot/imported/rope_Color_9908b21b-8243-4f94-8c56-525e62405d85.jpg-d54db62829fa078de5aa42b5e7c99804.ctex"]
+dest_files=["res://.godot/imported/rope_Color_9908b21b-8243-4f94-8c56-525e62405d85.jpg-d54db62829fa078de5aa42b5e7c99804.s3tc.ctex", "res://.godot/imported/rope_Color_9908b21b-8243-4f94-8c56-525e62405d85.jpg-d54db62829fa078de5aa42b5e7c99804.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

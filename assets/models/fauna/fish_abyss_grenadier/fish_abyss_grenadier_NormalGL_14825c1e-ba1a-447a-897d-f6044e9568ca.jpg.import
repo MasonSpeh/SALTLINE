@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://8ixni5k7anuj"
-path="res://.godot/imported/fish_abyss_grenadier_NormalGL_14825c1e-ba1a-447a-897d-f6044e9568ca.jpg-ce451bd04108fea1e49ef67f8f022e43.ctex"
+path.s3tc="res://.godot/imported/fish_abyss_grenadier_NormalGL_14825c1e-ba1a-447a-897d-f6044e9568ca.jpg-ce451bd04108fea1e49ef67f8f022e43.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_abyss_grenadier_NormalGL_14825c1e-ba1a-447a-897d-f6044e9568ca.jpg-ce451bd04108fea1e49ef67f8f022e43.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "0d230b9f73be32e2ffa1fda69759ea51"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_abyss_grenadier/fish_abyss_grenadier_NormalGL_14825c1e-ba1a-447a-897d-f6044e9568ca.jpg"
-dest_files=["res://.godot/imported/fish_abyss_grenadier_NormalGL_14825c1e-ba1a-447a-897d-f6044e9568ca.jpg-ce451bd04108fea1e49ef67f8f022e43.ctex"]
+dest_files=["res://.godot/imported/fish_abyss_grenadier_NormalGL_14825c1e-ba1a-447a-897d-f6044e9568ca.jpg-ce451bd04108fea1e49ef67f8f022e43.s3tc.ctex", "res://.godot/imported/fish_abyss_grenadier_NormalGL_14825c1e-ba1a-447a-897d-f6044e9568ca.jpg-ce451bd04108fea1e49ef67f8f022e43.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

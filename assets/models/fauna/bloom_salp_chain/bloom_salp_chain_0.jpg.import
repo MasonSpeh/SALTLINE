@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxp0ypd2yu3sc"
-path="res://.godot/imported/bloom_salp_chain_0.jpg-c98b413ec9759b4f6d9595b430c778cd.ctex"
+path.s3tc="res://.godot/imported/bloom_salp_chain_0.jpg-c98b413ec9759b4f6d9595b430c778cd.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_salp_chain_0.jpg-c98b413ec9759b4f6d9595b430c778cd.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "5fbd9327f589f86aa489f96de7d326dc"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_salp_chain/bloom_salp_chain_0.jpg"
-dest_files=["res://.godot/imported/bloom_salp_chain_0.jpg-c98b413ec9759b4f6d9595b430c778cd.ctex"]
+dest_files=["res://.godot/imported/bloom_salp_chain_0.jpg-c98b413ec9759b4f6d9595b430c778cd.s3tc.ctex", "res://.godot/imported/bloom_salp_chain_0.jpg-c98b413ec9759b4f6d9595b430c778cd.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

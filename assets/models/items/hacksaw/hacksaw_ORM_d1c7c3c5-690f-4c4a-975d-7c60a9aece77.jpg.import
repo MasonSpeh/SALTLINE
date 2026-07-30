@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bj0bpk1h1y4f"
-path="res://.godot/imported/hacksaw_ORM_d1c7c3c5-690f-4c4a-975d-7c60a9aece77.jpg-ac08cb02576ffb60d55adfbefa310171.ctex"
+path.s3tc="res://.godot/imported/hacksaw_ORM_d1c7c3c5-690f-4c4a-975d-7c60a9aece77.jpg-ac08cb02576ffb60d55adfbefa310171.s3tc.ctex"
+path.etc2="res://.godot/imported/hacksaw_ORM_d1c7c3c5-690f-4c4a-975d-7c60a9aece77.jpg-ac08cb02576ffb60d55adfbefa310171.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e371e179bf40f771e5faa5743175be90"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/hacksaw/hacksaw_ORM_d1c7c3c5-690f-4c4a-975d-7c60a9aece77.jpg"
-dest_files=["res://.godot/imported/hacksaw_ORM_d1c7c3c5-690f-4c4a-975d-7c60a9aece77.jpg-ac08cb02576ffb60d55adfbefa310171.ctex"]
+dest_files=["res://.godot/imported/hacksaw_ORM_d1c7c3c5-690f-4c4a-975d-7c60a9aece77.jpg-ac08cb02576ffb60d55adfbefa310171.s3tc.ctex", "res://.godot/imported/hacksaw_ORM_d1c7c3c5-690f-4c4a-975d-7c60a9aece77.jpg-ac08cb02576ffb60d55adfbefa310171.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

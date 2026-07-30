@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cjvr04vo6rmja"
-path="res://.godot/imported/trop_yellow_tang_NormalGL_0b1861a2-000d-45ac-89ee-d585d72f2e7b.jpg-b808beacd4bfa11bd5d8c65a5fc5d0da.ctex"
+path.s3tc="res://.godot/imported/trop_yellow_tang_NormalGL_0b1861a2-000d-45ac-89ee-d585d72f2e7b.jpg-b808beacd4bfa11bd5d8c65a5fc5d0da.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_yellow_tang_NormalGL_0b1861a2-000d-45ac-89ee-d585d72f2e7b.jpg-b808beacd4bfa11bd5d8c65a5fc5d0da.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "c5722ed945b8f7649be3560a59a5ef81"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_yellow_tang/trop_yellow_tang_NormalGL_0b1861a2-000d-45ac-89ee-d585d72f2e7b.jpg"
-dest_files=["res://.godot/imported/trop_yellow_tang_NormalGL_0b1861a2-000d-45ac-89ee-d585d72f2e7b.jpg-b808beacd4bfa11bd5d8c65a5fc5d0da.ctex"]
+dest_files=["res://.godot/imported/trop_yellow_tang_NormalGL_0b1861a2-000d-45ac-89ee-d585d72f2e7b.jpg-b808beacd4bfa11bd5d8c65a5fc5d0da.s3tc.ctex", "res://.godot/imported/trop_yellow_tang_NormalGL_0b1861a2-000d-45ac-89ee-d585d72f2e7b.jpg-b808beacd4bfa11bd5d8c65a5fc5d0da.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

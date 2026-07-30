@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://di4lurero6edk"
-path="res://.godot/imported/raw_fillet_Color_4b22b861-ed71-4a87-96ba-dc8428c89460.jpg-dee6a60b5f0f31bd5458e9689cc196cf.ctex"
+path.s3tc="res://.godot/imported/raw_fillet_Color_4b22b861-ed71-4a87-96ba-dc8428c89460.jpg-dee6a60b5f0f31bd5458e9689cc196cf.s3tc.ctex"
+path.etc2="res://.godot/imported/raw_fillet_Color_4b22b861-ed71-4a87-96ba-dc8428c89460.jpg-dee6a60b5f0f31bd5458e9689cc196cf.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "bfb0f812992767c4d28e058c3e8ab119"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/raw_fillet/raw_fillet_Color_4b22b861-ed71-4a87-96ba-dc8428c89460.jpg"
-dest_files=["res://.godot/imported/raw_fillet_Color_4b22b861-ed71-4a87-96ba-dc8428c89460.jpg-dee6a60b5f0f31bd5458e9689cc196cf.ctex"]
+dest_files=["res://.godot/imported/raw_fillet_Color_4b22b861-ed71-4a87-96ba-dc8428c89460.jpg-dee6a60b5f0f31bd5458e9689cc196cf.s3tc.ctex", "res://.godot/imported/raw_fillet_Color_4b22b861-ed71-4a87-96ba-dc8428c89460.jpg-dee6a60b5f0f31bd5458e9689cc196cf.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

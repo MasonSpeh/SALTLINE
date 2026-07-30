@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d1a8ktmfqdi56"
-path="res://.godot/imported/trop_blue_tang_Color_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-8ecc775be3aabc65109e02882e28ee0c.ctex"
+path.s3tc="res://.godot/imported/trop_blue_tang_Color_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-8ecc775be3aabc65109e02882e28ee0c.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_blue_tang_Color_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-8ecc775be3aabc65109e02882e28ee0c.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "3bcc8d80aa1fae907a72936a3c61f82b"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_blue_tang/trop_blue_tang_Color_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg"
-dest_files=["res://.godot/imported/trop_blue_tang_Color_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-8ecc775be3aabc65109e02882e28ee0c.ctex"]
+dest_files=["res://.godot/imported/trop_blue_tang_Color_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-8ecc775be3aabc65109e02882e28ee0c.s3tc.ctex", "res://.godot/imported/trop_blue_tang_Color_894abc49-83b8-418a-bcd2-ecd24689b5be.jpg-8ecc775be3aabc65109e02882e28ee0c.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

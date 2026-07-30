@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cyj1iaf8sk20g"
-path="res://.godot/imported/fish_bloom_dragon_Color_d41b703c-c474-40db-bf82-fc2999f104ca.jpg-3c65a29cdbae613b12f8f7273b846a7f.ctex"
+path.s3tc="res://.godot/imported/fish_bloom_dragon_Color_d41b703c-c474-40db-bf82-fc2999f104ca.jpg-3c65a29cdbae613b12f8f7273b846a7f.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_bloom_dragon_Color_d41b703c-c474-40db-bf82-fc2999f104ca.jpg-3c65a29cdbae613b12f8f7273b846a7f.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "a95ce2e477059c48cb24c95882127a8a"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_bloom_dragon/fish_bloom_dragon_Color_d41b703c-c474-40db-bf82-fc2999f104ca.jpg"
-dest_files=["res://.godot/imported/fish_bloom_dragon_Color_d41b703c-c474-40db-bf82-fc2999f104ca.jpg-3c65a29cdbae613b12f8f7273b846a7f.ctex"]
+dest_files=["res://.godot/imported/fish_bloom_dragon_Color_d41b703c-c474-40db-bf82-fc2999f104ca.jpg-3c65a29cdbae613b12f8f7273b846a7f.s3tc.ctex", "res://.godot/imported/fish_bloom_dragon_Color_d41b703c-c474-40db-bf82-fc2999f104ca.jpg-3c65a29cdbae613b12f8f7273b846a7f.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

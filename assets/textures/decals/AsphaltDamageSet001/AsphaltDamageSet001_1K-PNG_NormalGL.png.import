@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://ddp5a73ghrkr"
-path="res://.godot/imported/AsphaltDamageSet001_1K-PNG_NormalGL.png-c63ad75de9889eb585d3e444c8d868b7.ctex"
+path.s3tc="res://.godot/imported/AsphaltDamageSet001_1K-PNG_NormalGL.png-c63ad75de9889eb585d3e444c8d868b7.s3tc.ctex"
+path.etc2="res://.godot/imported/AsphaltDamageSet001_1K-PNG_NormalGL.png-c63ad75de9889eb585d3e444c8d868b7.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/decals/AsphaltDamageSet001/AsphaltDamageSet001_1K-PNG_NormalGL.png"
-dest_files=["res://.godot/imported/AsphaltDamageSet001_1K-PNG_NormalGL.png-c63ad75de9889eb585d3e444c8d868b7.ctex"]
+dest_files=["res://.godot/imported/AsphaltDamageSet001_1K-PNG_NormalGL.png-c63ad75de9889eb585d3e444c8d868b7.s3tc.ctex", "res://.godot/imported/AsphaltDamageSet001_1K-PNG_NormalGL.png-c63ad75de9889eb585d3e444c8d868b7.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

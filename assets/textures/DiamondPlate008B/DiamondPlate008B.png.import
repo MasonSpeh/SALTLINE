@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://degbophba5kim"
-path="res://.godot/imported/DiamondPlate008B.png-a5c25e6a143155207061bd82f7c0af8d.ctex"
+path.s3tc="res://.godot/imported/DiamondPlate008B.png-a5c25e6a143155207061bd82f7c0af8d.s3tc.ctex"
+path.etc2="res://.godot/imported/DiamondPlate008B.png-a5c25e6a143155207061bd82f7c0af8d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/DiamondPlate008B/DiamondPlate008B.png"
-dest_files=["res://.godot/imported/DiamondPlate008B.png-a5c25e6a143155207061bd82f7c0af8d.ctex"]
+dest_files=["res://.godot/imported/DiamondPlate008B.png-a5c25e6a143155207061bd82f7c0af8d.s3tc.ctex", "res://.godot/imported/DiamondPlate008B.png-a5c25e6a143155207061bd82f7c0af8d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

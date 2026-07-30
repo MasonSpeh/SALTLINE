@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dltaknpiyuc58"
-path="res://.godot/imported/reefmass_a_Color_644a5cf5-50c0-48bb-8c4e-a936af62567c.jpg-ec021aea09219022efd5e919bf4c5dba.ctex"
+path.s3tc="res://.godot/imported/reefmass_a_Color_644a5cf5-50c0-48bb-8c4e-a936af62567c.jpg-ec021aea09219022efd5e919bf4c5dba.s3tc.ctex"
+path.etc2="res://.godot/imported/reefmass_a_Color_644a5cf5-50c0-48bb-8c4e-a936af62567c.jpg-ec021aea09219022efd5e919bf4c5dba.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "58a760c0e1c7dc2a34a7f37859d759b0"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/reefmass_a/reefmass_a_Color_644a5cf5-50c0-48bb-8c4e-a936af62567c.jpg"
-dest_files=["res://.godot/imported/reefmass_a_Color_644a5cf5-50c0-48bb-8c4e-a936af62567c.jpg-ec021aea09219022efd5e919bf4c5dba.ctex"]
+dest_files=["res://.godot/imported/reefmass_a_Color_644a5cf5-50c0-48bb-8c4e-a936af62567c.jpg-ec021aea09219022efd5e919bf4c5dba.s3tc.ctex", "res://.godot/imported/reefmass_a_Color_644a5cf5-50c0-48bb-8c4e-a936af62567c.jpg-ec021aea09219022efd5e919bf4c5dba.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

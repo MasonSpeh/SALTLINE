@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cytmd7q7uwuoo"
-path="res://.godot/imported/bloom_anemone_0.jpg-8e09a1893f4f9bd4b0360bd88b389ec9.ctex"
+path.s3tc="res://.godot/imported/bloom_anemone_0.jpg-8e09a1893f4f9bd4b0360bd88b389ec9.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_anemone_0.jpg-8e09a1893f4f9bd4b0360bd88b389ec9.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "1ca09121ba43adbc04d71df2705e932d"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_anemone/bloom_anemone_0.jpg"
-dest_files=["res://.godot/imported/bloom_anemone_0.jpg-8e09a1893f4f9bd4b0360bd88b389ec9.ctex"]
+dest_files=["res://.godot/imported/bloom_anemone_0.jpg-8e09a1893f4f9bd4b0360bd88b389ec9.s3tc.ctex", "res://.godot/imported/bloom_anemone_0.jpg-8e09a1893f4f9bd4b0360bd88b389ec9.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

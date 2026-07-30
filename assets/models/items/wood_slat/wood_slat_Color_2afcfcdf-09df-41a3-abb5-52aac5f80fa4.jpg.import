@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dvtunu2auo8y7"
-path="res://.godot/imported/wood_slat_Color_2afcfcdf-09df-41a3-abb5-52aac5f80fa4.jpg-a553e3b079529c6797e1b8a6628bd524.ctex"
+path.s3tc="res://.godot/imported/wood_slat_Color_2afcfcdf-09df-41a3-abb5-52aac5f80fa4.jpg-a553e3b079529c6797e1b8a6628bd524.s3tc.ctex"
+path.etc2="res://.godot/imported/wood_slat_Color_2afcfcdf-09df-41a3-abb5-52aac5f80fa4.jpg-a553e3b079529c6797e1b8a6628bd524.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "7b52eab5987bba5aeaae89aea440792b"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/wood_slat/wood_slat_Color_2afcfcdf-09df-41a3-abb5-52aac5f80fa4.jpg"
-dest_files=["res://.godot/imported/wood_slat_Color_2afcfcdf-09df-41a3-abb5-52aac5f80fa4.jpg-a553e3b079529c6797e1b8a6628bd524.ctex"]
+dest_files=["res://.godot/imported/wood_slat_Color_2afcfcdf-09df-41a3-abb5-52aac5f80fa4.jpg-a553e3b079529c6797e1b8a6628bd524.s3tc.ctex", "res://.godot/imported/wood_slat_Color_2afcfcdf-09df-41a3-abb5-52aac5f80fa4.jpg-a553e3b079529c6797e1b8a6628bd524.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

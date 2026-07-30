@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkfx6t6wtfr84"
-path="res://.godot/imported/driftwood_Color_c403f0b7-ca77-435a-ac0f-0823e9300da3.jpg-53571fd34dcd95d98d12fc187f103322.ctex"
+path.s3tc="res://.godot/imported/driftwood_Color_c403f0b7-ca77-435a-ac0f-0823e9300da3.jpg-53571fd34dcd95d98d12fc187f103322.s3tc.ctex"
+path.etc2="res://.godot/imported/driftwood_Color_c403f0b7-ca77-435a-ac0f-0823e9300da3.jpg-53571fd34dcd95d98d12fc187f103322.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f66d30faf836f17eb4207482784d8cd2"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/driftwood/driftwood_Color_c403f0b7-ca77-435a-ac0f-0823e9300da3.jpg"
-dest_files=["res://.godot/imported/driftwood_Color_c403f0b7-ca77-435a-ac0f-0823e9300da3.jpg-53571fd34dcd95d98d12fc187f103322.ctex"]
+dest_files=["res://.godot/imported/driftwood_Color_c403f0b7-ca77-435a-ac0f-0823e9300da3.jpg-53571fd34dcd95d98d12fc187f103322.s3tc.ctex", "res://.godot/imported/driftwood_Color_c403f0b7-ca77-435a-ac0f-0823e9300da3.jpg-53571fd34dcd95d98d12fc187f103322.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

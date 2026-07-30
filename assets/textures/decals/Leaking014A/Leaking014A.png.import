@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c1dkdkjif7ygl"
-path="res://.godot/imported/Leaking014A.png-4523700adbaf3dc53e458a5de269eebf.ctex"
+path.s3tc="res://.godot/imported/Leaking014A.png-4523700adbaf3dc53e458a5de269eebf.s3tc.ctex"
+path.etc2="res://.godot/imported/Leaking014A.png-4523700adbaf3dc53e458a5de269eebf.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/decals/Leaking014A/Leaking014A.png"
-dest_files=["res://.godot/imported/Leaking014A.png-4523700adbaf3dc53e458a5de269eebf.ctex"]
+dest_files=["res://.godot/imported/Leaking014A.png-4523700adbaf3dc53e458a5de269eebf.s3tc.ctex", "res://.godot/imported/Leaking014A.png-4523700adbaf3dc53e458a5de269eebf.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

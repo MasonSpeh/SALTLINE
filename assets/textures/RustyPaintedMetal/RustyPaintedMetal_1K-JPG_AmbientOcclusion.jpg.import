@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxp20kyl4eeig"
-path="res://.godot/imported/RustyPaintedMetal_1K-JPG_AmbientOcclusion.jpg-071fe08d1ff5cbc280c7463ca5e55908.ctex"
+path.s3tc="res://.godot/imported/RustyPaintedMetal_1K-JPG_AmbientOcclusion.jpg-071fe08d1ff5cbc280c7463ca5e55908.s3tc.ctex"
+path.etc2="res://.godot/imported/RustyPaintedMetal_1K-JPG_AmbientOcclusion.jpg-071fe08d1ff5cbc280c7463ca5e55908.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/RustyPaintedMetal/RustyPaintedMetal_1K-JPG_AmbientOcclusion.jpg"
-dest_files=["res://.godot/imported/RustyPaintedMetal_1K-JPG_AmbientOcclusion.jpg-071fe08d1ff5cbc280c7463ca5e55908.ctex"]
+dest_files=["res://.godot/imported/RustyPaintedMetal_1K-JPG_AmbientOcclusion.jpg-071fe08d1ff5cbc280c7463ca5e55908.s3tc.ctex", "res://.godot/imported/RustyPaintedMetal_1K-JPG_AmbientOcclusion.jpg-071fe08d1ff5cbc280c7463ca5e55908.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

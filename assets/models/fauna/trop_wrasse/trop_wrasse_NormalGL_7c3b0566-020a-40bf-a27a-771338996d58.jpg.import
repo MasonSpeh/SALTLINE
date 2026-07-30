@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://p7tgecrbci73"
-path="res://.godot/imported/trop_wrasse_NormalGL_7c3b0566-020a-40bf-a27a-771338996d58.jpg-6edff0a4b6853acb577492ce566f61ab.ctex"
+path.s3tc="res://.godot/imported/trop_wrasse_NormalGL_7c3b0566-020a-40bf-a27a-771338996d58.jpg-6edff0a4b6853acb577492ce566f61ab.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_wrasse_NormalGL_7c3b0566-020a-40bf-a27a-771338996d58.jpg-6edff0a4b6853acb577492ce566f61ab.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "1128cb3457d0495b952f696a8e3fb98d"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_wrasse/trop_wrasse_NormalGL_7c3b0566-020a-40bf-a27a-771338996d58.jpg"
-dest_files=["res://.godot/imported/trop_wrasse_NormalGL_7c3b0566-020a-40bf-a27a-771338996d58.jpg-6edff0a4b6853acb577492ce566f61ab.ctex"]
+dest_files=["res://.godot/imported/trop_wrasse_NormalGL_7c3b0566-020a-40bf-a27a-771338996d58.jpg-6edff0a4b6853acb577492ce566f61ab.s3tc.ctex", "res://.godot/imported/trop_wrasse_NormalGL_7c3b0566-020a-40bf-a27a-771338996d58.jpg-6edff0a4b6853acb577492ce566f61ab.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

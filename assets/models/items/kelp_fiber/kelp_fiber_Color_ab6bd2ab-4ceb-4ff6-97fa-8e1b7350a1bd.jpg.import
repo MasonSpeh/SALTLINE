@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dqemrsrd73r1b"
-path="res://.godot/imported/kelp_fiber_Color_ab6bd2ab-4ceb-4ff6-97fa-8e1b7350a1bd.jpg-f186b426feb07f5d5cdc4cb9c33ac61c.ctex"
+path.s3tc="res://.godot/imported/kelp_fiber_Color_ab6bd2ab-4ceb-4ff6-97fa-8e1b7350a1bd.jpg-f186b426feb07f5d5cdc4cb9c33ac61c.s3tc.ctex"
+path.etc2="res://.godot/imported/kelp_fiber_Color_ab6bd2ab-4ceb-4ff6-97fa-8e1b7350a1bd.jpg-f186b426feb07f5d5cdc4cb9c33ac61c.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ce0a2f2e61bc8feeedcbed715bafca89"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/kelp_fiber/kelp_fiber_Color_ab6bd2ab-4ceb-4ff6-97fa-8e1b7350a1bd.jpg"
-dest_files=["res://.godot/imported/kelp_fiber_Color_ab6bd2ab-4ceb-4ff6-97fa-8e1b7350a1bd.jpg-f186b426feb07f5d5cdc4cb9c33ac61c.ctex"]
+dest_files=["res://.godot/imported/kelp_fiber_Color_ab6bd2ab-4ceb-4ff6-97fa-8e1b7350a1bd.jpg-f186b426feb07f5d5cdc4cb9c33ac61c.s3tc.ctex", "res://.godot/imported/kelp_fiber_Color_ab6bd2ab-4ceb-4ff6-97fa-8e1b7350a1bd.jpg-f186b426feb07f5d5cdc4cb9c33ac61c.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

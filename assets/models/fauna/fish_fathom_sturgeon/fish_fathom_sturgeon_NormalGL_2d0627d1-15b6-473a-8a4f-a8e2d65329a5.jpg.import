@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dm2wl5duvv2gi"
-path="res://.godot/imported/fish_fathom_sturgeon_NormalGL_2d0627d1-15b6-473a-8a4f-a8e2d65329a5.jpg-4c9c367250cd1ca4fb7c9813679e81f6.ctex"
+path.s3tc="res://.godot/imported/fish_fathom_sturgeon_NormalGL_2d0627d1-15b6-473a-8a4f-a8e2d65329a5.jpg-4c9c367250cd1ca4fb7c9813679e81f6.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_fathom_sturgeon_NormalGL_2d0627d1-15b6-473a-8a4f-a8e2d65329a5.jpg-4c9c367250cd1ca4fb7c9813679e81f6.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8832750aa82ac4ac14cc3885530088ac"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_fathom_sturgeon/fish_fathom_sturgeon_NormalGL_2d0627d1-15b6-473a-8a4f-a8e2d65329a5.jpg"
-dest_files=["res://.godot/imported/fish_fathom_sturgeon_NormalGL_2d0627d1-15b6-473a-8a4f-a8e2d65329a5.jpg-4c9c367250cd1ca4fb7c9813679e81f6.ctex"]
+dest_files=["res://.godot/imported/fish_fathom_sturgeon_NormalGL_2d0627d1-15b6-473a-8a4f-a8e2d65329a5.jpg-4c9c367250cd1ca4fb7c9813679e81f6.s3tc.ctex", "res://.godot/imported/fish_fathom_sturgeon_NormalGL_2d0627d1-15b6-473a-8a4f-a8e2d65329a5.jpg-4c9c367250cd1ca4fb7c9813679e81f6.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

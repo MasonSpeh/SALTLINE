@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bkm1e15v5xujf"
-path="res://.godot/imported/bolt_handful_Color_64395bcd-b5f5-4928-a2c3-180d6be2fe12.jpg-2ca25ba422c07e59d5b92e73f81f2484.ctex"
+path.s3tc="res://.godot/imported/bolt_handful_Color_64395bcd-b5f5-4928-a2c3-180d6be2fe12.jpg-2ca25ba422c07e59d5b92e73f81f2484.s3tc.ctex"
+path.etc2="res://.godot/imported/bolt_handful_Color_64395bcd-b5f5-4928-a2c3-180d6be2fe12.jpg-2ca25ba422c07e59d5b92e73f81f2484.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "af4fc2004fa802806e32c7b5647b8d62"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/bolt_handful/bolt_handful_Color_64395bcd-b5f5-4928-a2c3-180d6be2fe12.jpg"
-dest_files=["res://.godot/imported/bolt_handful_Color_64395bcd-b5f5-4928-a2c3-180d6be2fe12.jpg-2ca25ba422c07e59d5b92e73f81f2484.ctex"]
+dest_files=["res://.godot/imported/bolt_handful_Color_64395bcd-b5f5-4928-a2c3-180d6be2fe12.jpg-2ca25ba422c07e59d5b92e73f81f2484.s3tc.ctex", "res://.godot/imported/bolt_handful_Color_64395bcd-b5f5-4928-a2c3-180d6be2fe12.jpg-2ca25ba422c07e59d5b92e73f81f2484.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

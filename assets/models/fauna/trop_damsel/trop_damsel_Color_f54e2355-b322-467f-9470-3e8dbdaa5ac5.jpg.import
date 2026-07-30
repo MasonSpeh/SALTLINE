@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dq3mvvsy8rocn"
-path="res://.godot/imported/trop_damsel_Color_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-a2abae6e0c1aeedb9b36fe95a32bfe91.ctex"
+path.s3tc="res://.godot/imported/trop_damsel_Color_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-a2abae6e0c1aeedb9b36fe95a32bfe91.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_damsel_Color_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-a2abae6e0c1aeedb9b36fe95a32bfe91.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "67f79d9351c29a3944a18e2ae373588e"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_damsel/trop_damsel_Color_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg"
-dest_files=["res://.godot/imported/trop_damsel_Color_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-a2abae6e0c1aeedb9b36fe95a32bfe91.ctex"]
+dest_files=["res://.godot/imported/trop_damsel_Color_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-a2abae6e0c1aeedb9b36fe95a32bfe91.s3tc.ctex", "res://.godot/imported/trop_damsel_Color_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-a2abae6e0c1aeedb9b36fe95a32bfe91.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

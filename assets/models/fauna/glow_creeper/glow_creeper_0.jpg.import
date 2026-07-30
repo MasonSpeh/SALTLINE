@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://c5ttluxppu4xa"
-path="res://.godot/imported/glow_creeper_0.jpg-57359f02549052cc253b8b959b18b280.ctex"
+path.s3tc="res://.godot/imported/glow_creeper_0.jpg-57359f02549052cc253b8b959b18b280.s3tc.ctex"
+path.etc2="res://.godot/imported/glow_creeper_0.jpg-57359f02549052cc253b8b959b18b280.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "5d0654a59febd93e9772358177fce482"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/glow_creeper/glow_creeper_0.jpg"
-dest_files=["res://.godot/imported/glow_creeper_0.jpg-57359f02549052cc253b8b959b18b280.ctex"]
+dest_files=["res://.godot/imported/glow_creeper_0.jpg-57359f02549052cc253b8b959b18b280.s3tc.ctex", "res://.godot/imported/glow_creeper_0.jpg-57359f02549052cc253b8b959b18b280.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

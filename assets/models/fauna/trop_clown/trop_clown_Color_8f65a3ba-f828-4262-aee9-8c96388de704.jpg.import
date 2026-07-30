@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://rg8igajm634q"
-path="res://.godot/imported/trop_clown_Color_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-dfa651f93734845b9e8a5e0e82836b93.ctex"
+path.s3tc="res://.godot/imported/trop_clown_Color_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-dfa651f93734845b9e8a5e0e82836b93.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_clown_Color_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-dfa651f93734845b9e8a5e0e82836b93.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "8129eefad42cd4fcc26d6f73749d58ac"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_clown/trop_clown_Color_8f65a3ba-f828-4262-aee9-8c96388de704.jpg"
-dest_files=["res://.godot/imported/trop_clown_Color_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-dfa651f93734845b9e8a5e0e82836b93.ctex"]
+dest_files=["res://.godot/imported/trop_clown_Color_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-dfa651f93734845b9e8a5e0e82836b93.s3tc.ctex", "res://.godot/imported/trop_clown_Color_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-dfa651f93734845b9e8a5e0e82836b93.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

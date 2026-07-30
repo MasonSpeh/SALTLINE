@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://gm3g0ljysxsj"
-path="res://.godot/imported/bloom_sponge_cluster_0.jpg-989f1bdebf94d461221c0035f806893c.ctex"
+path.s3tc="res://.godot/imported/bloom_sponge_cluster_0.jpg-989f1bdebf94d461221c0035f806893c.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_sponge_cluster_0.jpg-989f1bdebf94d461221c0035f806893c.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "a39e71a834cb39e0a72984a80f0c2332"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_sponge_cluster/bloom_sponge_cluster_0.jpg"
-dest_files=["res://.godot/imported/bloom_sponge_cluster_0.jpg-989f1bdebf94d461221c0035f806893c.ctex"]
+dest_files=["res://.godot/imported/bloom_sponge_cluster_0.jpg-989f1bdebf94d461221c0035f806893c.s3tc.ctex", "res://.godot/imported/bloom_sponge_cluster_0.jpg-989f1bdebf94d461221c0035f806893c.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

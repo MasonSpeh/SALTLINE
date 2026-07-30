@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cyhdtm81d3fwv"
-path="res://.godot/imported/sponge_tube_cluster_NormalGL_05e22d20-f58e-4378-80dd-07042b1626fa.jpg-6bd24e1f727e8f6ee5097c318cf76699.ctex"
+path.s3tc="res://.godot/imported/sponge_tube_cluster_NormalGL_05e22d20-f58e-4378-80dd-07042b1626fa.jpg-6bd24e1f727e8f6ee5097c318cf76699.s3tc.ctex"
+path.etc2="res://.godot/imported/sponge_tube_cluster_NormalGL_05e22d20-f58e-4378-80dd-07042b1626fa.jpg-6bd24e1f727e8f6ee5097c318cf76699.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "6d58f09f6f70e28057f83a8ebd2095f6"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/sponge_tube_cluster/sponge_tube_cluster_NormalGL_05e22d20-f58e-4378-80dd-07042b1626fa.jpg"
-dest_files=["res://.godot/imported/sponge_tube_cluster_NormalGL_05e22d20-f58e-4378-80dd-07042b1626fa.jpg-6bd24e1f727e8f6ee5097c318cf76699.ctex"]
+dest_files=["res://.godot/imported/sponge_tube_cluster_NormalGL_05e22d20-f58e-4378-80dd-07042b1626fa.jpg-6bd24e1f727e8f6ee5097c318cf76699.s3tc.ctex", "res://.godot/imported/sponge_tube_cluster_NormalGL_05e22d20-f58e-4378-80dd-07042b1626fa.jpg-6bd24e1f727e8f6ee5097c318cf76699.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

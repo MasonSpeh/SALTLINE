@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxfv1f661ieo2"
-path="res://.godot/imported/trop_angel_NormalGL_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-23b4078dfeb3d297134b03b8dae90ece.ctex"
+path.s3tc="res://.godot/imported/trop_angel_NormalGL_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-23b4078dfeb3d297134b03b8dae90ece.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_angel_NormalGL_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-23b4078dfeb3d297134b03b8dae90ece.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "36be65e1822af86abd706dd3d85ede93"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_angel/trop_angel_NormalGL_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg"
-dest_files=["res://.godot/imported/trop_angel_NormalGL_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-23b4078dfeb3d297134b03b8dae90ece.ctex"]
+dest_files=["res://.godot/imported/trop_angel_NormalGL_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-23b4078dfeb3d297134b03b8dae90ece.s3tc.ctex", "res://.godot/imported/trop_angel_NormalGL_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-23b4078dfeb3d297134b03b8dae90ece.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

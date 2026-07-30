@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cqboh7ljny88s"
-path="res://.godot/imported/bloom_anglerfish_0.jpg-d5c85729279fadfdf538d6e785560e70.ctex"
+path.s3tc="res://.godot/imported/bloom_anglerfish_0.jpg-d5c85729279fadfdf538d6e785560e70.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_anglerfish_0.jpg-d5c85729279fadfdf538d6e785560e70.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ff7092ea09ce7eeea633a3c71fb4c81d"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_anglerfish/bloom_anglerfish_0.jpg"
-dest_files=["res://.godot/imported/bloom_anglerfish_0.jpg-d5c85729279fadfdf538d6e785560e70.ctex"]
+dest_files=["res://.godot/imported/bloom_anglerfish_0.jpg-d5c85729279fadfdf538d6e785560e70.s3tc.ctex", "res://.godot/imported/bloom_anglerfish_0.jpg-d5c85729279fadfdf538d6e785560e70.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

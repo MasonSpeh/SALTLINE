@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://qwm4rrab532g"
-path="res://.godot/imported/coral_brain_ORM_5cf2469b-5acd-4107-885e-8fee94ce5a00.jpg-0034d8fcd1b4a504343d5b19630eb452.ctex"
+path.s3tc="res://.godot/imported/coral_brain_ORM_5cf2469b-5acd-4107-885e-8fee94ce5a00.jpg-0034d8fcd1b4a504343d5b19630eb452.s3tc.ctex"
+path.etc2="res://.godot/imported/coral_brain_ORM_5cf2469b-5acd-4107-885e-8fee94ce5a00.jpg-0034d8fcd1b4a504343d5b19630eb452.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "7b873869d3526624da0ec89900039343"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/reef/coral_brain/coral_brain_ORM_5cf2469b-5acd-4107-885e-8fee94ce5a00.jpg"
-dest_files=["res://.godot/imported/coral_brain_ORM_5cf2469b-5acd-4107-885e-8fee94ce5a00.jpg-0034d8fcd1b4a504343d5b19630eb452.ctex"]
+dest_files=["res://.godot/imported/coral_brain_ORM_5cf2469b-5acd-4107-885e-8fee94ce5a00.jpg-0034d8fcd1b4a504343d5b19630eb452.s3tc.ctex", "res://.godot/imported/coral_brain_ORM_5cf2469b-5acd-4107-885e-8fee94ce5a00.jpg-0034d8fcd1b4a504343d5b19630eb452.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

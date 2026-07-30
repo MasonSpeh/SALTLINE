@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cb42273d55pw4"
-path="res://.godot/imported/bloom_coral_fan_0.jpg-46df156362c9202785bcf2f8f47690e4.ctex"
+path.s3tc="res://.godot/imported/bloom_coral_fan_0.jpg-46df156362c9202785bcf2f8f47690e4.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_coral_fan_0.jpg-46df156362c9202785bcf2f8f47690e4.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "d5ea2574acbb5469418e6fe81a3a9e00"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_coral_fan/bloom_coral_fan_0.jpg"
-dest_files=["res://.godot/imported/bloom_coral_fan_0.jpg-46df156362c9202785bcf2f8f47690e4.ctex"]
+dest_files=["res://.godot/imported/bloom_coral_fan_0.jpg-46df156362c9202785bcf2f8f47690e4.s3tc.ctex", "res://.godot/imported/bloom_coral_fan_0.jpg-46df156362c9202785bcf2f8f47690e4.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

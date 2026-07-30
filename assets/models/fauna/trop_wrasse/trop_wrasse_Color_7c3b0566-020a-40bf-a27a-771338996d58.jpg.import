@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://b5t1p6c5rlfi8"
-path="res://.godot/imported/trop_wrasse_Color_7c3b0566-020a-40bf-a27a-771338996d58.jpg-816e29cce4098095ab460499d54a4bb6.ctex"
+path.s3tc="res://.godot/imported/trop_wrasse_Color_7c3b0566-020a-40bf-a27a-771338996d58.jpg-816e29cce4098095ab460499d54a4bb6.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_wrasse_Color_7c3b0566-020a-40bf-a27a-771338996d58.jpg-816e29cce4098095ab460499d54a4bb6.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "ffdc1a068f316fe4fdfd6d66a21c3f1d"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_wrasse/trop_wrasse_Color_7c3b0566-020a-40bf-a27a-771338996d58.jpg"
-dest_files=["res://.godot/imported/trop_wrasse_Color_7c3b0566-020a-40bf-a27a-771338996d58.jpg-816e29cce4098095ab460499d54a4bb6.ctex"]
+dest_files=["res://.godot/imported/trop_wrasse_Color_7c3b0566-020a-40bf-a27a-771338996d58.jpg-816e29cce4098095ab460499d54a4bb6.s3tc.ctex", "res://.godot/imported/trop_wrasse_Color_7c3b0566-020a-40bf-a27a-771338996d58.jpg-816e29cce4098095ab460499d54a4bb6.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

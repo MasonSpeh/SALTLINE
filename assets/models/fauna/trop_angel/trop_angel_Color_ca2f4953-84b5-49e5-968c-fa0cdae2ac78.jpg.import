@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dy8qi3rjfhtc0"
-path="res://.godot/imported/trop_angel_Color_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-e5f84e48d788b04ba539bfcb27b9ab8d.ctex"
+path.s3tc="res://.godot/imported/trop_angel_Color_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-e5f84e48d788b04ba539bfcb27b9ab8d.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_angel_Color_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-e5f84e48d788b04ba539bfcb27b9ab8d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "96dfaf37436b6c0818f0700178af2554"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_angel/trop_angel_Color_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg"
-dest_files=["res://.godot/imported/trop_angel_Color_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-e5f84e48d788b04ba539bfcb27b9ab8d.ctex"]
+dest_files=["res://.godot/imported/trop_angel_Color_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-e5f84e48d788b04ba539bfcb27b9ab8d.s3tc.ctex", "res://.godot/imported/trop_angel_Color_ca2f4953-84b5-49e5-968c-fa0cdae2ac78.jpg-e5f84e48d788b04ba539bfcb27b9ab8d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

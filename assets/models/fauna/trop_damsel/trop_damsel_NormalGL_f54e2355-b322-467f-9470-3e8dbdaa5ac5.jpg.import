@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://br1wovjugsetl"
-path="res://.godot/imported/trop_damsel_NormalGL_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-0ae3ed1d44f4478bbe4c28ccb5939898.ctex"
+path.s3tc="res://.godot/imported/trop_damsel_NormalGL_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-0ae3ed1d44f4478bbe4c28ccb5939898.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_damsel_NormalGL_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-0ae3ed1d44f4478bbe4c28ccb5939898.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "471ae304adde5faa5defd7b5e4cc0969"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_damsel/trop_damsel_NormalGL_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg"
-dest_files=["res://.godot/imported/trop_damsel_NormalGL_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-0ae3ed1d44f4478bbe4c28ccb5939898.ctex"]
+dest_files=["res://.godot/imported/trop_damsel_NormalGL_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-0ae3ed1d44f4478bbe4c28ccb5939898.s3tc.ctex", "res://.godot/imported/trop_damsel_NormalGL_f54e2355-b322-467f-9470-3e8dbdaa5ac5.jpg-0ae3ed1d44f4478bbe4c28ccb5939898.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

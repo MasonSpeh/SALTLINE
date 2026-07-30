@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cxgusyjc5jwid"
-path="res://.godot/imported/steel_plate_NormalGL_bd1692e7-2ec5-48da-876e-77464d995bb2.jpg-9b372188670842c14d21c9ceabc70ffe.ctex"
+path.s3tc="res://.godot/imported/steel_plate_NormalGL_bd1692e7-2ec5-48da-876e-77464d995bb2.jpg-9b372188670842c14d21c9ceabc70ffe.s3tc.ctex"
+path.etc2="res://.godot/imported/steel_plate_NormalGL_bd1692e7-2ec5-48da-876e-77464d995bb2.jpg-9b372188670842c14d21c9ceabc70ffe.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "268278101de77c145ca5e537a78626c1"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/steel_plate/steel_plate_NormalGL_bd1692e7-2ec5-48da-876e-77464d995bb2.jpg"
-dest_files=["res://.godot/imported/steel_plate_NormalGL_bd1692e7-2ec5-48da-876e-77464d995bb2.jpg-9b372188670842c14d21c9ceabc70ffe.ctex"]
+dest_files=["res://.godot/imported/steel_plate_NormalGL_bd1692e7-2ec5-48da-876e-77464d995bb2.jpg-9b372188670842c14d21c9ceabc70ffe.s3tc.ctex", "res://.godot/imported/steel_plate_NormalGL_bd1692e7-2ec5-48da-876e-77464d995bb2.jpg-9b372188670842c14d21c9ceabc70ffe.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

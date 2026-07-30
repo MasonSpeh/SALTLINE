@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bj6ytolq22f32"
-path="res://.godot/imported/trop_clown_ORM_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-1841154ec6b84be919acb69555953a34.ctex"
+path.s3tc="res://.godot/imported/trop_clown_ORM_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-1841154ec6b84be919acb69555953a34.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_clown_ORM_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-1841154ec6b84be919acb69555953a34.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "4b4b610c1d7ecc82f9333867a0420289"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_clown/trop_clown_ORM_8f65a3ba-f828-4262-aee9-8c96388de704.jpg"
-dest_files=["res://.godot/imported/trop_clown_ORM_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-1841154ec6b84be919acb69555953a34.ctex"]
+dest_files=["res://.godot/imported/trop_clown_ORM_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-1841154ec6b84be919acb69555953a34.s3tc.ctex", "res://.godot/imported/trop_clown_ORM_8f65a3ba-f828-4262-aee9-8c96388de704.jpg-1841154ec6b84be919acb69555953a34.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

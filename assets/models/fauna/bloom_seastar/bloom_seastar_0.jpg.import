@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://btyhje3bwogu3"
-path="res://.godot/imported/bloom_seastar_0.jpg-b6dc8c2aebeb165389415181e9c357fe.ctex"
+path.s3tc="res://.godot/imported/bloom_seastar_0.jpg-b6dc8c2aebeb165389415181e9c357fe.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_seastar_0.jpg-b6dc8c2aebeb165389415181e9c357fe.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "14d6618001826d2a89c0ef7d19baa928"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/bloom_seastar/bloom_seastar_0.jpg"
-dest_files=["res://.godot/imported/bloom_seastar_0.jpg-b6dc8c2aebeb165389415181e9c357fe.ctex"]
+dest_files=["res://.godot/imported/bloom_seastar_0.jpg-b6dc8c2aebeb165389415181e9c357fe.s3tc.ctex", "res://.godot/imported/bloom_seastar_0.jpg-b6dc8c2aebeb165389415181e9c357fe.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

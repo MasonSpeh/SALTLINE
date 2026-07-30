@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bqbw8usn6as1h"
-path="res://.godot/imported/lamp_eel_0.jpg-01ef68dc0e51017f172539efa6c4168f.ctex"
+path.s3tc="res://.godot/imported/lamp_eel_0.jpg-01ef68dc0e51017f172539efa6c4168f.s3tc.ctex"
+path.etc2="res://.godot/imported/lamp_eel_0.jpg-01ef68dc0e51017f172539efa6c4168f.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "5135dce56d63b8e99c5a76b7acd54854"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/lamp_eel/lamp_eel_0.jpg"
-dest_files=["res://.godot/imported/lamp_eel_0.jpg-01ef68dc0e51017f172539efa6c4168f.ctex"]
+dest_files=["res://.godot/imported/lamp_eel_0.jpg-01ef68dc0e51017f172539efa6c4168f.s3tc.ctex", "res://.godot/imported/lamp_eel_0.jpg-01ef68dc0e51017f172539efa6c4168f.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

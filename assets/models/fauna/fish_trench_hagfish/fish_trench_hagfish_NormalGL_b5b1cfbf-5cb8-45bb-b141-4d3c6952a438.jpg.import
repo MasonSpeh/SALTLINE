@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dk2re847j8e3h"
-path="res://.godot/imported/fish_trench_hagfish_NormalGL_b5b1cfbf-5cb8-45bb-b141-4d3c6952a438.jpg-8e5d5552d9261cc95c9397a3a52bf108.ctex"
+path.s3tc="res://.godot/imported/fish_trench_hagfish_NormalGL_b5b1cfbf-5cb8-45bb-b141-4d3c6952a438.jpg-8e5d5552d9261cc95c9397a3a52bf108.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_trench_hagfish_NormalGL_b5b1cfbf-5cb8-45bb-b141-4d3c6952a438.jpg-8e5d5552d9261cc95c9397a3a52bf108.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "fe4f2dac34a01285d0e589113ef37559"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_trench_hagfish/fish_trench_hagfish_NormalGL_b5b1cfbf-5cb8-45bb-b141-4d3c6952a438.jpg"
-dest_files=["res://.godot/imported/fish_trench_hagfish_NormalGL_b5b1cfbf-5cb8-45bb-b141-4d3c6952a438.jpg-8e5d5552d9261cc95c9397a3a52bf108.ctex"]
+dest_files=["res://.godot/imported/fish_trench_hagfish_NormalGL_b5b1cfbf-5cb8-45bb-b141-4d3c6952a438.jpg-8e5d5552d9261cc95c9397a3a52bf108.s3tc.ctex", "res://.godot/imported/fish_trench_hagfish_NormalGL_b5b1cfbf-5cb8-45bb-b141-4d3c6952a438.jpg-8e5d5552d9261cc95c9397a3a52bf108.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

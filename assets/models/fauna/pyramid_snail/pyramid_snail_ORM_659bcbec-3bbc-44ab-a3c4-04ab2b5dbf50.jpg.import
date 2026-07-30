@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dt3awp77nniho"
-path="res://.godot/imported/pyramid_snail_ORM_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-1ac253aa989f4baff6a423804bb5e4a7.ctex"
+path.s3tc="res://.godot/imported/pyramid_snail_ORM_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-1ac253aa989f4baff6a423804bb5e4a7.s3tc.ctex"
+path.etc2="res://.godot/imported/pyramid_snail_ORM_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-1ac253aa989f4baff6a423804bb5e4a7.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f4bd77561e71d292ad28ea7d733a6219"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/pyramid_snail/pyramid_snail_ORM_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg"
-dest_files=["res://.godot/imported/pyramid_snail_ORM_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-1ac253aa989f4baff6a423804bb5e4a7.ctex"]
+dest_files=["res://.godot/imported/pyramid_snail_ORM_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-1ac253aa989f4baff6a423804bb5e4a7.s3tc.ctex", "res://.godot/imported/pyramid_snail_ORM_659bcbec-3bbc-44ab-a3c4-04ab2b5dbf50.jpg-1ac253aa989f4baff6a423804bb5e4a7.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

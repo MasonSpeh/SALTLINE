@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://cs3wl411wmhsi"
-path="res://.godot/imported/Leaking016A_1K-PNG_Displacement.png-91ca77f893196f5f8fcb5c312a236e8d.ctex"
+path.s3tc="res://.godot/imported/Leaking016A_1K-PNG_Displacement.png-91ca77f893196f5f8fcb5c312a236e8d.s3tc.ctex"
+path.etc2="res://.godot/imported/Leaking016A_1K-PNG_Displacement.png-91ca77f893196f5f8fcb5c312a236e8d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/textures/decals/Leaking016A/Leaking016A_1K-PNG_Displacement.png"
-dest_files=["res://.godot/imported/Leaking016A_1K-PNG_Displacement.png-91ca77f893196f5f8fcb5c312a236e8d.ctex"]
+dest_files=["res://.godot/imported/Leaking016A_1K-PNG_Displacement.png-91ca77f893196f5f8fcb5c312a236e8d.s3tc.ctex", "res://.godot/imported/Leaking016A_1K-PNG_Displacement.png-91ca77f893196f5f8fcb5c312a236e8d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

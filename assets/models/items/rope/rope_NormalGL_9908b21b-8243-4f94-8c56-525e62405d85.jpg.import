@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bigektk5xlbv8"
-path="res://.godot/imported/rope_NormalGL_9908b21b-8243-4f94-8c56-525e62405d85.jpg-ab64095f615d759d717c3527c22128a0.ctex"
+path.s3tc="res://.godot/imported/rope_NormalGL_9908b21b-8243-4f94-8c56-525e62405d85.jpg-ab64095f615d759d717c3527c22128a0.s3tc.ctex"
+path.etc2="res://.godot/imported/rope_NormalGL_9908b21b-8243-4f94-8c56-525e62405d85.jpg-ab64095f615d759d717c3527c22128a0.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "f4c875e175fadd9e2d2e6337baa57d68"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/rope/rope_NormalGL_9908b21b-8243-4f94-8c56-525e62405d85.jpg"
-dest_files=["res://.godot/imported/rope_NormalGL_9908b21b-8243-4f94-8c56-525e62405d85.jpg-ab64095f615d759d717c3527c22128a0.ctex"]
+dest_files=["res://.godot/imported/rope_NormalGL_9908b21b-8243-4f94-8c56-525e62405d85.jpg-ab64095f615d759d717c3527c22128a0.s3tc.ctex", "res://.godot/imported/rope_NormalGL_9908b21b-8243-4f94-8c56-525e62405d85.jpg-ab64095f615d759d717c3527c22128a0.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

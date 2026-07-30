@@ -3,19 +3,21 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://1w4ibll8prfk"
-path="res://.godot/imported/bloom_nudibranch_0.jpg-cff7fd3570977fba50b38a96cce708c9.ctex"
+path.s3tc="res://.godot/imported/bloom_nudibranch_0.jpg-cff7fd3570977fba50b38a96cce708c9.s3tc.ctex"
+path.etc2="res://.godot/imported/bloom_nudibranch_0.jpg-cff7fd3570977fba50b38a96cce708c9.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 
 [deps]
 
 source_file="res://assets/models/fauna/bloom_nudibranch/bloom_nudibranch_0.jpg"
-dest_files=["res://.godot/imported/bloom_nudibranch_0.jpg-cff7fd3570977fba50b38a96cce708c9.ctex"]
+dest_files=["res://.godot/imported/bloom_nudibranch_0.jpg-cff7fd3570977fba50b38a96cce708c9.s3tc.ctex", "res://.godot/imported/bloom_nudibranch_0.jpg-cff7fd3570977fba50b38a96cce708c9.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

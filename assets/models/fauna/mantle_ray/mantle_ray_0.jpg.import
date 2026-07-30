@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dbatwkg43b8aa"
-path="res://.godot/imported/mantle_ray_0.jpg-166358c3ae2f3567e87e2102d352a3cc.ctex"
+path.s3tc="res://.godot/imported/mantle_ray_0.jpg-166358c3ae2f3567e87e2102d352a3cc.s3tc.ctex"
+path.etc2="res://.godot/imported/mantle_ray_0.jpg-166358c3ae2f3567e87e2102d352a3cc.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "1f8428bcd665ecf6b6a4ecb66c187119"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/mantle_ray/mantle_ray_0.jpg"
-dest_files=["res://.godot/imported/mantle_ray_0.jpg-166358c3ae2f3567e87e2102d352a3cc.ctex"]
+dest_files=["res://.godot/imported/mantle_ray_0.jpg-166358c3ae2f3567e87e2102d352a3cc.s3tc.ctex", "res://.godot/imported/mantle_ray_0.jpg-166358c3ae2f3567e87e2102d352a3cc.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

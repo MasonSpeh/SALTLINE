@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://kf0ud1sa0rjc"
-path="res://.godot/imported/trop_butterfly_NormalGL_59bc1408-9adc-4f8a-8599-61048811c8d2.jpg-9e9faa0a3938ad8200b4d9628c0e5b7a.ctex"
+path.s3tc="res://.godot/imported/trop_butterfly_NormalGL_59bc1408-9adc-4f8a-8599-61048811c8d2.jpg-9e9faa0a3938ad8200b4d9628c0e5b7a.s3tc.ctex"
+path.etc2="res://.godot/imported/trop_butterfly_NormalGL_59bc1408-9adc-4f8a-8599-61048811c8d2.jpg-9e9faa0a3938ad8200b4d9628c0e5b7a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "63cd0419cc99e1b5105e398fcbbe4bec"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/trop_butterfly/trop_butterfly_NormalGL_59bc1408-9adc-4f8a-8599-61048811c8d2.jpg"
-dest_files=["res://.godot/imported/trop_butterfly_NormalGL_59bc1408-9adc-4f8a-8599-61048811c8d2.jpg-9e9faa0a3938ad8200b4d9628c0e5b7a.ctex"]
+dest_files=["res://.godot/imported/trop_butterfly_NormalGL_59bc1408-9adc-4f8a-8599-61048811c8d2.jpg-9e9faa0a3938ad8200b4d9628c0e5b7a.s3tc.ctex", "res://.godot/imported/trop_butterfly_NormalGL_59bc1408-9adc-4f8a-8599-61048811c8d2.jpg-9e9faa0a3938ad8200b4d9628c0e5b7a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

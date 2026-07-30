@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://db0h4suhxhltg"
-path="res://.godot/imported/tar_lump_ORM_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-f8e82d7d530287fb00fc0fbf3bcc6fdd.ctex"
+path.s3tc="res://.godot/imported/tar_lump_ORM_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-f8e82d7d530287fb00fc0fbf3bcc6fdd.s3tc.ctex"
+path.etc2="res://.godot/imported/tar_lump_ORM_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-f8e82d7d530287fb00fc0fbf3bcc6fdd.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "3b726a70b1ccc5f36abe11a6b04c4c54"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/items/tar_lump/tar_lump_ORM_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg"
-dest_files=["res://.godot/imported/tar_lump_ORM_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-f8e82d7d530287fb00fc0fbf3bcc6fdd.ctex"]
+dest_files=["res://.godot/imported/tar_lump_ORM_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-f8e82d7d530287fb00fc0fbf3bcc6fdd.s3tc.ctex", "res://.godot/imported/tar_lump_ORM_ffde36c4-6f30-4ee9-9bb2-7b6496450c3c.jpg-f8e82d7d530287fb00fc0fbf3bcc6fdd.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1
