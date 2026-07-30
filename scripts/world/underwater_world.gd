@@ -391,17 +391,20 @@ func _deep_giants() -> void:
 
 ## OPEN-WATER RAYS. Until now the only ray in the game was the rare aerial night flyover
 ## (bloom_fauna.MantleRay, y38-50) — a player diving or leaning over the rim never met
-## one. These are real underwater rays: broad slow gliders banking around the rig in the
-## shallow-to-mid band (-7..-14 m), close enough to the surface that you catch them from
-## the deck edge or on the first breath down. Three of them, spread and phased so one is
-## almost always somewhere in view. Kept off the ambient DEEP roster on purpose — these
-## are shallow and MEANT to be seen; the deep dark stays the groupers' domain.
+## one. These are real underwater rays: broad slow gliders banking around the rig.
+## Three of them, spread and phased so one is almost always somewhere in view. Kept off
+## the ambient DEEP roster on purpose — the deep dark stays the groupers' domain.
+##
+## OWNER CALL 2026-07-29: dropped 25 m from the original -7..-11 shallow band. They are
+## now a thing you dive FOR rather than something you notice from the deck edge, sitting
+## below the coral band (BAND_BOTTOM -22) in open water well clear of the -92 seabed and
+## of the caisson footings.
 func _open_water_rays() -> void:
 	var specs := [
 		# [span_m, band_y, orbit_r, rate, phase]
-		[5.5, -8.5, 20.0, 0.055, 0.0],
-		[6.4, -11.0, 25.0, 0.040, 2.1],
-		[4.8, -7.0, 16.0, 0.070, 4.3],
+		[5.5, -33.5, 20.0, 0.055, 0.0],
+		[6.4, -36.0, 25.0, 0.040, 2.1],
+		[4.8, -32.0, 16.0, 0.070, 4.3],
 	]
 	for spec in specs:
 		var ray := GliderRay.new(float(spec[0]), float(spec[1]), float(spec[2]),

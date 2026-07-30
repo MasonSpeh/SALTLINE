@@ -194,6 +194,12 @@ const CRUSTS := [
 	# enough; the third would have been a sea urchin with the wrong name.
 ]
 
+## Starfish emission, as a FRACTION of the reef's GLOW (see the sweep note above).
+## Owner call 2026-07-29: halved. A starfish is an animal sitting on the reef, not one of
+## the bloom-lit colonies — at full reef emission the small ones read as scattered lights
+## rather than as flesh, which is also what made them so conspicuous at 96 instances.
+const STAR_GLOW: float = 0.5
+
 ## BIG STARFISH (s20, owner call: larger, more prominent, and DOWN THE LEGS). These are
 ## 0.65-1.75 m — two to three times the s19 stars — and they ride the caisson faces over
 ## the full leg as well as the foundation, which is where the owner actually meets one.
@@ -204,11 +210,11 @@ const CRUSTS := [
 ## (10-arm) are three clearly different silhouettes and three clearly different colours,
 ## which is what the set needed.
 const BIG_STARS := [
-	{"slug": "star_big_red", "lo": 0.70, "hi": 1.30, "w": 1.15,
+	{"slug": "star_big_red", "lo": 0.70, "hi": 1.30, "w": 1.15, "glow": STAR_GLOW,
 		"a": Color(1.00, 0.62, 0.52), "b": Color(1.00, 0.92, 0.82)},
-	{"slug": "star_big_spiny", "lo": 0.80, "hi": 1.55, "w": 0.80,
+	{"slug": "star_big_spiny", "lo": 0.80, "hi": 1.55, "w": 0.80, "glow": STAR_GLOW,
 		"a": Color(0.74, 0.68, 1.00), "b": Color(0.98, 0.92, 1.00)},
-	{"slug": "star_big_sunflower", "lo": 0.90, "hi": 1.75, "w": 0.55,
+	{"slug": "star_big_sunflower", "lo": 0.90, "hi": 1.75, "w": 0.55, "glow": STAR_GLOW,
 		"a": Color(1.00, 0.72, 0.50), "b": Color(1.00, 0.94, 0.80)},
 ]
 
@@ -227,14 +233,14 @@ const BIG_STARS_FOUNDATION: int = 26
 const CRUST_TOP: float = SKIRT_BOTTOM - 0.35
 
 const STARS := [
-	{"slug": "star_small", "lo": 0.30, "hi": 0.55, "w": 1.55,
+	{"slug": "star_small", "lo": 0.30, "hi": 0.55, "w": 1.55, "glow": STAR_GLOW,
 		"a": Color(0.90, 0.62, 0.36), "b": Color(1.00, 0.94, 0.80)},
-	{"slug": "star_mid", "lo": 0.42, "hi": 0.72, "w": 0.62,
+	{"slug": "star_mid", "lo": 0.42, "hi": 0.72, "w": 0.62, "glow": STAR_GLOW,
 		"a": Color(0.70, 0.62, 1.00), "b": Color(1.00, 0.86, 0.94)},
 ]
 ## The seven-arm giant. Placed by hand-picked count, not by weight — it is meant to be
 ## a find, so there are exactly this many in the whole ocean.
-const STAR_HUGE := {"slug": "star_huge", "lo": 0.95, "hi": 1.25,
+const STAR_HUGE := {"slug": "star_huge", "lo": 0.95, "hi": 1.25, "glow": STAR_GLOW,
 	"a": Color(0.66, 0.70, 1.00), "b": Color(0.92, 0.90, 1.00)}
 const HUGE_COUNT: int = 3
 
@@ -653,12 +659,12 @@ func _dress_foundation() -> void:
 		var zo: float = SKIRT_Z_OUT * sz
 		var zi: float = SKIRT_Z_IN * sz
 		# outer long wall, inner long wall
-		faces.append({"n": Vector3(0, 0, sz), "fix": zo, "axis": "z", "span": [-27.0, 27.0], "n_inst": 26})
-		faces.append({"n": Vector3(0, 0, -sz), "fix": zi, "axis": "z", "span": [-27.0, 27.0], "n_inst": 15})
+		faces.append({"n": Vector3(0, 0, sz), "fix": zo, "axis": "z", "span": [-27.0, 27.0], "n_inst": 20})
+		faces.append({"n": Vector3(0, 0, -sz), "fix": zi, "axis": "z", "span": [-27.0, 27.0], "n_inst": 11})
 		# the two end walls of this pontoon
 		for sx in [-1.0, 1.0]:
 			faces.append({"n": Vector3(sx, 0, 0), "fix": SKIRT_X * sx, "axis": "x",
-				"span": [minf(zi, zo) + 0.8, maxf(zi, zo) - 0.8], "n_inst": 5})
+				"span": [minf(zi, zo) + 0.8, maxf(zi, zo) - 0.8], "n_inst": 4})
 	# The whole family is available down here — the foundation is one continuous surface,
 	# so there is no per-leg culling argument for slicing it.
 	_bigstar_pool = BIG_STARS
@@ -707,7 +713,7 @@ func _scatter_wall(f: Dictionary) -> void:
 ## which is both true to the animal and the single best place to notice one.
 func _scatter_underside() -> void:
 	var n := Vector3(0, -1, 0)
-	for i in range(52):
+	for i in range(39):
 		var x: float = _rng.randf_range(-27.0, 27.0)
 		var sz: float = [-1.0, 1.0][_rng.randi_range(0, 1)]
 		var z: float = sz * _rng.randf_range(SKIRT_Z_IN + 0.6, SKIRT_Z_OUT - 0.6)
@@ -716,7 +722,7 @@ func _scatter_underside() -> void:
 ## A few on the caisson faces between the skirt and the top of the coral band.
 func _scatter_leg_shallows() -> void:
 	for leg in LEGS:
-		for i in range(5):
+		for i in range(4):
 			var n: Vector3 = [Vector3(1, 0, 0), Vector3(-1, 0, 0),
 				Vector3(0, 0, 1), Vector3(0, 0, -1)][_rng.randi_range(0, 3)]
 			var tangent := Vector3(n.z, 0.0, -n.x)

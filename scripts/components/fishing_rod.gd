@@ -119,6 +119,9 @@ var _cast_origin: Vector3
 var _rng := RandomNumberGenerator.new()
 var _deep: bool = false          # this cast is the deep-drop rig, not the surface rod
 var _bait_id: String = ""        # bait on the hook this drop ("" = none, and no drop)
+## True once something actually took the hook and the bait was consumed. Drives the
+## re-arm in _finish(): a drop that never got a bite must hand its bait back to the hook.
+var _bait_spent: bool = false
 ## The deep rig's hook, OUTSIDE any one cast: which bait (if any) is armed on it right now.
 ## Static because the rig has to remember this BETWEEN casts, and between drops the
 ## FishingRod node doesn't exist at all — setup()/queue_free() only bracket a single cast
@@ -491,6 +494,7 @@ func _physics_process(delta: float) -> void:
 						# the one moment that actually uses the bait up.
 						if _bait_id != "":
 							PlayerState.remove_item(_bait_id)
+							_bait_spent = true
 						AudioDirector.play_one_shot("clang", _hand_pos(), -22.0)
 						_take()
 						_prompt(("!!!  SOMETHING BIG HAS IT AT %d m   [LMB] STRIKE" \
@@ -775,6 +779,14 @@ func _toast(text: String) -> void:
 
 func _finish(msg: String) -> void:
 	_state = State.DONE
+	# BAIT SURVIVES AN EMPTY DROP (owner call 2026-07-29). _bait_id was moved out of the
+	# static _baited_id at cast time, and this node is freed here — so a drop that never got
+	# a bite used to leave the item sitting in the pack with the hook silently disarmed,
+	# reading in-game as "I lost my bait" and demanding another [B]. Hand it back instead:
+	# the hook stays armed with the same bait until something actually takes it (which sets
+	# _bait_spent and removes the item) or the bait leaves the pack some other way.
+	if _bait_id != "" and not _bait_spent and PlayerState.has_item(_bait_id):
+		_baited_id = _bait_id
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		hud.show_prompt("")
