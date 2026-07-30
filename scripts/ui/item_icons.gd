@@ -53,21 +53,27 @@ const ICON_FOCUS := {
 	# Reel seat, lever-drag multiplier, foregrip and the first guide — the part of a stand-up
 	# rod you would recognise it from across a deck.
 	#
-	# RETUNED 2026-07-29 for the owner's "wand" pick: 2.10 m of a 19 mm blank tapering to
-	# 3 mm is a 111:1 sliver, worse than the 53:1 rod it replaces, and its hardware is
-	# smaller too (the reel is scaled 0.84 against the old one's 0.95). So the frame comes
-	# IN rather than tracking the extra length: 0.52 m held on the reel, where the old rod
-	# spent 0.62 m. Coordinates are ROOT space, i.e. after the case's own 14° lean.
-	"fishing_rod": {"centre": Vector3(-0.02, 0.66, 0.0), "size": 0.52},
+	# RETUNED 2026-07-29 for the owner's "wand" pick, and the retune is INWARDS: 2.10 m of a
+	# 19 mm blank tapering to 3 mm is a 111:1 sliver, worse than the 53:1 rod it replaces, and
+	# its hardware is smaller too (the reel is scaled 0.84 against the old one's 0.95). Four
+	# frames were rendered at the real 74 px and read side by side; 0.40 m is where the spool,
+	# the drag lever and the crank are all still separable, 0.52 m already softens them and
+	# the old 0.62 m turns the reel into one blob. Coordinates are ROOT space, i.e. after the
+	# case's own 14° lean.
+	"fishing_rod": {"centre": Vector3(-0.01, 0.62, 0.0), "size": 0.40},
 	# The deep rig is now a DECK WINCH (owner pick, option B) — 1.03 m tall, 0.64 wide,
 	# 0.46 deep. That is a kind 1.6:1, but a whole-frame fit still spends the slot on the
 	# foot, the boom and 0.23 m of hanging tackle, and the option sheet's own slot row
 	# showed exactly that: a small dark machine with nothing legible in it. So the frame is
-	# held on the MACHINE — the flanged drum with its braid standing proud of the drive
-	# cheek, the crank, the ratchet gear, the brake shoe, and enough mast for it to read as
-	# a winch rather than as a wheel. The hoop fairlead and the tackle run off the top on
-	# purpose: length and tackle are what the hand and the world show.
-	"deep_rig_pole": {"centre": Vector3(-0.10, 0.53, 0.06), "size": 0.50},
+	# held on the MACHINE.
+	#
+	# 0.62 m rather than the tighter 0.42/0.50 that were also rendered at 74 px, and the
+	# reason is SILHOUETTE, not detail. At 0.42 the drum's flange runs off both sides and the
+	# outline is "a wheel and a bar"; at 0.62 it is a wheel on a post with an arm over the top
+	# and a hoop on the end of it — which is unmistakably a machine, and unmistakably not the
+	# rod in the slot beside it. The drum still reads: braid, drive cheek, bolt circle,
+	# oxblood band, crank. The foot and the hanging tackle run off frame on purpose.
+	"deep_rig_pole": {"centre": Vector3(-0.08, 0.55, 0.04), "size": 0.62},
 	# 1.35 m of driftwood shaft; the lashing and the shard point are the whole read.
 	"crude_spear": {"centre": Vector3(0.17, 1.16, 0.0), "size": 0.5},
 }

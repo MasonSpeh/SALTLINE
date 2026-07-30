@@ -394,6 +394,53 @@ camera is an occluder even though it is not "between" anything.
 
 ---
 
+## Found while installing the owner-picked fishing tools (s22)
+
+**A `const` Dictionary is READ-ONLY in GDScript, and a harness that sweeps a const table
+cannot exist.** `ICON_FOCUS` and `HAND_TOOL_POSE` are both `const {}`; assigning into a local
+`var t: Dictionary = D` writes through to the same read-only dictionary and raises
+*"Invalid assignment on read-only value"* — a RUNTIME error that aborts the enclosing
+function. In a windowed harness that means `_ready()` never reaches `quit()` and Godot **hangs
+for ever** with no error visible if the output is piped through a buffering `grep`. Two lessons:
+`Dictionary.is_read_only()` is the cheap check, and a sweep over a shipping const table has to
+re-implement the few lines that read it and then PROVE the copy equivalent (`tool_final.gd`
+renders the installed entry through both paths and diffs the images — 0.0000).
+
+**`GameClock.force_phase()` does not hold the light still, it resets the phase clock.** It sets
+`_phase_elapsed_sec = 0.0`, and `SunController` maps DAY f=0 to 16° of elevation — a low warm
+sun. Calling it every frame to "keep it daytime" therefore PINS the sun at the reddest end of
+day: a whole render pass came back with pink deck plate and salmon girders and the cause looked
+like a damage vignette. DAY runs 34 minutes, so nothing in a four-minute harness can leave it:
+force it ONCE and then write `_phase_elapsed_sec` to the fraction of DAY you want.
+
+**A roll nobody wrote, from six stacked Euler angles.** The owner reported the held rod
+"oriented on side" twice. There was no roll term anywhere: `_hand_item` carries two mount
+angles, the container carried three more, and `item_visual.gd`'s own pivot carries a Z lean —
+the reel ended up (+0.85 right, +0.20 up) off the blank as the PRODUCT of all six. Nudging any
+one of them moves the picture without fixing the cause, and the cause comes back the moment
+anyone touches another stage. **State the pose as a target and solve for it**: name the model's
+long axis and the axis its reel/drum stands off, name where each must point in CAMERA space,
+build the basis from two orthonormal frames, and divide the earlier stages back out
+(`_apply_hand_pose`: `B_container = B_hand.inverse() * aim * B_pivot.inverse()`).
+Corollary worth knowing before promising an orientation: **the model's handedness can make a
+request impossible.** With blank +Y, reel-offset +X and crank +Z, asking for reel-up AND
+crank-right AND tip-away needs a basis of determinant −1. One of the three has to give.
+
+**An AABB you are standing INSIDE is the nearest hit for every pixel on screen.** The wet deck's
+dressing welds into `MergedDressing` chunks up to 13.65 m across and the player is inside one:
+`AABB.intersects_ray` then returns the ray origin, distance 0.00 m, so the first crate hunt
+"identified" the same chunk at every yaw, at every pitch, for every blob. `if box.has_point(origin): continue`
+is the whole fix. The other half of the same lesson: an AABB ray test is a poor question for a
+small prop inside a big loose box, so `spawn_yellow.gd` now also asks the exact one — project
+every small node's own AABB corners with `unproject_position` and keep the ones whose SCREEN
+rectangle contains the pixel. (That needs the real viewport: headless reports
+`get_visible_rect()` as 1280x1280 for a 1280x720 project, so the pixel mapping is wrong there.)
+
+**A probe coroutine that awaits must be awaited.** `_check_tool()` called an `await`-ing helper
+without `await`, so the helper was still running when the caller moved on and rebuilt the hand:
+*"Invalid access to property 'global_transform' on a previously freed object"*, printed between
+two PASS lines, with `FAILURES: 0` at the end. Half the assertions never ran.
+
 ## Found while adding the harvestable mussels (s21)
 
 **The FaunaTouch trap bites PLACEMENT code too, not just probes.** The s20 entry above is

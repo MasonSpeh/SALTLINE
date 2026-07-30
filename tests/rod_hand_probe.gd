@@ -105,3 +105,90 @@ func _check_tool(p: Node, id: String) -> void:
 		var ahead: float = (tip - cam.global_position).dot(-cam.global_transform.basis.z)
 		_chk("the tip is out in front of the player, where line pays out", ahead > 0.2,
 			"forward component = %.3f m" % ahead)
+	# AWAITED, not fired and forgotten: this coroutine awaits frames, and without the await the
+	# caller moves on to the next tool, whose _update_held_item frees the container out from
+	# under it ("Invalid access to property 'global_transform' on a previously freed object").
+	await _check_orientation(p, id, container, cam)
+
+## IS IT ON ITS SIDE? Owner report, 2026-07-29: "fishing poles still oriented on side… when
+## casting it goes reel/bail up. Also flip default side to the right instead of left."
+##
+## The roll nobody wrote was the product of six stacked Euler angles (two on the hand mount,
+## three on the container, one inside the model), so it is asserted here on the COMPOSED basis
+## rather than on any one of them: take the tool's own axes off the live pivot, express them in
+## camera space, and check the three things the complaint names. Measured before the fix, the
+## rod's reel-side axis came out (+0.85 right, +0.20 up) — beside the blank, not on top of it.
+##
+## +x is the player's right, +y is up, +z is BACK toward the player.
+func _check_orientation(p: Node, id: String, container: Node3D, cam: Camera3D) -> void:
+	if cam == null:
+		return
+	var visual: Node3D = container.get_child(0) as Node3D
+	var marker: Node = visual.find_child("hand_tip", true, false)
+	if not (marker is Node3D):
+		return
+	# The pivot is the node carrying the marker — the same node player_controller aims.
+	var pivot: Node3D = (marker as Node3D).get_parent() as Node3D
+	var inv: Basis = cam.global_transform.basis.inverse()
+	var b: Basis = pivot.global_transform.basis.orthonormalized()
+	# Both tools run their long axis up the model's own +Y; what stands off that axis is the
+	# rod's reel (model +X) and the winch's drum axle (model +Z).
+	var long_axis: Vector3 = inv * (b * Vector3(0, 1, 0))
+	var face_dir: Vector3 = inv * (b * (Vector3(0, 0, 1) if id == "deep_rig_pole" \
+		else Vector3(1, 0, 0)))
+	var centre: Vector3 = inv * (container.global_position - cam.global_position)
+	print("      long axis -> cam %s   reel/drum axis -> cam %s   tool centre x=%+.3f"
+		% [str(long_axis.snappedf(0.001)), str(face_dir.snappedf(0.001)), centre.x])
+	_chk("%s is held on the RIGHT of the view" % id, centre.x > 0.05,
+		"container centre is at camera-space x=%+.3f" % centre.x)
+	_chk("%s's long axis rises and leans away, not across the view" % id,
+		long_axis.y > 0.35 and long_axis.z < 0.05,
+		"long axis = %s" % str(long_axis.snappedf(0.001)))
+	if id == "fishing_rod":
+		# The whole complaint in one number. A reel BESIDE the blank has |x| >> y; a reel on top
+		# has y as its largest component. There is a hard ceiling on how "up" it can be —
+		# nothing perpendicular to the blank can have more up than sqrt(1 - blank.y^2) — so the
+		# test is stated as a comparison against the sideways component, not an absolute.
+		_chk("the rod's reel sits ON TOP of the blank, not beside it",
+			face_dir.y > absf(face_dir.x) and face_dir.y > 0.3,
+			"reel-side axis = %s (up must beat sideways)" % str(face_dir.snappedf(0.001)))
+	else:
+		# A winch has no bail; what must not happen is the drum going edge-on (axle across the
+		# view) or turning its back on the player (axle pointing away).
+		_chk("the winch's drum faces the player rather than going edge-on",
+			face_dir.z > 0.45, "drum axle = %s (z must point back at the player)"
+				% str(face_dir.snappedf(0.001)))
+	# THE CAST POSE IS A SECOND ORIENTATION, and it is the one the owner named explicitly.
+	# Flip the controller into it the way a live cast does and re-measure.
+	p.set("_hand_posed_cast", true)
+	p.call("_apply_hand_pose")
+	p.call("_show_stowed_tackle", false)
+	await get_tree().process_frame
+	var b2: Basis = pivot.global_transform.basis.orthonormalized()
+	var long2: Vector3 = inv * (b2 * Vector3(0, 1, 0))
+	var face2: Vector3 = inv * (b2 * (Vector3(0, 0, 1) if id == "deep_rig_pole" \
+		else Vector3(1, 0, 0)))
+	print("      CAST pose: long axis -> cam %s   reel/drum axis -> cam %s"
+		% [str(long2.snappedf(0.001)), str(face2.snappedf(0.001))])
+	_chk("%s's cast pose is a DIFFERENT pose from the idle hold" % id,
+		long2.distance_to(long_axis) > 0.05,
+		"the two poses agree to %.4f" % long2.distance_to(long_axis))
+	_chk("%s drops its long axis toward the water for the cast" % id, long2.y < long_axis.y,
+		"idle y=%.3f cast y=%.3f" % [long_axis.y, long2.y])
+	if id == "fishing_rod":
+		_chk("casting brings the reel/bail further UP than the idle hold",
+			face2.y > face_dir.y and face2.y > absf(face2.x),
+			"idle reel-up=%.3f cast reel-up=%.3f (sideways %.3f)"
+				% [face_dir.y, face2.y, face2.x])
+	else:
+		# ...and the winch's modelled tackle must go away while a real lead is in flight, or the
+		# player sees two leads (owner: "there is a hook and bobber in the 3-d model too").
+		var stowed: Node = container.find_child("stowed_tackle", true, false)
+		_chk("the winch carries its stowed tackle in a named, hideable node", stowed is Node3D)
+		if stowed is Node3D:
+			_chk("the winch's own tackle is HIDDEN while a cast is live",
+				not (stowed as Node3D).visible)
+	p.set("_hand_posed_cast", false)
+	p.call("_apply_hand_pose")
+	p.call("_show_stowed_tackle", true)
+	await get_tree().process_frame

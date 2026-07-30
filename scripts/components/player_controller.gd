@@ -112,33 +112,85 @@ const HAND_TIP_AXIS := {
 }
 var _hand_reach_axis: Vector3 = Vector3(0, 0, -1)
 
-## HOW A FISHING TOOL SITS IN THE HAND, per item, because the two tools have nothing in
-## common geometrically. `_normalize_hand_visual` recentres a held item on its own AABB and
-## scales the longest axis to 0.9 m; both of those are right, and both mean the offset that
-## frames one tool cannot frame the other.
+## HOW A FISHING TOOL SITS IN THE HAND — AIMED, NOT NUDGED.
 ##
-##   fishing_rod — 2.10 m of blank, AABB centre a long way up the shaft, reel a quarter of
-##     the way up from the butt. Centring the 0.9 m rig on the hand point put the one part
-##     that says "offshore gear" just under the bottom edge of the screen and the player
-##     held a bare stick, so it is LIFTED by about half a reel. Unchanged.
-##   deep_rig_pole — a 1.03 x 0.64 x 0.46 m deck winch. Its AABB centre already lands on
-##     the drum (measured: centre y 0.505 against a drum axis at 0.511), so the rod's
-##     +0.12 m lift is a lift it does not need: it pushed the foot out of frame and carried
-##     the hoop fairlead and its hanging tackle up into the top edge, and the rod's +0.05 m
-##     of right-shift ran the tackle off the right edge — this tool is 0.56 m wide in hand
-##     against a rod's thin diagonal. So: no lift, shifted LEFT and pulled a little nearer,
-##     and tipped less far over (-14° against the rod's -24°) because a machine has to read
-##     round and upright, not foreshortened. Verified by render, not by arithmetic.
+## Owner report, 2026-07-29: "fishing poles still oriented on side… when casting it goes
+## reel/bail up. Also flip default side to the right instead of left, and give slight tilt."
+##
+## This used to be three Euler angles per item stacked on top of two more on `_hand_item` and
+## one more inside the model (`item_visual.gd` leans its own pivot on Z), and the roll the
+## owner is complaining about was the PRODUCT of all six — nobody wrote it. Measured on the
+## composed basis: the rod's blank came out 0.94 up (near vertical) and its reel stuck out
+## (+0.85 right, +0.20 up), i.e. the reel sat BESIDE the blank rather than on top of it. That
+## is the complaint, exactly, and it is why nudging one of the six angles could never fix it.
+##
+## So the pose is now stated as what it has to LOOK like and solved for: name the model's own
+## long axis and the direction its reel/drum stands off that axis, name where each should
+## point in CAMERA space, and let `_aim_basis()` build the rotation. Every earlier stage —
+## `_hand_item`'s mount angles and the model's internal lean — is divided back out
+## (`_apply_hand_pose`), so the answer is the aim and nothing else, and adding a lean to a
+## model in item_visual.gd can no longer roll the tool in the player's hands.
+##
+## TWO POSES, because a rod at rest and a rod being fished are different objects to look at
+## (owner: "player should see it both ways"). `idle` is a carry: butt low on the right, blank
+## up and out to the RIGHT of the view so it does not cross the middle of the screen, reel on
+## top and canted back so you can see the spool. `cast` is the working pose: the blank drops
+## toward the water it is fishing and the reel comes squarely UP. The swap happens the instant
+## a line goes out and back again when it comes in (see the pose sync in `_physics_process`).
+##
+## WHICH WAY THE CRANK ENDS UP IS NOT FREE. The model is a right-handed triad — blank +Y, reel
+## standing off +X, crank on +Z — so "reel up" and "tip away from the player" force the crank
+## to the far side; asking for reel-up AND crank-right AND tip-away needs a basis with
+## determinant -1, i.e. a mirror. The reel therefore reads as a LEFT-HAND-WIND conventional
+## reel, which is what a lot of stand-up offshore gear actually is (the rod stays in the right
+## hand). `face_to` is tilted back off vertical rather than straight up so the crank and the
+## drag lever swing over the top of the reel into view instead of hiding behind the blank.
 const HAND_TOOL_POSE := {
 	"fishing_rod": {
-		"rot": Vector3(deg_to_rad(-24.0), deg_to_rad(-14.0), 0.0),
-		"off": Vector3(0.05, 0.12, -0.1),
+		"axis": Vector3(0, 1, 0),          ## the blank runs up the model's own +Y
+		"face": Vector3(1, 0, 0),          ## the reel stands off the blank on the model's +X
+		"idle": {
+			"axis_to": Vector3(0.34, 0.80, -0.50),   # up, out to the RIGHT, leaning away
+			"face_to": Vector3(0.0, 0.86, 0.51),     # reel on top, canted back into view
+			# LIFTED 0.10 m over the first cut of this pose, measured off the render: the AABB
+			# recentre puts the rod's own middle on the hand point and the reel is 0.17 m DOWN
+			# the blank from there, so the reel — the one part that says "offshore gear" — sat
+			# half off the bottom edge of the screen. Same failure the old Euler pose had.
+			"off": Vector3(0.08, 0.21, -0.04),
+		},
+		"cast": {
+			"axis_to": Vector3(0.22, 0.46, -0.86),   # dropped toward the water being fished
+			"face_to": Vector3(0.0, 1.0, 0.0),       # reel/bail SQUARELY up
+			"off": Vector3(0.07, 0.16, -0.02),
+		},
 	},
+	## The winch's long axis is its mast and the thing that stands off it is the DRUM bracket,
+	## on -X. What must not happen to a machine is the drum going edge-on or upside down, so
+	## the aim is stated on the drum's own axle instead: `face` is the model +Z the crank and
+	## the ratchet live on, and it points back at the player, which is the pose four rendered
+	## candidates picked out (the alternatives lost the crank knob off the bottom of the screen
+	## or turned the drum side-on). Only the mast's tilt differs between carry and work.
 	"deep_rig_pole": {
-		"rot": Vector3(deg_to_rad(-14.0), deg_to_rad(-14.0), 0.0),
-		"off": Vector3(-0.05, 0.0, -0.04),
+		"axis": Vector3(0, 1, 0),          ## the mast
+		"face": Vector3(0, 0, 1),          ## the drum's axle, crank side
+		"idle": {
+			"axis_to": Vector3(0.24, 0.96, -0.17),   # mast up, barely tilted: it is a machine
+			"face_to": Vector3(-0.53, 0.27, 0.80),   # drum face turned to the player
+			"off": Vector3(0.01, 0.11, -0.02),
+		},
+		"cast": {
+			"axis_to": Vector3(0.20, 0.92, -0.34),   # tipped out over the side it is fishing
+			"face_to": Vector3(-0.48, 0.24, 0.84),
+			"off": Vector3(0.02, 0.14, 0.0),
+		},
 	},
 }
+## True while the hand is posed for a live cast, so the swap happens once on each transition
+## rather than every frame.
+var _hand_posed_cast: bool = false
+## Uniform scale `_normalize_hand_visual` fitted the held item to, kept so `_apply_hand_pose`
+## can rewrite the container's whole basis (rotation AND scale) in one assignment.
+var _hand_scale: float = 1.0
 
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
@@ -629,6 +681,7 @@ func hook_returned() -> void:
 	hook_out = false
 
 func _physics_process(delta: float) -> void:
+	_sync_hand_pose()
 	if _attack_cd > 0.0:
 		_attack_cd -= delta
 	if _mantle_cd > 0.0:
@@ -1436,13 +1489,9 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 			target = 0.9   # a full-length rod actually reads as a rod, not a twig
 		"prybar":
 			target = 0.4
-	if largest > 0.0001:
-		container.scale = Vector3.ONE * (target / largest)
+	_hand_scale = (target / largest) if largest > 0.0001 else 1.0
+	container.scale = Vector3.ONE * _hand_scale
 	visual.position = -combined.get_center()
-	if HAND_TOOL_POSE.has(_held_item_id):
-		var pose: Dictionary = HAND_TOOL_POSE[_held_item_id]
-		container.rotation = pose["rot"]
-		container.position += pose["off"] as Vector3
 	# Half the item's longest dimension, in CONTAINER-local units (after the
 	# recentre above, the visual's AABB is symmetric about the container origin).
 	# hand_tip_world() uses this to find the far end of whatever is held, so a
@@ -1450,6 +1499,112 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	# fixed offset from the player's feet.
 	_hand_reach = largest * 0.5
 	_hand_reach_axis = HAND_TIP_AXIS.get(_held_item_id, Vector3(0, 0, -1))
+	# ...and the aimed pose LAST, because it reads the container's own scale/position state.
+	_hand_posed_cast = fishing != null
+	_apply_hand_pose()
+	_show_stowed_tackle(fishing == null)
+
+## A line going out (or coming in) changes the pose, and neither event passes through
+## `_update_held_item`, so the transition is watched here — once per change, not per frame.
+## `fishing` is set by _start_fishing and cleared by FishingRod._finish, which is also what
+## makes this cover a reel-in, a fouled cast, a walked-away cancel and a landed fish alike.
+func _sync_hand_pose() -> void:
+	var live: bool = fishing != null and is_instance_valid(fishing)
+	if live == _hand_posed_cast:
+		return
+	_hand_posed_cast = live
+	_apply_hand_pose()
+	_show_stowed_tackle(not live)
+
+## Aim the held tool: solve the container's rotation from what the tool must LOOK like rather
+## than stacking another Euler offset on the five that are already in the chain.
+##
+## The chain is camera -> _hand_item (mount angles) -> container (this) -> visual (recentre
+## only) -> the model's own pivot (its authored lean). What has to be true is a statement about
+## the LAST of those in CAMERA space, so both of the others are divided back out:
+##
+##     basis(pivot, camera space) = B_hand * B_container * B_pivot   ==   A (the aim)
+##  => B_container = B_hand.inverse() * A * B_pivot.inverse()
+##
+## That is the whole fix for "oriented on side". A counter-rotation bolted onto B_container
+## would have produced the same picture today and drifted again the moment anyone touched
+## `_hand_item`'s mount angles or added a lean to a model — which is exactly how the roll got
+## there in the first place.
+##
+## The pivot is found as the PARENT OF THE "hand_tip" MARKER, not as child 0: every fishing
+## tool already has to plant that marker on the node carrying its lean (or the fishing line
+## anchors somewhere that does not move with the tool), so the one node this function needs is
+## the one node the tool is already required to identify.
+func _apply_hand_pose() -> void:
+	if _hand_item == null or _hand_item.get_child_count() == 0:
+		return
+	if not HAND_TOOL_POSE.has(_held_item_id):
+		return
+	var container: Node3D = _hand_item.get_child(0)
+	var def: Dictionary = HAND_TOOL_POSE[_held_item_id]
+	var pose: Dictionary = def["cast" if _hand_posed_cast else "idle"]
+	var visual: Node3D = container.get_child(0) as Node3D
+	if visual == null:
+		return
+	var marker: Node = visual.find_child("hand_tip", true, false)
+	var pivot: Node3D = null
+	if marker is Node3D:
+		pivot = (marker as Node3D).get_parent() as Node3D
+	var b_pivot: Basis = Basis.IDENTITY
+	if pivot != null and pivot != visual:
+		b_pivot = _basis_relative_to(pivot, visual)
+	var aim: Basis = _aim_basis(def["axis"], def["face"], pose["axis_to"], pose["face_to"])
+	var b: Basis = _hand_item.transform.basis.inverse() * aim * b_pivot.inverse()
+	# The 0.9 m hand scale lives on the container's basis too, so it goes on in the same write
+	# rather than through the `scale` setter afterwards (which re-derives the basis from Euler
+	# angles and is the sort of round trip that put a roll here in the first place).
+	container.transform = Transform3D(b.scaled(Vector3.ONE * _hand_scale), pose["off"])
+
+## The rotation that sends the model's own `axis` to `axis_to` and puts `face` as near `face_to`
+## as a rotation can. Built from two orthonormal frames rather than from angles, so it cannot
+## introduce a roll of its own: R = T * S.transposed(), where S is the model frame and T the
+## camera-space frame it has to land on.
+static func _aim_basis(axis: Vector3, face: Vector3, axis_to: Vector3, face_to: Vector3) -> Basis:
+	var a1: Vector3 = axis.normalized()
+	var f1: Vector3 = face - a1 * face.dot(a1)
+	var a2: Vector3 = axis_to.normalized()
+	var f2: Vector3 = face_to - a2 * face_to.dot(a2)
+	# A `face` parallel to `axis` says nothing about roll; fall back to any perpendicular so the
+	# result is still a valid rotation instead of a collapsed basis.
+	if f1.length() < 0.001:
+		f1 = a1.cross(Vector3.UP if absf(a1.dot(Vector3.UP)) < 0.9 else Vector3.RIGHT)
+	if f2.length() < 0.001:
+		f2 = a2.cross(Vector3.UP if absf(a2.dot(Vector3.UP)) < 0.9 else Vector3.RIGHT)
+	f1 = f1.normalized()
+	f2 = f2.normalized()
+	var s := Basis(a1, f1, a1.cross(f1))
+	var t := Basis(a2, f2, a2.cross(f2))
+	return t * s.transposed()
+
+## Accumulated basis of `node` relative to `base`, walking up the parents.
+static func _basis_relative_to(node: Node3D, base: Node3D) -> Basis:
+	var b: Basis = Basis.IDENTITY
+	var cur: Node3D = node
+	while cur != null and cur != base:
+		b = cur.transform.basis * b
+		cur = cur.get_parent() as Node3D
+	return b
+
+## THE TACKLE THAT IS PART OF THE MODEL, hidden while a cast is live.
+##
+## Owner note, 2026-07-29: "There is a hook and bobber in the 3-d model too already, consider
+## the mesh portion." The deck winch carries its terminal tackle hove up short under the hoop
+## fairlead — swivel, three-way, torpedo lead, snooded hook, lumo bead — because that is how a
+## hand-line is carried between drops. `fishing_rod.gd` then spawns its OWN lead for the cast,
+## so a live cast drew the lead twice: one on the hook 44 m down and a second still hanging off
+## the tool. The model's copy is the one that gives way, since the flying one is the one the
+## game is simulating. Nothing to do for the wand rod, which carries no tackle in its mesh.
+func _show_stowed_tackle(shown: bool) -> void:
+	if _hand_item == null or _hand_item.get_child_count() == 0:
+		return
+	var stowed: Node = _hand_item.get_child(0).find_child("stowed_tackle", true, false)
+	if stowed is Node3D:
+		(stowed as Node3D).visible = shown
 
 ## World position of the far end of whatever is currently in the hand — the
 ## fishing rod anchors its line/string here instead of a fixed offset from the

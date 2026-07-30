@@ -12,8 +12,10 @@ extends Node
 ##      those READ-ONLY, so the live table cannot be swapped for a sweep. That copy is then
 ##      PROVED equivalent: candidate 0 is the installed entry, and its render is diffed
 ##      against what the shipping ItemIcons.get_icon() produces for the same item.
-##   2. THE WINCH IN HAND. Held-pose candidates for HAND_TOOL_POSE, each through the
-##      controller's own _normalize_hand_visual, plus the hand_tip / fallback numbers.
+##   2. BOTH TOOLS IN HAND, IDLE AND CASTING — four frames, because the owner has reported the
+##      held orientation wrong twice and the two poses are different objects to look at. Each
+##      frame is printed with where the tool's OWN axes ended up in camera space, so "on its
+##      side" and "reel up" are a number as well as a picture.
 ##   3. AN ACTUAL CAST off the crane machinery deck (y 34), where the deep rig is used.
 ##      fishing_rod._physics_process REELS THE LINE IN the instant `input_locked` is set, so a
 ##      parked camera kills every cast before it leaves the hand: the pose is re-asserted every
@@ -31,31 +33,26 @@ const IDS := ["deep_rig_pole", "fishing_rod"]
 ## scripts/ui/item_icons.gd, so the sheet always contains the shipping answer.
 const ICON_CANDS := {
 	"deep_rig_pole": [
+		{"centre": Vector3(-0.08, 0.55, 0.04), "size": 0.62},
 		{"centre": Vector3(-0.10, 0.53, 0.06), "size": 0.50},
 		{"centre": Vector3(-0.12, 0.52, 0.08), "size": 0.42},
-		{"centre": Vector3(-0.08, 0.55, 0.04), "size": 0.62},
 		{"centre": Vector3(-0.04, 0.52, 0.04), "size": 0.78},
 	],
 	"fishing_rod": [
-		{"centre": Vector3(-0.02, 0.66, 0.0), "size": 0.52},
 		{"centre": Vector3(-0.01, 0.62, 0.0), "size": 0.40},
+		{"centre": Vector3(-0.02, 0.66, 0.0), "size": 0.52},
 		{"centre": Vector3(-0.05, 0.72, 0.0), "size": 0.66},
 		{"centre": Vector3(-0.10, 0.80, 0.0), "size": 0.86},
 	],
 }
 
-## Candidate held poses for the WINCH. Entry 0 is what is installed.
-const HELD_CANDS := [
-	{"rot": Vector3(-14.0, -14.0, 0.0), "off": Vector3(-0.05, 0.0, -0.04)},
-	{"rot": Vector3(-24.0, -14.0, 0.0), "off": Vector3(0.05, 0.12, -0.1)},    # the old rod pose
-	{"rot": Vector3(-14.0, -14.0, 0.0), "off": Vector3(-0.02, 0.04, 0.0)},
-	{"rot": Vector3(-6.0, -22.0, 0.0), "off": Vector3(-0.06, -0.02, -0.06)},
-]
-
 ## Where a cast is taken from: the crane's machinery deck. Derived from rig_builder's own
 ## constants rather than typed — CRANE_X 2.0, CRANE_Z -14.0, CRANE_DECK_HALF 3.5 — so the
 ## vantage cannot drift away from the deck if the crane moves.
 const RB := preload("res://scripts/world/rig_builder.gd")
+## Preloaded by path, not by class_name — the project's own rule, and the reason
+## player_controller._start_fishing() does the same.
+const FR := preload("res://scripts/components/fishing_rod.gd")
 const EYE_UP: float = 1.6
 
 var main: Node3D
@@ -79,6 +76,21 @@ func _process(_d: float) -> void:
 		p.rotation.y = _hold["yaw"]
 		p.get_node("Head").rotation.x = _hold["pitch"]
 		p.velocity = Vector3.ZERO
+		# TOP EVERYTHING UP EVERY FRAME. Round 3 came back with an OXYGEN bar in the HUD over
+		# every cast frame — the run is long enough for the survival clocks to bite, and a
+		# photograph of a drowning player is a photograph of the wrong thing. This is the s21
+		# lesson ("top the air up every frame of any underwater interaction test") applied to a
+		# shot list rather than a probe.
+		#
+		# NOTE what is deliberately NOT here: GameClock.force_phase(). Calling it per frame
+		# looks like the obvious way to hold the light still and is the opposite — it resets
+		# `_phase_elapsed_sec` to 0, i.e. it PINS the sun at DAY f=0, which SunController maps
+		# to 16° of elevation. Round 4's frames came back with pink deck plate and salmon
+		# girders for exactly that reason. DAY runs 34 minutes, so nothing in a four-minute
+		# harness can leave it: set the clock to mid-DAY once (see _cast_shots) and leave it be.
+		PlayerState.oxygen = 1.0
+		PlayerState.life = 1.0
+		PlayerState.warmth = 1.0
 
 func _find_pause(n: Node) -> CanvasLayer:
 	var s: Script = n.get_script()
@@ -159,47 +171,95 @@ func _rel(node: Node3D, base: Node3D) -> Transform3D:
 
 # ================================================================== 1. the pack slot
 
-## Render every candidate frame through ItemIcons' own code, by swapping the live ICON_FOCUS
-## entry. Anything else would be a second copy of the framing maths, i.e. a picture of code
-## that is not shipping.
 func _icon_sweep() -> void:
 	print("\n[tool] ================ PACK SLOT (%d px, the size it is drawn at) ================"
 		% SLOT_PX)
 	var ico: Node = ItemIcons.new()
 	add_child(ico)
-	var table: Dictionary = ItemIcons.ICON_FOCUS
 	for id in IDS:
+		# The SHIPPING picture first, straight out of ItemIcons.get_icon(), so the sweep has
+		# something to be checked against rather than merely resembling.
+		ico.call("get_icon", id)
+		var live: Texture2D = null
+		for i in range(400):
+			await get_tree().process_frame
+			live = (ico.get("_cache") as Dictionary).get(id, null)
+			if live != null:
+				break
+		if live == null:
+			print("[tool] icon %s: the SHIPPING path rendered nothing" % id)
+			continue
+		_slot_pngs(live.get_image(), "%s/slot_%s_shipping" % [_out, id])
 		var cands: Array = ICON_CANDS[id]
 		for ci in range(cands.size()):
 			var c: Dictionary = cands[ci]
-			table[id] = c
-			# One ItemIcons cache entry per (id, candidate); clear it so the next one renders.
-			(ico.get("_cache") as Dictionary).erase(id)
-			ico.call("get_icon", id)
-			var tex: Texture2D = null
-			for i in range(300):
-				await get_tree().process_frame
-				tex = (ico.get("_cache") as Dictionary).get(id, null)
-				if tex != null:
-					break
-			if tex == null:
+			var img: Image = await _icon_render(ico, id, c)
+			if img == null:
 				print("[tool] icon %s cand%d: NOT RENDERED" % [id, ci])
 				continue
-			var img: Image = tex.get_image()
-			var small: Image = img.duplicate()
-			small.resize(SLOT_PX, SLOT_PX, Image.INTERPOLATE_LANCZOS)
-			# The honest 74 px, then the same pixels blown up NEAREST so they can be inspected
-			# without any resampler inventing detail that the slot will not have.
-			small.save_png("%s/slot_%s_c%d_true74.png" % [_out, id, ci])
-			var zoom: Image = small.duplicate()
-			zoom.resize(SLOT_PX * ZOOM, SLOT_PX * ZOOM, Image.INTERPOLATE_NEAREST)
-			zoom.save_png("%s/slot_%s_c%d_zoom.png" % [_out, id, ci])
+			var small: Image = _slot_pngs(img, "%s/slot_%s_c%d" % [_out, id, ci])
+			var note: String = ""
+			if ci == 0:
+				# Candidate 0 IS the installed entry, so this diff is the proof that the
+				# harness's copy of the framing is the shipping framing. Anything but ~0
+				# means the sweep is photographing code that is not going to ship.
+				note = "   <-- INSTALLED, diff vs shipping render = %.4f" % _diff(img, live.get_image())
 			print("[tool] icon %-14s cand%d centre=%s size=%.2f  ink=%.1f%% of the slot%s"
-				% [id, ci, str(c["centre"]), float(c["size"]), _ink(small) * 100.0,
-					"   <-- INSTALLED" if ci == 0 else ""])
-	table[IDS[0]] = ICON_CANDS[IDS[0]][0]
-	table[IDS[1]] = ICON_CANDS[IDS[1]][0]
+				% [id, ci, str(c["centre"]), float(c["size"]), _ink(small) * 100.0, note])
 	ico.queue_free()
+
+## One icon, framed by `focus`, on ItemIcons' own stage. The eight framing lines are copied
+## from ItemIcons._render because a `const` Dictionary cannot be swapped (see the header);
+## everything expensive to get wrong — the lights, the environment, the orthogonal
+## projection, the two-frame settle — is the shipping code, called on the shipping node.
+func _icon_render(ico: Node, id: String, focus: Dictionary) -> Image:
+	var model: Node3D = ItemVisual.build(id)
+	if model == null:
+		return null
+	var stage: Array = ico.call("_stage", Vector2i(ItemIcons.ICON_PX, ItemIcons.ICON_PX))
+	var vp: SubViewport = stage[0]
+	var cam: Camera3D = stage[1]
+	vp.add_child(model)
+	await get_tree().process_frame
+	var box: AABB = ico.call("_bounds", model)
+	if box.size.length() <= 0.0001:
+		ico.call("_drop_stage", vp)
+		return null
+	var centre: Vector3 = focus["centre"]
+	var reach: float = maxf(box.size.length(), 0.001)
+	cam.near = 0.01
+	cam.far = reach * 8.0 + 10.0
+	cam.global_position = centre + ItemIcons.VIEW_DIR.normalized() * (reach * 3.0 + 1.0)
+	cam.look_at(centre, Vector3.UP)
+	cam.size = maxf(float(focus["size"]), 0.001) / ItemIcons.FRAME_FILL
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var img: Image = vp.get_texture().get_image()
+	ico.call("_drop_stage", vp)
+	return img
+
+## Save the honest 74 px AND the same pixels blown up NEAREST, so the slot can be inspected
+## without a resampler inventing detail the slot will not have. Returns the 74 px image.
+func _slot_pngs(img: Image, stem: String) -> Image:
+	var small: Image = img.duplicate()
+	small.resize(SLOT_PX, SLOT_PX, Image.INTERPOLATE_LANCZOS)
+	small.save_png("%s_true74.png" % stem)
+	var zoom: Image = small.duplicate()
+	zoom.resize(SLOT_PX * ZOOM, SLOT_PX * ZOOM, Image.INTERPOLATE_NEAREST)
+	zoom.save_png("%s_zoom.png" % stem)
+	return small
+
+## Mean absolute RGBA difference between two same-size images, 0..1.
+func _diff(a: Image, b: Image) -> float:
+	if a.get_size() != b.get_size():
+		return 1.0
+	var acc: float = 0.0
+	for y in range(a.get_height()):
+		for x in range(a.get_width()):
+			var ca: Color = a.get_pixel(x, y)
+			var cb: Color = b.get_pixel(x, y)
+			acc += absf(ca.r - cb.r) + absf(ca.g - cb.g) + absf(ca.b - cb.b) + absf(ca.a - cb.a)
+	return acc / float(a.get_width() * a.get_height() * 4)
 
 ## Share of the slot that is not transparent background. Not a judgement of the picture — the
 ## picture is judged by looking — but it does catch the failure the owner reported as "isn't
@@ -214,48 +274,179 @@ func _ink(img: Image) -> float:
 
 # ================================================================== 2. the winch in hand
 
+## HAND_TOOL_POSE is a `const` Dictionary and therefore read-only, so a candidate is applied
+## by OVERWRITING the container the controller just posed: `_normalize_hand_visual` sets
+## `container.rotation` outright and adds `off` to a position that starts at zero, so writing
+## both afterwards is exactly equivalent to a different table entry. The installed values are
+## read back off the container rather than restated here, so this cannot drift from the table.
 func _held_sweep() -> void:
-	print("\n[tool] ================ THE WINCH IN HAND ================")
+	print("\n[tool] ================ BOTH TOOLS IN HAND, IDLE AND CASTING ================")
 	var p: Node3D = main.player
 	p.set("_fly", true)
 	PlayerState.add_item("deep_rig_pole")
 	PlayerState.add_item("fishing_rod")
-	# The open-water vantage item_shot.gd and option_shot.gd both proved has sky and sea
-	# behind the tool: a held shot against the SPHL's hull photographs a rusty wall.
-	await _park(Vector3(27.4, 2.2, -20.0), -90.0, -4.0)
-	var pose: Dictionary = PlayerController.HAND_TOOL_POSE
-	for ci in range(HELD_CANDS.size()):
-		var c: Dictionary = HELD_CANDS[ci]
-		var r: Vector3 = c["rot"]
-		pose["deep_rig_pole"] = {
-			"rot": Vector3(deg_to_rad(r.x), deg_to_rad(r.y), deg_to_rad(r.z)),
-			"off": c["off"],
-		}
-		_select("deep_rig_pole")
+	for i in range(4):
+		PlayerState.add_item("fish_herring")
+	# The open-water vantage item_shot.gd and option_shot.gd both proved has sky and sea behind
+	# the tool: a held shot against the SPHL's hull photographs a rusty wall.
+	for id in ["fishing_rod", "deep_rig_pole"]:
+		await _park(Vector3(27.4, 2.2, -20.0), -90.0, -6.0)
+		_select(id)
 		p.call("_update_held_item")
+		await get_tree().process_frame
 		for i in range(3):
 			await RenderingServer.frame_post_draw
-		_save("held_winch_c%d" % ci)
-		print("[tool] held winch cand%d rot=%s off=%s%s   %s"
-			% [ci, str(r), str(c["off"]), "   <-- INSTALLED" if ci == 0 else "",
-				_tip_line(p)])
-	pose["deep_rig_pole"] = {
-		"rot": Vector3(deg_to_rad(HELD_CANDS[0]["rot"].x), deg_to_rad(HELD_CANDS[0]["rot"].y), 0.0),
-		"off": HELD_CANDS[0]["off"],
-	}
-	# The winch from three angles at the installed pose, and the rod in the same light — the
+		_save("hold_%s_idle" % id)
+		_axes(p, id, "idle")
+		print("[tool] idle  %-14s %s" % [id, _tip_line(p)])
+	# ...and the SURFACE ROD ACTUALLY CASTING, from the same spot. The winch's cast needs the
+	# 45 m of air off the crane deck and gets its own section; the wand fishes the surface from
+	# the wet deck, which is where a player uses it. input_locked stays FALSE and the pose is
+	# held by _process — fishing_rod._physics_process reels the line straight in otherwise.
+	_select("fishing_rod")
+	p.call("_update_held_item")
+	_hold = {"pos": Vector3(27.4, 2.2, -20.0), "yaw": deg_to_rad(-90.0), "pitch": deg_to_rad(-14.0)}
+	p.set("input_locked", false)
+	p.set("ui_locked", false)
+	await get_tree().create_timer(0.8).timeout
+	p.call("_start_fishing")
+	var rod: Variant = p.get("fishing")
+	if rod == null:
+		print("[tool] the wand did not cast at all")
+	else:
+		var frames: int = 0
+		var got: bool = false
+		while frames < 600 and is_instance_valid(rod):
+			await get_tree().physics_frame
+			frames += 1
+			# State 1 == DRIFT: the float is on the water and the line is out.
+			if int(rod.get("_state")) == 1:
+				for i in range(3):
+					await RenderingServer.frame_post_draw
+				_save("hold_fishing_rod_cast")
+				_axes(p, "fishing_rod", "cast")
+				print("[tool] cast  fishing_rod  float at %s, %s"
+					% [str((rod as Node3D).global_position.snappedf(0.01)), _tip_line(p)])
+				got = true
+				break
+		if not got:
+			print("[tool] the wand's cast never reached DRIFT (frames=%d, alive=%s)"
+				% [frames, str(is_instance_valid(rod))])
+		if is_instance_valid(rod):
+			(rod as Node).queue_free()
+		p.set("fishing", null)
+		await get_tree().physics_frame
+		await get_tree().physics_frame
+	_hold = {}
+	# The winch from two more angles at the installed pose, and the rod in the same light — the
 	# only honest test of whether a palette reads as salt-hazed gunmetal or as pale plastic.
 	_select("deep_rig_pole")
 	p.call("_update_held_item")
-	for spot in [[Vector3(27.0, 2.3, -20.0), 0.0, -8.0], [Vector3(27.4, 2.2, -20.0), -90.0, -4.0],
-			[Vector3(14.0, 3.2, -23.4), 84.0, -2.0]]:
+	for spot in [[Vector3(27.0, 2.3, -20.0), 0.0, -8.0], [Vector3(14.0, 3.2, -23.4), 84.0, -2.0]]:
 		await _park(spot[0], float(spot[1]), float(spot[2]))
-		_save("held_winch_yaw%d" % int(spot[1]))
+		_save("hold_deep_rig_pole_yaw%d" % int(spot[1]))
 	_select("fishing_rod")
 	p.call("_update_held_item")
-	await _park(Vector3(27.4, 2.2, -20.0), -90.0, -4.0)
-	_save("held_rod_same_light")
-	print("[tool] held rod   %s" % _tip_line(p))
+	await _park(Vector3(27.4, 2.2, -20.0), -90.0, -6.0)
+	_save("hold_rod_same_light")
+
+## WHERE THE TOOL'S OWN AXES ACTUALLY POINT, in camera space, for the pose on screen right now.
+## This is the measurement the owner's complaint is about: "on its side" is the reel-side axis
+## having a big RIGHT component and almost no UP one. Printed next to every held frame so the
+## picture and the number are the same evidence.
+func _axes(p: Node, id: String, tag: String) -> void:
+	var hand: Node3D = p.get("_hand_item")
+	if hand == null or hand.get_child_count() == 0:
+		return
+	var container: Node3D = hand.get_child(0)
+	var visual: Node3D = container.get_child(0) as Node3D
+	var marker: Node = visual.find_child("hand_tip", true, false)
+	if not (marker is Node3D):
+		return
+	var pivot: Node3D = (marker as Node3D).get_parent() as Node3D
+	var cam: Camera3D = p.get("camera")
+	var inv: Basis = cam.global_transform.basis.inverse()
+	var b: Basis = pivot.global_transform.basis.orthonormalized()
+	var long_axis: Vector3 = inv * (b * Vector3(0, 1, 0))
+	var face: Vector3 = inv * (b * (Vector3(0, 0, 1) if id == "deep_rig_pole" else Vector3(1, 0, 0)))
+	var centre: Vector3 = inv * (container.global_position - cam.global_position)
+	print("[tool]   %-14s %-4s long axis -> cam %s | reel/drum axis -> cam %s | tool centre x=%+.2f"
+		% [id, tag, str(long_axis.snappedf(0.01)), str(face.snappedf(0.01)), centre.x])
+	print("[tool]        (cam space: +x right, +y up, +z back toward the player)")
+
+## The cast photographed from BESIDE the line. Derived from the two live endpoints — the
+## fairlead and the lead — rather than typed: the lens goes out along the horizontal normal to
+## the line's own vertical plane, level with a third of the way down, and looks at that point.
+func _along_the_line(p: Node, rod: Node3D) -> void:
+	var top: Vector3 = p.call("hand_tip_world")
+	var bot: Vector3 = rod.global_position
+	var flat := Vector3(bot.x - top.x, 0.0, bot.z - top.z)
+	if flat.length() < 0.5:
+		flat = Vector3(0, 0, -1)
+	var side: Vector3 = flat.normalized().cross(Vector3.UP)     # perpendicular, horizontal
+	var cam := Camera3D.new()
+	cam.fov = 62.0
+	add_child(cam)
+	# THREE FRAMES, BECAUSE ONE CANNOT DO IT. The line is 50.6 m long and 12 mm thick: a lens far
+	# enough back to hold both ends (25 m of half-height at fov 62 needs ~42 m of standoff) draws
+	# it a quarter of a pixel wide, and a lens close enough for it to read holds a few metres of
+	# it. So: the TOP (does it leave the fairlead?), the WHOLE RUN (is it one continuous line
+	# from the tool to the water?), and the BOTTOM (does it reach the lead?). Every frame prints
+	# where the two ends actually landed on screen, so a frame that missed is visible in the log.
+	for job in [["full", 0.5, 48.0], ["lead", 1.0, 7.0]]:
+		var aim: Vector3 = top.lerp(bot, float(job[1]))
+		var back: float = float(job[2])
+		cam.global_position = aim + side * back + Vector3(0, back * 0.10, 0)
+		cam.look_at(aim, Vector3.UP)
+		cam.current = true
+		for i in range(4):
+			await RenderingServer.frame_post_draw
+		_save("cast_beside_%s" % str(job[0]))
+		var s_top: String = "BEHIND LENS" if cam.is_position_behind(top) \
+			else str(cam.unproject_position(top).snappedf(1.0))
+		var s_bot: String = "BEHIND LENS" if cam.is_position_behind(bot) \
+			else str(cam.unproject_position(bot).snappedf(1.0))
+		print("[tool] beside-the-line '%s' at %.0f m: lens %s aim %s -> fairlead %s, lead %s"
+			% [str(job[0]), back, str(cam.global_position.snappedf(0.1)),
+				str(aim.snappedf(0.1)), s_top, s_bot])
+	cam.current = false
+	cam.queue_free()
+
+## WHERE ON SCREEN THE LINE STARTS, and where the fist is, in the same pixels. This is the
+## measurement behind "the line leaves the fairlead, not the player's fist": the line is drawn
+## from hand_tip_world() to the lead, so if the marker were lost the start point would collapse
+## onto the container's centre — which is the grip. Printing both projected positions makes the
+## difference a number in the log rather than something to be squinted at in the PNG.
+func _line_origin(p: Node, rod: Node3D, yaw: float, depth: float) -> void:
+	var cam: Camera3D = p.get("camera")
+	var hand: Node3D = p.get("_hand_item")
+	var container: Node3D = hand.get_child(0)
+	var tip: Vector3 = p.call("hand_tip_world")
+	var fist: Vector3 = container.global_position
+	var lead: Vector3 = rod.global_position
+	var s_tip: Vector2 = cam.unproject_position(tip)
+	var s_fist: Vector2 = cam.unproject_position(fist)
+	var s_lead: String = "off frame" if cam.is_position_behind(lead) \
+		else str(cam.unproject_position(lead).snappedf(1.0))
+	print("[tool] cast yaw %.0f depth %.1f m: line %s -> %s (%.1f m of line)"
+		% [yaw, depth, str(tip.snappedf(0.01)), str(lead.snappedf(0.01)), tip.distance_to(lead)])
+	print("[tool]     on screen: fairlead %s   fist %s   %.0f px apart   lead %s"
+		% [str(s_tip.snappedf(1.0)), str(s_fist.snappedf(1.0)), s_tip.distance_to(s_fist),
+			s_lead])
+	# A CROP AROUND THE FAIRLEAD, because that is the owner's actual condition and a 12 mm line
+	# 40 m long is a handful of pixels wide in a 1280 px frame. The crop is centred on the
+	# PROJECTED marker position, not on a guess, and blown up NEAREST so no resampler invents a
+	# line that is not there. If the line were anchored in the fist instead, this crop would
+	# show a bare hoop — the fist is 389 px away.
+	var img: Image = get_viewport().get_texture().get_image()
+	var w: int = 300
+	var h: int = 220
+	var x0: int = clampi(int(s_tip.x) - w / 2, 0, maxi(img.get_width() - w, 0))
+	var y0: int = clampi(int(s_tip.y) - h / 2, 0, maxi(img.get_height() - h, 0))
+	var crop: Image = img.get_region(Rect2i(x0, y0, mini(w, img.get_width()),
+		mini(h, img.get_height())))
+	crop.resize(crop.get_width() * 3, crop.get_height() * 3, Image.INTERPOLATE_NEAREST)
+	crop.save_png("%s/cast_fairlead_crop_d%d.png" % [_out, int(depth)])
 
 func _tip_line(p: Node) -> String:
 	var hand: Node3D = p.get("_hand_item")
@@ -290,23 +481,48 @@ func _select(id: String) -> void:
 func _cast_shots() -> void:
 	print("\n[tool] ================ A REAL CAST, OFF THE CRANE MACHINERY DECK ================")
 	var p: Node3D = main.player
-	# Stand at the deck's south-west quarter, 0.6 m inside the rail, and heave south — the
-	# only quarter with nothing but ocean under it all the way down.
+	# Stand 0.7 m inside the deck's NORTH rail and heave north (yaw 0 = −Z). Direction matters
+	# and is derived, not chosen: the topside deck below runs x[−30,30] z[−20,20] and the wet
+	# deck only starts at x 6, so from the crane's x≈3.6 the north edge is 3.2 m away and there
+	# is nothing under the lead after that but sea. Heaving SOUTH from here goes further INTO
+	# the footprint (+z is south on this rig) and the lead lands on the topside deck, which
+	# fishing_rod's in-flight foul ray correctly refuses.
 	var deck_y: float = RB.CRANE_DECK_TOP
 	var stand := Vector3(RB.CRANE_X + 1.6, deck_y, RB.CRANE_Z - RB.CRANE_DECK_HALF + 0.7)
 	print("[tool] crane machinery deck top y=%.3f, standing at %s (eye %.2f)"
 		% [deck_y, str(stand.snappedf(0.01)), stand.y + EYE_UP])
-	PlayerState.add_item("fish_herring")     # the deep rig refuses a bare drop
-	PlayerState.add_item("fish_herring")
-	PlayerState.add_item("fish_herring")
+	# MID-DAY, ONCE. force_phase(DAY) alone leaves the sun at 16° (see the note in _process),
+	# which photographs everything on this rig in low warm light; winding the phase clock to
+	# 45% of DAY's 34 minutes puts the sun high and white, and it stays there because a
+	# four-minute harness cannot run DAY out.
+	GameClock.force_phase(GameClock.Phase.DAY)
+	GameClock.set("_phase_elapsed_sec",
+		float(GameClock.phase_durations_minutes[GameClock.Phase.DAY]) * 60.0 * 0.45)
+	print("[tool] clock parked at DAY f=%.2f" % GameClock.phase_fraction())
+	# BAIT FIRST, THEN DROP: fishing_rod.setup() refuses a bare hook and lets the first
+	# physics frame reel it in, so the [B] press has to be simulated (try_bait_now) before
+	# every attempt or the "cast" is a one-frame abort with a toast and no line at all.
+	for i in range(6):
+		PlayerState.add_item("fish_herring")
 	_select("deep_rig_pole")
 	p.call("_update_held_item")
+	# The HUD stays ON for these frames: the deep rig's depth readout is what makes the
+	# picture self-documenting — a line to the sea could be anything, "42 m" cannot.
+	if main.hud != null:
+		main.hud.visible = true
 	var shot: bool = false
-	for yaw in [180.0, 200.0, 160.0, 225.0, 135.0]:
+	for yaw in [0.0, 340.0, 20.0, 315.0, 45.0]:
 		if shot:
 			break
-		# Held every frame by _process, and input_locked left FALSE on purpose.
-		_hold = {"pos": stand, "yaw": deg_to_rad(yaw), "pitch": deg_to_rad(-24.0)}
+		_select("deep_rig_pole")
+		# PITCH IS NOT A TASTE CHOICE HERE. The lead leaves the fairlead 35.7 m above the sea
+		# and lands 17.4 m out, so it is ~64° BELOW the horizontal: at the -24° a player looks
+		# out to sea at, the lead and most of the line are off the bottom of the frame and the
+		# picture proves nothing. The frame covers pitch ± 37.5° (fov 75, KEEP_HEIGHT), so -52°
+		# puts the splash-down point at -12° inside it while the winch — parented to the camera
+		# — stays exactly where it is. The deep heave ignores pitch entirely
+		# (fishing_rod.setup flattens the look direction), so aiming down cannot change the cast.
+		_hold = {"pos": stand, "yaw": deg_to_rad(yaw), "pitch": deg_to_rad(-52.0)}
 		p.set("_fly", true)
 		p.set("input_locked", false)
 		p.set("ui_locked", false)
@@ -315,11 +531,13 @@ func _cast_shots() -> void:
 			(p.get("fishing") as Node).queue_free()
 			p.set("fishing", null)
 		await get_tree().create_timer(0.8).timeout
+		var baited: bool = bool(FR.try_bait_now(p))
 		p.call("_start_fishing")
 		var rod: Variant = p.get("fishing")
 		if rod == null:
-			print("[tool] yaw %.0f: no cast object spawned" % yaw)
+			print("[tool] yaw %.0f: no cast object spawned (baited=%s)" % [yaw, str(baited)])
 			continue
+		print("[tool] yaw %.0f: cast away, baited=%s" % [yaw, str(baited)])
 		var frames: int = 0
 		var reached_water: bool = false
 		var saved: int = 0
@@ -335,17 +553,40 @@ func _cast_shots() -> void:
 			# goes down so the line's length is visible as a length.
 			if st == 2:
 				reached_water = true
-				if depth > 1.0 + saved * 7.0 and saved < 3:
+				if depth > 0.4 + saved * 4.0 and saved < 3:
 					for i in range(2):
 						await RenderingServer.frame_post_draw
 					_save("cast_yaw%d_d%d" % [int(yaw), int(depth)])
-					print("[tool] shot cast at yaw %.0f, depth %.1f m: line %s -> %s (%.1f m)"
-						% [yaw, depth, str((p.call("hand_tip_world") as Vector3).snappedf(0.01)),
-							str((rod as Node3D).global_position.snappedf(0.01)),
-							(p.call("hand_tip_world") as Vector3).distance_to(
-								(rod as Node3D).global_position)])
+					_line_origin(p, rod as Node3D, yaw, depth)
 					saved += 1
 			if saved >= 3:
+				# THE LINE IS RADIAL TO THE VIEW WHEN YOU LOOK AT WHAT YOU CAST AT, and a
+				# radial line has no length on screen: it runs from 0.5 m away (the fairlead)
+				# to 44 m away (the lead), 12 mm thick, so at the cast azimuth it foreshortens
+				# to a streak a few pixels long next to the lead and the picture proves nothing.
+				# Turning the PLAYER (not the lead) puts the same line side-on: the winch is
+				# parented to the camera so the fairlead stays put at the top right, while the
+				# lead swings left and the line becomes a diagonal across the frame. Turning
+				# right (decreasing yaw) is what moves it LEFT, i.e. clear of the HUD's depth
+				# panel. The player does not MOVE, so CANCEL_DISTANCE is never tripped.
+				for job in [[30.0, -40.0], [50.0, -40.0], [45.0, -30.0]]:
+					_hold = {"pos": stand, "yaw": deg_to_rad(yaw - float(job[0])),
+						"pitch": deg_to_rad(float(job[1]))}
+					await get_tree().create_timer(0.6).timeout
+					for i in range(3):
+						await RenderingServer.frame_post_draw
+					if not is_instance_valid(rod):
+						print("[tool] the line went while turning %.0f° off the cast" % float(job[0]))
+						break
+					_save("cast_sideon_y%d_p%d" % [int(job[0]), int(-float(job[1]))])
+					_line_origin(p, rod as Node3D, yaw - float(job[0]), float(rod.get("_depth")))
+				# ...and the same line from a lens set BESIDE it, which is the only frame that can
+				# hold all 50 m: from the deck the run is either radial to the view or crossed by
+				# the crane's own edge rails. The lens is placed perpendicular to the line's
+				# vertical plane, level with its upper third, and aimed a third of the way down —
+				# so the fairlead, the player and the whole descent are in one picture.
+				if is_instance_valid(rod):
+					await _along_the_line(p, rod as Node3D)
 				shot = true
 				break
 		if not shot:
@@ -355,7 +596,7 @@ func _cast_shots() -> void:
 						else "state=%d depth=%.1f" % [int(rod.get("_state")), float(rod.get("_depth"))]])
 	if not shot:
 		print("[tool] NO CAST WAS PHOTOGRAPHED from the crane deck — see the per-yaw lines above")
-	# Wide frame of the same cast from a third-person lens, so the whole line reads.
+	# A second wide frame of the same cast, aimed at the line's midpoint from further out.
 	if shot and p.get("fishing") != null and is_instance_valid(p.get("fishing")):
 		var lead: Vector3 = (p.get("fishing") as Node3D).global_position
 		var cam := Camera3D.new()
@@ -371,6 +612,8 @@ func _cast_shots() -> void:
 		print("[tool] wide cast frame: lens %s, subject %s"
 			% [str(cam.global_position.snappedf(0.1)), str(mid.snappedf(0.1))])
 		cam.current = false
+	if main.hud != null:
+		main.hud.visible = false
 	_hold = {}
 	if p.get("fishing") != null and is_instance_valid(p.get("fishing")):
 		(p.get("fishing") as Node).queue_free()

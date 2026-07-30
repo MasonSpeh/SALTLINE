@@ -69,6 +69,73 @@ same mistakes kept recurring.
 
 ## Sessions
 
+### s22 — 2026-07-29 (the owner's two fishing tools, installed and aimed)
+
+**The owner picked from the contact sheet and both picks are in.** `deep_rig_pole` is now
+option B, the **DECK WINCH** — 69 meshes / 7,916 tris, "not a rod at all": foot, mast, one big
+flanged drum wound with braid, crank, ratchet and pawl, brake shoe, one diagonal, and the line
+leaving over a bent **hoop fairlead**. `fishing_rod` is option 3, the **WAND** — 63 meshes /
+9,612 tris, a 19→3 mm blank over 2.10 m with 8 guides stepping 30→8 mm. Ported out of
+`tests/tool_options.gd` into `scripts/world/item_visual.gd` with the shared sub-assemblies
+(gimbal, taped grip, lever-drag reel, terminal tackle) and the 12-colour palette lifted with
+them, so the two tools still read as one man's kit. The `MIN_EXTENT` guards and the low
+`rings`/`ring_segments`/`segments` counts came across unchanged.
+
+**ICON_FOCUS, judged at 74 px and nowhere else.** Four candidate frames per tool were rendered
+on ItemIcons' own stage and read side by side at the real slot size: the winch takes **0.62 m**
+(tighter crops reduce the outline to "a wheel and a bar"; at 0.62 it is a wheel on a post with an
+arm over the top — unmistakably not the rod beside it) and the wand takes **0.40 m**, tighter
+than the rod it replaces, because 2.10 m of a 19 mm blank is a **111:1** sliver and its reel is
+scaled 0.84 against the old 0.95. `ICON_FOCUS` is a `const` Dictionary and therefore read-only,
+so the sweep re-implements eight lines of framing and then PROVES the copy: candidate 0 renders
+byte-identical to the shipping `get_icon()` (diff 0.0000).
+
+**THE HELD ROLL WAS NOBODY'S ANGLE.** Owner, twice: "fishing poles still oriented on side… when
+casting it goes reel/bail up… flip default side to the right… give slight tilt". Measured on the
+composed basis, the rod's blank came out 0.94 UP (near vertical) and its reel stuck out
+(+0.85 right, +0.20 up) — the reel BESIDE the blank, as the product of six stacked Euler angles
+across three nodes that nobody wrote as a roll. So `HAND_TOOL_POSE` no longer holds angles: it
+names the model's long axis and the axis its reel/drum stands off, names where each must point in
+CAMERA space, and `_apply_hand_pose()` solves it and divides the mount angles and the model's own
+lean back out. **TWO poses per tool** — the rod idles up-and-out to the RIGHT with the reel on
+top and canted back (reel-up 0.57 against 0.16 sideways) and swings to reel **squarely up** for a
+cast (0.89) while the blank drops toward the water. `tests/RodHandProbe.tscn` grew 20 → 31
+assertions and asserts exactly that, including that the two poses differ.
+
+**Two leads on one line, fixed.** The winch carries its terminal tackle hove up short under the
+fairlead, and `fishing_rod.gd` spawns its own lead for a cast — so a live cast drew the lead
+twice. The model's copy now lives in a node named `stowed_tackle` and the controller hides it for
+the duration of a cast (asserted).
+
+**The cast is photographed, not asserted.** Off the crane machinery deck (y 34.15), heaved NORTH
+because that is the only quarter with sea under it — the topside deck runs z[−20,20] and the wet
+deck starts at x 6, so from the crane's x 3.6 the lead clears the footprint and lands at
+(3.6, 0, −34.7), 40.0 m of line at the splash and 53.7 m at 15 m down. The line leaves the
+**hoop**, not the fist: on screen the fairlead is 389–451 px from the fist and the crop centred
+on the projected marker shows the line running through the hoop.
+
+**The SECOND yellow box was the LINE-THROWING SET** — `wet_deck_detail._boat_landing()`, one
+`MatLib.flat(Color(0.85, 0.45, 0.1))` BoxMesh, 0.5 × 0.3 × 0.3, at (26.7, 2.16, −20.5), **2.69 m
+from the Dock Locker**, on open deck plate in the walk from the gangplank to the stair tower. No
+node walk can see it (welded into `MergedDressing`, and its own material appears on no chunk), so
+it came off the PIXELS: the blob at (830, 310) of the frame taken 2.4 m east of the crate, and the
+box's own projection lands at (848, 319). **Kept and re-materialled** — every landing carries one
+and it is labelled — as `sphl_orange()` GRP with a proud lid, a seam, two galvanised clasps and a
+rubber carry handle. Also found in the same sweep and given a mould seam and a hauling eye: the
+yellow **Snagged Float** (`harvest_nodes._snagged_floats`, 0.34 m of `MatLib.flat`, 6.9 m off the
+crate) — real interactable salvage, so it keeps its colour; a trawl float IS one flat plastic
+colour, it was the lack of any evidence of manufacture that read as placeholder.
+
+Tests: `TestRunner` **FAILURES: 0**, `RodHandProbe` **31/31**. Screenshots:
+`/tmp/tool_final8/` (icons at 74 px, idle + cast for both tools, the cast off the crane, the
+fairlead crops) and `/tmp/yellow_before/` vs `/tmp/yellow_after/` (96 frames each, same spots).
+
+**Still open, deliberately:** the fishing line is 12 mm thick, so at 40 m it is a quarter of a
+pixel — legible against dark water and side-on, nearly invisible looking straight down it. And
+the rod's reel reads as LEFT-hand wind: the model's triad makes reel-up + crank-right +
+tip-away geometrically impossible without mirroring the reel, which would move the crank off the
+side the icon camera sees.
+
 ### s21 — 2026-07-29 (harvestable mussels)
 **The reef became food.** Owner brief: mussels scattered through the coral, boiled in a pot
 on the stove to be worth eating, regrowing five days after picking. Until now the whole

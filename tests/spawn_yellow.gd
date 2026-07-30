@@ -112,8 +112,9 @@ func _ready() -> void:
 						(b["col"] as Color).to_html(false)]
 					for i in range(hits.size()):
 						var d: Dictionary = hits[i]
-						line += "\n                #%d %.1fm %s  script=%s mesh=%s albedo=%s tex=%s size=%s centre=%s collides=%s" % [
-							i, d.get("dist", -1.0), d.get("chain", "?"), d.get("script", "?"),
+						line += "\n                #%d %.1fm [%s] %s  script=%s mesh=%s albedo=%s tex=%s size=%s centre=%s collides=%s" % [
+							i, d.get("dist", -1.0), d.get("how", "?"),
+							d.get("chain", "?"), d.get("script", "?"),
 							d.get("mesh", "?"), (d.get("albedo", Color.BLACK) as Color).to_html(false),
 							str(d.get("tex", false)),
 							str((d.get("size", Vector3.ZERO) as Vector3).snappedf(0.01)),
@@ -260,19 +261,71 @@ func _identify(p: Node3D, px: Vector2i, view: Vector2i) -> Array:
 		var box: AABB = vi.global_transform * raw
 		if box.size.x > 40.0 or box.size.z > 40.0:
 			continue
+		# STANDING INSIDE A MERGED CHUNK MAKES IT THE ANSWER TO EVERY PIXEL. The wet deck's
+		# dressing welds into ArrayMeshes up to 13 m across, and the player is inside one of
+		# them: `intersects_ray` then returns the origin itself, distance 0.00 m, for every
+		# blob on screen. That is what the first crate run reported, at every yaw, and it is
+		# worthless. A box that contains the eye cannot be what the eye is looking at.
+		if box.has_point(origin):
+			continue
 		var hit: Variant = box.intersects_ray(origin, dir)
 		if hit == null:
 			continue
 		var d: float = origin.distance_to(hit as Vector3)
 		if d < 40.0:
-			hits.append({"vi": vi, "d": d, "box": box})
+			hits.append({"vi": vi, "d": d, "box": box, "how": "aabb-ray"})
+	# AND the exact question, which the AABB ray only approximates: whose PROJECTED outline
+	# actually contains this pixel? Unlike the ray test this is immune to a big loose AABB
+	# swallowing a small prop's pixels, and unlike a physics ray it sees dressing (which has
+	# no collider at all). Small things only — a chunk's outline covers half the screen.
+	for h in hits:
+		h["how"] = "aabb-ray"
+	for n2 in _flat_walk():
+		var box2: AABB = n2.global_transform * n2.get_aabb()
+		if box2.size.length() > 4.0 or box2.has_point(origin):
+			continue
+		if not _screen_box(cam, box2).has_point(at):
+			continue
+		var d2: float = origin.distance_to(box2.get_center())
+		if d2 < 40.0:
+			hits.append({"vi": n2, "d": d2, "box": box2, "how": "on-pixel"})
 	hits.sort_custom(func(a, b): return float(a["d"]) < float(b["d"]))
 	var out: Array = []
-	for i in range(mini(hits.size(), 3)):
-		out.append(_describe(hits[i]["vi"], hits[i]["box"], float(hits[i]["d"])))
+	for i in range(mini(hits.size(), 4)):
+		var d3: Dictionary = _describe(hits[i]["vi"], hits[i]["box"], float(hits[i]["d"]))
+		d3["how"] = hits[i]["how"]
+		out.append(d3)
 	if out.is_empty():
 		out.append({"chain": "(no geometry within 40 m on that ray)"})
 	return out
+
+## Every drawn node in the scene that is not part of the player.
+func _flat_walk() -> Array:
+	var out: Array = []
+	var stack: Array[Node] = [get_tree().current_scene]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		var vi := n as GeometryInstance3D
+		if vi == null or not vi.is_inside_tree() or _under_player(vi):
+			continue
+		if vi.get_aabb().size == Vector3.ZERO:
+			continue
+		out.append(vi)
+	return out
+
+## The 2D screen rectangle a world box occupies, from its eight projected corners. Returns an
+## empty rect if any corner is behind the lens — unproject_position is meaningless there.
+func _screen_box(cam: Camera3D, box: AABB) -> Rect2:
+	var r := Rect2()
+	for i in range(8):
+		var c: Vector3 = box.get_endpoint(i)
+		if cam.is_position_behind(c):
+			return Rect2()
+		var s: Vector2 = cam.unproject_position(c)
+		r = Rect2(s, Vector2.ZERO) if i == 0 else r.expand(s)
+	return r
 
 func _under_player(n: Node) -> bool:
 	var p: Node = n

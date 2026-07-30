@@ -1417,7 +1417,16 @@ static func _deep_winch(root: Node3D) -> void:
 	boom.rotation.z = deg_to_rad(11)
 	var hoop := _torus(p, 0.026, 0.036, C_ALLOY, Vector3(0.168, 1.012, 0), 18, 8)
 	hoop.rotation.x = 0.0                                   # laid flat: the line drops through it
-	_tool_tackle(p, Vector3(0.168, 1.000, 0), 0.95)
+	# THE TACKLE GOES IN A NAMED, HIDEABLE NODE. It is hove up short under the fairlead because
+	# that is how a hand-line is carried between drops — but fishing_rod.gd spawns its OWN lead
+	# for a cast, so while a line is out this copy would be the SECOND lead on screen (owner,
+	# 2026-07-29: "there is a hook and bobber in the 3-d model too already"). The name is the
+	# contract: player_controller._show_stowed_tackle() finds it by name and hides it for the
+	# duration of a cast, the same way hand_tip_world() finds "hand_tip".
+	var stowed := Node3D.new()
+	stowed.name = "stowed_tackle"
+	p.add_child(stowed)
+	_tool_tackle(stowed, Vector3(0.168, 1.000, 0), 0.95)
 	# THE LINE LEAVES HERE, at the hoop — not at the fist. A child of the winch pivot so it
 	# inherits the lean and position for free.
 	_hand_tip(p, Vector3(0.168, 1.008, 0))

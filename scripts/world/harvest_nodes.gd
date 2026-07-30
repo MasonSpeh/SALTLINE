@@ -154,6 +154,38 @@ func _float_visual(tint: Color) -> Node3D:
 	ball.mesh = sm
 	root.add_child(ball)
 	ball.position = Vector3(0, 0.17, 0)
+	# A MOULDED SEAM AND A HAULING EYE, because a bare tinted sphere reads as a placeholder.
+	# Found 2026-07-29 by the same screen-pixel hunt that caught the fender posts and the
+	# line-throwing box (tests/SpawnYellow.tscn): the yellow one of these three is a 0.34 m
+	# blob of `MatLib.flat(Color(0.9, 0.78, 0.2))` and it was the largest saturated-yellow
+	# blob on the wet deck after the box was fixed — 6.9 m off the Dock Locker, right at the
+	# fender frame. It is NOT the box the owner reported and it is real, interactable salvage
+	# (CUT FREE -> float_buoy + rope), so it keeps its colour: a trawl float genuinely is one
+	# flat bright plastic colour. What it was missing is any evidence of manufacture. Two
+	# parts fix that and neither touches the collider SALVAGE.from_visual builds.
+	var seam := MeshInstance3D.new()
+	var seam_m := TorusMesh.new()
+	seam_m.inner_radius = 0.166
+	seam_m.outer_radius = 0.178
+	seam_m.rings = 20
+	seam_m.ring_segments = 8
+	seam_m.material = MatLib.flat(tint.darkened(0.38))
+	seam.mesh = seam_m
+	seam.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(seam)
+	seam.position = Vector3(0, 0.17, 0)
+	seam.rotation.x = deg_to_rad(90)                     # the mould line round the equator
+	var eye := MeshInstance3D.new()
+	var eye_m := TorusMesh.new()
+	eye_m.inner_radius = 0.018
+	eye_m.outer_radius = 0.036
+	eye_m.rings = 16
+	eye_m.ring_segments = 8
+	eye_m.material = MatLib.galvanized()
+	eye.mesh = eye_m
+	eye.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	root.add_child(eye)
+	eye.position = Vector3(0, 0.36, 0)                   # the eye the line is bent onto
 	# The tail of line it came in on, coiled where it fell.
 	var line := MeshInstance3D.new()
 	var tm := TorusMesh.new()

@@ -219,8 +219,37 @@ func _boat_landing() -> void:
 	# Nameplate on the bracket post, below the ring, facing the deck — was floating text
 	# above the ring with nothing behind it.
 	_signplate("LIFEBUOY", Vector3(28.4, y + 0.95, -21.72), 0, 12, Color(0.88, 0.88, 0.84), 0.8, 0.22)
-	# Line-throwing set: the orange box every landing carries.
-	_dbox(Vector3(26.7, y + 0.16, -20.5), Vector3(0.5, 0.3, 0.3), MatLib.flat(Color(0.85, 0.45, 0.1)))
+	# LINE-THROWING SET — and THIS is "the box, near the crate" (owner, 2026-07-29, after the
+	# fender posts above were fixed: "did you get the box, near the crate? Its within a few
+	# Meters of it"). It was ONE `MatLib.flat(Color(0.85, 0.45, 0.1))` BoxMesh, 0.5 x 0.3 x 0.3,
+	# at (26.7, 2.16, −20.5) — 2.69 m from the Dock Locker at (28.6, 2.0, −18.6), on open deck
+	# plate, in the walk from the gangplank to the stair tower. Untextured, unlit-looking, hard
+	# edged, one colour on all six faces: against a textured tread plate it reads as an
+	# un-authored block, which is the same complaint and the same cause as the posts —
+	# `MatLib.flat()` used as a paint can when it is documented as being for LIT LENSES.
+	#
+	# Found the same way the posts were, because a node walk still cannot see it (rig_batcher
+	# welds it, and its own material never appears on any MergedDressing chunk): the rendered
+	# PIXELS at the crate, then the camera's own projection to name the object —
+	# (26.7, 2.16, −20.5) projects to pixel (848, 319) of the frame the blob sits at (830, 310)
+	# in, from the vantage 2.4 m east of the crate. See tests/SpawnYellow.tscn.
+	#
+	# KEPT, not deleted: every boat landing carries a line-throwing appliance, it is labelled,
+	# and it belongs beside the ladder and the lifebuoy. So it gets a material and a shape
+	# instead. `sphl_orange()` is the rig's own international-orange GRP over brushed metal —
+	# the survival-craft material, which is exactly what a rescue appliance is made of — and a
+	# proud lid, a seam, two galvanised toggle clasps and a rubber carry handle turn a cuboid
+	# into a piece of equipment. No flat fill left on it.
+	var lt := Vector3(26.7, y + 0.15, -20.5)
+	_dbox(lt, Vector3(0.5, 0.3, 0.3), MatLib.sphl_orange())
+	_dbox(lt + Vector3(0, 0.165, 0), Vector3(0.53, 0.04, 0.33), MatLib.sphl_orange())  # proud lid
+	_dbox(lt + Vector3(0, 0.14, 0), Vector3(0.51, 0.012, 0.31), dark)                  # lid seam
+	for cx in [-0.15, 0.15]:
+		_dbox(lt + Vector3(cx, 0.1, 0.153), Vector3(0.07, 0.11, 0.02), MatLib.galvanized())
+	var lt_h := _dcyl(lt + Vector3(0, 0.2, 0), 0.014, 0.22, dark)
+	lt_h.rotation.z = deg_to_rad(90)                                                   # carry handle
+	for hx in [-0.1, 0.1]:
+		_dbox(lt + Vector3(hx, 0.19, 0), Vector3(0.02, 0.035, 0.02), MatLib.galvanized())
 	_plabel("LINE THROWER", Vector3(26.7, y + 0.2, -20.34), 180, 10, Color(0.92, 0.92, 0.88))
 	# Dock locker — first honest loot of the game, off to the side of the landing.
 	#
