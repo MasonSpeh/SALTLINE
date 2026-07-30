@@ -52,8 +52,11 @@ func _ready() -> void:
 	if args.size() > 0:
 		_out = args[0]
 	DirAccess.make_dir_recursive_absolute(_out)
-	var ids: Array = []
+	# Each family leads with the tool that SHIPS NOW, so every option is compared against the
+	# thing being replaced rather than against the other options only.
+	var ids: Array = ["deep_rig_pole"]
 	ids.append_array(OPT.DEEP)
+	ids.append("fishing_rod")
 	ids.append_array(OPT.RODS)
 	# ---- studio + slot first: these need no world, so a build error shows up in seconds.
 	print("\n[opt] ================ GEOMETRY ================")
@@ -101,7 +104,16 @@ func _studio(id: String) -> void:
 		meshes += 1
 		tris += mi.mesh.get_faces().size() / 3
 	var marker: Node = model.find_child("hand_tip", true, false)
-	for px in [STUDIO_PX, Vector2i(SLOT_PX * ZOOM, SLOT_PX * ZOOM)]:
+	# ONE FIXED FRAME PER FAMILY, not per option. Auto-framing each tool to its own extent is
+	# what the pack icon does, and it is exactly wrong here: it normalises away the only thing
+	# being judged. Four rods framed to fit each came back as four identical pictures. A common
+	# frame across the family means a 19 mm blank IS drawn thinner than a 36 mm one, and a
+	# 1.26 m pole IS drawn shorter than a 1.65 m rod.
+	var family: float = 1.90 if id.begins_with("deep") else 2.30
+	var extent := Vector3.ZERO
+	for job in [["studio", STUDIO_PX, family, 0.5], ["detail", STUDIO_PX, 0.42, 0.34],
+			["slot", Vector2i(SLOT_PX * ZOOM, SLOT_PX * ZOOM), 0.0, 0.5]]:
+		var px: Vector2i = job[1]
 		var stage: Array = _stage(px)
 		var vp: SubViewport = stage[0]
 		var cam: Camera3D = stage[1]
@@ -109,29 +121,34 @@ func _studio(id: String) -> void:
 		vp.add_child(copy)
 		await get_tree().process_frame
 		var box: AABB = _bounds(copy)
-		var centre: Vector3 = box.position + box.size * 0.5
+		extent = box.size
+		# `detail` looks at the reel/drum end — a third of the way up — at a hard 0.42 m frame,
+		# which is the magnification at which a section difference of a few millimetres reads.
+		var centre: Vector3 = box.position + Vector3(box.size.x * 0.5,
+			box.size.y * float(job[3]), box.size.z * 0.5)
 		var reach: float = maxf(box.size.length(), 0.001)
 		cam.near = 0.01
 		cam.far = reach * 8.0 + 10.0
-		cam.global_position = centre + VIEW_DIR.normalized() * (reach * 3.0 + 1.0)
+		cam.global_position = centre + VIEW_DIR.normalized() * (reach * 3.0 + 2.0)
 		cam.look_at(centre, Vector3.UP)
-		var span: Vector2 = _span(box, cam)
-		cam.size = maxf(maxf(span.x * float(px.y) / float(px.x), span.y), 0.001) / FRAME_FILL
+		if float(job[2]) > 0.0:
+			cam.size = float(job[2])
+		else:
+			var span: Vector2 = _span(box, cam)
+			cam.size = maxf(maxf(span.x * float(px.y) / float(px.x), span.y), 0.001) / FRAME_FILL
 		await RenderingServer.frame_post_draw
 		await RenderingServer.frame_post_draw
 		var img: Image = vp.get_texture().get_image()
-		if px == STUDIO_PX:
-			img.save_png("%s/studio_%s.png" % [_out, id])
-		else:
+		if String(job[0]) == "slot":
 			# Down to the size a slot really draws, then back up with NEAREST so what is
 			# inspected is the information a 74 px icon actually carries.
 			img.resize(SLOT_PX, SLOT_PX, Image.INTERPOLATE_LANCZOS)
 			img.resize(SLOT_PX * ZOOM, SLOT_PX * ZOOM, Image.INTERPOLATE_NEAREST)
-			img.save_png("%s/slot_%s.png" % [_out, id])
+		img.save_png("%s/%s_%s.png" % [_out, job[0], id])
 		remove_child(vp)
 		vp.queue_free()
 	print("[opt] %-14s meshes=%3d tris=%6d extent=%s hand_tip=%s   %s"
-		% [id, meshes, tris, str(_bounds(model).size.snappedf(0.001)),
+		% [id, meshes, tris, str(extent.snappedf(0.001)),
 			str((marker as Node3D).position.snappedf(0.001)) if marker is Node3D else "MISSING",
 			OPT.blurb(id)])
 	model.queue_free()

@@ -57,16 +57,25 @@ landed and nobody updated the file.
   distance-decimated. Population untouched, as the s18 measurement said it should
   be. Waterline went 22.22 -> 16.67 ms/frame.
 
-- **Where the remaining headroom is (measured s19).** The heaviest vantage is
-  `submerged_deep` at 23.81 ms / 2.83 M primitives / 1330 draws, of which the new
-  leg reef accounts for 1.98 ms (8.5%) — affordable, and the only vantage where
-  the reef is measurable above noise at all. `wet_deck` is the noisiest place in
-  the game to measure: its own repeat-visit spread is 7.2 ms and its primitive
-  count swings 2.1-3.6 M between visits, so no optimisation can currently be
-  *proved* there. Worth understanding before more content lands on that deck.
+- **Where the remaining headroom is (re-measured s21).** The heaviest vantage in
+  the game is **`wet_deck_stand` — a standing eye on the Wet Deck, 30.56 ms /
+  32.7 fps, 2861 draws, 3.42 M primitives** — and no profile before s21 had ever
+  measured it, because `VantagePerf`'s historical `wet_deck` vantage is at eye
+  y 4.0 and a standing eye there is y 3.6. `underwater_world.TOPSIDE_MARGIN` is
+  4.0, so the old vantage sat on the HIDDEN side of the topside cull and the
+  player stands on the VISIBLE side: opposite frames. The harness now has both
+  rows. This is where the player fishes and it is the frame to work on next.
+  **`bloom_fauna`'s per-frame GDScript is the wall at every vantage** — 4.5-6.1 ms,
+  19-32% of frame, WITH `AiBudget` already decimating (the `fauna_sim` row).
   Any NEW per-frame creature should take the four-line `AiBudget` prologue (see
-  `scripts/world/ai_budget.gd`); the incoming reef fish especially, since they
-  will be beyond 18 m from the player almost always.
+  `scripts/world/ai_budget.gd`).
+
+- **`wet_deck`'s 7-9 ms "noise" was never noise — FIXED s21.** Its repeat-visit
+  spread was 9.52 ms and its primitive count swung 2.1-3.6 M because the swell-
+  relative topside cull flipped the whole underwater subtree on and off 1-2 times
+  a second at that height (see `TOPSIDE_MARGIN`). Referencing still water instead:
+  spread 9.52 -> 0.67 ms, flips 2 -> 0, peak prims 3.63 M -> 2.13 M. The vantage is
+  measurable now.
 
 - **The 13 caisson snails put 13 solid spheres in the dive band (s20).** Every
   creature's `FaunaTouch` is an `Interactable`, i.e. a `StaticBody3D` on the

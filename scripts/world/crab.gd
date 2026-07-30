@@ -997,6 +997,7 @@ func _process(delta: float) -> void:
 	if state == State.DEAD:
 		_dead_tick(delta)
 		return
+	_ticks += 1                      # the territory may be worked out from here on: see _ticks
 	_animate(delta)
 	_bite_cd = maxf(_bite_cd - delta, 0.0)
 	_scare_cd = maxf(_scare_cd - delta, 0.0)
@@ -1105,6 +1106,7 @@ func _on_night_roll() -> void:
 ## hour of the night comes round (THE NIGHT RAMP), it goes up: its own leg if that leg is
 ## climbable, the east rim lane if not. Unless it is beaten or freshly scared.
 func _roost(delta: float) -> void:
+	_ensure_territory()          # cheap after the first call; see THE DAY TERRITORY
 	# ROOST means "in the water, on my leg", so say so. Without this a crab forced into
 	# ROOST from outside (TestRunner parks one back on its roost) would keep the deck roam
 	# target it last picked and slowly swim up out of the sea toward it.
@@ -1173,20 +1175,40 @@ func _pick_water_target() -> Vector3:
 		# of the rig for fifty seconds (see the note in _ready).
 		return _home if not roost_loop.is_empty() else global_position
 	var t: float
-	var t_w: float = _tan_hi - _tan_lo
 	if _rng.randf() < DEEP_TRIP:
 		t = _rng.randf_range(_tan_lo, _tan_hi)
 	else:
-		t = clampf(global_position.dot(_tan) + _rng.randf_range(-1.0, 1.0) * t_w * 0.6,
-			_tan_lo, _tan_hi)
+		t = _jog(global_position.dot(_tan), _tan_lo, _tan_hi, _tan_hi - _tan_lo)
 	var y: float
-	var y_w: float = _band_hi - _band_lo
 	if _rng.randf() < DEEP_TRIP:
 		y = _rng.randf_range(_band_lo, _band_hi)
 	else:
-		y = clampf(clampf(global_position.y, _band_lo, _band_hi)
-			+ _rng.randf_range(-1.0, 1.0) * minf(DAY_STEP, y_w * 0.6), _band_lo, _band_hi)
+		y = _jog(clampf(global_position.y, _band_lo, _band_hi), _band_lo, _band_hi, DAY_STEP)
 	return _face_pt(t, y)
+
+## ONE LEG OF THE WANDER, along one axis of the patch. Two things it deliberately is not.
+##
+## It is not a UNIFORM sample of the axis: a target drawn next to where the animal already
+## stands is a move that finishes before it starts, and the crab then spends the rest of its
+## beat standing still. Measured — the first cut of the territory narrowed the patch and took
+## the pack from 68-80 per cent of the day in motion down to 48-54, on identical speeds and an
+## identical pause, purely because the legs had got short.
+##
+## And it is not CLAMPED: clamping a step that overshoots the end of the run is the same
+## no-op by another route, and it parks the animal against its own boundary. Instead the
+## DIRECTION is drawn weighted by how much room is left on each side, and the distance is a
+## real fraction of that room — so a crab at the top of its column goes down, and every leg
+## it picks is worth walking.
+const JOG_MIN: float = 0.45         ## shortest leg, as a fraction of the room it chose
+func _jog(cur: float, lo: float, hi: float, reach: float) -> float:
+	var room_up: float = maxf(hi - cur, 0.0)
+	var room_dn: float = maxf(cur - lo, 0.0)
+	if room_up + room_dn < 0.05:
+		return clampf(cur, lo, hi)
+	var go_up: bool = _rng.randf() < room_up / (room_up + room_dn)
+	var room: float = minf(reach, room_up if go_up else room_dn)
+	var d: float = _rng.randf_range(JOG_MIN, 1.0) * room
+	return clampf(cur + (d if go_up else -d), lo, hi)
 
 ## ---------- out from under the slab ----------
 ##
@@ -1821,6 +1843,32 @@ func _seat(delta: float) -> void:
 	if state == State.EMERGE or (state == State.FLEE and not _scare_retreat):
 		_seated = false
 		up = up.lerp(Vector3.UP, clampf(delta * 2.5, 0.0, 1.0)).normalized()
+		return
+	# THE DAY COLUMN IS HELD ANALYTICALLY, and that is a fix, not a shortcut. The caisson face
+	# is one flat plane — this probe's own column sweep measures it at |x| 25.00 unbroken from
+	# y 1.0 to y -23.5 — and _ensure_territory has already measured which plane it is. So a
+	# raycast buys nothing down here and costs three things it was measurably losing:
+	#   * IT READS THE WRONG SURFACE. Everything bolted to a caisson since s19 stands PROUD of
+	#     it and sits on the default collision layer — the reef's climbing snails carry 0.6-0.85 m
+	#     FaunaTouch spheres (the column sweep sees them as "face at |x| 25.48"), and the s21
+	#     mussel beds are seated down the same faces. MOVE.kin_bodies only excludes fauna under
+	#     a bloom_fauna.gd host, and the reef's snails are parented under leg_reef. Measured
+	#     consequence: crab 0 reached y -14.1, seated on a sphere, and its cling normal tumbled
+	#     for the rest of the day — (0.36,-0.77,0.52), (0.39,0.4,-0.83), (0.31,0.87,0.38) — with
+	#     a seat error of 1.36 m, 34 buried crab-frames across the pack and 3 of 8 ADRIFT.
+	#   * IT LETS GO OF THE FACE. FaunaMove.seat wraps a convex edge on purpose (a deck rim into
+	#     the rim face), which on a 6 x 6 m leg means walking round the corner onto the
+	#     pack-mate's wall. That is half of the clustering this pass exists to fix.
+	#   * IT COSTS A RAY PER CRAB PER FRAME for a number that cannot change.
+	# The correction is sub-metre and eased at SEAT_CATCHUP, never assigned, so nothing blinks
+	# even if a test parks a crab off its plane.
+	if state == State.ROOST and _level == L_WATER and _terr:
+		up = _face_n
+		var flat: Vector3 = heading - _face_n * heading.dot(_face_n)
+		heading = flat.normalized() if flat.length() > 0.05 else _tan
+		_seated = true
+		var off: float = (_face_d + CLEAR) - global_position.dot(_face_n)
+		global_position += (_face_n * off).limit_length(SEAT_CATCHUP * delta)
 		return
 	if _skip.is_empty():
 		_skip = MOVE.kin_bodies(self)

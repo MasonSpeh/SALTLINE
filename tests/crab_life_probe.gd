@@ -40,6 +40,9 @@ const DEN_HIT: float = 0.8            ## how close counts as "checked in"
 ## the complaint is about.
 const CLUMP_DIST: float = 4.0         ## nearer than this and two giant crabs read as a pair
 const MOVING_SPEED: float = 0.05      ## m/s under which a crab is "sitting", not crawling
+const MOVING_SHARE: float = 0.60      ## and how much of the day a day crab has to spend above
+## it. The bar is set BELOW what the pre-territory code already managed (68-80%) on purpose, so
+## it is a real floor and not a rubber stamp for whatever the current build happens to do.
 const RAMP_SAMPLES: int = 10          ## points across the night
 const EMERGED_Y: float = 0.5          ## above this it is out of the water (test convention)
 const LOG_PATH: String = "/tmp/crab_life_probe.txt"
@@ -94,12 +97,55 @@ func _leg_of(p: Vector3) -> String:
 		return ""
 	return ("N" if p.z > 0.0 else "S") + ("E" if p.x > 0.0 else "W")
 
+## EVERY FAUNA COLLIDER IN THE WORLD, wherever it is parented — the skip list this probe has
+## to carry now that the caissons are inhabited. `MOVE.kin_bodies` walks up to a
+## `bloom_fauna.gd` host and collects what is under it, which is exactly the failure mode
+## AGENT_TRAPS warns about: the reef's climbing snails are `BloomFauna.LampSnail` /
+## `PyramidSnail` instances parented under `leg_reef`, and the s21 mussel beds under
+## `mussel_beds` — so none of them were excluded, and each of them carries a solid
+## FaunaTouch sphere standing up to 0.85 m proud of the concrete a crab clings to. The column
+## sweep below sees them plainly ("face at |x| 25.48" against a real face at 25.00); the seat
+## and visibility checks were silently measuring animals against animals.
+##
+## So: walk the tree once, and take every CollisionObject3D that lives under a node whose
+## script is one of the fauna hosts. Cached — it is a whole-tree walk.
+const FAUNA_HOSTS: Array = ["bloom_fauna.gd", "leg_reef.gd", "reef_life.gd", "reef_fish.gd",
+	"mussel_beds.gd", "underwater_world.gd", "crab.gd", "king_crab.gd"]
+var _fauna_skip: Array[RID] = []
+var _fauna_skip_done: bool = false
+
+func _fauna_bodies() -> Array[RID]:
+	if _fauna_skip_done:
+		return _fauna_skip
+	_fauna_skip_done = true
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		var s: Script = n.get_script() as Script
+		var host: bool = false
+		if s != null:
+			for frag in FAUNA_HOSTS:
+				if String(s.resource_path).ends_with(String(frag)):
+					host = true
+					break
+		if host:
+			for b in n.find_children("*", "CollisionObject3D", true, false):
+				_fauna_skip.append((b as CollisionObject3D).get_rid())
+			if n is CollisionObject3D:
+				_fauna_skip.append((n as CollisionObject3D).get_rid())
+			continue                     # everything beneath a fauna host is fauna
+		for c in n.get_children():
+			stack.append(c)
+	_say("   fauna skip list: %d collision bodies excluded from every geometry cast"
+		% _fauna_skip.size())
+	return _fauna_skip
+
 ## Gap between a crab's origin and the face its own `up` says it is standing on. Negative
 ## means the origin is on the wrong side of the surface — i.e. inside it.
 func _seat_gap(c: Node3D) -> float:
 	var up: Vector3 = c.up
 	var hit: Dictionary = MOVE.surface_hit(c, c.global_position, up, 0.9, 1.6,
-		MOVE.kin_bodies(c))
+		_fauna_bodies())
 	if hit.is_empty():
 		return INF
 	return (c.global_position - (hit["point"] as Vector3)).dot(up)
@@ -122,7 +168,7 @@ func _exposed(c: Node3D) -> bool:
 		c.global_position + up * 0.25)
 	q.collision_mask = 1
 	q.collide_with_areas = false
-	q.exclude = MOVE.kin_bodies(c)
+	q.exclude = _fauna_bodies()
 	return world.direct_space_state.intersect_ray(q).is_empty()
 
 func world_of(n: Node3D) -> World3D:
@@ -135,7 +181,7 @@ func world_of(n: Node3D) -> World3D:
 ## open water with concrete under it (a real cling face) or inside a casting.
 func _sweep_columns(host: Node3D) -> void:
 	_say("caisson column sweep — is there an exposed face to crawl, and where?")
-	var skip: Array[RID] = MOVE.kin_bodies(host)
+	var skip: Array[RID] = _fauna_bodies()
 	for leg in [Vector3(22, 0, -12), Vector3(22, 0, 12), Vector3(-22, 0, -12), Vector3(-22, 0, 12)]:
 		var sx: float = signf(leg.x)
 		var sz: float = signf(leg.z)
@@ -168,6 +214,66 @@ func _sweep_columns(host: Node3D) -> void:
 		for k in bands:
 			_say("      y %6.1f .. %6.1f   %s" % [(bands[k] as Array)[0], (bands[k] as Array)[1], k])
 
+## ---------------------------------------------------------------- the territories
+##
+## What each crab has been given for the day, and whether it is real concrete. crab.gd works
+## the territory out at runtime from the spawner's cling loops and from its own pack-mates, so
+## the only honest way to check it is to read it back off the live animal and cast at it: both
+## ends of every strip, at the top and the bottom of every depth slice, have to have the
+## caisson behind them and open water in front.
+func _territory_report(crabs: Array) -> void:
+	_say("   day territories, read back off the live pack:")
+	var off_face: Array[String] = []
+	var overlap: Array[String] = []
+	var terr: Array = []
+	for c in crabs:
+		var t: Dictionary = c.territory()
+		terr.append(t)
+		if not bool(t["ready"]):
+			off_face.append("crab %d has no territory" % int(c.spawn_index))
+			continue
+		_say("      crab %d  face %-15s plane %6.2f  run %6.2f..%6.2f (%4.2f m)  "
+			% [int(c.spawn_index), str((t["face"] as Vector3).snapped(Vector3.ONE * 0.01)),
+				float(t["plane"]), float(t["tan_lo"]), float(t["tan_hi"]),
+				float(t["tan_hi"]) - float(t["tan_lo"])]
+			+ "column y %6.2f..%6.2f (%4.2f m)  leg %s"
+				% [float(t["band_lo"]), float(t["band_hi"]),
+					float(t["band_hi"]) - float(t["band_lo"]),
+					str((t["leg"] as Vector3).snapped(Vector3.ONE * 0.1))])
+		# Four corners of the patch. Each must have concrete a hand's breadth behind it.
+		var n: Vector3 = t["face"]
+		var tan: Vector3 = t["tan"]
+		for tc in [float(t["tan_lo"]), float(t["tan_hi"])]:
+			for y in [float(t["band_lo"]), float(t["band_hi"])]:
+				var p: Vector3 = n * (float(t["plane"]) + 0.10) + tan * tc + Vector3.UP * y
+				var q := PhysicsRayQueryParameters3D.create(p + n * SIGHT, p - n * 0.35)
+				q.collision_mask = 1
+				q.collide_with_areas = false
+				q.exclude = _fauna_bodies()
+				var hit: Dictionary = (c as Node3D).get_world_3d() \
+					.direct_space_state.intersect_ray(q)
+				if hit.is_empty() or absf((hit["position"] as Vector3).dot(n)
+						- float(t["plane"])) > 0.25:
+					off_face.append("crab %d corner t%.1f y%.1f" % [int(c.spawn_index), tc, y])
+	# No two crabs on one caisson may share BOTH a face-parallel run and a depth slice.
+	for i in range(crabs.size()):
+		for j in range(i + 1, crabs.size()):
+			var a: Dictionary = terr[i]
+			var b: Dictionary = terr[j]
+			if not bool(a["ready"]) or not bool(b["ready"]):
+				continue
+			if (a["leg"] as Vector3).distance_to(b["leg"] as Vector3) > 1.0:
+				continue
+			var dy: float = minf(float(a["band_hi"]), float(b["band_hi"])) \
+				- maxf(float(a["band_lo"]), float(b["band_lo"]))
+			if dy > 0.0:
+				overlap.append("crabs %d+%d share %.2f m of depth on one leg"
+					% [int(crabs[i].spawn_index), int(crabs[j].spawn_index), dy])
+	_check("every day territory is a patch of real caisson, open on the water side",
+		off_face.is_empty(), "off the concrete: %s" % str(off_face))
+	_check("no two crabs on one caisson are given the same depth slice",
+		overlap.is_empty(), str(overlap))
+
 ## ---------------------------------------------------------------- day
 func _day_audit(crabs: Array) -> void:
 	_say("")
@@ -176,6 +282,7 @@ func _day_audit(crabs: Array) -> void:
 	await get_tree().process_frame
 	for i in range(30):
 		await get_tree().physics_frame
+	_territory_report(crabs)
 
 	var n: int = crabs.size()
 	var start: Array = []
@@ -218,7 +325,7 @@ func _day_audit(crabs: Array) -> void:
 	Engine.time_scale = TIME_SCALE
 	var elapsed: float = 0.0
 	var samples: int = 0
-	var skip: Array[RID] = MOVE.kin_bodies(crabs[0])
+	var skip: Array[RID] = _fauna_bodies()
 	while elapsed < DAY_SAMPLE_SEC:
 		await get_tree().process_frame
 		var dt: float = get_process_delta_time()
@@ -369,7 +476,7 @@ func _day_audit(crabs: Array) -> void:
 		if float(nn_min[i]) >= CLUMP_DIST:
 			lonely += 1
 		var mv: float = float(move_frames[i]) / float(maxi(samples, 1))
-		if mv >= 0.5:
+		if mv >= MOVING_SHARE:
 			busy += 1
 		_say("   crab %d  nearest pack-mate: mean %6.2f m, closest %6.2f m   "
 			% [i, nn_mean, float(nn_min[i])]
@@ -396,7 +503,8 @@ func _day_audit(crabs: Array) -> void:
 	_check("mean nearest-neighbour spacing is a rig apart, not a shell apart",
 		nn_mean_all >= 8.0, "mean over the pack: %.2f m" % nn_mean_all)
 	_check("a day crab is in motion, not parked", busy == n,
-		"%d of %d were moving for at least half the window" % [busy, n])
+		"%d of %d were moving for at least %.0f%% of the window"
+			% [busy, n, MOVING_SHARE * 100.0])
 	return
 
 ## ---------------------------------------------------------------- night
@@ -501,7 +609,7 @@ func _run() -> void:
 	if _only == "day":
 		return
 	# Nothing may finish the night standing in solid geometry.
-	var skip: Array[RID] = MOVE.kin_bodies(crabs[0])
+	var skip: Array[RID] = _fauna_bodies()
 	var buried: Array[String] = []
 	for c in crabs:
 		if MOVE.point_solid(c, (c as Node3D).global_position, skip):

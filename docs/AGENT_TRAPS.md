@@ -91,6 +91,45 @@ lens — a crab "census" once photographed six crabs lined up chasing the camera
 pass once "measured" a 3.2 ms cost at a vantage where both sides had identical
 triangle and draw counts — it was thermal drift.
 
+**A windowed Godot launched into the BACKGROUND on macOS reports frozen renderer
+counters.** Not zero — frozen at their first-frame values, which is far worse.
+An s21 `VantagePerf` run backgrounded from a shell came back with *identical*
+draw calls (3449) and primitives (4,560,633) at all six vantages and a constant
+6.90 ms frame delta, i.e. a 4x speedup over the same build measured in the
+foreground. Everything about it looked like a clean result except that six
+different camera positions cannot cost the same to the digit. **Run measurement
+harnesses in the foreground**, and print the camera position each vantage
+actually reached so a camera that never moved is visible in the log.
+
+**A perf vantage 40 cm off is a different frame, not a slightly different one.**
+`VantagePerf`'s `wet_deck` sits at eye y 4.0; the Wet Deck floor is y 2.0 and the
+player's eye is 1.6 m up, so a standing eye is 3.6 — and
+`underwater_world.TOPSIDE_MARGIN` is 4.0. The vantage was therefore on the hidden
+side of the topside cull and the player on the visible side: 2709 draws / 2.15 M
+prims / 25.0 ms against 2861 / 3.42 M / 30.6 ms. An optimisation worth 3.86 ms
+where the player stands measured as **zero** at the vantage named after that deck.
+Derive vantages from the geometry (floor height + eye height), not by eye.
+
+**Do not freeze a world with `Engine.time_scale = 0` to get a still frame for a
+pixel diff.** A zero delta divides by zero in the fauna movement code and
+produces the NaN that defeats every guard in this repo — the run filled stderr
+with "Vector3 cannot be normalized" at frame rate and wrote **5.4 GB** before it
+was killed. (Cap harness output with `head -c` while you are at it.) Freeze a
+world by removing its motion, never by stopping its clock.
+
+**A frame-difference test must give both comparisons the SAME temporal gap.** The
+first version of s21's cull proof captured its null pair one frame apart and its
+test pair five, so it was comparing five frames of swell against one: every row
+read "visible" by a constant ~4x, at every height, for every target, independent
+of the thing being varied. The reverse mistake is just as easy — with *equal* six
+frame gaps the sea's own motion (mean 3/255, 1400-3700 pixels over threshold)
+swamps the signal and every row reads "invisible". This ocean cannot be stilled
+(`amp_scale` bottoms out at 0.18, not 0), so the working answer was a per-pixel
+**motion mask**: three captures one frame apart with the target shown in the
+first and last, count only pixels the middle frame changed a lot AND the mask
+says were steady, then run the identical statistic with nothing toggled to get
+the null. That resolves 6 pixels against 17 out of ~102k sampled.
+
 **Every creature carries a solid 0.6–0.85 m sphere, and it will corrupt your
 measurements.** `FaunaTouch` is an `Interactable`, i.e. a `StaticBody3D` on the
 default collision layer — that is how the player's interaction ray finds an
@@ -168,6 +207,30 @@ nobody checked (`+Z·travel = +0.99` when it should have been `+X`).
 ---
 
 ## This project's own conventions
+
+**`rig_batcher.gd` WELDS the dressing into `MergedDressing`, so no per-node walk can find a
+dressing prop by its material.** Every `_dbox`/`_dcyl` in `wet_deck_detail.gd` and friends is
+gone from the tree by the time a probe runs: what is left is a handful of `ArrayMesh` chunks
+under `Main/.../MergedDressing`, each carrying ONE shared material with `albedo_color = ffffff`
+and a texture. An owner-reported "blank yellow block on the spawndeck" was hunted twice by
+walking `VisualInstance3D` and filtering on `albedo_color`, found two unrelated flat-yellow CSG
+bollards, and "fixed" those — while the actual culprit, 3 m of flat-yellow tube in
+`_boat_landing()`, was invisible to that search *twice over*: welded into a merged chunk, and
+its yellow living in a material the walk never reached. **Search from the PICTURE, not the
+tree**: stand where the player stands, read the rendered pixels, cluster the ones that are
+actually the colour complained about, and shoot the camera's own ray through each cluster
+(`tests/SpawnYellow.tscn`). Two further gotchas that cost a run each: F9's `is_in_group("player")`
+test only looks at the node itself, so the player's flashlight — a `SpotLight3D` under
+`Head/Camera3D` with a 23 x 25 x 24 m AABB — swallows every ray and "identifies" everything;
+and an AABB ray test is coarse enough that the answer is often the *second* hit, so return
+several.
+
+**Flat fills of `Color(0.75, 0.65, 0.15)` are `hazard_stripe()`'s fallback tint, written by
+hand where the material was meant.** Found in two independent places (`rig_builder`'s gangplank
+bollards, `wet_deck_detail`'s fender posts), both reported by the owner as blank yellow blocks.
+If you see that literal, or any of the `Color(0.7-0.85, 0.6-0.75, 0.1-0.2)` family, the author
+wanted `MatLib.hazard_stripe()` and it never got called. `MatLib.flat()` is for LIT LENSES and
+small emissive parts; a flat fill on anything a metre across reads as un-authored.
 
 **`ANIM.replace()` hides every mesh built before it.** Overlay geometry (claws,
 armour, eyes) must be added *after* the call or it is invisible dead code.

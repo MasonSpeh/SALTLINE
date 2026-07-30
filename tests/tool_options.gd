@@ -22,6 +22,10 @@ const DEEP := ["deep_braced", "deep_winch", "deep_boatrod", "deep_spool"]
 const RODS := ["rod_slim", "rod_fine", "rod_wand", "rod_trim"]
 
 static func build(id: String) -> Node3D:
+	# Anything not an option id is a real installed tool, so the sheet can carry a "what ships
+	# now" reference column built by the shipping code rather than by a copy of it.
+	if not (id in DEEP or id in RODS):
+		return IV.build(id)
 	var root := Node3D.new()
 	match id:
 		"deep_braced": _deep_braced(root)
@@ -45,6 +49,8 @@ static func blurb(id: String) -> String:
 		"rod_fine": return "2: 23>4.5 mm blank, 7 fine guides"
 		"rod_wand": return "3: 19>3 mm, 2.10 m, 8 guides - extreme"
 		"rod_trim": return "4: 23>4.5 mm + low-profile reel, trimmed"
+		"fishing_rod": return "NOW: the installed rod, 36>7 mm blank"
+		"deep_rig_pole": return "NOW: the installed deep rig"
 	return id
 
 # ============================ the shared palette ============================

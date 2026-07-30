@@ -1324,7 +1324,11 @@ func _check_ai_budget() -> void:
 	# [1, 2, 4], which silently stopped covering the stride actually in use the moment
 	# HIDDEN_STRIDE moved off 4 — and the whole point of this check is that the stride in use
 	# conserves time.
-	for stride in [1, 2, AiBudget.FAR_STRIDE, AiBudget.HIDDEN_STRIDE]:
+	var strides: Array = [1, 2]
+	for s in [AiBudget.FAR_STRIDE, AiBudget.HIDDEN_STRIDE]:
+		if not strides.has(s):
+			strides.append(s)          # the two are equal today; don't assert it twice
+	for stride in strides:
 		var acc: float = 0.0
 		var spent: float = 0.0
 		var worst_step: float = 0.0

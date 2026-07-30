@@ -55,6 +55,17 @@ const SPOTS := [
 	["deck_floodlit", Vector3(0.0, 20.0, -1.0), Vector3(14.0, 19.0, 7.0)],
 	["ops_lookout", Vector3(26.0, 39.0, -2.0), Vector3(20.0, 38.0, 6.0)],
 	["wet_deck", Vector3(16.0, 4.0, -19.0), Vector3(13.0, 3.5, -12.0)],
+	# THE ONE ABOVE IS 40 cm TOO HIGH, and it mattered. The Wet Deck floor is y 2.0
+	# (rig_builder.WET_Y) and the player's eye is ~1.6 m over its feet, so a standing eye there
+	# is 3.6 — while underwater_world.TOPSIDE_MARGIN is 4.0. The historical vantage therefore
+	# sits just on the HIDDEN side of the topside cull and a real player stands just on the
+	# VISIBLE side, which is the opposite frame. That is why an optimisation measured as worth
+	# 8.97 ms at "wet_deck" could read as zero: the vantage was not sampling the condition. The
+	# 4.0 row is kept for before/after continuity with s19/s20; this is the real one.
+	["wet_deck_stand", Vector3(16.0, 3.6, -19.0), Vector3(13.0, 3.1, -12.0)],
+	# The band BETWEEN the two culls (eye 2.0-4.0): out on the pontoon walkway looking down at
+	# the water, where the topside cull still keeps the ocean alive and the reef cull does not.
+	["pontoon_rail", Vector3(-18.0, 2.6, -12.0), Vector3(-30.0, -1.0, -22.0)],
 	["waterline", Vector3(0.0, 1.1, -17.0), Vector3(0.0, -2.0, -34.0)],
 	["submerged_mid", Vector3(0.0, -5.0, -16.0), Vector3(0.0, -6.0, -34.0)],
 	["submerged_deep", Vector3(-8.0, -12.0, -6.0), Vector3(8.0, -13.0, 6.0)],
@@ -226,9 +237,12 @@ func _toggle(kind: String, on: bool) -> void:
 			if _reef != null:
 				_reef.set("cull_above_water", on)
 		"hidden_stride":
-			# OFF = back to the s19 value. Not 1: the point is what the LOOSER stride bought on
-			# top of the decimation that already existed, not what decimation is worth (that is
-			# the ai_decimation row).
+			# ON is the LOOSER stride, OFF the shipped one — so this row reads "what would a
+			# looser hidden stride buy". Measured at nothing, which is why 4 shipped; the row is
+			# kept so the next person to have the idea can re-run it in two minutes instead of
+			# reasoning about it. Not 1 on the OFF side: the question is what a looser stride
+			# adds on top of the decimation that already exists, not what decimation is worth
+			# (that is the ai_decimation row).
 			AiBudget.HIDDEN_STRIDE = 8 if on else 4
 		"fauna_sim":
 			if _fauna != null:
