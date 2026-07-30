@@ -50,16 +50,24 @@ const VIEW_DIR := Vector3(0.62, 0.55, 0.78)
 ##
 ## Anything not listed here is framed to its full extent exactly as before.
 const ICON_FOCUS := {
-	# Reel seat, lever-drag multiplier, foregrip and the first two guides — the part of a
-	# stand-up rod you would recognise it from across a deck.
-	"fishing_rod": {"centre": Vector3(0.06, 0.62, 0.0), "size": 0.62},
-	# The deep rig is a 1.23 m braced frame — a far kinder 2.7:1 than the rod, but a square
-	# slot still spends most of its width on air if the whole thing is fitted. So the frame is
-	# held on the WINCH: the flanged drum with its braid, the crank, the ratchet, the brake
-	# lever, and enough of the mast and its diagonal strut for the machine to read as a frame
-	# rather than as a wheel. The head, the sheave and the terminal tackle run off the top of
-	# the frame on purpose — length and tackle are what the hand and the world show.
-	"deep_rig_pole": {"centre": Vector3(-0.075, 0.525, 0.02), "size": 0.58},
+	# Reel seat, lever-drag multiplier, foregrip and the first guide — the part of a stand-up
+	# rod you would recognise it from across a deck.
+	#
+	# RETUNED 2026-07-29 for the owner's "wand" pick: 2.10 m of a 19 mm blank tapering to
+	# 3 mm is a 111:1 sliver, worse than the 53:1 rod it replaces, and its hardware is
+	# smaller too (the reel is scaled 0.84 against the old one's 0.95). So the frame comes
+	# IN rather than tracking the extra length: 0.52 m held on the reel, where the old rod
+	# spent 0.62 m. Coordinates are ROOT space, i.e. after the case's own 14° lean.
+	"fishing_rod": {"centre": Vector3(-0.02, 0.66, 0.0), "size": 0.52},
+	# The deep rig is now a DECK WINCH (owner pick, option B) — 1.03 m tall, 0.64 wide,
+	# 0.46 deep. That is a kind 1.6:1, but a whole-frame fit still spends the slot on the
+	# foot, the boom and 0.23 m of hanging tackle, and the option sheet's own slot row
+	# showed exactly that: a small dark machine with nothing legible in it. So the frame is
+	# held on the MACHINE — the flanged drum with its braid standing proud of the drive
+	# cheek, the crank, the ratchet gear, the brake shoe, and enough mast for it to read as
+	# a winch rather than as a wheel. The hoop fairlead and the tackle run off the top on
+	# purpose: length and tackle are what the hand and the world show.
+	"deep_rig_pole": {"centre": Vector3(-0.10, 0.53, 0.06), "size": 0.50},
 	# 1.35 m of driftwood shaft; the lashing and the shard point are the whole read.
 	"crude_spear": {"centre": Vector3(0.17, 1.16, 0.0), "size": 0.5},
 }

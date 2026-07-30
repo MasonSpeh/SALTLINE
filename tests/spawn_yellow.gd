@@ -19,11 +19,32 @@ extends Node
 
 ## Where the player actually is. player_spawn is the cold open at the SPHL hatch;
 ## wet_deck_respawn is where they come back to. Both are "the spawn deck".
+##
+## OWNER REPORT, 2026-07-29, after the boat-landing fender posts were fixed: "The pole was
+## good, but did you get the box, near the crate? Its within a few Meters of it." The crate is
+## wet_deck_detail's Dock Locker at (28.6, ~2.0, -18.6) — moved 1 m inboard from z -19.6 — so
+## the four `crate_*` spots below ring it at 2.4-3.2 m, which is the range the owner actually
+## walks past it at. The two original spawn-deck spots are kept because they are what found
+## the fender posts and cost only a few seconds.
 const SPOTS := [
+	["crate_w", Vector3(25.6, 2.2, -18.6)],
+	["crate_n", Vector3(28.6, 2.2, -15.8)],
+	["crate_sw", Vector3(26.4, 2.2, -20.8)],
+	["crate_e", Vector3(31.0, 2.2, -18.6)],
 	["spawn", Vector3(20.0, 2.2, -24.7)],
 	["respawn", Vector3(20.0, 2.6, -19.0)],
 ]
 const YAWS := [0, 45, 90, 135, 180, 225, 270, 315]
+## TWO EYE HEIGHTS, not one. A 0.5 m box on the deck plate 3 m away subtends about 9° and
+## sits ~15° below a level eye, so at the original single -6° pitch it lands in the bottom
+## strip of the frame or off it entirely — the same near-miss that makes a low prop invisible
+## to a walk-past. -6° is what the player sees standing; -26° is what they see looking at
+## their feet, which is where a deck box lives.
+const PITCHES := [-6.0, -26.0]
+## How far out `_near_dump` looks. The owner said "within a few Meters", so this is a few
+## metres and not the 14 m the fender-post hunt used: on a dressed wet deck a wide radius
+## buries the answer in twenty textured props that are nowhere near the crate.
+const REACH: float = 8.0
 const CELL: int = 24          ## coarse-grid cell for clustering, in pixels
 const MIN_CELLS: int = 2      ## a blob smaller than this is a highlight, not a block
 
@@ -77,30 +98,31 @@ func _ready() -> void:
 	var seen: Dictionary = {}
 	for spot in SPOTS:
 		print("\n[yellow] ======== standing at %s %s ========" % [spot[0], str(spot[1])])
-		_near_dump(spot[1], 14.0)
-		for yaw in YAWS:
-			await _look(p, spot[1], float(yaw), -6.0)
-			var tag: String = "%s_yaw%d" % [spot[0], yaw]
-			var img: Image = get_viewport().get_texture().get_image()
-			img.save_png("%s/%s.png" % [_out, tag])
-			for b in _yellow_blobs(img):
-				var hits: Array = _identify(p, b["px"], img.get_size())
-				var line: String = "%-16s %5.2f%% of frame, px%s..%s centroid%s rendered=%s" % [
-					tag, b["share"] * 100.0, str(b["lo"]), str(b["hi"]), str(b["px"]),
-					(b["col"] as Color).to_html(false)]
-				for i in range(hits.size()):
-					var d: Dictionary = hits[i]
-					line += "\n                #%d %.1fm %s  script=%s mesh=%s albedo=%s tex=%s size=%s centre=%s collides=%s" % [
-						i, d.get("dist", -1.0), d.get("chain", "?"), d.get("script", "?"),
-						d.get("mesh", "?"), (d.get("albedo", Color.BLACK) as Color).to_html(false),
-						str(d.get("tex", false)),
-						str((d.get("size", Vector3.ZERO) as Vector3).snappedf(0.01)),
-						str((d.get("centre", Vector3.ZERO) as Vector3).snappedf(0.01)),
-						d.get("solid", "?")]
-				print("[yellow] " + line)
-				var key: String = str(hits[0].get("chain", "?"))
-				if not seen.has(key) or float(seen[key]["share"]) < float(b["share"]):
-					seen[key] = {"share": b["share"], "line": line}
+		_near_dump(spot[1], REACH)
+		for pitch in PITCHES:
+			for yaw in YAWS:
+				await _look(p, spot[1], float(yaw), float(pitch))
+				var tag: String = "%s_p%d_yaw%d" % [spot[0], int(pitch), yaw]
+				var img: Image = get_viewport().get_texture().get_image()
+				img.save_png("%s/%s.png" % [_out, tag])
+				for b in _yellow_blobs(img):
+					var hits: Array = _identify(p, b["px"], img.get_size())
+					var line: String = "%-20s %5.2f%% of frame, px%s..%s centroid%s rendered=%s" % [
+						tag, b["share"] * 100.0, str(b["lo"]), str(b["hi"]), str(b["px"]),
+						(b["col"] as Color).to_html(false)]
+					for i in range(hits.size()):
+						var d: Dictionary = hits[i]
+						line += "\n                #%d %.1fm %s  script=%s mesh=%s albedo=%s tex=%s size=%s centre=%s collides=%s" % [
+							i, d.get("dist", -1.0), d.get("chain", "?"), d.get("script", "?"),
+							d.get("mesh", "?"), (d.get("albedo", Color.BLACK) as Color).to_html(false),
+							str(d.get("tex", false)),
+							str((d.get("size", Vector3.ZERO) as Vector3).snappedf(0.01)),
+							str((d.get("centre", Vector3.ZERO) as Vector3).snappedf(0.01)),
+							d.get("solid", "?")]
+					print("[yellow] " + line)
+					var key: String = str(hits[0].get("chain", "?"))
+					if not seen.has(key) or float(seen[key]["share"]) < float(b["share"]):
+						seen[key] = {"share": b["share"], "line": line}
 	print("\n[yellow] ================ BIGGEST YELLOW BLOB PER NEAREST OBJECT ================")
 	var keys: Array = seen.keys()
 	keys.sort_custom(func(a, b): return float(seen[a]["share"]) > float(seen[b]["share"]))
@@ -310,7 +332,7 @@ func _near_dump(from: Vector3, reach: float) -> void:
 	rows.sort_custom(func(a, b): return float(a["vol"]) > float(b["vol"]))
 	print("\n[yellow] ---- every candidate within %.0f m of %s, biggest first (%d) ----"
 		% [reach, str(from), rows.size()])
-	for i in range(mini(rows.size(), 14)):
+	for i in range(mini(rows.size(), 20)):
 		var d: Dictionary = rows[i]
 		print("[yellow]  %2d vol=%.3f %s\n            script=%s mesh=%s albedo=%s tex=%s flatyellow=%s\n            size=%s centre=%s %.1fm collides=%s"
 			% [i, d["vol"], d["chain"], d["script"], d["mesh"],

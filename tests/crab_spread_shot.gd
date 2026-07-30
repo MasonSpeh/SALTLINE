@@ -21,13 +21,18 @@ extends Node
 ## Must run WINDOWED. --headless never draws.
 ##   godot --path . res://tests/CrabSpreadShot.tscn -- <out_dir> [--fill] [--tag=<name>]
 
+const CRAB := preload("res://scripts/world/crab.gd")
 const TIME_SCALE: float = 8.0
 const SETTLE_SEC: float = 110.0   ## game seconds of daylight before the first frame: long
 ## enough for every crab to have walked off its spawn den into its own strip and slice, and to
 ## be part-way through a roam leg rather than standing on the exact point it started from.
-const CORNER_OUT: float = 12.0    ## how far off the shared corner the diver hovers. Wide
-## enough that a pair 5-8 m apart both fit the ~107 degree view; near enough to out-range the
-## underwater fog.
+const CORNER_OUT: float = 10.5    ## how far off the shared corner the diver hovers. Wide
+## enough that a pair 5-10 m apart both fit the ~107 degree view; near enough to out-range the
+## underwater fog, which measurably swallows the rig past about 30 m — the first cut of this
+## harness took three "whole pack" frames from 46 m out and every one came back as flat teal.
+const PORTRAIT_OUT: float = 5.0   ## and how close a single-animal portrait is taken from. A
+## giant crab is ~1.1 m across and the view is ~107 degrees, so this is what makes it fill a
+## useful part of the frame rather than being the seven pixels s20's reef fish taught us about.
 
 var main: Node3D
 var _dir: String = "/tmp/crab_spread"
@@ -124,44 +129,60 @@ func _ready() -> void:
 		if not legs.has(key):
 			legs[key] = []
 		(legs[key] as Array).append(c)
+	# One portrait each: every animal alone on its own stretch of concrete, close enough to be
+	# read as a crab. This is the "individually, not lined up together" half of the brief.
+	for c in crabs:
+		await _portrait(c)
+	# Then the pair frames — the spacing itself. Twice: once in honest daylight, and once with
+	# a photographer's fill, because fifteen metres down the daylight is heavily graded and a
+	# census nobody can count is not a census. Every filename says which it is.
 	for key in legs:
-		await _pair_shot(key, legs[key] as Array)
-
-	# ---- and the pack at rig scale, from out in the water off each end.
-	await _wide_shot(crabs, Vector3(46.0, -7.0, -30.0), "wide_south")
-	await _wide_shot(crabs, Vector3(-46.0, -7.0, 30.0), "wide_north")
-	await _wide_shot(crabs, Vector3(46.0, -7.0, 30.0), "wide_east")
+		await _pair_shot(key, legs[key] as Array, "")
+	_light_the_set()
+	await get_tree().create_timer(0.4).timeout
+	for key in legs:
+		await _pair_shot(key, legs[key] as Array, "_lit")
+	_douse()
 
 	_roll_call(crabs)
 	_say("[spread] done")
 	get_tree().quit(0)
 
-## The corner shot. `group` is the crabs on one caisson; the diver hovers out along the sum of
-## the face normals they occupy — i.e. off the corner between their two walls — and looks at
-## the midpoint of the pair, so the frame contains both of them and the concrete between.
-func _pair_shot(key: String, group: Array) -> void:
+## One animal, face on, from the water in front of its own patch.
+func _portrait(c: Node3D) -> void:
+	var n: Vector3 = c.territory()["face"]
+	var at: Vector3 = c.global_position
+	await _shot(at + n * PORTRAIT_OUT + Vector3.UP * 0.9, at,
+		"%s_crab%d" % [_tag, int(c.spawn_index)], [c])
+
+## The corner shot: the two crabs that share a caisson, together in one frame.
+##
+## The diver hovers out along the SUM of the face normals they occupy — the bisector of the
+## corner between their two walls — and aims at THE CORNER, not at the midpoint of the pair.
+## Aiming at the pair looks obvious and is wrong: the midpoint sits well off the bisector once
+## the two animals are properly spread, which swings the view round until one of the two faces
+## is edge on. The first cut of this harness did exactly that and the SE frame came back with
+## one crab clearly on a wall and the other on a foreshortened sliver of concrete four pixels
+## wide. Aim down the bisector and both faces sit at 45 degrees.
+func _pair_shot(key: String, group: Array, suffix: String) -> void:
 	var leg: Vector3 = group[0].territory()["leg"]
 	var out: Vector3 = Vector3.ZERO
-	var mid: Vector3 = Vector3.ZERO
+	var mid_y: float = 0.0
 	for c in group:
 		out += (c.territory()["face"] as Vector3)
-		mid += (c as Node3D).global_position
-	mid /= float(group.size())
+		mid_y += (c as Node3D).global_position.y
+	mid_y /= float(group.size())
 	if out.length() < 0.3:
-		# The pair is on OPPOSITE faces (six metres of concrete between them, so they can
-		# never be in one frame from outside). Shoot along the face of the shallower one.
+		# The pair is on OPPOSITE faces — six metres of concrete between them, so no vantage
+		# outside the leg can hold both. Shoot the shallower one's wall square on.
 		out = group[0].territory()["face"]
-	out = out.normalized()
-	var eye: Vector3 = Vector3(leg.x, mid.y, leg.z) + out * CORNER_OUT
-	await _shot(eye, mid, "%s_pair_%s" % [_tag, key], group)
-
-## The whole submerged rig from one corner of the ocean, aimed at the middle of the pack.
-func _wide_shot(crabs: Array, eye: Vector3, name_: String) -> void:
-	var mid: Vector3 = Vector3.ZERO
-	for c in crabs:
-		mid += (c as Node3D).global_position
-	mid /= float(crabs.size())
-	await _shot(eye, mid, "%s_%s" % [_tag, name_], crabs)
+	# The point being aimed at: LEG_HALF out along EACH occupied normal, i.e. the shared corner
+	# for a perpendicular pair and the face centre for a single wall. The un-normalized sum does
+	# both without a special case.
+	var axis: Vector3 = Vector3(leg.x, mid_y, leg.z)
+	var corner: Vector3 = axis + out * float(CRAB.LEG_HALF)
+	var eye: Vector3 = axis + out.normalized() * CORNER_OUT
+	await _shot(eye, corner, "%s_pair_%s%s" % [_tag, key, suffix], group)
 
 ## Place, then AIM FROM WHERE THE EYE ACTUALLY IS. The camera sits ~1.6 m above the player's
 ## origin, so solving the yaw and pitch from the position we asked for frames a point well
@@ -194,12 +215,26 @@ func _shot(eye: Vector3, at: Vector3, name_: String, subjects: Array) -> void:
 	var img: Image = get_viewport().get_texture().get_image()
 	var path: String = "%s/crab_%s.png" % [_dir, name_]
 	var err: int = img.save_png(path)
-	var seen: Array[String] = []
+	# EVERY crab in the pack, not only the ones this frame is aimed at. Reading a frame back by
+	# eye and asking "is that a second crab behind the kelp?" is exactly the kind of squinting
+	# that gets a wrong answer written down as a result, so the harness answers it: who is in
+	# this frustum, how far off, and which of them the shot was actually about.
+	var want: Array[int] = []
 	for c in subjects:
+		want.append(int(c.spawn_index))
+	var seen: Array[String] = []
+	for c in get_tree().get_nodes_in_group("giant_crab"):
+		if not c.has_method("territory"):
+			continue                 # a surfaced King Crab: not part of the day pack
 		var q: Vector3 = (c as Node3D).global_position
-		seen.append("%d@%.1fm%s" % [int(c.spawn_index), cam.global_position.distance_to(q),
-			"" if cam.is_position_in_frustum(q) else "(OFF FRAME)"])
-	_say("[spread] %s  err=%d  eye asked %s got %s  subject %s  ->  %s"
+		var i: int = int(c.spawn_index)
+		if not cam.is_position_in_frustum(q):
+			if want.has(i):
+				seen.append("%d:OFF-FRAME" % i)
+			continue
+		seen.append("%s%d@%.1fm" % ["*" if want.has(i) else "", i,
+			cam.global_position.distance_to(q)])
+	_say("[spread] %s  err=%d  eye asked %s got %s  aim %s  in frame (*=subject): %s"
 		% [path, err, str(eye.snapped(Vector3.ONE * 0.1)),
 			str(cam.global_position.snapped(Vector3.ONE * 0.1)),
 			str(at.snapped(Vector3.ONE * 0.1)), " ".join(seen)])
@@ -244,6 +279,8 @@ func _calm() -> void:
 ## where an honest frame is too dark to count animals in. It is lighting for a census, not
 ## lighting design, and every frame says whether it was used.
 func _light_the_set() -> void:
+	if not _lights.is_empty():
+		return
 	for p in [Vector3(34.0, -8.0, -12.0), Vector3(-34.0, -8.0, 12.0),
 			Vector3(34.0, -8.0, 12.0), Vector3(-34.0, -8.0, -12.0)]:
 		var l := OmniLight3D.new()
@@ -254,6 +291,11 @@ func _light_the_set() -> void:
 		main.add_child(l)
 		l.global_position = p
 		_lights.append(l)
+
+func _douse() -> void:
+	for l in _lights:
+		l.queue_free()
+	_lights.clear()
 
 ## get_process_delta_time() is already scaled by Engine.time_scale, so it is summed raw —
 ## multiplying by the scale again is the classic mistake here.

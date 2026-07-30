@@ -319,400 +319,42 @@ static func build(item_id: String) -> Node3D:
 			_box(root, Vector3(0.08, 0.36, 0.08), Color(0.45, 0.35, 0.22), Vector3(-0.18, 0.18, 0))
 			_box(root, Vector3(0.08, 0.36, 0.08), Color(0.45, 0.35, 0.22), Vector3(0.18, 0.18, 0))
 		"fishing_rod":
-			# Owner call, 2026-07-27: this was a 3.5 cm box shaft, a cork-coloured handle box
-			# and a 7 cm cylinder for a reel — a pond whip. Nobody hauls 40 kg up 80 m of
-			# North Sea alongside a rig leg with that. What this is now is STAND-UP OFFSHORE
-			# GEAR: a stout tapering graphite blank, a lever-drag multiplier sat on top of the
-			# seat where an overhead reel goes, roller guides stepping down to the tip, and a
-			# notched gimbal butt cap that seats into a fighting belt. Working kit off a
-			# rusting rig — machined and salt-hazed, not a chromed sport-fishing showpiece.
+			# Owner pick, 2026-07-29 — option 3 "WAND" off the tests/tool_options.gd contact
+			# sheet. The brief was one word, "skinnier/more", so the four options were four
+			# points on one slenderness ladder rather than four redesigns, and the owner took
+			# the extreme end of it. What changed against the rod this replaces is SECTIONS,
+			# not architecture: a 19 mm blank tapering to 3 mm (was 36 -> 7), 2.10 m instead of
+			# 1.90, EIGHT guides instead of six and every one of them smaller (30 -> 8 mm rings
+			# against the old 54 -> 14), and the grips, seat and reel trimmed with the blank so
+			# the whole tool is finer rather than a thin stick carrying fat furniture. For scale:
+			# a real stand-up offshore blank is 22-26 mm at the ferrule and 4-5 mm at the tip,
+			# which is why this reads as so much finer while still being the same class of tool.
+			#
+			# Architecture kept from the rebuild before it: notched gimbal butt cap that seats
+			# into a fighting belt, ribbed butt grip, machined seat with knurled lock rings, a
+			# lever-drag multiplier sat ON TOP of the seat where an overhead reel goes, foregrip,
+			# four stacked tapering blank sections, stepped guides, roller tip. Working kit off a
+			# rusting rig — machined and salt-hazed, no chrome anywhere.
 			#
 			# The whole rig hangs off ONE pivot rather than the root, so every part shares a
-			# single lean and the "hand_tip" marker at the end inherits it for free (see the
-			# marker note at the bottom of this case). Stations are measured in metres up the
-			# pivot's +Y from the butt cap at y = 0, so the layout reads as a real rod:
-			#   0.00 gimbal | 0.05-0.42 butt grip | 0.42-0.60 seat+reel | 0.60-0.90 foregrip
-			#   | 0.90-1.90 blank + six guides | 1.90 roller tip.
-			var fr := Node3D.new()
-			root.add_child(fr)
-			fr.rotation.z = deg_to_rad(14)
-			# The grips must NOT be the same near-black as the blank or the foregrip vanishes
-			# into it and the rod reads as seat-then-stick: they are a browner, flatter rubber.
-			var fr_blank := Color(0.17, 0.18, 0.21)    # dark graphite, salt-hazed
-			var fr_grip := Color(0.13, 0.12, 0.11)     # dark shrink-wrapped rubber grip
-			var fr_metal := Color(0.33, 0.35, 0.38)    # gunmetal reel castings
-			var fr_alloy := Color(0.42, 0.44, 0.47)    # machined seat and lock rings
-			var fr_brass := Color(0.44, 0.35, 0.21)    # dull anodised drag lever
-			var fr_wrap := Color(0.32, 0.17, 0.14)     # oxblood thread wraps at the guide feet
-			var fr_line := Color(0.50, 0.48, 0.42)     # dirty braid wound on the spool
-			# Gimbal butt cap: the notched cup that drops into a fighting belt, two lugs
-			# standing proud of the cap so the notch reads from any angle.
-			_cyl(fr, 0.055, 0.05, fr_metal, Vector3(0, 0.025, 0))
-			for fr_n in [-1.0, 1.0]:
-				_box(fr, Vector3(0.026, 0.032, 0.05), fr_metal.darkened(0.15), Vector3(fr_n * 0.036, -0.012, 0))
-			_cyl(fr, 0.05, 0.028, Color(0.5, 0.5, 0.47), Vector3(0, 0.062, 0))                  # salt crust above the cap
-			# Rear butt grip — the length you brace against the hip, ribbed for a wet glove.
-			_cyl(fr, 0.043, 0.37, fr_grip, Vector3(0, 0.235, 0))
-			for fr_i in range(4):
-				var fr_rib := _torus(fr, 0.041, 0.048, fr_grip.lightened(0.07),
-					Vector3(0, 0.115 + fr_i * 0.075, 0), 16, 6)
-				fr_rib.rotation.x = 0.0                                                          # rings AROUND the butt
-			# Machined reel seat with a knurled lock ring at each end.
-			_cyl(fr, 0.047, 0.18, fr_alloy.darkened(0.18), Vector3(0, 0.51, 0))
-			for fr_l in [0.432, 0.588]:
-				var fr_lock := _torus(fr, 0.046, 0.057, fr_alloy.darkened(0.25), Vector3(0, fr_l, 0), 16, 8)
-				fr_lock.rotation.x = 0.0
-			# The REEL: a lever-drag multiplier clamped ON TOP of the seat. This is the single
-			# thing that says "offshore" at a glance, so it is built as a real one — two
-			# machined side plates, a wide spool of braid between them, frame pillars, a thumb
-			# lever and a crank standing off the handle side. Its axis runs ACROSS the rod
-			# (local Z), so every round part of it is laid over with rotation.x = 90°.
-			_box(fr, Vector3(0.05, 0.034, 0.09), fr_metal, Vector3(0.065, 0.505, 0))             # foot clamped to the seat
-			var fr_rc := Vector3(0.142, 0.535, 0)
-			var fr_spool := _cyl(fr, 0.052, 0.145, fr_line, fr_rc)                               # wound braid on the arbor
-			fr_spool.rotation.x = deg_to_rad(90)
-			for fr_s in [-1.0, 1.0]:
-				var fr_plate := _cyl(fr, 0.082, 0.018, fr_metal, fr_rc + Vector3(0, 0, fr_s * 0.084))
-				fr_plate.rotation.x = deg_to_rad(90)                                             # side plates
-				# _torus already lies across the rod (rotation.x = 90°), which IS the reel's
-				# own axis — these rims are the one place in this case the default is right.
-				_torus(fr, 0.072, 0.085, fr_metal.darkened(0.25), fr_rc + Vector3(0, 0, fr_s * 0.094), 20, 8)
-			for fr_p in range(3):
-				var fr_pa: float = fr_p * TAU / 3.0 + 0.6
-				_box(fr, Vector3(0.02, 0.02, 0.16), fr_metal.darkened(0.12),
-					fr_rc + Vector3(cos(fr_pa) * 0.07, sin(fr_pa) * 0.07, 0))                    # frame pillars
-			var fr_cam := _cyl(fr, 0.024, 0.018, fr_brass.darkened(0.2), fr_rc + Vector3(0, 0, 0.1))
-			fr_cam.rotation.x = deg_to_rad(90)                                                   # drag cam boss
-			var fr_lever := _box(fr, Vector3(0.095, 0.02, 0.015), fr_brass, fr_rc + Vector3(0.034, 0.036, 0.108))
-			fr_lever.rotation.z = deg_to_rad(42)                                                 # thumb lever, drag off
-			var fr_stub := _cyl(fr, 0.014, 0.055, fr_alloy, fr_rc + Vector3(0, 0, 0.125))
-			fr_stub.rotation.x = deg_to_rad(90)                                                  # crank shaft
-			# The arm is the lighter alloy, not the plate's gunmetal: a dark bar on a dark
-			# plate disappears from every angle that matters.
-			var fr_arm := _box(fr, Vector3(0.14, 0.026, 0.016), fr_alloy, fr_rc + Vector3(0.043, -0.043, 0.155))
-			fr_arm.rotation.z = deg_to_rad(-42)                                                  # offset crank arm
-			var fr_knob := _cyl(fr, 0.019, 0.05, fr_grip.lightened(0.08), fr_rc + Vector3(0.088, -0.088, 0.155))
-			fr_knob.rotation.x = deg_to_rad(90)                                                  # fist-sized knob
-			# Long foregrip you pull against, then the blank proper: four stacked tapering
-			# segments, 3.6 cm at the butt down to 7 mm at the tip, so the taper actually
-			# reads instead of being one uniform stick.
-			_cone(fr, 0.045, 0.038, 0.30, fr_grip, Vector3(0, 0.75, 0))
-			for fr_f in range(3):
-				var fr_fr := _torus(fr, 0.039 - fr_f * 0.001, 0.047 - fr_f * 0.001,
-					fr_grip.lightened(0.07), Vector3(0, 0.655 + fr_f * 0.085, 0), 16, 6)
-				fr_fr.rotation.x = 0.0                                                           # foregrip ribs
-			_cyl(fr, 0.040, 0.02, fr_alloy, Vector3(0, 0.90, 0))                                 # ferrule collar
-			_cone(fr, 0.036, 0.028, 0.30, fr_blank, Vector3(0, 1.05, 0))
-			_cone(fr, 0.028, 0.021, 0.28, fr_blank, Vector3(0, 1.34, 0))
-			_cone(fr, 0.021, 0.014, 0.24, fr_blank, Vector3(0, 1.60, 0))
-			_cone(fr, 0.014, 0.007, 0.18, fr_blank, Vector3(0, 1.81, 0))
-			# Guides stepping down the blank, big at the butt to small at the tip — the thing
-			# that makes a rod read as a rod at a glance. Each is a ring on a short standoff
-			# post over a wrapped thread binding, on the SAME side as the reel, because that
-			# is where an overhead reel's line runs. Ring segment counts are cut hard (see
-			# _torus): six rings at the TorusMesh default would be 25k triangles in a 96 px
-			# inventory icon.
-			for fr_g in [[1.00, 0.054], [1.20, 0.043], [1.39, 0.033], [1.56, 0.025], [1.71, 0.019], [1.83, 0.014]]:
-				var fr_gy: float = fr_g[0]
-				var fr_gr: float = fr_g[1]
-				var fr_br: float = 0.036 - 0.029 * (fr_gy - 0.90)                                # blank radius at this station
-				var fr_post: float = 0.006 + fr_gr * 0.25
-				_cyl(fr, fr_br + 0.004, 0.032, fr_wrap, Vector3(0, fr_gy, 0))                    # thread wrap
-				_box(fr, Vector3(fr_post, 0.013, 0.014), fr_metal,
-					Vector3(fr_br + fr_post * 0.5, fr_gy, 0))                                    # standoff post
-				var fr_ring := _torus(fr, fr_gr, fr_gr + 0.006, fr_alloy,
-					Vector3(fr_br + fr_post + fr_gr, fr_gy, 0), 16, 8)
-				fr_ring.rotation.x = 0.0                                                         # hole up the blank
-			# Roller tip: the last bearing the line touches before it goes over the side.
-			_sph(fr, 0.008, fr_metal, Vector3(0, 1.90, 0))                                       # blank end cap
-			_box(fr, Vector3(0.024, 0.012, 0.013), fr_metal, Vector3(0.012, 1.888, 0))           # tip frame
-			var fr_tipring := _torus(fr, 0.010, 0.017, fr_alloy, Vector3(0.024, 1.902, 0), 16, 8)
-			fr_tipring.rotation.x = 0.0
-			var fr_roller := _cyl(fr, 0.009, 0.009, fr_alloy.lightened(0.12), Vector3(0.024, 1.888, 0))
-			fr_roller.rotation.x = deg_to_rad(90)                                                # the wheel itself
-			# An exact marker at the working end (the roller tip — where the line actually
-			# leaves the rig), a child of the rod pivot so it inherits the rig's own tilt and
-			# position automatically. player_controller.hand_tip_world() looks this up by
-			# name so the fishing line anchors to the ROD'S REAL RENDERED TIP instead of a
-			# generic "longest AABB axis" guess, which put the anchor near the grip for any
-			# item (like this rod) whose mesh is built along +Y rather than -Z.
-			var tip := Node3D.new()
-			tip.name = "hand_tip"
-			fr.add_child(tip)
-			tip.position = Vector3(0.024, 1.90, 0)   # the roller's own centre: the far end
+			# single lean and the "hand_tip" marker at the roller tip inherits it for free.
+			_rod_build(root, ROD_WAND)
 		"deep_rig_pole":
-			# Owner call, 2026-07-29: this was eight crude primitives — a box for the pole, a
-			# box for the grip, two cylinders called a drum, a lead and a rotated box hook. The
-			# deep rig is the thing you climb 32 m of ladder for, so it earns the build the
-			# fishing_rod case above it got.
+			# Owner pick, 2026-07-29 — option B "DECK WINCH" off the same contact sheet, chosen
+			# out of four with the note that it is "not a rod at all". That is the whole point:
+			# the deep rig is a HEAVY DEEP-DROP HAND-LINE for putting a lead 45 m STRAIGHT DOWN
+			# off the crane's machinery deck (see fishing_rod.gd's deep branch — no float, no
+			# drift, no cast; the readout counts the metres as the lead falls), so it has no
+			# casting blank, no taper and no ring guides. It is a machine you set down on a deck
+			# and crank: a foot, a mast, one big flanged drum wound with braid, a crank, a
+			# ratchet and pawl, a brake shoe on the rim, one diagonal strut, and the line leaving
+			# over a bent HOOP FAIRLEAD at the head with the terminal tackle hove up short.
 			#
-			# WHAT IT IS, and why it must not become a second rod: a HEAVY DEEP-DROP HAND-LINE
-			# for putting a lead 45 m STRAIGHT DOWN off the crane's machinery deck (see
-			# fishing_rod.gd's deep branch — no float, no drift, no cast; the readout counts the
-			# metres as the lead falls). So there is no casting blank, no taper and no ring
-			# guides. There is a short braced FRAME fabricated out of rig scrap, a hand WINCH
-			# with a ratchet, pawl and brake shoe, a fairlead and a sheave to lead the line, and
-			# heavy terminal tackle hove up short under the block ready to go over the side.
-			# Commercial gear off a rusting rig: graphite box section, gunmetal weldments,
-			# machined alloy, salt haze. No chrome anywhere on this rig.
-			#
-			# Like the rod, the whole thing hangs off ONE pivot instead of the root, so every
-			# part shares a single lean and the "hand_tip" marker at the sheave inherits it for
-			# free. Stations are metres up the pivot's +Y from the foot plate at y = 0:
-			#   0.00 foot | 0.13-0.30 taped grip | 0.32-0.62 drum, crank, ratchet, brake
-			#   | 0.30-1.12 mast + its diagonal brace | 0.75 fairlead | 1.13 sheave block
-			#   | 1.09-0.86 terminal tackle hanging under it.
-			var dr := Node3D.new()
-			root.add_child(dr)
-			# A small lean, not the rod's 14°: every degree of it also throws the top of a 1.15 m
-			# frame sideways, and the wider the model's X the smaller the hand normalisation
-			# (largest dimension -> 0.9 m) draws the whole tool.
-			dr.rotation.z = deg_to_rad(-4)             # leaning out the way the davit arm points
-			# Same material language as the rod, but PITCHED DARKER than the rod's own numbers,
-			# measured off a render rather than copied: the rod is all thin tubes, while this has
-			# a 0.30 m disc and a 0.22 m plate turned at the sun, and the rod's fr_metal (0.33)
-			# on areas that size photographed as pale galvanised sheet — a light plastic toy, the
-			# exact failure the traps file names for generated assets.
-			var dp_frame := Color(0.215, 0.230, 0.255)   # gunmetal weldments — foot, brackets, drum
-			var dp_mast := Color(0.155, 0.165, 0.190)    # graphite box section, the darkest thing here
-			var dp_alloy := Color(0.365, 0.385, 0.415)   # machined alloy: axle, ratchet, sheave
-			var dp_grip := Color(0.13, 0.12, 0.11)       # rubber sleeve, as on the rod's grips
-			var dp_tape := Color(0.17, 0.16, 0.14)       # friction tape lapped over the sleeve
-			var dp_lead := Color(0.235, 0.245, 0.265)    # dull cast lead — flatter than the alloy
-			# The rod's own braid colour (0.50) is a small spool; 45 m of it wound on a 0.27 m
-			# drum is the largest single area on this tool, and at that size it photographed as a
-			# bright white ring. Salt-stiffened working line, two thirds of the rod's value.
-			var dp_line := Color(0.355, 0.340, 0.300)    # 45 m of dirty, salt-stiffened braid
-			var dp_brass := Color(0.40, 0.31, 0.185)     # dull anodised pawl and brake, as the rod's lever
-			var dp_wrap := Color(0.30, 0.16, 0.13)       # oxblood, straight off the rod's thread wraps
-			var dp_rust := Color(0.36, 0.25, 0.17)       # rust in the weld seams and down the paint
-			var dp_salt := Color(0.50, 0.51, 0.48)       # salt crust / bare steel where it has been dragged
-			var dp_canvas := Color(0.42, 0.40, 0.34)     # the rag every working rig carries
-			# FOOT — this thing is set DOWN on a deck between drops, so it has a foot to stand
-			# on: a tread plate, two deck bolts, and one bare-steel edge where it gets dragged.
-			_box(dr, Vector3(0.225, 0.026, 0.19), dp_frame, Vector3(0.005, 0.013, 0))
-			_box(dr, Vector3(0.235, 0.007, 0.20), dp_rust, Vector3(0.005, 0.004, 0))
-			for dp_b in [-1.0, 1.0]:
-				_cyl(dr, 0.017, 0.020, dp_alloy, Vector3(-0.072, 0.032, dp_b * 0.062), false, 1.0, 10)
-			_box(dr, Vector3(0.045, 0.012, 0.20), dp_salt, Vector3(0.100, 0.030, 0))
-			_box(dr, Vector3(0.078, 0.100, 0.115), dp_frame, Vector3(-0.004, 0.075, 0))   # heel boss
-			# MAST — two stepped box sections spliced at a bolted flange, because a fabricated
-			# post reads as fabricated and a single smooth tube reads as a rod's blank.
-			_box(dr, Vector3(0.064, 0.605, 0.064), dp_mast, Vector3(0, 0.357, 0))
-			_box(dr, Vector3(0.104, 0.014, 0.104), dp_alloy, Vector3(0, 0.660, 0))
-			var dp_weld := _torus(dr, 0.034, 0.043, dp_rust, Vector3(0, 0.673, 0), 16, 6)
-			dp_weld.rotation.x = 0.0                                                       # ring AROUND the mast
-			_box(dr, Vector3(0.050, 0.425, 0.050), dp_mast, Vector3(0, 0.880, 0))
-			_box(dr, Vector3(0.052, 0.340, 0.010), dp_rust, Vector3(0, 0.440, -0.033))     # rust streak
-			var dp_crust := _torus(dr, 0.036, 0.058, dp_salt, Vector3(0, 0.132, 0), 16, 6)
-			dp_crust.rotation.x = 0.0                                                      # salt pooled on the boss
-			# GRIP — where you brace it against a hip or a rail, taped over rubber for a wet
-			# glove. The tape is a browner black than the mast or the grip vanishes into it.
-			_cyl(dr, 0.049, 0.170, dp_grip, Vector3(0, 0.215, 0), false, 1.0, 16)
-			for dp_w in range(4):
-				var dp_lap := _torus(dr, 0.047, 0.056, dp_tape,
-					Vector3(0, 0.150 + dp_w * 0.043, 0), 16, 6)
-				dp_lap.rotation.x = 0.0
-			_box(dr, Vector3(0.012, 0.028, 0.050), dp_tape.lightened(0.09), Vector3(0.050, 0.300, 0))
-			# THE DRUM — the one part that says "hand-line winch" at a glance, so it is built as
-			# a real one: an arbor wound with braid between two flanged cheeks, on a bracket
-			# standing off the mast. Its axis runs ACROSS the rig (local Z), so every round part
-			# is laid over with rotation.x = 90°.
-			var dp_dc := Vector3(-0.165, 0.470, 0)
-			for dp_p in [-1.0, 1.0]:
-				_box(dr, Vector3(0.215, 0.070, 0.016), dp_frame,
-					Vector3(-0.077, 0.470, dp_p * 0.152))                                  # bracket cheeks
-			var dp_barrel := _cyl(dr, 0.086, 0.210, dp_frame.darkened(0.18), dp_dc, false, 1.0, 18)
-			dp_barrel.rotation.x = deg_to_rad(90)                                          # arbor
-			var dp_wound := _cyl(dr, 0.137, 0.184, dp_line, dp_dc, false, 1.0, 18)
-			dp_wound.rotation.x = deg_to_rad(90)                                           # the 45 m of braid
-			# Three dark rings AROUND the braid at different points along the drum — the lay of
-			# the wind. A 5 mm tube (outer minus inner) at a 137 mm ring radius, so these are
-			# groove lines on the surface of the line, not hoops standing off it.
-			for dp_g in [-0.055, 0.010, 0.062]:
-				_torus(dr, 0.134, 0.139, dp_line.darkened(0.26), dp_dc + Vector3(0, 0, dp_g), 18, 6)
-			# THE TWO CHEEKS ARE DIFFERENT SIZES, and that is what finally made this read as a
-			# drum. Held in hand the tool's own +Z points within 27° of the camera, so the near
-			# cheek is seen almost dead flat: at equal radii it hid the braid completely and
-			# photographed as a smooth disc with a hub and spokes — a bicycle wheel, twice, in
-			# two different colours. The DRIVE cheek (crank side, +Z) is 112 mm against the far
-			# cheek's 142, so the braid at 137 stands 25 mm proud of it and there is always a
-			# pale ring of line around a bolted plate. Undersized drive cheeks are how real
-			# hand-winches are built anyway — the gear train has to clear the flange.
-			for dp_s in [-1.0, 1.0]:
-				var dp_cr: float = 0.112 if dp_s > 0.0 else 0.142
-				var dp_cheek := _cyl(dr, dp_cr, 0.016, dp_frame.darkened(0.16),
-					dp_dc + Vector3(0, 0, dp_s * 0.100), false, 1.0, 22)
-				dp_cheek.rotation.x = deg_to_rad(90)
-				# _torus already lies across the rig, which IS the drum's own axis — the same
-				# one place the default is right that the rod's reel rims rely on.
-				_torus(dr, dp_cr - 0.004, dp_cr + 0.008, dp_frame.darkened(0.36),
-					dp_dc + Vector3(0, 0, dp_s * 0.110), 22, 8)                            # flange lip
-				var dp_ax := _cyl(dr, 0.019, 0.085, dp_alloy,
-					dp_dc + Vector3(0, 0, dp_s * 0.140), false, 1.0, 12)
-				dp_ax.rotation.x = deg_to_rad(90)                                          # axle stub
-				var dp_hub := _cyl(dr, 0.032, 0.012, dp_alloy.darkened(0.12),
-					dp_dc + Vector3(0, 0, dp_s * 0.112), false, 1.0, 16)
-				dp_hub.rotation.x = deg_to_rad(90)                                         # machined hub boss
-				# A painted band on each cheek, in the rod's own OXBLOOD. An earlier cut painted
-				# it faded ochre and the drum came back a bright yellow disc — the wrong accent
-				# entirely on a rig that had just had a blank yellow block taken off its wet deck.
-				var dp_ring := _cyl(dr, dp_cr * 0.62, 0.004, dp_wrap,
-					dp_dc + Vector3(0, 0, dp_s * 0.109), false, 1.0, 20)
-				dp_ring.rotation.x = deg_to_rad(90)
-			# Bolt circle through the drive cheek: the detail that turns a disc into a plate that
-			# was fitted by somebody, which is the whole difference between machinery and a wheel.
-			for dp_bo in range(6):
-				var dp_boa: float = dp_bo * TAU / 6.0 + 0.30
-				var dp_blt := _cyl(dr, 0.0075, 0.010, dp_alloy,
-					dp_dc + Vector3(cos(dp_boa) * 0.088, sin(dp_boa) * 0.088, 0.112), false, 1.0, 8)
-				dp_blt.rotation.x = deg_to_rad(90)
-			# Four radial gussets on the FAR cheek, where there is plate to put them on.
-			for dp_r in range(4):
-				var dp_ra: float = dp_r * TAU / 4.0 + 0.40
-				var dp_rib := _box(dr, Vector3(0.017, 0.062, 0.011), dp_frame.lightened(0.05),
-					dp_dc + Vector3(cos(dp_ra) * 0.104, sin(dp_ra) * 0.104, -0.113))
-				# A box's long side is its local +Y, and rotation.z sends +Y to (-sin, cos) — so
-				# a RADIAL rib is ra - 90°, not 90° - ra (which mirrors it to 180° - ra and puts
-				# every rib across its own radius instead of along it).
-				dp_rib.rotation.z = dp_ra - PI * 0.5
-			# RATCHET AND PAWL — 45 m of wet line pulling on a drum has to be HELD, and this is
-			# the mechanism data/items.json means by "LMB thumbs the drum to hold a depth".
-			var dp_gear := _cyl(dr, 0.058, 0.012, dp_alloy.darkened(0.14),
-				dp_dc + Vector3(0, 0, 0.172), false, 1.0, 18)
-			dp_gear.rotation.x = deg_to_rad(90)
-			for dp_t in range(6):
-				var dp_ta: float = dp_t * TAU / 6.0
-				_box(dr, Vector3(0.016, 0.017, 0.011), dp_alloy.darkened(0.24),
-					dp_dc + Vector3(cos(dp_ta) * 0.062, sin(dp_ta) * 0.062, 0.172))        # teeth
-			var dp_pawl := _box(dr, Vector3(0.090, 0.014, 0.011), dp_brass,
-				dp_dc + Vector3(0.058, 0.051, 0.172))
-			dp_pawl.rotation.z = deg_to_rad(-17.6)                                         # dropped into the gear
-			var dp_ppin := _cyl(dr, 0.010, 0.024, dp_alloy,
-				dp_dc + Vector3(0.098, 0.038, 0.172), false, 1.0, 10)
-			dp_ppin.rotation.x = deg_to_rad(90)
-			# CRANK — offset arm and a fist knob. The only way line comes back up 45 m.
-			var dp_boss := _cyl(dr, 0.024, 0.030, dp_alloy,
-				dp_dc + Vector3(0, 0, 0.198), false, 1.0, 14)
-			dp_boss.rotation.x = deg_to_rad(90)
-			# The arm is the lighter alloy, not the frame's gunmetal: a dark bar on a dark drum
-			# disappears from every angle that matters (the rod's crank learned this first).
-			var dp_arm := _box(dr, Vector3(0.165, 0.030, 0.017), dp_alloy,
-				dp_dc + Vector3(0.055, -0.055, 0.220))
-			dp_arm.rotation.z = deg_to_rad(-45)
-			var dp_knob := _cyl(dr, 0.022, 0.060, dp_grip.lightened(0.09),
-				dp_dc + Vector3(0.110, -0.110, 0.220), false, 1.0, 14)
-			dp_knob.rotation.x = deg_to_rad(90)
-			_torus(dr, 0.020, 0.027, dp_alloy, dp_dc + Vector3(0.110, -0.110, 0.190), 14, 6)
-			# BRAKE — a shoe on a lever pressed down onto the drum rim: the thing that stops a
-			# 1.5 kg lead running away with the whole spool on the way down.
-			var dp_shoe := _box(dr, Vector3(0.115, 0.022, 0.196), dp_brass.darkened(0.42),
-				Vector3(-0.176, 0.629, 0))
-			dp_shoe.rotation.z = deg_to_rad(9)
-			var dp_blev := _box(dr, Vector3(0.215, 0.024, 0.022), dp_brass.darkened(0.14),
-				Vector3(-0.079, 0.664, 0.070))
-			dp_blev.rotation.z = deg_to_rad(14.5)
-			var dp_bpin := _cyl(dr, 0.011, 0.030, dp_alloy, Vector3(0.022, 0.690, 0.070), false, 1.0, 10)
-			dp_bpin.rotation.x = deg_to_rad(90)                                            # lever pivot on the mast
-			var dp_thumb := _cyl(dr, 0.017, 0.028, dp_grip, Vector3(-0.168, 0.652, 0.070), false, 1.0, 12)
-			dp_thumb.rotation.x = deg_to_rad(90)                                           # thumb pad
-			# THE DIAGONAL — one strut from the mast foot to the underside of the davit arm.
-			# This is what makes the silhouette a frame instead of a stick with a reel on it.
-			var dp_strut := _box(dr, Vector3(0.028, 0.830, 0.026), dp_frame, Vector3(0.1025, 0.704, 0))
-			dp_strut.rotation.z = deg_to_rad(-10.2)
-			_box(dr, Vector3(0.058, 0.075, 0.030), dp_frame.darkened(0.12), Vector3(0.046, 0.318, 0))
-			for dp_sb in [Vector3(0.038, 0.306, 0), Vector3(0.175, 1.105, 0)]:
-				var dp_bolt := _cyl(dr, 0.011, 0.032, dp_alloy, dp_sb, false, 1.0, 10)
-				dp_bolt.rotation.x = deg_to_rad(90)                                        # strut end bolts
-			# HEAD — a casting on the mast top, a short davit arm angled up and out over the
-			# water, and a gusset filling the corner between them.
-			_box(dr, Vector3(0.072, 0.066, 0.072), dp_frame, Vector3(0.004, 1.075, 0))
-			var dp_boom := _box(dr, Vector3(0.220, 0.034, 0.040), dp_frame, Vector3(0.1075, 1.100, 0))
-			dp_boom.rotation.z = deg_to_rad(12.1)
-			_prism(dr, Vector3(0.150, 0.085, 0.032), dp_frame.darkened(0.10), Vector3(0.070, 1.010, 0))
-			# FAIRLEAD — the roller just above the drum that turns the line from the spool up
-			# the face of the mast. Line runs on the +Z side of the mast all the way up, which
-			# is why the standing line below never has to cross the strut.
-			_box(dr, Vector3(0.045, 0.020, 0.055), dp_frame, Vector3(0, 0.718, 0.045))
-			for dp_fc in [0.012, 0.068]:
-				_box(dr, Vector3(0.055, 0.055, 0.008), dp_frame, Vector3(0, 0.752, dp_fc))
-			var dp_roll := _cyl(dr, 0.020, 0.052, dp_alloy, Vector3(0, 0.752, 0.040), false, 1.0, 14)
-			dp_roll.rotation.x = deg_to_rad(90)
-			var dp_fpin := _cyl(dr, 0.006, 0.076, dp_alloy, Vector3(0, 0.752, 0.040), false, 1.0, 8)
-			dp_fpin.rotation.x = deg_to_rad(90)
-			# THE STANDING LINE, drum -> fairlead -> up the mast -> out the arm -> over the
-			# sheave. It is what the rod's six guides are: the part that makes the tool legible
-			# as a machine for moving line rather than an assembly of parts.
-			var dp_off := _cyl(dr, 0.005, 0.221, dp_line, Vector3(-0.083, 0.672, 0.040), false, 1.0, 8)
-			dp_off.rotation.z = deg_to_rad(-48.3)
-			_cyl(dr, 0.005, 0.315, dp_line, Vector3(0, 0.925, 0.040), false, 1.0, 8)
-			_box(dr, Vector3(0.010, 0.012, 0.030), dp_alloy, Vector3(0, 0.925, 0.021))
-			var dp_keep := _torus(dr, 0.009, 0.016, dp_alloy, Vector3(0, 0.925, 0.040), 14, 6)
-			dp_keep.rotation.x = 0.0                                                       # keeper the line runs through
-			var dp_run := _cyl(dr, 0.005, 0.205, dp_line, Vector3(0.1015, 1.097, 0.040), false, 1.0, 8)
-			dp_run.rotation.z = deg_to_rad(-81.6)
-			# SHEAVE BLOCK — the last bearing the line touches before it goes over the side,
-			# and the point the whole tool is aimed at.
-			for dp_sp in [0.016, 0.064]:
-				_box(dr, Vector3(0.046, 0.068, 0.007), dp_frame, Vector3(0.210, 1.122, dp_sp))
-			var dp_wheel := _cyl(dr, 0.026, 0.024, dp_alloy.lightened(0.10),
-				Vector3(0.210, 1.122, 0.040), false, 1.0, 16)
-			dp_wheel.rotation.x = deg_to_rad(90)
-			_torus(dr, 0.023, 0.029, dp_alloy.darkened(0.18), Vector3(0.210, 1.122, 0.040), 16, 8)
-			var dp_spin := _cyl(dr, 0.007, 0.070, dp_alloy, Vector3(0.210, 1.122, 0.040), false, 1.0, 8)
-			dp_spin.rotation.x = deg_to_rad(90)
-			_torus(dr, 0.010, 0.017, dp_alloy, Vector3(0.210, 1.086, 0.040), 14, 6)        # becket
-			# TERMINAL TACKLE, hove short up under the block the way a hand-line is carried:
-			# a three-way swivel, a snooded hook on a short trace, and the LEAD — 1.4 kg of
-			# cast torpedo (60 mm through, 133 mm long), the heaviest single thing on the tool
-			# and the reason every other part of it is built the way it is.
-			_cyl(dr, 0.005, 0.034, dp_line, Vector3(0.210, 1.064, 0.040), false, 1.0, 8)
-			var dp_sw := _torus(dr, 0.007, 0.013, dp_alloy, Vector3(0.210, 1.054, 0.040), 12, 6)
-			dp_sw.rotation.x = 0.0
-			_box(dr, Vector3(0.030, 0.016, 0.011), dp_alloy.darkened(0.12), Vector3(0.210, 1.040, 0.040))
-			_cyl(dr, 0.005, 0.054, dp_line, Vector3(0.210, 1.007, 0.040), false, 1.0, 8)
-			_cone(dr, 0.030, 0.014, 0.038, dp_lead, Vector3(0.210, 0.963, 0.040))          # lead shoulder
-			_cyl(dr, 0.030, 0.056, dp_lead, Vector3(0.210, 0.916, 0.040), false, 1.0, 16)  # lead body
-			_cone(dr, 0.010, 0.030, 0.040, dp_lead.darkened(0.10), Vector3(0.210, 0.869, 0.040))
-			# The snood: rotation.z sends a cylinder's +Y to (-sin, cos), so an angle of 55.8°
-			# puts its axis along (-0.827, 0.562) — the trace from the three-way out to the hook
-			# eye. The first pass used 125°, which is not that line or its negation at all, and
-			# hung the hook off the end of a snood pointing somewhere else.
-			var dp_snood := _cyl(dr, 0.004, 0.091, dp_line, Vector3(0.2475, 1.0145, 0.040), false, 1.0, 8)
-			dp_snood.rotation.z = deg_to_rad(55.8)
-			var dp_he := _torus(dr, 0.006, 0.011, dp_alloy, Vector3(0.287, 0.986, 0.040), 12, 6)
-			dp_he.rotation.x = 0.0
-			_cyl(dr, 0.005, 0.048, dp_alloy, Vector3(0.291, 0.960, 0.040), false, 1.0, 8)  # hook shank
-			var dp_bd1 := _box(dr, Vector3(0.010, 0.022, 0.009), dp_alloy, Vector3(0.293, 0.928, 0.040))
-			dp_bd1.rotation.z = deg_to_rad(30)
-			var dp_bd2 := _box(dr, Vector3(0.010, 0.022, 0.009), dp_alloy, Vector3(0.278, 0.915, 0.040))
-			dp_bd2.rotation.z = deg_to_rad(72)                                             # the bend of the hook
-			var dp_pt := _cyl(dr, 0.004, 0.026, dp_alloy.lightened(0.10),
-				Vector3(0.263, 0.927, 0.040), false, 1.0, 8)
-			dp_pt.rotation.z = deg_to_rad(-16)                                             # point, rising back up
-			var dp_barb := _box(dr, Vector3(0.005, 0.014, 0.006), dp_alloy, Vector3(0.261, 0.942, 0.040))
-			dp_barb.rotation.z = deg_to_rad(38)
-			# A lumo bead above the hook — real deep-drop rigs run one, and in this ocean it is
-			# a live Bloom cell. Emissive at 1.8, well over main.gd's 0.8 glow threshold.
-			_sph(dr, 0.009, Color(0.22, 0.92, 0.86), Vector3(0.263, 1.002, 0.040),
-				Vector3.ONE, true, 1.8)
-			# STENCILLED DEPTH PLATE and a rag knotted under the head — the two details that say
-			# somebody worked with this rather than found it in a box.
-			_box(dr, Vector3(0.050, 0.070, 0.006), Color(0.44, 0.39, 0.20), Vector3(0, 0.550, 0.036))
-			_box(dr, Vector3(0.034, 0.008, 0.004), dp_mast, Vector3(0, 0.566, 0.040))
-			var dp_lan := _torus(dr, 0.022, 0.033, Color(0.44, 0.40, 0.32), Vector3(0, 0.855, 0), 14, 6)
-			dp_lan.rotation.x = 0.0
-			var dp_rag := _box(dr, Vector3(0.028, 0.085, 0.020), dp_canvas, Vector3(0.028, 0.815, -0.032))
-			dp_rag.rotation.z = deg_to_rad(12)
-			# The marker at the SHEAVE — where the line actually leaves the tool. A child of the
-			# rig pivot so it inherits the lean and position for free.
-			# player_controller.hand_tip_world() looks this up BY NAME; lose it and the silent
-			# _hand_reach_axis fallback anchors the line inside the player's fist instead
-			# (tests/RodHandProbe.tscn asserts the two answers differ, which is what catches it).
-			var dtip := Node3D.new()
-			dtip.name = "hand_tip"
-			dr.add_child(dtip)
-			dtip.position = Vector3(0.210, 1.122, 0.040)   # the sheave's own centre
+			# DELIBERATELY SIMPLER than the 104-mesh version the owner rejected: no davit arm, no
+			# sheave block, no standing-line run up the face of the mast, fewer and bigger shapes.
+			# The line leaves over ONE loop of round bar, which is also what makes "which way is
+			# forward" answerable — see the hand_tip note in _deep_winch().
+			_deep_winch(root)
 		"cooked_fish":
 			_box(root, Vector3(0.3, 0.06, 0.16), Color(0.62, 0.45, 0.26), Vector3(0, 0.05, 0))
 			_box(root, Vector3(0.24, 0.02, 0.12), Color(0.35, 0.22, 0.12), Vector3(0, 0.09, 0))
@@ -1550,6 +1192,355 @@ static func _fish(root: Node3D, tint: Color, size_mul: float = 1.0) -> void:
 	eye.mesh = em
 	root.add_child(eye)
 	eye.position = Vector3(-0.15 * size_mul, 0.1 * size_mul, 0.045 * size_mul)
+
+# ============================ THE TWO FISHING TOOLS ============================
+# Both cases in build() are here rather than inline, because they share four
+# sub-assemblies (gimbal, grip, lever-drag reel, terminal tackle) and 12 colours: the
+# rod and the deep rig have to read as ONE MAN'S KIT, and the only way that survives an
+# edit to either is for the shared parts to be shared code. Ported verbatim from the
+# owner-chosen options in tests/tool_options.gd (deep_winch = B, rod_wand = 3) so the
+# geometry in the game is the geometry on the contact sheet the owner picked from.
+#
+# Triangle discipline: every _torus passes rings/ring_segments and every _cyl passes
+# segments. Godot's defaults are 64x32 and 64, i.e. 4096 triangles for one guide ring —
+# eight guides plus reel rims at the default tessellation is ~25k triangles inside a
+# 74 px inventory slot, which is what those arguments exist to prevent.
+
+## Shared palette. Pitched a little darker than a bare "gunmetal" would suggest for the
+## big flat areas: a 0.30 m disc turned at the sun renders far lighter than a 30 mm tube
+## does (measured off a render, not assumed), and a pale disc reads as plastic — the
+## exact failure docs/AGENT_TRAPS.md names for generated assets.
+const C_BLANK := Color(0.165, 0.175, 0.205)   ## graphite blank / box section
+const C_GRIP := Color(0.13, 0.12, 0.11)       ## shrink-wrap rubber grip
+const C_TAPE := Color(0.17, 0.16, 0.14)       ## friction tape
+const C_METAL := Color(0.30, 0.32, 0.35)      ## gunmetal castings and weldments
+const C_ALLOY := Color(0.40, 0.42, 0.45)      ## machined alloy, seats, guides
+const C_BRASS := Color(0.42, 0.33, 0.20)      ## dull anodised levers
+const C_WRAP := Color(0.32, 0.17, 0.14)       ## oxblood thread wraps
+const C_LINE := Color(0.36, 0.34, 0.30)       ## salt-stiffened braid
+const C_LEAD := Color(0.235, 0.245, 0.265)    ## dull cast lead
+const C_SALT := Color(0.50, 0.51, 0.48)       ## salt crust / bare dragged steel
+const C_RUST := Color(0.36, 0.25, 0.17)       ## rust in the seams
+const C_BLOOM := Color(0.22, 0.92, 0.86)      ## a live Bloom cell as a lumo bead
+
+## Plant the marker player_controller.hand_tip_world() looks up BY NAME. Lose it, or
+## parent it to something that does not carry the tool's own lean, and the controller
+## falls back SILENTLY to a guess along _hand_reach_axis — which anchors the fishing line
+## inside the player's fist. tests/RodHandProbe.tscn asserts the two answers differ,
+## which is the only thing that catches it, because nothing about it errors.
+static func _hand_tip(host: Node3D, at: Vector3) -> void:
+	var t := Node3D.new()
+	t.name = "hand_tip"
+	host.add_child(t)
+	t.position = _pos(at)
+
+## The notched cup that drops into a fighting belt — the part that says "this is braced
+## against a body and cranked".
+static func _tool_gimbal(h: Node3D, y: float, r: float) -> void:
+	_cyl(h, r, 0.05, C_METAL, Vector3(0, y + 0.025, 0), false, 1.0, 16)
+	for n in [-1.0, 1.0]:
+		_box(h, Vector3(r * 0.48, 0.032, r * 0.9), C_METAL.darkened(0.18),
+			Vector3(n * r * 0.66, y - 0.012, 0))
+	_cyl(h, r * 0.9, 0.028, C_SALT, Vector3(0, y + 0.062, 0), false, 1.0, 16)
+
+## A ribbed rubber grip you can hold in a wet glove: `ribs` tape laps AROUND a vertical
+## shaft. The tape is a browner black than the blank, or the grip vanishes into it.
+static func _tool_grip(h: Node3D, y0: float, len: float, r: float, ribs: int) -> void:
+	_cyl(h, r, len, C_GRIP, Vector3(0, y0 + len * 0.5, 0), false, 1.0, 16)
+	for i in range(ribs):
+		var g := _torus(h, r - 0.002, r + 0.007, C_TAPE,
+			Vector3(0, y0 + len * (float(i) + 0.5) / float(ribs), 0), 16, 6)
+		g.rotation.x = 0.0
+
+## Terminal tackle hove up short the way a hand-line is carried: swivel, three-way,
+## torpedo lead, snooded hook, lumo bead. Hangs DOWN from `at`, in the plane z = at.z,
+## scaled by `s`.
+static func _tool_tackle(h: Node3D, at: Vector3, s: float) -> void:
+	var x: float = at.x
+	var z: float = at.z
+	_cyl(h, 0.005 * s, 0.034 * s, C_LINE, Vector3(x, at.y - 0.018 * s, z), false, 1.0, 8)
+	var sw := _torus(h, 0.007 * s, 0.013 * s, C_ALLOY, Vector3(x, at.y - 0.040 * s, z), 12, 6)
+	sw.rotation.x = 0.0
+	_box(h, Vector3(0.030, 0.016, 0.011) * s, C_ALLOY.darkened(0.12),
+		Vector3(x, at.y - 0.056 * s, z))
+	_cyl(h, 0.005 * s, 0.054 * s, C_LINE, Vector3(x, at.y - 0.090 * s, z), false, 1.0, 8)
+	# 1.4 kg of cast torpedo — the heaviest single thing on the tool and the reason every
+	# other part of it is built the way it is.
+	_cone(h, 0.030 * s, 0.014 * s, 0.038 * s, C_LEAD, Vector3(x, at.y - 0.134 * s, z))
+	_cyl(h, 0.030 * s, 0.056 * s, C_LEAD, Vector3(x, at.y - 0.181 * s, z), false, 1.0, 16)
+	_cone(h, 0.010 * s, 0.030 * s, 0.040 * s, C_LEAD.darkened(0.10),
+		Vector3(x, at.y - 0.228 * s, z))
+	# Snood out to one side, then the hook. rotation.z sends a cylinder's +Y to
+	# (-sin, cos), so 55.8° lays its axis along (-0.827, 0.562) — the trace from the
+	# three-way out to the hook eye. (An earlier cut used 125°, which is not that line
+	# nor its negation, and hung the hook off a snood pointing somewhere else.)
+	var sn := _cyl(h, 0.004 * s, 0.091 * s, C_LINE,
+		Vector3(x + 0.038 * s, at.y - 0.083 * s, z), false, 1.0, 8)
+	sn.rotation.z = deg_to_rad(55.8)
+	var he := _torus(h, 0.006 * s, 0.011 * s, C_ALLOY,
+		Vector3(x + 0.077 * s, at.y - 0.111 * s, z), 12, 6)
+	he.rotation.x = 0.0
+	_cyl(h, 0.005 * s, 0.048 * s, C_ALLOY, Vector3(x + 0.081 * s, at.y - 0.137 * s, z),
+		false, 1.0, 8)
+	var b1 := _box(h, Vector3(0.010, 0.022, 0.009) * s, C_ALLOY,
+		Vector3(x + 0.083 * s, at.y - 0.169 * s, z))
+	b1.rotation.z = deg_to_rad(30)
+	var b2 := _box(h, Vector3(0.010, 0.022, 0.009) * s, C_ALLOY,
+		Vector3(x + 0.068 * s, at.y - 0.182 * s, z))
+	b2.rotation.z = deg_to_rad(72)
+	var pt := _cyl(h, 0.004 * s, 0.026 * s, C_ALLOY.lightened(0.10),
+		Vector3(x + 0.053 * s, at.y - 0.170 * s, z), false, 1.0, 8)
+	pt.rotation.z = deg_to_rad(-16)
+	# A lumo bead above the hook — real deep-drop rigs run one, and in this ocean it is a
+	# live Bloom cell. Emissive at 1.8, well over main.gd's 0.8 glow threshold.
+	_sph(h, 0.009 * s, C_BLOOM, Vector3(x + 0.053 * s, at.y - 0.095 * s, z),
+		Vector3.ONE, true, 1.8)
+
+# ------------------------------- the deep rig: a deck winch -------------------------------
+
+## OWNER PICK, option B. Not a rod: a winch you set down and crank, with the line leading
+## over a hoop fairlead at the head.
+##
+## WHICH WAY IS FORWARD, and why this build answers it. Every other option is rod-shaped,
+## so "the working end" is just the far end of a stick. This one is a machine, so the line
+## exit is a specific part in a specific place: the HOOP at (0.168, 1.012), out on the
+## boom, at the top. The drum's axis runs ACROSS the tool (local Z) with the crank on +Z,
+## which is the face turned toward the camera when it is held — so the drum is seen nearly
+## flat-on and the crank, the ratchet and the bolt circle all read. Everything round on
+## that axis is laid over with rotation.x = 90°. Stations are metres up the pivot's +Y
+## from the foot plate at y = 0:
+##   0.00 foot | 0.15-0.35 taped grip | 0.38-0.62 drum, crank, ratchet | 0.67-0.73 brake
+##   | 0.07-0.97 mast + its diagonal | 0.98-1.02 head and boom | 1.012 HOOP FAIRLEAD
+##   | 1.00-0.77 terminal tackle hanging under it.
+static func _deep_winch(root: Node3D) -> void:
+	var p := Node3D.new()
+	root.add_child(p)
+	# A small lean, not the rod's 14°: every degree also throws the top of a 1.13 m frame
+	# sideways, and the wider the model's X the smaller player_controller's hand
+	# normalisation (largest dimension -> 0.9 m) draws the whole tool.
+	p.rotation.z = deg_to_rad(-4)
+	# FOOT it stands on: tread plate, deck bolts, and one bare-steel edge where it is dragged.
+	_box(p, Vector3(0.230, 0.028, 0.200), C_METAL, Vector3(0.005, 0.014, 0))
+	_box(p, Vector3(0.240, 0.008, 0.210), C_RUST, Vector3(0.005, 0.004, 0))
+	for b in [-1.0, 1.0]:
+		_cyl(p, 0.018, 0.022, C_ALLOY, Vector3(-0.072, 0.034, b * 0.066), false, 1.0, 10)
+	_box(p, Vector3(0.046, 0.014, 0.200), C_SALT, Vector3(0.100, 0.032, 0))
+	_box(p, Vector3(0.086, 0.100, 0.120), C_METAL, Vector3(-0.004, 0.078, 0))   # heel boss
+	# MAST and the grip you brace against a hip or a rail.
+	_box(p, Vector3(0.070, 0.900, 0.070), C_BLANK, Vector3(0, 0.520, 0))
+	_box(p, Vector3(0.056, 0.320, 0.010), C_RUST, Vector3(0, 0.480, -0.036))   # rust streak
+	_tool_grip(p, 0.150, 0.200, 0.052, 4)
+	# THE DRUM — one big one, lower on the frame than a rod's reel, so the crank falls where
+	# a hand naturally goes when the foot is on a deck. Arbor wound with braid between two
+	# flanged cheeks, on a bracket standing off the mast.
+	var dc := Vector3(-0.180, 0.500, 0)
+	for s in [-1.0, 1.0]:
+		_box(p, Vector3(0.230, 0.078, 0.018), C_METAL, Vector3(-0.082, 0.500, s * 0.160))
+	var barrel := _cyl(p, 0.096, 0.230, C_METAL.darkened(0.20), dc, false, 1.0, 18)
+	barrel.rotation.x = deg_to_rad(90)
+	var wound := _cyl(p, 0.152, 0.200, C_LINE, dc, false, 1.0, 18)
+	wound.rotation.x = deg_to_rad(90)
+	# Three dark rings AROUND the braid — the lay of the wind. A 5 mm tube at a 152 mm ring
+	# radius, so these are groove lines on the surface of the line, not hoops standing off it.
+	for g in [-0.060, 0.010, 0.068]:
+		_torus(p, 0.149, 0.154, C_LINE.darkened(0.26), dc + Vector3(0, 0, g), 18, 6)
+	# THE TWO CHEEKS ARE DIFFERENT SIZES, and that is what makes this read as a drum rather
+	# than a bicycle wheel. Held in hand the tool's own +Z points within 27° of the camera,
+	# so the near cheek is seen almost dead flat: at equal radii it hid the braid completely.
+	# The DRIVE cheek (crank side, +Z) is 122 mm against the far cheek's 158, so the braid at
+	# 152 always stands proud of it as a pale ring. Undersized drive cheeks are how real
+	# hand-winches are built anyway — the gear train has to clear the flange.
+	for s in [-1.0, 1.0]:
+		var cr: float = 0.122 if s > 0.0 else 0.158
+		var cheek := _cyl(p, cr, 0.018, C_METAL.darkened(0.16), dc + Vector3(0, 0, s * 0.108),
+			false, 1.0, 22)
+		cheek.rotation.x = deg_to_rad(90)
+		# _torus already lies across the tool (rotation.x = 90°), which IS the drum's own
+		# axis — the one place in this build where the default is the right one.
+		_torus(p, cr - 0.005, cr + 0.009, C_METAL.darkened(0.36), dc + Vector3(0, 0, s * 0.119), 22, 8)
+		var hub := _cyl(p, 0.036, 0.013, C_ALLOY.darkened(0.12), dc + Vector3(0, 0, s * 0.122),
+			false, 1.0, 16)
+		hub.rotation.x = deg_to_rad(90)
+		# A painted band on each cheek, in the rod's own OXBLOOD. An earlier cut painted it
+		# faded ochre and the drum came back a bright yellow disc — the wrong accent entirely
+		# on a rig that has had blank yellow blocks taken off it twice.
+		var band := _cyl(p, cr * 0.60, 0.004, C_WRAP, dc + Vector3(0, 0, s * 0.119), false, 1.0, 20)
+		band.rotation.x = deg_to_rad(90)
+		var ax := _cyl(p, 0.020, 0.090, C_ALLOY, dc + Vector3(0, 0, s * 0.150), false, 1.0, 12)
+		ax.rotation.x = deg_to_rad(90)
+	# Bolt circle through the drive cheek: the detail that turns a disc into a plate somebody
+	# fitted, which is the whole difference between machinery and a wheel.
+	for bo in range(6):
+		var ba: float = bo * TAU / 6.0 + 0.3
+		var blt := _cyl(p, 0.008, 0.010, C_ALLOY,
+			dc + Vector3(cos(ba) * 0.094, sin(ba) * 0.094, 0.122), false, 1.0, 8)
+		blt.rotation.x = deg_to_rad(90)
+	# RATCHET AND PAWL — 45 m of wet line pulling on a drum has to be HELD, and this is the
+	# mechanism data/items.json means by "LMB thumbs the drum to hold a depth".
+	var gear := _cyl(p, 0.062, 0.013, C_ALLOY.darkened(0.14), dc + Vector3(0, 0, 0.186),
+		false, 1.0, 18)
+	gear.rotation.x = deg_to_rad(90)
+	for t in range(6):
+		var ta: float = t * TAU / 6.0
+		_box(p, Vector3(0.017, 0.018, 0.012), C_ALLOY.darkened(0.24),
+			dc + Vector3(cos(ta) * 0.066, sin(ta) * 0.066, 0.186))
+	var pawl := _box(p, Vector3(0.092, 0.014, 0.011), C_BRASS, dc + Vector3(0.058, 0.052, 0.186))
+	pawl.rotation.z = deg_to_rad(-18)
+	# CRANK — offset arm and a fist knob. The only way line comes back up 45 m. The arm is
+	# the lighter alloy, not the frame's gunmetal: a dark bar on a dark drum disappears from
+	# every angle that matters.
+	var boss := _cyl(p, 0.025, 0.030, C_ALLOY, dc + Vector3(0, 0, 0.212), false, 1.0, 14)
+	boss.rotation.x = deg_to_rad(90)
+	var arm := _box(p, Vector3(0.175, 0.030, 0.017), C_ALLOY, dc + Vector3(0.058, -0.058, 0.234))
+	arm.rotation.z = deg_to_rad(-45)
+	var knob := _cyl(p, 0.023, 0.062, C_GRIP.lightened(0.09),
+		dc + Vector3(0.116, -0.116, 0.234), false, 1.0, 14)
+	knob.rotation.x = deg_to_rad(90)
+	# BRAKE — a shoe on a lever pressed down onto the drum rim: what stops a 1.4 kg lead
+	# running away with the whole spool on the way down.
+	var shoe := _box(p, Vector3(0.120, 0.022, 0.210), C_BRASS.darkened(0.42),
+		Vector3(-0.192, 0.672, 0))
+	shoe.rotation.z = deg_to_rad(9)
+	var blev := _box(p, Vector3(0.215, 0.024, 0.022), C_BRASS.darkened(0.14),
+		Vector3(-0.088, 0.706, 0.070))
+	blev.rotation.z = deg_to_rad(15)
+	var bpin := _cyl(p, 0.011, 0.030, C_ALLOY, Vector3(0.018, 0.734, 0.070), false, 1.0, 10)
+	bpin.rotation.x = deg_to_rad(90)
+	# ONE DIAGONAL, and a bent HOOP fairlead at the head instead of a block. That hoop is
+	# the whole simplification the owner picked this option for: the line leaves the tool
+	# over one loop of round bar, and there is exactly one place it can leave from.
+	var st := _box(p, Vector3(0.026, 0.640, 0.024), C_METAL, Vector3(0.090, 0.640, 0))
+	st.rotation.z = deg_to_rad(-11)
+	_box(p, Vector3(0.052, 0.070, 0.028), C_METAL.darkened(0.12), Vector3(0.038, 0.336, 0))
+	_box(p, Vector3(0.078, 0.062, 0.078), C_METAL, Vector3(0.004, 0.980, 0))
+	var boom := _box(p, Vector3(0.170, 0.032, 0.038), C_METAL, Vector3(0.082, 1.000, 0))
+	boom.rotation.z = deg_to_rad(11)
+	var hoop := _torus(p, 0.026, 0.036, C_ALLOY, Vector3(0.168, 1.012, 0), 18, 8)
+	hoop.rotation.x = 0.0                                   # laid flat: the line drops through it
+	_tool_tackle(p, Vector3(0.168, 1.000, 0), 0.95)
+	# THE LINE LEAVES HERE, at the hoop — not at the fist. A child of the winch pivot so it
+	# inherits the lean and position for free.
+	_hand_tip(p, Vector3(0.168, 1.008, 0))
+
+# --------------------------- the surface rod: option 3, the wand ---------------------------
+
+## The rod's sections. Kept as a table rather than 20 literals because the four options on
+## the contact sheet WERE this table with different numbers, and the owner picked one row:
+## the finest. `len` is the whole rod; stations below are written in the original 1.90 m
+## layout and scaled by len/1.90 so the proportions are the rod's, not the length's.
+const ROD_WAND := {
+	"len": 2.10, "butt": 0.019, "tip": 0.003, "grip": 0.031, "fore": 0.032, "seat": 0.037,
+	"guides": 8, "gbig": 0.030, "gsml": 0.008, "reel_s": 0.84,
+}
+
+static func _rod_build(root: Node3D, q: Dictionary) -> void:
+	var p := Node3D.new()
+	root.add_child(p)
+	p.rotation.z = deg_to_rad(14)
+	var L: float = float(q["len"])
+	var s: float = L / 1.90                       # station scale off the original layout
+	var bt: float = float(q["butt"])
+	var tp: float = float(q["tip"])
+	var gr0: float = float(q["grip"])
+	var sea: float = float(q["seat"])
+	var rs: float = float(q["reel_s"])
+	# Gimbal, butt grip, machined seat — all trimmed WITH the blank, so the whole rod is
+	# finer rather than a thin stick carrying fat furniture. That was the owner's note.
+	_tool_gimbal(p, 0.0, gr0 + 0.010)
+	_cyl(p, gr0, 0.37 * s, C_GRIP, Vector3(0, 0.235 * s, 0), false, 1.0, 16)
+	for i in range(4):
+		var rib := _torus(p, gr0 - 0.002, gr0 + 0.006, C_TAPE,
+			Vector3(0, (0.115 + i * 0.075) * s, 0), 16, 6)
+		rib.rotation.x = 0.0                                            # rings AROUND the butt
+	_cyl(p, sea, 0.18 * s, C_ALLOY.darkened(0.18), Vector3(0, 0.51 * s, 0), false, 1.0, 20)
+	for l in [0.432, 0.588]:
+		var lock := _torus(p, sea - 0.001, sea + 0.010, C_ALLOY.darkened(0.25),
+			Vector3(0, l * s, 0), 16, 8)
+		lock.rotation.x = 0.0                                           # knurled lock rings
+	_rod_reel(p, Vector3(0.142 * rs / 0.95, 0.535 * s, 0), rs)
+	# Foregrip you pull against, ferrule, then four stacked tapering blank sections, so the
+	# taper actually reads instead of being one uniform stick.
+	_cone(p, float(q["fore"]) + 0.004, float(q["fore"]) - 0.004, 0.30 * s, C_GRIP,
+		Vector3(0, 0.75 * s, 0))
+	for f in range(3):
+		var fr := _torus(p, float(q["fore"]) - 0.005, float(q["fore"]) + 0.003, C_TAPE,
+			Vector3(0, (0.655 + f * 0.085) * s, 0), 16, 6)
+		fr.rotation.x = 0.0                                             # foregrip ribs
+	_cyl(p, bt + 0.005, 0.02 * s, C_ALLOY, Vector3(0, 0.90 * s, 0), false, 1.0, 18)
+	for seg in [[0.90, 1.20], [1.20, 1.48], [1.48, 1.72], [1.72, 1.90]]:
+		var y0: float = float(seg[0])
+		var y1: float = float(seg[1])
+		_cone(p, _rod_blank_r(y0, bt, tp), _rod_blank_r(y1, bt, tp), (y1 - y0) * s,
+			C_BLANK, Vector3(0, (y0 + y1) * 0.5 * s, 0))
+	# Guides stepping down the blank — the thing that makes a rod read as a rod at a glance.
+	# Each is a ring on a short standoff post over a wrapped thread binding, on the SAME side
+	# as the reel, because that is where an overhead reel's line runs. Posts and wraps scale
+	# with the ring so nothing is chunky on a fine blank.
+	var n: int = int(q["guides"])
+	for i in range(n):
+		var t: float = float(i) / float(maxi(n - 1, 1))
+		var gy: float = lerpf(1.00, 1.83, pow(t, 0.86))
+		var gring: float = lerpf(float(q["gbig"]), float(q["gsml"]), pow(t, 0.75))
+		var br: float = _rod_blank_r(gy, bt, tp)
+		var post: float = 0.004 + gring * 0.22
+		_cyl(p, br + 0.0025, 0.026 * s, C_WRAP, Vector3(0, gy * s, 0), false, 1.0, 14)
+		_box(p, Vector3(post, 0.010, 0.010), C_METAL, Vector3(br + post * 0.5, gy * s, 0))
+		var ring := _torus(p, gring, gring + 0.0045, C_ALLOY,
+			Vector3(br + post + gring, gy * s, 0), 16, 8)
+		ring.rotation.x = 0.0                                           # hole up the blank
+	# Roller tip: the last bearing the line touches before it goes over the side.
+	var tipy: float = 1.90 * s
+	_sph(p, tp + 0.002, C_METAL, Vector3(0, tipy, 0))
+	_box(p, Vector3(0.020, 0.010, 0.011), C_METAL, Vector3(0.010, tipy - 0.012 * s, 0))
+	var tr := _torus(p, 0.008, 0.014, C_ALLOY, Vector3(0.020, tipy + 0.002, 0), 16, 8)
+	tr.rotation.x = 0.0
+	var rol := _cyl(p, 0.007, 0.008, C_ALLOY.lightened(0.12),
+		Vector3(0.020, tipy - 0.012 * s, 0), false, 1.0, 10)
+	rol.rotation.x = deg_to_rad(90)
+	_hand_tip(p, Vector3(0.020, tipy, 0))
+
+## Blank radius at station `y`, in the rod's own 0.90-1.90 station coordinates, linear from
+## the ferrule to the tip. ONE function so a guide foot cannot drift off the blank the way
+## hand-written per-guide radii did.
+static func _rod_blank_r(y: float, bt: float, tp: float) -> float:
+	return lerpf(bt, tp, clampf((y - 0.90) / 1.00, 0.0, 1.0))
+
+## A lever-drag multiplier clamped ON TOP of the seat, where an overhead reel goes — the
+## single part that says "offshore" at a glance, so it is built as a real one: two machined
+## side plates, a wide braid spool between them, frame pillars, a thumb lever and an offset
+## crank. Its axis runs ACROSS the rod (local Z), so every round part is laid over with
+## rotation.x = 90°. `k` scales the whole reel so it can be trimmed with the blank while
+## staying legible at 74 px, which is the one thing that must not shrink away.
+static func _rod_reel(h: Node3D, at: Vector3, k: float) -> void:
+	_box(h, Vector3(0.048, 0.032, 0.086) * k, C_METAL, at + Vector3(-0.075, -0.030, 0) * k)
+	var spool := _cyl(h, 0.050 * k, 0.140 * k, C_LINE, at, false, 1.0, 18)
+	spool.rotation.x = deg_to_rad(90)
+	for s in [-1.0, 1.0]:
+		var plate := _cyl(h, 0.078 * k, 0.017 * k, C_METAL, at + Vector3(0, 0, s * 0.081 * k),
+			false, 1.0, 22)
+		plate.rotation.x = deg_to_rad(90)
+		_torus(h, 0.069 * k, 0.082 * k, C_METAL.darkened(0.25),
+			at + Vector3(0, 0, s * 0.091 * k), 20, 8)
+	for pl in range(3):
+		var pa: float = pl * TAU / 3.0 + 0.6
+		_box(h, Vector3(0.019, 0.019, 0.155) * k, C_METAL.darkened(0.12),
+			at + Vector3(cos(pa) * 0.067, sin(pa) * 0.067, 0) * k)
+	var cam := _cyl(h, 0.023 * k, 0.017 * k, C_BRASS.darkened(0.2),
+		at + Vector3(0, 0, 0.096 * k), false, 1.0, 14)
+	cam.rotation.x = deg_to_rad(90)
+	var lever := _box(h, Vector3(0.090, 0.019, 0.014) * k, C_BRASS,
+		at + Vector3(0.032, 0.034, 0.104) * k)
+	lever.rotation.z = deg_to_rad(42)                                   # thumb lever, drag off
+	var stub := _cyl(h, 0.013 * k, 0.052 * k, C_ALLOY, at + Vector3(0, 0, 0.120 * k),
+		false, 1.0, 12)
+	stub.rotation.x = deg_to_rad(90)
+	var arm := _box(h, Vector3(0.134, 0.025, 0.015) * k, C_ALLOY,
+		at + Vector3(0.041, -0.041, 0.149) * k)
+	arm.rotation.z = deg_to_rad(-42)
+	var knob := _cyl(h, 0.018 * k, 0.048 * k, C_GRIP.lightened(0.08),
+		at + Vector3(0.084, -0.084, 0.149) * k, false, 1.0, 14)
+	knob.rotation.x = deg_to_rad(90)
+
 
 # ---- primitives ----
 

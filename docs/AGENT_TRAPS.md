@@ -448,3 +448,60 @@ alpha falling to zero at the rim, built once in code, no asset and no import.
 draws, and exactly where the stove's new boiling pot goes. **Before adding a prop to a surface
 the dressing scripts also dress, grep the position, not just the room.** Three separate files
 (`rig_builder`, `interior_props`, `cook_stove`) put geometry on this one range.
+
+## Found while un-clustering the day crab pack (s21)
+
+**"They never move" and "they sit next to each other" are DIFFERENT BUGS, and only one of them
+has a probe.** The owner reported the giant crabs "sitting unnaturally next to each other all
+day" after a pass that had already measured them crawling 89–101 m each in four minutes over
+10–11 m of depth. Both facts were true: the pack was busy and CROWDED. `CrabLifeProbe`'s only
+movement bar was `travelled > 1 m` and it had no notion of SPACING at all, so the complaint was
+invisible to it. The tell, once measured, was unmistakable — **nearest-neighbour distances came
+back in identical pairs** (crabs 0+4, 1+5, 2+6, 3+7), which is what a per-animal number looks
+like when every animal's nearest neighbour is the same fixed partner. If an owner's word is
+about the RELATIONSHIP between agents (crowded, lined up, following each other, ignoring each
+other), measure the pairwise matrix. A per-animal statistic cannot see it.
+
+**Two animals on one 6 x 6 m caisson leg will find each other, and the surface frame helps
+them.** `FaunaMove.seat` wraps a convex edge on purpose — that is what carries a crawler over a
+deck rim onto the rim face — so on a leg it walks the body straight round the corner onto its
+pack-mate's wall. Measured: one crab's cling normal visited (1,0,0), (0,0,−1) and (0,0,1) in a
+single day, three of the leg's four faces. Clamping the roam target to the leg's FOOTPRINT
+rather than to the crab's own face plane is what let it aim there in the first place. If two of
+a species share one small structure, give each an explicit patch of it — the animals will not
+divide it up on their own.
+
+**`FaunaTouch` spheres do not only corrupt PROBES — they corrupt the animals.** The existing
+trap above is written from a probe's point of view. It is worse than that: a crawler seats
+itself with the same kind of raycast, and `FaunaMove.kin_bodies` only excludes fauna beneath a
+`bloom_fauna.gd` host. The reef's climbing snails are `BloomFauna` inner-class instances
+parented under `leg_reef`, and the s21 mussel beds under `mussel_beds`, so a crab crawling down
+a caisson **stood on a snail**: its cling normal tumbled — (0.36,−0.77,0.52), (0.39,0.4,−0.83),
+(0.31,0.87,0.38) — for the rest of the day, seat error 1.36 m, 34 buried crab-frames, 3 of 8
+adrift. `CrabLifeProbe`'s own column sweep had been printing the evidence all along as
+"face at |x| 25.48" against a real face at 25.00.
+
+**Where a surface is provably ONE PLANE, hold it analytically and delete the raycast.** The
+caisson faces measure |x| 25.00 unbroken from y 1.0 to y −23.5. So the day cling is now a plane
+pin — no query, immune to whatever the next session bolts to the concrete, and it cannot let go
+of the face. It removed one raycast per crab per frame; "probe, don't guess" means derive the
+number from the geometry ONCE and assert it, not re-cast it every frame into a world that other
+sessions keep adding colliders to.
+
+**Narrowing an animal's patch SLOWS IT DOWN, and nothing warns you.** Speeds, pauses and
+targets were untouched, but confining each crab to a 2.1 x 4.0 m patch took the pack from
+68–80% of the day in motion to 48–54%: a uniformly-drawn target lands next to where the animal
+already stands, the move finishes before it starts, and the rest of the beat is a pause. Draw
+the DIRECTION weighted by the room left on each side and the distance as a real fraction of
+that room (`crab.gd::_jog`) — never a uniform sample you then clamp, because clamping at the
+boundary is the same no-op and it parks the animal against its own edge.
+
+**A probe with a fixed watch window rots when the schedule it watches gains a ramp.**
+`crab_hunt_probe` (100 s) and `crab_qa` (110 s) both pre-date s18's late-weighted emergence
+draw, under which the median crab does not attempt to surface until about half way through a
+780 s night. Both were reporting failure — "first contact: NEVER  <- not scary" — about
+behaviour working exactly as specified, and `crab_qa` was ALSO measuring the day pack's
+clearance along world −Y at animals clinging to a vertical wall ("hovering 62.7% of the time",
+gaps to 3.36 m: stable, confident, meaningless). Fixed: 480 s / 300 s at `Engine.time_scale`
+6 (every figure either probe takes is a position, never a rate), and the gap is cast along the
+animal's own `up`. 62.7% → 0.4% hovering, 9.1% → 0% sunk, NEVER → contact at 195.9 s.

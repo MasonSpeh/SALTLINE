@@ -15,7 +15,13 @@ extends Node
 ## Run headless: godot --headless --path . res://tests/crab_qa.tscn
 
 const WARMUP: float = 6.0
-const WATCH: float = 110.0
+const WATCH: float = 300.0           ## THREAT needs a whole night's worth of ramp, not a
+## minute of it. The s18 emergence schedule draws each crab's first attempt as a late-weighted
+## fraction of the night (crab.gd::EMERGE_WINDOW / EMERGE_BIAS), so the MEDIAN crab does not
+## even consider coming up until about half way through — measured, CrabLifeProbe's ramp is
+## 0/8 out at both 10% and 20% of the night. A 110 s window could therefore only ever report
+## "first contact: NEVER", which it did, about behaviour that is working exactly as specified.
+## CrabNightProbe uses 300 s and gets the whole pack up.
 ## A crab's own top speed is ~4.4 m/s; anything beyond this in one frame is not locomotion.
 const TELEPORT_M: float = 1.25
 const STALL_M: float = 0.12          ## progress under this per sample counts as stalled
@@ -54,16 +60,69 @@ func _all() -> Array:
 	return out
 
 ## Distance from a crab's origin (its feet — crab.gd offsets the model so its lowest point
-## sits on the node origin) down to whatever is under it. ~0 is seated; positive is hovering.
+## sits on the node origin) to the surface it is standing on. ~0 is seated; positive is
+## hovering, negative is sunk into it.
+##
+## ALONG THE ANIMAL'S OWN `up`, NOT WORLD DOWN. A giant crab spends the whole day clinging to
+## a VERTICAL caisson face, belly to the concrete — there is nothing at all beneath it for
+## several metres. Casting straight down therefore measured the coral band or the seabed and
+## reported the entire day pack as "hovering 62.7% of the time" with gaps out to 3.36 m: a
+## stable, confident, meaningless number, and it has been wrong ever since the pack moved
+## onto the legs. `up` is the surface frame the crab is actually standing in (crab.gd::_seat),
+## so it is the axis its clearance means anything along.
+##
+## Fauna is excluded too. Everything bolted to a caisson since s19 stands PROUD of it on the
+## default collision layer — the reef's climbing snails and the s21 mussel beds both carry
+## FaunaTouch spheres up to 0.85 m off the concrete — so without a skip list this measures a
+## crab against a snail. See docs/AGENT_TRAPS.md.
 func _ground_gap(n: Node3D) -> float:
 	var space: PhysicsDirectSpaceState3D = get_viewport().world_3d.direct_space_state
-	var from: Vector3 = n.global_position + Vector3(0, 0.6, 0)
-	var q := PhysicsRayQueryParameters3D.create(from, from + Vector3(0, -4.0, 0))
+	var up: Vector3 = Vector3.UP
+	var u: Variant = n.get("up")
+	if u is Vector3 and (u as Vector3).length() > 0.5:
+		up = (u as Vector3).normalized()
+	var from: Vector3 = n.global_position + up * 0.6
+	var q := PhysicsRayQueryParameters3D.create(from, from - up * 4.0)
 	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = _fauna_bodies()
 	var hit: Dictionary = space.intersect_ray(q)
 	if hit.is_empty():
 		return NAN
-	return n.global_position.y - (hit["position"] as Vector3).y
+	return (n.global_position - (hit["position"] as Vector3)).dot(up)
+
+## Every fauna collider in the world, wherever it is parented. FaunaMove.kin_bodies walks up
+## to a `bloom_fauna.gd` host, which misses the reef's snails (parented under `leg_reef`) and
+## the mussel beds — so this walks the tree once and takes everything under any fauna host.
+const FAUNA_HOSTS: Array = ["bloom_fauna.gd", "leg_reef.gd", "reef_life.gd", "reef_fish.gd",
+	"mussel_beds.gd", "underwater_world.gd", "crab.gd", "king_crab.gd"]
+var _fauna_skip: Array[RID] = []
+var _fauna_skip_done: bool = false
+
+func _fauna_bodies() -> Array[RID]:
+	if _fauna_skip_done:
+		return _fauna_skip
+	_fauna_skip_done = true
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var nd: Node = stack.pop_back()
+		var s: Script = nd.get_script() as Script
+		var host: bool = false
+		if s != null:
+			for frag in FAUNA_HOSTS:
+				if String(s.resource_path).ends_with(String(frag)):
+					host = true
+					break
+		if host:
+			for b in nd.find_children("*", "CollisionObject3D", true, false):
+				_fauna_skip.append((b as CollisionObject3D).get_rid())
+			if nd is CollisionObject3D:
+				_fauna_skip.append((nd as CollisionObject3D).get_rid())
+			continue
+		for c in nd.get_children():
+			stack.append(c)
+	print("[qa] fauna skip list: %d collision bodies" % _fauna_skip.size())
+	return _fauna_skip
 
 func _process(d: float) -> void:
 	_t += d

@@ -112,6 +112,34 @@ const HAND_TIP_AXIS := {
 }
 var _hand_reach_axis: Vector3 = Vector3(0, 0, -1)
 
+## HOW A FISHING TOOL SITS IN THE HAND, per item, because the two tools have nothing in
+## common geometrically. `_normalize_hand_visual` recentres a held item on its own AABB and
+## scales the longest axis to 0.9 m; both of those are right, and both mean the offset that
+## frames one tool cannot frame the other.
+##
+##   fishing_rod — 2.10 m of blank, AABB centre a long way up the shaft, reel a quarter of
+##     the way up from the butt. Centring the 0.9 m rig on the hand point put the one part
+##     that says "offshore gear" just under the bottom edge of the screen and the player
+##     held a bare stick, so it is LIFTED by about half a reel. Unchanged.
+##   deep_rig_pole — a 1.03 x 0.64 x 0.46 m deck winch. Its AABB centre already lands on
+##     the drum (measured: centre y 0.505 against a drum axis at 0.511), so the rod's
+##     +0.12 m lift is a lift it does not need: it pushed the foot out of frame and carried
+##     the hoop fairlead and its hanging tackle up into the top edge, and the rod's +0.05 m
+##     of right-shift ran the tackle off the right edge — this tool is 0.56 m wide in hand
+##     against a rod's thin diagonal. So: no lift, shifted LEFT and pulled a little nearer,
+##     and tipped less far over (-14° against the rod's -24°) because a machine has to read
+##     round and upright, not foreshortened. Verified by render, not by arithmetic.
+const HAND_TOOL_POSE := {
+	"fishing_rod": {
+		"rot": Vector3(deg_to_rad(-24.0), deg_to_rad(-14.0), 0.0),
+		"off": Vector3(0.05, 0.12, -0.1),
+	},
+	"deep_rig_pole": {
+		"rot": Vector3(deg_to_rad(-14.0), deg_to_rad(-14.0), 0.0),
+		"off": Vector3(-0.05, 0.0, -0.04),
+	},
+}
+
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
 var carried: Node3D = null         ## currently held physics object
@@ -1411,16 +1439,10 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	if largest > 0.0001:
 		container.scale = Vector3.ONE * (target / largest)
 	visual.position = -combined.get_center()
-	if _held_item_id in ROD_ITEMS:
-		# Angle the rod out over the water like it's actually being fished.
-		container.rotation = Vector3(deg_to_rad(-24), deg_to_rad(-14), 0)
-		# LIFTED, because a rod is recentred on its AABB and its reel is not at its middle.
-		# The rebuilt rod carries the reel a quarter of the way up from the butt, so centring
-		# the 0.9 m rig on the hand point put the one part that says "offshore gear" — the
-		# lever-drag multiplier — just under the bottom edge of the screen, and the player
-		# held a bare stick. This raises the whole rig by about half a reel so the seat, the
-		# reel and the tip are all in frame at once.
-		container.position += Vector3(0.05, 0.12, -0.1)
+	if HAND_TOOL_POSE.has(_held_item_id):
+		var pose: Dictionary = HAND_TOOL_POSE[_held_item_id]
+		container.rotation = pose["rot"]
+		container.position += pose["off"] as Vector3
 	# Half the item's longest dimension, in CONTAINER-local units (after the
 	# recentre above, the visual's AABB is symmetric about the container origin).
 	# hand_tip_world() uses this to find the far end of whatever is held, so a
