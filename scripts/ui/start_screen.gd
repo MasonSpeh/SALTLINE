@@ -640,7 +640,7 @@ func _menu_button(parent: Control, text: String) -> Button:
 
 func _build_footer() -> void:
 	var footer := Label.new()
-	footer.text = "Beta 0.1 — WASD move · E interact · I inventory · F flashlight"
+	footer.text = "Beta 1.1 — WASD move · E interact · I inventory · F flashlight"
 	footer.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	footer.add_theme_font_size_override("font_size", 12)
 	footer.add_theme_color_override("font_color", Color(0.55, 0.65, 0.63, 0.55))
