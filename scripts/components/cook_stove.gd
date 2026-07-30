@@ -245,25 +245,56 @@ func _build_pot() -> void:
 	_pot_water.position = POT_LOCAL + Vector3(0.0, POT_H * WATER_F, 0.0)
 	# Steam. Hidden cold; four thin wisps that climb and fade while it boils.
 	for i in range(5):
+		# BILLBOARDED QUADS, not cones. The first version used tapered cylinders, and an
+		# unshaded double-sided cone at this scale photographs as a flat white BLADE — the
+		# pot appeared to have two paper sails standing over it. A camera-facing quad is both
+		# cheaper and the only thing that reads as vapour from every angle.
 		var wisp := MeshInstance3D.new()
-		var sm := CylinderMesh.new()
-		sm.top_radius = 0.085
-		sm.bottom_radius = 0.03
-		sm.height = 0.20 + 0.05 * i
+		var sm := QuadMesh.new()
+		sm.size = Vector2(0.15 + 0.03 * i, 0.19 + 0.03 * i)
 		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.90, 0.92, 0.94, 0.0)
+		mat.albedo_color = Color(0.92, 0.94, 0.96, 0.0)
+		# A SOFT EDGE, which is the whole difference between vapour and a sheet of paper. An
+		# untextured billboard quad is a hard-cornered white RECTANGLE — that is exactly what
+		# the previous two attempts photographed, first as cones and then as squares. The
+		# radial gradient below is generated once here (no asset, no import) and its alpha
+		# falls to zero at the rim, so the quad's corners are never drawn.
+		mat.albedo_texture = _steam_puff()
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		mat.billboard_keep_scale = true
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
 		sm.material = mat
 		wisp.mesh = sm
 		wisp.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		wisp.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 		wisp.visible = false
 		add_child(wisp)
 		wisp.position = POT_LOCAL + Vector3(
-			cos(i * 1.7) * POT_R * 0.35, POT_H + 0.10 + 0.05 * i, sin(i * 1.7) * POT_R * 0.35)
+			cos(i * 1.7) * POT_R * 0.3, POT_H + 0.07 + 0.03 * i, sin(i * 1.7) * POT_R * 0.3)
 		_steam.append({"mi": wisp, "mat": mat, "phase": float(i) * 1.37,
 			"base_y": wisp.position.y})
+
+## One soft round puff, generated rather than authored: a radial white-to-transparent gradient
+## used as the steam billboards' albedo. Built once and shared by all five wisps.
+static var _puff_tex: Texture2D = null
+
+static func _steam_puff() -> Texture2D:
+	if _puff_tex != null:
+		return _puff_tex
+	var g := Gradient.new()
+	g.offsets = PackedFloat32Array([0.0, 0.45, 1.0])
+	g.colors = PackedColorArray([Color(1, 1, 1, 1.0), Color(1, 1, 1, 0.55), Color(1, 1, 1, 0.0)])
+	var t := GradientTexture2D.new()
+	t.gradient = g
+	t.fill = GradientTexture2D.FILL_RADIAL
+	t.fill_from = Vector2(0.5, 0.5)
+	t.fill_to = Vector2(1.0, 0.5)
+	t.width = 64
+	t.height = 64
+	_puff_tex = t
+	return _puff_tex
 
 func _powered() -> bool:
 	return PowerGrid.is_powered(CIRCUIT)
@@ -361,9 +392,9 @@ func _roll_boil(delta: float) -> void:
 		# Each wisp runs its own 1.6 s climb, offset so they do not pulse in unison.
 		var t: float = fposmod(_boil_t * 0.62 + float(w["phase"]), 1.0)
 		mi.visible = true
-		mi.position.y = float(w["base_y"]) + t * 0.30
-		mi.scale = Vector3.ONE * (0.5 + t * 0.9)
-		(w["mat"] as StandardMaterial3D).albedo_color.a = 0.50 * sin(t * PI)
+		mi.position.y = float(w["base_y"]) + t * 0.24
+		mi.scale = Vector3.ONE * (0.55 + t * 0.75)
+		(w["mat"] as StandardMaterial3D).albedo_color.a = 0.42 * sin(t * PI)
 
 ## Power cut mid-cook: the oven goes cold and the fish comes back out raw rather than
 ## silently evaporating in a dead box.
@@ -459,8 +490,9 @@ func _set_hot(hot: bool) -> void:
 			_hob_mat.albedo_color = Color(0.09, 0.09, 0.10)
 			_hob_mat.emission_enabled = false
 	if _pot_water_mat != null:
-		_pot_water_mat.albedo_color = Color(0.14, 0.13, 0.11) if boil \
+		_pot_water_mat.albedo_color = Color(0.66, 0.64, 0.60) if boil \
 			else Color(0.06, 0.08, 0.09)
+		_pot_water_mat.roughness = 0.62 if boil else 0.12
 	if not boil:
 		if is_instance_valid(_pot_water):
 			_pot_water.position.y = POT_LOCAL.y + POT_H * WATER_F

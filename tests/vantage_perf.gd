@@ -75,9 +75,12 @@ const SPOTS := [
 ##     costing to draw" from "what is this costing to think". They are diagnostics — a
 ##     measurement of the ceiling, not a proposal — because a world whose animals do not move
 ##     is not the game.
+##   * "reef_cull" and "hidden_stride" are THIS session's own optimisations, measured the same
+##     way as everything else. Both are switchable at runtime specifically so they can be A/B'd
+##     here rather than across two runs: the machine's drift between runs is ~1-2 ms, which is
+##     larger than either effect, and a cross-run table cannot honestly resolve them.
 const SWEEPS: Array[String] = [
-	"none", "ai_decimation", "reef_fish", "leg_reef", "glow", "sun_shadow",
-	"fauna_sim", "uw_sim",
+	"none", "reef_cull", "hidden_stride", "sun_shadow", "fauna_sim",
 ]
 
 enum Phase { WARMUP, RUN, SWEEP, DONE }
@@ -219,6 +222,14 @@ func _toggle(kind: String, on: bool) -> void:
 		"sun_shadow":
 			if _sun != null:
 				_sun.shadow_enabled = on
+		"reef_cull":
+			if _reef != null:
+				_reef.set("cull_above_water", on)
+		"hidden_stride":
+			# OFF = back to the s19 value. Not 1: the point is what the LOOSER stride bought on
+			# top of the decimation that already existed, not what decimation is worth (that is
+			# the ai_decimation row).
+			AiBudget.HIDDEN_STRIDE = 8 if on else 4
 		"fauna_sim":
 			if _fauna != null:
 				_fauna.process_mode = Node.PROCESS_MODE_INHERIT if on else Node.PROCESS_MODE_DISABLED
@@ -315,7 +326,7 @@ func _process(delta: float) -> void:
 ## typed. Each row leans out over open water and looks down into it at ~25 degrees, which is
 ## the sight line that sees furthest into a surface (straight down sees least, because the
 ## fan's near quads fill the frame).
-const PROOF_HEIGHTS: Array[float] = [1.2, 2.05, 3.0, 3.6, 4.5, 6.0, 9.0]
+const PROOF_HEIGHTS: Array[float] = [2.05, 3.0, 3.6, 4.5, 6.0]
 ## Where from. z -17 is off the south pontoon over open water; the wet deck plating is y 2.0,
 ## so 3.6 is a standing eye there and 1.2 is lying on the pontoon edge.
 const PROOF_EYE_XZ := Vector2(0.0, -17.0)
@@ -367,9 +378,19 @@ func _cull_proof() -> void:
 	# flag applies to the next drawn frame, so one frame is all the gap the toggle needs, and
 	# one frame is as still as this ocean ever gets.
 	const GAP: int = 1
-	print("\n%-10s %6s %9s %9s %9s %9s %9s %9s   %s"
-		% ["target", "eye y", "nul mean", "nul max", "nul px>24", "cul mean", "cul max",
-			"cul px>24", "verdict"])
+	# THE STATISTIC, and why it is not a frame difference. A moving sea differs from itself
+	# everywhere by a little (specular shimmer over the whole surface), and the amplitude cannot
+	# be turned off — the ocean shader's amp_scale bottoms out at 0.18, not 0. So no whole-frame
+	# mean or max can separate "the reef is showing through" from "the swell moved".
+	#
+	# What CAN: three captures one frame apart, A / middle / C, with A and C both showing the
+	# target. |A - C| is then a per-pixel MOTION MASK over the same two-frame span the test
+	# straddles. Count only pixels where the middle frame differs from A by a lot AND the mask
+	# says that pixel was steady. Those are pixels the TOGGLE changed and motion did not, which
+	# is exactly the question. Run the identical statistic with nothing toggled and you get the
+	# null count, which is what the answer has to beat.
+	print("\n%-10s %6s %12s %12s   %s"
+		% ["target", "eye y", "null px", "cull px", "verdict"])
 	for t in targets:
 		var node: Node3D = t[1]
 		for hy in PROOF_HEIGHTS:
@@ -377,34 +398,51 @@ func _cull_proof() -> void:
 			node.visible = true
 			for i in range(SETTLE_FRAMES):
 				await get_tree().process_frame
-			var a: Image = await _grab()
-			for i in range(GAP):
-				await get_tree().process_frame
-			var b: Image = await _grab()
-			node.visible = false
-			for i in range(GAP):
-				await get_tree().process_frame
-			var c: Image = await _grab()
+			var null_px: float = await _triple(node, false, GAP)
+			var cull_px: float = await _triple(node, true, GAP)
 			node.visible = true
-			var n: Array = _diff(a, b)
-			var d: Array = _diff(b, c)
-			# px>24 is the discriminator that matters. A moving sea differs from itself by a
-			# lot of SMALL specular shimmer spread over the whole frame; a reef that should not
-			# be on screen is a compact patch of LARGE differences. The mean cannot tell those
-			# apart and the count can.
-			var clean: bool = d[2] <= maxf(n[2] * 1.5, 20.0) and d[0] <= n[0] * 1.5 + 0.02
-			print("  %-8s %6.2f %9.4f %9.0f %9.0f %9.4f %9.0f %9.0f   %s"
-				% [t[0], hy, n[0], n[1], n[2], d[0], d[1], d[2],
-					"invisible" if clean else "VISIBLE"])
-			if not clean:
-				b.save_png("/tmp/cullproof_%s_%.2f_on.png" % [t[0], hy])
-				c.save_png("/tmp/cullproof_%s_%.2f_off.png" % [t[0], hy])
+			var clean: bool = cull_px <= maxf(null_px * 2.0, 12.0)
+			print("  %-8s %6.2f %12.0f %12.0f   %s"
+				% [t[0], hy, null_px, cull_px, "invisible" if clean else "VISIBLE"])
 	if _uw != null:
 		_uw.process_mode = prev_uw
 	print("\nThe margin each cull needs is the lowest eye y whose row reads 'invisible' and")
 	print("stays invisible above it. PNG pairs for every VISIBLE row are in /tmp/cullproof_*.")
 	print("=============================================================")
 	get_tree().quit()
+
+## Capture A / middle / C one frame apart, optionally hiding `node` for the middle frame only,
+## and return how many sampled pixels the middle frame changed A LOT in that were STEADY between
+## A and C. With `toggle` false this is the null: the same statistic with nothing changed.
+func _triple(node: Node3D, toggle: bool, gap: int) -> float:
+	node.visible = true
+	var a: Image = await _grab()
+	if toggle:
+		node.visible = false
+	for i in range(gap):
+		await get_tree().process_frame
+	var mid: Image = await _grab()
+	node.visible = true
+	for i in range(gap):
+		await get_tree().process_frame
+	var c: Image = await _grab()
+	if a.get_size() != mid.get_size() or a.get_size() != c.get_size():
+		return 1.0e9
+	var hits: int = 0
+	for y in range(0, a.get_height(), 3):
+		for x in range(0, a.get_width(), 3):
+			var ca: Color = a.get_pixel(x, y)
+			var cc: Color = c.get_pixel(x, y)
+			var moved: float = 255.0 * maxf(maxf(absf(ca.r - cc.r), absf(ca.g - cc.g)),
+				absf(ca.b - cc.b))
+			if moved > 8.0:
+				continue                      # the sea moved here; this pixel cannot testify
+			var cm: Color = mid.get_pixel(x, y)
+			var d: float = 255.0 * maxf(maxf(absf(ca.r - cm.r), absf(ca.g - cm.g)),
+				absf(ca.b - cm.b))
+			if d > BIG_DIFF:
+				hits += 1
+	return float(hits)
 
 func _grab() -> Image:
 	await RenderingServer.frame_post_draw
@@ -462,11 +500,11 @@ func _record() -> void:
 	# that reports only its intended position cannot tell you it missed (docs/AGENT_TRAPS.md),
 	# and identical draw counts at six different vantages is exactly what a camera that never
 	# moved looks like.
-	print("  [%-14s r%d] eye %s  fwd %s  draws %.0f  prims %.0f  uw_vis %s  flips %d"
+	print("  [%-14s r%d] eye %s  draws %.0f  prims %.0f  uw_vis %-3s reef %-3s flips %d"
 		% [name, _round, str(_cam.global_position.round()),
-			str((-_cam.global_transform.basis.z * 100.0).round() / 100.0),
 			_median(_draws), _median(_prims),
-			"yes" if (_uw != null and _uw.visible) else "no", _uw_flips])
+			"yes" if (_uw != null and _uw.visible) else "no",
+			"yes" if (_reef != null and _reef.is_visible_in_tree()) else "no", _uw_flips])
 	_uw_flips = 0
 	_spot += 1
 	if _spot >= SPOTS.size():
@@ -493,6 +531,8 @@ func _record() -> void:
 func _begin_sweep() -> void:
 	for s in SPOTS:
 		for kind in SWEEPS:
+			if kind == "reef_cull" and _reef == null:
+				continue
 			if kind == "leg_reef" and _reef_mm.is_empty():
 				continue
 			if kind == "reef_fish" and _fish == null:

@@ -31,6 +31,15 @@ const DAY_SAMPLE_SEC: float = 240.0   ## game seconds of daylight to watch. Long
 ## cover a whole check-in cycle: crab.gd ranges for DEN_RANGE_MIN..MAX (55-145 s) before the
 ## den falls due, so a 45 s window measured the crawl but could never have caught a visit.
 const DEN_HIT: float = 0.8            ## how close counts as "checked in"
+## ---- CLUSTERING (s21). The owner's report is not "they never move", it is "they sit
+## unnaturally NEXT TO EACH OTHER all day" — a complaint about the SPACING of the pack, which
+## nothing here measured. travelled > 1 m over four minutes was the only movement bar, and a
+## crab that shuffles a metre and stops passes it. So the day audit now also reports, every
+## sample: each crab's nearest pack-mate, the closest pair anywhere in the pack, and what
+## fraction of the window each animal was actually in motion. Those three numbers are what
+## the complaint is about.
+const CLUMP_DIST: float = 4.0         ## nearer than this and two giant crabs read as a pair
+const MOVING_SPEED: float = 0.05      ## m/s under which a crab is "sitting", not crawling
 const RAMP_SAMPLES: int = 10          ## points across the night
 const EMERGED_Y: float = 0.5          ## above this it is out of the water (test convention)
 const LOG_PATH: String = "/tmp/crab_life_probe.txt"
@@ -183,6 +192,13 @@ func _day_audit(crabs: Array) -> void:
 	var den_visits: Array = []
 	var at_den: Array = []
 	var den_frames: Array = []
+	# Clustering + motion, per crab, over the whole window.
+	var nn_sum: Array = []          ## sum of this crab's nearest-neighbour distance
+	var nn_min: Array = []          ## and the closest it EVER got to another crab
+	var clump_frames: Array = []    ## samples spent within CLUMP_DIST of any pack-mate
+	var move_frames: Array = []     ## samples spent actually crawling
+	var pack_min: float = INF       ## closest pair anywhere in the pack, over the window
+	var pack_min_at: String = ""
 	for c in crabs:
 		start.append((c as Node3D).global_position)
 		prev.append((c as Node3D).global_position)
@@ -194,6 +210,10 @@ func _day_audit(crabs: Array) -> void:
 		den_visits.append(0)
 		at_den.append(false)
 		den_frames.append(0)
+		nn_sum.append(0.0)
+		nn_min.append(INF)
+		clump_frames.append(0)
+		move_frames.append(0)
 
 	Engine.time_scale = TIME_SCALE
 	var elapsed: float = 0.0
@@ -201,14 +221,18 @@ func _day_audit(crabs: Array) -> void:
 	var skip: Array[RID] = MOVE.kin_bodies(crabs[0])
 	while elapsed < DAY_SAMPLE_SEC:
 		await get_tree().process_frame
-		elapsed += get_process_delta_time()
+		var dt: float = get_process_delta_time()
+		elapsed += dt
 		samples += 1
 		for i in range(n):
 			var c: Node3D = crabs[i]
 			if not is_instance_valid(c):
 				continue
 			var p: Vector3 = c.global_position
-			travelled[i] = float(travelled[i]) + (p - (prev[i] as Vector3)).length()
+			var hop: float = (p - (prev[i] as Vector3)).length()
+			if hop / maxf(dt, 0.0001) > MOVING_SPEED:
+				move_frames[i] = int(move_frames[i]) + 1
+			travelled[i] = float(travelled[i]) + hop
 			prev[i] = p
 			lo_y[i] = minf(float(lo_y[i]), p.y)
 			hi_y[i] = maxf(float(hi_y[i]), p.y)
@@ -223,6 +247,29 @@ func _day_audit(crabs: Array) -> void:
 				if not bool(at_den[i]):
 					den_visits[i] = int(den_visits[i]) + 1
 			at_den[i] = home
+		# THE SPACING. One pass over the pack per sample — 28 pairs for eight crabs, which is
+		# nothing next to the eight seat raycasts above.
+		for i in range(n):
+			var near: float = INF
+			var who: int = -1
+			for j in range(n):
+				if i == j:
+					continue
+				var d: float = (crabs[i] as Node3D).global_position.distance_to(
+					(crabs[j] as Node3D).global_position)
+				if d < near:
+					near = d
+					who = j
+			if near == INF:
+				continue
+			nn_sum[i] = float(nn_sum[i]) + near
+			nn_min[i] = minf(float(nn_min[i]), near)
+			if near < CLUMP_DIST:
+				clump_frames[i] = int(clump_frames[i]) + 1
+			if near < pack_min:
+				pack_min = near
+				pack_min_at = "crabs %d+%d at t+%.0fs, %s" % [i, who, elapsed,
+					str((crabs[i] as Node3D).global_position.snapped(Vector3.ONE * 0.1))]
 		# Trace one crab's drift, so a pack that walks off its leg says WHERE it went and
 		# where it thought it was going, rather than only showing up as a bad end position.
 		if samples % 120 == 0:
@@ -309,6 +356,47 @@ func _day_audit(crabs: Array) -> void:
 			% [checked_in, n, visit_total, DAY_SAMPLE_SEC])
 	_check("but none of them LIVES there — home is a visit, not a seat", homebodies == 0,
 		"%d of %d spent over half the day parked at the den" % [homebodies, n])
+
+	# ---------------------------------------------------------------- the spacing
+	_say("")
+	_say("   --- pack spacing (the owner's complaint: 'sitting next to each other all day') ---")
+	var nn_mean_all: float = 0.0
+	var lonely: int = 0
+	var busy: int = 0
+	for i in range(n):
+		var nn_mean: float = float(nn_sum[i]) / float(maxi(samples, 1))
+		nn_mean_all += nn_mean
+		if float(nn_min[i]) >= CLUMP_DIST:
+			lonely += 1
+		var mv: float = float(move_frames[i]) / float(maxi(samples, 1))
+		if mv >= 0.5:
+			busy += 1
+		_say("   crab %d  nearest pack-mate: mean %6.2f m, closest %6.2f m   "
+			% [i, nn_mean, float(nn_min[i])]
+			+ "within %.0f m for %4.1f%% of the day   moving %4.1f%% of the day   "
+				% [CLUMP_DIST, 100.0 * float(clump_frames[i]) / float(maxi(samples, 1)), 100.0 * mv]
+			+ "path %5.1f m, net %5.1f m"
+				% [float(travelled[i]),
+					(crabs[i] as Node3D).global_position.distance_to(start[i] as Vector3)])
+	nn_mean_all /= float(maxi(n, 1))
+	_say("   closest pair anywhere in the pack over %.0fs: %.2f m  (%s)"
+		% [DAY_SAMPLE_SEC, pack_min, pack_min_at])
+	_say("   end-of-window pairwise distance matrix (m):")
+	for i in range(n):
+		var row: PackedStringArray = PackedStringArray()
+		for j in range(n):
+			row.append("  --  " if i == j else "%6.1f" % (crabs[i] as Node3D)
+				.global_position.distance_to((crabs[j] as Node3D).global_position))
+		_say("      %d |%s" % [i, "".join(row)])
+	_check("no two crabs spend the day within touching distance of each other",
+		pack_min >= CLUMP_DIST,
+		"closest pair %.2f m (bar %.1f m) — %s" % [pack_min, CLUMP_DIST, pack_min_at])
+	_check("every crab keeps its own stretch of leg", lonely == n,
+		"%d of %d never came within %.1f m of a pack-mate" % [lonely, n, CLUMP_DIST])
+	_check("mean nearest-neighbour spacing is a rig apart, not a shell apart",
+		nn_mean_all >= 8.0, "mean over the pack: %.2f m" % nn_mean_all)
+	_check("a day crab is in motion, not parked", busy == n,
+		"%d of %d were moving for at least half the window" % [busy, n])
 	return
 
 ## ---------------------------------------------------------------- night

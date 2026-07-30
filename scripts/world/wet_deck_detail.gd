@@ -163,14 +163,36 @@ func _crate(items: Array, name_: String, pos: Vector3) -> LootContainer:
 func _boat_landing() -> void:
 	var y: float = WET_Y
 	var dark: Material = MatLib.dark_metal()
-	var yellow: Material = MatLib.flat(Color(0.75, 0.65, 0.15))
 	# The dock landing sits EAST of the SPHL (x 23–28) so the pod's hatch exit at
 	# x~20 is clear — the player steps off the gangplank onto open deck, and the
 	# fender frame / boarding ladder are a separate dock section beside the pod.
-	# Landing frame: two vertical tubes spanning the splash zone, rust below, paint above.
+	#
+	# THE FENDER POSTS ARE THE "BLANK YELLOW BLOCK ON THE SPAWNDECK", reported three times.
+	# Each was 3.0 m of 0.4 m tube in `MatLib.flat(Color(0.75, 0.65, 0.15))` — one flat
+	# untextured fill, no texture, no detail, nothing to interact with. From the wet-deck
+	# respawn at (20, 2.6, −19) the near one is 4.9 m away and 43° off axis, where perspective
+	# stretches it to ~3.3% of the whole frame: the single most prominent object in the view
+	# the player opens their eyes on, and the only unpainted-looking thing in it.
+	#
+	# It resisted two rounds of searching because `rig_batcher.gd` WELDS all this dressing into
+	# `MergedDressing` ArrayMeshes with a shared white-albedo material, so no per-node walk over
+	# albedo_color can see it at all — only reading the rendered PIXELS found it
+	# (tests/SpawnYellow.tscn). And that colour is `hazard_stripe()`'s own fallback tint, i.e.
+	# the fallback was hand-written where the material was meant, exactly as on rig_builder's
+	# gangplank bollards.
+	#
+	# The frame itself is real structure — the tie tubes, rubbing strips and boarding ladder all
+	# hang off it — so the posts stay and get their material instead: weathered steel full
+	# height, with a hazard-painted visibility band at deck level and a second at the top, a
+	# galvanised cap, and a weld collar at the splash line. That is how a real fender post is
+	# finished, and there is no flat fill left anywhere on it.
 	for fx in [23.5, 27.9]:
 		_dcyl(Vector3(fx, y - 1.5, -22.3), 0.2, 3.0, MatLib.rust_steel())
-		_dcyl(Vector3(fx, y + 1.5, -22.3), 0.2, 3.0, yellow)
+		_dcyl(Vector3(fx, y + 1.5, -22.3), 0.2, 3.0, MatLib.rusty_metal())
+		_dcyl(Vector3(fx, y + 0.02, -22.3), 0.212, 0.10, dark)              # weld collar, splash line
+		for band in [0.62, 2.62]:
+			_dcyl(Vector3(fx, y + band, -22.3), 0.209, 0.44, MatLib.hazard_stripe())
+		_dcyl(Vector3(fx, y + 3.02, -22.3), 0.22, 0.05, MatLib.galvanized())  # cap
 		var strut := _dbox(Vector3(fx, y + 0.5, -22.05), Vector3(0.12, 0.12, 0.7), dark)
 		strut.rotation.x = deg_to_rad(35)
 	# Horizontal tie tubes.

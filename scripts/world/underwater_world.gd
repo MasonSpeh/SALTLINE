@@ -1033,28 +1033,29 @@ func _eye() -> StandardMaterial3D:
 ## The margin keeps everything alive well before the camera reaches the water, so nothing
 ## pops in as you climb down the tidal ladder or a fish breaks the surface beside you.
 ##
-## THE MARGIN IS MEASURED FROM STILL WATER, AND IT USED TO BE MEASURED FROM THE SWELL. That
-## one word cost the wet deck a third of its frame, and it is worth writing down because the
-## swell-relative version looks strictly more correct and is strictly worse.
+## THE MARGIN IS MEASURED FROM STILL WATER, AND IT USED TO BE MEASURED FROM THE SWELL. The
+## margin itself is unchanged at 4 m; what changed is the reference, and that one word was
+## costing the wet deck a third of its frame.
 ##
-## The Wet Deck floor is y 2.0 (rig_builder.WET_Y), so a standing player's eye is at y ~3.6
-## and a 4.0 m margin put the threshold at `wave_height(here) > 0` — i.e. the SIGN OF THE
-## WAVE UNDER THE RIG. The swell is always running (SunController.BASE_SEA_STATE 0.4), so
-## standing still on the wet deck showed and hid this entire subtree once or twice a SECOND,
-## every second, for as long as the player stood there. Each flip walks several thousand
-## nodes calling instance_set_visible, and on the visible frames the deck was submitting the
-## whole ocean — 2.0 M primitives one visit and 3.6 M the next, 24 ms medians with a 33 ms
-## outlier. It is also exactly why KNOWN_ISSUES said no optimisation could be *proved* at the
-## wet deck: its 7-9 ms "noise" was not noise, it was this.
+## The Wet Deck floor is y 2.0 (rig_builder.WET_Y), so a standing player's eye is at y ~3.6 —
+## and a swell-relative 4 m margin puts the threshold at `wave_height(here) > -0.4`, i.e.
+## essentially THE SIGN OF THE WAVE UNDER THE RIG. The swell is always running
+## (SunController.BASE_SEA_STATE 0.4), so standing still on the wet deck showed and hid this
+## entire subtree once or twice a SECOND, for as long as the player stood there. Each flip
+## walks several thousand nodes calling instance_set_visible, and on the visible frames the
+## deck submitted the whole ocean: 2.0 M primitives on one visit and 3.6 M on the next, a
+## 24 ms median with a 33 ms outlier. It is also why KNOWN_ISSUES said nothing could be
+## *proved* at the wet deck — that 7-9 ms "noise" was not noise, it was this.
 ##
-## Referencing still water instead makes the test independent of the sea state, which is the
-## whole point — and it is free of the Gerstner sum this used to run every frame. Nothing is
-## given up: ocean_water.gdshader is `depth_draw_opaque` with no blend mode, i.e. a genuinely
-## OPAQUE surface, so there is no angle or distance from which anything below it is visible.
-## The margin's only remaining job is to have the world already standing before the camera
-## crosses the surface, and 2 m of still-water clearance does that with the crest of a full
-## storm swell (~1.5 m) still below the camera.
-const TOPSIDE_MARGIN: float = 2.0
+## Referencing still water makes the test independent of the sea state, which is the whole
+## point, and drops a Gerstner sum from every frame as a side effect. Nothing is given up: the
+## crest of a full storm swell is ~1.5 m, so 4 m of still-water clearance still has the world
+## standing well before the camera can reach the surface. What is NOT claimed here is that the
+## water is see-through-proof — measured, it is not quite: at an eye height of 2.05 m leaning
+## over open water, hiding this subtree changes 17 sampled pixels against a 6-pixel motion
+## floor (fish just under the surface). That is why the margin stays at 4 m rather than being
+## tightened to where the reef cull sits. See tests/vantage_perf.gd --cullproof.
+const TOPSIDE_MARGIN: float = 4.0
 ## Deadband, so a camera parked exactly on the threshold cannot flip-flop. Only ever widens
 ## the VISIBLE state, so the transition into the water is the reliable direction.
 const TOPSIDE_HYST: float = 1.0

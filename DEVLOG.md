@@ -69,6 +69,96 @@ same mistakes kept recurring.
 
 ## Sessions
 
+### s21 — 2026-07-29 (harvestable mussels)
+**The reef became food.** Owner brief: mussels scattered through the coral, boiled in a pot
+on the stove to be worth eating, regrowing five days after picking. Until now the whole
+1,170-instance leg reef was look-at only; this is the first thing down there a player can take.
+
+**Assets — two, not one, and the reason is the pipeline.** The reef cluster is cut by
+`tools/decimate_reef.py` (base seated at y=0, +Y = growth, so its up goes onto a probed
+normal); the pack item is cut by `tools/decimate_fish.py` (centred on all three axes, which
+is what `PropLib._fit` and the icon camera want). Same subject, incompatible contracts.
+Shipped: `mussel_bed_e` (4,200 tris — nine big shells flat in one layer, ext 0.92/**0.18**/1.00,
+the low encrusting mat the brief asked for), `mussel_clump` (3,000 — six shells in a rosette,
+the accent), `items/mussels` (3,000) and `items/mussels_boiled` (4,500 — hinged open with
+orange meat, which is why it earns half again over the raw one).
+
+**Rejected on the render at the shipping ratio — all four first-round beds.** `mussel_bed_a`
+(1.03/1.01/1.03 on its axes: a radially symmetric BALL, the barnacle_goose signature, and a
+total shatter), `mussel_bed_b` and `mussel_bed_c` (best silhouettes of the four but shattering
+at the shell tips), `mussel_clump_d` (0.97/0.97/0.99 — another ball). One cause: all four
+prompts asked for 22-30 shells, which at 4,200 tris is ~140 triangles a shell against the few
+hundred a shell needs to stay closed. Round 10b asked for NINE and TWELVE big shells and both
+held; `mussel_bed_f` still shattered and was cut, `mussel_bed_e` shipped. Also rejected
+`mussels_hand_a` (a lumpier heap whose shells stop reading as separate shells) in favour of
+`mussels_hand_b`, which was then re-cut through the *reef* decimator as `mussel_clump` — the
+one asset that earned a place in both sets. 9 generations, 180 credits, 840 left.
+
+**Placement** (`scripts/world/mussel_beds.gd`, new; two lines in `leg_reef.gd` spawn it, the
+same contract `reef_fish.gd` already had). **24 beds, 6 a leg, 95 meshes, 241,800 tris**, each
+bed one mat plus two accent clumps seated by their own raycasts. Seeded from leg_reef's
+`colony_seats`, so a bed can never land on concrete the reef's own spacing rejection left
+bare. **Seating measured: 71 patches, 0 without a collider under them, mean gap −28.0 mm
+(i.e. exactly the authored recess, on the inside), worst up-axis-vs-face-normal 3.81°.**
+
+**How deep a bed may be is DERIVED FROM THE PLAYER'S LUNGS, not chosen.** The coral band runs
+to y −22 and a breath-hold dive cannot return from there, so `_dive_floor()` integrates the
+controller's own drain (`OXYGEN_DRAIN` above `DEEP_UNEASE_M`, `OXYGEN_DRAIN_DEEP` below it)
+over a round trip at `SWIM_SPEED` plus the work seconds, and takes the deepest depth that
+leaves a quarter of the breath unspent: **y −18.30**. Beds sit −12.92 to −17.70; the deepest
+costs **71% of one breath**. Food the player cannot reach is not food.
+
+**FIVE DAYS is on the calendar, not on a countdown.** `GameClock.game_time_hours()` (new) is
+absolute game time, monotonic across both a phase advance and a sleep, and `Salvage` gained
+`regrow_game_hours` / a `regrow_days` def field that keys off it. This matters because
+`skip_to_next_dawn()` advances the calendar without spending any real seconds: a five-day bed
+counted in `delta` would sit bare through five slept nights and then regrow after five real
+hours of standing next to it. **5 game days = 120 game hours = 18,000 real s (5.00 real h) at
+`time_scale` 1.0, or five sleeps.**
+
+**Salvage now persists — all of it.** Nothing about `Salvage` was ever saved, so a player
+could gut every locker and scrape every tar seam, save, reload and find the rig whole. There
+is a `harvest` payload keyed by position, and because the reef is built two physics frames
+after `load_game()` runs, each node claims its own state on arrival through
+`SaveManager.claim_harvest` — the deferred hand-off `LootContainer` already used.
+
+**Cooking: the range keeps the interaction, the pot became the range's.** A second
+interactable pot was rejected — the interaction ray only sees the first collider it hits, so
+it would have fought the range for the prompt at the exact distance a player stands to use
+either, and it would have had to re-implement the power gate, the mid-cook power loss that
+hands the food back raw, the pack-full spill and the timer. Instead `cook_stove.gd` builds the
+pot on the left hob in its own local space and a boil looks nothing like a sear: the hob ring
+lights, the water goes frothy and rolls, steam climbs off it, and the oven window stays cold.
+The verb reads **BOIL**. One line came out of `rig_builder` (the inert CSG cylinder that used
+to stand there) and one out of `interior_props` (`brass_pan_01`, which occupied the same 40 cm
+ring — `brass_pot_01` stays on the right hob).
+
+`tests/MusselProbe.tscn` **24/24 PASS**, headless-safe (these are real nodes, not MultiMesh,
+so the identity-transform trap does not apply). `tests/MusselShot.tscn` renders the whole
+feature from one world build. `TestRunner`: **245 pass, FAILURES: 0** — measured before and
+after this work, unchanged by it (the DEVLOG's old 238 predates a concurrent session's tests).
+
+**Four silent failures, all now in `docs/AGENT_TRAPS.md`:** a bed and all three of its patches
+seated on a passing snail's `FaunaTouch` sphere (the s20 trap again, this time in placement
+rather than in a probe — the tell was three "wall normals" of (0.32, 0.16, −0.93) on a wall
+whose real normal is (0,0,−1)); the probe's day-advance SET the intra-day position instead of
+adding to it, so 4.5 days + 0.6 days advanced 4.6 days and reported the feature broken; the
+harvest never completed because `Salvage._work` counts REAL seconds and a headless main loop
+runs unbounded, and the diver drowned mid-job so `_work` correctly abandoned it; and the
+picked-bed scar rendered near-black at three different albedos because it was LIT on an
+unlit wall — the coral around it is not lit either, it is emissive.
+
+Screenshots: `/tmp/mussels_s21_final/` (17 frames — six bed close-ups, two among-coral, a leg
+wide, the GATHER prompt, a picked bed, the pack, and four galley frames).
+
+**Note for whoever re-cuts these.** The raw `_cand10` downloads were removed by this session's
+own "purge superseded generation staging" commit, so a different decimation ratio is no longer
+free off disk — but every task id was logged at submit time and lives in
+`scratchpad/round10_task_ids.json` and `round10b_task_ids.json`, so it is one
+`GET /v2/openapi/task/<id>` → `data.output.pbr_model` away rather than a re-generation.
+`mussel_clump` and `items/mussels` are both cut from the same download (`mussels_hand_b`,
+task `8f82ee2a…`), through the reef and item decimators respectively.
+
 ### s20 — 2026-07-29 (tropical reef fish)
 **Ten small reef species living on the leg coral**, anchored to real colony
 positions rather than patrolling waypoints. Each fish belongs to a **station**

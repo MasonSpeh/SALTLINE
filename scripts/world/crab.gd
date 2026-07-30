@@ -142,6 +142,55 @@ const RIM_OUT: float = 30.5
 const SWIM_UP_Y: float = -1.2       ## transit depth of the authored rim lanes
 const HAUL_Y: float = 1.6           ## just over the skirt top: where a leg climb begins
 
+## ================= THE DAY TERRITORY =================================================
+##
+## MEASURED CAUSE of the owner's s21 report — "the giant crabs still just sit unnaturally
+## next to each other all day". The day was never idle: CrabLifeProbe measured every crab
+## crawling 89-101 m in four minutes, over 10-11 m of depth, all eight of them. It was
+## CROWDED. The pack is dealt TWO crabs per caisson leg and a leg is one 6 x 6 m casting, so
+## a pack-mate was always the nearest animal in the world — the nearest-neighbour figures
+## came back in IDENTICAL PAIRS (crabs 0+4, 1+5, 2+6, 3+7 measured 3.0 / 6.2 / 8.0 / 7.9 m
+## at the end of the window against 24-57 m for every other pair), mean 6.37 m, closest
+## approach 0.64 m, and 7-25 per cent of the day spent inside four metres of each other.
+##
+## Nothing in this file kept two crabs apart. Three things actively pushed them together:
+##   * the roam target was clamped to the whole LEG's footprint (|x| 17.6..26.4,
+##     |z| 7.6..16.4) rather than to the crab's own authored face, so a target could land
+##     anywhere around the leg — including on its pack-mate's face;
+##   * FaunaMove.seat's convex-edge wrap then carried the body around the corner to get
+##     there. Measured: crab 0's cling normal visited (1,0,0), (0,0,-1) AND (0,0,1) in one
+##     day, i.e. three of the leg's four faces, the pack-mate's included;
+##   * and both crabs on a leg worked the identical depth band, DAY_Y_TOP..DAY_Y_DEEP.
+##
+## So a day crab now has a TERRITORY, and it is not authored — _ensure_territory() works it
+## out once, at the first tick, from the spawner's own cling loops and from the pack in the
+## "giant_crab" group:
+##   * its OWN face, and only that. The plane is held analytically (see _seat), so the crab
+##     physically cannot round the corner onto a neighbour.
+##   * the far end of that face from any leg-mate on an ADJOINING one (MATE_HOLD), which
+##     puts the two animals on a leg at diagonally opposite corners of it.
+##   * its own slice of the column, BAND_GAP clear of its leg-mates' slices, so two crabs
+##     never share a leg AND a depth.
+## An OPPOSITE-face mate needs neither hold-off nor a gap — six metres of concrete is
+## already between them — but the depth split is applied uniformly because one rule that
+## always holds is worth more here than two that need explaining.
+const LOOP_PROUD: float = 0.3       ## how far bloom_fauna's authored cling points stand off
+## the concrete: CRAB_ROOSTS says so in its own header ("points ~0.3 m proud — the seat pulls
+## the feet onto the concrete"). This is only the SEED for the face plane; _ensure_territory
+## then measures the real face with one raycast and adopts it when the two agree.
+const PLANE_TOL: float = 0.6        ## how far the measured face may differ from the seed
+## before it is treated as something that is not the face (a passing fish, a mussel bed) and
+## the authored value is kept. See the s19 note in AGENT_TRAPS: the deepest things near a
+## footing are floodlight cones, god-ray quads and animals.
+const LEG_HALF: float = 3.0         ## the caisson is one 6 x 6 m casting (rig_builder
+## ._build_structure), so a face runs LEG_HALF either side of the leg's centre line
+const EDGE_HOLD: float = 0.45       ## body radius: keep the shell off its own face's corners
+const MATE_HOLD: float = 3.4        ## and off the corner it SHARES with a leg-mate. Over half
+## the face, deliberately: the two crabs end up on opposite ends of their shared edge, which
+## is what buys the separation. It leaves each of them ~2.1 m of face to work sideways — the
+## interesting axis down here is the vertical one anyway.
+const BAND_GAP: float = 3.0         ## clear water between two leg-mates' depth slices
+
 ## HOME IS A PLACE YOU CHECK IN AT (owner spec). A den the animal sits in all day is not a
 ## den, it is a parking space; these are the seconds a crab is free to work its column
 ## before the next visit falls due, and how long it stays when it gets there.
@@ -204,6 +253,21 @@ var _home_run: Array = []           ## the dive back down to the den, built when
 var _sense_cd: float = 0.0          ## brief blindness after a blocked approach, so a crab
 ## boxed in behind a crate walks a new roam leg instead of re-acquiring you on the very
 ## next frame and pressing the same crate again.
+
+## The day territory (see THE DAY TERRITORY). All of it is derived, none of it authored.
+var _terr: bool = false             ## worked out yet?
+var _face_n: Vector3 = Vector3.UP   ## outward normal of my cling face (== roost_up)
+var _face_d: float = 0.0            ## p.dot(_face_n) ON the concrete — the face plane
+var _tan: Vector3 = Vector3.FORWARD ## the face's horizontal axis
+var _tan_lo: float = 0.0            ## my run along it, in _tan coordinates
+var _tan_hi: float = 0.0
+var _band_lo: float = DAY_Y_DEEP    ## and my slice of the column
+var _band_hi: float = DAY_Y_TOP
+var _leg_c: Vector3 = Vector3.ZERO  ## my caisson's centre line, at y 0
+var _ticks: int = 0                 ## frames processed. The territory needs the WHOLE pack in
+## the group, and _ready() runs inside add_child() — crab 0 would see no pack-mates at all and
+## crab 7 would see seven. So nothing is worked out until the first _process, by which point
+## _spawn_giant_crabs has finished adding every one of them.
 
 # Anatomy / motion.
 const KIT := preload("res://scripts/world/creature_kit.gd")
@@ -445,12 +509,19 @@ func _ready() -> void:
 ## its DEPTH is the crab's own, drawn from its per-index seed. That is what spaces the pack
 ## out vertically as well as around the four caissons — ten dens on ten faces all at one
 ## height would still read as a row of crabs on a shelf, and the whole point of a den is that
-## it is somewhere particular.
+## it is somewhere particular. _ensure_territory() moves it onto the crab's own strip and
+## slice on the first tick, once the rest of the pack is known.
 func _make_den() -> Vector3:
 	if roost_loop.is_empty():
 		return global_position
 	var p: Vector3 = roost_loop[0]
 	p.y = _rng.randf_range(DAY_Y_DEEP + 1.5, DAY_Y_TOP - 0.8)
+	# Onto the face plane at the crab's own stand-off rather than the authored LOOP_PROUD, so
+	# the pack is seated where it will actually live even on frame zero.
+	var f: Dictionary = face_frame(roost_loop, roost_up)
+	if not f.is_empty():
+		var n: Vector3 = f["n"]
+		p += n * (float(f["d"]) + CLEAR - p.dot(n))
 	return p
 
 ## Where the spawner should set this crab down. Its own den — NOT the authored cling point,
@@ -459,6 +530,139 @@ func _make_den() -> Vector3:
 ## inside the foundations.
 func den_seat() -> Vector3:
 	return _home
+
+## ---------- the day territory ----------
+
+## The FRAME of an authored cling loop: which plane it lies in, which way is out, which way is
+## along, and where the caisson it belongs to actually is. Everything the territory needs, read
+## off the spawner's own numbers — this file repeats none of the rig's coordinates.
+##
+## STATIC and taking the loop it should read, so a crab can ask the same question about a
+## PACK-MATE's roost without reaching into it (_ensure_territory compares legs and faces this
+## way). Returns {} for a loop it cannot make sense of.
+static func face_frame(loop: Array, face_up: Vector3) -> Dictionary:
+	if loop.is_empty() or not MOVE.usable(face_up):
+		return {}
+	var n: Vector3 = face_up.normalized()
+	# The face's horizontal axis. Every authored cling face is a vertical wall, so `up x UP`
+	# is the along-the-face direction; the fallback only exists so a future floor-facing roost
+	# cannot hand back a zero vector (see the AGENT_TRAPS note — a normalized zero is silent).
+	var t: Vector3 = n.cross(Vector3.UP)
+	if t.length() < 0.2:
+		t = n.cross(Vector3.FORWARD)
+	t = t.normalized()
+	var d: float = 0.0
+	var t_lo: float = INF
+	var t_hi: float = -INF
+	for p in loop:
+		var v: Vector3 = p
+		d += v.dot(n)
+		t_lo = minf(t_lo, v.dot(t))
+		t_hi = maxf(t_hi, v.dot(t))
+	d = d / float(loop.size()) - LOOP_PROUD
+	var mid: float = (t_lo + t_hi) * 0.5
+	# The leg's centre line falls out of the two: LEG_HALF in from the face, and the authored
+	# loop is centred on the face (all ten of them are — 4 m of loop on a 6 m face).
+	return {"n": n, "t": t, "d": d, "mid": mid, "centre": n * (d - LEG_HALF) + t * mid}
+
+## A point on my face: `t` metres along it, `y` deep, held at the crab's own stand-off.
+func _face_pt(t: float, y: float) -> Vector3:
+	return _face_n * (_face_d + CLEAR) + _tan * t + Vector3.UP * y
+
+## Work out this crab's stretch of concrete. Once, on the first tick — see _ticks for why not
+## in _ready(), and THE DAY TERRITORY for what it is buying.
+func _ensure_territory() -> void:
+	if _terr or _ticks < 1 or roost_loop.is_empty() or not is_inside_tree():
+		return
+	var f: Dictionary = face_frame(roost_loop, roost_up)
+	if f.is_empty():
+		return
+	_face_n = f["n"]
+	_tan = f["t"]
+	_face_d = f["d"]
+	_leg_c = f["centre"]
+	var mid: float = f["mid"]
+	# MEASURE the face rather than trust LOOP_PROUD. One ray, once, swum in from open water at
+	# a depth that is clear of both the pontoon skirt above and the reef/mussel band below —
+	# derived off the day band, not typed. A hit that disagrees with the authored plane by more
+	# than PLANE_TOL is not the face (a passing fish, a mussel bed, a snail's touch sphere) and
+	# is discarded rather than believed.
+	var probe_y: float = DAY_Y_TOP - (DAY_Y_TOP - DAY_Y_DEEP) * 0.2
+	var hit: Dictionary = MOVE.surface_hit(self, _leg_c + Vector3.UP * probe_y, _face_n,
+		LEG_HALF + 8.0, 0.0, MOVE.kin_bodies(self))
+	if not hit.is_empty():
+		var seen: float = (hit["point"] as Vector3).dot(_face_n)
+		if absf(seen - _face_d) <= PLANE_TOL:
+			_face_d = seen
+
+	# THE PACK. Who else lives on this caisson, and on which face.
+	var mates: Array = []
+	for c in get_tree().get_nodes_in_group("giant_crab"):
+		# A King Crab joins this group when it surfaces and has no cling loop at all.
+		if c == self or not (c is Node3D) or c.get_script() != get_script():
+			continue
+		var m_loop: Variant = c.get("roost_loop")
+		var m_up: Variant = c.get("roost_up")
+		if not (m_loop is Array) or (m_loop as Array).is_empty() or not (m_up is Vector3):
+			continue
+		var g: Dictionary = face_frame(m_loop as Array, m_up as Vector3)
+		if g.is_empty() or (g["centre"] as Vector3).distance_to(_leg_c) > 1.0:
+			continue                       # a different caisson: not my problem
+		mates.append({"i": int(c.spawn_index), "n": g["n"] as Vector3})
+
+	# MY RUN ALONG THE FACE. The whole face, less the body radius at each of its own corners,
+	# less MATE_HOLD off any corner I share with a leg-mate.
+	var lo: float = mid - LEG_HALF + EDGE_HOLD
+	var hi: float = mid + LEG_HALF - EDGE_HOLD
+	var same: Array = []
+	for m in mates:
+		var mn: Vector3 = m["n"]
+		if mn.dot(_face_n) > 0.9:
+			same.append(int(m["i"]))       # the same face (only reachable past ten crabs)
+		elif absf(mn.dot(_face_n)) > 0.9:
+			continue                       # the OPPOSITE face: 6 m of concrete already
+		elif mn.dot(_tan) > 0.0:
+			hi = minf(hi, mid + LEG_HALF - MATE_HOLD)
+		else:
+			lo = maxf(lo, mid - LEG_HALF + MATE_HOLD)
+	if not same.is_empty():
+		# Two crabs really on one face: halve it rather than let them overlap.
+		same.append(spawn_index)
+		same.sort()
+		var w: float = (hi - lo) / float(same.size())
+		lo += w * float(same.find(spawn_index))
+		hi = lo + w
+	_tan_lo = lo
+	_tan_hi = maxf(hi, lo + 0.4)
+
+	# MY SLICE OF THE COLUMN. Rank among the leg's crabs by spawn_index, then flip the order on
+	# two of the four caissons so the pack is not four shallow crabs and four deep ones dealt
+	# the same way round every time.
+	var ranks: Array = [spawn_index]
+	for m in mates:
+		ranks.append(int(m["i"]))
+	ranks.sort()
+	var n_leg: int = ranks.size()
+	var k: int = ranks.find(spawn_index)
+	if _leg_c.x * _leg_c.z > 0.0:
+		k = n_leg - 1 - k
+	var gap: float = BAND_GAP if n_leg > 1 else 0.0
+	var h: float = maxf(((DAY_Y_TOP - DAY_Y_DEEP) - gap * float(n_leg - 1)) / float(n_leg), 1.2)
+	_band_lo = DAY_Y_DEEP + (h + gap) * float(k)
+	_band_hi = _band_lo + h
+	_terr = true
+
+	# And the den comes with it: same face, inside the strip, inside the slice.
+	_home = _face_pt(clampf(_home.dot(_tan), _tan_lo, _tan_hi),
+		clampf(_home.y, _band_lo + 0.4, _band_hi - 0.4))
+	_roam_target = _home
+	_roam_hold = 0.0
+
+## What this crab has been given, for the probes to read back and assert against.
+func territory() -> Dictionary:
+	return {"ready": _terr, "face": _face_n, "plane": _face_d, "tan": _tan,
+		"tan_lo": _tan_lo, "tan_hi": _tan_hi, "band_lo": _band_lo, "band_hi": _band_hi,
+		"leg": _leg_c}
 
 ## ---------- body ----------
 
@@ -949,40 +1153,40 @@ func _roost(delta: float) -> void:
 			_emerge_run = _haul_out(SWIM_UP_Y, true) + emerge_path
 			_wp_index = 0
 
-## Free wander on the cling face, and UP AND DOWN IT. Grown out from the authored loop so
-## the pack drifts over the whole submerged face, then clamped back inside the caisson's own
-## footprint (|x| 17.6..26.4, |z| 7.6..16.4) so a day roost is always ON its leg and never
-## adrift in open water.
+## Free wander INSIDE THIS CRAB'S OWN TERRITORY — its stretch of its own face, and its own
+## slice of the column. Everything the old version did wrong is in THE DAY TERRITORY: it
+## grew the target out of the authored loop and then clamped it to the caisson's whole
+## footprint, which let a target land on a pack-mate's face and let the seat walk the body
+## round the corner to reach it.
 ##
-## The depth is the part that makes it a leg rather than a shelf. Most targets are a short
-## move from the crab's current height — an unhurried sidle, which is what the owner asked
-## the day to look like — but roughly one in three is a full-column haul to wherever else on
-## the leg it fancies, and those are the trips you actually notice from a rim. The band is
-## the exposed concrete below the pontoon skirt; see THE DAY COLUMN for why the old one was
-## inside it.
+## The shape of the wander is unchanged, because that part was right: most targets are a
+## short move from where the animal already is — an unhurried sidle, which is what the owner
+## asked the day to look like — and roughly one in three is a haul to wherever else in its
+## patch it fancies, which is the trip you notice from a rim. Both axes get that treatment
+## now, sideways as well as down, and both are scaled off the size of the patch so a crab on
+## a narrow strip does not spend its day pressed against the ends of it.
 func _pick_water_target() -> Vector3:
-	if roost_loop.is_empty():
-		return global_position
-	var a: Vector3 = roost_loop[_rng.randi() % roost_loop.size()]
-	var b: Vector3 = roost_loop[_rng.randi() % roost_loop.size()]
-	var p: Vector3 = a.lerp(b, _rng.randf())
-	# Drift along the face, in the two directions that are not the face normal.
-	var t1: Vector3 = up.cross(Vector3.UP)
-	if t1.length() < 0.2:
-		t1 = up.cross(Vector3.FORWARD)
-	t1 = t1.normalized()
-	p += t1 * _rng.randf_range(-1.6, 1.6)
+	_ensure_territory()
+	if not _terr:
+		# Before the pack is known there is exactly one point this crab is sure of. NEVER
+		# global_position: in _ready() that is (0,0,0) and the whole pack walked to the middle
+		# of the rig for fifty seconds (see the note in _ready).
+		return _home if not roost_loop.is_empty() else global_position
+	var t: float
+	var t_w: float = _tan_hi - _tan_lo
 	if _rng.randf() < DEEP_TRIP:
-		p.y = _rng.randf_range(DAY_Y_DEEP, DAY_Y_TOP)
+		t = _rng.randf_range(_tan_lo, _tan_hi)
 	else:
-		p.y = clampf(global_position.y, DAY_Y_DEEP, DAY_Y_TOP) \
-			+ _rng.randf_range(-DAY_STEP, DAY_STEP)
-	var sx: float = signf(p.x) if absf(p.x) > 0.01 else 1.0
-	var sz: float = signf(p.z) if absf(p.z) > 0.01 else 1.0
-	p.x = sx * clampf(absf(p.x), 17.6, 26.4)
-	p.z = sz * clampf(absf(p.z), 7.6, 16.4)
-	p.y = clampf(p.y, DAY_Y_DEEP, DAY_Y_TOP)
-	return p
+		t = clampf(global_position.dot(_tan) + _rng.randf_range(-1.0, 1.0) * t_w * 0.6,
+			_tan_lo, _tan_hi)
+	var y: float
+	var y_w: float = _band_hi - _band_lo
+	if _rng.randf() < DEEP_TRIP:
+		y = _rng.randf_range(_band_lo, _band_hi)
+	else:
+		y = clampf(clampf(global_position.y, _band_lo, _band_hi)
+			+ _rng.randf_range(-1.0, 1.0) * minf(DAY_STEP, y_w * 0.6), _band_lo, _band_hi)
+	return _face_pt(t, y)
 
 ## ---------- out from under the slab ----------
 ##

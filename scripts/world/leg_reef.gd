@@ -979,6 +979,68 @@ const SNAIL_SPOTS := [
 var _climbers: Array = []
 var _snails_refused: int = 0
 
+## ------------------------------------------------------------ the surface cull
+##
+## THE REEF IS NOT VISIBLE FROM ABOVE THE WATER, AND IT WAS THE MOST EXPENSIVE THING IN THE
+## FRAME THERE. Measured with tests/VantagePerf.tscn (A/B/A, each row against its own noise
+## floor and the vantage's null pair): hiding these MultiMeshes recovered **8.97 ms — 27.4% of
+## the frame — and 264 draw calls at the `wet_deck` vantage**, which is a standing eye 3.6 m up
+## on plating the player fishes from. It is also 2.02 ms at `submerged_deep`, where it is
+## legitimately being looked at and stays.
+##
+## underwater_world's topside cull already covers the decks, but its margin has to stay at 4 m
+## because fish just under the surface genuinely do show through (measured — see TOPSIDE_MARGIN
+## there). The reef does not: its topmost piece is CRUST_TOP, y -3.4, under an opaque
+## `depth_draw_opaque` sea. tests/vantage_perf.gd `--cullproof` measures exactly that, with a
+## per-pixel motion mask so a moving swell cannot fake it — at eye heights 2.05, 3.0, 3.6, 4.5
+## and 6.0 m over open water, hiding the reef changed 6, 5, 3, 1 and 6 sampled pixels against a
+## motion floor of 4, 1, 3, 1 and 2. It is at the noise floor at every height, including the
+## lowest one where the whole subtree is measurably NOT.
+##
+## So the reef gets its own, tighter cull, and the band between them (eye 2.0..4.0 m — the wet
+## deck, the pontoon walkway, the tidal ladder) stops paying 4.26 M triangles for coral behind
+## opaque water.
+##
+## Two terms, because either alone is wrong. The FIXED floor is what the proof covers and what
+## makes the test stable at a standing eye height. The SWELL term is what stops the reef being
+## hidden while the player's head is actually under a crest — in a storm the surface reaches
+## y +1.5 or better, so a camera at y 2.4 can be submerged, and a fixed threshold alone would
+## blank the reef from inside the water.
+const CULL_FLOOR: float = 2.0      ## eye y below this: always drawn (proof's lowest height)
+const CULL_OVER_SWELL: float = 0.5 ## ...and always drawn until the eye clears the local swell
+const CULL_HYST: float = 0.5       ## deadband, so a camera on the line cannot flip-flop
+var _reef_shown: bool = true
+## Set false by tests/VantagePerf.tscn to measure what this cull is worth, ON/OFF/ON inside one
+## session — the only comparison this machine's thermal drift cannot swamp. Always true in game.
+var cull_above_water: bool = true
+
+## Hide the coral (and, as its children, the reef fish and the climbing snails) whenever the
+## camera is clear of the water. Costs one Gerstner sample and one compare a frame.
+##
+## reef_fish.gd early-returns on `is_visible_in_tree()` and its stations are a function of
+## their own clocks, so this freezes the fish rather than slowing them — the same contract its
+## header already relies on for the topside cull. The snails keep being steered by _process
+## below, which visibility does not stop, so a climber cannot drift while it is hidden.
+func _cull_above_water() -> void:
+	if not cull_above_water:
+		if not _reef_shown:
+			_reef_shown = true
+			visible = true
+		return
+	var cam: Camera3D = get_viewport().get_camera_3d()
+	if cam == null:
+		return
+	var cp: Vector3 = cam.global_position
+	var surf: float = Gyre.wave_height(Vector2(cp.x, cp.z), Gyre.water_time()) * 0.85
+	var edge: float = maxf(CULL_FLOOR, surf + CULL_OVER_SWELL)
+	var want: bool = cp.y < edge + (CULL_HYST if _reef_shown else 0.0)
+	if want == _reef_shown:
+		return
+	_reef_shown = want
+	# The whole node, which is the exact configuration --cullproof measured: coral, the 252 reef
+	# fish and the 13 climbing snails together.
+	visible = want
+
 func _grow_snails() -> void:
 	var lamp_i: int = 0
 	var pyr_i: int = 0
@@ -1012,7 +1074,9 @@ func _grow_snails() -> void:
 		_climbers.append({"s": snail, "lo": maxf(seat.y - SNAIL_RANGE, BAND_BOTTOM + 0.4),
 			"hi": minf(seat.y + SNAIL_RANGE, CRUST_TOP - 0.2),
 			"t": _rng.randf_range(0.5, float(SNAIL_TURN[1]))})
-	set_process(not _climbers.is_empty())
+	# Unconditionally ON now: _process also runs the surface cull (see _cull_above_water), which
+	# is the reef's largest single saving and must not depend on whether any snail was seated.
+	set_process(true)
 
 ## Hand the crawler the frame it needs to be ON a vertical face instead of standing on the
 ## floor: `up` is the concrete's normal, the heading is a tangent IN that face, and the climb
@@ -1063,6 +1127,7 @@ func _aim_climb(snail: Node3D, cr: Object, vy: float) -> void:
 ## settled in, and hand it a fresh heading that actually goes up or down the wall every ten
 ## seconds or so instead of only across it.
 func _process(delta: float) -> void:
+	_cull_above_water()
 	var alive: Array = []
 	for c in _climbers:
 		var s: Node3D = c["s"]

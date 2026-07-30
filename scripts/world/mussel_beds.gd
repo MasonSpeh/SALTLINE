@@ -507,17 +507,26 @@ class MusselBed extends Node3D:
 	## while the mussels cover it and faded in once they have been picked off.
 	func add_scar(size: float, face: Vector3) -> void:
 		_scar_mat = StandardMaterial3D.new()
-		# Not black. The first version was (0.09, 0.10, 0.11) at 0.72 alpha and photographed
-		# as a HOLE punched through the caisson rather than as bare rock — see DEVLOG.md.
-		# This is the wet concrete's own value, a stain rather than a void.
-		_scar_mat.albedo_color = Color(0.17, 0.16, 0.14, 0.0)
+		# NOT DARK. Two attempts got this backwards. (0.09, 0.10, 0.11) at 0.72 alpha
+		# photographed as a HOLE punched through the caisson, and merely lifting it to the
+		# concrete's own value just made a smaller hole — because Salvage's soot has already
+		# darkened the shells that survive, so a dark patch under near-black remnants reads
+		# as shadow, not as damage. Bare rock under a stripped bed is SCOURED: paler than the
+		# fouled concrete around it, which is the only value that reads as "something was
+		# taken off here".
+		_scar_mat.albedo_color = Color(0.40, 0.38, 0.34, 0.0)
 		_scar_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
-		_scar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
+		# UNSHADED, and that is the third correction this one patch needed. Lit, the disc
+		# rendered near-black whatever its albedo: it is a flat surface on a caisson at y -16
+		# with no direct light on it, so per-pixel shading gave it only the environment's
+		# ambient — which is why raising the albedo twice changed nothing visible. The coral
+		# around it is not lit either; it is EMISSIVE. Unshaded is the same trick, cheaper:
+		# the albedo below is what actually reaches the frame, through the fog grade.
+		_scar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		_scar_mat.roughness = 0.55
-		_scar_mat.metallic_specular = 0.7      # wet, so it catches what light gets down here
 		var cm := CylinderMesh.new()
-		cm.top_radius = size * 0.38
-		cm.bottom_radius = size * 0.38
+		cm.top_radius = size * 0.44
+		cm.bottom_radius = size * 0.44
 		cm.height = 0.012
 		cm.material = _scar_mat
 		_scar = MeshInstance3D.new()
@@ -564,7 +573,7 @@ class MusselBed extends Node3D:
 				mi.transform = Transform3D((p["basis"] as Basis).scaled(Vector3.ONE * f),
 					mi.transform.origin)
 		if _scar_mat != null:
-			_scar_mat.albedo_color.a = 0.50 * _ease
+			_scar_mat.albedo_color.a = 0.62 * _ease
 		if not spent and is_equal_approx(_ease, 0.0):
 			set_process(false)
 

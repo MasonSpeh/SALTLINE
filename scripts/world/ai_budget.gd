@@ -60,7 +60,12 @@ const FAR_STRIDE: int = 4
 ## plus one frame does), which is why there is nothing to gain from going higher and why
 ## MAX_STEP is the constant that must not move. tests/TestRunner asserts both bounds directly
 ## for every stride these constants name.
-const HIDDEN_STRIDE: int = 8
+##
+## A `static var` rather than a `const` for one reason: it is the only way tests/VantagePerf.tscn
+## can A/B it inside ONE session. Comparing two runs an hour apart on this machine cannot
+## resolve a 1 ms change — the thermal drift between runs is larger than the effect — so
+## anything worth claiming has to be switchable at runtime. Treat it as a constant.
+static var HIDDEN_STRIDE: int = 8
 
 ## THE CEILING ON HOW MUCH TIME MAY BE HANDED OVER AT ONCE, seconds.
 ##

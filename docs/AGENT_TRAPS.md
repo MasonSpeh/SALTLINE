@@ -153,6 +153,17 @@ nobody checked (`+Z·travel = +0.99` when it should have been `+X`).
   tip" repeatedly destroyed the hammer head; "as in every real hammerhead, the
   eye sits at the outboard end" worked.
 - Items are viewed at 96 px — ask for one clear silhouette, not filigree.
+- **Name a small, EXACT number of parts, and budget triangles per part.** Four mussel-bed
+  candidates were lost asking for "about thirty mussels": thirty closed shells at 4,200 tris is
+  ~140 a shell, and a shell needs a few hundred to survive the collapse, so every one came back
+  as broken glass. "EXACTLY NINE large adult mussels" held at the same budget. Divide the
+  shipping budget by the part count *before* writing the prompt.
+- **A patch-shaped ratio has to be attached to the parts' POSE, not to the patch.** "A mat ten
+  times wider than it is deep" produced pieces measuring 1.03/1.01/1.03 and 0.97/0.97/0.99 on
+  their three axes — balls. Describing the individual shells as "all lying down flat on their
+  SIDES in a single overlapping layer, one shell thick" produced 0.92/**0.18**/1.00. The
+  decimator prints these extents; a near-cubic set is the ball signature and needs no render to
+  reject.
 
 ---
 
@@ -302,6 +313,14 @@ from the live objects (`census()` off the running system) rather than hand-typin
 55 stations spread over 16 caisson faces, a guessed vantage is far likelier to photograph
 bare wall than a shoal.
 
+**A vantage derived from a live object still has to be HELD.** `reef_shot`'s `_place` sets the
+player's transform once and then awaits a settle timer, and the controller keeps integrating
+across the wait — buoyancy, the fly drift — so three of s21's frames were taken from up to
+**3 m** away from where they were aimed, one of them a 1.5 m close-up photographed from 4.2 m.
+Nothing looked wrong; the frames were plausible pictures of coral. The only reason it was
+caught is the s20 habit of printing the position the camera ACTUALLY ended up at next to the
+one it asked for. Re-assert the pose every frame of the settle, not once at the start.
+
 **Occlusion has to be scored, not hoped for.** The shallow band on the legs sits INSIDE
 underwater_world's kelp stand — 11 strands a leg on a 3.2-6.0 m holdfast ring, against a
 caisson face at 3.0 m, so the innermost strands are 200 mm off the concrete. Four species'
@@ -309,3 +328,60 @@ portraits came back as nothing but green blade. Scoring each candidate station o
 strands fall near the sight line (and counting a strand within 1.6 m of the LENS double — a
 frond that close fills the frame while being nowhere near the line) fixed it. A strand at the
 camera is an occluder even though it is not "between" anything.
+
+---
+
+## Found while adding the harvestable mussels (s21)
+
+**The FaunaTouch trap bites PLACEMENT code too, not just probes.** The s20 entry above is
+about a *harness* measuring animals. s21 found the other half: `mussel_beds` seated one bed and
+all three of its patches on a passing snail's touch sphere, because leg_reef seeds thirteen
+snails onto the caisson faces in exactly the depth band the beds want. The animal then crawled
+away, so the probe reported "no collider under it" — and the tell was three patch up-axes of
+(0.32, 0.16, −0.93), (0.37, 0.39, −0.84) and (−0.05, −0.26, −0.96) on a caisson face whose
+real normal is (0, 0, −1). **Any code that seats something by raycast needs the skip list, not
+just the code that checks it afterwards.** And behind the skip list, assert the shape you
+expect: a caisson normal is axis-aligned, so `n.dot(expected) >= 0.985` refuses anything the
+skip list missed (an animal spawned after the list was built).
+
+**Anything measured in game DAYS cannot be a countdown in seconds.** Sleeping calls
+`GameClock.skip_to_next_dawn()`, which bumps `day_count` and resets the phase — the calendar
+advances and *no real time passes*. So a five-day regrowth counted in `delta` sits bare through
+five slept nights and then completes after five real hours of standing next to it, which is
+both wrong and untestable. `GameClock.game_time_hours()` exists for this: absolute game hours,
+monotonic across a natural phase advance *and* a sleep. `Salvage.regrow_game_hours` keys off it.
+
+**A test helper that SETS a clock position cannot be called twice.** `MusselProbe`'s
+`_advance_game_days` first wrote the intra-day position rather than adding to it, so `(4.5)`
+followed by `(0.6)` advanced 4.5 days and then **0.1** — and the probe reported that a five-day
+bed had not regrown after five days. The failure was indistinguishable from a bug in the
+feature, and the feature *also* had a real bug at the time (a missing `_configure` line), so
+two independent faults were producing one symptom. Route every such helper through the one
+absolute number and make it additive.
+
+**`Salvage._work` counts REAL seconds, and a headless main loop runs unbounded.** Awaiting a
+frame COUNT to let a job finish works at 60 fps and fails headless, where 140 frames is a
+quarter of a second rather than two seconds. Wait on the job's own flag with a frame cap. And
+the second half: the worker was standing 15 m under water, so the breath ran out, `_drown()`
+respawned the player on the deck and `_work` correctly abandoned the job as "you step away from
+it, half done" — the probe would have been measuring drowning while reporting on harvesting.
+Top the air up every frame of any underwater interaction test.
+
+**A LIT surface on a caisson face at y −15 renders near-black whatever its albedo.** The
+picked-bed scar was raised from 0.09 to 0.17 to 0.46 and photographed identically dark every
+time, because there is no direct light down there and per-pixel shading gave it only the
+environment's ambient. The coral beside it is not lit either — it is EMISSIVE (see the glow
+note above). For a flat decal-like surface, `SHADING_MODE_UNSHADED` is the cheap version of the
+same trick: the albedo is then what actually reaches the frame, through the fog grade.
+
+**An untextured billboard quad is a white RECTANGLE.** Steam over the stove's pot was built
+first as tapered cylinders (which photograph as flat blades, since an unshaded double-sided
+cone has no volume) and then as billboarded quads (hard corners, reads as paper). Vapour needs
+a soft edge, and that costs nothing to generate: a `GradientTexture2D` with `FILL_RADIAL` and
+alpha falling to zero at the rim, built once in code, no asset and no import.
+
+**Two vessels can end up on the same hob.** `interior_props` had already dressed the range with
+`brass_pan_01` at (11.2, counter, 15.9) — which is exactly the left burner ring `rig_builder`
+draws, and exactly where the stove's new boiling pot goes. **Before adding a prop to a surface
+the dressing scripts also dress, grep the position, not just the room.** Three separate files
+(`rig_builder`, `interior_props`, `cook_stove`) put geometry on this one range.

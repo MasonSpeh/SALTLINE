@@ -118,12 +118,16 @@ func _reef_shots(beds: Array, tag: String) -> void:
 	sorted.sort_custom(func(a: Node3D, b: Node3D) -> bool:
 		return a.global_position.y > b.global_position.y)
 	main.hud.visible = false
-	# Three beds at reading distance: close enough that the individual shells are readable,
-	# which is the whole claim about this asset.
-	for i in range(mini(3, sorted.size())):
-		var bed: Node3D = sorted[i * maxi(1, sorted.size() / 3)] if sorted.size() >= 3 \
-			else sorted[i]
-		var f: Array = _frame(bed.global_position, 2.9, 0.55)
+	# SIX beds at reading distance, spread across the whole array. Six rather than three
+	# because occlusion cannot be raycast here: the coral is MultiMesh and carries no
+	# collider, so nothing can measure whether a 1.4 m bed is behind a 3 m reef mass from a
+	# given vantage — and about a third of them are. Sampling more of them is the honest
+	# answer to an occluder the harness cannot see (docs/AGENT_TRAPS.md: occlusion has to be
+	# scored, and where it cannot be, over-sample).
+	var step: int = maxi(1, sorted.size() / 6)
+	for i in range(mini(6, sorted.size())):
+		var bed: Node3D = sorted[mini(i * step, sorted.size() - 1)]
+		var f: Array = _frame(bed.global_position, 2.4, 0.45)
 		_subject = bed.global_position
 		await _shot(f[0], f[1], f[2], "bed_close%02d_%s" % [i + 1, tag])
 	# And two stood back far enough to show them AMONG THE CORAL, which is what the brief
