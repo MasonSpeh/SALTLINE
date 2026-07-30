@@ -310,65 +310,117 @@ func _process(delta: float) -> void:
 ##
 ## The subtree's own _process is stopped for the duration (it would re-assert `visible` from
 ## the cull rule this is testing, and it also freezes the fish so the null pair is clean).
-const PROOF_SPOTS := [
-	# Standing on the Wet Deck (floor y 2.0, eye ~3.6-4.0) — the vantage this cull change is
-	# for, and the one the swell-relative margin was flip-flopping at.
-	["wet_deck", Vector3(16.0, 4.0, -19.0), Vector3(13.0, 3.5, -12.0)],
-	# THE WORST CASE ON PURPOSE: right on the new threshold (TOPSIDE_MARGIN 2.0), leaning out
-	# over the water and looking almost straight down into it, which is the steepest, closest,
-	# least-reflective sight line into the surface anywhere the player can stand.
-	["threshold_down", Vector3(16.0, 2.05, -19.5), Vector3(15.0, -6.0, -20.5)],
-	# ...and the same, out over open water past the pontoon rather than down at the plating.
-	["threshold_sea", Vector3(0.0, 2.05, -17.0), Vector3(0.0, -4.0, -30.0)],
-]
+## A LADDER OF CAMERA HEIGHTS, because the question is not "is this cull visible" but "from
+## what height up does it stop being visible" — and that is the margin, measured instead of
+## typed. Each row leans out over open water and looks down into it at ~25 degrees, which is
+## the sight line that sees furthest into a surface (straight down sees least, because the
+## fan's near quads fill the frame).
+const PROOF_HEIGHTS: Array[float] = [1.2, 2.05, 3.0, 3.6, 4.5, 6.0, 9.0]
+## Where from. z -17 is off the south pontoon over open water; the wet deck plating is y 2.0,
+## so 3.6 is a standing eye there and 1.2 is lying on the pontoon edge.
+const PROOF_EYE_XZ := Vector2(0.0, -17.0)
+const PROOF_LOOK := Vector3(0.0, -6.0, -30.0)
 
 func _cull_proof() -> void:
-	print("\n=========== IS THE TOPSIDE CULL VISIBLE? ===========")
-	print("mean/max per-channel difference over the frame, 0..255.")
-	print("'null' is ON vs ON (the sea and the gulls are still moving); 'cull' is ON vs OFF.")
-	print("cull <= null means nothing the cull removed was reaching the screen.")
-	if _uw == null:
-		print("underwater_world NOT FOUND — nothing to prove")
+	print("\n=========== WHAT IS VISIBLE FROM ABOVE THE WATER? ===========")
+	print("Two culls, measured the same way: the WHOLE underwater world, and the LEG REEF on")
+	print("its own (y -3.4..-22, 4.26 M tris, the expensive half). Each is hidden and the frame")
+	print("compared against the same frame with it shown.")
+	print("'null' is show-vs-show — the sea and the fauna are moving, so this is the difference")
+	print("that changing NOTHING produces, and no smaller difference is evidence of anything.")
+	print("A cull whose numbers sit on the null floor removed nothing that reached the screen.")
+	var targets: Array = []
+	if _uw != null:
+		targets.append(["uw_world", _uw])
+	if _reef != null:
+		targets.append(["leg_reef", _reef])
+	if targets.is_empty():
+		print("nothing found to prove")
 		get_tree().quit()
 		return
-	var prev: int = _uw.process_mode
-	_uw.process_mode = Node.PROCESS_MODE_DISABLED
-	print("%-16s %10s %10s %10s %10s" % ["vantage", "null mean", "null max", "cull mean", "cull max"])
-	for s in PROOF_SPOTS:
-		_place(s)
-		for i in range(SETTLE_FRAMES):
-			await get_tree().process_frame
-		_uw.visible = true
-		var a: Image = await _grab()
-		var b: Image = await _grab()
-		_uw.visible = false
-		for i in range(4):
-			await get_tree().process_frame
-		var c: Image = await _grab()
-		_uw.visible = true
-		var n: Array = _diff(a, b)
-		var d: Array = _diff(a, c)
-		var verdict: String = "  " if d[0] <= n[0] and d[1] <= maxf(n[1], 2.0) else " !"
-		print("%s%-15s %10.4f %10.0f %10.4f %10.0f" % [verdict, s[0], n[0], n[1], d[0], d[1]])
-		a.save_png("/tmp/cullproof_%s_on.png" % s[0])
-		c.save_png("/tmp/cullproof_%s_off.png" % s[0])
-	_uw.process_mode = prev
-	print("\nPNGs in /tmp/cullproof_*.png — look at them; '!' marks a row to look at first.")
-	print("===================================================")
+	# Stop the subtree processing for the duration: underwater_world would re-assert `visible`
+	# from the very rule under test, and freezing the fish is also what makes the null pair a
+	# null pair rather than a measurement of swimming.
+	var prev_uw: int = _uw.process_mode if _uw != null else 0
+	if _uw != null:
+		_uw.process_mode = Node.PROCESS_MODE_DISABLED
+	# THE SEA NEVER STOPS, and the first version of this test was destroyed by that. The null
+	# pair was captured ONE frame apart and the cull pair FIVE, so the cull "cost" was five
+	# frames of swell measured against one — a constant ~4x, at every height, for both targets,
+	# entirely independent of the thing being varied. A textbook fake result.
+	#
+	# The fix is EQUAL GAPS: every capture is GAP frames after the one before it, so whatever
+	# is still moving moves the same amount inside the null window as inside the test window.
+	#
+	# The obvious alternative — Engine.time_scale = 0, freezing the world outright — was tried
+	# and is a TRAP worth the paragraph. A zero delta divides by zero inside the fauna movement
+	# code and produces the NaN that defeats every guard in this repo (docs/AGENT_TRAPS.md):
+	# the run filled stderr with "Vector3 cannot be normalized" at frame rate and had written
+	# 5.4 GB before it was killed. Freeze a world by removing its motion, never by zeroing its
+	# clock.
+	#
+	# GAP IS 1 FOR A REASON, and 6 was the second way to get a useless answer out of this. With
+	# equal 6-frame gaps the arithmetic is fair but the sea has moved so far in both windows
+	# that the null floor (mean ~3, 1400-3700 pixels over threshold) is larger than anything a
+	# hidden reef could contribute, and EVERY row certifies "invisible" — including a camera at
+	# 1.2 m that is sometimes under a crest and where the answer is definitely no. A `visible`
+	# flag applies to the next drawn frame, so one frame is all the gap the toggle needs, and
+	# one frame is as still as this ocean ever gets.
+	const GAP: int = 1
+	print("\n%-10s %6s %9s %9s %9s %9s %9s %9s   %s"
+		% ["target", "eye y", "nul mean", "nul max", "nul px>24", "cul mean", "cul max",
+			"cul px>24", "verdict"])
+	for t in targets:
+		var node: Node3D = t[1]
+		for hy in PROOF_HEIGHTS:
+			_place(["proof", Vector3(PROOF_EYE_XZ.x, hy, PROOF_EYE_XZ.y), PROOF_LOOK])
+			node.visible = true
+			for i in range(SETTLE_FRAMES):
+				await get_tree().process_frame
+			var a: Image = await _grab()
+			for i in range(GAP):
+				await get_tree().process_frame
+			var b: Image = await _grab()
+			node.visible = false
+			for i in range(GAP):
+				await get_tree().process_frame
+			var c: Image = await _grab()
+			node.visible = true
+			var n: Array = _diff(a, b)
+			var d: Array = _diff(b, c)
+			# px>24 is the discriminator that matters. A moving sea differs from itself by a
+			# lot of SMALL specular shimmer spread over the whole frame; a reef that should not
+			# be on screen is a compact patch of LARGE differences. The mean cannot tell those
+			# apart and the count can.
+			var clean: bool = d[2] <= maxf(n[2] * 1.5, 20.0) and d[0] <= n[0] * 1.5 + 0.02
+			print("  %-8s %6.2f %9.4f %9.0f %9.0f %9.4f %9.0f %9.0f   %s"
+				% [t[0], hy, n[0], n[1], n[2], d[0], d[1], d[2],
+					"invisible" if clean else "VISIBLE"])
+			if not clean:
+				b.save_png("/tmp/cullproof_%s_%.2f_on.png" % [t[0], hy])
+				c.save_png("/tmp/cullproof_%s_%.2f_off.png" % [t[0], hy])
+	if _uw != null:
+		_uw.process_mode = prev_uw
+	print("\nThe margin each cull needs is the lowest eye y whose row reads 'invisible' and")
+	print("stays invisible above it. PNG pairs for every VISIBLE row are in /tmp/cullproof_*.")
+	print("=============================================================")
 	get_tree().quit()
 
 func _grab() -> Image:
 	await RenderingServer.frame_post_draw
 	return get_viewport().get_texture().get_image()
 
-## [mean, max] per-channel absolute difference, 0..255.
+## [mean, max, count over BIG] per-channel absolute difference, 0..255.
+const BIG_DIFF: float = 24.0
+
 func _diff(a: Image, b: Image) -> Array:
 	if a.get_size() != b.get_size():
-		return [255.0, 255.0]
+		return [255.0, 255.0, 1.0e9]
 	var w: int = a.get_width()
 	var h: int = a.get_height()
 	var total: float = 0.0
 	var worst: float = 0.0
+	var big: int = 0
 	# Every 3rd row and column: 1/9 of ~0.9 M pixels is still 100k samples, which is plenty to
 	# find a reef that should not be there, and it keeps the whole proof inside one frame's
 	# worth of GDScript per capture.
@@ -380,8 +432,10 @@ func _diff(a: Image, b: Image) -> Array:
 			var d: float = 255.0 * maxf(maxf(absf(ca.r - cb.r), absf(ca.g - cb.g)), absf(ca.b - cb.b))
 			total += d
 			worst = maxf(worst, d)
+			if d > BIG_DIFF:
+				big += 1
 			n += 1
-	return [total / maxf(float(n), 1.0), worst]
+	return [total / maxf(float(n), 1.0), worst, float(big)]
 
 func _start() -> void:
 	_settle = SETTLE_FRAMES

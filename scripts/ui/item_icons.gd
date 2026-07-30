@@ -59,7 +59,7 @@ const ICON_FOCUS := {
 	# lever, and enough of the mast and its diagonal strut for the machine to read as a frame
 	# rather than as a wheel. The head, the sheave and the terminal tackle run off the top of
 	# the frame on purpose — length and tackle are what the hand and the world show.
-	"deep_rig_pole": {"centre": Vector3(-0.100, 0.50, 0.05), "size": 0.58},
+	"deep_rig_pole": {"centre": Vector3(-0.075, 0.525, 0.02), "size": 0.58},
 	# 1.35 m of driftwood shaft; the lashing and the shard point are the whole read.
 	"crude_spear": {"centre": Vector3(0.17, 1.16, 0.0), "size": 0.5},
 }

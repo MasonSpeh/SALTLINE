@@ -452,6 +452,9 @@ func _configure(def: Dictionary) -> void:
 	done_line = String(def.get("done", done_line))
 	bare_hand_risk = float(def.get("risk", 0.0))
 	regrow_sec = float(def.get("regrow", 0.0))
+	# `regrow` is real seconds, `regrow_days` is game days off GameClock — see
+	# regrow_game_hours for why anything measured in days must not be the former.
+	regrow_game_hours = float(def.get("regrow_days", 0.0)) * 24.0
 	sound = String(def.get("sound", "clang"))
 	if def.has("name"):
 		display_name = String(def["name"])

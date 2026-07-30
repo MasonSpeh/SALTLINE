@@ -61,10 +61,14 @@ const CLUMP_TRIS: int = 3000
 
 ## Bed sizes, longest axis in metres. A wild Mytilus bed is metres across; these are patches
 ## on a 6 m concrete face among 0.35-3.4 m coral, so a bed reads as a patch at 0.6-1.0 m.
-const BED_LO: float = 0.62
-const BED_HI: float = 1.05
-const CLUMP_LO: float = 0.26
-const CLUMP_HI: float = 0.46
+## SIZED BY RENDER, not by taste. At 0.62-1.05 m the beds photographed as small dark specks
+## between 1.6-3.4 m reef masses — real, seated, and not findable, which for the one edible
+## thing on the reef is a failure. A wild Mytilus bed is metres across anyway, so this is both
+## the more legible number and the truer one.
+const BED_LO: float = 0.85
+const BED_HI: float = 1.45
+const CLUMP_LO: float = 0.34
+const CLUMP_HI: float = 0.60
 
 ## How many beds, and how they are spread. Deliberately per-leg rather than a global count:
 ## a diver only ever visits one leg at a time, so six a leg is what "scattered throughout the
@@ -154,8 +158,13 @@ func _init(seats: Array = [], band_top: float = -12.6, band_bottom: float = -22.
 
 func _ready() -> void:
 	_rng.seed = 51_09_21
+	# Physics is not queryable until a frame has run, and the animals this has to skip are
+	# spawned by their own _ready calls — so the skip list is collected after the tree has
+	# ticked, not during the build.
+	await get_tree().physics_frame
 	await get_tree().physics_frame
 	_space = get_world_3d().direct_space_state
+	_collect_skip()
 	_dive_y = _dive_floor()
 	if not _load_meshes():
 		push_warning("[mussels] no mesh — no beds planted")
@@ -301,7 +310,7 @@ func _seat_bed(seat: Dictionary, placed: Array) -> bool:
 	if target.y < _dive_y or target.y > _band_top:
 		return false
 	var hit: Dictionary = _probe(target, n)
-	if hit.is_empty():
+	if hit.is_empty() or not _is_wall((hit["normal"] as Vector3).normalized(), n):
 		_refused_no_collider += 1
 		return false
 	var surface: Vector3 = hit["position"]
@@ -327,9 +336,11 @@ func _seat_bed(seat: Dictionary, placed: Array) -> bool:
 		var a_hit: Dictionary = _probe(surface + off + face * 0.05, face)
 		if a_hit.is_empty() or _blocked(a_hit["position"]):
 			continue
+		var a_face: Vector3 = (a_hit["normal"] as Vector3).normalized()
+		if not _is_wall(a_face, n):
+			continue
 		visual.add_patch(_clump_mesh, _mat, (a_hit["position"] as Vector3) - surface,
-			(a_hit["normal"] as Vector3).normalized(),
-			_rng.randf_range(CLUMP_LO, CLUMP_HI), _rng, TILT_MAX_DEG, RECESS)
+			a_face, _rng.randf_range(CLUMP_LO, CLUMP_HI), _rng, TILT_MAX_DEG, RECESS)
 	# The scar: the bare patch the mussels are sitting on, revealed when they are picked off.
 	visual.add_scar(size, face)
 	# Salvage._finish already logs "first_salvage" in the journal, so nothing extra is
@@ -352,6 +363,38 @@ func _def() -> Dictionary:
 		"done": "A double handful of mussels comes away, threads and all.",
 	}
 
+## LIVE ANIMALS AND HARVEST BOXES, excluded from every ray this file fires at the concrete.
+##
+## This is not tidiness; the first run of tests/MusselProbe.tscn caught it. Every creature in
+## bloom_fauna.gd carries a FaunaTouch — an Interactable, i.e. a StaticBody3D with a 0.6-0.85 m
+## sphere on the DEFAULT collision layer, because that is how the player's interaction ray
+## finds an animal — and leg_reef seeds thirteen snails onto the caisson faces in exactly this
+## depth band. So one bed and all three of its patches seated on a passing snail's touch
+## sphere: the probe reported "no collider under it" (the animal had crawled on) and the three
+## patches' up axes came back at (0.32, 0.16, -0.93) and friends, i.e. sphere normals, on a
+## wall whose real normal is (0, 0, -1). Confident, stable and completely wrong — the same
+## failure that made a caisson appear to have moved 606 mm in s20 (docs/AGENT_TRAPS.md).
+##
+## Collected by SCRIPT FILE rather than by group, so it catches an animal wherever it is
+## parented — bloom_fauna's own fauna_bodies() helper walks up looking for a bloom_fauna host
+## and therefore misses the snails LegReef spawns under itself.
+const FAUNA_SCRIPTS := ["bloom_fauna.gd", "reef_life.gd", "reef_fish.gd", "leg_reef.gd",
+	"underwater_world.gd", "shark.gd", "salvage.gd", "mussel_beds.gd"]
+var _skip: Array[RID] = []
+
+func _collect_skip() -> void:
+	var root: Node = get_tree().current_scene
+	if root == null:
+		root = get_tree().root
+	for node in root.find_children("*", "CollisionObject3D", true, false):
+		var p: Node = node
+		while p != null:
+			var s: Script = p.get_script()
+			if s != null and FAUNA_SCRIPTS.has(String(s.resource_path).get_file()):
+				_skip.append((node as CollisionObject3D).get_rid())
+				break
+			p = p.get_parent()
+
 ## Fire a ray at the concrete from a point known to be in open water. Unlike leg_reef's own
 ## probe there is NO FALLBACK to the sonar-measured face: a MultiMesh instance that misses
 ## is only drawn, but a mussel bed carries a collider the player's interaction ray has to
@@ -359,15 +402,23 @@ func _def() -> Dictionary:
 func _probe(target: Vector3, normal: Vector3) -> Dictionary:
 	var q := PhysicsRayQueryParameters3D.create(target + normal * 1.8, target - normal * 0.7)
 	q.collision_mask = 1
-	# Exclude everything this node has already built, or the second bed on a face measures
-	# the first bed's collider instead of the concrete — the FaunaTouch failure from s20,
-	# which reported a caisson as having moved 606 mm (docs/AGENT_TRAPS.md).
-	var skip: Array[RID] = []
+	var skip: Array[RID] = _skip.duplicate()
+	# ...plus the beds already built, or the second bed on a face measures the first bed's
+	# interaction box instead of the wall.
 	for b in beds:
 		if is_instance_valid(b):
 			skip.append((b as CollisionObject3D).get_rid())
 	q.exclude = skip
 	return _space.intersect_ray(q)
+
+## A surface normal on a caisson face is axis-aligned: the legs are one flat-sided casting.
+## Anything more than a few degrees off means the ray found something that is not the wall —
+## the last line of defence behind the skip list above, since an animal spawned after
+## _collect_skip ran would not be in it. Refused, not seated on.
+const FACE_ALIGN_MIN: float = 0.985
+
+func _is_wall(n: Vector3, expect: Vector3) -> bool:
+	return n.dot(expect) >= FACE_ALIGN_MIN
 
 func _blocked(p: Vector3) -> bool:
 	for k in _keep_out:
@@ -456,14 +507,17 @@ class MusselBed extends Node3D:
 	## while the mussels cover it and faded in once they have been picked off.
 	func add_scar(size: float, face: Vector3) -> void:
 		_scar_mat = StandardMaterial3D.new()
-		_scar_mat.albedo_color = Color(0.09, 0.10, 0.11, 0.0)
+		# Not black. The first version was (0.09, 0.10, 0.11) at 0.72 alpha and photographed
+		# as a HOLE punched through the caisson rather than as bare rock — see DEVLOG.md.
+		# This is the wet concrete's own value, a stain rather than a void.
+		_scar_mat.albedo_color = Color(0.17, 0.16, 0.14, 0.0)
 		_scar_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		_scar_mat.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 		_scar_mat.roughness = 0.55
 		_scar_mat.metallic_specular = 0.7      # wet, so it catches what light gets down here
 		var cm := CylinderMesh.new()
-		cm.top_radius = size * 0.46
-		cm.bottom_radius = size * 0.46
+		cm.top_radius = size * 0.38
+		cm.bottom_radius = size * 0.38
 		cm.height = 0.012
 		cm.material = _scar_mat
 		_scar = MeshInstance3D.new()
@@ -510,7 +564,7 @@ class MusselBed extends Node3D:
 				mi.transform = Transform3D((p["basis"] as Basis).scaled(Vector3.ONE * f),
 					mi.transform.origin)
 		if _scar_mat != null:
-			_scar_mat.albedo_color.a = 0.72 * _ease
+			_scar_mat.albedo_color.a = 0.50 * _ease
 		if not spent and is_equal_approx(_ease, 0.0):
 			set_process(false)
 

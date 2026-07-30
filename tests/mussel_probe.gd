@@ -49,7 +49,25 @@ func _ok(cond: bool, msg: String) -> void:
 		failures += 1
 		_say("  FAIL  " + msg)
 
+## THE PROBE MUST NOT TOUCH THE OWNER'S SAVE, and it very nearly did. SaveManager connects
+## GameClock.dawn and .dusk to save_game(), and this file drives the clock forward five days —
+## so every DAWN it crosses would have autosaved the probe's half-drowned test state straight
+## over the player's slot 1. Redirected to a throwaway stem for the WHOLE run, before anything
+## can force a phase, and put back at the end.
+var _slot_prefix: String = ""
+
+## Keeping the diver alive. The worker stands 15 m under water for the whole harvest, and the
+## breath is a 28-second clock: _drown() respawns the player on the deck, at which point
+## Salvage._work correctly abandons the job as "you step away from it, half done" — and the
+## probe would be measuring drowning while reporting on harvesting. PROCESS_MODE_ALWAYS
+## because the pause menu opens itself on focus-out.
+func _process(_delta: float) -> void:
+	PlayerState.oxygen = 1.0
+
 func _ready() -> void:
+	process_mode = Node.PROCESS_MODE_ALWAYS
+	_slot_prefix = SaveManager.slot_file_prefix
+	SaveManager.slot_file_prefix = "mussel_probe_slot_"
 	var main: Node3D = null
 	var packed: PackedScene = load("res://scenes/Main.tscn")
 	if packed != null:
@@ -82,6 +100,8 @@ func _ready() -> void:
 	_finish()
 
 func _finish() -> void:
+	SaveManager.erase_slot(SaveManager.active_slot)
+	SaveManager.slot_file_prefix = _slot_prefix
 	_say("---")
 	_say("FAILURES: %d" % failures)
 	var f: FileAccess = FileAccess.open(LOG_PATH, FileAccess.WRITE)
@@ -143,6 +163,9 @@ func _seating(beds: Array) -> void:
 			var hit: Dictionary = _ray(seat + up * 1.6, seat - up * 0.8)
 			if hit.is_empty():
 				unmeasured += 1
+				_say("    no collider under %s at (%.2f, %.2f, %.2f), up (%.2f, %.2f, %.2f)"
+					% [patch.get_parent().get_parent().name, seat.x, seat.y, seat.z,
+						up.x, up.y, up.z])
 				continue
 			measured += 1
 			var face: Vector3 = (hit["normal"] as Vector3).normalized()
@@ -227,24 +250,32 @@ func _clock_maths(beds_node: Node) -> void:
 	GameClock.force_phase(ph0)
 	GameClock._phase_elapsed_sec = el0
 
+## Move the CALENDAR forward, not the wall clock — this is what a player sleeping through
+## nights does to the same number, and it is the only way to test a five-day span without
+## waiting five hours.
+##
+## ADDITIVE, in absolute hours. The first version of this SET the intra-day position instead
+## of adding to it, so a 4.5-day jump followed by a 0.6-day jump advanced the clock by 4.5 days
+## and then by 0.1 — and the probe reported that a five-day bed had not regrown after five
+## days. The failure looked exactly like a bug in the feature. Everything here goes through
+## GameClock.game_time_hours(), the one number that is monotonic across both.
 func _advance_game_days(d: float) -> void:
-	# Move the calendar, not the wall clock: whole days on day_count, the remainder on the
-	# phase clock. This is what a player sleeping through nights does to the same number.
-	GameClock.day_count += int(floor(d))
-	var rem: float = d - floor(d)
-	if rem > 0.0:
-		# Park it inside DAY at the right fraction of the whole 24 h.
-		var total_min: float = 0.0
-		for p in GameClock.phase_durations_minutes:
-			total_min += float(GameClock.phase_durations_minutes[p])
-		var want_min: float = rem * total_min
-		var dawn_min: float = float(GameClock.phase_durations_minutes[GameClock.Phase.DAWN])
-		if want_min <= dawn_min:
-			GameClock.force_phase(GameClock.Phase.DAWN)
-			GameClock._phase_elapsed_sec = want_min * 60.0
-		else:
-			GameClock.force_phase(GameClock.Phase.DAY)
-			GameClock._phase_elapsed_sec = (want_min - dawn_min) * 60.0
+	var target: float = GameClock.game_time_hours() + d * 24.0
+	GameClock.day_count = int(floor(target / 24.0))
+	var hh: float = fposmod(target, 24.0)
+	var total_min: float = 0.0
+	for p in GameClock.phase_durations_minutes:
+		total_min += float(GameClock.phase_durations_minutes[p])
+	var want_min: float = hh / 24.0 * total_min
+	var acc: float = 0.0
+	for phase in [GameClock.Phase.DAWN, GameClock.Phase.DAY, GameClock.Phase.DUSK,
+			GameClock.Phase.NIGHT]:
+		var m: float = float(GameClock.phase_durations_minutes[phase])
+		if want_min <= acc + m or phase == GameClock.Phase.NIGHT:
+			GameClock.force_phase(phase)
+			GameClock._phase_elapsed_sec = clampf(want_min - acc, 0.0, m) * 60.0
+			return
+		acc += m
 
 func _harvest_and_regrow(beds: Array) -> void:
 	_say("--- harvest, then five days ---")
@@ -260,9 +291,7 @@ func _harvest_and_regrow(beds: Array) -> void:
 	if player != null:
 		player.global_position = (bed as Node3D).global_position
 	bed.call("interact", "GATHER", player)
-	# Work seconds pass on the real clock (Salvage._work), so let them.
-	for i in range(int(ceilf(float(bed.get("work_sec")) * 70.0))):
-		await get_tree().process_frame
+	await _work_out(bed, player)
 	var got: int = _count_item("mussels") - before
 	_ok(bed.get("spent") == true, "the bed is spent after a GATHER")
 	_ok(got == yield_n, "GATHER handed over %d mussels (rolled %d)" % [got, yield_n])
@@ -292,6 +321,26 @@ func _harvest_and_regrow(beds: Array) -> void:
 	GameClock.day_count = d0
 	GameClock.force_phase(ph0)
 
+## Let a Salvage job run to completion.
+##
+## TWO THINGS make this more than "await a few frames", both learned by watching it fail.
+## Salvage._work counts REAL seconds, and a headless main loop runs unbounded — 140 frames is
+## a quarter of a second here, not the two seconds the same loop buys at 60 fps — so the wait
+## is on the JOB's own flag with a frame cap, never on a frame count. And the worker is
+## standing 15 m under water: the breath runs out, _drown() respawns the player on the deck,
+## and Salvage._work then correctly abandons the job as "you step away from it, half done".
+## Topping the air up each frame is what keeps the probe measuring harvesting instead of
+## accidentally measuring drowning.
+func _work_out(bed: Node, player: Node3D) -> void:
+	for i in range(20000):
+		if bed.get("_working") != true:
+			return
+		PlayerState.oxygen = 1.0
+		if player != null:
+			player.global_position = (bed as Node3D).global_position
+		await get_tree().process_frame
+	_say("    WARNING the GATHER never completed in 20000 frames")
+
 func _visible_patches(bed: Node) -> int:
 	var n: int = 0
 	for mi in bed.find_children("*", "MeshInstance3D", true, false):
@@ -315,9 +364,6 @@ func _count_item(id: String) -> int:
 
 func _save_round_trip(beds: Array) -> void:
 	_say("--- spent state survives a save/load ---")
-	# A throwaway slot stem so the suite never touches a real saltline_slot_*.json.
-	var old_prefix: String = SaveManager.slot_file_prefix
-	SaveManager.slot_file_prefix = "mussel_probe_slot_"
 	var bed: Node = beds[1]
 	var key: String = "%.2f,%.2f,%.2f" % [(bed as Node3D).global_position.x,
 		(bed as Node3D).global_position.y, (bed as Node3D).global_position.z]
@@ -327,8 +373,11 @@ func _save_round_trip(beds: Array) -> void:
 	if player != null:
 		player.global_position = (bed as Node3D).global_position
 	bed.call("interact", "GATHER", player)
-	for i in range(int(ceilf(float(bed.get("work_sec")) * 70.0))):
-		await get_tree().process_frame
+	if bed.get("_working") != true:
+		_say("    interact() bailed: spent=%s yield_total=%d free_slots=%d pack_used=%d cap=%d"
+			% [bed.get("spent"), int(bed.call("_yield_total")), int(bed.call("_free_slots")),
+				PlayerState.pack_used(), PlayerState.backpack_capacity()])
+	await _work_out(bed, player)
 	_ok(bed.get("spent") == true, "bed 1 harvested and spent")
 	var picked_h: float = float(bed.get("_picked_at_h"))
 	SaveManager.save_game()
@@ -350,9 +399,13 @@ func _save_round_trip(beds: Array) -> void:
 	await get_tree().process_frame
 	_ok(bed.get("spent") == true, "STILL SPENT after the reload — it did not grow back free")
 	var kept: float = float(bed.get("_picked_at_h"))
-	_ok(absf(kept - picked_h) < 0.01,
+	# picked_h > 0 guards the whole comparison against a vacuous pass: two nodes that were
+	# never harvested both read -1.0 and would agree perfectly.
+	_ok(picked_h > 0.0 and absf(kept - picked_h) < 0.01,
 		"the five-day clock resumed where it was (%.3f h vs %.3f h)" % [kept, picked_h])
+	var left_days: float = (float(bed.get("regrow_game_hours"))
+		- (GameClock.game_time_hours() - kept)) / 24.0
+	_say("  %.2f of the five days still to run after the reload" % left_days)
+	_ok(left_days > 4.0, "the reload did not eat the regrow timer (%.2f days left)" % left_days)
 	# A bed that was never touched must come back untouched, not spent.
 	_ok(beds[2].get("spent") == false, "an untouched bed is still untouched after the reload")
-	SaveManager.erase_slot(SaveManager.active_slot)
-	SaveManager.slot_file_prefix = old_prefix

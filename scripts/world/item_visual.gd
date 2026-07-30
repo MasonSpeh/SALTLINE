@@ -468,18 +468,26 @@ static func build(item_id: String) -> Node3D:
 			# frame sideways, and the wider the model's X the smaller the hand normalisation
 			# (largest dimension -> 0.9 m) draws the whole tool.
 			dr.rotation.z = deg_to_rad(-4)             # leaning out the way the davit arm points
-			# Same material language as the rod, so the two tools read as one man's kit.
-			var dp_frame := Color(0.26, 0.28, 0.31)    # gunmetal weldments — foot, brackets, drum
-			var dp_mast := Color(0.19, 0.20, 0.23)     # dark graphite box section, salt-hazed
-			var dp_alloy := Color(0.44, 0.46, 0.49)    # machined alloy: axle, ratchet, sheave
-			var dp_grip := Color(0.13, 0.12, 0.11)     # rubber sleeve, as on the rod's grips
-			var dp_tape := Color(0.17, 0.16, 0.14)     # friction tape lapped over the sleeve
-			var dp_lead := Color(0.28, 0.29, 0.31)     # dull cast lead — flatter than the alloy
-			var dp_line := Color(0.50, 0.48, 0.42)     # dirty braid, as on the rod's spool
-			var dp_brass := Color(0.44, 0.35, 0.21)    # dull anodised pawl and brake, as the rod's lever
-			var dp_rust := Color(0.38, 0.27, 0.18)     # rust in the weld seams and down the paint
-			var dp_salt := Color(0.52, 0.53, 0.50)     # salt crust / bare steel where it has been dragged
-			var dp_canvas := Color(0.46, 0.44, 0.38)   # the rag every working rig carries
+			# Same material language as the rod, but PITCHED DARKER than the rod's own numbers,
+			# measured off a render rather than copied: the rod is all thin tubes, while this has
+			# a 0.30 m disc and a 0.22 m plate turned at the sun, and the rod's fr_metal (0.33)
+			# on areas that size photographed as pale galvanised sheet — a light plastic toy, the
+			# exact failure the traps file names for generated assets.
+			var dp_frame := Color(0.215, 0.230, 0.255)   # gunmetal weldments — foot, brackets, drum
+			var dp_mast := Color(0.155, 0.165, 0.190)    # graphite box section, the darkest thing here
+			var dp_alloy := Color(0.365, 0.385, 0.415)   # machined alloy: axle, ratchet, sheave
+			var dp_grip := Color(0.13, 0.12, 0.11)       # rubber sleeve, as on the rod's grips
+			var dp_tape := Color(0.17, 0.16, 0.14)       # friction tape lapped over the sleeve
+			var dp_lead := Color(0.235, 0.245, 0.265)    # dull cast lead — flatter than the alloy
+			# The rod's own braid colour (0.50) is a small spool; 45 m of it wound on a 0.27 m
+			# drum is the largest single area on this tool, and at that size it photographed as a
+			# bright white ring. Salt-stiffened working line, two thirds of the rod's value.
+			var dp_line := Color(0.355, 0.340, 0.300)    # 45 m of dirty, salt-stiffened braid
+			var dp_brass := Color(0.40, 0.31, 0.185)     # dull anodised pawl and brake, as the rod's lever
+			var dp_wrap := Color(0.30, 0.16, 0.13)       # oxblood, straight off the rod's thread wraps
+			var dp_rust := Color(0.36, 0.25, 0.17)       # rust in the weld seams and down the paint
+			var dp_salt := Color(0.50, 0.51, 0.48)       # salt crust / bare steel where it has been dragged
+			var dp_canvas := Color(0.42, 0.40, 0.34)     # the rag every working rig carries
 			# FOOT — this thing is set DOWN on a deck between drops, so it has a foot to stand
 			# on: a tread plate, two deck bolts, and one bare-steel edge where it gets dragged.
 			_box(dr, Vector3(0.225, 0.026, 0.19), dp_frame, Vector3(0.005, 0.013, 0))
@@ -516,40 +524,58 @@ static func build(item_id: String) -> Node3D:
 					Vector3(-0.077, 0.470, dp_p * 0.152))                                  # bracket cheeks
 			var dp_barrel := _cyl(dr, 0.086, 0.210, dp_frame.darkened(0.18), dp_dc, false, 1.0, 18)
 			dp_barrel.rotation.x = deg_to_rad(90)                                          # arbor
-			# The braid is wound almost FLUSH with the flanges (137 mm against 148) on purpose:
-			# the first cut had it 22 mm recessed and the drum photographed as one pale disc with
-			# no line on it at all. Nearly-flush gives the pale band between two dark flanges
-			# that is what makes a winch drum read as a winch drum at any distance.
-			var dp_wound := _cyl(dr, 0.137, 0.182, dp_line, dp_dc, false, 1.0, 18)
+			var dp_wound := _cyl(dr, 0.137, 0.184, dp_line, dp_dc, false, 1.0, 18)
 			dp_wound.rotation.x = deg_to_rad(90)                                           # the 45 m of braid
-			var dp_prd := _cyl(dr, 0.143, 0.030, dp_line.darkened(0.22),
-				dp_dc + Vector3(0, 0, 0.045), false, 1.0, 18)
-			dp_prd.rotation.x = deg_to_rad(90)                                             # one lap standing proud
+			# Three dark rings AROUND the braid at different points along the drum — the lay of
+			# the wind. A 5 mm tube (outer minus inner) at a 137 mm ring radius, so these are
+			# groove lines on the surface of the line, not hoops standing off it.
+			for dp_g in [-0.055, 0.010, 0.062]:
+				_torus(dr, 0.134, 0.139, dp_line.darkened(0.26), dp_dc + Vector3(0, 0, dp_g), 18, 6)
+			# THE TWO CHEEKS ARE DIFFERENT SIZES, and that is what finally made this read as a
+			# drum. Held in hand the tool's own +Z points within 27° of the camera, so the near
+			# cheek is seen almost dead flat: at equal radii it hid the braid completely and
+			# photographed as a smooth disc with a hub and spokes — a bicycle wheel, twice, in
+			# two different colours. The DRIVE cheek (crank side, +Z) is 112 mm against the far
+			# cheek's 142, so the braid at 137 stands 25 mm proud of it and there is always a
+			# pale ring of line around a bolted plate. Undersized drive cheeks are how real
+			# hand-winches are built anyway — the gear train has to clear the flange.
 			for dp_s in [-1.0, 1.0]:
-				var dp_cheek := _cyl(dr, 0.148, 0.016, dp_frame.darkened(0.10),
+				var dp_cr: float = 0.112 if dp_s > 0.0 else 0.142
+				var dp_cheek := _cyl(dr, dp_cr, 0.016, dp_frame.darkened(0.16),
 					dp_dc + Vector3(0, 0, dp_s * 0.100), false, 1.0, 22)
 				dp_cheek.rotation.x = deg_to_rad(90)
 				# _torus already lies across the rig, which IS the drum's own axis — the same
 				# one place the default is right that the rod's reel rims rely on.
-				_torus(dr, 0.138, 0.152, dp_frame.darkened(0.30),
-					dp_dc + Vector3(0, 0, dp_s * 0.111), 22, 8)                            # flange rim
+				_torus(dr, dp_cr - 0.004, dp_cr + 0.008, dp_frame.darkened(0.36),
+					dp_dc + Vector3(0, 0, dp_s * 0.110), 22, 8)                            # flange lip
 				var dp_ax := _cyl(dr, 0.019, 0.085, dp_alloy,
 					dp_dc + Vector3(0, 0, dp_s * 0.140), false, 1.0, 12)
 				dp_ax.rotation.x = deg_to_rad(90)                                          # axle stub
-				# A faded painted ring on each flange face. The one warm accent on an otherwise
-				# grey tool, and at 74 px it is the thing that catches the eye in a pack slot —
-				# the same job the rod's oxblood thread wraps do for the rod.
-				var dp_ring := _cyl(dr, 0.102, 0.004, Color(0.52, 0.44, 0.16),
+				var dp_hub := _cyl(dr, 0.032, 0.012, dp_alloy.darkened(0.12),
+					dp_dc + Vector3(0, 0, dp_s * 0.112), false, 1.0, 16)
+				dp_hub.rotation.x = deg_to_rad(90)                                         # machined hub boss
+				# A painted band on each cheek, in the rod's own OXBLOOD. An earlier cut painted
+				# it faded ochre and the drum came back a bright yellow disc — the wrong accent
+				# entirely on a rig that had just had a blank yellow block taken off its wet deck.
+				var dp_ring := _cyl(dr, dp_cr * 0.62, 0.004, dp_wrap,
 					dp_dc + Vector3(0, 0, dp_s * 0.109), false, 1.0, 20)
 				dp_ring.rotation.x = deg_to_rad(90)
-			for dp_r in range(3):
-				var dp_ra: float = dp_r * TAU / 3.0 + 0.35
-				var dp_rib := _box(dr, Vector3(0.020, 0.150, 0.012), dp_frame.lightened(0.09),
-					dp_dc + Vector3(cos(dp_ra) * 0.078, sin(dp_ra) * 0.078, 0.112))
+			# Bolt circle through the drive cheek: the detail that turns a disc into a plate that
+			# was fitted by somebody, which is the whole difference between machinery and a wheel.
+			for dp_bo in range(6):
+				var dp_boa: float = dp_bo * TAU / 6.0 + 0.30
+				var dp_blt := _cyl(dr, 0.0075, 0.010, dp_alloy,
+					dp_dc + Vector3(cos(dp_boa) * 0.088, sin(dp_boa) * 0.088, 0.112), false, 1.0, 8)
+				dp_blt.rotation.x = deg_to_rad(90)
+			# Four radial gussets on the FAR cheek, where there is plate to put them on.
+			for dp_r in range(4):
+				var dp_ra: float = dp_r * TAU / 4.0 + 0.40
+				var dp_rib := _box(dr, Vector3(0.017, 0.062, 0.011), dp_frame.lightened(0.05),
+					dp_dc + Vector3(cos(dp_ra) * 0.104, sin(dp_ra) * 0.104, -0.113))
 				# A box's long side is its local +Y, and rotation.z sends +Y to (-sin, cos) — so
 				# a RADIAL rib is ra - 90°, not 90° - ra (which mirrors it to 180° - ra and puts
 				# every rib across its own radius instead of along it).
-				dp_rib.rotation.z = dp_ra - PI * 0.5                                       # cut-and-welded, not turned
+				dp_rib.rotation.z = dp_ra - PI * 0.5
 			# RATCHET AND PAWL — 45 m of wet line pulling on a drum has to be HELD, and this is
 			# the mechanism data/items.json means by "LMB thumbs the drum to hold a depth".
 			var dp_gear := _cyl(dr, 0.058, 0.012, dp_alloy.darkened(0.14),
@@ -580,10 +606,10 @@ static func build(item_id: String) -> Node3D:
 			_torus(dr, 0.020, 0.027, dp_alloy, dp_dc + Vector3(0.110, -0.110, 0.190), 14, 6)
 			# BRAKE — a shoe on a lever pressed down onto the drum rim: the thing that stops a
 			# 1.5 kg lead running away with the whole spool on the way down.
-			var dp_shoe := _box(dr, Vector3(0.130, 0.024, 0.200), dp_brass.darkened(0.30),
-				Vector3(-0.180, 0.632, 0))
+			var dp_shoe := _box(dr, Vector3(0.115, 0.022, 0.196), dp_brass.darkened(0.42),
+				Vector3(-0.176, 0.629, 0))
 			dp_shoe.rotation.z = deg_to_rad(9)
-			var dp_blev := _box(dr, Vector3(0.215, 0.026, 0.024), dp_brass,
+			var dp_blev := _box(dr, Vector3(0.215, 0.024, 0.022), dp_brass.darkened(0.14),
 				Vector3(-0.079, 0.664, 0.070))
 			dp_blev.rotation.z = deg_to_rad(14.5)
 			var dp_bpin := _cyl(dr, 0.011, 0.030, dp_alloy, Vector3(0.022, 0.690, 0.070), false, 1.0, 10)
@@ -627,8 +653,8 @@ static func build(item_id: String) -> Node3D:
 			dp_run.rotation.z = deg_to_rad(-81.6)
 			# SHEAVE BLOCK — the last bearing the line touches before it goes over the side,
 			# and the point the whole tool is aimed at.
-			for dp_sp in [0.014, 0.066]:
-				_box(dr, Vector3(0.055, 0.080, 0.007), dp_frame, Vector3(0.210, 1.122, dp_sp))
+			for dp_sp in [0.016, 0.064]:
+				_box(dr, Vector3(0.046, 0.068, 0.007), dp_frame, Vector3(0.210, 1.122, dp_sp))
 			var dp_wheel := _cyl(dr, 0.026, 0.024, dp_alloy.lightened(0.10),
 				Vector3(0.210, 1.122, 0.040), false, 1.0, 16)
 			dp_wheel.rotation.x = deg_to_rad(90)
@@ -672,7 +698,7 @@ static func build(item_id: String) -> Node3D:
 				Vector3.ONE, true, 1.8)
 			# STENCILLED DEPTH PLATE and a rag knotted under the head — the two details that say
 			# somebody worked with this rather than found it in a box.
-			_box(dr, Vector3(0.050, 0.070, 0.006), Color(0.55, 0.47, 0.17), Vector3(0, 0.550, 0.036))
+			_box(dr, Vector3(0.050, 0.070, 0.006), Color(0.44, 0.39, 0.20), Vector3(0, 0.550, 0.036))
 			_box(dr, Vector3(0.034, 0.008, 0.004), dp_mast, Vector3(0, 0.566, 0.040))
 			var dp_lan := _torus(dr, 0.022, 0.033, Color(0.44, 0.40, 0.32), Vector3(0, 0.855, 0), 14, 6)
 			dp_lan.rotation.x = 0.0

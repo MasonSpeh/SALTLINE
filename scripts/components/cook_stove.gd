@@ -96,6 +96,10 @@ var _boil_t: float = 0.0                   ## rolling-boil animation clock
 const POT_LOCAL := Vector3(-0.3, 0.52, -0.3)
 const POT_R: float = 0.2
 const POT_H: float = 0.24
+## How far up the pot the water sits. High, because the cook's eye is only ~0.5 m above the
+## rim: at 0.62 the surface was buried in shadow behind the wall of the pot and the boil was
+## invisible from the one place the player ever stands.
+const WATER_F: float = 0.82
 
 ## What a raw item cooks into ("" = not cookable). Fish come from the table; a few
 ## non-fish foods (gull, cut fillet) are handled here without polluting the fish data.
@@ -193,16 +197,27 @@ func _build_pot() -> void:
 	ring.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(ring)
 	ring.position = POT_LOCAL
-	# The pot body, sitting on the ring.
+	# The pot body, sitting on the ring. dark_metal rather than painted_steel: the painted
+	# variant photographed as a bucket of set cement on the hob, which is not a stockpot.
 	var body := MeshInstance3D.new()
 	var bm := CylinderMesh.new()
 	bm.top_radius = POT_R
 	bm.bottom_radius = POT_R * 0.94
 	bm.height = POT_H
-	bm.material = MatLib.painted_steel()
+	bm.material = MatLib.dark_metal()
 	body.mesh = bm
 	add_child(body)
 	body.position = POT_LOCAL + Vector3(0.0, POT_H * 0.5 + 0.01, 0.0)
+	# A rolled rim. Cheap, and it is most of what makes a cylinder read as a cooking pot.
+	var rim := MeshInstance3D.new()
+	var rimm := TorusMesh.new()
+	rimm.inner_radius = POT_R * 0.94
+	rimm.outer_radius = POT_R * 1.06
+	rimm.material = MatLib.galvanized()
+	rim.mesh = rimm
+	rim.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	add_child(rim)
+	rim.position = POT_LOCAL + Vector3(0.0, POT_H + 0.01, 0.0)
 	# Two handle lugs, so it reads as a cooking pot rather than a can.
 	for sx in [-1.0, 1.0]:
 		var lug := MeshInstance3D.new()
@@ -227,16 +242,16 @@ func _build_pot() -> void:
 	_pot_water.mesh = wm
 	_pot_water.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 	add_child(_pot_water)
-	_pot_water.position = POT_LOCAL + Vector3(0.0, POT_H * 0.62, 0.0)
+	_pot_water.position = POT_LOCAL + Vector3(0.0, POT_H * WATER_F, 0.0)
 	# Steam. Hidden cold; four thin wisps that climb and fade while it boils.
-	for i in range(4):
+	for i in range(5):
 		var wisp := MeshInstance3D.new()
 		var sm := CylinderMesh.new()
-		sm.top_radius = 0.055
-		sm.bottom_radius = 0.02
-		sm.height = 0.16 + 0.05 * i
+		sm.top_radius = 0.085
+		sm.bottom_radius = 0.03
+		sm.height = 0.20 + 0.05 * i
 		var mat := StandardMaterial3D.new()
-		mat.albedo_color = Color(0.88, 0.90, 0.92, 0.0)
+		mat.albedo_color = Color(0.90, 0.92, 0.94, 0.0)
 		mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
 		mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
 		mat.cull_mode = BaseMaterial3D.CULL_DISABLED
@@ -246,7 +261,7 @@ func _build_pot() -> void:
 		wisp.visible = false
 		add_child(wisp)
 		wisp.position = POT_LOCAL + Vector3(
-			cos(i * 1.7) * POT_R * 0.4, POT_H * 0.8 + 0.1 + 0.06 * i, sin(i * 1.7) * POT_R * 0.4)
+			cos(i * 1.7) * POT_R * 0.35, POT_H + 0.10 + 0.05 * i, sin(i * 1.7) * POT_R * 0.35)
 		_steam.append({"mi": wisp, "mat": mat, "phase": float(i) * 1.37,
 			"base_y": wisp.position.y})
 
@@ -335,8 +350,8 @@ func _process(delta: float) -> void:
 func _roll_boil(delta: float) -> void:
 	_boil_t += delta
 	if is_instance_valid(_pot_water):
-		_pot_water.position.y = POT_LOCAL.y + POT_H * 0.62 \
-			+ 0.012 + 0.004 * sin(_boil_t * 9.0)
+		_pot_water.position.y = POT_LOCAL.y + POT_H * WATER_F \
+			+ 0.010 + 0.004 * sin(_boil_t * 9.0)
 		var wobble: float = 0.985 + 0.015 * sin(_boil_t * 13.0)
 		_pot_water.scale = Vector3(wobble, 1.0, 2.0 - wobble)
 	for w in _steam:
@@ -348,7 +363,7 @@ func _roll_boil(delta: float) -> void:
 		mi.visible = true
 		mi.position.y = float(w["base_y"]) + t * 0.30
 		mi.scale = Vector3.ONE * (0.5 + t * 0.9)
-		(w["mat"] as StandardMaterial3D).albedo_color.a = 0.30 * sin(t * PI)
+		(w["mat"] as StandardMaterial3D).albedo_color.a = 0.50 * sin(t * PI)
 
 ## Power cut mid-cook: the oven goes cold and the fish comes back out raw rather than
 ## silently evaporating in a dead box.
@@ -436,10 +451,10 @@ func _set_hot(hot: bool) -> void:
 	var boil: bool = hot and _boiling
 	if _hob_mat != null:
 		if boil:
-			_hob_mat.albedo_color = Color(0.55, 0.14, 0.05)
+			_hob_mat.albedo_color = Color(0.42, 0.13, 0.06)
 			_hob_mat.emission_enabled = true
-			_hob_mat.emission = Color(1.0, 0.34, 0.10)
-			_hob_mat.emission_energy_multiplier = 2.0
+			_hob_mat.emission = Color(1.0, 0.38, 0.14)
+			_hob_mat.emission_energy_multiplier = 1.1
 		else:
 			_hob_mat.albedo_color = Color(0.09, 0.09, 0.10)
 			_hob_mat.emission_enabled = false
@@ -448,7 +463,7 @@ func _set_hot(hot: bool) -> void:
 			else Color(0.06, 0.08, 0.09)
 	if not boil:
 		if is_instance_valid(_pot_water):
-			_pot_water.position.y = POT_LOCAL.y + POT_H * 0.62
+			_pot_water.position.y = POT_LOCAL.y + POT_H * WATER_F
 			_pot_water.scale = Vector3.ONE
 		for w in _steam:
 			if is_instance_valid(w["mi"]):

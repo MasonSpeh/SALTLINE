@@ -1275,8 +1275,11 @@ func _dining_hall_more() -> void:
 	_p("carrot_cake", Vector3(2.4, tbl, 11.0), 0)
 	_p("croissant", Vector3(8.4, tbl, 14.5), 40)
 	_p("bananas", Vector3(1.6, tbl, 14.5), 0)
-	_p("brass_pot_01", Vector3(11.8, counter, 16.2), 0)     # on the range
-	_p("brass_pan_01", Vector3(11.2, counter, 15.9), 30)
+	_p("brass_pot_01", Vector3(11.8, counter, 16.2), 0)     # on the range's right hob
+	# brass_pan_01 used to sit at (11.2, counter, 15.9) — which is exactly the range's LEFT
+	# hob, and as of s21 that hob carries the stove's own boiling pot (cook_stove.gd builds
+	# it, because it has to come to the boil when you cook mussels). Two vessels were
+	# occupying the same 40 cm ring. The brass pot on the right hob stays.
 	# TABLE DRESSING. A mess table with two coffee cups on it reads as a set dressing
 	# still waiting for its props; these are the things a shift actually leaves behind —
 	# a game somebody walked away from, the mugs, a tray, the smokes, the duty pad.
