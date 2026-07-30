@@ -27,6 +27,14 @@ uniform float roughness_v : hint_range(0.0, 1.0) = 0.6;
 // 1.0 = solid; below 1.0 turns the shell see-through (glass snail sets ~0.35). See fragment().
 uniform float opacity : hint_range(0.0, 1.0) = 1.0;
 uniform float metallic_v : hint_range(0.0, 1.0) = 0.0;
+// The metallicRoughness map — see the long note in creature_swim.gdshader. Carried here so
+// the two shaders stay swappable parameter-for-parameter; the glass snail's own asset is a
+// Meshy-era one with honest scalars and no map, so use_orm is false for it and nothing moves.
+uniform sampler2D orm_tex : hint_default_white;
+uniform bool use_orm = false;
+uniform vec4 orm_rough_mask = vec4(0.0, 1.0, 0.0, 0.0);
+uniform vec4 orm_metal_mask = vec4(0.0, 0.0, 1.0, 0.0);
+uniform float body_glow = 0.0;
 
 // --- motion ---------------------------------------------------------------------
 // 0 undulate (fish/eel/shark)  1 wing flap (ray)  2 bell pulse (jelly)  3 fast flap (bird)
@@ -133,13 +141,25 @@ void fragment() {
 	ALBEDO = a.rgb;
 	ROUGHNESS = roughness_v;
 	METALLIC = metallic_v;
+	if (use_orm) {
+		vec4 orm = texture(orm_tex, UV);
+		ROUGHNESS = roughness_v * dot(orm, orm_rough_mask);
+		METALLIC = metallic_v * dot(orm, orm_metal_mask);
+	}
 	if (use_normal) {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
 	}
 	// Fresnel rim: the Bloom reads as light coming off the edges of the animal.
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_power);
+	vec3 emis = vec3(0.0);
+	if (body_glow > 0.001) {
+		emis += a.rgb * sqrt(a.rgb) * body_glow;
+	}
 	if (glow_energy > 0.001) {
-		EMISSION = glow_color.rgb * glow_energy * rim;
+		emis += glow_color.rgb * glow_energy * rim;
+	}
+	if (body_glow > 0.001 || glow_energy > 0.001) {
+		EMISSION = emis;
 	}
 	// Translucency (glass snail). The generators bake OPAQUE albedo no matter how hard the
 	// prompt asks for glass, so see-through happens here: the edges stay solid and the face

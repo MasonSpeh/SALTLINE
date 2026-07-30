@@ -69,6 +69,57 @@ same mistakes kept recurring.
 
 ## Sessions
 
+### s23 — 2026-07-30 (the winch's hold, the bench, and four owner items)
+
+**THE DRUM WAS ON THE LEFT BECAUSE THE POSE AIMED THE WRONG AXIS — and then because the model
+could not do it.** Third report. s22's `HAND_TOOL_POSE` named the winch's `face` as the drum's
+AXLE (+Z, the crank side), which the solve satisfied exactly while leaving *which side the drum
+stands off* completely unconstrained: measured on the composed basis, the bracket came out
+(-0.81 left, +0.10 up, -0.57 away). `face` is now the BRACKET, stated the way the rod's is. That
+alone could not deliver the owner's ask, because mast-up + drum-right forces the crank away from
+the camera by the right-hand rule — the determinant -1 s22 recorded as impossible. **So the model
+is mirrored** (`item_visual._mirror_x`), which is what "it should default hold/lean to the OTHER
+side" asks for in as many words. Mirrored in X, not Z, to keep the icon (ItemIcons looks in along
++X+Y+Z), and node-by-node rather than `scale.x = -1`, which would render the machine inside out.
+
+**Idle 0.88 right / 0.33 up / 0.33 toward the player, crank 0.90 back at the player. Cast 0.78
+up.** Two poses, both photographed at two yaws and framed off the render: the first cut put the
+fairlead at (626, 212) of 1280x720 with the lead hanging under it finishing ON the crosshair, so
+the head is canted further away and the tool lifted and pushed right (fairlead now 668, 215; the
+drum reaches x~1185 of 1280). **The weight and hook are gravity-aligned every frame**
+(`_hang_stowed_tackle`, tackle down·(0,-1,0) = 1.000) rather than carried by the pose — it is the
+one part of the machine gravity owns, so it is the one part that is not aimed. `RodHandProbe`
+20 → 34 assertions, FAILURES 0, and the winch's cast pose is asserted for the first time.
+
+**The rest of the owner's list.** The spawn rod is gone (`wet_deck_detail._scatter_items`, the
+one at (16.5, -16.75) on open plate outside the store-room east wall — the storeroom and rec-room
+rods stay, so fishing is now behind a door). **A full pack no longer eats the catch**:
+`fishing_rod._land()` drops it at the player's feet as a real savable Takeable, the same
+`SaveManager.drop_into_world` spill path `cook_stove._finish` uses, and says so in the toast; the
+journal entry, the size roll and the fillet count all still run. The cold warning had **no
+cooldown at all** and the Wet Deck sits low enough that a running swell puts the player under the
+wave line repeatedly — now 120 s (`COLD_WARN_COOLDOWN`). **Warmth runs 1.30x at a flame**:
+`WarmthZone.fire` (default true, opted out by the lean-to, bedroll and windbreak), counted in
+`PlayerState.warmth_fire`, multiplier in `data/tuning.json` — and the galley range, the one
+appliance a player stands at for minutes, had no WarmthZone at all until now.
+
+**The rigging bench is the pack's UI now, and its parts are on the table.** Slot grid with the
+same riveted styleboxes, the same 4/8-wide squares, real item renders through the shared
+`ItemIcons`, name+count strips, hover names, hazard rule, locker-steel panel. New MATERIALS
+block: every ingredient as `<on the bench> + <in the pack> / <needed>`, green when the bench
+covers it, amber when the pack can, red when the rig cannot — shown for the finished match AND
+for the nearest partial. And the laid parts are **`ItemVisual.build()` meshes on the real
+surface**: the old code drew four pastel boxes at a hand-typed local y = 1.08 over a carcass
+whose top is +0.45, i.e. floating 0.63 m. The top is now MEASURED (0.500 local, world 2.950,
+seating error +0.0 mm on all parts, probe 1.2 ms cold and cached) — and it had to be measured off
+the WELDED dressing's triangles, because the 1.7 x 0.06 x 0.8 work top both benches wear is built
+onto rig_builder, not onto the bench, and `rig_batcher` has already eaten the node.
+
+Tests: `TestRunner` 241 pass, **FAILURES: 0**. `RodHandProbe` **FAILURES: 0**. New harnesses:
+`tests/WinchPoseShot.tscn` (idle + cast + a candidate sweep, ~1 min against ToolFinal's several)
+and `tests/BenchShot.tscn`. Screenshots: `/tmp/winch_s23/`, `/tmp/bench_final/`. Six new traps in
+`docs/AGENT_TRAPS.md`. **Not committed** — the owner asked for the work uncommitted.
+
 ### s22 — 2026-07-29 (the owner's two fishing tools, installed and aimed)
 
 **The owner picked from the contact sheet and both picks are in.** `deep_rig_pole` is now

@@ -29,6 +29,15 @@ uniform bool use_normal = false;
 uniform vec4 tint : source_color = vec4(1.0, 1.0, 1.0, 1.0);
 uniform float roughness_v : hint_range(0.0, 1.0) = 0.6;
 uniform float metallic_v : hint_range(0.0, 1.0) = 0.0;
+// The metallicRoughness map — see the long note in creature_swim.gdshader. All ten trop_*
+// assets are Tripo-era and ship metallicFactor = roughnessFactor = 1.0, so before this the
+// LIT half of every reef fish was a black mirror and the only thing you could see was the
+// body_glow below. Names match creature_swim so the shader swap in reef_fish.gd still
+// carries every parameter across.
+uniform sampler2D orm_tex : hint_default_white;
+uniform bool use_orm = false;
+uniform vec4 orm_rough_mask = vec4(0.0, 1.0, 0.0, 0.0);
+uniform vec4 orm_metal_mask = vec4(0.0, 0.0, 1.0, 0.0);
 // Declared but unused: this shader is OPAQUE, exactly like creature_swim. It stays so that
 // CreatureAnim.apply can push its whole parameter set without a missing-uniform.
 uniform float opacity : hint_range(0.0, 1.0) = 1.0;
@@ -74,6 +83,11 @@ void fragment() {
 	ALBEDO = a.rgb;
 	ROUGHNESS = roughness_v;
 	METALLIC = metallic_v;
+	if (use_orm) {
+		vec4 orm = texture(orm_tex, UV);
+		ROUGHNESS = roughness_v * dot(orm, orm_rough_mask);
+		METALLIC = metallic_v * dot(orm, orm_metal_mask);
+	}
 	if (use_normal) {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
 	}

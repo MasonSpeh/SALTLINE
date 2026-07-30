@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://prop_settle_probe"]
+[ext_resource type="Script" path="res://tests/prop_settle_probe.gd" id="1"]
+[node name="PropSettleProbe" type="Node"]
+script = ExtResource("1")

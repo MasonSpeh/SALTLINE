@@ -54,6 +54,8 @@ const RB := preload("res://scripts/world/rig_builder.gd")
 ## player_controller._start_fishing() does the same.
 const FR := preload("res://scripts/components/fishing_rod.gd")
 const EYE_UP: float = 1.6
+## The shipping hand-pose table. `Object.get()` does not resolve script constants.
+const FR_POSE := preload("res://scripts/components/player_controller.gd").HAND_TOOL_POSE
 
 var main: Node3D
 var _out: String = "/tmp/tool_final"
@@ -368,7 +370,11 @@ func _axes(p: Node, id: String, tag: String) -> void:
 	var inv: Basis = cam.global_transform.basis.inverse()
 	var b: Basis = pivot.global_transform.basis.orthonormalized()
 	var long_axis: Vector3 = inv * (b * Vector3(0, 1, 0))
-	var face: Vector3 = inv * (b * (Vector3(0, 0, 1) if id == "deep_rig_pole" else Vector3(1, 0, 0)))
+	# Read out of the shipping table, not restated: s23 changed the winch's `face` from its
+	# drum AXLE to the drum BRACKET (which side the reel is on), which is the axis the owner's
+	# report was always about.
+	var face: Vector3 = inv * (b * Vector3(
+		FR_POSE.get(id, {}).get("face", Vector3(1, 0, 0))))
 	var centre: Vector3 = inv * (container.global_position - cam.global_position)
 	print("[tool]   %-14s %-4s long axis -> cam %s | reel/drum axis -> cam %s | tool centre x=%+.2f"
 		% [id, tag, str(long_axis.snappedf(0.01)), str(face.snappedf(0.01)), centre.x])

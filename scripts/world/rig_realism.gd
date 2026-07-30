@@ -116,7 +116,11 @@ func _gas_rack() -> void:
 ## Life-raft canisters on tilted davit cradles along the rims — the white drums every
 ## platform carries at its muster edges.
 func _liferaft_stations() -> void:
-	for spec in [[-10.0, -19.1, 0.0], [12.0, 19.1, 180.0], [-28.8, 6.0, 90.0]]:
+	# x -10.0 moved to -5.5: the south-rim canister stood dead centre of the empty davit
+	# berth, and RigBuilder.BOAT_BERTH now puts the lifeboat's hull through it (0.19 m of
+	# overlap in z, over the canister's whole length). -5.5 is the clear stretch between
+	# the boat's east cap (-6.95) and the drill-floor apron (-2.70).
+	for spec in [[-5.5, -19.1, 0.0], [12.0, 19.1, 180.0], [-28.8, 6.0, 90.0]]:
 		var a := _asm("LifeRaftCanister")
 		a.position = Vector3(float(spec[0]), 0, float(spec[1]))
 		a.rotation.y = deg_to_rad(float(spec[2]))

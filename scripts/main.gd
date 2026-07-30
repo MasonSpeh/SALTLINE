@@ -203,10 +203,18 @@ func _build_environment() -> void:
 	# are on and the ironwork immediately around it, which is all a shadow is legible on.
 	#
 	# It is ALSO the other resolution knob now that there is one cascade: texels/metre is
-	# simply atlas/max_distance. 32 m would buy another 40% sharpness for one fewer draw
-	# call — it was measured, it looks good, and it is not taken, because at 32 m the far
-	# derrick stops casting onto the deck you are standing on and that is a visible loss.
-	sun.directional_shadow_max_distance = 45.0
+	# simply atlas/max_distance. 45 -> 32 m is therefore 182 -> 256 texels/metre, a 40%
+	# sharper shadow, at the same time as it removes casters.
+	#
+	# s23: TAKEN, on the owner's call. The 45 m value was held because at 32 m the far
+	# derrick stops casting onto the deck you are standing on — that loss is real and is
+	# accepted. What it buys is measured, not argued: tests/VantagePerf.tscn now carries a
+	# `shadow_dist` row that flips 45 <-> 32 inside ONE session (the machine drifts 1-2 ms
+	# between runs, which is larger than the effect, so a cross-run table cannot resolve it).
+	# Read that row for the current figure. The whole shadow PASS is 4.81 ms / 965 draws
+	# (the `sun_shadow` row) and that is the ceiling this can approach but never reach:
+	# 32 m still covers the deck you are on and the ironwork around it.
+	sun.directional_shadow_max_distance = 32.0
 	# No split_1 here on purpose: SHADOW_ORTHOGONAL has one cascade and the split fractions
 	# are ignored. Setting it would read like a tuned value and be dead.
 	#

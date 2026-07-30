@@ -8,6 +8,7 @@ class_name RigSuperstructure extends Node3D
 ## external west stair to the C terrace, and a LADDER WELL in the old shaft
 ## (x 23..27, z 13..17.5) linking B -> C -> D -> roof hut through slab hatches.
 
+const SignFit = preload("res://scripts/world/sign_fit.gd")   # by path: class cache lags new files
 const STAIRS := preload("res://scripts/world/stair_kit.gd")   # by path: class cache lags new files
 
 const DECK_Y: float = 18.0
@@ -269,16 +270,22 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 		return
 	var slope_len: float = sqrt(rise * rise + run * run)
 	var angle: float = atan2(rise, run)
-	# StairKit's ramp sits 0.05 low at the foot and is 0.06 thick, so its top surface
-	# OVERSHOOTS the landing height by a couple of centimetres at the top of the run.
-	# Two centimetres sounds harmless. It is not: a 0.4m-radius capsule climbing a
-	# 39-degree slope first touches the landing's leading corner from 0.36m back, where
-	# the ramp is a quarter of a metre lower, and that contact is ~51 degrees off
-	# vertical — past floor_max_angle, so CharacterBody3D calls it a wall and the climb
-	# stops dead one step short of the top. Dropping the ramp by exactly its overshoot
-	# makes the walking surface pass through the foot and the top corner, so run and
-	# landing meet flush and the corner is no longer something that has to be climbed.
-	var overshoot: float = -0.05 + 0.05 * sin(angle) + 0.06 * cos(angle)
+	# THE RAMP IS FLUSH WHEN IT LEAVES THE KIT — do not correct it here.
+	#
+	# This used to carry `overshoot = -0.05 + 0.05*sin + 0.06*cos` and subtract it from
+	# the sloped shape's Y, in three identical copies across three files. That expression
+	# is not the overshoot; the closed form is `h/cos(angle) - h` with h = 0.06 (see
+	# stair_kit.gd). The two agree only at 39.8 deg, and every flight in the game is
+	# shallower than that, so all thirteen ended up 1.3-9.6 mm BELOW their landings and
+	# the landing's leading edge stood proud of the run. It also slid StairKit's top lip
+	# to `run + 0.22`, i.e. 0.4 m of BoxShape3D fully buried inside the landing slab with
+	# its top face coplanar to the millimetre — a second static body offering the same
+	# walking plane at precisely the transition. Both are fixed at the source now.
+	#
+	# What is still ours: the handrail collider. StairKit collides its rail as one thin
+	# bar at chest height with open air beneath it, so a capsule's waist catches the bar
+	# while its feet slide under; we drop it and stand a single smooth guard slab inside
+	# the visual rail below.
 	for child in root.get_children():
 		var body := child as StaticBody3D
 		if body == null:
@@ -287,16 +294,12 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 		for c in body.get_children():
 			if c is MeshInstance3D:
 				is_rail = true   # a railed _vbox carries its mesh; the walk body does not
+		if not is_rail:
+			continue
 		for c in body.get_children():
 			var cs := c as CollisionShape3D
-			if cs == null:
-				continue
-			if is_rail:
+			if cs != null:
 				cs.disabled = true
-			elif absf(cs.rotation.x) > 0.001:
-				cs.position.y -= overshoot   # the sloped walking surface, set flush
-			elif cs.position.z > run * 0.5:
-				cs.position.z = run + 0.22   # the top lip, slid clear of the slope
 	# One smooth guard slab per railed side, inset inside the visual rail and sunk
 	# below the treads so there is no foot gap running along the bottom of it.
 	for side in [[rail_left, -1.0], [rail_right, 1.0]]:
@@ -319,12 +322,18 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 ## pitch_deg tips the paint out of vertical: pass -90 to lay a marking FLAT on decking,
 ## which is the only way a stencil authored at floor height reads as paint rather than
 ## as an upright sheet standing in the plating.
+## `fit` is the panel this marking has to live inside, in metres (x = width, y = height,
+## 0 on either axis = unconstrained): the font shrinks until the wording fits. See
+## sign_fit.gd — a hand-picked font size cannot be right for two different words.
 func _label(text: String, pos: Vector3, yaw_deg: float, font_size: int = 48,
-		color: Color = Color(0.85, 0.87, 0.84), pitch_deg: float = 0.0) -> void:
+		color: Color = Color(0.85, 0.87, 0.84), pitch_deg: float = 0.0,
+		fit: Vector2 = Vector2.ZERO) -> void:
 	var l := Label3D.new()
 	l.text = text
 	# Scaled down — oversized paint bled across panel joints and door reveals.
-	l.font_size = maxi(12, int(font_size * 0.72))
+	l.font_size = SignFit.fit_size(text, fit.x, fit.y, maxi(12, int(font_size * 0.72)))
+	if fit != Vector2.ZERO:
+		l.set_meta("sign_face", fit)   # asserted by tests/label_anchor_probe.gd
 	l.pixel_size = 0.01
 	var _wear: float = clampf((color.r + color.g + color.b) / 3.0, 0.0, 1.0)   # black stencil paint
 	var _k: float = lerpf(0.06, 0.17, _wear)
@@ -1030,7 +1039,8 @@ func _deck_c() -> void:
 	# past the ladder well (it pinched to 0.75m — unpassable).
 	_shaft_walls(y, WH, "south", 0.1, 14.0)
 	_well_ladder(y)
-	_label("DECK C — CONTROL", Vector3(25, y + 2.55, 13.86), 180, 40, Color(0.9, 0.85, 0.6))
+	_label("DECK C — CONTROL", Vector3(25, y + 2.55, 13.86), 180, 40, Color(0.9, 0.85, 0.6),
+		0.0, Vector2(1.8, 0.5))
 
 	# Room floors — control level: rubber underfoot, medical white in the bay.
 	_dbox(Vector3(8, y + 0.035, 9), Vector3(7.5, 0.03, 5.5), MatLib.rubber_floor())
@@ -1065,7 +1075,8 @@ func _deck_c() -> void:
 	for i in range(2):
 		_box(Vector3(17.3, y + 0.65, 7.0 + i * 0.9), Vector3(0.5, 1.3, 0.6), MatLib.painted_steel())
 	_dbox(Vector3(14.0, y + 1.8, 6.2), Vector3(1.6, 1.0, 0.04), MatLib.flat(Color(0.55, 0.62, 0.58)))  # wall map on the pier, clear of window x16
-	_label("RIG OFFICE", Vector3(15.5, y + 2.35, 12.16), 0, 28)
+	_label("RIG OFFICE", Vector3(15.5, y + 2.35, 12.16), 0, 28,
+		Color(0.85, 0.87, 0.84), 0.0, Vector2(0.9, 0.5))
 	_light(Vector3(15, y + 2.85, 9), 0.5, 6.0)
 	# Med bay (x 18..23): exam bench, cabinets, red cross, water ration.
 	_box(Vector3(20.5, y + 0.45, 8.0), Vector3(2.0, 0.9, 0.9), MatLib.flat(Color(0.82, 0.85, 0.84)))
@@ -1251,7 +1262,8 @@ func _roof() -> void:
 	# Bulkhead hut over the shaft with the exit door.
 	_shaft_walls(y, 2.6, "west")
 	_box(Vector3((SX0 + SX1) * 0.5, y + 2.72, (SZ0 + SZ1) * 0.5), Vector3(SX1 - SX0 + 0.5, 0.25, SZ1 - SZ0 + 0.5), MatLib.concrete())
-	_label("ROOF — MAST DECK", Vector3(SX0 - 0.16, y + 2.3, 15.2), -90, 30, Color(0.9, 0.85, 0.6))
+	_label("ROOF — MAST DECK", Vector3(SX0 - 0.16, y + 2.3, 15.2), -90, 30, Color(0.9, 0.85, 0.6),
+		0.0, Vector2(1.15, 0.5))
 	# Perimeter rails.
 	_rail_x(8, 28, y, 8.1)
 	_rail_x(8, 28, y, 17.9)
@@ -1425,7 +1437,8 @@ func _deck_a_signage() -> void:
 	_label("GALLEY", Vector3(6.6, DECK_Y + 2.4, 7.84), 180, 34)
 	_label("REC ROOM", Vector3(17.84, DECK_Y + 2.4, 10.5), -90, 30)
 	_label("MUSTER STATION →", Vector3(9, DECK_Y + 1.9, 7.84), 180, 28, Color(0.95, 0.75, 0.2))
-	_label("RIGGING BENCH — WET DECK ↓", Vector3(21.9, DECK_Y + 2.5, -0.9), 90, 24, Color(0.9, 0.85, 0.6))
+	_label("RIGGING BENCH — WET DECK ↓", Vector3(21.9, DECK_Y + 2.5, -0.9), 90, 24,
+		Color(0.9, 0.85, 0.6), 0.0, Vector2(2.0, 0.5))
 	# The B-deck placard used to be bolted to the boarding stair's stringer here, at
 	# x 2.06. That stair has been re-routed east (it climbed into the balcony soffit
 	# on this line — see _boarding_stairs), so the plate and its lettering moved with

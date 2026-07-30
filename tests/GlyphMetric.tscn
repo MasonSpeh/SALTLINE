@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://glyph_metric_probe"]
+[ext_resource type="Script" path="res://tests/glyph_metric.gd" id="1"]
+[node name="GlyphMetric" type="Node"]
+script = ExtResource("1")

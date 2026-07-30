@@ -19,6 +19,7 @@ extends Node3D
 ## whole world is built (see support_index.gd for why a physics raycast cannot do this).
 ## So a coordinate here only has to be RIGHT IN XZ and roughly right in Y.
 
+const SignFit = preload("res://scripts/world/sign_fit.gd")   # by path: class cache lags new files
 const DECK_Y: float = 18.0
 const WET_Y: float = 2.0
 const B_Y: float = 21.6

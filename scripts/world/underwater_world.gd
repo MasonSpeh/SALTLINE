@@ -410,6 +410,35 @@ func _deep_giants() -> void:
 ## now a thing you dive FOR rather than something you notice from the deck edge, sitting
 ## below the coral band (BAND_BOTTOM -22) in open water well clear of the -92 seabed and
 ## of the caisson footings.
+##
+## OWNER CALL 2026-07-30: "stagger ray height in a range to how deep they are now, up to 15ft
+## higher depending on randomness". The three band_y values below are therefore the FLOOR of
+## each animal's range rather than the plane it cruises: every ray draws its own lift in
+## [0, RAY_LIFT_MAX] once, at spawn, and keeps it for the session, on top of the +-3 m depth
+## wander it already carries.
+##
+## THE DRAW IS STRATIFIED BY DEPTH RANK, and that is not decoration. Three independent uniform
+## draws collapsed the three bands from a 4.0 m spread onto 2.1 m on the first seed tried
+## (-32.49 / -31.59 / -30.40) — less staggered than before the change, which is the opposite
+## of the ask. So the SHALLOWEST animal draws from the top third of the range and the deepest
+## from the bottom third, randomised inside its own third: the stagger is guaranteed and the
+## randomness is real. Fixed seed, so a session is reproducible and the numbers reportable.
+##
+## THE CEILING IS DERIVED AND IT IS NOT THE CAISSONS. Worth writing down because the obvious
+## assumption is wrong: rig_builder makes each leg ONE 6 x 109 m casting from y +17 to
+## Seabed.CAISSON_BOTTOM (-92), so there is no depth at which a ray gets "under" the concrete
+## and the horizontal orbit is the only thing that has ever kept it clear. What a lift can
+## actually run into is the REEF COMMUNITY overhead: leg_reef's coral band bottoms at y -22
+## and the deepest tropical station sits at -21.4. So the cap is that band, with room for the
+## wander and for the wingtip a hard bank throws above the centre line (a ray rolls to
+## BANK_MAX ~69 degrees, i.e. up to half a span).
+const RAY_LIFT_MAX: float = 4.572   ## 15 ft
+## Ceiling for the TOP of a ray's swept volume: 2 m under leg_reef's measured coral band
+## bottom (y -22.00) and 2.6 m under the deepest tropical fish station (-21.4).
+const RAY_TOP_LIMIT: float = -24.0
+## The depth wander each ray already carries about its band, metres (GliderRay._process).
+const RAY_WANDER: float = 3.0
+
 func _open_water_rays() -> void:
 	var specs := [
 		# [span_m, band_y, orbit_r, rate, phase]
@@ -417,10 +446,30 @@ func _open_water_rays() -> void:
 		[6.4, -36.0, 25.0, 0.040, 2.1],
 		[4.8, -32.0, 16.0, 0.070, 4.3],
 	]
-	for spec in specs:
-		var ray := GliderRay.new(float(spec[0]), float(spec[1]), float(spec[2]),
+	# Depth rank: 0 = deepest floor, so `rank` indexes the stratum of the lift range.
+	var order: Array[int] = []
+	for i in range(specs.size()):
+		order.append(i)
+	order.sort_custom(func(a: int, b: int) -> bool:
+		return float(specs[a][1]) < float(specs[b][1]))
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 90210
+	for rank in range(order.size()):
+		var spec: Array = specs[order[rank]]
+		var span: float = float(spec[0])
+		var floor_y: float = float(spec[1])
+		var lo: float = RAY_LIFT_MAX * float(rank) / float(specs.size())
+		var hi: float = RAY_LIFT_MAX * float(rank + 1) / float(specs.size())
+		# Derived cap: band + lift + wander + a banked half-span may not reach RAY_TOP_LIMIT.
+		var headroom: float = RAY_TOP_LIMIT - (floor_y + RAY_WANDER + span * 0.5)
+		var lift: float = clampf(rng.randf_range(lo, hi), 0.0, maxf(headroom, 0.0))
+		var ray := GliderRay.new(span, floor_y + lift, float(spec[2]),
 			float(spec[3]), float(spec[4]))
 		add_child(ray)
+		print("[ray] floor %.1f + lift %.2f -> band %.2f  (span %.1f, stratum %.2f..%.2f, "
+			% [floor_y, lift, floor_y + lift, span, lo, hi]
+			+ "wander top %.2f, wingtip top %.2f, headroom %.2f)"
+			% [floor_y + lift + RAY_WANDER, floor_y + lift + RAY_WANDER + span * 0.5, headroom])
 
 ## A mantle ray gliding open water around the rig. Wing-beat animation (Mode.WING), the
 ## same glb the aerial night-visitor uses, living down where it can be watched.

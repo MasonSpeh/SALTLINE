@@ -175,6 +175,23 @@ const HEAD_MIN_SPEED: float = 0.06
 ## takes several seconds to trickle back out. Symmetric easing read as a shoal on a spring.
 const ALARM_RISE: float = 6.0
 const ALARM_FALL: float = 0.55
+
+## The body-wave amplitude a fish is built at, and the ceiling the alarm drives it to.
+##
+## THIS IS WHERE THE FLEE RESPONSE GOES, AND `rate` IS WHERE IT MUST NOT (owner, s23: "the
+## tropical fish move really weird when the player comes near… that area needs work and is
+## currently glitchy"). creature_swim/reef_fish compute `t = TIME * rate + phase`, so `rate`
+## is a TIME MULTIPLIER, not a speed dial: rewriting it at second T teleports the wave phase
+## by T * delta_rate. This file used to push `pace * 2 * lerp(1, 2.2, alarm)` through drive()
+## every time it moved by 0.02 — i.e. on every frame the player was walking toward a shoal —
+## so at TIME 100 s a 0.02 step jumped TWO WHOLE CYCLES and every fish's body snapped to a
+## random pose, every frame, for exactly as long as the player was near it. underwater_world's
+## GliderRay carries the same lesson in its own comment and this file did not have it.
+## So the beat is now SET ONCE at build and never written again; the alarm is spent on
+## AMPLITUDE, which is a plain multiplier outside the sine and therefore continuous.
+const BASE_AMP: float = 0.085
+const ALARM_AMP: float = 1.75    ## a startled fish flicks harder, not at a teleported phase
+const REST_AMP: float = 0.22     ## asleep in the coral: almost still
 const NIGHT_EASE: float = 0.20   ## dusk-to-dark is minutes, not frames
 
 ## Distance budget. render_budget.gd's generic rule (size * 110 m) is for things in air; the
@@ -404,7 +421,7 @@ func _build_station(sp: Dictionary, seat: Dictionary) -> void:
 		if mats.is_empty():
 			# First fish on this phase: let CreatureAnim build the materials, then keep them.
 			var gen: Dictionary = ANIM.attach(f, path, float(sp["len"]) * scale_v,
-				ANIM.Mode.UNDULATE, 0.085, float(sp["pace"]) * 2.0, sp["rim"],
+				ANIM.Mode.UNDULATE, BASE_AMP, float(sp["pace"]) * 2.0, sp["rim"],
 				TAU * float(variant) / float(PHASE_VARIANTS))
 			if gen.is_empty():
 				f.queue_free()
@@ -467,7 +484,9 @@ func _build_station(sp: Dictionary, seat: Dictionary) -> void:
 		# A stable per-station number to offset the decimation phase by, so the stations do
 		# not all land on the same frame. Taken once, here, rather than looked up per frame.
 		"phase": _stations.size() * 7,
-		"rate": -1.0, "glow": -1.0,
+		# The wave rate is BUILD STATE, not per-frame state: kept so _tick can re-assert the
+		# same number without ever changing it (see BASE_AMP's note on the phase teleport).
+		"rate": float(sp["pace"]) * 2.0, "amp": -1.0, "glow": -1.0,
 	})
 
 ## Build a fish that re-uses an existing station's materials. This is what CreatureAnim.attach
@@ -561,8 +580,6 @@ func _process(delta: float) -> void:
 
 func _tick(st: Dictionary, dt: float, eye: Vector3, has_eye: bool) -> void:
 	var sp: Dictionary = st["sp"]
-	st["t"] += dt
-	var t: float = st["t"]
 	var bold: bool = bool(sp.get("bold", false))
 
 	# --- DISTURBANCE. Rises fast, falls slow.
@@ -585,6 +602,26 @@ func _tick(st: Dictionary, dt: float, eye: Vector3, has_eye: bool) -> void:
 	# Pace: a fleeing shoal is quick, a sleeping one barely moves, and a grazing parrotfish
 	# never hurries whatever happens.
 	var pace: float = float(sp["pace"]) * lerpf(1.0, 2.1, alarm) * lerpf(1.0, 0.25, rest)
+	# THE STATION'S CLOCK IS PACED, NOT MULTIPLIED — the other half of the phase-teleport bug
+	# BASE_AMP documents, and this half was in GDScript rather than in a shader. The offsets
+	# below used to be sampled at `t * pace` off a raw accumulating clock, so changing `pace`
+	# moved the argument of every sine by t * delta_pace: a station is seeded at t up to 400 s
+	# and only grows, so the 10% pace change the first hint of alarm produces jumped the wave
+	# ~58 radians — a fresh random target every frame while the player walked in, which is
+	# white noise, not a flee. Measured before the fix (tests/FaunaBugsProbe, 10-fish damsel
+	# shoal, player closing from 12 m to 1.2 m): mean speed 0.13 m/s at alarm 0 -> 1.13 m/s at
+	# alarm 0.105, mean |acceleration| 0.2 -> 45 m/s^2, i.e. the shoal detonated at the FIRST
+	# TOUCH of alarm rather than accelerating with it. Integrating the paced time instead means
+	# pace sets how fast the phase advances and can be changed continuously.
+	st["t"] += dt * pace
+	var wt: float = st["t"]
+	# The standoff is a floor plus a swing that cannot reach it, so wall clearance is
+	# STRUCTURAL rather than a clamp. `maxf(out, MIN_STAND)` rectified the sinusoid: with a
+	# ducking `stand` at or near MIN_STAND most of a shoal sat on exactly 0.450 m — the probe
+	# measured precisely 0.450 at every sample of a 420-frame approach, at every alarm level —
+	# with a corner in its velocity every time it arrived on the clamp and left it again.
+	var base_out: float = maxf(stand, MIN_STAND + 0.10)
+	var span: float = base_out - MIN_STAND
 
 	var wall: Vector3 = st["wall"]
 	var out_ax: Vector3 = st["out"]
@@ -608,7 +645,6 @@ func _tick(st: Dictionary, dt: float, eye: Vector3, has_eye: bool) -> void:
 		var ph: float = mph[i]
 		var spd: float = mspd[i]
 		var slot: Vector3 = mslot[i]
-		var wt: float = t * pace
 		# TWO INCOMMENSURATE OCTAVES PER AXIS, riding a fixed seat in the shoal. The seat is
 		# what keeps the school spread out and anchored; the octaves are what stop it reading
 		# as a formation. Neither is a waypoint, so there is no path to get lost off.
@@ -616,11 +652,12 @@ func _tick(st: Dictionary, dt: float, eye: Vector3, has_eye: bool) -> void:
 			+ (sin(wt * 0.31 * spd + ph) * 0.55 + sin(wt * 0.13 + ph * 1.7) * 0.35) * rad
 		var up: float = slot.y * vrt \
 			+ (sin(wt * 0.23 * spd + ph * 1.3) * 0.50 + sin(wt * 0.09 + ph) * 0.30) * vrt
-		var out: float = stand * (0.55 + slot.z * 0.55) \
-			+ sin(wt * (0.11 if graze else 0.19) * spd + ph * 2.1) * stand * 0.30
-		# Never inside the concrete, whatever the alarm says — not the wall it lives on, and
-		# not the pontoon slab overhead (see the ceiling ray in _build_station).
-		out = maxf(out, MIN_STAND)
+		# MIN_STAND is the floor and `span` is all the room there is above it, so no fish can
+		# be inside the concrete however hard it ducks and nothing has to be clamped: the
+		# multiplier below runs 0.25..1.20, never negative. The overhead pontoon slab is still
+		# a clamp, but that one is a fixed number per station rather than a moving target.
+		var out: float = MIN_STAND + span * (0.45 + slot.z * 0.55
+			+ sin(wt * (0.11 if graze else 0.19) * spd + ph * 2.1) * 0.20)
 		var target: Vector3 = wall + tan_ax * along + Vector3.UP * up + out_ax * out
 		target.y = minf(target.y, ceiling)
 		var cur: Vector3 = f.global_position
@@ -643,14 +680,17 @@ func _tick(st: Dictionary, dt: float, eye: Vector3, has_eye: bool) -> void:
 	# a 16-fish anthias cloud, and only for the stations that are actually near enough to be
 	# ticking at all. The rim glow flares as the shoal scatters — the flash of colour a real
 	# reef gives you when something big swims through it — and dims right down at night.
-	var want_rate: float = float(sp["pace"]) * 2.0 * lerpf(1.0, 2.2, alarm) * lerpf(1.0, 0.30, rest)
+	# `rate` is re-asserted at its BUILD value and is never allowed to change (BASE_AMP's note
+	# has the arithmetic). What the alarm actually moves is the throw of the tail and the rim
+	# glow, both plain multipliers outside the sine, so the shoal can flare continuously.
+	var want_amp: float = BASE_AMP * lerpf(1.0, ALARM_AMP, alarm) * lerpf(1.0, REST_AMP, rest)
 	var want_glow: float = float(sp["glow"]) * lerpf(1.0, 1.9, alarm) * lerpf(1.0, 0.35, rest)
-	if absf(want_rate - float(st["rate"])) > 0.02 or absf(want_glow - float(st["glow"])) > 0.01:
-		st["rate"] = want_rate
+	if absf(want_amp - float(st["amp"])) > 0.0008 or absf(want_glow - float(st["glow"])) > 0.01:
+		st["amp"] = want_amp
 		st["glow"] = want_glow
 		for v in st["mats"]:
 			if v != null:
-				ANIM.drive(v, want_rate, want_glow)
+				ANIM.drive(v, float(st["rate"]), want_glow, want_amp)
 
 # ------------------------------------------------------------ report
 

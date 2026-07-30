@@ -36,7 +36,8 @@ func _physics_process(_delta: float) -> void:
 			var target: Vector3 = held_by.global_position + fwd.normalized() * 1.7
 			target.y = floor_y
 			var to: Vector3 = target - global_position
-			linear_velocity = Vector3(to.x * 5.0, minf(to.y * 5.0, 2.0), to.z * 5.0)
+			linear_velocity = Vector3(to.x * 5.0, minf(to.y * 5.0, 2.0),
+				to.z * 5.0).limit_length(CARRY_MAX_SPEED)
 			angular_velocity = angular_velocity.lerp(Vector3.ZERO, 0.25)
 		else:
 			# Carry: float at arm's length, tracking the look direction — and turn WITH
@@ -45,10 +46,11 @@ func _physics_process(_delta: float) -> void:
 			# old world facing. (This overrides _physics_process, so per phys_prop's
 			# subclass contract we call carry_yaw_follow in place of zeroing angular_velocity.)
 			var target: Vector3 = cam.global_position - cam.global_transform.basis.z * 1.35
-			linear_velocity = (target - global_position) * 12.0
+			linear_velocity = carry_velocity(target)
 			carry_yaw_follow(held_by.global_rotation.y)
 	elif _was_held:
 		_was_held = false           # released — stays dynamic, settles, then sleeps
+		end_carry()                 # drop the carry servo's command (see phys_prop.gd)
 		release_carry_orient()      # forget the pickup yaw so the next grab re-captures
 
 func get_prompt() -> String:

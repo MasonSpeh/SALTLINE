@@ -105,7 +105,9 @@ func _ready() -> void:
 	add_child(_icons)
 	_icons.icon_ready.connect(func(_id: String) -> void:
 		_refresh_hotbar()
-		_refresh_inventory_panel())
+		_refresh_inventory_panel()
+		if bench_panel != null and bench_panel.visible:
+			bench_panel.refresh())
 	# A preview is rendered a frame or two after the click that asked for it; this is what
 	# raises the overlay when it lands, and it must not raise a fish the player has since
 	# put down, so it re-asks _sync rather than assuming the id is still the picked one.
@@ -1019,14 +1021,21 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 
 	# BENCH — crafting surface, opened by the in-world rigging bench.
 	bench_panel = BenchPanel.new()
-	bench_panel.add_theme_stylebox_override("panel", _panel_style())
+	# The pack's own crew-locker steel, not the generic panel: the bench is the same kit
+	# (owner, 2026-07-30: "that should also have UI updated like the inventory").
+	bench_panel.add_theme_stylebox_override("panel", _locker_panel_style())
 	bench_panel.z_index = PANEL_Z
+	# Share the pack's icon renderer rather than starting a second one — an icon costs a
+	# SubViewport render per distinct item and the pack has already paid for everything the
+	# player is carrying. Assigned BEFORE add_child, because _ready() builds the slots.
+	bench_panel.icons = _icons
 	add_child(bench_panel)
 	bench_panel.set_anchors_preset(Control.PRESET_CENTER)
-	bench_panel.offset_left = -310
-	bench_panel.offset_top = -270
-	bench_panel.offset_right = 310
-	bench_panel.offset_bottom = 270
+	bench_panel.offset_left = -360
+	bench_panel.offset_top = -310
+	bench_panel.offset_right = 360
+	bench_panel.offset_bottom = 310
+	_add_rivets(bench_panel, 720, 620)
 	_build_fish_preview()
 
 ## THE FISH PREVIEW — click a slot with a catch in it and see how big the thing actually is.

@@ -7,9 +7,13 @@ class_name RigExterior extends Node3D
 ## stair climbs the Stack's west face to the C-deck terrace.
 
 const STAIRS := preload("res://scripts/world/stair_kit.gd")   # by path: class cache lags new files
+const SignFit = preload("res://scripts/world/sign_fit.gd")   # by path: class cache lags new files
 
 const DECK_Y: float = 18.0
 const C_Y: float = 25.1
+## The west switchback's mid-landing WALKING SURFACE. Both flights and the slab are
+## built from this one number so they cannot drift apart again (they were 5 mm out).
+const WEST_LANDING_Y: float = 21.68
 
 func _ready() -> void:
 	_derrick()
@@ -22,7 +26,8 @@ func _ready() -> void:
 	# Place-Codex beacons: the derrick floor and the empty davits file a journal entry
 	# the first time the player stands near them (same pattern as the fire barrel).
 	_beacon("place_derrick", Vector3(TOWER.x, DECK_Y + 1.0, TOWER.z), 7.0)
-	_beacon("place_davits", Vector3(-10.5, DECK_Y + 1.1, -18.8), 6.0)
+	# North of the berth: the old spot (-10.5, -18.8) is now inside the lifeboat's hull.
+	_beacon("place_davits", Vector3(RigBuilder.BOAT_BERTH.x, DECK_Y + 1.1, -16.4), 6.0)
 
 ## Drop an invisible proximity beacon that discovers a place-Codex entry once near.
 func _beacon(codex_id: String, pos: Vector3, radius: float) -> void:
@@ -177,16 +182,22 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 		return
 	var slope_len: float = sqrt(rise * rise + run * run)
 	var angle: float = atan2(rise, run)
-	# StairKit's ramp sits 0.05 low at the foot and is 0.06 thick, so its top surface
-	# OVERSHOOTS the landing height by a couple of centimetres at the top of the run.
-	# Two centimetres sounds harmless. It is not: a 0.4m-radius capsule climbing a
-	# 39-degree slope first touches the landing's leading corner from 0.36m back, where
-	# the ramp is a quarter of a metre lower, and that contact is ~51 degrees off
-	# vertical — past floor_max_angle, so CharacterBody3D calls it a wall and the climb
-	# stops dead one step short of the top. Dropping the ramp by exactly its overshoot
-	# makes the walking surface pass through the foot and the top corner, so run and
-	# landing meet flush and the corner is no longer something that has to be climbed.
-	var overshoot: float = -0.05 + 0.05 * sin(angle) + 0.06 * cos(angle)
+	# THE RAMP IS FLUSH WHEN IT LEAVES THE KIT — do not correct it here.
+	#
+	# This used to carry `overshoot = -0.05 + 0.05*sin + 0.06*cos` and subtract it from
+	# the sloped shape's Y, in three identical copies across three files. That expression
+	# is not the overshoot; the closed form is `h/cos(angle) - h` with h = 0.06 (see
+	# stair_kit.gd). The two agree only at 39.8 deg, and every flight in the game is
+	# shallower than that, so all thirteen ended up 1.3-9.6 mm BELOW their landings and
+	# the landing's leading edge stood proud of the run. It also slid StairKit's top lip
+	# to `run + 0.22`, i.e. 0.4 m of BoxShape3D fully buried inside the landing slab with
+	# its top face coplanar to the millimetre — a second static body offering the same
+	# walking plane at precisely the transition. Both are fixed at the source now.
+	#
+	# What is still ours: the handrail collider. StairKit collides its rail as one thin
+	# bar at chest height with open air beneath it, so a capsule's waist catches the bar
+	# while its feet slide under; we drop it and stand a single smooth guard slab inside
+	# the visual rail below.
 	for child in root.get_children():
 		var body := child as StaticBody3D
 		if body == null:
@@ -195,16 +206,12 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 		for c in body.get_children():
 			if c is MeshInstance3D:
 				is_rail = true   # a railed _vbox carries its mesh; the walk body does not
+		if not is_rail:
+			continue
 		for c in body.get_children():
 			var cs := c as CollisionShape3D
-			if cs == null:
-				continue
-			if is_rail:
+			if cs != null:
 				cs.disabled = true
-			elif absf(cs.rotation.x) > 0.001:
-				cs.position.y -= overshoot   # the sloped walking surface, set flush
-			elif cs.position.z > run * 0.5:
-				cs.position.z = run + 0.22   # the top lip, slid clear of the slope
 	for side in [[rail_left, -1.0], [rail_right, 1.0]]:
 		if not bool(side[0]):
 			continue
@@ -222,11 +229,17 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 ## pitch_deg tips the paint out of vertical: pass -90 to lay a marking FLAT on decking.
 ## Without it a stencil authored at deck height renders as an upright sheet standing in
 ## the plating with part of the glyph buried below it, not as paint.
+## `fit` is the panel this marking has to live inside, in metres (x = width, y = height,
+## 0 on either axis = unconstrained): the font shrinks until the wording fits. See
+## sign_fit.gd — a hand-picked font size cannot be right for two different words.
 func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
-		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0) -> void:
+		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0,
+		fit: Vector2 = Vector2.ZERO) -> void:
 	var l := Label3D.new()
 	l.text = text
-	l.font_size = font_size
+	l.font_size = SignFit.fit_size(text, fit.x, fit.y, font_size)
+	if fit != Vector2.ZERO:
+		l.set_meta("sign_face", fit)   # asserted by tests/label_anchor_probe.gd
 	l.pixel_size = 0.01
 	var _wear: float = clampf((color.r + color.g + color.b) / 3.0, 0.0, 1.0)   # black stencil paint
 	var _k: float = lerpf(0.06, 0.17, _wear)
@@ -440,33 +453,38 @@ func _flare_boom() -> void:
 
 # ---------------------------------------------------------------- davits
 
-## Empty lifeboat davits at the muster edge — Lifeboat 2 got away. You didn't.
+## THE LIFEBOAT DAVITS at the south muster edge. This station stood empty ("Lifeboat 2 got
+## away") while Lifeboat 1 was berthed 6.7 m east — parked inside the drilling derrick's
+## south-west base corner, hull and keel skeg through a colliding leg and its ring brace.
+## The boat is now in THIS berth (RigBuilder.BOAT_BERTH) and the davit pair that fouled the
+## crane has been deleted, so these are Lifeboat 1's davits and they are LOADED: arms raked
+## inboard over the hull, falls short up, hooks on the boat's own lifting eyes.
+##
+## Everything here is derived from RigBuilder.BOAT_BERTH and BOAT_HOOK_DX. The two files
+## used to hold this station's coordinates as independent literals, which is how a 6.5 m
+## boat came to be centred between posts 3.0 m apart in the first place.
 func _davits() -> void:
 	var mat: Material = MatLib.painted_steel()
-	for dx in [-12.0, -9.0]:
-		_box(Vector3(dx, DECK_Y + 1.1, -19.2), Vector3(0.2, 2.2, 0.2), mat)
-		var arm := _box(Vector3(dx, DECK_Y + 2.5, -19.9), Vector3(0.16, 1.9, 0.16), mat, false)
-		arm.rotation.x = deg_to_rad(-48)
-		var cable := _dcyl(Vector3(dx, DECK_Y + 1.9, -20.55), 0.02, 1.8, MatLib.dark_metal())
-		cable.rotation.x = 0.0
-		_dbox(Vector3(dx, DECK_Y + 1.0, -20.55), Vector3(0.18, 0.22, 0.1), MatLib.dark_metal())  # empty hook
-	# Empty cradle chocks on deck between the arms.
-	for cx in [-11.4, -9.6]:
-		var chock := _box(Vector3(cx, DECK_Y + 0.18, -18.7), Vector3(0.3, 0.36, 0.9), MatLib.dark_metal(), false)
-		chock.rotation.z = 0.35
-	# Berth number painted FLAT on the plating between the arms (pitch -90). Authored
-	# upright it stood in the deck like a sign, with a third of the glyph below the
-	# plate; laid flat it reads as deck paint to anyone walking south onto the muster.
-	_plabel("LIFEBOAT 2", Vector3(-10.5, DECK_Y + 0.012, -17.9), 0, 34,
-		Color(0.75, 0.72, 0.55), -90.0)
-	# Muster placard on a real bolted plate spanning the two davit posts — the text
-	# used to hang in the gap between them with nothing behind it.
-	_box(Vector3(-10.5, DECK_Y + 1.5, -19.16), Vector3(2.7, 0.42, 0.06),
-		MatLib.dark_metal(), false)
-	for bx in [-11.62, -9.38]:
-		for by in [DECK_Y + 1.35, DECK_Y + 1.65]:
-			_dcyl(Vector3(bx, by, -19.12), 0.018, 0.03, MatLib.galvanized()).rotation.x = PI / 2
-	_plabel("MUSTER — BOAT AWAY", Vector3(-10.5, DECK_Y + 1.5, -19.12), 0, 20, Color(0.9, 0.75, 0.2))
+	var dark: Material = MatLib.dark_metal()
+	var berth: Vector3 = RigBuilder.BOAT_BERTH
+	var post_z: float = berth.z - 1.2                        # posts stand outboard of the hull
+	var hook_y: float = DECK_Y + 1.35 + 1.0                  # the hull's lifting eyes
+	for s in [-1.0, 1.0]:
+		var dx: float = berth.x + s * RigBuilder.BOAT_HOOK_DX
+		_box(Vector3(dx, DECK_Y + 1.1, post_z), Vector3(0.2, 2.2, 0.2), mat)
+		# Arm raked INBOARD, so its head stands over the lifting eye rather than out over
+		# the water: it used to rake -48 deg to z -20.6 with an empty hook on the end.
+		var rake: float = deg_to_rad(35.0)
+		var arm := _box(Vector3(dx, DECK_Y + 2.9, post_z + 0.5), Vector3(0.16, 1.9, 0.16), mat, false)
+		arm.rotation.x = rake
+		var head := Vector3(dx, DECK_Y + 2.9 + 0.95 * cos(rake), post_z + 0.5 + 0.95 * sin(rake))
+		var fall_len: float = head.y - hook_y
+		_dcyl(Vector3(dx, (head.y + hook_y) * 0.5, head.z), 0.02, fall_len, dark)   # fall
+		_dbox(Vector3(dx, hook_y + 0.07, head.z), Vector3(0.18, 0.22, 0.1), dark)   # hook on the eye
+	# The "MUSTER — BOAT AWAY" placard that used to span the posts is gone with the empty
+	# berth it described. It would now sit directly behind a 6.5 m hull, where nothing can
+	# read it, and say the opposite of what the station is: RigBuilder stencils LIFEBOAT 1
+	# and TEMPSC on the flank and paints MUSTER — LIFEBOAT 1 on the plating in front.
 
 # ---------------------------------------------------------------- observation platform
 
@@ -494,8 +512,12 @@ func _west_stairs() -> void:
 	var frame: Material = MatLib.rust_steel()
 	# Flight 1: south -> north along the wall at x -3.2 (rail on the outer/west side,
 	# which is climb-LEFT going north; the stack wall guards the east side).
-	_stair_run(Vector3(-3.2, DECK_Y, 8.4), Vector3(-3.2, 21.68, 13.5), 1.4, true, false)
-	# Mid landing (top surface 21.675 — both flights meet it flush).
+	_stair_run(Vector3(-3.2, DECK_Y, 8.4), Vector3(-3.2, WEST_LANDING_Y, 13.5), 1.4, true, false)
+	# Mid landing. Its top surface was 21.675 while BOTH flights are authored to meet it
+	# at 21.680 — 5 mm out, so walking north you stepped up 5 mm onto the head of flight 1
+	# and back down 5 mm onto the slab, twice inside 0.40 m. The slab is 0.25 thick, so
+	# its centre has to be 21.680 - 0.125 = 21.555 for its top face to be the 21.680 the
+	# flights are built to. Do not re-type either number: keep them one expression apart.
 	#
 	# South edge stays at z 13.55, just PAST where flight 1's surface tops out at 13.5:
 	# pulled any further south the plate's leading edge stands proud of the still-
@@ -506,9 +528,17 @@ func _west_stairs() -> void:
 	# was not: the rail guard reaches z 14.05 and the support leg stood at 14.4, which
 	# left roughly 0.35m of clear plate for an 0.8m-wide player. The turn was physically
 	# impassable — you arrived at the top of flight 1 and could not reach flight 2.
-	_box(Vector3(-4.1, 21.55, 14.875), Vector3(3.2, 0.25, 2.65), tread)
+	# LEADING EDGE AT THE FLIGHT'S TOP POINT, not 50 mm short of it. The slab used to start
+	# at z 13.55 while flight 1 tops out at z 13.50, so 48 mm of the walk had no surface at
+	# landing height at all and a down-ray fell 27-35 mm to whatever was under it. Measured
+	# by tests/StairJunctionProbe.tscn as the last two catches on the rig after the kit was
+	# fixed. z 13.50 .. 16.20 -> centre 14.85, depth 2.70.
+	_box(Vector3(-4.1, WEST_LANDING_Y - 0.125, 14.85), Vector3(3.2, 0.25, 2.70), tread)
 	# Flight 2: north -> south at x -5 (west is climb-RIGHT going south).
-	_stair_run(Vector3(-5.0, 21.68, 13.5), Vector3(-5.0, 25.1, 8.4), 1.4, false, true)
+	# Flight 2's foot moved z 13.50 -> 13.90 so it stands ON the landing. At 13.50 it began
+	# exactly on the slab's leading edge and its foot lip cantilevered 0.40 m past it, an
+	# invisible ledge in open air 3.7 m over the topside deck.
+	_stair_run(Vector3(-5.0, WEST_LANDING_Y, 13.9), Vector3(-5.0, 25.1, 8.4), 1.4, false, true)
 	# Top landing bridging into the C-deck terrace edge.
 	_box(Vector3(-3.9, 24.95, 7.6), Vector3(3.6, 0.3, 1.6), tread)
 	# Support legs down to the deck, along the landings' NORTH edges. The mid-landing
@@ -529,4 +559,5 @@ func _west_stairs() -> void:
 	for sz in [8.45, 10.15]:
 		for sy in [DECK_Y + 1.24, DECK_Y + 1.46]:
 			_dcyl(Vector3(-2.44, sy, sz), 0.018, 0.03, MatLib.galvanized()).rotation.z = PI / 2
-	_plabel("STAIR W — DECKS B/C", Vector3(-2.44, DECK_Y + 1.35, 9.3), 90, 20, Color(0.9, 0.85, 0.6))
+	_plabel("STAIR W — DECKS B/C", Vector3(-2.44, DECK_Y + 1.35, 9.3), 90, 20,
+		Color(0.9, 0.85, 0.6), 0.0, Vector2(1.88, 0.24))   # the plate above is 2.0 x 0.32

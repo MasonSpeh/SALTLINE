@@ -106,6 +106,11 @@ func set_selected_hotbar(slot: int) -> void:
 
 ## Environmental warmth modifier, set by cold/heat zones: -1 cold, 0 neutral, +1 heated.
 var warmth_zone: int = 0
+## How many FLAME heat sources the player is standing in right now — braziers, fire barrels,
+## the hearth, the barrel stove, the galley range. A subset of the +1 zones counted above (a
+## lean-to and a bedroll warm you but are not fires), maintained by the same additive
+## enter/exit contract. Feeds `warmth_fire_rate_mult` in _process.
+var warmth_fire: int = 0
 var sickness: float = 0.0  ## 0-1, sick reduces stamina; decays over time
 
 ## Written by ComfortFurniture each frame — where comfort is trying to settle (0-1).
@@ -171,6 +176,13 @@ func _process(delta: float) -> void:
 		w_rate = tuning.get("warmth_per_sec_heated", 0.02)
 	elif GameClock.current_phase == GameClock.Phase.NIGHT:
 		w_rate = tuning.get("warmth_per_sec_night", -0.0015)
+	# STANDING AT A FIRE OR A STOVE WARMS YOU FASTER. Owner, 2026-07-30: "Have warmth increase
+	# 30% faster rate when standing by stove/fire." Only the gaining direction is multiplied —
+	# a flame you are standing next to cannot make you lose heat more slowly than a cold zone
+	# says you do, and the shelter zones (lean-to, bedroll, windbreak) keep the plain rate.
+	# The number lives in data/tuning.json with every other feel value, not here.
+	if w_rate > 0.0 and warmth_fire > 0:
+		w_rate *= float(tuning.get("warmth_fire_rate_mult", 1.30))
 	# Patched boots only help against LOSING heat — they are insulation, not a fire,
 	# so they never slow you warming up at a brazier. The relief fraction is the
 	# economy agent's `cold_relief` field on the item, not a hard-coded number, so a

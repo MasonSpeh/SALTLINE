@@ -104,8 +104,21 @@ const FACING_DEFAULT := {"yaw": 180.0, "pitch": 0.0, "axis": 0, "flip": 1.0, "li
 ##     shows both in full profile facing right. Same case as ultra_hammerhead — yaw +90
 ##     takes local +X onto Godot's -Z, and the shader is told the body runs along X so the
 ##     undulation still travels head -> tail instead of shearing the fish sideways.
+## pyramid_snail (owner-reported "the pyramid snails crawl backwrds", MEASURED 2026-07-30 —
+## tests/FaunaBugsProbe correlated 2,691 frames of real crawl against the model node's six
+## local axes on three live deck snails and got model +Z . travel = +0.9991, +X +0.005,
+## +Y 0.000; the host's own -Z rides the same +0.9991, i.e. the facing table and the crawler
+## agree and the question is only which end of the MESH the head is on. CandShot's side view
+## (camera +X, so screen-right is world -Z) puts the eye stalks and both oral tentacles at
+## screen-RIGHT and the trailing foot at screen-left — head at local -Z, min end — and the
+## front view (camera +Z) photographs the back of the shell with no head in it at all. Raw
+## AABB 0.638 x 0.731 x 1.000 confirms the body runs Z. So the default's 180 yaw was putting
+## the mesh's TAIL on Godot's forward and the animal crawled tail-first at 0.115 m/s across
+## the whole rig. Same case as herring_gull and the four -Z tropicals: no yaw, and the head at
+## the MIN end of local Z (flip 0) so the pedal wave still runs tail -> head up the foot.
 const FACING_OVERRIDES: Dictionary = {
 	"mantle_ray": {"yaw": 180.0, "pitch": 90.0, "axis": 0, "flip": 1.0, "lift": 1},
+	"pyramid_snail": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"herring_gull": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"ultra_hammerhead": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
 	"trop_clown": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
@@ -140,6 +153,27 @@ static func apply(model: Node3D, mode: int, amp: float = 0.06, rate: float = 2.0
 				sm.set_shader_parameter("tint", src.albedo_color)
 				sm.set_shader_parameter("roughness_v", src.roughness)
 				sm.set_shader_parameter("metallic_v", src.metallic)
+				# THE metallicRoughness MAP. Godot's glTF importer puts metallicFactor and
+				# roughnessFactor in the SCALARS above and the real per-texel values in a
+				# TEXTURE, and every Tripo-era asset here ships both factors at 1.0 — so a
+				# shader reading only the scalars renders thirteen species (pyramid_snail,
+				# herring_gull, ultra_hammerhead, all ten trop_*, five deep fish) as FULLY
+				# METALLIC, i.e. near-black under an environment with no reflection probe.
+				# Measured s23; it is the whole of the owner's "the snail reads much darker
+				# in game than the model does". The CHANNEL is read off the material rather
+				# than assumed to be glTF's G/B, so an importer that changes its convention
+				# cannot quietly go dark again. Older Meshy assets carry no map and honest
+				# 0.0/0.8 scalars, so use_orm stays false and nothing about them moves.
+				# Both halves or neither: glTF packs one metallicRoughness image and the
+				# importer binds it to both slots, so a material carrying only one of them is
+				# not this convention and is safer left on its scalars.
+				if src.metallic_texture != null and src.roughness_texture != null:
+					sm.set_shader_parameter("orm_tex", src.metallic_texture)
+					sm.set_shader_parameter("use_orm", true)
+					sm.set_shader_parameter("orm_rough_mask",
+						_channel_mask(src.roughness_texture_channel))
+					sm.set_shader_parameter("orm_metal_mask",
+						_channel_mask(src.metallic_texture_channel))
 				if src.normal_enabled and src.normal_texture:
 					sm.set_shader_parameter("normal_tex", src.normal_texture)
 					sm.set_shader_parameter("use_normal", true)
@@ -155,6 +189,23 @@ static func apply(model: Node3D, mode: int, amp: float = 0.06, rate: float = 2.0
 			inst.set_surface_override_material(s, sm)
 			mats.append(sm)
 	return mats
+
+## Which channel of the ORM texture a BaseMaterial3D says a value lives in, as a dot mask.
+## The shader multiplies the scalar by `dot(orm, mask)`, so this is what keeps the metal read
+## out of the roughness and vice versa. glTF is always G = roughness, B = metallic, but the
+## enum is what is asked rather than the convention assumed.
+static func _channel_mask(channel: int) -> Color:
+	match channel:
+		BaseMaterial3D.TEXTURE_CHANNEL_RED:
+			return Color(1.0, 0.0, 0.0, 0.0)
+		BaseMaterial3D.TEXTURE_CHANNEL_GREEN:
+			return Color(0.0, 1.0, 0.0, 0.0)
+		BaseMaterial3D.TEXTURE_CHANNEL_BLUE:
+			return Color(0.0, 0.0, 1.0, 0.0)
+		BaseMaterial3D.TEXTURE_CHANNEL_ALPHA:
+			return Color(0.0, 0.0, 0.0, 1.0)
+	# GRAYSCALE: the importer's own convention is the RED channel.
+	return Color(1.0, 0.0, 0.0, 0.0)
 
 ## Per-frame modulation: beat faster when it's moving, glow harder when it's hunting.
 static func drive(mats: Array, rate: float, glow_energy: float = 0.0, amp: float = -1.0) -> void:

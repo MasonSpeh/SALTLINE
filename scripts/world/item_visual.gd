@@ -1426,10 +1426,54 @@ static func _deep_winch(root: Node3D) -> void:
 	var stowed := Node3D.new()
 	stowed.name = "stowed_tackle"
 	p.add_child(stowed)
-	_tool_tackle(stowed, Vector3(0.168, 1.000, 0), 0.95)
+	# THE NODE SITS AT THE HANG POINT, not at the winch's foot, and the tackle is built at its
+	# local origin. player_controller._hang_stowed_tackle() rotates this node to world down
+	# every frame so the lead and the hook always fall straight (owner: "the weight/hook points
+	# down"); with the geometry offset a metre up inside it, that rotation would have swung the
+	# tackle around the foot plate instead of standing it up.
+	stowed.position = Vector3(0.168, 1.000, 0)
+	_tool_tackle(stowed, Vector3.ZERO, 0.95)
 	# THE LINE LEAVES HERE, at the hoop — not at the fist. A child of the winch pivot so it
 	# inherits the lean and position for free.
 	_hand_tip(p, Vector3(0.168, 1.008, 0))
+	# ...AND THEN THE WHOLE MACHINE IS MIRRORED. See _mirror_x. Everything above is written in
+	# the ORIGINAL hand (drum on -X, boom and hoop on +X) because that is the layout the
+	# station table in the doc comment describes and the one four rendered candidates were
+	# judged in; the flip is one line at the end rather than 40 negated literals.
+	_mirror_x(p)
+
+## MIRROR A BUILT SUB-TREE ABOUT ITS OWN X = 0 PLANE — the deck winch's handedness.
+##
+## Owner report, three times, 2026-07-29/30: "the deep sea rod still has the same problem…
+## the 3-d model has the rig with the reel on the LEFT and rod curving away to the right, and
+## that never changes. It should default hold/lean to the OTHER side."
+##
+## That is not a pose bug and no pose could fix it. With the mast on +Y and the drum bracket
+## standing off on -X, the crank side (+Z) is fixed by the right-hand rule: hold the mast up
+## and put the drum on the player's RIGHT and the crank necessarily swings AWAY from the
+## camera, so the player sees the blank far cheek and the tool reads back-to-front. Asking for
+## drum-right AND crank-toward-the-player AND mast-up needs a basis of determinant -1 — i.e.
+## a MIRROR, which s22 recorded as impossible and which the owner has now explicitly asked for.
+##
+## Mirroring in X (rather than in Z, the other reflection that fixes the handedness) is the one
+## that keeps the ICON: item_icons' camera looks in along (0.62, 0.55, 0.78), so a Z-mirror
+## would hide the crank arm behind the drum and cost the silhouette the s22 contact sheet was
+## judged on. An X-mirror moves the drum TOWARD that camera and leaves the crank where it is.
+##
+## It is done node-by-node instead of with `scale.x = -1` because a negative-determinant
+## transform inverts triangle winding and back-face culling renders the model inside out.
+## M·T1·T2·…·Tn == (M·T1·M)(M·T2·M)…(M·Tn·M)·M with M = diag(-1,1,1) and M² = I, so negating
+## each node's local x-offset and its Y and Z Euler terms is an exact reflection at every
+## level — every node keeps determinant +1 — and the trailing M lands on the LEAF MESH, where
+## it is a no-op: every primitive this file builds (box, cylinder/cone about Y, torus about Y,
+## sphere) is symmetric about its own x = 0.
+static func _mirror_x(node: Node3D) -> void:
+	node.position = Vector3(-node.position.x, node.position.y, node.position.z)
+	var r: Vector3 = node.rotation
+	node.rotation = Vector3(r.x, -r.y, -r.z)
+	for c in node.get_children():
+		if c is Node3D:
+			_mirror_x(c as Node3D)
 
 # --------------------------- the surface rod: option 3, the wand ---------------------------
 

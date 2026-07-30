@@ -91,6 +91,36 @@ static func eye(n: Node) -> Vector3:
 				_eye_ok = true
 	return _eye
 
+# The player node, fetched ONCE per frame — the same trick as `eye()` above, for the same
+# reason and against a bigger count. `get_tree().get_first_node_in_group("player")` is a group
+# lookup, and s23's per-species profile found it being made UNCONDITIONALLY, every tick, by
+# HarborSeal, TideWorm (x5), GlassSnail (x4), AnchorLimpet (x5), DeckGull (x4), CorvidGull (x3)
+# and ReefFish (x2) — about two dozen lookups a frame for one value that cannot change within
+# a frame. Every one of those call sites is a drop-in replacement:
+#
+#     var p: Node3D = AiBudget.player(self)      # was get_tree().get_first_node_in_group(…)
+#     if p != null: …
+#
+# Returns null exactly when the group lookup would have, so the null checks already written at
+# each site keep working unchanged. Lives here rather than in bloom_fauna.gd because this is
+# the file every decimated species already imports, and because the cache has to be shared
+# across species to be worth anything.
+static var _player_frame: int = -1
+static var _player: Node3D = null
+
+static func player(n: Node) -> Node3D:
+	var f: int = Engine.get_process_frames()
+	if f != _player_frame:
+		_player_frame = f
+		_player = null
+		if n.is_inside_tree():
+			_player = n.get_tree().get_first_node_in_group("player") as Node3D
+	# A player freed between the cache write and this read (respawn, scene teardown in a
+	# harness) must not be handed out — every caller here dereferences it immediately.
+	if _player != null and not is_instance_valid(_player):
+		_player = null
+	return _player
+
 ## How many frames apart this node may think, right now.
 static func stride(n: Node3D, near_m: float = NEAR_M) -> int:
 	if not enabled:

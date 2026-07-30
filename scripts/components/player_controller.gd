@@ -81,6 +81,11 @@ const SWIM_SPEED: float = 2.3
 const SWIM_SPRINT_MULT: float = 1.5
 const FLOAT_DEPTH: float = 0.45        ## neutral float: this far under the swell, head above
 const SWIM_WARMTH_DRAIN: float = 0.016 ## the North Atlantic taxes you per second
+## Seconds between "Cold. Swim…" warnings — see the note in _check_water(). A swell washing
+## the Wet Deck puts the player under the wave line for a moment at a time, and without this
+## the warning fired on every one of them.
+const COLD_WARN_COOLDOWN: float = 120.0
+var _cold_warn_t: float = -1000.0      ## last time the cold warning was actually shown
 # Oxygen: a held breath, not a fixed death line. A full lungful lasts ~28s submerged;
 # the deep (past DEEP_UNEASE_M) burns it near twice as fast — pressure and dread — so
 # you CAN dive to glimpse what lives down there, but never linger. Surfacing (head above
@@ -164,24 +169,47 @@ const HAND_TOOL_POSE := {
 			"off": Vector3(0.07, 0.16, -0.02),
 		},
 	},
-	## The winch's long axis is its mast and the thing that stands off it is the DRUM bracket,
-	## on -X. What must not happen to a machine is the drum going edge-on or upside down, so
-	## the aim is stated on the drum's own axle instead: `face` is the model +Z the crank and
-	## the ratchet live on, and it points back at the player, which is the pose four rendered
-	## candidates picked out (the alternatives lost the crank knob off the bottom of the screen
-	## or turned the drum side-on). Only the mast's tilt differs between carry and work.
+	## THE WINCH, THIRD REPORT. Two things were wrong with the old entry and only one of them
+	## was a number.
+	##
+	## (1) It named `face` as the drum's AXLE (+Z, the crank side) rather than as the direction
+	## the drum stands off the mast — the one axis the owner's complaint is actually about
+	## ("the reel on the left"). Aiming the axle leaves the drum's SIDE free to land wherever
+	## the solve puts it, and it landed left: measured on the composed basis, the drum bracket
+	## came out at (-0.81 left, +0.10 up, -0.57 away). So `face` is now the bracket, stated the
+	## same way the rod's is, and where the reel sits is a number in this table again.
+	##
+	## (2) Drum-on-the-right was geometrically unreachable while the mast was up, because the
+	## model's triad fixed the crank as mast × bracket. `item_visual._mirror_x` reflects the
+	## whole machine (see the long note there), which is what the owner asked for in as many
+	## words — "it should default hold/lean to the OTHER side". After the mirror the drum
+	## bracket stands off on +X and the boom, the hoop fairlead and the tackle are on -X.
+	##
+	## IDLE is a carry: the mast up with a slight tilt, its head canted LEFT and away — the
+	## other side from the old pose — and the drum out to the player's RIGHT, turned three
+	## quarters toward them so the drive cheek, the ratchet and the crank knob all read
+	## instead of a flat disc filling the middle of the screen. CAST is the working pose: the
+	## mast tips out over the water it is fishing so the fairlead leads the line away high and
+	## outboard, and the drum comes squarely UP (0.85 up against 0.14 sideways). The tackle
+	## hangs DOWN from the fairlead in both, because it is gravity-aligned every frame rather
+	## than carried by the pose — see _hang_stowed_tackle().
 	"deep_rig_pole": {
 		"axis": Vector3(0, 1, 0),          ## the mast
-		"face": Vector3(0, 0, 1),          ## the drum's axle, crank side
+		"face": Vector3(1, 0, 0),          ## the drum bracket, i.e. WHICH SIDE THE REEL IS ON
 		"idle": {
-			"axis_to": Vector3(0.24, 0.96, -0.17),   # mast up, barely tilted: it is a machine
-			"face_to": Vector3(-0.53, 0.27, 0.80),   # drum face turned to the player
-			"off": Vector3(0.01, 0.11, -0.02),
+			"axis_to": Vector3(-0.24, 0.93, -0.28),  # mast up, head canted left: a slight tilt
+			"face_to": Vector3(0.91, 0.18, 0.37),    # drum out to the RIGHT, turned to the player
+			# Framed off the render, not chosen: at the first cut the fairlead projected to
+			# (626, 212) of 1280x720 and the lead hanging under it finished ON the crosshair.
+			# The head is canted a little further away and the whole tool lifted and pushed
+			# right, which walks the hanging tackle clear of the sight line without taking the
+			# drum off the right-hand edge (it reaches x~1185 of 1280).
+			"off": Vector3(0.0, 0.12, -0.08),
 		},
 		"cast": {
-			"axis_to": Vector3(0.20, 0.92, -0.34),   # tipped out over the side it is fishing
-			"face_to": Vector3(-0.48, 0.24, 0.84),
-			"off": Vector3(0.02, 0.14, 0.0),
+			"axis_to": Vector3(-0.24, 0.62, -0.75),  # tipped out over the side it is fishing
+			"face_to": Vector3(0.26, 0.78, 0.57),    # drum/bail UP, still turned to the player
+			"off": Vector3(0.02, 0.02, -0.14),
 		},
 	},
 }
@@ -191,6 +219,10 @@ var _hand_posed_cast: bool = false
 ## Uniform scale `_normalize_hand_visual` fitted the held item to, kept so `_apply_hand_pose`
 ## can rewrite the container's whole basis (rotation AND scale) in one assignment.
 var _hand_scale: float = 1.0
+## The held tool's own terminal tackle, if it models any (only the deck winch does). Cached at
+## build time rather than found by name every frame — `_hang_stowed_tackle` runs per physics
+## frame and the winch is 69 meshes deep.
+var _stowed_tackle: Node3D = null
 
 var input_locked: bool = false     ## cold open / cutscenes: look allowed, movement not
 var respawn_point: Vector3 = Vector3.ZERO
@@ -682,6 +714,7 @@ func hook_returned() -> void:
 
 func _physics_process(delta: float) -> void:
 	_sync_hand_pose()
+	_hang_stowed_tackle()
 	if _attack_cd > 0.0:
 		_attack_cd -= delta
 	if _mantle_cd > 0.0:
@@ -1202,9 +1235,18 @@ func _check_water() -> void:
 			_leave_climb()   # fell off the ladder into the sea — re-arm world collision
 		if carried:
 			drop_carried()
-		var hud: Node = get_tree().get_first_node_in_group("hud")
-		if hud:
-			hud.toast("Cold. Swim — find a ladder before the sea does the counting.")
+		# THE COLD WARNING IS ON A COOLDOWN. Owner, 2026-07-30: "Add a longer toggle in between
+		# the popup for the cold waves hitting, because they come all the time on the wetdeck."
+		# There was no cooldown at all — the line fired on every transition into the water, and
+		# the Wet Deck sits low enough that a running swell washes the plate repeatedly, so a
+		# player standing at the rail got it as a ticker. It is a warning about the sea, not a
+		# commentary on each wave: one every COLD_WARN_COOLDOWN seconds at most.
+		var now: float = float(Time.get_ticks_msec()) * 0.001
+		if now - _cold_warn_t >= COLD_WARN_COOLDOWN:
+			_cold_warn_t = now
+			var hud: Node = get_tree().get_first_node_in_group("hud")
+			if hud:
+				hud.toast("Cold. Swim — find a ladder before the sea does the counting.")
 	swimming = now_swimming
 	if not swimming:
 		# Out of the water: catch your breath fast, and clear the drown timers.
@@ -1442,6 +1484,7 @@ func _update_held_item() -> void:
 		_hand_item.remove_child(child)
 		child.queue_free()
 	_held_item_id = ""
+	_stowed_tackle = null
 
 	# Show the selected hotbar item in hand; an empty/deselected slot leaves the hand bare.
 	if PlayerState.selected_hotbar < 0 or PlayerState.selected_hotbar >= PlayerState.HOTBAR_SIZE:
@@ -1499,6 +1542,7 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 	# fixed offset from the player's feet.
 	_hand_reach = largest * 0.5
 	_hand_reach_axis = HAND_TIP_AXIS.get(_held_item_id, Vector3(0, 0, -1))
+	_stowed_tackle = container.find_child("stowed_tackle", true, false) as Node3D
 	# ...and the aimed pose LAST, because it reads the container's own scale/position state.
 	_hand_posed_cast = fishing != null
 	_apply_hand_pose()
@@ -1600,11 +1644,40 @@ static func _basis_relative_to(node: Node3D, base: Node3D) -> Basis:
 ## the tool. The model's copy is the one that gives way, since the flying one is the one the
 ## game is simulating. Nothing to do for the wand rod, which carries no tackle in its mesh.
 func _show_stowed_tackle(shown: bool) -> void:
-	if _hand_item == null or _hand_item.get_child_count() == 0:
+	if is_instance_valid(_stowed_tackle):
+		_stowed_tackle.visible = shown
+
+## THE WEIGHT HANGS DOWN. Owner, 2026-07-30, on the winch: "when casting it goes reel/bail up,
+## and the weight/hook points down."
+##
+## `_tool_tackle` builds the lead and the snooded hook straight down the model's own -Y from
+## the fairlead, so with the tool aimed they trailed off at whatever angle the mast happened to
+## be at — sideways in the working pose, and swinging as the player looked around, which is
+## exactly what a 1.4 kg torpedo lead never does. Rather than trade the mast's angle away for
+## it, the tackle is counter-rotated to WORLD DOWN every frame: it is the one part of the
+## machine gravity owns, so it is the one part that is not posed.
+##
+## Cheap and self-limiting — one basis write, only while a winch is actually in the hand with
+## its tackle shown (a live cast hides it, see _show_stowed_tackle). The node's own scale is
+## rebuilt from the parent's so the hand normalisation is not divided out twice.
+func _hang_stowed_tackle() -> void:
+	if not is_instance_valid(_stowed_tackle) or not _stowed_tackle.visible:
 		return
-	var stowed: Node = _hand_item.get_child(0).find_child("stowed_tackle", true, false)
-	if stowed is Node3D:
-		(stowed as Node3D).visible = shown
+	var node: Node3D = _stowed_tackle
+	var parent: Node3D = node.get_parent() as Node3D
+	if parent == null:
+		return
+	# The tackle's own +Y must come back to world up; its swing plane is kept as square to the
+	# view as the aim allows so the hook reads against the water rather than end-on.
+	var pb: Basis = parent.global_transform.basis.orthonormalized()
+	var up: Vector3 = Vector3.UP
+	var side: Vector3 = camera.global_transform.basis.x if camera != null else Vector3.RIGHT
+	side = side - up * side.dot(up)
+	if side.length() < 0.01:
+		side = Vector3.RIGHT
+	side = side.normalized()
+	var want := Basis(side, up, side.cross(up))
+	node.transform.basis = pb.inverse() * want
 
 ## World position of the far end of whatever is currently in the hand — the
 ## fishing rod anchors its line/string here instead of a fixed offset from the

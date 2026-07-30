@@ -689,9 +689,19 @@ func _land() -> void:
 		return
 	var id: String = String(_fish["id"])
 	Journal.discover(id)
-	if not PlayerState.add_item(id):
-		_finish("Pack's full — the %s slips back." % _fish["name"])
-		return
+	# A FULL PACK MUST NOT COST YOU THE FISH. Owner, 2026-07-30: "What happens when i catch fish
+	# with full inventory? I still want to keep the fish, currently it just dissapeared." It
+	# used to: the catch was announced, the pack refused it, and the fish was gone — after a
+	# fight that could be forty metres of line. It now lands on the deck at the player's feet as
+	# a real, savable Takeable, the same spill path cook_stove._finish() uses for surplus
+	# fillets, and everything downstream (the journal entry, the size roll, the fillet count)
+	# runs exactly as it does for a fish that fitted.
+	var stowed: bool = PlayerState.add_item(id)
+	if not stowed:
+		var feet: Vector3 = _player.global_position if is_instance_valid(_player) else global_position
+		var toss := Vector3(_rng.randf_range(-0.4, 0.4), 0.0, _rng.randf_range(-0.4, 0.4))
+		SaveManager.drop_into_world(id, feet, toss)
+	var spill: String = "" if stowed else "  Pack's full — it's on the deck at your feet."
 	_fly_catch_to_player()
 	# THE SIZE OF THE FISH, rolled here, at the rail, on the one fish that was actually
 	# landed — and remembered on the table (FishTable.record_size) so the stove and the
@@ -700,16 +710,17 @@ func _land() -> void:
 	var kg: float = FISH.roll_size(id, _rng)
 	_log_catch(id, kg)
 	if kg <= 0.0:
-		_finish("Caught: %s" % _fish["name"])
+		_finish("Caught: %s%s" % [_fish["name"], spill])
 		return
 	FISH.record_size(id, kg)
 	var n: int = FISH.fillets_for(id, kg)
 	if n <= 1:
-		_finish("Caught: %s — %.1f kg" % [_fish["name"], kg])
+		_finish("Caught: %s — %.1f kg%s" % [_fish["name"], kg, spill])
 		return
 	# Name the payoff at the moment it is earned: the whole reason to fight a fish this
 	# big is what it fillets out into on the stove or the line.
-	_finish("Caught: %s — %.1f kg. That'll fillet out %d times over." % [_fish["name"], kg, n])
+	_finish("Caught: %s — %.1f kg. That'll fillet out %d times over.%s"
+		% [_fish["name"], kg, n, spill])
 
 ## The visual payoff: the fish arcs out of the water into your hands, flashing
 ## and flipping, then vanishes into the pack. Owned by the scene, so it plays

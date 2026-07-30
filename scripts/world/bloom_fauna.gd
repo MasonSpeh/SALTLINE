@@ -1470,23 +1470,41 @@ class MantleRay extends Node3D:
 
 # ------------------------------------------------------------- TideWorm
 class TideWorm extends Node3D:
+	## A burrow worm on the tide line: up at dawn and dusk, gone the rest of the time, and
+	## gone INSTANTLY if it feels you coming.
+	##
+	## OWNER BUG 2026-07-30: "there are weird grubs on the wet deck that dont move and player
+	## cant interact with". Both halves were one fault. When a real tide_worm.glb landed, the
+	## whole emerge/retract machine below went on driving `_body` — the four procedural
+	## segments — while CreatureAnim.replace() hid those and parented the GENERATED mesh to the
+	## host instead. So the visible animal was never scaled, never hidden, never swayed and
+	## never retracted: measured (tests/FaunaBugsProbe) as 6 meshes of which exactly 1 visible,
+	## a 0.32 x 0.13 m body sitting on the plating at all five spots, `_emerge` 0.000 and
+	## `_body.visible` false, i.e. the code believed it was fully underground. And because the
+	## per-frame drive was `rate = 1.1 * _emerge`, at _emerge 0 the vertex shader's beat was
+	## multiplied to ZERO — a frozen grub, all day, every day. Fixed by giving the generated
+	## mesh the same retract the procedural body always had (it SINKS into the plate, which is
+	## 0.5 m of solid checker plate under it, rather than squashing) and by holding the wave
+	## rate constant and spending the emergence on AMPLITUDE — `rate` is a time multiplier in
+	## creature_swim.gdshader, so writing it per frame teleports the wave (see GliderRay).
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL_PATH := "res://assets/models/fauna/tide_worm/tide_worm.glb"
+	## Set once and never driven — see the note above and creature_swim.gdshader's `rate`.
+	const RIPPLE_HZ: float = 1.1
+	## How close you get before it feels the plate ring and goes. Crouching halves its senses,
+	## the same bargain the glow worm offers: move slowly and you get to watch one.
+	const SPOOK_M: float = 2.5
+	const SPOOK_M_CROUCHED: float = 1.1
 	var _gen_mats: Array = []
 	var _t: float = 0.0
 	var _body: Node3D
 	var _emerge: float = 0.0
+	var _model: Node3D = null      ## the generated mesh, retracted by _sink rather than scale
+	var _rise: float = 0.06        ## measured half-depth: lift that puts the body ON the plate
+	var _sink: float = 0.30        ## how far under the plate a fully retracted worm goes
 
 	func _ready() -> void:
 		_t = global_position.x * 1.3
-		var hole := MeshInstance3D.new()
-		var hm := CylinderMesh.new()
-		hm.top_radius = 0.14
-		hm.bottom_radius = 0.14
-		hm.height = 0.02
-		hm.material = BloomFauna.glow_mat(Color(0.04, 0.05, 0.06), 0.0)
-		hole.mesh = hm
-		add_child(hole)
 		_body = Node3D.new()
 		add_child(_body)
 		for i in range(4):
@@ -1502,10 +1520,43 @@ class TideWorm extends Node3D:
 			_body.add_child(seg)
 			seg.position = Vector3(0, 0.06 + i * 0.11, 0)
 		# Generated mesh: the segments ripple as it works the tide line.
-		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.32, ANIM.Mode.UNDULATE, 0.07, 1.1, BloomFauna.TEAL)
+		var gen: Dictionary = ANIM.replace(self, MODEL_PATH, 0.32, ANIM.Mode.UNDULATE,
+			0.07, RIPPLE_HZ, BloomFauna.TEAL)
 		if not gen.is_empty():
 			_gen_mats = gen["mats"]
-			ANIM.drive(_gen_mats, 1.1, 0.45)
+			ANIM.drive(_gen_mats, RIPPLE_HZ, 0.45)
+			_model = gen["model"]
+			# Reparented onto the same node the retract already drove, so ONE state variable
+			# moves the whole animal whichever body it is wearing. The sink depth is the
+			# model's own height plus clearance, measured off the built mesh rather than
+			# typed, so a re-cut asset cannot leave a hump of worm on the plating.
+			var box: AABB = AABB()
+			var first: bool = true
+			for m in ANIM._mesh_instances(_model):
+				var mi: MeshInstance3D = m
+				if mi.mesh == null:
+					continue
+				var w: AABB = (_model.global_transform.affine_inverse() * mi.global_transform) \
+					* mi.get_aabb()
+				box = w if first else box.merge(w)
+				first = false
+			if not first:
+				_rise = -box.position.y * _model.scale.y
+				_sink = box.size.y * _model.scale.y + 0.06
+			self.remove_child(_model)
+			_body.add_child(_model)
+		# THE DEN MOUTH, built AFTER the replace on purpose: ANIM.replace() hides every mesh
+		# that existed before it, so a hole built first is a hole nobody ever sees (and this is
+		# the only thing left on the plating once the animal is under it).
+		var hole := MeshInstance3D.new()
+		var hm := CylinderMesh.new()
+		hm.top_radius = 0.14
+		hm.bottom_radius = 0.14
+		hm.height = 0.02
+		hm.material = BloomFauna.glow_mat(Color(0.04, 0.05, 0.06), 0.0)
+		hole.mesh = hm
+		hole.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+		add_child(hole)
 
 	## AI decimation state — see scripts/world/ai_budget.gd.
 	var _ai_acc: float = 0.0
@@ -1525,17 +1576,33 @@ class TideWorm extends Node3D:
 			or GameClock.current_phase == GameClock.Phase.DUSK
 		var want: float = 1.0 if tide_time else 0.0
 		var player: Node3D = get_tree().get_first_node_in_group("player")
-		if player and player.global_position.distance_to(global_position) < 2.5:
-			want = 0.0   # felt your footsteps — gone
+		if player:
+			var spook: float = SPOOK_M_CROUCHED if BloomFauna.player_crouching(self) else SPOOK_M
+			if player.global_position.distance_to(global_position) < spook:
+				want = 0.0   # felt your footsteps — gone
 		_emerge = move_toward(_emerge, want, delta * (2.5 if want < _emerge else 0.35))
 		if _emerge > 0.5:
 			Journal.discover_if_near(self, "creature_tide_worm", 5.0)
-		_body.scale.y = maxf(_emerge, 0.001)
+		# The procedural body retracts by SQUASHING (four stacked spheres, so that reads); a
+		# generated worm is one closed mesh and would flatten into a pancake, so it SINKS
+		# through the 0.5 m plate it is burrowed into instead. One `_emerge`, two bodies.
+		if _model != null:
+			_body.scale.y = 1.0
+			# Fully out it lies ON the plating (the generated mesh is centred on its own box,
+			# so it used to be buried to the waterline — measured: 82 mm of a 125 mm-deep worm
+			# showing); fully in it is under the plate.
+			_model.position.y = lerpf(-_sink, _rise, _emerge)
+		else:
+			_body.scale.y = maxf(_emerge, 0.001)
 		_body.visible = _emerge > 0.02
 		_body.rotation.x = sin(_t * 1.7) * 0.22 * _emerge
-		# Retracted worms don't ripple: the wave fades out with the animal.
-		ANIM.drive(_gen_mats, 1.1 * _emerge, 0.45 * _emerge, 0.07 * _emerge)
 		_body.rotation.z = cos(_t * 1.3) * 0.22 * _emerge
+		# A retracted worm does not ripple — but the RATE is never what says so. `rate` is a
+		# time multiplier in creature_swim.gdshader (t = TIME * rate + phase), so driving it
+		# from _emerge teleported the wave phase on every frame the emergence moved, and at
+		# _emerge 0 it multiplied the beat to a dead stop: this is why the owner's grubs were
+		# frozen. The beat is constant; the AMPLITUDE is what fades the animal out.
+		ANIM.drive(_gen_mats, RIPPLE_HZ, 0.45 * _emerge, 0.07 * _emerge)
 
 
 # ------------------------------------------------- Glow Worm
@@ -2069,8 +2136,21 @@ class HarborSeal extends Node3D:
 		var ang: float = _t * 0.16
 		var r: float = 12.0 + sin(_t * 0.1) * 4.0
 		var breathe: float = sin(_t * 0.6)          # porpoising rhythm
-		var y: float = -0.15 + maxf(breathe, 0.0) * 0.5   # crests above the surface to breathe
-		var pos := Vector3(cos(ang) * r * 0.7, y, -34.0 + sin(ang) * r)
+		# THE SEAL SWIMS IN THE SEA, NOT AT y = 0 (owner, s23: "the harbor seal floats above
+		# the surface"). The haul-out seat is fine — measured at a 0.0 mm gap on the pontoon
+		# shelf — and this is the other half of the animal: the patrol wrote a FIXED height
+		# into an ocean whose surface is an 11-band Gerstner sum running to a -6.44 m trough
+		# floor. Measured over 600 frames before the fix: the belly was clear of the water on
+		# 134 of them, 22.3% of the loop, by up to 379 mm — an animal flying over the troughs
+		# and submerged through the crests, which is exactly "hovering". The depth is now taken
+		# from the wave surface AT THE SEAL'S OWN xz, so the animal rides the swell: the arc
+		# lifts its back and head clear to breathe (peak: node +0.10 above the surface, belly
+		# still 0.28 under it) and the rest of the loop keeps the whole body wet.
+		# Two Gyre calls per seal per frame; the term s19 profiled out was 512 of them.
+		var flat_xz := Vector2(cos(ang) * r * 0.7, -34.0 + sin(ang) * r)
+		var sea: float = Gyre.wave_height(flat_xz, Gyre.water_time())
+		var y: float = sea - 0.45 + maxf(breathe, 0.0) * 0.55
+		var pos := Vector3(flat_xz.x, y, flat_xz.y)
 		var vel: Vector3 = pos - global_position
 		global_position = pos
 		if vel.length_squared() > 0.0001:
@@ -3339,6 +3419,11 @@ class PyramidSnail extends Node3D:
 	## that is carrying the animal out over the rail gets REFLECTED back inboard.
 	const ROAM_X: float = 27.5
 	const ROAM_Z: float = 17.5
+	## Albedo-keyed self-lighting (creature_swim.gdshader `body_glow`). See _ready().
+	## Deliberately under leg_reef's 1.35 and reef_fish's 1.25: a snail that out-glows the
+	## coral it is sitting on reads as a lamp, not an animal.
+	const DECK_GLOW: float = 0.12
+	const DEEP_GLOW: float = 0.95
 
 	var _gen_mats: Array = []
 	var _t: float
@@ -3376,6 +3461,20 @@ class PyramidSnail extends Node3D:
 		else:
 			_gen_mats = gen["mats"]
 			BloomFauna.ground_model(self, gen["model"])
+			# HOW HARD IT LIGHTS ITSELF, and why it is not one number (owner, s23: "please
+			# also brighten them slightly, they seem extra dark in game, moreso than their
+			# model"). Most of that was the metallicRoughness map the motion shader was not
+			# sampling — see creature_anim.gd; fixing it alone brings the three DECK snails
+			# up to the brightness of the model render, and any emission on top of full
+			# daylight would only push a near-white shell through main.gd's 0.8 glow
+			# threshold. The other six live on caisson concrete 11-19 m down, where there is
+			# no direct light at all, and they photographed as pure black silhouettes against
+			# coral that is EMISSIVE at 1.35 — the same "a lit surface at depth renders
+			# near-black whatever its albedo" that cost s21 three albedo passes on the mussel
+			# scar. So the deep ones get their own colour back and the deck ones get a sheen.
+			var lit: float = DECK_GLOW if _base.y > 0.0 else DEEP_GLOW
+			for m in _gen_mats:
+				(m as ShaderMaterial).set_shader_parameter("body_glow", lit)
 		# Same verb set as the other three crawlers: crouch for COLLECT, greens offer FEED
 		# ahead of the GRAB fallback.
 		var touch := FaunaTouch.new("Pyramid Snail", 0.6,

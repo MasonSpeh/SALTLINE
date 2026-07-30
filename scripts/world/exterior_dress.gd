@@ -35,6 +35,7 @@ extends Node3D
 ##
 ## Self-contained: it builds itself from _ready and touches no other file.
 
+const SignFit = preload("res://scripts/world/sign_fit.gd")   # by path: class cache lags new files
 const LADDER := preload("res://scripts/components/ladder.gd")
 
 const DECK_Y: float = 18.0
@@ -319,11 +320,19 @@ func _solid(p: Node3D, center: Vector3, size: Vector3) -> StaticBody3D:
 ## Stencil paint. yaw/pitch aim the glyph face: the label's local -Z must point INTO
 ## whatever it is painted on (yaw 0 = a wall on the label's -Z side, yaw 180 = +Z side,
 ## pitch -90 = lying on a deck reading east).
+##
+## `fit` is the panel this marking has to live inside, in metres (x = width, y = height,
+## 0 on either axis = unconstrained): the font shrinks until the wording fits. Prefer
+## `_placard()` below, which sizes the plate and the text from ONE number and so cannot
+## drift apart. See sign_fit.gd for why an eyeballed font size is not good enough.
 func _paint(p: Node3D, text: String, pos: Vector3, yaw: float, pitch: float,
-		fsize: int, col: Color = Color(0.09, 0.09, 0.1)) -> Label3D:
+		fsize: int, col: Color = Color(0.09, 0.09, 0.1),
+		fit: Vector2 = Vector2.ZERO) -> Label3D:
 	var l := Label3D.new()
 	l.text = text
-	l.font_size = fsize
+	l.font_size = SignFit.fit_size(text, fit.x, fit.y, fsize)
+	if fit != Vector2.ZERO:
+		l.set_meta("sign_face", fit)   # asserted by tests/label_anchor_probe.gd
 	l.pixel_size = 0.01
 	l.modulate = col
 	l.outline_size = 0
@@ -334,6 +343,47 @@ func _paint(p: Node3D, text: String, pos: Vector3, yaw: float, pitch: float,
 	l.position = pos
 	l.rotation = Vector3(deg_to_rad(pitch), deg_to_rad(yaw), 0.0)
 	return l
+
+## A NAME PLATE AND ITS WORDING, FROM ONE NUMBER. Draws the backing plate at `centre`
+## with in-plane size `size` and stencils `text` on the front of it, centred, at the
+## largest font size up to `fsize` that fits inside `size` less `MARGIN` on every edge.
+##
+## Every fixture on this deck used to build the plate and the paint as two independent
+## statements — a `_bx(..., Vector3(0.86, 0.24, 0.03), red)` and, two lines later, a
+## `_paint(..., 16, ...)` at a hand-nudged offset. Neither one knew the other's size, so
+## "FIRE HOSE REEL" rendered 1.21 m wide across an 0.86 m plate (a 41% overhang, in the
+## owner's line of sight from the bunkhouse door) and seven other placards were 10-90 mm
+## over on one axis or the other. The nudges are the same bug: every one of them pushed
+## the wording 20-80 mm ABOVE the plate centre, which is the whole vertical overflow.
+##
+## `depth` is the plate thickness; `front` is the outward normal (the label sits 20 mm
+## proud of the plate face along it, so it renders in front and not z-fighting).
+func _placard(p: Node3D, text: String, centre: Vector3, size: Vector2, front: Vector3,
+		fsize: int, plate: Material, col: Color = Color(0.10, 0.10, 0.10, 0.95),
+		depth: float = 0.025) -> void:
+	# A Label3D's visible face is its local +Z, so the yaw that points the wording at the
+	# viewer is atan2(n.x, n.z) — derived, not one of the four hand-typed cardinals this
+	# file used to carry at every call site.
+	var n: Vector3 = front.normalized()
+	var yaw: float = rad_to_deg(atan2(n.x, n.z))
+	var pitch: float = 0.0
+	if absf(n.y) > 0.9:
+		# Lying flat (a deck marking or an upward-facing plate): pitch the glyph plane over.
+		pitch = -90.0 if n.y > 0.0 else 90.0
+		yaw = 0.0
+	var box := BoxMesh.new()
+	box.size = Vector3(size.x, depth, size.y) if pitch != 0.0 else Vector3(size.x, size.y, depth)
+	box.material = plate
+	var mi := MeshInstance3D.new()
+	mi.mesh = box
+	mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+	p.add_child(mi)
+	mi.position = centre
+	mi.rotation.y = deg_to_rad(yaw)
+	_paint(p, text, centre + n * (depth * 0.5 + 0.02), yaw, pitch, fsize, col,
+		size - Vector2(PLACARD_MARGIN, PLACARD_MARGIN) * 2.0)
+
+const PLACARD_MARGIN: float = 0.03   ## clear border kept between wording and plate edge
 
 ## Fixture lamp: an OmniLight tucked inside its own housing, on the deck circuit.
 func _lamp(world_pos: Vector3, colour: Color, energy: float, rng: float) -> void:
@@ -576,10 +626,12 @@ func _dorm_wall_line() -> void:
 	_bx(db, Vector3(-13.2, DECK_Y + 1.60, zf - 0.25), Vector3(0.54, 0.77, 0.03), dark)
 	_bx(db, Vector3(-12.94, DECK_Y + 1.60, zf - 0.29), Vector3(0.06, 0.16, 0.06),
 		MatLib.flat(Color(0.75, 0.15, 0.12)))
-	_bx(db, Vector3(-13.2, DECK_Y + 2.10, zf - 0.12), Vector3(0.30, 0.14, 0.05), steel)
-	_cy(db, Vector3(-13.2, DECK_Y + 2.28, zf - 0.10), 0.035, 0.32, dark)
-	_paint(db, "DB-4", Vector3(-13.2, DECK_Y + 2.13, zf - 0.30), 180.0, 0.0, 20,
-		Color(0.85, 0.85, 0.8, 0.9))
+	_cy(db, Vector3(-13.2, DECK_Y + 2.32, zf - 0.10), 0.035, 0.28, dark)
+	# The board's name plate. "DB-4" at font 20 renders 0.467 m wide and the plate under it
+	# was 0.30 — and the wording was authored 0.18 m in FRONT of it besides, so it read as
+	# floating white letters wider than the box they belonged to. One call now sizes both.
+	_placard(db, "DB-4", Vector3(-13.2, DECK_Y + 2.10, zf - 0.12), Vector2(0.52, 0.18),
+		Vector3(0, 0, -1), 20, steel, Color(0.85, 0.85, 0.8, 0.9), 0.05)
 
 	for jx in [-24.6, -16.0]:
 		var jb := _wall_asm("DormJunctionBox")
@@ -682,8 +734,9 @@ func _drum_bund() -> void:
 			_ring(a, Vector3(dx, DECK_Y + ry, z), 0.29, 0.325, MatLib.rust_steel())
 		_cy(a, Vector3(dx, DECK_Y + 1.10, z), 0.30, 0.03, MatLib.rusty_metal())
 		_cy(a, Vector3(dx + 0.16, DECK_Y + 1.13, z), 0.045, 0.04, galv)
+	# Stencilled straight on the drum: a 0.60 m barrel face is all the width there is.
 	_paint(a, "WASTE OIL", Vector3(x - 0.66, DECK_Y + 0.72, z - 0.32), 180.0, 0.0, 16,
-		Color(0.88, 0.86, 0.8, 0.9))
+		Color(0.88, 0.86, 0.8, 0.9), Vector2(0.54, 0.30))
 	_solid(a, Vector3(x, DECK_Y + 0.6, z), Vector3(2.1, 1.2, 1.25))
 
 ## Big timber cable reel stood on edge against the shop wall.
@@ -752,10 +805,9 @@ func _gas_bottle_cage() -> void:
 	for i in range(2):
 		_bx(a, Vector3(x, DECK_Y + 0.95 + i * 0.42, z - 0.30), Vector3(1.4, 0.035, 0.035), galv)
 	# Placard on a bolted plate (never bare text on a bar).
-	_bx(a, Vector3(x + 0.45, DECK_Y + 1.45, z - 0.71), Vector3(0.92, 0.46, 0.025),
-		MatLib.flat(Color(0.80, 0.72, 0.18)))
-	_paint(a, "FLAMMABLE\n   GAS", Vector3(x + 0.45, DECK_Y + 1.53, z - 0.73), 180.0, 0.0, 16,
-		Color(0.10, 0.10, 0.10, 0.95))
+	_placard(a, "FLAMMABLE\n   GAS", Vector3(x + 0.45, DECK_Y + 1.45, z - 0.71),
+		Vector2(1.04, 0.56), Vector3(0, 0, -1), 16, MatLib.flat(Color(0.80, 0.72, 0.18)),
+		Color(0.10, 0.10, 0.10, 0.95), 0.025)
 	_solid(a, Vector3(x, DECK_Y + 1.0, z), Vector3(2.0, 2.0, 1.5))
 
 ## Welding bay: skid-mounted set, bottle trolley, two screens making a corner you can
@@ -956,10 +1008,9 @@ func _roof_ladder() -> void:
 		var kb := _bx(a, Vector3(x + side4, ROOF_Y + 0.35, z - 0.26), Vector3(0.05, 0.85, 0.05), steel)
 		kb.rotation.x = deg_to_rad(40)   # z-0.26 keeps the brace proud of the wall face
 	# Warning plate at eye height on the wall beside the stile.
-	_bx(a, Vector3(x - 0.95, DECK_Y + 1.75, SHOP_WALL_Z + 0.05), Vector3(1.0, 0.40, 0.03),
-		MatLib.flat(Color(0.80, 0.72, 0.18)))
-	_paint(a, "ROOF ACCESS\n  HARNESS", Vector3(x - 0.95, DECK_Y + 1.81, SHOP_WALL_Z + 0.07),
-		0.0, 0.0, 16, Color(0.10, 0.10, 0.10, 0.95))
+	_placard(a, "ROOF ACCESS\n  HARNESS", Vector3(x - 0.95, DECK_Y + 1.75, SHOP_WALL_Z + 0.05),
+		Vector2(1.06, 0.52), Vector3(0, 0, 1), 16, MatLib.flat(Color(0.80, 0.72, 0.18)),
+		Color(0.10, 0.10, 0.10, 0.95), 0.03)
 
 # ============================================================ ALLEY: north band
 
@@ -1007,10 +1058,9 @@ func _hose_reel_cabinet() -> void:
 			MatLib.flat(Color(0.22, 0.22, 0.24)), Vector3(90, 0, 0))
 	_cy(a, Vector3(x - 0.30, DECK_Y + 1.04, z - 0.20), 0.035, 0.34, MatLib.galvanized())
 	_bx(a, Vector3(x, DECK_Y + 1.96, z + 0.02), Vector3(1.06, 0.06, 0.48), steel)  # hood
-	_bx(a, Vector3(x, DECK_Y + 2.05, DORM_WALL_Z - 0.03), Vector3(0.86, 0.24, 0.03),
-		MatLib.flat(Color(0.72, 0.15, 0.12)))
-	_paint(a, "FIRE HOSE REEL", Vector3(x, DECK_Y + 2.10, DORM_WALL_Z - 0.05), 180.0, 0.0, 16,
-		Color(0.94, 0.92, 0.88, 0.95))
+	_placard(a, "FIRE HOSE REEL", Vector3(x, DECK_Y + 2.05, DORM_WALL_Z - 0.03),
+		Vector2(1.0, 0.28), Vector3(0, 0, -1), 16, MatLib.flat(Color(0.72, 0.15, 0.12)),
+		Color(0.94, 0.92, 0.88, 0.95), 0.03)
 	_solid(a, Vector3(x, DECK_Y + 1.42, z), Vector3(1.0, 1.05, 0.46))
 
 func _eyewash_station() -> void:
@@ -1127,9 +1177,8 @@ func _extinguisher_point() -> void:
 		MatLib.flat(Color(0.16, 0.48, 0.26)))
 	_bx(a, Vector3(x, DECK_Y + 1.62, z - 0.11), Vector3(0.08, 0.24, 0.02),
 		MatLib.flat(Color(0.16, 0.48, 0.26)))
-	_bx(a, Vector3(x, DECK_Y + 1.92, z), Vector3(0.9, 0.24, 0.03), red)
-	_paint(a, "FIRE POINT 4", Vector3(x, DECK_Y + 1.97, z - 0.02), 180.0, 0.0, 16,
-		Color(0.94, 0.92, 0.88, 0.95))
+	_placard(a, "FIRE POINT 4", Vector3(x, DECK_Y + 1.92, z), Vector2(0.9, 0.28),
+		Vector3(0, 0, -1), 16, red, Color(0.94, 0.92, 0.88, 0.95), 0.03)
 	_solid(a, Vector3(x, DECK_Y + 0.9, z), Vector3(0.9, 1.9, 0.5))
 
 ## Deck cargo: two pallets, a couple of crates and a drum under a weathered tarpaulin,
@@ -1236,10 +1285,9 @@ func _jockey_skid() -> void:
 			_bx(a, Vector3(x + cx2, DECK_Y + 0.30, z + cz2), Vector3(0.05, 0.16, 0.12), steel)
 			_ring(a, Vector3(x + cx2, DECK_Y + 0.38, z + cz2), 0.045, 0.075, steel,
 				Vector3(0, 0, 90))
-	_bx(a, Vector3(x + 0.42, DECK_Y + 0.98, z - 0.20), Vector3(0.34, 0.22, 0.02),
-		MatLib.flat(Color(0.78, 0.76, 0.70)))
-	_paint(a, "P-04", Vector3(x + 0.42, DECK_Y + 1.00, z - 0.22), 180.0, 0.0, 14,
-		Color(0.12, 0.12, 0.12, 0.95))
+	_placard(a, "P-04", Vector3(x + 0.42, DECK_Y + 0.98, z - 0.20), Vector2(0.40, 0.28),
+		Vector3(0, 0, -1), 14, MatLib.flat(Color(0.78, 0.76, 0.70)),
+		Color(0.12, 0.12, 0.12, 0.95), 0.02)
 	_solid(a, Vector3(x, DECK_Y + 0.55, z), Vector3(2.7, 1.1, 1.45))
 
 ## Lashed cargo basket — the thing that came aboard by crane and never went back.
@@ -1304,10 +1352,9 @@ func _cargo_basket() -> void:
 			_ring(a, Vector3(x + cx4 * 1.12, DECK_Y + 0.03, z + cz4 * 1.12), 0.045, 0.075, steel)
 			_bx(a, Vector3(x + cx4 * 1.12, DECK_Y + 0.01, z + cz4 * 1.12),
 				Vector3(0.14, 0.02, 0.14), steel)
-	_bx(a, Vector3(x + 0.9, DECK_Y + 1.10, z - hd - 0.06), Vector3(0.72, 0.34, 0.02),
-		MatLib.flat(Color(0.80, 0.78, 0.70)))
-	_paint(a, "BASKET 07\n1250 kg", Vector3(x + 0.9, DECK_Y + 1.14, z - hd - 0.08), 180.0, 0.0, 13,
-		Color(0.11, 0.11, 0.11, 0.95))
+	_placard(a, "BASKET 07\n1250 kg", Vector3(x + 0.9, DECK_Y + 1.10, z - hd - 0.06),
+		Vector2(0.78, 0.46), Vector3(0, 0, -1), 13, MatLib.flat(Color(0.80, 0.78, 0.70)),
+		Color(0.11, 0.11, 0.11, 0.95), 0.02)
 	_solid(a, Vector3(x, DECK_Y + 0.75, z), Vector3(2.7, 1.5, 1.8))
 
 ## The mustering point: painted square, sign post, tally board.
@@ -1330,8 +1377,8 @@ func _muster_point() -> void:
 			z + _rng.randf_range(-0.9, 0.9)),
 			Vector3(_rng.randf_range(0.4, 0.9), 0.015, _rng.randf_range(0.3, 0.8)), _wear_mat())
 		w.rotation.y = _rng.randf_range(0.0, TAU)
-	_paint(a, "MUSTER B", Vector3(x - 0.95, y + 0.008, z + 0.85), 0.0, -90.0, 32,
-		Color(0.86, 0.88, 0.84, 0.85))
+	_paint(a, "MUSTER B", Vector3(x, y + 0.008, z + 0.85), 0.0, -90.0, 32,
+		Color(0.86, 0.88, 0.84, 0.85), Vector2(2.4, 0.6))
 	# Sign post on a bolted base plate.
 	var px: float = x + 1.35
 	var pz: float = z + 1.35
@@ -1344,7 +1391,7 @@ func _muster_point() -> void:
 	_bx(a, Vector3(px, DECK_Y + 1.95, pz - 0.055), Vector3(0.70, 0.48, 0.01), white)
 	_bx(a, Vector3(px, DECK_Y + 1.95, pz - 0.06), Vector3(0.64, 0.42, 0.005), green)
 	_paint(a, "MUSTER\nSTATION B", Vector3(px, DECK_Y + 2.06, pz - 0.07), 180.0, 0.0, 16,
-		Color(0.93, 0.94, 0.90, 0.95))
+		Color(0.93, 0.94, 0.90, 0.95), Vector2(0.58, 0.37))   # inner green field is 0.64 x 0.42
 	# Tally board below it, with the hooks the tags hang on.
 	_bx(a, Vector3(px, DECK_Y + 1.35, pz - 0.03), Vector3(0.62, 0.44, 0.04),
 		MatLib.flat(Color(0.42, 0.36, 0.26)))
@@ -1708,10 +1755,9 @@ func _radome() -> void:
 		MatLib.dark_metal())
 	_cy(a, Vector3(x + 0.42, ROOF_Y + 0.56, z + 0.34), 0.045, 1.0,
 		MatLib.flat(Color(0.13, 0.13, 0.15)))
-	_bx(a, Vector3(x, ROOF_Y + 0.86, z - 0.48), Vector3(0.42, 0.22, 0.02),
-		MatLib.flat(Color(0.80, 0.78, 0.70)))
-	_paint(a, "SATCOM", Vector3(x, ROOF_Y + 0.88, z - 0.50), 180.0, 0.0, 13,
-		Color(0.11, 0.11, 0.11, 0.95))
+	_placard(a, "SATCOM", Vector3(x, ROOF_Y + 0.86, z - 0.48), Vector2(0.62, 0.26),
+		Vector3(0, 0, -1), 13, MatLib.flat(Color(0.80, 0.78, 0.70)),
+		Color(0.11, 0.11, 0.11, 0.95), 0.02)
 	_solid(a, Vector3(x, ROOF_Y + 0.95, z), Vector3(1.3, 1.9, 1.3))
 
 ## Trays tying the roof plant back to the mast base — plant that isn't wired is a model.

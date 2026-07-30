@@ -6,6 +6,19 @@ class_name BenchPanel extends Panel
 ## bench top in-world. No recipe browser — the parts themselves are the menu.
 
 const MAX_LAID: int = 4
+## Slot geometry, matched to the pack's (hud.gd builds 74 px squares with a picture, a
+## bottom name/count strip and a riveted steel frame). Owner, 2026-07-30: "Update the
+## rigging bench, that should also have UI updated like the inventory."
+const LAY_SLOT_PX: int = 84
+const PACK_SLOT_PX: int = 66
+const PACK_COLS: int = 8
+## How big a laid part is drawn ON THE BENCH TOP, in metres along its longest axis. Small
+## enough that four of them fit across a 1.6 m bench with air between them, big enough that
+## a bolt is still a bolt rather than a speck.
+const LAY_WORLD_SIZE: float = 0.30
+## Rest this far proud of the top, so a flat part (a plank, a tarp) does not z-fight with the
+## plank it is lying on. The same 5 mm support_index.gd rests every settled prop by.
+const LAY_CLEAR: float = 0.005
 ## The hint list is grouped under these headers so ~40 recipes stay readable.
 const CAT_ORDER: Array[String] = ["material", "structure", "gear", "food"]
 const CAT_LABEL := {
@@ -35,6 +48,15 @@ var _working: bool = false
 var _work_elapsed: float = 0.0
 var _work_recipe: String = ""
 var _part_visuals: Array[Node3D] = []
+## The HUD's own ItemIcons renderer, handed over at construction. Shared rather than a second
+## instance: an icon costs a SubViewport render per distinct item, and the pack has already
+## paid for every id the player is carrying.
+var icons: Node = null
+var _hover_label: Label
+var _pack_slots: Array[Button] = []
+## What each pack slot currently holds, parallel to _pack_slots — the click and hover handlers
+## are bound once at build time and read this, so a refresh never rebuilds a single Control.
+var _pack_ids: Array[String] = []
 
 static func load_recipes() -> void:
 	if not recipes.is_empty():
@@ -69,8 +91,8 @@ static func item_name(id: String) -> String:
 func _ready() -> void:
 	load_recipes()
 	load_items()
-	custom_minimum_size = Vector2(620, 660)
-	position = Vector2(-310, -330)
+	custom_minimum_size = Vector2(720, 620)
+	position = Vector2(-360, -310)
 	visible = false
 	var vbox := VBoxContainer.new()
 	vbox.set_anchors_preset(Control.PRESET_FULL_RECT)
@@ -78,25 +100,37 @@ func _ready() -> void:
 	vbox.offset_top = 12
 	vbox.offset_right = -18
 	vbox.offset_bottom = -12
-	vbox.add_theme_constant_override("separation", 10)
+	vbox.add_theme_constant_override("separation", 8)
 	add_child(vbox)
 
 	var title := Label.new()
 	title.text = "RIGGING BENCH        lay parts · work them"
 	title.add_theme_font_size_override("font_size", 17)
 	vbox.add_child(title)
+	# The pack's hazard-stripe rule, same colour and same 3 px, so the two panels read as
+	# one piece of kit rather than two different UIs.
+	var hazard_rule := ColorRect.new()
+	hazard_rule.custom_minimum_size = Vector2(0, 3)
+	hazard_rule.color = Color(0.62, 0.5, 0.14)
+	hazard_rule.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(hazard_rule)
 
-	# THE BENCH: four lay slots.
+	# THE BENCH: four lay slots, built exactly like a pack slot.
+	var laid_caption := Label.new()
+	laid_caption.text = "ON THE BENCH — click a part to take it back"
+	laid_caption.add_theme_font_size_override("font_size", 13)
+	laid_caption.add_theme_color_override("font_color", Color(0.65, 0.7, 0.68))
+	vbox.add_child(laid_caption)
 	var laid_row := HBoxContainer.new()
 	laid_row.add_theme_constant_override("separation", 8)
 	laid_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_child(laid_row)
 	for i in range(MAX_LAID):
-		var b := Button.new()
-		b.custom_minimum_size = Vector2(130, 56)
-		b.focus_mode = Control.FOCUS_NONE
+		var b: Button = _slot_button(LAY_SLOT_PX)
 		var idx: int = i
 		b.pressed.connect(func() -> void: take_back(idx))
+		b.mouse_entered.connect(func() -> void:
+			_hover(str(laid[idx]) if idx < laid.size() else ""))
 		laid_row.add_child(b)
 		_laid_buttons.append(b)
 
@@ -139,16 +173,136 @@ func _ready() -> void:
 	pack_title.add_theme_color_override("font_color", Color(0.65, 0.7, 0.68))
 	vbox.add_child(pack_title)
 	var pack_scroll := ScrollContainer.new()
-	pack_scroll.custom_minimum_size = Vector2(0, 196)
+	pack_scroll.custom_minimum_size = Vector2(0, PACK_SLOT_PX * 2 + 14)
 	pack_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	pack_scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	vbox.add_child(pack_scroll)
 	_pack_grid = GridContainer.new()
-	_pack_grid.columns = 4
+	_pack_grid.columns = PACK_COLS
 	_pack_grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	_pack_grid.add_theme_constant_override("h_separation", 8)
-	_pack_grid.add_theme_constant_override("v_separation", 8)
+	_pack_grid.add_theme_constant_override("h_separation", 6)
+	_pack_grid.add_theme_constant_override("v_separation", 6)
 	pack_scroll.add_child(_pack_grid)
+	# Built ONCE for the largest the pack can ever be, then filled per refresh — the old grid
+	# queue_free()d and rebuilt every button on every refresh, which drops the hover state and
+	# the mouse-over the player is in the middle of.
+	var max_slots: int = PlayerState.HOTBAR_SIZE + PlayerState.MAX_BACKPACK \
+		+ PlayerState.TOOL_BELT_SLOTS
+	for i in range(max_slots):
+		var pb: Button = _slot_button(PACK_SLOT_PX)
+		var pidx: int = i
+		pb.pressed.connect(func() -> void:
+			if pidx < _pack_ids.size():
+				lay_item(_pack_ids[pidx]))
+		pb.mouse_entered.connect(func() -> void:
+			_hover(_pack_ids[pidx] if pidx < _pack_ids.size() else ""))
+		_pack_grid.add_child(pb)
+		_pack_slots.append(pb)
+
+	# The name popup. The pack names the item under the cursor at the bottom of the screen;
+	# a panel this size can do it in place, right under the grid the cursor is in.
+	_hover_label = Label.new()
+	_hover_label.custom_minimum_size = Vector2(0, 20)
+	_hover_label.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_hover_label.add_theme_font_size_override("font_size", 14)
+	_hover_label.add_theme_color_override("font_color", Color(0.88, 0.88, 0.84))
+	_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	vbox.add_child(_hover_label)
+
+## One pack-style slot: a square riveted socket with the item's own render filling it and an
+## always-visible name/count strip along the bottom. Lifted from hud.gd's inventory grid so the
+## two panels cannot drift apart — same sizes, same three styleboxes, same amber hover.
+func _slot_button(px: int) -> Button:
+	var b := Button.new()
+	b.custom_minimum_size = Vector2(px, px)
+	b.focus_mode = Control.FOCUS_NONE
+	b.clip_contents = true
+	var slot_normal := StyleBoxFlat.new()
+	slot_normal.bg_color = Color(0.145, 0.15, 0.16)
+	slot_normal.border_color = Color(0.05, 0.05, 0.055)
+	slot_normal.set_border_width_all(2)
+	slot_normal.set_corner_radius_all(3)
+	b.add_theme_stylebox_override("normal", slot_normal)
+	var slot_hover := slot_normal.duplicate()
+	slot_hover.border_color = Color(0.7, 0.55, 0.2)
+	slot_hover.bg_color = Color(0.19, 0.19, 0.2)
+	b.add_theme_stylebox_override("hover", slot_hover)
+	var slot_pressed := slot_normal.duplicate()
+	slot_pressed.border_color = Color(0.62, 0.5, 0.14)
+	slot_pressed.bg_color = Color(0.1, 0.1, 0.11)
+	b.add_theme_stylebox_override("pressed", slot_pressed)
+	b.add_theme_stylebox_override("focus", slot_normal)
+	b.add_theme_stylebox_override("disabled", slot_normal)
+	var pic := TextureRect.new()
+	pic.name = "Pic"
+	pic.set_anchors_preset(Control.PRESET_FULL_RECT)
+	pic.offset_left = 4
+	pic.offset_top = 4
+	pic.offset_right = -4
+	pic.offset_bottom = -4
+	pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	b.add_child(pic)
+	var tag_bg := Panel.new()
+	tag_bg.name = "TagBG"
+	tag_bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
+	tag_bg.custom_minimum_size = Vector2(0, 15)
+	tag_bg.offset_top = -15
+	tag_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var tag_style := StyleBoxFlat.new()
+	tag_style.bg_color = Color(0.02, 0.02, 0.02, 0.72)
+	tag_style.content_margin_left = 2
+	tag_style.content_margin_right = 2
+	tag_bg.add_theme_stylebox_override("panel", tag_style)
+	var tag_lbl := Label.new()
+	tag_lbl.name = "Tag"
+	tag_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
+	tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	tag_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	tag_lbl.clip_text = true
+	tag_lbl.add_theme_font_size_override("font_size", 9)
+	tag_lbl.add_theme_color_override("font_color", Color(0.88, 0.88, 0.84))
+	tag_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	tag_bg.add_child(tag_lbl)
+	b.add_child(tag_bg)
+	return b
+
+## Fill one slot: the item's own render as the picture, the name (and stack count) in the
+## strip. `id` empty leaves the socket bare rather than stale.
+func _fill_slot(b: Button, id: String, count: int, empty_text: String) -> void:
+	var pic: TextureRect = b.get_node("Pic")
+	var tag_bg: Panel = b.get_node("TagBG")
+	var tag_lbl: Label = tag_bg.get_node("Tag")
+	if id == "":
+		pic.texture = null
+		tag_bg.visible = false
+		b.text = empty_text
+		b.modulate = Color(1, 1, 1, 0.35)
+		return
+	pic.texture = icons.get_icon(id) if icons != null and icons.has_method("get_icon") else null
+	tag_bg.visible = true
+	tag_lbl.text = _tag_text(id, count)
+	b.text = ""
+	b.modulate = Color(1, 1, 1)
+
+## The pack's own abbreviation rule: a 66-74 px slot at 9 pt fits ~11-12 narrow characters,
+## so long names are cut at a word boundary rather than left to Label.clip_text.
+const _TAG_MAX_CHARS: int = 12
+func _tag_text(id: String, count: int) -> String:
+	var full: String = item_name(id)
+	var suffix: String = " ×%d" % count if count > 1 else ""
+	var budget: int = _TAG_MAX_CHARS - suffix.length()
+	var shown: String = full
+	if full.length() > budget:
+		var cut: int = full.rfind(" ", budget)
+		shown = full.substr(0, cut if cut > 3 else budget) + "…"
+	return shown + suffix
+
+func _hover(id: String) -> void:
+	if _hover_label == null:
+		return
+	_hover_label.text = "" if id == "" else item_name(id)
 
 var test_hold: bool = false   ## headless tests hold the work button through this
 
@@ -403,32 +557,22 @@ func _free_slots() -> int:
 # ---------------------------------------------------------------- display
 
 func refresh() -> void:
-	# Lay slots.
+	# Lay slots — the item's own picture now, not its name in a wide button.
 	for i in range(MAX_LAID):
-		if i < laid.size():
-			_laid_buttons[i].text = item_name(str(laid[i]))
-			_laid_buttons[i].modulate = Color(1, 0.95, 0.75)
-		else:
-			_laid_buttons[i].text = "· lay here ·"
-			_laid_buttons[i].modulate = Color(1, 1, 1, 0.4)
-	# Pack grid: one button per item instance.
-	for c in _pack_grid.get_children():
-		c.queue_free()
-	var all_items: Array = []
-	for it in PlayerState.hotbar:
-		if it != null:
-			all_items.append(it)
-	for it in PlayerState.inventory:
-		if it != null:
-			all_items.append(it)
-	for it in all_items:
-		var b := Button.new()
-		b.custom_minimum_size = Vector2(130, 40)
-		b.focus_mode = Control.FOCUS_NONE
-		b.text = item_name(str(it))
-		var id: String = str(it)
-		b.pressed.connect(func() -> void: lay_item(id))
-		_pack_grid.add_child(b)
+		_fill_slot(_laid_buttons[i], str(laid[i]) if i < laid.size() else "", 1,
+			"· lay here ·")
+	# Pack grid: one slot per STACK, filled into buttons that already exist.
+	var stacks: Array = _pack_stacks()
+	_pack_ids.clear()
+	for st in stacks:
+		_pack_ids.append(str(st["id"]))
+	for i in range(_pack_slots.size()):
+		if i >= stacks.size():
+			_pack_slots[i].visible = i < maxi(stacks.size(), PACK_COLS)
+			_fill_slot(_pack_slots[i], "", 0, "")
+			continue
+		_pack_slots[i].visible = true
+		_fill_slot(_pack_slots[i], str(stacks[i]["id"]), int(stacks[i]["n"]), "")
 	# Match line.
 	var exact: String = current_match()
 	var partials: Array[String] = partial_matches()
@@ -441,8 +585,9 @@ func refresh() -> void:
 		if not ready:
 			head = "These parts want to be: %s" % r["name"]
 			tint = "#c9b458"
-		blocks.append("[b][color=%s]%s[/color][/b]%s\n%s%s%s" % [
-			tint, head, _tool_note(exact), r["desc"], _yield_note(exact), _hint_note(exact)])
+		blocks.append("[b][color=%s]%s[/color][/b]%s\n%s%s%s%s" % [
+			tint, head, _tool_note(exact), r["desc"], _yield_note(exact),
+			_stock_note(exact), _hint_note(exact)])
 		_work_button.disabled = not ready
 	else:
 		_work_button.disabled = true
@@ -453,6 +598,12 @@ func refresh() -> void:
 		if exact != "":
 			lead = "Or, with more parts:"
 		blocks.append("[color=#c9b458]%s[/color]\n%s" % [lead, _hint_lines(partials)])
+		# The nearest unfinished recipe gets the same have-vs-needs breakdown the finished
+		# one does, so "still needs 2× Rope" is answerable without closing the panel and
+		# opening the pack (owner: "player should also know how many of each material they
+		# have left").
+		blocks.append(_stock_note(partials[0], "%s — what it wants"
+			% str(recipes[partials[0]]["name"])).strip_edges())
 	if blocks.is_empty():
 		if laid.is_empty():
 			blocks.append("[color=#8a8f8c]The bench is clear. Lay parts on it and see what they want to be.[/color]")
@@ -460,6 +611,74 @@ func refresh() -> void:
 			blocks.append("[color=#8a8f8c]These parts don't speak to each other. Take something back.[/color]")
 	_match_label.text = "\n".join(blocks)
 	_update_part_visuals()
+
+## The pack as a list of STACKS — {id, n} per occupied slot, hotbar first, in the order the
+## player sees them. The old grid appended one button per slot without its count, so a stack
+## of six ropes read as one rope.
+func _pack_stacks() -> Array:
+	var out: Array = []
+	for i in range(PlayerState.hotbar.size()):
+		if PlayerState.hotbar[i] != null and String(PlayerState.hotbar[i]) != "":
+			out.append({"id": String(PlayerState.hotbar[i]), "n": PlayerState.hotbar_stack(i)})
+	for i in range(PlayerState.inventory.size()):
+		if PlayerState.inventory[i] != null and String(PlayerState.inventory[i]) != "":
+			out.append({"id": String(PlayerState.inventory[i]),
+				"n": PlayerState.inventory_stack(i)})
+	return out
+
+## HOW MANY OF EACH MATERIAL YOU ACTUALLY HAVE, per ingredient, against what the recipe wants.
+##
+## Owner, 2026-07-30: "player should also know how many of each material they have left."
+## The hint lines only ever said what was MISSING from the bench ("still needs 2× Rope"), which
+## is not the same question — a player short two ropes cannot tell from that whether they are
+## in the pack, in a crate, or not on the rig at all. Each line is
+## `<name>   <on the bench> + <in the pack> / <needed>`, green once the count is covered by
+## what is laid, amber while the pack can still cover it, red when the rig cannot.
+## Family tokens ("@raw_fish") are counted over everything the token accepts, which is the same
+## rule _consume_token crafts by.
+func _stock_note(rid: String, heading: String = "MATERIALS  (on the bench + in the pack / needed)") -> String:
+	var needs: Dictionary = recipes.get(rid, {}).get("needs", {})
+	if needs.is_empty():
+		return ""
+	var laid_counts: Dictionary = _laid_counts()
+	var lines: Array[String] = ["\n[color=#6f7a76]%s[/color]" % heading]
+	for k in needs:
+		var key: String = str(k)
+		var want: int = int(needs[k])
+		var on_bench: int = 0
+		var in_pack: int = 0
+		if _is_token(key):
+			for id in laid_counts:
+				if _token_accepts(key, str(id)):
+					on_bench += int(laid_counts[id])
+			for id2 in _pack_ids_all():
+				if _token_accepts(key, id2):
+					in_pack += PlayerState.count_item(id2)
+		else:
+			on_bench = int(laid_counts.get(key, 0))
+			in_pack = PlayerState.count_item(key)
+		var tint: String = "#c96f58"                     # short, and the pack cannot cover it
+		if on_bench >= want:
+			tint = "#7fd8c8"                             # already on the bench
+		elif on_bench + in_pack >= want:
+			tint = "#c9b458"                             # reachable: go and lay it
+		lines.append("  [color=%s]%-22s %d + %d / %d[/color]"
+			% [tint, item_name(key), on_bench, in_pack, want])
+	return "\n".join(lines)
+
+## Every distinct id the pack holds — the search space a family token is counted over.
+func _pack_ids_all() -> Array[String]:
+	var seen: Dictionary = {}
+	for it in PlayerState.hotbar:
+		if it != null and String(it) != "":
+			seen[String(it)] = true
+	for it in PlayerState.inventory:
+		if it != null and String(it) != "":
+			seen[String(it)] = true
+	var out: Array[String] = []
+	for k in seen:
+		out.append(str(k))
+	return out
 
 ## The "still needs" list, grouped Materials / Structures / Gear / Food and capped —
 ## a single plate of steel is a partial for a dozen things now.
@@ -523,21 +742,176 @@ func _yield_note(rid: String) -> String:
 		return ""
 	return "\n[color=#8a8f8c]Yields %s[/color]" % ", ".join(bits)
 
-## Physical parts on the in-world bench top.
+## PHYSICAL PARTS ON THE IN-WORLD BENCH TOP — the real items, on the real surface.
+##
+## Owner, 2026-07-30: "The items should also display on the table surface as the player
+## selects/lays them down to craft." They already did, after a fashion: four flat pastel BOXES
+## whose colour was `hash(id) * 0.000001`, standing at a hand-typed local y = 1.08. The wet-deck
+## bench's carcass is 0.9 m tall CENTRED on its own origin, so its top is +0.45 — every part was
+## floating 0.63 m over the bench it was supposed to be lying on, which is the exact class of
+## bug docs/AGENT_TRAPS.md's "never hand-type a Y coordinate" rule exists for.
+##
+## Now: ItemVisual.build() — the same node the world puts on the ground and the hand holds and
+## ItemIcons photographs for the slot above — scaled to LAY_WORLD_SIZE along its longest axis
+## and SEATED on a measured surface, spread across the bench's own measured footprint.
 func _update_part_visuals() -> void:
+	# REMOVED, not just queue_free()d. `queue_free` is deferred, so the old parts are still
+	# children of the bench when _bench_surface() measures it on the very next line — and since
+	# they are standing ON the surface, the surface reads higher every refresh. Measured: three
+	# parts walked the "bench top" from local y 0.50 to 1.468 over one panel session, and the
+	# parts went with it, hanging a metre over the plank. Detach first.
 	for v in _part_visuals:
 		if is_instance_valid(v):
+			if v.get_parent() != null:
+				v.get_parent().remove_child(v)
 			v.queue_free()
 	_part_visuals.clear()
-	if bench == null:
+	if bench == null or not is_instance_valid(bench) or laid.is_empty():
 		return
+	var top: Dictionary = _bench_surface()
+	var span: float = float(top["half_x"]) * 1.30      # 65% of the plank, each side of centre
 	for i in range(laid.size()):
-		var mi := MeshInstance3D.new()
-		var bm := BoxMesh.new()
-		bm.size = Vector3(0.24, 0.14, 0.24)
-		var hue: float = fmod(hash(laid[i]) * 0.000001, 1.0)
-		bm.material = MatLib.flat(Color.from_hsv(hue, 0.35, 0.65))
-		mi.mesh = bm
-		bench.add_child(mi)
-		mi.position = Vector3(-0.55 + i * 0.37, 1.08, 0.0)
-		_part_visuals.append(mi)
+		var v: Node3D = ItemVisual.build(str(laid[i]))
+		if v == null:
+			continue
+		bench.add_child(v)
+		_part_visuals.append(v)
+		var box: AABB = _tree_aabb(v, v)
+		var largest: float = maxf(box.size.x, maxf(box.size.y, box.size.z))
+		var k: float = LAY_WORLD_SIZE / largest if largest > 0.0001 else 1.0
+		v.scale = Vector3.ONE * k
+		# Laid out along the bench's long axis, centred, and rotated a little each so four
+		# parts read as a job in progress rather than as a shop display.
+		var t: float = 0.0 if laid.size() < 2 else float(i) / float(laid.size() - 1) - 0.5
+		var cx: float = t * span
+		var cz: float = (-0.06 if i % 2 == 0 else 0.06) * float(top["half_z"])
+		v.rotation.y = deg_to_rad(-18.0 + 12.0 * float(i))
+		# Base ON the surface, centred over its slot: the AABB is in the visual's OWN space,
+		# so its centre and its floor both have to come back through the same scale.
+		var c: Vector3 = box.get_center()
+		v.position = Vector3(cx - c.x * k,
+			float(top["y"]) + LAY_CLEAR - box.position.y * k, cz - c.z * k)
+
+## THE BENCH'S REAL TOP AND FOOTPRINT, in the bench's own local space. Measured, never typed.
+##
+## Two sources, because one is not enough here. The CraftBench node's own geometry is its
+## carcass (`build_box_visual`, 1.6 x 0.9 x 0.7 centred on the origin), but both benches on the
+## rig carry a 1.7 x 0.06 x 0.8 PLANK that rig_builder/rig_superstructure add to THEMSELVES, not
+## to the bench — so the carcass AABB alone is 50 mm short and every part would sit inside the
+## plank. So the bench's own tree is measured first, and then its siblings are scanned for a
+## small slab lying directly over that footprint, which is what the plank is.
+var _surface_cache: Dictionary = {}
+func _bench_surface() -> Dictionary:
+	if _surface_cache.has(bench.get_instance_id()):
+		return _surface_cache[bench.get_instance_id()]
+	var box: AABB = _tree_aabb(bench, bench, _part_visuals)
+	if box.size == Vector3.ZERO:
+		# A bench with no visual children of its own (a build-mode ghost, a stub in a probe):
+		# fall back to its collision shape, which every spawn path does give it.
+		for c in bench.get_children():
+			var cs := c as CollisionShape3D
+			if cs != null and cs.shape is BoxShape3D:
+				var half: Vector3 = (cs.shape as BoxShape3D).size * 0.5
+				box = AABB(cs.position - half, half * 2.0)
+	var top_y: float = box.end.y
+	var half_x: float = maxf(box.size.x, 0.4) * 0.5
+	var half_z: float = maxf(box.size.z, 0.3) * 0.5
+	var parent: Node = bench.get_parent()
+	if parent != null:
+		var inv: Transform3D = bench.global_transform.affine_inverse()
+		for sib in parent.get_children():
+			var vi := sib as VisualInstance3D
+			if vi == null or vi == bench:
+				continue
+			var w: AABB = vi.get_aabb()
+			if w.size.x > 3.0 or w.size.z > 3.0 or w.size.y > 0.35:
+				continue    # merged dressing chunks and furniture, not a bench top
+			var local: AABB = (inv * vi.global_transform) * w
+			if absf(local.get_center().x) > half_x or absf(local.get_center().z) > half_z:
+				continue
+			if local.end.y > top_y and local.end.y < top_y + 0.35:
+				top_y = local.end.y
+				half_x = maxf(half_x, local.size.x * 0.5)
+				half_z = maxf(half_z, local.size.z * 0.5)
+	top_y = maxf(top_y, _welded_top(top_y, half_x, half_z))
+	_surface_cache[bench.get_instance_id()] = {
+		"y": top_y, "half_x": half_x, "half_z": half_z}
+	return _surface_cache[bench.get_instance_id()]
+
+## THE WORK TOP IS NOT A NODE. `rig_batcher.gd` welds the rig's dressing into a handful of
+## `MergedDressing` ArrayMesh chunks and FREES the sources, so the 1.7 x 0.06 x 0.8 plank both
+## benches wear — built by rig_builder/rig_superstructure onto THEMSELVES, not onto the bench —
+## cannot be found by any walk over the tree. That is docs/AGENT_TRAPS.md's "search from the
+## picture, not the tree" in its purest form, and a merged chunk's AABB is up to 13 m across so
+## it answers nothing. So the question is put to the TRIANGLES: the highest vertex inside the
+## bench's own footprint and within 350 mm of the carcass top. Without it the parts sit 50 mm
+## down inside the plank — a fifth of a 260 mm item buried.
+##
+## Bounded (VERT_BUDGET) and cached per bench for the session, so this vertex walk is paid once
+## on the first open of a given bench and never again.
+const VERT_BUDGET: int = 400000
+## A BOX HAS NO VERTICES IN THE MIDDLE OF ITS FACE. The first cut of this probe asked whether a
+## vertex fell inside the carcass footprint and found nothing at all: the plank is 1.7 x 0.8
+## against a 1.6 x 0.7 carcass, so all eight of its corners are OUTSIDE by 50 mm and every one
+## was rejected. The footprint test is therefore given a margin — a work top overhangs its
+## carcass, that is what a work top is — while the 350 mm height window keeps a neighbouring
+## crate or barrel out.
+const FOOT_MARGIN: float = 0.30
+func _welded_top(base_y: float, half_x: float, half_z: float) -> float:
+	if bench == null or not bench.is_inside_tree():
+		return base_y
+	var inv: Transform3D = bench.global_transform.affine_inverse()
+	var best: float = base_y
+	var budget: int = VERT_BUDGET
+	for n in bench.get_tree().get_nodes_in_group("merged_dressing"):
+		var mi := n as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		# Cheap reject on the chunk as a whole: the bench has to be inside it at all.
+		var chunk: AABB = (inv * mi.global_transform) * mi.get_aabb()
+		if not chunk.intersects(AABB(Vector3(-half_x, base_y - 0.05, -half_z),
+				Vector3(half_x * 2.0, 0.40, half_z * 2.0))):
+			continue
+		var to_local: Transform3D = inv * mi.global_transform
+		for si in range(mi.mesh.get_surface_count()):
+			var arrays: Array = mi.mesh.surface_get_arrays(si)
+			if arrays.is_empty():
+				continue
+			var verts: PackedVector3Array = arrays[Mesh.ARRAY_VERTEX]
+			budget -= verts.size()
+			if budget < 0:
+				return best
+			for v in verts:
+				var l: Vector3 = to_local * v
+				if l.y <= best or l.y > base_y + 0.35:
+					continue
+				if absf(l.x) > half_x + FOOT_MARGIN or absf(l.z) > half_z + FOOT_MARGIN:
+					continue
+				best = l.y
+	return best
+
+## Combined AABB of every mesh under `node`, expressed in `base`'s local space. `skip` prunes
+## whole sub-trees — the laid parts themselves, which must never be measured as part of the
+## surface they are standing on.
+static func _tree_aabb(node: Node3D, base: Node3D, skip: Array = []) -> AABB:
+	var out: AABB = AABB()
+	var found: bool = false
+	var stack: Array[Node] = [node]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		if skip.has(n):
+			continue
+		for c in n.get_children():
+			stack.append(c)
+		var mi := n as MeshInstance3D
+		if mi == null or mi.mesh == null:
+			continue
+		var t: Transform3D = Transform3D.IDENTITY
+		var cur: Node3D = mi
+		while cur != null and cur != base:
+			t = cur.transform * t
+			cur = cur.get_parent() as Node3D
+		var b: AABB = t * mi.mesh.get_aabb()
+		out = b if not found else out.merge(b)
+		found = true
+	return out if found else AABB()

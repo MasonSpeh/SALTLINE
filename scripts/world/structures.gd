@@ -231,6 +231,7 @@ static func lean_to(ghost: bool) -> Node3D:
 	if not ghost:
 		var heat := WarmthZone.new()
 		heat.mode = 1
+		heat.fire = false          # shelter, not a flame — see WarmthZone.fire
 		heat.setup(Vector3(2.4, 2.2, 2.6))
 		root.add_child(heat)
 		heat.position = Vector3(0, 1.0, 0)
@@ -358,6 +359,7 @@ static func bedroll(ghost: bool) -> Node3D:
 	if not ghost:
 		var heat := WarmthZone.new()
 		heat.mode = 1
+		heat.fire = false          # bedding, not a flame — see WarmthZone.fire
 		heat.setup(Vector3(1.7, 1.3, 2.6))
 		root.add_child(heat)
 		heat.position = Vector3(0, 0.6, 0)
@@ -964,6 +966,7 @@ static func windbreak(ghost: bool) -> Node3D:
 	if not ghost:
 		var heat := WarmthZone.new()
 		heat.mode = 1
+		heat.fire = false          # a windbreak, not a flame — see WarmthZone.fire
 		heat.setup(Vector3(2.6, 2.2, 1.8))
 		root.add_child(heat)
 		heat.position = Vector3(0, 1.0, 0.7)

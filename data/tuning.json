@@ -7,6 +7,8 @@
 	"warmth_per_sec_cold": -0.004,
 	"warmth_per_sec_night": -0.0015,
 	"warmth_per_sec_heated": 0.02,
+	"_warmth_fire": "Owner, 2026-07-30: 'Have warmth increase 30% faster rate when standing by stove/fire.' Multiplies warmth_per_sec_heated while the player is inside a WarmthZone whose `fire` flag is set — brazier, fire barrel, hearth, barrel stove, the galley range. The lean-to, the bedroll and the windbreak are shelter, not flame, and stay on the plain 0.02 (0.02 -> 0.026 at a fire: a full bar in 38.5s instead of 50s).",
+	"warmth_fire_rate_mult": 1.30,
 
 	"_crabs": "The 2026-07-25 predator pass renamed these on purpose. The old keys (crab_pursue_speed 3.8 / crab_detect_radius 6.0 / crab_contact_radius 1.2) were the TAME numbers, and leaving them in place under the names the code reads would have silently reverted the whole overhaul the first time this file loaded. They are deleted rather than left dead so nobody re-points the code at them.",
 	"_crabs_2026_07_25b": "Owner call, same day: 4.4 chase read as barely escapable even by sprint (5.0) once combined with the pack always being fully out. Dropped to 4.0 — still faster than the 3.2 walk, still slower than the 5.0 sprint, but with real air between it and your top speed. Paired with a 50% nightly no-show roll per crab (crab.gd _on_night) so the pack itself is lighter most nights too.",

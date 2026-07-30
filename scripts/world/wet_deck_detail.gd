@@ -7,6 +7,7 @@ extends Node3D
 ## bilge gutters, tide-stain bands, escape-route signage, and scattered salvage.
 ## All coordinates are absolute (the node sits at origin like the other builders).
 
+const SignFit = preload("res://scripts/world/sign_fit.gd")   # by path: class cache lags new files
 const WET_Y: float = 2.0
 const DECK_Y: float = 18.0
 
@@ -67,11 +68,17 @@ func _dtorus(pos: Vector3, inner: float, outer: float, mat: Material) -> MeshIns
 
 ## pitch_deg tips the paint out of vertical: pass -90 to lay a marking FLAT on decking,
 ## rather than standing it up in the plating with half the glyph buried.
+## `fit` is the panel this marking has to live inside, in metres (x = width, y = height,
+## 0 on either axis = unconstrained): the font shrinks until the wording fits. See
+## sign_fit.gd — a hand-picked font size cannot be right for two different words.
 func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
-		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0) -> void:
+		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0,
+		fit: Vector2 = Vector2.ZERO) -> void:
 	var l := Label3D.new()
 	l.text = text
-	l.font_size = font_size
+	l.font_size = SignFit.fit_size(text, fit.x, fit.y, font_size)
+	if fit != Vector2.ZERO:
+		l.set_meta("sign_face", fit)   # asserted by tests/label_anchor_probe.gd
 	l.pixel_size = 0.01
 	var _wear: float = clampf((color.r + color.g + color.b) / 3.0, 0.0, 1.0)   # black stencil paint
 	var _k: float = lerpf(0.06, 0.17, _wear)
@@ -91,15 +98,12 @@ func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 30,
 func _signplate(text: String, pos: Vector3, yaw_deg: float, font_size: int, color: Color,
 		w: float, h: float, pitch_deg: float = 0.0) -> void:
 	# SIGNAGE RULE: the passed w/h are MINIMUMS — the plate is grown to fit the text plus
-	# margins so the wording never clips or overflows the plate. 0.58 is a safe upper-bound
-	# average glyph advance for the default font at pixel_size 0.01; 1.35 is line height.
-	var lines: PackedStringArray = text.split("\n")
-	var max_chars: int = 1
-	for ln in lines:
-		max_chars = maxi(max_chars, ln.length())
-	var fpx: float = float(font_size) * 0.01
-	w = maxf(w, max_chars * fpx * 0.58 + 0.12)
-	h = maxf(h, lines.size() * fpx * 1.35 + 0.10)
+	# margins so the wording never clips or overflows the plate. The extent is MEASURED
+	# (sign_fit.gd), not estimated from a per-character average: the old 0.58 em guess ran
+	# up to 14% under the truth on real upper-case wording, which is a plate too small.
+	var ext: Vector2 = SignFit.extent(text, font_size)
+	w = maxf(w, ext.x + 0.12)
+	h = maxf(h, ext.y + 0.10)
 	var b := Basis.from_euler(Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg), 0.0))
 	var back: Vector3 = -b.z.normalized()
 	var mi := MeshInstance3D.new()
@@ -110,7 +114,7 @@ func _signplate(text: String, pos: Vector3, yaw_deg: float, font_size: int, colo
 	add_child(mi)
 	mi.position = pos + back * 0.03
 	mi.rotation = Vector3(deg_to_rad(pitch_deg), deg_to_rad(yaw_deg), 0.0)
-	_plabel(text, pos, yaw_deg, font_size, color, pitch_deg)
+	_plabel(text, pos, yaw_deg, font_size, color, pitch_deg, Vector2(w, h))
 
 func _readable(id: String, name_: String, pos: Vector3, size: Vector3 = Vector3(0.35, 0.45, 0.06)) -> Readable:
 	var r := Readable.new()
@@ -250,7 +254,8 @@ func _boat_landing() -> void:
 	lt_h.rotation.z = deg_to_rad(90)                                                   # carry handle
 	for hx in [-0.1, 0.1]:
 		_dbox(lt + Vector3(hx, 0.19, 0), Vector3(0.02, 0.035, 0.02), MatLib.galvanized())
-	_plabel("LINE THROWER", Vector3(26.7, y + 0.2, -20.34), 180, 10, Color(0.92, 0.92, 0.88))
+	_plabel("LINE THROWER", Vector3(26.7, y + 0.2, -20.34), 180, 10, Color(0.92, 0.92, 0.88),
+		0.0, Vector2(0.46, 0.12))   # the case lid is 0.53 x 0.30
 	# Dock locker — first honest loot of the game, off to the side of the landing.
 	#
 	# PULLED 1 m INBOARD (z -19.6 -> -18.6). The crate is 1.1 x 0.8 x 0.8 and settles to
@@ -297,8 +302,27 @@ func _mooring_station() -> void:
 		var rim := _dcyl(Vector3(10 + rim_x, y + 0.85, -23.8), 0.6, 0.06, MatLib.galvanized())
 		rim.rotation.z = deg_to_rad(90)
 	_dbox(Vector3(10.95, y + 0.62, -23.8), Vector3(0.7, 0.6, 0.6), MatLib.teal_paint())
-	var lever := _dbox(Vector3(9.3, y + 0.95, -23.5), Vector3(0.08, 0.7, 0.08), MatLib.red_paint())
-	lever.rotation.x = deg_to_rad(-25)
+	# THE BRAKE LEVER WAS THE FLOATING BAR. It was authored at a hand-typed y + 0.95 with
+	# nothing under it: 80 mm square, 0.7 m long, raked 25 deg, its foot hanging 316 mm
+	# clear of the bedplate top — by a wide margin the most isolated object anywhere on
+	# the wet deck (the runner-up clears 122 mm), and red, so it read from the whole
+	# south dock as a thin bar floating over the mooring platform. Everything below is
+	# DERIVED from the bedplate's own top face, so it cannot drift again: pedestal on the
+	# plate, ratchet quadrant, pin through it, and the lever hung off the pin.
+	var bed_top: float = y + 0.30                       # bedplate: centre y+0.15, 0.30 thick
+	var pivot := Vector3(9.3, bed_top + 0.24, -23.5)
+	_dbox(Vector3(pivot.x, (bed_top + pivot.y) * 0.5, pivot.z),
+		Vector3(0.14, pivot.y - bed_top, 0.20), rust)                        # pedestal
+	var quad := _dcyl(pivot + Vector3(0.055, 0, 0), 0.17, 0.025, rust)
+	quad.rotation.z = deg_to_rad(90)                                          # ratchet quadrant
+	var pin := _dcyl(pivot, 0.032, 0.20, MatLib.galvanized())
+	pin.rotation.z = deg_to_rad(90)                                           # pivot pin
+	var rake: float = deg_to_rad(-25)
+	var arm: Vector3 = Vector3(0, cos(rake), sin(rake))   # the lever's own +Y, once raked
+	var lever := _dbox(pivot + arm * 0.29, Vector3(0.08, 0.7, 0.08), MatLib.red_paint())
+	lever.rotation.x = rake
+	var grip := _dcyl(pivot + arm * 0.60, 0.045, 0.14, dark)
+	grip.rotation.x = rake                                                    # hand grip
 	# Chain stopper between wheel and fairlead.
 	_dbox(Vector3(10, y + 0.3, -24.45), Vector3(0.7, 0.35, 0.45), rust)
 	# Fairlead fork at the platform edge.
@@ -331,7 +355,8 @@ func _mooring_station() -> void:
 	gun.rotation.z = deg_to_rad(90)
 	# Snap-back warning where the platform meets the deck.
 	_plabel("MOORING STATION 4-SW — STAY CLEAR · SNAP-BACK ZONE",
-		Vector3(13.0, y + 2.3, -22.14), 180, 20, Color(0.8, 0.68, 0.2))
+		Vector3(13.0, y + 2.3, -22.14), 180, 20, Color(0.8, 0.68, 0.2), 0.0,
+		Vector2(5.5, 0.0))
 
 func _rail_seg(a: Vector3, b: Vector3) -> void:
 	var mat: Material = MatLib.rust_steel()
@@ -381,8 +406,18 @@ func _pipe_gallery() -> void:
 	var vw2 := _dtorus(Vector3(9.45, y + 2.05, -9.0), 0.08, 0.19, MatLib.flat(Color(0.8, 0.68, 0.2)))
 	vw2.rotation.x = deg_to_rad(0)
 	_dcyl(Vector3(9.45, y + 1.82, -9.0), 0.06, 0.4, MatLib.galvanized())
-	# Stencil plate on the seawater main (was floating in the alley beside the pipe).
-	_signplate("SW MAIN — GRAVITY FEED", Vector3(9.3, y + 1.0, -16.5), 90, 12, Color(0.75, 0.78, 0.72), 1.5, 0.24)
+	# Stencil plate ON the seawater main. It was authored at x 9.3 against a pipe of
+	# radius 0.19 on the axis x 9.0 — so the plate's inner face sat at x 9.255 and the
+	# pipe's skin at 9.19, leaving a 1.65 x 0.26 m plate hanging 65 mm off the pipe in
+	# open air. Derived from the pipe now, and carried on two saddle clips.
+	var sea_r: float = 0.19
+	var sea_x: float = 9.0
+	var plate_x: float = sea_x + sea_r + 0.03    # _signplate seats the plate at pos - 0.03
+	_signplate("SW MAIN — GRAVITY FEED", Vector3(plate_x, y + 1.0, -16.5), 90, 12,
+		Color(0.75, 0.78, 0.72), 1.5, 0.24)
+	for cz2 in [-0.62, 0.62]:
+		_dbox(Vector3(sea_x + sea_r * 0.5, y + 1.0, -16.5 + cz2),
+			Vector3(sea_r + 0.06, 0.1, 0.05), MatLib.rust_steel())   # saddle clips
 	# Cable tray along the pump-room west wall, dropping to a junction box.
 	for tray_p in [Vector3(9.82, y + 2.55, -10.0)]:
 		_dbox(tray_p, Vector3(0.3, 0.04, 7.6), MatLib.galvanized())
@@ -564,7 +599,12 @@ func _scatter_items() -> void:
 	# reads as a floating glitch (owner report: "standing up with no support in middle of
 	# wetdeck"). The rod's visual leans 14° toward -x, so based 0.4m off the wall face
 	# (x16.125) its tip grazes the wall and it reads as leant, not levitating.
-	_takeable("fishing_rod", "Fishing Rod", Vector3(16.5, y + 0.05, -16.75))
+	# The rod that used to stand here is GONE (owner, 2026-07-30: "remove the fishing rod found
+	# right away… the player should have to find that one, or the one in the rec room,
+	# encourages exploration before fishing"). It was on the open plate outside the store-room
+	# east wall, i.e. on the walk from the respawn — the first thing found and the whole food
+	# economy handed over before the player had opened a door. The prybar stays: it was not
+	# what the owner named, and it is what opens the doors the other two rods are behind.
 	_takeable("prybar", "Prybar", Vector3(16.3, y + 0.05, -17.1))
 	# The Fisherman's Handbook beside it: every species, its hours, its weather tier, its
 	# water, its depth and what it wants on the hook — read against the same table the rod

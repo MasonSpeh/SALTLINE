@@ -26,6 +26,27 @@ uniform float roughness_v : hint_range(0.0, 1.0) = 0.6;
 // glass snail is the one species that swaps to the glass shader to become see-through.
 uniform float opacity : hint_range(0.0, 1.0) = 1.0;
 uniform float metallic_v : hint_range(0.0, 1.0) = 0.0;
+// THE metallicRoughness MAP, and the reason it has to be here (s23, measured).
+// Godot's glTF importer writes metallicFactor/roughnessFactor into the SCALARS and puts the
+// real per-texel values in a TEXTURE. Every Tripo-era asset in this repo ships
+// metallicFactor = roughnessFactor = 1.0 — pyramid_snail, herring_gull, ultra_hammerhead,
+// all ten trop_*, five deep fish — so a shader that reads only the scalars renders those
+// thirteen species as FULLY METALLIC, and a metal with no reflection probe under it is
+// black. That is the owner's "the snail is far darker in game than the model is": the model
+// viewer samples this map, the shader did not. `orm_rough_mask` / `orm_metal_mask` pick the
+// channel off the live material rather than assuming glTF's G/B, so an import that changes
+// its mind cannot silently go dark again. use_orm stays false for the older Meshy assets,
+// which carry no map and honest 0.0/0.8 scalars — those are byte-identical to before.
+uniform sampler2D orm_tex : hint_default_white;
+uniform bool use_orm = false;
+uniform vec4 orm_rough_mask = vec4(0.0, 1.0, 0.0, 0.0);
+uniform vec4 orm_metal_mask = vec4(0.0, 0.0, 1.0, 0.0);
+// Flat self-lighting keyed to the albedo, energy units. 0.0 = off, which is what every
+// species that does not ask for it gets. The Bloom's animals are lit by an environment
+// that reaches almost none of them (a caisson face at y -15 has no direct light at all),
+// so a species that must read at depth gets a little of its own colour back rather than a
+// brighter albedo — the same trick reef_fish.gdshader uses, at a gentler exponent.
+uniform float body_glow = 0.0;
 
 // --- motion ---------------------------------------------------------------------
 // 0 undulate (fish/eel/shark)  1 wing flap (ray)  2 bell pulse (jelly)  3 fast flap (bird)
@@ -203,13 +224,25 @@ void fragment() {
 	ALBEDO = a.rgb;
 	ROUGHNESS = roughness_v;
 	METALLIC = metallic_v;
+	if (use_orm) {
+		vec4 orm = texture(orm_tex, UV);
+		ROUGHNESS = roughness_v * dot(orm, orm_rough_mask);
+		METALLIC = metallic_v * dot(orm, orm_metal_mask);
+	}
 	if (use_normal) {
 		NORMAL_MAP = texture(normal_tex, UV).rgb;
 	}
 	// Fresnel rim: the Bloom reads as light coming off the edges of the animal.
 	float rim = pow(1.0 - clamp(dot(NORMAL, VIEW), 0.0, 1.0), rim_power);
+	vec3 emis = vec3(0.0);
+	if (body_glow > 0.001) {
+		emis += a.rgb * sqrt(a.rgb) * body_glow;
+	}
 	if (glow_energy > 0.001) {
-		EMISSION = glow_color.rgb * glow_energy * rim;
+		emis += glow_color.rgb * glow_energy * rim;
+	}
+	if (body_glow > 0.001 || glow_energy > 0.001) {
+		EMISSION = emis;
 	}
 	// OPAQUE base shader: ALPHA is never written, so every creature sharing this shader
 	// (crab, gulls, jelly, lamp/rust snails, flora…) renders solid — no transparent pass,

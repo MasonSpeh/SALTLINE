@@ -160,6 +160,17 @@ func _ready() -> void:
 	# Nothing about the range should stop working when the lights go out mid-cook without
 	# the player being told why — that is what _lost_power says.
 	PowerGrid.circuit_lost.connect(_on_circuit_lost)
+	# A LIVE RANGE IS A HEAT SOURCE. Owner, 2026-07-30: "Have warmth increase 30% faster rate
+	# when standing by stove/fire." The braziers, the fire barrels and the galley's barrel stove
+	# all carried a WarmthZone already; the range — the one appliance the player stands at for
+	# minutes at a time — carried none, so the galley was the one warm room that did not warm
+	# you. Gated on the same circuit the hobs are, so a dead range is a cold one.
+	var heat := WarmthZone.new()
+	heat.mode = 1
+	heat.requires_circuit = CIRCUIT
+	heat.setup(Vector3(3.2, 2.6, 3.0))
+	add_child(heat)
+	heat.position = Vector3(0.0, 0.2, -0.9)   # the standing side, in front of the oven door
 
 ## One piece of oven trim: drawn, never collided (the interactable's own box already
 ## carries the collider) and never shadow-casting.

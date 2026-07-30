@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://sign_check_shot"]
+[ext_resource type="Script" path="res://tests/sign_check.gd" id="1"]
+[node name="SignCheck" type="Node"]
+script = ExtResource("1")

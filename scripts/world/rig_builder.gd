@@ -4,6 +4,7 @@ class_name RigBuilder extends Node3D
 ## Positions are the level design — edit here, not in scattered scenes.
 
 const STAIRS := preload("res://scripts/world/stair_kit.gd")   # by path: class cache lags new files
+const SignFit = preload("res://scripts/world/sign_fit.gd")   # by path: class cache lags new files
 ## Bunkhouse cabin furniture grid, shared with interior_props so the two cannot drift.
 const BUNKS := preload("res://scripts/world/bunk_layout.gd")   # by path: class cache lags new files
 
@@ -300,16 +301,22 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 		return
 	var slope_len: float = sqrt(rise * rise + run * run)
 	var angle: float = atan2(rise, run)
-	# StairKit's ramp sits 0.05 low at the foot and is 0.06 thick, so its top surface
-	# OVERSHOOTS the landing height by a couple of centimetres at the top of the run.
-	# Two centimetres sounds harmless. It is not: a 0.4m-radius capsule climbing a
-	# 39-degree slope first touches the landing's leading corner from 0.36m back, where
-	# the ramp is a quarter of a metre lower, and that contact is ~51 degrees off
-	# vertical — past floor_max_angle, so CharacterBody3D calls it a wall and the climb
-	# stops dead one step short of the top. Dropping the ramp by exactly its overshoot
-	# makes the walking surface pass through the foot and the top corner, so run and
-	# landing meet flush and the corner is no longer something that has to be climbed.
-	var overshoot: float = -0.05 + 0.05 * sin(angle) + 0.06 * cos(angle)
+	# THE RAMP IS FLUSH WHEN IT LEAVES THE KIT — do not correct it here.
+	#
+	# This used to carry `overshoot = -0.05 + 0.05*sin + 0.06*cos` and subtract it from
+	# the sloped shape's Y, in three identical copies across three files. That expression
+	# is not the overshoot; the closed form is `h/cos(angle) - h` with h = 0.06 (see
+	# stair_kit.gd). The two agree only at 39.8 deg, and every flight in the game is
+	# shallower than that, so all thirteen ended up 1.3-9.6 mm BELOW their landings and
+	# the landing's leading edge stood proud of the run. It also slid StairKit's top lip
+	# to `run + 0.22`, i.e. 0.4 m of BoxShape3D fully buried inside the landing slab with
+	# its top face coplanar to the millimetre — a second static body offering the same
+	# walking plane at precisely the transition. Both are fixed at the source now.
+	#
+	# What is still ours: the handrail collider. StairKit collides its rail as one thin
+	# bar at chest height with open air beneath it, so a capsule's waist catches the bar
+	# while its feet slide under; we drop it and stand a single smooth guard slab inside
+	# the visual rail below.
 	for child in root.get_children():
 		var body := child as StaticBody3D
 		if body == null:
@@ -318,16 +325,12 @@ func _stair_run(from: Vector3, to: Vector3, width: float,
 		for c in body.get_children():
 			if c is MeshInstance3D:
 				is_rail = true   # a railed _vbox carries its mesh; the walk body does not
+		if not is_rail:
+			continue
 		for c in body.get_children():
 			var cs := c as CollisionShape3D
-			if cs == null:
-				continue
-			if is_rail:
+			if cs != null:
 				cs.disabled = true
-			elif absf(cs.rotation.x) > 0.001:
-				cs.position.y -= overshoot   # the sloped walking surface, set flush
-			elif cs.position.z > run * 0.5:
-				cs.position.z = run + 0.22   # the top lip, slid clear of the slope
 	# 3. THE FOOT. The guard stops short of the bottom step. A slab running the flight's
 	#    full length walls it off from the side, and a stair is not always entered along
 	#    its axis: the tower's first flight is stepped onto SIDEWAYS off the wet-deck
@@ -1017,7 +1020,8 @@ func _build_stair_tower() -> void:
 	# Arrow on the landing-2 platform floor, aimed north at the breaker door.
 	_box(Vector3(23.2, 10.02, 0.4), Vector3(0.3, 0.02, 0.9), MatLib.flat(Color(0.9, 0.7, 0.15)), self, false)
 	_box(Vector3(23.2, 10.02, 0.95), Vector3(0.55, 0.02, 0.3), MatLib.flat(Color(0.9, 0.7, 0.15)), self, false)
-	_plabel("BREAKER 4-A", Vector3(22.6, 10.02, -0.4), 90, 12, Color(0.9, 0.7, 0.15), -90.0)
+	_plabel("BREAKER 4-A", Vector3(22.6, 10.02, -0.4), 90, 12, Color(0.9, 0.7, 0.15), -90.0,
+		Vector2(0.64, 0.30))   # painted on the landing plate, clear of its north edge
 	# Inside the room: the ORDER, at a glance, right on the panel wall. The full
 	# maintenance log (why, and the arc-flash warning) is the readable beside it.
 	#
@@ -1195,7 +1199,8 @@ func _build_ops_room(fy: float) -> void:
 	# stencil by the stairwell hole send them back DOWN to Landing 2.
 	_box(Vector3(26.0, fy + 0.55, 2.83), Vector3(2.2, 0.34, 0.04), MatLib.hazard_stripe(), self, false)
 	_plabel("WATCH CONSOLE - NOT THE BREAKER", Vector3(26.0, fy + 0.62, 2.81), 180, 12, Color(0.05, 0.05, 0.05))
-	_plabel("MASTER BREAKER 4-A: DOWN THE STAIR, LANDING 2", Vector3(26.0, fy + 0.45, 2.81), 180, 10, Color(0.05, 0.05, 0.05))
+	_plabel("MASTER BREAKER 4-A: DOWN THE STAIR, LANDING 2", Vector3(26.0, fy + 0.45, 2.81),
+		180, 10, Color(0.05, 0.05, 0.05), 0.0, Vector2(2.1, 0.28))
 	# On the deck at the north lip of the stairwell hole, laid flat, pointing down the shaft.
 	_plabel("v  POWER: DOWN TO LANDING 2  v", Vector3(25.7, fy + 0.02, -1.15), 0, 16,
 		Color(0.9, 0.7, 0.15), -90.0)
@@ -2266,8 +2271,15 @@ func _build_sphl() -> void:
 	glow.global_position = Vector3(board_x + 0.22, fy + 1.55, cz)
 	countdown_label = Label3D.new()
 	countdown_label.text = "PRESSURE — EQUALIZED"
-	countdown_label.font_size = 40
+	# Sized to the recessed readout face above (0.92 x 0.22), less a 2 cm bezel, and
+	# measured rather than guessed: at font_size 40 the wording rendered 0.946 m across
+	# a 0.920 m glass. main.gd rewrites this text at runtime, so the fit is taken on the
+	# LONGEST string that can appear here, not on whichever one happens to be set now.
 	countdown_label.pixel_size = 0.002
+	var readout_face := Vector2(0.88, 0.18)
+	countdown_label.font_size = SignFit.fit_size("PRESSURE — EQUALIZED", readout_face.x,
+		readout_face.y, 40, countdown_label.pixel_size)
+	countdown_label.set_meta("sign_face", readout_face)
 	countdown_label.modulate = Color(0.3, 0.9, 0.4)
 	countdown_label.outline_size = 0
 	# SHADED, like every other Label3D in the game. This was the one exception — the
@@ -3072,25 +3084,40 @@ func _build_emergency_beacons() -> void:
 		add_child(b)
 		b.global_position = s[0]
 
-## LIFEBOAT 1 — the enclosed free-fall survival craft (TEMPSC), still hung in its davits
-## at the south muster edge. Lifeboat 2's davits nearby stand empty ("BOAT AWAY"); this is
-## the one the player can walk up to and point at. International-orange GRP hull, canopy,
-## coxswain dome, keel skeg, on falls from two davit arms. Readable as THE lifeboat.
+## LIFEBOAT 1 — the enclosed free-fall survival craft (TEMPSC), hung in the davits at the
+## south muster edge. International-orange GRP hull, canopy, coxswain dome, keel skeg, on
+## falls from two davit arms. Readable as THE lifeboat.
+##
+## IT USED TO BE PARKED INSIDE THE CRANE. The berth was (-3.5, -18.2), and the derrick's
+## south-west base corner stands at exactly (-2.2, -18.2) — the same z as the hull axis.
+## The leg's centreline ran INSIDE the 0.95 m hull cylinder for a continuous 1.88 m of its
+## height (buried 0.838 m at the hull's own centre height), the derrick's bottom ring brace
+## ran through the hull for 1.58 m, and the keel skeg overlapped the leg 0.32 x 0.20 m.
+## Both are colliding bodies. The rig has TWO davit slots and the western one stood empty,
+## so the boat is now berthed there and the davit set that fouled the crane is gone.
+##
+## The berth is ONE constant. The hull, the chocks, both flank stencils, the deck muster
+## paint and rig_exterior's davit arms are all expressed from it.
+##
+## x -10.2 rather than the empty berth's nominal -10.5: the hull is 6.5 m over its caps,
+## and at -10.5 its west cap lands 40 mm from the machine shop's SE corner post
+## (x -14.21..-13.79). At -10.2 that gap is 0.34 m and the east cap is still 4.25 m clear
+## of the drill-floor apron. z -18.0 rather than -18.2 keeps the hull's south skin 0.15 m
+## off the davit posts at z -19.2 instead of 50 mm inside them.
+const BOAT_BERTH := Vector3(-10.2, 0.0, -18.0)
+const BOAT_HULL_R: float = 0.95
+const BOAT_HOOK_DX: float = 1.4     ## lifting eyes, either side of the berth centre
+
 func _build_lifeboat() -> void:
-	var steel: Material = MatLib.painted_steel()
 	var dark: Material = MatLib.dark_metal()
 	var orange: Material = MatLib.sphl_orange()
-	var cx: float = -3.5
-	var cz: float = -18.2
+	var cx: float = BOAT_BERTH.x
+	var cz: float = BOAT_BERTH.z
 	var hull_y: float = DECK_Y + 1.35
-	# --- davit posts + arcing arms + falls, framing the boat ---
+	# Cradle chocks under the hull. The davit posts, arms and falls that used to be built
+	# here are gone — the berth this boat now sits in has its own (rig_exterior._davits),
+	# and two sets at one station is what "delete the davit overlapping the crane" means.
 	for s in [-1.0, 1.0]:
-		var px: float = cx + s * 2.7
-		_box(Vector3(px, DECK_Y + 1.1, -19.4), Vector3(0.22, 2.4, 0.22), steel)         # post
-		var arm := _box(Vector3(px, DECK_Y + 2.5, -18.7), Vector3(0.16, 0.16, 2.0), steel, self, false)
-		arm.rotation.x = deg_to_rad(24.0)                                               # arm arcs out over the boat
-		_dcyl(Vector3(px, DECK_Y + 1.9, cz + 0.2), 0.02, 1.4, dark)                     # fall (wire)
-		# Cradle chock under the hull.
 		var chock := _box(Vector3(cx + s * 1.7, DECK_Y + 0.35, cz), Vector3(0.3, 0.6, 1.4), dark, self, false)
 		chock.rotation.z = s * 0.28
 	# --- hull: one clean orange CSG shell (no collision on the CSG; a box body carries it) ---
@@ -3132,7 +3159,7 @@ func _build_lifeboat() -> void:
 	for rz in [-0.5, 0.5]:
 		_dcyl(Vector3(cx, hull_y + 0.35, cz + rz), 0.03, 3.6, MatLib.galvanized()).rotation.z = deg_to_rad(90)
 	# Lifting hooks the falls clip to.
-	for s2 in [-1.4, 1.4]:
+	for s2 in [-BOAT_HOOK_DX, BOAT_HOOK_DX]:
 		_box(Vector3(cx + s2, hull_y + 1.0, cz), Vector3(0.1, 0.3, 0.1), MatLib.galvanized(), self, false)
 	# Collision so you can't walk through it.
 	var sb := StaticBody3D.new()
@@ -3533,12 +3560,22 @@ func _more_industry() -> void:
 ## pitch_deg tips the paint out of vertical: pass -90 to lay a marking FLAT on decking.
 ## Without it a stencil authored at floor height renders as an upright sheet standing
 ## in the plating with half the glyph buried, which is what "LIFEBOAT 2" used to do.
+##
+## `fit` is the panel this marking has to live inside, in metres (x = width, y = height,
+## 0 on either axis = unconstrained). Pass the size of the plate/panel/beam face the paint
+## is applied to and the font shrinks until the wording fits it. See sign_fit.gd for why
+## an eyeballed font size is not good enough: upper-case glyphs on the shipping font run
+## 0.54-0.66 em, so the same font size is a comfortable fit for one word and a 40%
+## overhang for the next.
 func _plabel(text: String, pos: Vector3, yaw_deg: float, font_size: int = 32,
-		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0) -> void:
+		color: Color = Color(0.82, 0.83, 0.8), pitch_deg: float = 0.0,
+		fit: Vector2 = Vector2.ZERO) -> void:
 	var l := Label3D.new()
 	l.text = text
 	# Scaled down — oversized paint bled across panel joints and door reveals.
-	l.font_size = maxi(12, int(font_size * 0.75))
+	l.font_size = SignFit.fit_size(text, fit.x, fit.y, maxi(12, int(font_size * 0.75)))
+	if fit != Vector2.ZERO:
+		l.set_meta("sign_face", fit)   # asserted by tests/label_anchor_probe.gd
 	l.pixel_size = 0.01
 	# Black stencil paint. The source color only sets how faded the paint reads
 	# (paler args = older, more weathered lettering lifting toward charcoal).
@@ -3560,17 +3597,16 @@ static func _paint_black(src: Color) -> Color:
 	var k: float = lerpf(0.06, 0.17, wear)
 	return Color(k, k, k * 1.08, minf(src.a, 0.9))
 
-## Rendered extent (metres) of Label3D text at `font_size` and pixel_size 0.01, from the
-## longest line and the line count. 0.58 is a safe upper-bound average glyph advance for
-## the default font (over-estimating widens the plate rather than clipping); 1.35 is the
-## line-height factor. Returns Vector2(width, height).
+## EXACT rendered extent (metres) of Label3D text at `font_size` and pixel_size 0.01.
+##
+## This used to be `max_chars * font_size * 0.01 * 0.58` — one assumed glyph width for
+## every character. Real upper-case signage on the shipping font runs 0.54-0.66 em/char,
+## so the estimate was BELOW the truth for most real wording and every plate sized from it
+## was too small. `sign_fit.gd` asks the font, which costs nothing and cannot be wrong;
+## `tests/label_anchor_probe.gd` asserts the agreement with `Label3D.get_aabb()` on every
+## live label every run.
 static func _text_extent(text: String, font_size: int) -> Vector2:
-	var lines: PackedStringArray = text.split("\n")
-	var max_chars: int = 1
-	for ln in lines:
-		max_chars = maxi(max_chars, ln.length())
-	var fpx: float = float(font_size) * 0.01
-	return Vector2(max_chars * fpx * 0.58, lines.size() * fpx * 1.35)
+	return SignFit.extent(text, font_size)
 
 ## SIGNAGE RULE. A bolted, stencilled placard whose backing plate is AUTO-SIZED to the
 ## text plus margins, so the wording is always well-spaced inside the plate and never
@@ -3606,6 +3642,7 @@ func _sign(text: String, pos: Vector3, yaw_deg: float, font_size: int = 12,
 	l.billboard = BaseMaterial3D.BILLBOARD_DISABLED
 	l.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	l.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
+	l.set_meta("sign_face", Vector2(w, h))   # asserted by tests/label_anchor_probe.gd
 	add_child(l)
 	l.position = pos
 	l.rotation.y = deg_to_rad(yaw_deg)
@@ -3661,7 +3698,8 @@ func _build_broken_bridge(u: Vector3) -> void:
 		Vector3(0.06, 0.44, 2.2), MatLib.flat(Color(0.85, 0.72, 0.1)), self, false)
 	plate.rotation.y = yaw
 	_plabel("SPAN OUT — SALTLINE-2", bar_pos + Vector3(0, 1.45, 0) - u * 0.18,
-		rad_to_deg(yaw) - 90.0, 26, Color(0.2, 0.18, 0.12))   # faces back toward the rig
+		rad_to_deg(yaw) - 90.0, 26, Color(0.2, 0.18, 0.12), 0.0,
+		Vector2(2.08, 0.34))   # faces back toward the rig; its plate is 2.2 x 0.44
 	# (Hazard paint at the bridge exit removed with the other flat painted floor
 	# rectangles — the sign plate above carries the warning.)
 
@@ -3724,7 +3762,8 @@ func _arrival_dressing() -> void:
 		_plabel("— %d m" % m, Vector3(20.2, 0.4 + m, -15.1), 180, 24, Color(0.9, 0.85, 0.6))
 	_plabel("SALTLINE-1 · CAISSON SE-3", Vector3(22, 13.2, -15.12), 180, 42, Color(0.7, 0.6, 0.42))
 	# The rig's name on the deck rim girder, read from the dock looking straight up.
-	_plabel("S A L T L I N E - 1", Vector3(17, 17.55, -20.3), 180, 110, Color(0.72, 0.6, 0.4))
+	_plabel("S A L T L I N E - 1", Vector3(17, 17.55, -20.3), 180, 110, Color(0.72, 0.6, 0.4),
+		0.0, Vector2(0.0, 1.05))   # the rim girder is 1.175 deep
 	# (The dock gooseneck lamp is GONE. Its head and light hung at (20.5, y+3.0, -22.2) —
 	# directly on the SPHL-hatch respawn point, so the player woke up inside the fixture
 	# and it z-fought/glitched against the camera. The SPHL keeps its own interior light,

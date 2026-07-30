@@ -34,6 +34,10 @@ var ROUNDS: int = 3               ## revisits per vantage; the spread across the
 var DO_SWEEP: bool = true
 ## --cullproof: don't measure, PROVE THE CULL IS INVISIBLE. See _cull_proof().
 var CULL_PROOF: bool = false
+## --spots=a,b — measure only these vantages. Empty means all of SPOTS.
+var ONLY_SPOTS: Array = []
+## SPOTS after --spots filtering. Everything below iterates THIS, not SPOTS.
+var USE_SPOTS: Array = []
 
 func _args() -> void:
 	for a in OS.get_cmdline_user_args() + OS.get_cmdline_args():
@@ -43,6 +47,23 @@ func _args() -> void:
 			ROUNDS = maxi(1, int(a.split("=")[1]))
 		elif a.begins_with("--frames="):
 			SAMPLE_FRAMES = maxi(3, int(a.split("=")[1]))
+		elif a.begins_with("--spots="):
+			# Restrict the vantage list by name, comma separated. A focused question ("what did
+			# this buy on the wet deck") does not need eight vantages, and the sweep is
+			# vantages x toggles — cutting to two spots turns a six-minute run into ninety
+			# seconds, which is the difference between running it twice and guessing once.
+			ONLY_SPOTS = Array(a.split("=")[1].split(","))
+		elif a.begins_with("--sweeps="):
+			ONLY_SWEEPS = Array(a.split("=")[1].split(","))
+		elif a.begins_with("--rangefactor="):
+			RANGE_FACTOR = float(a.split("=")[1])
+		elif a.begins_with("--shadow="):
+			var p: PackedStringArray = a.split("=")[1].split(",")
+			if p.size() >= 2:
+				SHADOW_DIST_OLD = float(p[0])
+				SHADOW_DIST_NEW = float(p[1])
+			if p.size() >= 3:
+				SHADOW_DIST_FAR = float(p[2])
 		elif a == "--nosweep":
 			DO_SWEEP = false
 		elif a == "--cullproof":
@@ -90,9 +111,34 @@ const SPOTS := [
 ##     way as everything else. Both are switchable at runtime specifically so they can be A/B'd
 ##     here rather than across two runs: the machine's drift between runs is ~1-2 ms, which is
 ##     larger than either effect, and a cross-run table cannot honestly resolve them.
+##   * "shadow_dist" is the 45 m -> 32 m cascade cut, flipped INSIDE one session for exactly the
+##     reason the two rows above are: main.gd now ships 32, and comparing a 32 m run against a
+##     45 m run taken an hour earlier cannot resolve the effect, because this machine drifts
+##     1-2 ms between runs. ON is the OLD 45 m, OFF the shipped 32 m, so the row reads "what
+##     the cut buys" with the same sign as every other row. It does not read main.gd's value —
+##     it writes both — so it keeps working whichever one is shipping.
+##   * "uw_hide" is the RENDER half of "uw_sim": it hides underwater_world instead of stopping
+##     it, which is what underwater_world._cull_topside itself does once the camera climbs past
+##     TOPSIDE_MARGIN. At a vantage BELOW that margin the row therefore reads exactly what
+##     lowering the margin would be worth.
 const SWEEPS: Array[String] = [
-	"none", "reef_cull", "hidden_stride", "sun_shadow", "fauna_sim",
+	"none", "reef_cull", "hidden_stride", "sun_shadow", "shadow_dist", "fauna_sim",
 ]
+
+## --sweeps=a,b,c — run these toggles instead of SWEEPS, in this order. NAMES MAY REPEAT: the
+## honest way to check a surprising row is to measure it twice in one session with something
+## else in between, and a repeated name gives two independent rows to compare.
+var ONLY_SWEEPS: Array = []
+
+## The 45 m the sun's cascade used to cover, and the 32 m it covers now. Kept here rather
+## than read off the light so the row measures the same pair whatever main.gd ships.
+## --shadow=A,B overrides them, so one session can walk the whole curve.
+var SHADOW_DIST_OLD: float = 45.0
+var SHADOW_DIST_NEW: float = 32.0
+## The far end of that curve, for "is bigger simply cheaper here?" — see shadow_far.
+var SHADOW_DIST_FAR: float = 60.0
+## What "range_tight" multiplies render_budget's per-mesh visibility ranges by. --rangefactor=
+var RANGE_FACTOR: float = 0.6
 
 enum Phase { WARMUP, RUN, SWEEP, DONE }
 
@@ -106,6 +152,38 @@ var _spot: int = 0
 var _settle: int = 0
 var _frames: Array = []
 var _procs: Array = []
+var _b_first: TpsBracket = null
+var _b_last: TpsBracket = null
+
+## One marker forced to the first processing slot in the tree and one to the last; the gap
+## between them is the whole idle (and physics) script pass. Node callbacks run depth-first in
+## tree order, so this brackets the autoloads, the world and everything else.
+class TpsBracket extends Node:
+	var other: TpsBracket = null
+	var t_proc0: int = 0
+	var t_phys0: int = 0
+	var proc_us: int = 0
+	var phys_us: int = 0
+	var _phys_acc: int = 0
+
+	func _init(is_first: bool, first: TpsBracket = null) -> void:
+		process_mode = Node.PROCESS_MODE_ALWAYS
+		if not is_first:
+			other = first
+
+	func _process(_d: float) -> void:
+		if other == null:
+			phys_us = _phys_acc
+			_phys_acc = 0
+			t_proc0 = Time.get_ticks_usec()
+		else:
+			other.proc_us = Time.get_ticks_usec() - other.t_proc0
+
+	func _physics_process(_d: float) -> void:
+		if other == null:
+			t_phys0 = Time.get_ticks_usec()
+		else:
+			other._phys_acc += Time.get_ticks_usec() - other.t_phys0
 var _draws: Array = []
 var _prims: Array = []
 ## name -> [{ms, proc, draw, prim}] one entry per round
@@ -126,6 +204,8 @@ var _uw: Node3D = null            ## underwater_world, whose topside cull owns 4
 var _fauna: Node3D = null         ## bloom_fauna, the 27-species host
 var _uw_flips: int = 0            ## how often that cull changed its mind inside one window
 var _uw_last: bool = true
+var _ranged: Array = []           ## [[GeometryInstance3D, shipped visibility_range_end], …]
+var _dressing: Array = []         ## the MergedDressing chunks
 var _pause_panel: CanvasItem = null
 var _unpaused: int = 0            ## how often focus-out tried to freeze the run
 
@@ -139,6 +219,14 @@ func _ready() -> void:
 	# render pass; see docs/AGENT_TRAPS.md.
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_args()
+	# Resolve --spots ONCE, and fall back to the whole list rather than to an empty run: a
+	# typo'd vantage name that silently measured nothing would look like a finished harness.
+	for s in SPOTS:
+		if ONLY_SPOTS.is_empty() or ONLY_SPOTS.has(String(s[0])):
+			USE_SPOTS.append(s)
+	if USE_SPOTS.is_empty():
+		push_warning("--spots matched no vantage (%s); measuring all of them" % str(ONLY_SPOTS))
+		USE_SPOTS = Array(SPOTS)
 	DisplayServer.window_set_vsync_mode(DisplayServer.VSYNC_DISABLED)
 	Engine.max_fps = 0
 	_main = load("res://scenes/Main.tscn").instantiate()
@@ -156,7 +244,17 @@ func _ready() -> void:
 	print("[vantage] vsync=%d  refresh=%.1f Hz  window=%s  max_fps=%d"
 		% [DisplayServer.window_get_vsync_mode(), DisplayServer.screen_get_refresh_rate(),
 			str(DisplayServer.window_get_size()), Engine.max_fps])
-	print("[vantage] warming up %.0f s, then %d vantages x %d rounds…" % [WARMUP_SEC, SPOTS.size(), ROUNDS])
+	print("[vantage] warming up %.0f s, then %d vantages x %d rounds…" % [WARMUP_SEC, USE_SPOTS.size(), ROUNDS])
+	call_deferred("_install_brackets")
+
+func _install_brackets() -> void:
+	var root: Window = get_tree().root
+	_b_first = TpsBracket.new(true)
+	root.add_child(_b_first)
+	root.move_child(_b_first, 0)
+	_b_last = TpsBracket.new(false, _b_first)
+	root.add_child(_b_last)
+	root.move_child(_b_last, root.get_child_count() - 1)
 
 func _freeze_world() -> void:
 	GameClock.force_phase(GameClock.Phase.DAY)
@@ -174,6 +272,22 @@ func _freeze_world() -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		hud.set("visible", false)
+	# Everything render_budget gave a distance budget to, with its shipped range, so
+	# "range_tight" can scale them and put them back exactly.
+	var stack: Array = [_main]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		if str(n.name) == "MergedDressing":
+			for c in n.get_children():
+				if c is Node3D:
+					_dressing.append(c)
+		var gi := n as GeometryInstance3D
+		if gi != null and gi.visibility_range_end > 0.0:
+			_ranged.append([gi, gi.visibility_range_end])
+	print("[vantage] budgeted meshes with a range: %d   merged dressing chunks: %d"
+		% [_ranged.size(), _dressing.size()])
 	_reef = _find_script(_main, "leg_reef.gd") as Node3D
 	if _reef != null:
 		for n in _reef.find_children("LegReef_*", "MultiMeshInstance3D", false, false):
@@ -233,6 +347,51 @@ func _toggle(kind: String, on: bool) -> void:
 		"sun_shadow":
 			if _sun != null:
 				_sun.shadow_enabled = on
+		"shadow_dist":
+			# max_distance IS the caster cull for the single ORTHOGONAL cascade: nothing past
+			# it is rasterised into the shadow map at all. So this removes shadow DRAW CALLS,
+			# and the `draws` column on this row is the proof the toggle landed.
+			if _sun != null:
+				_sun.directional_shadow_max_distance = SHADOW_DIST_OLD if on else SHADOW_DIST_NEW
+		"shadow_far":
+			# The OTHER direction, same reference point: ON is the 45 m baseline, OFF is a
+			# LONGER cascade. Run beside shadow_dist it says whether frame time is monotonic in
+			# max_distance here or whether 45 sits in a trough — which is the difference between
+			# "the cut is a regression" and "the row is noise".
+			if _sun != null:
+				_sun.directional_shadow_max_distance = SHADOW_DIST_OLD if on else SHADOW_DIST_FAR
+		"range_tight":
+			# render_budget.gd gives every small mesh a visibility_range_end derived from its own
+			# size (SIZE_TO_RANGE). This row asks what TIGHTENING that budget is worth without
+			# changing anything else: OFF multiplies every budgeted range by RANGE_FACTOR, so the
+			# row reads "ms recovered by pulling the small dressing in". It is the only lever on
+			# the wet deck's draw count that lives in a file this session owns.
+			for e in _ranged:
+				var mi := e[0] as GeometryInstance3D
+				if not is_instance_valid(mi):
+					continue
+				var r: float = float(e[1]) * (1.0 if on else RANGE_FACTOR)
+				mi.visibility_range_end = r
+				mi.visibility_range_end_margin = r * 0.18
+		"dressing":
+			# rig_batcher welds the rig's small dressing into MergedDressing chunks. Hiding them
+			# is pure attribution — how much of this frame is the dressing, as opposed to the
+			# structure, the sea and the fauna.
+			for n in _dressing:
+				if is_instance_valid(n):
+					(n as Node3D).visible = on
+		"uw_hide":
+			# The RENDER cost of the whole underwater world, i.e. exactly what
+			# underwater_world._cull_topside removes for free once the eye clears TOPSIDE_MARGIN.
+			#
+			# Its `_process` has to be PARKED for the duration or the row measures nothing: the
+			# first line of that _process is the cull, and the cull re-asserts `visible` from
+			# the very rule under test — a hidden subtree is shown again on the next frame. It
+			# stays parked across BOTH windows so the delta is pure draw cost with no script in
+			# it, and it is restored in _report_sweep. Put this row LAST in --sweeps.
+			if _uw != null:
+				_uw.process_mode = Node.PROCESS_MODE_DISABLED
+				_uw.visible = on
 		"reef_cull":
 			if _reef != null:
 				_reef.set("cull_above_water", on)
@@ -284,7 +443,7 @@ func _process(delta: float) -> void:
 				_cull_proof()
 				return
 			_phase = Phase.RUN
-			_place(SPOTS[0])
+			_place(USE_SPOTS[0])
 			_start()
 		Phase.RUN:
 			if _uw != null:
@@ -301,7 +460,13 @@ func _process(delta: float) -> void:
 				_settle -= 1
 				return
 			_frames.append(delta * 1000.0)
-			_procs.append(Performance.get_monitor(Performance.TIME_PROCESS) * 1000.0)
+			# THE SCRIPT STEP, BRACKETED — not Performance.TIME_PROCESS, which this column used to
+			# read and which is a lie at this granularity. Godot refreshes TIME_PROCESS once per
+			# SECOND and stores the MAXIMUM over that second, so it reports a spike, not a frame:
+			# s23 saw it print a 698 ms "script step" inside a 22 ms frame and a 103 ms one inside a
+			# 36 ms frame. The Bracket pair below measures the real idle+physics script passes end to
+			# end at microsecond resolution (see tests/tps_profile.gd for the full note).
+			_procs.append(0.001 * float(_b_first.proc_us + _b_first.phys_us) if _b_first != null else 0.0)
 			_draws.append(Performance.get_monitor(Performance.RENDER_TOTAL_DRAW_CALLS_IN_FRAME))
 			_prims.append(Performance.get_monitor(Performance.RENDER_TOTAL_PRIMITIVES_IN_FRAME))
 			if _frames.size() < SAMPLE_FRAMES:
@@ -502,7 +667,7 @@ func _median(a: Array) -> float:
 	return float(b[b.size() / 2])
 
 func _record() -> void:
-	var name: String = SPOTS[_spot][0]
+	var name: String = USE_SPOTS[_spot][0]
 	if not _res.has(name):
 		_res[name] = []
 	(_res[name] as Array).append({
@@ -521,7 +686,7 @@ func _record() -> void:
 			"yes" if (_reef != null and _reef.is_visible_in_tree()) else "no", _uw_flips])
 	_uw_flips = 0
 	_spot += 1
-	if _spot >= SPOTS.size():
+	if _spot >= USE_SPOTS.size():
 		_spot = 0
 		_round += 1
 		if _round >= ROUNDS:
@@ -532,7 +697,7 @@ func _record() -> void:
 				return
 			_begin_sweep()
 			return
-	_place(SPOTS[_spot])
+	_place(USE_SPOTS[_spot])
 	_start()
 
 ## THE ATTRIBUTION HALF. The vantage table above says what the frame costs today; it cannot
@@ -543,8 +708,9 @@ func _record() -> void:
 ## So each toggle is measured ON / OFF / ON in ONE session, at each vantage, and the spread
 ## between the two ON windows is published next to the result as that row's noise floor.
 func _begin_sweep() -> void:
-	for s in SPOTS:
-		for kind in SWEEPS:
+	var kinds: Array = ONLY_SWEEPS if not ONLY_SWEEPS.is_empty() else Array(SWEEPS)
+	for s in USE_SPOTS:
+		for kind in kinds:
 			if kind == "reef_cull" and _reef == null:
 				continue
 			if kind == "leg_reef" and _reef_mm.is_empty():
@@ -553,7 +719,17 @@ func _begin_sweep() -> void:
 				continue
 			if kind == "sun_shadow" and _sun == null:
 				continue
+			if kind == "shadow_dist" and _sun == null:
+				continue
 			if kind == "fauna_sim" and _fauna == null:
+				continue
+			if kind == "shadow_far" and _sun == null:
+				continue
+			if kind == "uw_hide" and _uw == null:
+				continue
+			if kind == "range_tight" and _ranged.is_empty():
+				continue
+			if kind == "dressing" and _dressing.is_empty():
 				continue
 			if kind == "uw_sim" and _uw == null:
 				continue
@@ -605,6 +781,10 @@ func _sweep_step() -> void:
 
 func _report_sweep() -> void:
 	_phase = Phase.DONE
+	# uw_hide parks underwater_world for its row; hand the world back.
+	if _uw != null:
+		_uw.process_mode = Node.PROCESS_MODE_INHERIT
+		_uw.visible = true
 	print("\n=========== WHAT EACH THING COSTS, PER VANTAGE ===========")
 	print("ms recovered when the thing is switched OFF, measured ON/OFF/ON in one session.")
 	print("'noise' is this row's own spread between its two ON windows — a cost smaller")
@@ -640,7 +820,7 @@ func _report() -> void:
 	print("'noise' = spread between this vantage's own repeat visits. A before/after")
 	print("difference smaller than that figure is drift, not a result.")
 	print("%-16s %8s %8s %8s %9s %11s" % ["vantage", "ms", "fps", "noise", "script ms", "draw calls"])
-	for s in SPOTS:
+	for s in USE_SPOTS:
 		var name: String = s[0]
 		var runs: Array = _res.get(name, [])
 		if runs.is_empty():
@@ -656,7 +836,7 @@ func _report() -> void:
 		print("%-16s %8.2f %8.1f %8.2f %9.2f %11.0f" % [name, med, 1000.0 / maxf(med, 0.001),
 			hi - lo, _median(pr), float(runs[0]["draw"])])
 	print("\nper-visit detail (ms):")
-	for s in SPOTS:
+	for s in USE_SPOTS:
 		var name: String = s[0]
 		var runs: Array = _res.get(name, [])
 		if runs.is_empty():
