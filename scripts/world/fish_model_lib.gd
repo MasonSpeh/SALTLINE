@@ -27,13 +27,10 @@ const HELD_SIZE := 0.42
 ## with no other edit anywhere. The table's own `school.tint` is applied on top by _skin()
 ## below, so a borrowed body still comes up the right COLOUR for the species wearing it.
 ##
-##   fish_swordfish -> fish_squall_garfish   the only billfish silhouette in the tree: a long
-##       body with an elongated beak. It is a garfish, not a swordfish — the bill is short,
-##       there is no keel and no high first dorsal. A REAL SWORDFISH MESH STILL NEEDS
-##       GENERATING (s24).
-const MESH_ALIAS := {
-	"fish_swordfish": "fish_squall_garfish",
-}
+## Empty as of s24 — the swordfish (the last placeholder, borrowing the garfish's beak
+## silhouette) got its own generated mesh. Left in place, empty, for the next species that
+## ships to the fish table before its model does.
+const MESH_ALIAS := {}
 
 static func fauna_path(species_id: String) -> String:
 	var slug: String = String(MESH_ALIAS.get(species_id, species_id))

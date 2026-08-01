@@ -9,11 +9,18 @@ extends Node3D
 ##   2. THE SWORDFISH. Does it resolve a mesh, does it roll at its own depth and nowhere
 ##      above it, and is it genuinely commoner in the rain — as a share of the pool the
 ##      deep rig actually draws from, not as a multiplier in isolation.
+##   3. THE SWORDFISH'S REAL MESH (added once MESH_ALIAS's garfish borrow was retired):
+##      two screenshots so the shape can be judged by eye instead of trusted from a
+##      passing size check — HELD (the exact ItemVisual mesh, scaled the way the hand
+##      normalises it) and FULL BODY (the raw generated mesh with the UNDULATE swim
+##      shader live, the way it reads in the water). Saved under /tmp. Needs the real
+##      renderer — run WINDOWED, not --headless, same as every other *_shot.gd harness.
 ##
-##   godot --headless --path . res://tests/CatchSizeProbe.tscn
+##   godot --path . res://tests/CatchSizeProbe.tscn
 
 const FISH := preload("res://scripts/world/fish_table.gd")
 const FISH_MODEL := preload("res://scripts/world/fish_model_lib.gd")
+const ANIM := preload("res://scripts/world/creature_anim.gd")
 
 ## Mirrors PlayerController.HAND_ITEM_MAX_DIM — the pocket size everything used to get.
 const HAND_BASE: float = 0.18
@@ -23,6 +30,7 @@ func _ready() -> void:
 	_hand_sizes()
 	await _held_grouper()
 	_swordfish()
+	await _swordfish_shots()
 	get_tree().quit()
 
 # ------------------------------------------------------------------ 1. held fish size
@@ -115,3 +123,130 @@ func _pool_line(label: String, ctx: Dictionary, depth: float) -> void:
 	print("[sword] %-5s at %d m, dusk, herring on the hook: swordfish %.2f of %.2f = %.1f%% of the pool"
 		% [label, int(depth), mine, total, 100.0 * mine / maxf(total, 0.001)])
 	print("[sword]        pool: %s" % ", ".join(parts))
+
+# ------------------------------------------------------------- 3. visual verification
+## Two pictures of the real generated mesh, so the shape can be judged instead of just
+## trusted from the size numbers above. Saved under /tmp, same convention as the other
+## *_shot.gd harnesses (BestiaryShot's /tmp/bs_<slug>.png, FacingShot's /tmp/face_<slug>.png).
+func _swordfish_shots() -> void:
+	print("\n=== swordfish screenshots ===")
+	await _shoot_held("fish_swordfish", "/tmp/cs_swordfish_held.png")
+	await _shoot_body("fish_swordfish", "/tmp/cs_swordfish_body.png")
+
+## HELD: exactly what ItemVisual.build() returns for this species, isolated in its own
+## SubViewport/World3D (the same isolation ItemModelShot uses — a shared render target
+## leaked one item's geometry into the next one's icon the first time this was tried).
+func _shoot_held(id: String, out_path: String) -> void:
+	var visual: Node3D = ItemVisual.build(id)
+	if visual == null:
+		print("[shot] %-18s NO VISUAL" % id)
+		return
+	var vp := SubViewport.new()
+	vp.size = Vector2i(768, 768)
+	vp.own_world_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var key := DirectionalLight3D.new()
+	key.rotation_degrees = Vector3(-35, -135, 0)
+	key.light_energy = 1.6
+	vp.add_child(key)
+	var fill := DirectionalLight3D.new()
+	fill.rotation_degrees = Vector3(-8, 60, 0)
+	fill.light_energy = 0.8
+	fill.light_color = Color(0.82, 0.88, 1.0)
+	vp.add_child(fill)
+	var env := Environment.new()
+	env.background_mode = Environment.BG_COLOR
+	env.background_color = Color(0.10, 0.12, 0.15)
+	env.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	env.ambient_light_color = Color(0.55, 0.6, 0.68)
+	env.ambient_light_energy = 1.0
+	var cam := Camera3D.new()
+	cam.projection = Camera3D.PROJECTION_ORTHOGONAL
+	cam.environment = env
+	vp.add_child(cam)
+	vp.add_child(visual)
+	await get_tree().process_frame     # generated meshes load their geometry in _ready
+	var box := AABB()
+	var found := false
+	for n in visual.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = n
+		if mi.mesh == null:
+			continue
+		var b: AABB = (visual.global_transform.affine_inverse() * mi.global_transform) * mi.mesh.get_aabb()
+		box = b if not found else box.merge(b)
+		found = true
+	if not found:
+		print("[shot] %-18s no geometry" % id)
+		vp.queue_free()
+		return
+	var centre: Vector3 = box.get_center()
+	var span: float = maxf(maxf(box.size.x, maxf(box.size.y, box.size.z)), 0.02)
+	cam.size = span * 1.15
+	cam.position = centre + Vector3(0.75, 0.4, 1.0).normalized() * span * 2.5
+	cam.look_at(centre, Vector3.UP)
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var img: Image = vp.get_texture().get_image()
+	img.save_png(out_path)
+	print("[shot] saved %s  (held span %.2f m)" % [out_path, span])
+	vp.queue_free()
+
+## FULL BODY: the raw fauna mesh with CreatureAnim's UNDULATE swim shader live, on a
+## neutral studio stage — the same recipe BestiaryShot uses for the rest of the bestiary,
+## scoped to just this one species since fish_swordfish isn't a bespoke creature.gd.
+func _shoot_body(id: String, out_path: String) -> void:
+	var path: String = FISH_MODEL.fauna_path(id)
+	if not ResourceLoader.exists(path):
+		print("[shot] %-18s NO MESH at %s" % [id, path])
+		return
+	var vp := SubViewport.new()
+	vp.size = Vector2i(1024, 640)
+	vp.own_world_3d = true
+	vp.render_target_update_mode = SubViewport.UPDATE_ALWAYS
+	add_child(vp)
+	var env_node := WorldEnvironment.new()
+	var e := Environment.new()
+	e.background_mode = Environment.BG_COLOR
+	e.background_color = Color(0.05, 0.09, 0.13)
+	e.ambient_light_source = Environment.AMBIENT_SOURCE_COLOR
+	e.ambient_light_color = Color(0.3, 0.42, 0.5)
+	e.ambient_light_energy = 0.9
+	env_node.environment = e
+	vp.add_child(env_node)
+	for spec in [[Vector3(4, 5, 4), 1.5], [Vector3(-5, 2, -3), 0.7]]:
+		var l := DirectionalLight3D.new()
+		vp.add_child(l)
+		l.position = spec[0]
+		l.light_energy = spec[1]
+		l.look_at(Vector3.ZERO, Vector3.UP)
+	var host := Node3D.new()
+	vp.add_child(host)
+	var target_m := 3.0   # matches ItemVisual.FISH_SIZE's authored length for this species
+	var gen: Dictionary = ANIM.attach(host, path, target_m, ANIM.Mode.UNDULATE, 0.06, 1.2)
+	if gen.is_empty():
+		print("[shot] %-18s attach failed" % id)
+		vp.queue_free()
+		return
+	ANIM.drive(gen["mats"], 1.2, 0.0)
+	var cam := Camera3D.new()
+	cam.current = true
+	vp.add_child(cam)
+	var acc := AABB()
+	var first := true
+	for n in host.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = n
+		var w: AABB = mi.global_transform * mi.get_aabb()
+		acc = w if first else acc.merge(w)
+		first = false
+	var focus: Vector3 = acc.get_center() if not first else Vector3.ZERO
+	var d: float = target_m * 0.75 + 0.5
+	cam.position = focus + Vector3(d * 0.9, d * 0.35, d * 0.9)
+	cam.look_at(focus, Vector3.UP)
+	await get_tree().create_timer(0.6).timeout   # let the shader tick + textures land
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	var img: Image = vp.get_texture().get_image()
+	img.save_png(out_path)
+	print("[shot] saved %s  (body target %.1f m)" % [out_path, target_m])
+	vp.queue_free()
