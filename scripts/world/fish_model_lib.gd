@@ -20,8 +20,24 @@ const ANIM := preload("res://scripts/world/creature_anim.gd")
 ## Default longest-axis size in the hand (metres). Callers scale by species heft.
 const HELD_SIZE := 0.42
 
+## ---------------------------------------------------------------- PLACEHOLDER MESHES
+## A species whose own .glb has not been generated yet, borrowing the nearest silhouette in
+## the tree so it lands as a FISH instead of the default grey capsule. Strictly temporary:
+## delete the entry the moment the real asset exists and the species picks up its own mesh
+## with no other edit anywhere. The table's own `school.tint` is applied on top by _skin()
+## below, so a borrowed body still comes up the right COLOUR for the species wearing it.
+##
+##   fish_swordfish -> fish_squall_garfish   the only billfish silhouette in the tree: a long
+##       body with an elongated beak. It is a garfish, not a swordfish — the bill is short,
+##       there is no keel and no high first dorsal. A REAL SWORDFISH MESH STILL NEEDS
+##       GENERATING (s24).
+const MESH_ALIAS := {
+	"fish_swordfish": "fish_squall_garfish",
+}
+
 static func fauna_path(species_id: String) -> String:
-	return "res://assets/models/fauna/%s/%s.glb" % [species_id, species_id]
+	var slug: String = String(MESH_ALIAS.get(species_id, species_id))
+	return "res://assets/models/fauna/%s/%s.glb" % [slug, slug]
 
 ## Return true when a real mesh exists for this RAW species id.
 static func has_model(species_id: String) -> bool:

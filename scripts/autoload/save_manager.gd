@@ -21,6 +21,8 @@ const TAKEABLE := preload("res://scripts/components/takeable.gd")
 ## rather than a bare Takeable. See _make_drop().
 const HANDBOOK := preload("res://scripts/components/handbook.gd")
 const FAUNA := preload("res://scripts/world/bloom_fauna.gd")
+## Surface lookup, so a rebuilt camp lands on the deck instead of inheriting a bad saved Y.
+const SUPPORT := preload("res://scripts/world/support_index.gd")
 
 ## Which slot (1..SLOT_COUNT) autosaves and loads. Set by the start screen; defaults to
 ## 1 so a direct Main boot (tests, editor Play) still has a valid target.
@@ -43,6 +45,19 @@ var _pending_containers: Dictionary = {}
 ## have to be able to come and ask for their state (see claim_harvest).
 var _pending_harvest: Dictionary = {}
 
+## True only while load_game() is applying a save. THE MOST DESTRUCTIVE BUG THIS FILE HAS
+## HAD, and it hid in plain sight: load_game() calls GameClock.force_phase() to restore the
+## saved time of day, force_phase() emits dawn/dusk, and dawn/dusk are wired to save_game()
+## in _ready(). A save is ONLY ever written at dawn or dusk, so EVERY save file on disk
+## carries one of those two phases — meaning every single load re-entered save_game()
+## halfway through, BEFORE structures, containers, dropped items and the player position
+## had been restored, and wrote that half-empty world straight over the file. The running
+## session still looked correct (the rest of load_game finishes off the in-memory dict), so
+## the damage was invisible until the next boot: build a camp, save at dusk, Continue, quit,
+## and the camp was gone. The suite never caught it because every save test calls
+## force_phase(DAY) first, and DAY is the one phase NOT connected to save_game.
+var _loading: bool = false
+
 func _ready() -> void:
 	_migrate_legacy()
 	GameClock.dawn.connect(save_game)
@@ -54,20 +69,24 @@ func slot_path(slot: int) -> String:
 	return "user://%s%d.json" % [slot_file_prefix, s]
 
 ## One-time move of the old single autosave into slot 1, if slot 1 is still empty.
+## Genuinely one-time: the legacy file is renamed out of the way once consumed, so it
+## can never migrate a second time even if slot 1 is later emptied or deleted (a
+## corrupted-save recovery, a manual clear). It used to just sit there forever and
+## silently resurrect into any future empty slot 1 — that's how stale probe-fixture
+## data kept reappearing across sessions. See DEVLOG for the incident.
 func _migrate_legacy() -> void:
 	if not FileAccess.file_exists(LEGACY_PATH):
 		return
-	if FileAccess.file_exists(slot_path(1)):
-		return
-	var src: FileAccess = FileAccess.open(LEGACY_PATH, FileAccess.READ)
-	if src == null:
-		return
-	var body: String = src.get_as_text()
-	src.close()
-	var dst: FileAccess = FileAccess.open(slot_path(1), FileAccess.WRITE)
-	if dst:
-		dst.store_string(body)
-		dst.close()
+	if not FileAccess.file_exists(slot_path(1)):
+		var src: FileAccess = FileAccess.open(LEGACY_PATH, FileAccess.READ)
+		if src:
+			var body: String = src.get_as_text()
+			src.close()
+			var dst: FileAccess = FileAccess.open(slot_path(1), FileAccess.WRITE)
+			if dst:
+				dst.store_string(body)
+				dst.close()
+	DirAccess.rename_absolute(LEGACY_PATH, LEGACY_PATH + ".migrated")
 
 # ---------------------------------------------------------------- slot selection
 # The start screen calls these. Nothing here touches the world — they only record the
@@ -117,7 +136,13 @@ func erase_slot(slot: int) -> void:
 	if FileAccess.file_exists(path):
 		DirAccess.remove_absolute(path)
 
-func save_game() -> void:
+## Write the active slot. Returns true when the file is on disk, so the pause menu's
+## SAVE GAME can tell the player the truth instead of assuming.
+func save_game() -> bool:
+	# Re-entered from GameClock.force_phase() inside load_game(). Writing here would
+	# persist a half-restored world over a good save — see _loading.
+	if _loading:
+		return false
 	var data: Dictionary = {
 		"version": SAVE_VERSION,
 		"hunger": PlayerState.hunger,
@@ -149,10 +174,24 @@ func save_game() -> void:
 	# Discoveries, read logs and catch records. The journal also keeps its own per-slot
 	# sidecar, but the slot save is authoritative — this is what survives a slot copy.
 	data.merge(Journal.payload())
-	var file: FileAccess = FileAccess.open(slot_path(active_slot), FileAccess.WRITE)
-	if file:
-		file.store_string(JSON.stringify(data))
-		file.close()
+	# Write to a sidecar first and only swap it in once the bytes are down. A crash or a
+	# full disk midway through a direct write leaves a truncated file, which parses as
+	# null — i.e. the previous good save is destroyed by the act of failing to replace it.
+	var path: String = slot_path(active_slot)
+	var tmp: String = path + ".part"
+	var file: FileAccess = FileAccess.open(tmp, FileAccess.WRITE)
+	if file == null:
+		push_warning("[save] cannot open %s to write (err %d)" % [tmp, FileAccess.get_open_error()])
+		return false
+	file.store_string(JSON.stringify(data))
+	file.close()
+	# rename_absolute replaces the target, so the old save is only ever destroyed by a
+	# complete new one landing on top of it — never by a write that got half way.
+	var err: int = DirAccess.rename_absolute(tmp, path)
+	if err != OK:
+		push_warning("[save] cannot move %s into place (err %d)" % [tmp, err])
+		return false
+	return true
 
 func load_game() -> bool:
 	var path: String = slot_path(active_slot)
@@ -163,9 +202,19 @@ func load_game() -> bool:
 		return false
 	var parsed: Variant = JSON.parse_string(file.get_as_text())
 	file.close()
+	# A truncated or hand-mangled file parses to null. Say so and start fresh rather than
+	# half-applying it — the caller (Main._resume_saved_game) treats false as "cold open".
 	if typeof(parsed) != TYPE_DICTIONARY:
+		push_warning("[save] %s is not readable JSON — starting fresh" % path)
 		return false
 	var data: Dictionary = parsed
+	# Everything from here on mutates live world state, and restoring the clock below
+	# re-emits dawn/dusk straight back into save_game(). Hold the door shut until the
+	# whole save is applied — see _loading. Deferred clear as well as the one on the
+	# normal path, so a hard error inside a restore step cannot leave saving switched
+	# off for the rest of the session.
+	_loading = true
+	_clear_loading.call_deferred()
 	PlayerState.hunger = data.get("hunger", 1.0)
 	PlayerState.thirst = data.get("thirst", 1.0)
 	PlayerState.warmth = data.get("warmth", 1.0)
@@ -210,7 +259,13 @@ func load_game() -> bool:
 			(pl as CharacterBody3D).velocity = Vector3.ZERO
 		if "swimming" in pl:
 			pl.set("swimming", false)
+	_loading = false
 	return true
+
+## Only ever called to lower the re-entrancy guard — see _loading. Deferred out of
+## load_game() as the backstop for a restore step that errors out before the flag drops.
+func _clear_loading() -> void:
+	_loading = false
 
 # --------------------------------------------------------------- base building
 # A camp that evaporates when you go to bed is not a camp. Every placed structure
@@ -240,6 +295,7 @@ func restore_structures(list: Variant) -> int:
 		if is_instance_valid(old):
 			old.queue_free()
 	var built: int = 0
+	var rebuilt: Array[Node3D] = []
 	for entry in list:
 		if typeof(entry) != TYPE_DICTIONARY:
 			continue
@@ -251,8 +307,49 @@ func restore_structures(list: Variant) -> int:
 			continue
 		scene.add_child(node)
 		node.global_transform = _xform_from(entry)
+		if not Structures.WALL_MOUNT.has(kit):
+			rebuilt.append(node)
 		built += 1
+	_ground_restored(scene, rebuilt)
 	return built
+
+## Rest a rebuilt camp back ON the deck it was standing on.
+##
+## The transform round-trip is exact, which is right, but it also means a save carrying a
+## bad Y hands that Y straight back every single load — the camp hangs in the air and no
+## amount of reloading shakes it loose. That is exactly what a stale save slot did on this
+## project: a brazier and a deck chair pinned at y19 over the y18 main deck, floating a
+## clean metre up, with the chair's box cutting through the storage bin beside it.
+##
+## SUPPORT.settle only ever moves a node DOWN onto the highest surface under it, does
+## nothing at all when there is no surface below (so a hanging kit stays hung) and is
+## capped by MAX_DROP. WALL_MOUNT kits are excluded by the caller: a shelf bolted to a
+## bulkhead has a deck within falling distance underneath it.
+##
+## Only a REAL float is corrected. Anything already within GROUND_EPS of its support is
+## left on its saved Y untouched, because container contents are keyed by rounded world
+## position (_container_key): nudging a restored storage bin by even the settle pass's
+## 5 mm clearance changes its key and its stash comes back empty. A camp is only worth
+## moving when it is visibly in the air, and 5 cm is well under anything a player sees.
+const GROUND_EPS: float = 0.05
+
+func _ground_restored(scene: Node, nodes: Array[Node3D]) -> void:
+	if nodes.is_empty():
+		return
+	var index = SUPPORT.new()
+	index.build(scene)
+	for n in nodes:
+		if not is_instance_valid(n) or not n.is_inside_tree():
+			continue
+		var a: AABB = SUPPORT.world_aabb_of_tree(n)
+		if a.size == Vector3.ZERO:
+			continue
+		var top: float = index.support_top(a, n)
+		if top == -INF:
+			continue                       # nothing under it: hung or wall-mounted
+		if a.position.y - top <= GROUND_EPS:
+			continue                       # already resting: leave the saved Y exactly
+		index.settle(n, a)
 
 # ------------------------------------------------------------ container contents
 # Every LootContainer (built crate, found locker, gull nest) tags itself into group

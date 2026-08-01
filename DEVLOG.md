@@ -632,3 +632,47 @@ failing: length, thinness, and the tail. Recommend (2) if (1) doesn't land.
   the thread to pull — something upstream may still be producing NaN.
 - Candidate meshes are accumulating under `assets/models/fauna/_cand*/`. Prune
   the rejected ones once the winners are installed.
+
+## s25 — the save system actually saves
+
+**Reported as "the save system does not work at all".** It was not absent — `save_manager.gd`
+is a complete, well-built v2 slot system — it was *self-destructing*, in two ways that
+together read to a player as "nothing persists".
+
+1. **Every load gutted the save it had just read.** `load_game()` restores the time of day
+   with `GameClock.force_phase()`; `force_phase` emits `dawn`/`dusk`; those are connected to
+   `save_game()`. Since a save was only ever *written* at dawn or dusk, every file on disk
+   carried one of those phases, so every load re-entered `save_game()` partway through —
+   before structures, containers, dropped items and the player position had been restored —
+   and wrote the half-empty world over the file. Session looked right, next boot did not.
+   Fixed with a `_loading` re-entrancy guard (`save_manager.gd`), plus a deferred clear so a
+   restore step that errors cannot leave saving switched off for the session.
+2. **There was no way to ask the game to save.** Dawn/dusk autosave was the only writer, and
+   the phase plan is a ~60-minute cycle — a player who built a camp mid-morning and quit had
+   written nothing and had no way to know. Added **SAVE GAME** to the pause menu with an
+   honest result line (`pause_menu.gd`); `save_game()` now returns `bool` so a failed write
+   is reported as a failure rather than a cheerful lie.
+
+Also hardened: saves write to `<slot>.json.part` and `rename` into place, so the previous good
+save is only ever replaced by a complete new one; a corrupt/truncated slot warns and starts
+fresh instead of half-applying.
+
+Autosave is deliberately KEPT as a backstop, and the pause line says so ("Writes slot N · also
+autosaves at dawn and dusk") — one `_ready()` line to remove if manual-only is wanted.
+
+**Verified** (not asserted):
+- `tests/SaveProbe.tscn` — 23 checks. Saves at DUSK (the real autosave path the suite's
+  `force_phase(DAY)` was dodging), reloads, then **re-reads the file off disk**: camp,
+  container contents and phase all still there. Also covers manual save mid-DAY, stack
+  counts, player transform, and a deliberately corrupted slot.
+- `tests/BootSaveProbe.tscn` — 19 checks, the whole player-facing loop: boot Main, build,
+  stash into a world container, fill the pack, move, save; wipe the autoloads as a fresh
+  launch would; come back through `begin_continue()` into a second real Main boot. Items,
+  container contents, placed structure, day count and last location all return, and the file
+  is still intact afterwards.
+- `tests/PauseShot.tscn` — windowed capture of the new control, idle and post-save.
+- Full suite: **241 pass, 0 failures.**
+
+**Note for whoever reads the suite next:** `test_runner.gd`'s save block still calls
+`force_phase(DAY)` before saving, which is exactly what hid this bug for a whole batch. The two
+new probes cover the real phases; consider dropping that line from the suite too.

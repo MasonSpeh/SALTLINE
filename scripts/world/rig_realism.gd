@@ -227,17 +227,24 @@ func _wet_deck_manifold() -> void:
 
 ## An elevated cable tray running the empty west strip — the run from the pump room
 ## toward the boat landing that a real installation would never leave bare.
+## Posts used to base at x7.2, but the wet-deck plate's west edge is x8 (_box(Vector3(19,
+## WET_Y-0.25,-10), Vector3(22,0.5,24)) -> x 8..30): x7.2 is 0.8m past that edge, out over
+## the pontoon gap (top y0.95, not WET_Y=2.0), and at z-17 it clears even the pontoon's own
+## footprint (z -16..-8) into open water. So every post base hung 1.05m+ in the air with
+## nothing under it, and the whole tray (posts + tray plate + conduits) read as a black
+## structure floating beside the Pontoon Ladder (7.8, 0.95, -12) with no support. Moved
+## onto the actual deck plate at x8.6 — clear of both the plate edge and the ladder.
 func _wet_deck_cable_tray() -> void:
 	var a := _asm("WetCableTray")
 	var steel: Material = MatLib.galvanized()
 	var dark: Material = MatLib.dark_metal()
 	for pz in [-9.0, -13.0, -17.0]:
-		_bx(a, Vector3(7.2, WET_Y + 1.4, pz), Vector3(0.08, 2.8, 0.08), steel)
-	_bx(a, Vector3(7.2, WET_Y + 2.82, -13.0), Vector3(0.42, 0.06, 8.6), steel)
+		_bx(a, Vector3(8.6, WET_Y + 1.4, pz), Vector3(0.08, 2.8, 0.08), steel)
+	_bx(a, Vector3(8.6, WET_Y + 2.82, -13.0), Vector3(0.42, 0.06, 8.6), steel)
 	for lx in [-0.16, 0.16]:
-		_bx(a, Vector3(7.2 + lx, WET_Y + 2.9, -13.0), Vector3(0.05, 0.1, 8.6), steel)
+		_bx(a, Vector3(8.6 + lx, WET_Y + 2.9, -13.0), Vector3(0.05, 0.1, 8.6), steel)
 	for i in range(3):
-		_cy(a, Vector3(7.13 + float(i) * 0.07, WET_Y + 2.88, -13.0), 0.028, 8.5, dark, Vector3(90, 0, 0))
+		_cy(a, Vector3(8.53 + float(i) * 0.07, WET_Y + 2.88, -13.0), 0.028, 8.5, dark, Vector3(90, 0, 0))
 
 ## Two more gooseneck vents on the wet-deck south rim gaps.
 func _wet_deck_vents() -> void:

@@ -1,5 +1,5 @@
 class_name PauseMenu extends CanvasLayer
-## Esc pause with settings (volume, mouse sensitivity, invert-Y), resume, quit.
+## Esc pause with settings (volume, mouse sensitivity, invert-Y), SAVE GAME, resume, quit.
 ## The only menu in the slice besides the end card.
 
 var panel: CenterContainer
@@ -8,6 +8,9 @@ var _vol_slider: HSlider
 var _invert_check: CheckBox
 var _wildlife_check: CheckBox
 var _atmos_check: CheckBox
+## Result line under SAVE GAME. Reset each time the menu opens so the player is never
+## reading a "Game saved" from ten minutes ago as if it were about now.
+var _save_note: Label
 
 func _ready() -> void:
 	layer = 15
@@ -80,6 +83,20 @@ func _ready() -> void:
 		AudioDirector.set_atmosphere(on))
 	v.add_child(_atmos_check)
 
+	# SAVE GAME. Until now the only way a run reached disk was SaveManager's dawn/dusk
+	# autosave, which is silent and up to half an hour apart — so a player who built a
+	# camp mid-morning and quit had no way to ask the game to write it, and no way to
+	# know it hadn't. This is that way, and _save_note says out loud whether it worked.
+	var save_btn := Button.new()
+	save_btn.text = "Save Game"
+	save_btn.pressed.connect(_save_now)
+	v.add_child(save_btn)
+	_save_note = Label.new()
+	_save_note.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_save_note.add_theme_font_size_override("font_size", 13)
+	v.add_child(_save_note)
+	_reset_note()
+
 	var resume := Button.new()
 	resume.text = "Resume"
 	resume.pressed.connect(toggle)
@@ -88,6 +105,29 @@ func _ready() -> void:
 	quit.text = "Quit"
 	quit.pressed.connect(func() -> void: get_tree().quit())
 	v.add_child(quit)
+
+## Write the active slot right now and report the outcome in place. save_game() returns
+## false for a write it could not complete, so a failure is shown as a failure rather
+## than being swallowed into a cheerful "saved" the player would trust and lose a run to.
+func _save_now() -> void:
+	if _save_note == null:
+		return
+	if SaveManager.save_game():
+		_save_note.text = "Game saved — slot %d" % SaveManager.active_slot
+		_save_note.add_theme_color_override("font_color", Color(0.6, 0.88, 0.7))
+	else:
+		_save_note.text = "SAVE FAILED — could not write the save file"
+		_save_note.add_theme_color_override("font_color", Color(0.95, 0.52, 0.45))
+
+## The line's resting state. It carries the standing fact rather than sitting blank,
+## because a Label with no text still holds its row open — an empty one just reads as a
+## gap between Save Game and Resume — and because "which slot am I writing, and does this
+## happen on its own too?" is exactly what a player wants answered before they press it.
+func _reset_note() -> void:
+	if _save_note == null:
+		return
+	_save_note.text = "Writes slot %d · also autosaves at dawn and dusk" % SaveManager.active_slot
+	_save_note.add_theme_color_override("font_color", Color(1, 1, 1, 0.45))
 
 func _label(text: String) -> Label:
 	var l := Label.new()
@@ -115,6 +155,10 @@ func _unhandled_input(event: InputEvent) -> void:
 
 func toggle() -> void:
 	var opening: bool = not panel.visible
+	# A stale "Game saved" from the last time the menu was open would read as a claim
+	# about THIS moment. Back to the resting line on the way in.
+	if opening:
+		_reset_note()
 	panel.visible = opening
 	get_tree().paused = opening
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE if opening else Input.MOUSE_MODE_CAPTURED

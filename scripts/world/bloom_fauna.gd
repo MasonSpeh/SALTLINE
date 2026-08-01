@@ -319,8 +319,10 @@ func _ready() -> void:
 	add_child(MantleRay.new())
 	add_child(Epic4EyedWhale.new())  # night visitor from the deep
 	# New Codex species.
-	add_child(HarborSeal.new())      # day patrol + curiosity (befriendable canon)
-	add_child(HarborSeal.new())
+	for si in range(2):
+		var seal := HarborSeal.new()
+		seal.spawn_index = si          # day patrol + curiosity (befriendable canon);
+		add_child(seal)                 # distinct phase/lane keeps the pair from overlapping
 	# Lamp Snails: marble-veined shells circling the leg bases at night (§54).
 	# Centres sit INBOARD of the caisson faces (the legs occupy |x| 19..25), so a 1.6 m
 	# ring clears the concrete instead of sweeping through it, and on the pontoon decks
@@ -1976,10 +1978,48 @@ class HarborSeal extends Node3D:
 	var _haul_snapped: bool = false
 	var _haul_floor: float = 0.95        ## measured shelf height under HAUL_XZ
 	var _belly: float = 0.0              ## model half-depth: node origin -> lowest point
+	var _crown: float = 0.0              ## model half-depth: node origin -> HIGHEST point
 	var _model: Node3D                   ## the generated mesh, for the haul-out seat
+	## Smoothed swim heading — see the look_at() note in _process.
+	var _heading: Vector3 = Vector3.ZERO
+	## THE WATERLINE, and the second time this animal has been reported floating.
+	##
+	## s23 took the swim depth off the wave surface instead of a fixed y and asserted the fix
+	## as "the BELLY is above the water on 0 of 600 frames". That assertion is still true and
+	## the owner still reports it floating, because the belly was the wrong end of the animal
+	## to measure. Re-measured off the drawn (Gerstner-displaced) surface with
+	## tests/SealFloatProbe.tscn: some part of the body was out of the water on 600 OF 600
+	## FRAMES, a mean of 0.575 m of back proud of the sea, and the node — the animal's own
+	## CENTRE — rode up to +0.159 m ABOVE the waterline. A seal whose middle is above the
+	## water is not swimming, it is sitting on the sea.
+	##
+	## The heights below are stated where a player reads them, at the BACK, and are turned
+	## into a node height through the model's own measured crown so a re-generated mesh
+	## cannot silently re-float the animal:
+	##   CRUISE_UNDER  the back rides this far UNDER the surface for most of the cycle
+	##   BREACH_PROUD  ...and this far OVER it at the top of the breath, briefly
+	const CRUISE_UNDER: float = 0.18
+	const BREACH_PROUD: float = 0.08
+	## Shape of the breath. `maxf(sin, 0)` (what this used to be) is at or near its peak for
+	## half of every cycle — a permanent perch, not a porpoise. Cubed, the animal is at cruise
+	## depth for most of the ~10 s and rolls through the surface for about a second of it.
+	const BREACH_SHARPNESS: float = 3.0
+	## How close (in plan) the animal gets to HAUL_XZ before it starts lifting out of the
+	## water. The pontoon's south face is at z -16 and HAUL_XZ is at z -12, so anything under
+	## 4 m would have it swimming at sea level with the slab already under it.
+	const HAUL_CLIMB_M: float = 5.0
+	## Which seal of the pair this is (0/1). Set by BloomFauna before add_child. Used to
+	## put the two animals on opposite sides of the same patrol loop at all times — see
+	## the phase offset in _ready and the lane offset in _process. Without this both seals
+	## ran the identical ang/r(_t) formula with only a 0..10s randf() head start against a
+	## ~39s loop period, so they were frequently in near-identical phase and visibly
+	## overlapped/clipped through each other (the reported glitching).
+	var spawn_index: int = 0
 
 	func _ready() -> void:
-		_t = randf() * 10.0
+		# Half the ~39s loop period (2*PI/0.16) puts the two seals permanently on opposite
+		# sides of the patrol ellipse instead of drifting in and out of the same spot.
+		_t = randf() * 10.0 + spawn_index * 19.6
 		_mat = BloomFauna.glow_mat(Color(0.32, 0.34, 0.38), 0.0)
 		_mat.emission_enabled = false
 		_mat.roughness = 0.6
@@ -2065,6 +2105,7 @@ class HarborSeal extends Node3D:
 			# offset when it hauls out (see HAUL_XZ / _snap_haul).
 			_model = gen["model"]
 			_belly = ANIM.belly(self, _model)
+			_crown = _crown_of(_model)
 		# Touchable when hauled out: pet it, or offer a fish (Codex §29 befriending).
 		var touch := FaunaTouch.new("Harbor Seal", 0.95, _touch_verbs, _touch_act)
 		add_child(touch)
@@ -2105,7 +2146,25 @@ class HarborSeal extends Node3D:
 		ANIM.drive(_gen_mats, (0.4 if _hauled else 1.3) * wiggle, bond_glow + _pet_bump * 0.8,
 			(0.025 if _hauled else 0.11) * wiggle)
 		if _hauled:
-			global_position = global_position.lerp(_haul, delta * 1.5)
+			# THE APPROACH SWIMS, AND ONLY THEN CLIMBS. This used to lerp the whole Vector3,
+			# so an animal that decided to haul out from the far side of the loop left the sea
+			# the instant it turned for the shelf and crossed the last twenty metres of open
+			# water at shelf height — the reported "floats above the surface", in a shorter
+			# burst than the patrol's and right where the player is standing. The plan closes
+			# as before; the HEIGHT stays on the water until the slab is actually under it.
+			# HAUL_CLIMB_M clears the pontoon's south face (z -16, 4 m out from HAUL_XZ) so
+			# the climb starts just BEFORE the concrete rather than inside it.
+			var k: float = clampf(delta * 1.5, 0.0, 1.0)
+			var to_haul: float = Vector2(_haul.x - global_position.x,
+				_haul.z - global_position.z).length()
+			global_position.x = lerpf(global_position.x, _haul.x, k)
+			global_position.z = lerpf(global_position.z, _haul.z, k)
+			if to_haul > HAUL_CLIMB_M:
+				var swell: float = Gyre.wave_height(
+					Vector2(global_position.x, global_position.z), Gyre.water_time())
+				global_position.y = lerpf(global_position.y, swell - CRUISE_UNDER - _crown, k)
+			else:
+				global_position.y = lerpf(global_position.y, _haul.y, k)
 			rotation.z = lerp_angle(rotation.z, 0.0, delta * 2.0)
 			rotation.x = lerp_angle(rotation.x, -0.12, delta * 2.0)   # chest-up rest pose
 			# THE SEAT owns the height once it has arrived — see _seat(). Gated on being
@@ -2134,7 +2193,15 @@ class HarborSeal extends Node3D:
 		# at z -34, far south of them. Closer to the rig than the old loop, and visible
 		# from the wet-deck south rail the whole way round.
 		var ang: float = _t * 0.16
-		var r: float = 12.0 + sin(_t * 0.1) * 4.0
+		# +/-1.5m lane split by spawn_index so even a phase-alignment moment (e.g. right
+		# after a haul-out) still leaves the two seals on distinct rings, not coincident.
+		#
+		# THE SWING IS 2.5, NOT 4.0, AND THAT IS THE LANE'S RENT. r_max is a hard clearance
+		# (see the block above: 16 is what keeps the loop two metres off the pontoon's south
+		# face at z -16), so the lane offset has to come OUT of the swing rather than be added
+		# on top of it — 12 + 4.0 + 1.5 would have put the outer seal's ring at z -16.5 with a
+		# 1.8 m animal on it, i.e. its flank inside the concrete. 12 + 2.5 + 1.5 = 16 exactly.
+		var r: float = 12.0 + sin(_t * 0.1) * 2.5 + (spawn_index * 2 - 1) * 1.5
 		var breathe: float = sin(_t * 0.6)          # porpoising rhythm
 		# THE SEAL SWIMS IN THE SEA, NOT AT y = 0 (owner, s23: "the harbor seal floats above
 		# the surface"). The haul-out seat is fine — measured at a 0.0 mm gap on the pontoon
@@ -2143,19 +2210,46 @@ class HarborSeal extends Node3D:
 		# floor. Measured over 600 frames before the fix: the belly was clear of the water on
 		# 134 of them, 22.3% of the loop, by up to 379 mm — an animal flying over the troughs
 		# and submerged through the crests, which is exactly "hovering". The depth is now taken
-		# from the wave surface AT THE SEAL'S OWN xz, so the animal rides the swell: the arc
-		# lifts its back and head clear to breathe (peak: node +0.10 above the surface, belly
-		# still 0.28 under it) and the rest of the loop keeps the whole body wet.
-		# Two Gyre calls per seal per frame; the term s19 profiled out was 512 of them.
+		# from the wave surface AT THE SEAL'S OWN xz, so the animal rides the swell rather
+		# than a fixed line through it. Two Gyre calls per seal per frame; the term s19
+		# profiled out was 512 of them.
+		#
+		# ...AND THAT WAS NECESSARY, NOT SUFFICIENT — s24, same owner, same words. Riding the
+		# swell fixed WHERE the animal was; it was still written as `sea - 0.45 + up to 0.55`,
+		# a lift big enough to carry the animal's own CENTRE above the waterline. Re-measured
+		# against the drawn surface (tests/SealFloatProbe.tscn): some part of the body out of
+		# the water on 600 OF 600 FRAMES, a mean 0.575 m of back proud of the sea, node up to
+		# +0.159 m ABOVE it. The height is now stated at the BACK and converted through the
+		# model's own measured crown (CRUISE_UNDER / BREACH_PROUD), so the animal cruises
+		# submerged and only rolls through the surface to breathe. `_crown` is 0 on the
+		# procedural fallback body, which lands within a few centimetres of the old resting
+		# depth — no worse than it was, and correct the moment a mesh is there.
 		var flat_xz := Vector2(cos(ang) * r * 0.7, -34.0 + sin(ang) * r)
 		var sea: float = Gyre.wave_height(flat_xz, Gyre.water_time())
-		var y: float = sea - 0.45 + maxf(breathe, 0.0) * 0.55
+		var surfacing: float = pow(maxf(breathe, 0.0), BREACH_SHARPNESS)
+		var back_y: float = -CRUISE_UNDER + surfacing * (CRUISE_UNDER + BREACH_PROUD)
+		var y: float = sea + back_y - _crown
 		var pos := Vector3(flat_xz.x, y, flat_xz.y)
 		var vel: Vector3 = pos - global_position
 		global_position = pos
-		if vel.length_squared() > 0.0001:
-			look_at(pos + vel, Vector3.UP)
-		rotation.x += clampf(vel.y * 2.0, -0.4, 0.4)   # pitch into the porpoise arc
+		# AIM ALONG A SMOOTHED HEADING, not the raw per-frame delta.
+		#
+		# `vel` carries the SEA's vertical velocity as well as the animal's, and the short
+		# chop bands (1.7 m wavelength, omega ~6 rad/s) run to metres per second — so
+		# look_at()ing the raw delta pitched a 1.8 m animal by ~30 deg up and down for every
+		# wavelet it crossed. Measured before the fix: a world AABB 1.581 m TALL on a body
+		# 0.76 m deep, which is most of what read as "bobbing" rather than swimming. The
+		# heading is eased toward the travel direction and its climb is capped at ~20 deg, so
+		# the body follows the swell and ignores the ripple. The old extra
+		# `rotation.x += vel.y * 2.0` is gone with it: look_at() already pitches into the
+		# arc, and that term was a second helping of the same pitch.
+		if vel.length_squared() > 1.0e-8:
+			_heading = vel if _heading.length_squared() <= 0.0 \
+				else _heading.lerp(vel, clampf(delta * 3.0, 0.0, 1.0))
+		var flat_h: float = Vector2(_heading.x, _heading.z).length()
+		if flat_h > 1.0e-5:
+			var climb: float = clampf(_heading.y, -flat_h * 0.36, flat_h * 0.36)
+			look_at(pos + Vector3(_heading.x, climb, _heading.z), Vector3.UP)
 		# Fore flippers row on the dive beat.
 		for i in range(_flippers.size()):
 			(_flippers[i] as Node3D).rotation.x = sin(_t * 2.4 + i * PI) * 0.5
@@ -2203,9 +2297,32 @@ class HarborSeal extends Node3D:
 			return
 		global_position.y += _haul_floor - low
 
+	## How far the model's HIGHEST point stands above the host origin, metres — the mirror of
+	## CreatureAnim.belly(), and the number the waterline is stated against. Measured in
+	## _ready, in the same unrotated frame belly() is, so the two are the same statement about
+	## the same mesh: a regenerated seal moves its own waterline and nothing has to be retyped.
+	func _crown_of(model: Node3D) -> float:
+		var acc := AABB()
+		var first := true
+		var inv: Transform3D = global_transform.affine_inverse()
+		for n in model.find_children("*", "MeshInstance3D", true, false):
+			var inst: MeshInstance3D = n
+			if inst.mesh == null:
+				continue
+			var box: AABB = (inv * inst.global_transform) * inst.get_aabb()
+			acc = box if first else acc.merge(box)
+			first = false
+		return 0.0 if first else acc.position.y + acc.size.y
+
 	## Only the first seal hauls out — one resident, one patroller.
+	##
+	## Was `get_index() % 2 == 0`, which asks the SCENE TREE which animal this is: it happened
+	## to pick exactly one of the pair only because the two are added back to back, and it
+	## picked the seal with spawn_index 1 (measured: indices 31 and 32), i.e. the opposite one
+	## from the pair's own numbering. spawn_index is the identity BloomFauna actually assigns,
+	## so ask that instead and the resident is the same animal every run.
 	func _idx_zero() -> bool:
-		return get_index() % 2 == 0
+		return spawn_index == 0
 
 	func _touch_verbs() -> Array:
 		if not _hauled:

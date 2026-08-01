@@ -25,7 +25,7 @@ func _ready() -> void:
 func _physics_process(_delta: float) -> void:
 	if held_by:
 		if not _was_held:
-			freeze = false          # wake into physics the moment it's grabbed
+			wake_from_settle()      # unfreeze + cancel any pending settle lock
 			_was_held = true
 		var cam: Camera3D = held_by.get_node("Head/Camera3D")
 		if heavy:
@@ -49,8 +49,8 @@ func _physics_process(_delta: float) -> void:
 			linear_velocity = carry_velocity(target)
 			carry_yaw_follow(held_by.global_rotation.y)
 	elif _was_held:
-		_was_held = false           # released — stays dynamic, settles, then sleeps
-		end_carry()                 # drop the carry servo's command (see phys_prop.gd)
+		_was_held = false           # released — runs live, then locks (PhysProp.SETTLE_SEC)
+		end_carry()                 # drop the carry servo's command + arm the settle clock
 		release_carry_orient()      # forget the pickup yaw so the next grab re-captures
 
 func get_prompt() -> String:

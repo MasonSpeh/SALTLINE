@@ -59,6 +59,9 @@ var journal_panel: Panel
 var journal_text: RichTextLabel
 var inventory_panel: Panel
 var inv_grid: GridContainer
+## Slot edge in pixels. The bench's lay slots are 84 and its pack grid 66 (BenchPanel's own
+## constants) — this is the pack's, and every one of them is built by BenchPanel.slot_button.
+const INV_SLOT_PX: int = 74
 var inv_title: Label              ## doubles as the "picked up, click away to drop" line
 ## RichTextLabel (was a plain Label) so the richer hover panel (owner request 2026-07-27:
 ## "add more info") can color a stat line (e.g. the amber ▸ hint, a red side-effect
@@ -86,9 +89,37 @@ var _fish_preview_id: String = ""
 var bench_panel: BenchPanel
 var crate_panel: Panel
 var crate_title: Label
-var _crate_list: VBoxContainer
-var _pack_list: VBoxContainer
+## The exchange is two slot GRIDS now, not two lists of name buttons — same sockets as the
+## pack and the bench. Buttons are built once and FILLED per refresh (the old panel
+## queue_free()d and rebuilt every row on every take, which drops the hover the player's
+## cursor is sitting in and re-renders the info box out from under them); the `_ids` arrays
+## are what the once-bound click/hover handlers read, exactly as BenchPanel._pack_ids does.
+var _crate_slots: Array[Button] = []
+var _crate_slot_ids: Array[String] = []
+var _crate_pack_slots: Array[Button] = []
+var _crate_pack_ids: Array[String] = []
+var _crate_grid: GridContainer
+var _crate_pack_grid: GridContainer
+var _crate_caption: Label
+var _crate_pack_caption: Label
+var _crate_info: RichTextLabel
 var _crate: LootContainer = null
+## The exchange is the bench's footprint exactly (720 x 620) — two slot grids side by side
+## need the bench's width, and matching its height is what stops the three panels popping to
+## different sizes as the player moves between them. 66 px sockets in 4 columns is BenchPanel's
+## own pack-grid slot at the width half a panel leaves once the 14 px gutter is paid.
+const CRATE_W: float = 720.0
+const CRATE_H: float = 620.0
+const CRATE_SLOT_PX: int = 66
+const CRATE_COLS: int = 4
+## How many sockets each side shows before it has to scroll — 5 rows of CRATE_COLS. Measured,
+## not picked: the column has ~423 px of scroll height at CRATE_H and a row costs 72, so six
+## rows overflow by nine pixels and hang a scrollbar and half a row of sockets off the bottom
+## of every crate in the game. That is the same "end on a whole row" rule BenchPanel's match
+## box is sized by. The crate side is unbounded in principle (LootContainer.items is a plain
+## array), so past this the grid GROWS in _crate_fit_slots and scrolls, rather than silently
+## truncating a hoard.
+const CRATE_SLOTS_BUILT: int = 20
 
 var _toast_tween: Tween
 var _comfort_tween: Tween
@@ -786,7 +817,9 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]Inventory[/b]      I — click an item to pick it up, then click the slot you want it in
                 (swaps with whatever is there, so a full pack is never a dead end)
                 click it again to put it back · click empty space to drop it
-[b]Crates[/b]         E opens an exchange panel — take what you need, stow what you don't
+[b]Crates[/b]         E opens an exchange panel — crate on the left, your pack on the right
+                click a slot to move one · hold Shift to move the whole stack
+                TAKE ALL / STOW ALL sweep a whole side at once
 [b]Journal[/b]        J — discoveries, item notes, craft hints
 [b]Hook[/b]           F — throw the rigging hook (craft it at the bench)
 [b]Craft[/b]          E at the rigging bench — lay parts on it, hold WORK / Space
@@ -884,71 +917,14 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	for i in range(max_slots):
 		# SQUARE slots showing the item itself (owner call, 2026-07-26). The Button keeps
 		# every existing interaction — pick/place, right-click drop, hover info — and gains
-		# a TextureRect child for the picture. The picture is a CHILD rather than the
-		# Button's own `icon` because Button.icon is laid out against the button text and
-		# gets shoved aside by the stack-count and pick-marker glyphs; a child fills the
-		# whole square and the glyphs overlay it.
-		var b := Button.new()
-		b.custom_minimum_size = Vector2(74, 74)
-		b.focus_mode = Control.FOCUS_NONE
-		b.clip_contents = true
-		# Steel-slot styling (owner theme pass, 2026-07-27) — a riveted socket rather than
-		# a stock Godot button, and the hover/pressed states pick up the same warm amber
-		# the hazard rule uses, so "this slot is interactive" reads as rig hardware, not UI
-		# chrome. Static styleboxes only — no per-frame cost.
-		var slot_normal := StyleBoxFlat.new()
-		slot_normal.bg_color = Color(0.145, 0.15, 0.16)
-		slot_normal.border_color = Color(0.05, 0.05, 0.055)
-		slot_normal.set_border_width_all(2)
-		slot_normal.set_corner_radius_all(3)
-		b.add_theme_stylebox_override("normal", slot_normal)
-		var slot_hover := slot_normal.duplicate()
-		slot_hover.border_color = Color(0.7, 0.55, 0.2)
-		slot_hover.bg_color = Color(0.19, 0.19, 0.2)
-		b.add_theme_stylebox_override("hover", slot_hover)
-		var slot_pressed := slot_normal.duplicate()
-		slot_pressed.border_color = Color(0.62, 0.5, 0.14)
-		slot_pressed.bg_color = Color(0.1, 0.1, 0.11)
-		b.add_theme_stylebox_override("pressed", slot_pressed)
-		b.add_theme_stylebox_override("focus", slot_normal)
-		var pic := TextureRect.new()
-		pic.name = "Pic"
-		pic.set_anchors_preset(Control.PRESET_FULL_RECT)
-		pic.offset_left = 4
-		pic.offset_top = 4
-		pic.offset_right = -4
-		pic.offset_bottom = -4
-		pic.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
-		pic.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
-		pic.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		b.add_child(pic)
-		# ALWAYS-VISIBLE name + count strip (owner request 2026-07-27: "should be able to
-		# see how many of each item/name even without hovering"). A thin semi-transparent
-		# backing along the slot's bottom edge so the label reads over any icon color, with
-		# the icon staying the dominant visual above it. Built once here; text set per
-		# refresh in _refresh_inventory_panel via _slot_name_tag_text().
-		var tag_bg := Panel.new()
-		tag_bg.name = "TagBG"
-		tag_bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-		tag_bg.custom_minimum_size = Vector2(0, 16)
-		tag_bg.offset_top = -16
-		tag_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		var tag_style := StyleBoxFlat.new()
-		tag_style.bg_color = Color(0.02, 0.02, 0.02, 0.72)
-		tag_style.content_margin_left = 2
-		tag_style.content_margin_right = 2
-		tag_bg.add_theme_stylebox_override("panel", tag_style)
-		var tag_lbl := Label.new()
-		tag_lbl.name = "Tag"
-		tag_lbl.set_anchors_preset(Control.PRESET_FULL_RECT)
-		tag_lbl.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-		tag_lbl.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
-		tag_lbl.clip_text = true
-		tag_lbl.add_theme_font_size_override("font_size", 9)
-		tag_lbl.add_theme_color_override("font_color", Color(0.88, 0.88, 0.84))
-		tag_lbl.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		tag_bg.add_child(tag_lbl)
-		b.add_child(tag_bg)
+		# a TextureRect child for the picture and an always-visible name/count strip along
+		# its bottom edge (owner request 2026-07-27: "should be able to see how many of each
+		# item/name even without hovering"). All of that — the riveted socket, the amber
+		# hover, the "Pic" and "TagBG/Tag" children this panel's refresh writes into — is
+		# BenchPanel.slot_button now, the one copy the bench and the crate exchange also
+		# build from. It used to live inline here and be *lifted* by the bench, which is how
+		# the crate exchange spent two theme passes as a list of wide name buttons.
+		var b: Button = BenchPanel.slot_button(INV_SLOT_PX)
 		var idx: int = i
 		b.pressed.connect(func() -> void: _inv_slot_clicked(idx))
 		b.mouse_entered.connect(func() -> void: _inv_slot_hovered(idx))
@@ -977,14 +953,25 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	ivbox.add_child(drop_btn)
 
 	# CRATE — exchange with a storage crate: its contents left, your pack right.
-	crate_panel = _make_panel(560, 460)
+	#
+	# REBUILT 2026-07-31 onto the pack's own kit. It was the last panel still wearing the
+	# generic dark rounded rectangle and two columns of wide name buttons — "Salvaged Bottle
+	# ×3" written out in a list, which is exactly what the pack stopped being when the icons
+	# landed (see item_icons.gd's header) and the bench stopped being on 07-30. Same locker
+	# steel, same corner rivets, same amber stencilled header over a hazard rule, same square
+	# riveted sockets showing the item's own render with its always-visible name/count strip,
+	# same hover info box the pack uses. Nothing invented: every part of this is a call into
+	# something one of those two panels already owns.
+	crate_panel = _make_panel(CRATE_W, CRATE_H)
+	crate_panel.add_theme_stylebox_override("panel", _locker_panel_style())
+	_add_rivets(crate_panel, CRATE_W, CRATE_H)
 	var cbox := VBoxContainer.new()
 	cbox.set_anchors_preset(Control.PRESET_FULL_RECT)
 	cbox.offset_left = 18
 	cbox.offset_top = 12
 	cbox.offset_right = -18
 	cbox.offset_bottom = -12
-	cbox.add_theme_constant_override("separation", 10)
+	cbox.add_theme_constant_override("separation", 8)
 	crate_panel.add_child(cbox)
 	var crow := HBoxContainer.new()
 	crow.add_theme_constant_override("separation", 8)
@@ -992,17 +979,21 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	crate_title = Label.new()
 	crate_title.text = "CRATE"
 	crate_title.add_theme_font_size_override("font_size", 17)
+	# The pack's stencilled-locker amber, not the default white (see inv_title).
+	crate_title.add_theme_color_override("font_color", Color(0.86, 0.74, 0.42))
 	crate_title.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	crow.add_child(crate_title)
+	# Glyph-prefixed like the pack's "⤓  DROP ONE", so the three panels' controls read as one
+	# set. Arrows point the way the goods actually travel: ⇤ out of the crate, ⇥ into it.
 	var take_all := Button.new()
-	take_all.text = "TAKE ALL"
-	take_all.custom_minimum_size = Vector2(96, 30)
+	take_all.text = "⇤  TAKE ALL"
+	take_all.custom_minimum_size = Vector2(108, 30)
 	take_all.focus_mode = Control.FOCUS_NONE
 	take_all.pressed.connect(_crate_take_all)
 	crow.add_child(take_all)
 	var stow_all := Button.new()
-	stow_all.text = "STOW ALL"
-	stow_all.custom_minimum_size = Vector2(96, 30)
+	stow_all.text = "⇥  STOW ALL"
+	stow_all.custom_minimum_size = Vector2(108, 30)
 	stow_all.focus_mode = Control.FOCUS_NONE
 	stow_all.pressed.connect(_crate_stow_all)
 	crow.add_child(stow_all)
@@ -1012,12 +1003,28 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	close_x.focus_mode = Control.FOCUS_NONE
 	close_x.pressed.connect(func() -> void: toggle_panel("crate"))
 	crow.add_child(close_x)
+	var hazard_rule_c := ColorRect.new()
+	hazard_rule_c.custom_minimum_size = Vector2(0, 3)
+	hazard_rule_c.color = Color(0.62, 0.5, 0.14)
+	hazard_rule_c.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cbox.add_child(hazard_rule_c)
 	var cols := HBoxContainer.new()
 	cols.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	cols.add_theme_constant_override("separation", 14)
 	cbox.add_child(cols)
-	_crate_list = _crate_column(cols, "CRATE — click to take")
-	_pack_list = _crate_column(cols, "PACK — click to stow")
+	_crate_grid = _crate_column(cols, true)
+	_crate_pack_grid = _crate_column(cols, false)
+	# The pack's own hover box, verbatim — same height, same font, same _item_info_bbcode, so
+	# an item reads the same on either side of the exchange as it does in the pack itself.
+	_crate_info = RichTextLabel.new()
+	_crate_info.bbcode_enabled = true
+	_crate_info.fit_content = false
+	_crate_info.scroll_active = false
+	_crate_info.custom_minimum_size = Vector2(0, 92)
+	_crate_info.add_theme_font_size_override("normal_font_size", 13)
+	_crate_info.add_theme_color_override("default_color", Color(0.72, 0.76, 0.72))
+	_crate_info.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	cbox.add_child(_crate_info)
 
 	# BENCH — crafting surface, opened by the in-world rigging bench.
 	bench_panel = BenchPanel.new()
@@ -1154,6 +1161,9 @@ func toggle_panel(which: String) -> void:
 		elif which == "bench":
 			bench_panel.refresh()
 		elif which == "crate":
+			# Nothing is under the cursor the frame the panel appears, so the info box must
+			# not open still holding whatever the last exchange was hovering.
+			_crate_info.text = ""
 			_refresh_crate_panel()
 	if not crate_panel.visible:
 		_crate = null   # drop the reference the moment the exchange view closes
@@ -1536,36 +1546,87 @@ func _spawn_drop(item_id: String) -> void:
 
 # ============================ crate exchange ==================================
 
-## One side of the crate exchange: heading + scrollable button list.
-func _crate_column(parent: Control, heading: String) -> VBoxContainer:
+## One side of the crate exchange: a live caption over a scrollable grid of pack-style
+## sockets. `crate_side` picks which of the two column's worth of state this fills — the
+## caption and the slot array are members so the once-bound handlers below can read them,
+## the same shape BenchPanel's pack grid uses.
+func _crate_column(parent: Control, crate_side: bool) -> GridContainer:
 	var col := VBoxContainer.new()
 	col.size_flags_horizontal = Control.SIZE_EXPAND_FILL
 	col.add_theme_constant_override("separation", 6)
 	parent.add_child(col)
+	# The bench's section-caption colour and size, so "what is this half for" reads the same
+	# on both panels. Text is written per refresh — it carries the live count as well.
 	var head := Label.new()
-	head.text = heading
 	head.add_theme_font_size_override("font_size", 13)
 	head.add_theme_color_override("font_color", Color(0.65, 0.7, 0.68))
+	# Clipped, not wrapped: the tally sits at the end of the line, and a caption allowed to
+	# grow a second row would shove one column's grid a slot-row below the other's.
+	head.clip_text = true
 	col.add_child(head)
 	var scroll := ScrollContainer.new()
 	scroll.size_flags_vertical = Control.SIZE_EXPAND_FILL
 	scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
 	col.add_child(scroll)
-	var list := VBoxContainer.new()
-	list.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	list.add_theme_constant_override("separation", 6)
-	scroll.add_child(list)
-	return list
+	var grid := GridContainer.new()
+	grid.columns = CRATE_COLS
+	grid.size_flags_horizontal = Control.SIZE_EXPAND_FILL
+	grid.add_theme_constant_override("h_separation", 6)
+	grid.add_theme_constant_override("v_separation", 6)
+	scroll.add_child(grid)
+	if crate_side:
+		_crate_caption = head
+	else:
+		_crate_pack_caption = head
+	_crate_fit_slots(grid, crate_side, CRATE_SLOTS_BUILT)
+	return grid
 
-func _crate_item_button(item_id: String, on_press: Callable, count: int = 1) -> Button:
-	var b := Button.new()
-	var nm: String = PlayerState.items.get(item_id, {}).get("name", item_id.capitalize())
-	b.text = nm + ("  ×%d" % count if count > 1 else "")
-	b.custom_minimum_size = Vector2(0, 34)
-	b.size_flags_horizontal = Control.SIZE_EXPAND_FILL
-	b.focus_mode = Control.FOCUS_NONE
-	b.pressed.connect(on_press)
-	return b
+## Make sure `n` sockets exist on one side, building any that don't yet. Called once at
+## construction for CRATE_SLOTS_BUILT and again from the refresh when a crate turns out to
+## hold more distinct kinds than that — a socket, once built, is never freed, so the cursor
+## never loses the button it is hovering mid-exchange.
+func _crate_fit_slots(grid: GridContainer, crate_side: bool, n: int) -> void:
+	while (_crate_slots.size() if crate_side else _crate_pack_slots.size()) < n:
+		var b: Button = BenchPanel.slot_button(CRATE_SLOT_PX)
+		var idx: int = _crate_slots.size() if crate_side else _crate_pack_slots.size()
+		# Left-click moves ONE, holding Shift moves the whole stack — the same "one, or all
+		# of it" pair TAKE ALL / STOW ALL offer for the whole side. Read off Input rather
+		# than a gui_input handler because `pressed` is what BenchPanel's slots bind too, and
+		# a second event path over the same button is how a click starts meaning two things.
+		b.pressed.connect(func() -> void:
+			var ids: Array[String] = _crate_slot_ids if crate_side else _crate_pack_ids
+			if idx >= ids.size():
+				return
+			_crate_move(ids[idx], crate_side, Input.is_key_pressed(KEY_SHIFT)))
+		b.mouse_entered.connect(func() -> void:
+			var ids: Array[String] = _crate_slot_ids if crate_side else _crate_pack_ids
+			_crate_info.text = _item_info_bbcode(ids[idx]) if idx < ids.size() else "")
+		grid.add_child(b)
+		if crate_side:
+			_crate_slots.append(b)
+		else:
+			_crate_pack_slots.append(b)
+
+## One click's worth of exchange: `whole` moves the entire stack, otherwise a single item.
+## Both directions run through _crate_take / _crate_stow so there is exactly one place that
+## knows how goods cross, and the headless probes keep testing the path the player uses.
+func _crate_move(item_id: String, from_crate: bool, whole: bool) -> void:
+	if item_id == "":
+		return
+	var have_crate: bool = _crate != null and is_instance_valid(_crate)
+	var n: int = 1
+	if whole:
+		n = _group_count(_crate.items, item_id) if from_crate and have_crate \
+			else PlayerState.count_item(item_id)
+	for _i in range(maxi(n, 1)):
+		# Stop on the first refusal — a full pack has nothing more to say after the
+		# first "Pack is full.", and a stack that ran out mid-loop is already across.
+		if not (_crate_take(item_id) if from_crate else _crate_stow(item_id)):
+			break
+	# The bench's own lay-a-part cue, at the crate rather than the bench: a soft knock, not a
+	# UI blip. Fired once for the gesture, not once per item, or a 16-deep stack machine-guns.
+	if have_crate:
+		AudioDirector.play_one_shot("step", _crate.global_position, -18.0)
 
 ## [ [id, count], ... ] in first-seen order — collapses duplicate ids into one row.
 func _group_counts(list: Array) -> Array:
@@ -1581,6 +1642,15 @@ func _group_counts(list: Array) -> Array:
 	for id in order:
 		out.append([id, int(counts[id])])
 	return out
+
+## How many of one id `list` holds — the shift-click "take the whole stack" count, without
+## grouping the entire crate to read a single row.
+func _group_count(list: Array, item_id: String) -> int:
+	var n: int = 0
+	for it in list:
+		if str(it) == item_id:
+			n += 1
+	return n
 
 ## The pack as [ [id, total], ... ], summing across split stacks.
 func _pack_groups() -> Array:
@@ -1601,15 +1671,14 @@ func _pack_groups() -> Array:
 		out.append([id, PlayerState.count_item(id)])
 	return out
 
-func _crate_empty_line(text: String) -> Label:
-	var l := Label.new()
-	l.text = text
-	l.add_theme_font_size_override("font_size", 13)
-	l.add_theme_color_override("font_color", Color(0.5, 0.54, 0.52))
-	return l
-
-## Rebuild both columns from live state. Also connected to inventory_changed, so
-## eating from the hotbar (etc.) while the panel is open stays in sync.
+## Refill both grids from live state. Also connected to inventory_changed, so eating from
+## the hotbar (etc.) while the panel is open stays in sync.
+##
+## FILL, never rebuild: the sockets are permanent (see _crate_fit_slots) and this only writes
+## pictures, tags and visibility into them. The old version queue_free()d and re-made every
+## row on every single take, which is the same churn BenchPanel's pack grid was fixed for —
+## it drops the hover the cursor is inside, so the info box blanked mid-exchange and the amber
+## highlight flickered off the button the player was still pointing at.
 func _refresh_crate_panel() -> void:
 	if crate_panel == null or not crate_panel.visible:
 		return
@@ -1617,43 +1686,78 @@ func _refresh_crate_panel() -> void:
 		toggle_panel("crate")   # the crate got freed under us — close its view
 		return
 	crate_title.text = _crate.display_name.to_upper()
-	for c in _crate_list.get_children():
-		c.queue_free()
-	for c in _pack_list.get_children():
-		c.queue_free()
 	var crate_groups: Array = _group_counts(_crate.items)
-	if crate_groups.is_empty():
-		_crate_list.add_child(_crate_empty_line("· empty ·"))
-	for g in crate_groups:
-		var id: String = g[0]
-		_crate_list.add_child(_crate_item_button(id, func() -> void: _crate_take(id), g[1]))
 	var pack_groups: Array = _pack_groups()
-	if pack_groups.is_empty():
-		_pack_list.add_child(_crate_empty_line("· nothing to stow ·"))
-	for g in pack_groups:
-		var pid: String = g[0]
-		_pack_list.add_child(_crate_item_button(pid, func() -> void: _crate_stow(pid), g[1]))
+	# CAPACITY, both sides — and the "· empty ·" line the old list carried, moved up here
+	# because a 66 px socket cannot hold a sentence and the caption has the whole column.
+	# The pack's tally is the number that decides whether TAKE ALL finishes or stops on
+	# "Pack is full.", which is the same "tell them the counts they are about to need" call
+	# the bench's MATERIALS block made.
+	_crate_caption.text = "CRATE — take one · shift: all       %s" % (
+		"· empty ·" if crate_groups.is_empty() else "%d inside" % _crate.items.size())
+	# Counted over the HOTBAR TOO, because this column shows the hotbar too (_pack_groups
+	# reads both). pack_used() alone said "1/18" under a panel displaying seven stacks.
+	var carried: int = PlayerState.pack_used()
+	for h in PlayerState.hotbar:
+		if h != null:
+			carried += 1
+	_crate_pack_caption.text = "PACK — stow one · shift: all       %d/%d" % [
+		carried, PlayerState.HOTBAR_SIZE + PlayerState.backpack_capacity()]
+	_crate_fill(_crate_grid, true, crate_groups)
+	_crate_fill(_crate_pack_grid, false, pack_groups)
 
-func _crate_take(item_id: String) -> void:
+## Write one side's groups into its sockets.
+func _crate_fill(grid: GridContainer, crate_side: bool, groups: Array) -> void:
+	_crate_fit_slots(grid, crate_side, groups.size())
+	# Assigned onto the member, not mutated through a local alias — the click and hover
+	# handlers re-read the member every time they fire, so this is the whole update.
+	var ids: Array[String] = []
+	for g in groups:
+		ids.append(str(g[0]))
+	if crate_side:
+		_crate_slot_ids = ids
+	else:
+		_crate_pack_ids = ids
+	var slots: Array[Button] = _crate_slots if crate_side else _crate_pack_slots
+	for i in range(slots.size()):
+		if i >= groups.size():
+			# The EMPTY sockets stay on screen, the way the pack's do — a container reads as
+			# a place with slots in it, and a half-full crate drawn as two rows floating over
+			# 300 px of nothing reads as a panel that failed to finish drawing. (The bench
+			# hides its spares instead, but the bench's pack row is a strip, not a grid.)
+			# Only the overflow past what was built for is hidden, and never freed.
+			slots[i].visible = i < maxi(groups.size(), CRATE_SLOTS_BUILT)
+			BenchPanel.fill_slot(slots[i], "", 0, "", _icons)
+			continue
+		slots[i].visible = true
+		BenchPanel.fill_slot(slots[i], str(groups[i][0]), int(groups[i][1]), "", _icons)
+
+## Move ONE across, either way. Both answer whether the item actually crossed, so a
+## shift-click's loop can stop the moment the pack fills instead of toasting sixteen times.
+func _crate_take(item_id: String) -> bool:
 	if _crate == null or not is_instance_valid(_crate):
 		_refresh_crate_panel()
-		return
+		return false
 	var idx: int = _crate.items.find(item_id)
 	if idx == -1:
-		return
-	if PlayerState.add_item(item_id):
+		return false
+	var took: bool = PlayerState.add_item(item_id)
+	if took:
 		_crate.items.remove_at(idx)
 	else:
 		toast("Pack is full.")
 	_refresh_crate_panel()
+	return took
 
-func _crate_stow(item_id: String) -> void:
+func _crate_stow(item_id: String) -> bool:
 	if _crate == null or not is_instance_valid(_crate):
 		_refresh_crate_panel()
-		return
-	if PlayerState.remove_item(item_id):
+		return false
+	var stowed: bool = PlayerState.remove_item(item_id)
+	if stowed:
 		_crate.items.append(item_id)
 	_refresh_crate_panel()
+	return stowed
 
 func _crate_take_all() -> void:
 	if _crate == null or not is_instance_valid(_crate):
@@ -1664,6 +1768,7 @@ func _crate_take_all() -> void:
 			toast("Pack is full.")
 			break
 		_crate.items.remove_at(0)
+	AudioDirector.play_one_shot("step", _crate.global_position, -18.0)
 	_refresh_crate_panel()
 
 ## Empty the pack into the crate — the mirror of TAKE ALL. Snapshot the totals first
@@ -1676,6 +1781,7 @@ func _crate_stow_all() -> void:
 		for _k in range(int(g[1])):
 			if PlayerState.remove_item(g[0]):
 				_crate.items.append(g[0])
+	AudioDirector.play_one_shot("step", _crate.global_position, -18.0)
 	_refresh_crate_panel()
 
 # ============================ stat bar widget =================================

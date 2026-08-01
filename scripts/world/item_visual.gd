@@ -17,6 +17,7 @@ const FISH_TINT := {
 	"fish_gulper_eel": Color(0.28, 0.22, 0.3), "fish_bloom_dragon": Color(0.15, 0.35, 0.4),
 	"fish_fathom_sturgeon": Color(0.34, 0.36, 0.32), "fish_abyss_grenadier": Color(0.4, 0.38, 0.34),
 	"fish_coelacanth": Color(0.32, 0.34, 0.38),
+	"fish_swordfish": Color(0.33, 0.42, 0.52),       # slate-blue back, s24
 	# Owner call, 2026-07-27: these two had no glb, no tint and no size, so they came out of
 	# build() as the DEFAULT un-tinted grey capsule — the same anonymous shape for a hagfish
 	# and for a fish that has gone off. Un-modelled is fine; un-identifiable is not.
@@ -44,6 +45,10 @@ const FISH_SIZE := {
 	"fish_gulper_eel": 1.6, "fish_bloom_dragon": 1.4,
 	"fish_fathom_sturgeon": 2.0, "fish_abyss_grenadier": 1.3,
 	"fish_coelacanth": 0.9,                                    # half the grouper
+	# s24: the rain fish at 22 m. Authored at 3.0 m of body — the bill is a third of it, and
+	# only the sturgeon (3.5) is longer. Its size_kg tops out at 120, which the cube law reads
+	# as 2.57 m, so this authored length is the one fish_length_m() keeps (see the max() there).
+	"fish_swordfish": 3.0,
 	# The 2026-07-26 Meshy batch. Without these the whole new intake defaulted to 1.0 and a
 	# bilge blenny weighed the same in the hand as a dogfish — the exact flattening this
 	# table was written to stop.
@@ -104,6 +109,49 @@ static func fish_length_m(item_id: String) -> float:
 static func fish_max_kg(item_id: String) -> float:
 	var kg: Array = FishTable.all().get(FISH_MODEL.species_of(item_id), {}).get("size_kg", [])
 	return float(kg[1]) if kg.size() >= 2 else 0.0
+
+## ---------------------------------------------------------------- HOW BIG IT IS IN HAND
+## Owner, 2026-07-31: "when i hold the barrel grouper it is tiny — it should look massive,
+## like the inventory picture."
+##
+## The pack preview already frames a fish at its real size (item_icons._render_preview, off
+## fish_length_m below), so a caught grouper's PORTRAIT is a two-handed monster. The HAND
+## was the one place that threw the size away: player_controller._normalize_hand_visual
+## measures whatever ItemVisual.build() returned and uniform-scales it so its longest
+## dimension is HAND_ITEM_MAX_DIM — 0.18 m, the same 18 cm for a can of peaches, a copper
+## sprat and a 48 kg grouper. Only three ids were ever excused from it, by a hand-written
+## match on the two fishing poles and the prybar.
+##
+## This is the fish family's answer to that question, and it is DERIVED from the same body
+## length the portrait uses rather than being a second hand-written table that can disagree
+## with the first: a fish is shown in the hand at HAND_FRACTION of its true length, floored
+## at the ordinary pocket size (so nothing gets SMALLER than it is today) and capped so the
+## biggest animals in the table are a trophy rather than a wall.
+##
+##   copper sprat   0.45 m body -> 0.22 m in hand   (a handful, as now)
+##   lantern herring 0.50 m      -> 0.25 m
+##   barrel grouper 1.90 m       -> 0.95 m in hand  — wider than the fishing rod reads
+##   fathom sturgeon 3.50 m      -> 1.10 m (capped)
+##
+## COOKED IDS ARE DELIBERATELY EXCLUDED. "cooked_fish_barrel_grouper" is a FILLET — one of
+## six to twelve off the animal — and it already borrows the whole fish's mesh; blowing that
+## up to a metre of charred grouper would make an existing oddity into a loud one.
+const HAND_FRACTION: float = 0.50
+## Mirrors PlayerController.HAND_ITEM_MAX_DIM. Kept as a local number rather than a
+## cross-class reference so this leaf visual lib does not drag the player into its load
+## graph (same reason _tint_of parses fish.json directly instead of going through FishTable).
+const HAND_BASE_M: float = 0.18
+## A held fish stops growing here. 1.10 m is about as much animal as fits across the view
+## at the hand mount without becoming a screen-filling wall.
+const HAND_MAX_M: float = 1.10
+
+## Longest-axis size, in metres, that this item should be drawn at IN THE PLAYER'S HAND.
+## Returns HAND_BASE_M for everything that is not a raw species fish, i.e. the whole rest of
+## the roster keeps the pocket scale it has always had.
+static func hand_size_m(item_id: String) -> float:
+	if item_id.begins_with("cooked_") or not is_species_fish(item_id):
+		return HAND_BASE_M
+	return clampf(fish_length_m(item_id) * HAND_FRACTION, HAND_BASE_M, HAND_MAX_M)
 
 static var _longest_m: float = 0.0
 ## The longest species in the roster, which is what the pack preview scales everything

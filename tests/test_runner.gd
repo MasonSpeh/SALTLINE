@@ -961,12 +961,18 @@ func _run() -> void:
 	# Structures.build, so this asserts the round-trip, not the geometry.
 	for leftover in get_tree().get_nodes_in_group("built_structures"):
 		leftover.free()
+	# ON the main deck, not a metre above it. These coordinates used to read y19 over an
+	# y18 plate — an arbitrary height that made the round-trip assertion pass while
+	# encoding a camp hanging in mid-air, which is precisely what leaked into a real save
+	# slot and came back as the owner's "floating chair and fireplace on the main deck".
+	# RigBuilder.DECK_Y is 18.0; restore_structures settles onto it, so a fixture that
+	# starts there measures a ~0 delta and the assertion below still means what it says.
 	var kit_a: Node3D = Structures.build("brazier_kit", false)
 	get_tree().current_scene.add_child(kit_a)
-	kit_a.global_position = Vector3(11.0, 19.0, -4.0)
+	kit_a.global_position = Vector3(11.0, 18.0, -4.0)
 	var kit_b: Node3D = Structures.build("chair_kit", false)
 	get_tree().current_scene.add_child(kit_b)
-	kit_b.global_position = Vector3(12.5, 19.0, -4.0)
+	kit_b.global_position = Vector3(12.5, 18.0, -4.0)
 	await get_tree().process_frame
 	SaveManager.save_game()
 	for s in get_tree().get_nodes_in_group("built_structures"):
@@ -982,7 +988,7 @@ func _run() -> void:
 	for s in back:
 		kits.append(String((s as Node3D).get_meta("kit", "")))
 		if String((s as Node3D).get_meta("kit", "")) == "brazier_kit":
-			placed_ok = (s as Node3D).global_position.distance_to(Vector3(11.0, 19.0, -4.0)) < 0.05
+			placed_ok = (s as Node3D).global_position.distance_to(Vector3(11.0, 18.0, -4.0)) < 0.05
 	_check(kits.has("brazier_kit") and kits.has("chair_kit"),
 		"they come back as the right kits")
 	_check(placed_ok, "they come back where they were put")
@@ -1019,7 +1025,10 @@ func _run() -> void:
 	# exchange every other stash uses. Prove the whole chain: craft, stow, save, reload.
 	var bin: Node3D = Structures.build("storage_bin_kit", false)
 	get_tree().current_scene.add_child(bin)
-	bin.global_position = Vector3(13.0, 19.0, -4.0)
+	# x13.8, not x13.0: the chair above spans x 12.13..12.87 and the bin is 0.92 m wide, so
+	# at x13 the two fixtures cut 0.34 m into each other — the "overlapping" half of the
+	# owner's report, straight out of the test data. 13.8 clears the chair by 0.45 m.
+	bin.global_position = Vector3(13.8, 18.0, -4.0)
 	await get_tree().process_frame
 	await get_tree().create_timer(1.7).timeout   # ComfortFurniture's RESCAN_SEC sweep
 	var bin_box: LootContainer = null

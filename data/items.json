@@ -253,6 +253,12 @@
     "hunger": 0.08,
     "side_effect": "sick"
   },
+  "fish_swordfish": {
+    "name": "Swordfish",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
   "dried_fish": {
     "name": "Dried Fish",
     "use": "eat",

@@ -306,6 +306,10 @@ const STEP_MIN_BLOCKED: float = 0.35    ## step only if we kept under this fract
 const STUCK_SPEED: float = 0.22         ## m/s of real travel under which a moving player counts as stuck
 const STUCK_FRAMES: float = 0.30        ## seconds of that before we push the body out
 const STUCK_NUDGE: float = 0.10         ## how hard the push is (a shove, not a teleport)
+## Margin for "is this spot inside geometry?" overlap tests. Deliberately NOT safe_margin:
+## a resting body sits roughly one safe_margin off the surface it stands on, so an overlap
+## test run at safe_margin calls every standable spot occupied. See _try_step_up step 4.
+const OCCUPANCY_MARGIN: float = 0.001
 var _stuck_t: float = 0.0
 
 ## How detectable the player is to creatures right now (1.0 standing, 0.5 crouched,
@@ -404,10 +408,39 @@ func _configure_body() -> void:
 	var cap := _col.shape as CapsuleShape3D
 	if cap:
 		cap.radius = PLAYER_RADIUS
-	# Collision margin. The default 0.001 lets the solver resolve a contact so shallow that
-	# the next frame re-penetrates it, which on a seam between two butted deck plates reads
-	# as a stutter. 0.03 keeps the body a visible sliver off every surface.
-	safe_margin = 0.03
+	# COLLISION MARGIN — 0.03 -> 0.01, AND THIS IS THE STAIR HITCH.
+	#
+	# Godot's default 0.001 lets the solver resolve a contact so shallow that the next frame
+	# re-penetrates it, which on a seam between two butted deck plates can read as a stutter,
+	# so a margin bigger than the default is right. 0.03 was not: it is 8% of the body radius,
+	# and it is what turned every stair-top into a wall.
+	#
+	# THE MECHANISM, measured with the real controller (tests drove the actual player up the
+	# tower, not a stand-in capsule). The margin inflates the capsule for contact generation,
+	# so climbing a flight the body's lower sphere touches the LANDING SLAB'S LEADING TOP EDGE
+	# while it is still `sqrt(2*r*m + m^2)` back down the run — 0.15 m at r=0.37, m=0.03. That
+	# early contact is against a convex EDGE from below, so its normal is far steeper than the
+	# ramp's own: 55-61 deg off vertical, measured, against a floor_max_angle of 46. Godot
+	# therefore calls the top of the stairs a WALL, and `floor_block_on_wall` (default true)
+	# answers a grounded body walking into a wall by setting `velocity` to exactly zero and
+	# discarding the frame's whole motion. The player stops dead 0.35 m short of the landing;
+	# _unstick_nudge then shoves them 0.10 m BACK DOWN the run every 0.30 s, they re-accelerate
+	# from zero, and the cycle repeats. That is the reported "extra second onto every platform
+	# off stair", and it is systemic because every flight on the rig ends in the same edge.
+	#
+	# The join geometry is NOT at fault and was not touched: stair_kit.gd's closed-form flush
+	# ramp is correct to the millimetre, and the probe confirms the ramp's top surface passes
+	# exactly through the landing's leading edge. It is the margin meeting a sharp convex
+	# corner that manufactures a wall out of a flush join, which is why fixing the geometry
+	# twice did not fix the report.
+	#
+	# 0.01 is not a guess: the failure cliff was bisected on the steepest flight in the game
+	# (the tower's 38.66 deg runs). 0.015 walks the junction clean, 0.020 sticks hard. 0.01 is
+	# 10x Godot's default — it keeps the anti-restitution sliver the 0.03 was reaching for,
+	# measured as identical on flat plating (a 13 m topside traverse runs 4.13 s at both) —
+	# and sits well under the cliff. The repaired step-up in _try_step_up is the second,
+	# independent net: with both fixes the junction clears even at the old 0.03.
+	safe_margin = 0.01
 	# Stay glued to the deck across plate seams, grating joins and the top of a stair run.
 	# Default 0.1 is shorter than the lips this rig is built from, so the body would go
 	# briefly airborne, lose is_on_floor(), and re-land — which is also what made walking
@@ -795,11 +828,19 @@ func _physics_process(delta: float) -> void:
 	velocity.z = move_toward(velocity.z, target_velocity.z, ACCELERATION * delta * target_speed)
 
 	var before: Vector3 = global_position
+	# HOW FAR THIS FRAME MEANT TO GO, MEASURED BEFORE move_and_slide() TOUCHES IT.
+	# _try_step_up used to re-read `velocity` afterwards to work out how much travel the
+	# frame had cost — but Godot's `floor_block_on_wall` path sets `velocity` to exactly
+	# Vector3.ZERO when a grounded body is refused a wall, so the intended travel read back
+	# as 0, the "did we get blocked?" test bailed on `wanted < 0.001`, and the step-up
+	# assist was silently unavailable in the one situation it exists for. Capturing it here
+	# is the whole fix; see the note on that test.
+	var wanted_travel: float = Vector2(velocity.x, velocity.z).length() * delta
 	move_and_slide()
 	# The two anti-snag passes, in order: try to STEP the obstruction first (the common
 	# case — a coaming, a kick plate, a rail's own foot), and only if we are still pinned
 	# after several frames of asking to move does the unstick shove fire.
-	if not _try_step_up(direction, before):
+	if not _try_step_up(direction, before, wanted_travel):
 		_unstick_nudge(direction, before, delta)
 	else:
 		_stuck_t = 0.0
@@ -823,7 +864,7 @@ func _physics_process(delta: float) -> void:
 ##      railing bar or a hatch coaming with a hole behind it — refusing here is what stops
 ##      the step-up from walking the player over a guard rail and off the deck.)
 ## Returns true when a step was taken.
-func _try_step_up(wish: Vector3, before: Vector3) -> bool:
+func _try_step_up(wish: Vector3, before: Vector3, wanted: float) -> bool:
 	if not is_on_floor() or _posture == POSTURE_PRONE or wish.length_squared() < 0.0001:
 		return false
 	var dir: Vector3 = Vector3(wish.x, 0.0, wish.z)
@@ -832,9 +873,13 @@ func _try_step_up(wish: Vector3, before: Vector3) -> bool:
 	dir = dir.normalized()
 	# Did the frame actually cost us travel? A clear walk moves ~speed*delta; a blocked one
 	# moves a rounding error. Only bother probing when we kept less than a third of it.
+	#
+	# `wanted` is the pre-move value passed in by the caller, NOT `velocity` read back here.
+	# move_and_slide() zeroes `velocity` outright whenever floor_block_on_wall refuses a
+	# grounded body a wall, so reading it here reported "we never intended to move" for
+	# exactly the frames where the body had just been hard-stopped by a lip.
 	var moved: Vector3 = global_position - before
 	var got: float = Vector2(moved.x, moved.z).length()
-	var wanted: float = Vector2(velocity.x, velocity.z).length() * get_physics_process_delta_time()
 	if wanted < 0.001 or got > wanted * STEP_MIN_BLOCKED:
 		return false
 	var up := Vector3(0.0, STEP_MAX_HEIGHT, 0.0)
@@ -857,7 +902,14 @@ func _try_step_up(wish: Vector3, before: Vector3) -> bool:
 	var top: Vector3 = ahead.origin + Vector3(0.0, -drop, 0.0)
 	if top.y - base.origin.y < 0.01:
 		return false                                   # not actually a rise; let the solver have it
-	if test_move(Transform3D(base.basis, top), Vector3.ZERO, null, safe_margin, true):
+	# 4. Is the destination genuinely inside something? MEASURED WITH A HAIR'S-BREADTH
+	# MARGIN, NOT `safe_margin`. `recovery_as_collision` reports anything the solver would
+	# have to push the body out of — and a body RESTING on a surface sits about one margin
+	# off it, so asking this question at safe_margin (0.03) answers "occupied" for every
+	# spot the player could actually stand. The step-up therefore refused every step it
+	# ever computed correctly, including the top of every stair on the rig. The same
+	# reasoning is already written out in _leave_climb(), which is why that one uses 0.001.
+	if test_move(Transform3D(base.basis, top), Vector3.ZERO, null, OCCUPANCY_MARGIN, true):
 		return false                                   # the destination is occupied
 	global_position = top
 	velocity.y = maxf(velocity.y, 0.0)
@@ -1532,6 +1584,14 @@ func _normalize_hand_visual(container: Node3D, visual: Node3D) -> void:
 			target = 0.9   # a full-length rod actually reads as a rod, not a twig
 		"prybar":
 			target = 0.4
+	# ...and a CAUGHT FISH is held at its own size. The pack already photographs a fish at its
+	# real body length (item_icons._render_preview), so a 48 kg barrel grouper's portrait is a
+	# two-handed monster while the same fish in the hand was 18 cm of grouper — the owner's
+	# "when i hold the barrel grouper it is tiny". ItemVisual.hand_size_m() owns the number and
+	# derives it from the same body length the portrait uses; it returns HAND_ITEM_MAX_DIM for
+	# everything that is not a raw species fish, so maxf() leaves the whole rest of the roster
+	# (and the three overrides above) exactly where it was.
+	target = maxf(target, ItemVisual.hand_size_m(_held_item_id))
 	_hand_scale = (target / largest) if largest > 0.0001 else 1.0
 	container.scale = Vector3.ONE * _hand_scale
 	visual.position = -combined.get_center()

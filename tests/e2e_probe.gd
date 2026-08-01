@@ -25,6 +25,9 @@ const MOVABLE := preload("res://scripts/components/movable_prop.gd")
 
 var _fails: Array[String] = []
 var _main: Node3D
+## The real slot stem, restored on the way out so nothing downstream inherits the
+## throwaway one this probe writes into.
+var _slot_prefix: String = ""
 
 func _ok(cond: bool, msg: String) -> void:
 	print(("PASS  " if cond else "E2E-FAIL  "), msg)
@@ -32,6 +35,14 @@ func _ok(cond: bool, msg: String) -> void:
 		_fails.append(msg)
 
 func _ready() -> void:
+	# Check 1 below calls SaveManager.save_game() for real. Without this redirect it wrote
+	# saltline_slot_1.json — the SAME file the start screen's "Continue" loads — so every
+	# run of this probe replaced the player's camp with the probe's own fixture: a brazier
+	# hanging at (11, 19, -4), a full metre above the y18 main deck. That is the "floating
+	# chair / overlapping fireplace on the main deck that keeps coming back". Point the
+	# stem at a throwaway, exactly as test_runner.gd and save_probe.gd already do.
+	_slot_prefix = SaveManager.slot_file_prefix
+	SaveManager.slot_file_prefix = "e2e_probe_slot_"
 	_main = load("res://scenes/Main.tscn").instantiate()
 	add_child(_main)
 	# Let the world stream in, dress itself, and settle its physics.
@@ -45,6 +56,10 @@ func _ready() -> void:
 	await _c4_snail_wall()
 	_c5_fish_glb()
 
+	# Clear the throwaway slot and hand the real stem back.
+	SaveManager.erase_slot(SaveManager.active_slot)
+	SaveManager.slot_file_prefix = _slot_prefix
+
 	print("E2E-FAILURES: ", _fails.size())
 	get_tree().quit()
 
@@ -56,7 +71,7 @@ func _c1_save_reload() -> void:
 	# a placed structure
 	var kit: Node3D = STRUCTURES.build("brazier_kit", false)
 	get_tree().current_scene.add_child(kit)
-	kit.global_position = Vector3(11.0, 19.0, -4.0)
+	kit.global_position = Vector3(11.0, 18.0, -4.0)   # on the y18 main deck, not above it
 	# a stocked container (reuse a pre-placed world locker/nest — it never moves, so its
 	# save key is stable)
 	var cont: Node3D = null

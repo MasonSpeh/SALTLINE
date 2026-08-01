@@ -40,16 +40,51 @@ const CARRY_MAX_SPEED: float = 6.0    ## m/s a carried prop may be driven at
 const CARRY_MAX_SPIN: float = 6.0     ## rad/s the yaw servo may command
 const RELEASE_MAX_SPEED: float = 2.5  ## m/s a prop may still carry the instant you let go
 
+## SETTLE AND FREEZE. Owner spec: three seconds after you let go of something, it stops dead
+## and locks into the pose it is in at that moment.
+##
+## The clamps above fixed the release VELOCITY, but they cannot fix the other half. A block at
+## rest on the wet deck is a convex shape sitting on a CSG-baked ConcavePolygonShape3D —
+## triangle soup with no interior, with seams where two static colliders present the SAME
+## walking plane. A solver asked to re-resolve that contact set every tick, forever, will
+## always find something to argue about; a box wide enough to bridge a seam gets pushed by
+## both sides of it. That argument, running at 30 Hz under a body that should be doing
+## nothing, is what reads as "shaking and moving in circles".
+##
+## A prop that has come to rest has nothing left to simulate, so stop simulating it: zero the
+## velocities and freeze the body STATIC. It holds its pose for good, costs nothing, and —
+## being a static collider now — you can stack things on it and stand on it. Grabbing it wakes
+## it again (wake_from_settle), so this is a rest state, not a death.
+const SETTLE_SEC: float = 3.0         ## seconds after release before the body locks
+## A prop thrown over the rail is still in free fall at T+3, and freezing it there hangs a
+## crate in the sky above the water. A body still falling re-checks on this interval instead —
+## but only for SETTLE_MAX_DEFER more seconds, after which it locks regardless, so "permanent"
+## stays true even for something that never lands.
+const SETTLE_RECHECK: float = 0.5
+const SETTLE_MAX_DEFER: float = 6.0
+const SETTLE_FALL_SPEED: float = 3.0  ## m/s downward that still counts as "in the air"
+
 var _was_carried: bool = false
+var _settle_timer: Timer = null
+var _settle_deferred: float = 0.0
 
 func _ready() -> void:
 	physics_material_override = PhysicsMaterial.new()
-	physics_material_override.friction = 0.4
-	physics_material_override.bounce = 0.3
+	# Wet steel plating and a wooden dunnage block do not slide, and they do not bounce.
+	# Friction 0.4 let a set-down box skate off across the deck; bounce 0.3 meant it arrived
+	# in a series of ever-smaller hops, each one a fresh contact against triangle soup. Both
+	# fed the "shaking / moving in circles" report directly, so both come down to values a
+	# heavy object on a wet deck would actually show.
+	physics_material_override.friction = 0.9
+	physics_material_override.bounce = 0.05
 	# Residual spin has to bleed off. This was left at the project default (0.1), i.e. a
 	# ten-second time constant, so any tumble a prop picked up outlived the interest of
 	# whoever was watching it.
-	angular_damp = 1.0
+	angular_damp = 2.0
+	# Likewise for residual travel: without this, a released prop coasts on the project
+	# default (0.1) and is still creeping when the settle clock locks it. Deliberately well
+	# under MovableProp's 1.5 — a throw still has to read as a throw.
+	linear_damp = 0.5
 	# CONTINUOUS COLLISION, because everything this body can land on is triangle soup.
 	# The whole rig is CSGBox3D with `use_collision = true`, and CSG bakes to a
 	# ConcavePolygonShape3D — the one shape class with no interior. At 30 Hz a prop that
@@ -60,9 +95,24 @@ func _ready() -> void:
 	# numbers of these bodies in the world, so swept collision is affordable here in a way
 	# it would not be on a crowd.
 	continuous_cd = true
+	# The settle clock. A Timer NODE rather than a countdown ticked in _physics_process,
+	# because MovableProp overrides _physics_process and does not chain to super — a tick
+	# living there would silently never run for the furniture, which is most of the props in
+	# the game. On physics so the lock lands on a physics frame, with the body's own step.
+	_settle_timer = Timer.new()
+	_settle_timer.one_shot = true
+	_settle_timer.process_callback = Timer.TIMER_PROCESS_PHYSICS
+	_settle_timer.timeout.connect(_on_settle_timeout)
+	add_child(_settle_timer)
 
 func _physics_process(_delta: float) -> void:
 	if held_by:
+		if not _was_carried:
+			# The not-held -> held edge. A settled prop is frozen STATIC, and a frozen body
+			# ignores the linear_velocity the carry servo is about to write, so it has to go
+			# live again first. This lives on the edge (not at try_grab) for the same reason
+			# end_carry does: there is more than one way to start holding something.
+			wake_from_settle()
 		# Float in front of the camera at arm's length, tracking where you look.
 		var cam: Camera3D = held_by.get_node("Head/Camera3D")
 		var target: Vector3 = cam.global_position - cam.global_transform.basis.z * 1.3
@@ -88,6 +138,44 @@ func carry_velocity(target: Vector3, gain: float = 12.0) -> Vector3:
 func end_carry() -> void:
 	linear_velocity = linear_velocity.limit_length(RELEASE_MAX_SPEED)
 	angular_velocity = Vector3.ZERO
+	arm_settle()
+
+## Start the countdown to lock. Called on every release — including the throw, whose impulse
+## is applied by player_controller AFTER the drop and so is untouched by this. Calling it
+## again simply restarts the clock, which is what a re-grab-and-release should do.
+func arm_settle() -> void:
+	_settle_deferred = 0.0
+	if _settle_timer != null:
+		_settle_timer.start(SETTLE_SEC)
+
+## The clock ran out. Lock — unless the body is still falling, in which case look again
+## shortly, up to the deferral cap. See SETTLE_RECHECK.
+func _on_settle_timeout() -> void:
+	if linear_velocity.y < -SETTLE_FALL_SPEED and _settle_deferred < SETTLE_MAX_DEFER:
+		_settle_deferred += SETTLE_RECHECK
+		_settle_timer.start(SETTLE_RECHECK)
+		return
+	settle_now()
+
+## Stop dead and lock into the CURRENT position and rotation. The velocities are zeroed
+## before the freeze rather than left banked, so a later grab wakes a body that is genuinely
+## at rest instead of one that resumes the motion it was locked out of.
+func settle_now() -> void:
+	if _settle_timer != null:
+		_settle_timer.stop()
+	linear_velocity = Vector3.ZERO
+	angular_velocity = Vector3.ZERO
+	freeze_mode = RigidBody3D.FREEZE_MODE_STATIC
+	freeze = true
+
+## Back to live physics, and cancel any pending lock. The counterpart to settle_now(): a
+## settled prop comes through here before anything is allowed to move it again.
+func wake_from_settle() -> void:
+	if _settle_timer != null:
+		_settle_timer.stop()
+	_settle_deferred = 0.0
+	freeze = false
+	sleeping = false
 
 ## Turn a carried prop with the player's gaze. Capture the yaw offset between the prop
 ## and the camera at the moment of pickup, then each frame steer the prop's yaw back to

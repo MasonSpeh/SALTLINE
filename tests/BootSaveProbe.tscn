@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://boot_save_probe"]
+
+[ext_resource type="Script" path="res://tests/boot_save_probe.gd" id="1"]
+
+[node name="BootSaveProbe" type="Node"]
+script = ExtResource("1")

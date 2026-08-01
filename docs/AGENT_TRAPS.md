@@ -698,3 +698,35 @@ belly was clear of the water on **134 of them (22.3%)**, by up to 379 mm. A corr
 concrete says nothing about the 90% of the time the animal is in the water. Take the depth from
 `Gyre.wave_height()` at the animal's own xz; two calls a frame is nothing (the term s19 profiled
 out was 512 of them).
+
+**…and then the SAME animal was reported floating again, against a green assertion. The metric
+was the trap.** The s23 fix above shipped with "the belly is above the water on 0 of 600
+frames", which was true, is still true, and does not mean the animal is in the sea: the height
+was `sea - 0.45 + max(sin, 0) * 0.55`, and the lift is bigger than the drop, so the animal's own
+CENTRE rode up to **+0.159 m ABOVE the waterline** with a mean of **0.575 m of back in the air on
+600 of 600 frames**. A belly-only test cannot see that, and neither can a probe that compares
+against `Gyre.wave_height()` alone — the shader displaces horizontally too, so the drawn surface
+at a given world xz is up to ~0.15 m from the number the CPU steers by (`tests/SealFloatProbe.tscn`
+inverts that displacement and reports both). **When the report is visual ("it floats"), measure
+the visible quantity: how much of the BODY is out of the water, against the surface that is
+actually drawn.** Two more things fell out of the same block: `look_at()` on the raw per-frame
+delta pitches the animal by the SEA's vertical velocity (the 1.7 m chop band runs at metres per
+second — a 0.76 m deep body measured a **1.58 m tall** world AABB), so smooth the heading; and a
+`global_position.lerp(dest)` haul-out lifts the animal off the water the instant it turns for
+shore and flies it home at shelf height. Also: `get_index() % 2 == 0` is not an identity. It
+picked exactly one of a pair only because they happen to be added back to back, and it picked
+the *other* one from the pair's own `spawn_index` numbering.
+
+**A load that restores the clock re-enters the autosave and overwrites the file it is
+reading.** `SaveManager` autosaves on `GameClock.dawn`/`.dusk`, so *every* save file on disk
+carries phase DAWN or DUSK — and `load_game()` restores the phase with `force_phase()`, which
+emits those same signals. Every single load therefore called `save_game()` from the middle of
+itself, *before* structures, containers, dropped items and the player position had been
+restored, and wrote that half-empty world over the good save. The running session still looked
+perfect (the rest of `load_game` finishes off the in-memory dict), so it only showed up on the
+*next* boot: build a camp, save at dusk, Continue, quit, camp gone. Thirty-eight passing save
+tests missed it because each one calls `force_phase(DAY)` first and DAY is the one phase not
+wired to `save_game`. **A restore step that writes to a system with signals attached is a
+re-entrancy hazard; guard the whole apply with a `_loading` flag.** And when a test sets up
+state before exercising a save, check the setup is not quietly avoiding the only conditions the
+feature ever runs under — assert on the file re-read off disk, not on live memory.

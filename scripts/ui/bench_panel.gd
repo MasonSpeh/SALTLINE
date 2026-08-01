@@ -126,7 +126,7 @@ func _ready() -> void:
 	laid_row.alignment = BoxContainer.ALIGNMENT_CENTER
 	vbox.add_child(laid_row)
 	for i in range(MAX_LAID):
-		var b: Button = _slot_button(LAY_SLOT_PX)
+		var b: Button = slot_button(LAY_SLOT_PX)
 		var idx: int = i
 		b.pressed.connect(func() -> void: take_back(idx))
 		b.mouse_entered.connect(func() -> void:
@@ -189,7 +189,7 @@ func _ready() -> void:
 	var max_slots: int = PlayerState.HOTBAR_SIZE + PlayerState.MAX_BACKPACK \
 		+ PlayerState.TOOL_BELT_SLOTS
 	for i in range(max_slots):
-		var pb: Button = _slot_button(PACK_SLOT_PX)
+		var pb: Button = slot_button(PACK_SLOT_PX)
 		var pidx: int = i
 		pb.pressed.connect(func() -> void:
 			if pidx < _pack_ids.size():
@@ -210,9 +210,15 @@ func _ready() -> void:
 	vbox.add_child(_hover_label)
 
 ## One pack-style slot: a square riveted socket with the item's own render filling it and an
-## always-visible name/count strip along the bottom. Lifted from hud.gd's inventory grid so the
-## two panels cannot drift apart — same sizes, same three styleboxes, same amber hover.
-func _slot_button(px: int) -> Button:
+## always-visible name/count strip along the bottom.
+##
+## THE ONE COPY. It started as a lift of hud.gd's inventory grid ("so the two panels cannot
+## drift apart"), which is a promise a copy cannot keep — the crate exchange was built before
+## either of them and stayed a list of wide name buttons through two theme passes because
+## nothing tied it to the others. So it is static now and hud.gd calls it for BOTH the pack
+## grid and the crate exchange: same sizes, same three styleboxes, same amber hover, by
+## construction rather than by discipline.
+static func slot_button(px: int) -> Button:
 	var b := Button.new()
 	b.custom_minimum_size = Vector2(px, px)
 	b.focus_mode = Control.FOCUS_NONE
@@ -247,8 +253,8 @@ func _slot_button(px: int) -> Button:
 	var tag_bg := Panel.new()
 	tag_bg.name = "TagBG"
 	tag_bg.set_anchors_preset(Control.PRESET_BOTTOM_WIDE)
-	tag_bg.custom_minimum_size = Vector2(0, 15)
-	tag_bg.offset_top = -15
+	tag_bg.custom_minimum_size = Vector2(0, TAG_STRIP_PX)
+	tag_bg.offset_top = -TAG_STRIP_PX
 	tag_bg.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	var tag_style := StyleBoxFlat.new()
 	tag_style.bg_color = Color(0.02, 0.02, 0.02, 0.72)
@@ -269,8 +275,11 @@ func _slot_button(px: int) -> Button:
 	return b
 
 ## Fill one slot: the item's own render as the picture, the name (and stack count) in the
-## strip. `id` empty leaves the socket bare rather than stale.
-func _fill_slot(b: Button, id: String, count: int, empty_text: String) -> void:
+## strip. `id` empty leaves the socket bare rather than stale. `renderer` is the HUD's shared
+## ItemIcons — passed in rather than read off `self`, because the crate exchange fills slots
+## from hud.gd and there is only ever one renderer to hand it.
+static func fill_slot(b: Button, id: String, count: int, empty_text: String,
+		renderer: Node) -> void:
 	var pic: TextureRect = b.get_node("Pic")
 	var tag_bg: Panel = b.get_node("TagBG")
 	var tag_lbl: Label = tag_bg.get_node("Tag")
@@ -280,16 +289,19 @@ func _fill_slot(b: Button, id: String, count: int, empty_text: String) -> void:
 		b.text = empty_text
 		b.modulate = Color(1, 1, 1, 0.35)
 		return
-	pic.texture = icons.get_icon(id) if icons != null and icons.has_method("get_icon") else null
+	pic.texture = renderer.get_icon(id) if renderer != null \
+		and renderer.has_method("get_icon") else null
 	tag_bg.visible = true
-	tag_lbl.text = _tag_text(id, count)
+	tag_lbl.text = tag_text(id, count)
 	b.text = ""
 	b.modulate = Color(1, 1, 1)
 
 ## The pack's own abbreviation rule: a 66-74 px slot at 9 pt fits ~11-12 narrow characters,
 ## so long names are cut at a word boundary rather than left to Label.clip_text.
 const _TAG_MAX_CHARS: int = 12
-func _tag_text(id: String, count: int) -> String:
+## Height of that bottom name/count strip. One number for every panel that builds a slot.
+const TAG_STRIP_PX: int = 16
+static func tag_text(id: String, count: int) -> String:
 	var full: String = item_name(id)
 	var suffix: String = " ×%d" % count if count > 1 else ""
 	var budget: int = _TAG_MAX_CHARS - suffix.length()
@@ -559,8 +571,8 @@ func _free_slots() -> int:
 func refresh() -> void:
 	# Lay slots — the item's own picture now, not its name in a wide button.
 	for i in range(MAX_LAID):
-		_fill_slot(_laid_buttons[i], str(laid[i]) if i < laid.size() else "", 1,
-			"· lay here ·")
+		fill_slot(_laid_buttons[i], str(laid[i]) if i < laid.size() else "", 1,
+			"· lay here ·", icons)
 	# Pack grid: one slot per STACK, filled into buttons that already exist.
 	var stacks: Array = _pack_stacks()
 	_pack_ids.clear()
@@ -569,10 +581,10 @@ func refresh() -> void:
 	for i in range(_pack_slots.size()):
 		if i >= stacks.size():
 			_pack_slots[i].visible = i < maxi(stacks.size(), PACK_COLS)
-			_fill_slot(_pack_slots[i], "", 0, "")
+			fill_slot(_pack_slots[i], "", 0, "", icons)
 			continue
 		_pack_slots[i].visible = true
-		_fill_slot(_pack_slots[i], str(stacks[i]["id"]), int(stacks[i]["n"]), "")
+		fill_slot(_pack_slots[i], str(stacks[i]["id"]), int(stacks[i]["n"]), "", icons)
 	# Match line.
 	var exact: String = current_match()
 	var partials: Array[String] = partial_matches()
