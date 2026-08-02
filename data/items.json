@@ -932,5 +932,148 @@
     "use": "eat",
     "hunger": 0.62,
     "thirst": 0.1
+  },
+  "fish_skipjack_tuna": {
+    "name": "Skipjack Tuna",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_skipjack_tuna": {
+    "name": "Skipjack Tuna Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_yellowfin_tuna": {
+    "name": "Yellowfin Tuna",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_yellowfin_tuna": {
+    "name": "Yellowfin Tuna Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_albacore_tuna": {
+    "name": "Albacore Tuna",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_albacore_tuna": {
+    "name": "Albacore Tuna Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_bigeye_tuna": {
+    "name": "Bigeye Tuna",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_bigeye_tuna": {
+    "name": "Bigeye Tuna Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_bluefin_tuna": {
+    "name": "Bluefin Tuna",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_bluefin_tuna": {
+    "name": "Bluefin Tuna Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_bluelined_grouper": {
+    "name": "Bluelined Grouper",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_bluelined_grouper": {
+    "name": "Bluelined Grouper Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_peacock_grouper": {
+    "name": "Peacock Grouper",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_peacock_grouper": {
+    "name": "Peacock Grouper Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_humpback_grouper": {
+    "name": "Humpback Grouper",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_humpback_grouper": {
+    "name": "Humpback Grouper Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_leopard_grouper": {
+    "name": "Leopard Coral Grouper",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_leopard_grouper": {
+    "name": "Leopard Coral Grouper Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_mahi_mahi": {
+    "name": "Mahi-Mahi",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_mahi_mahi": {
+    "name": "Mahi-Mahi Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+  },
+  "fish_swallowtail": {
+    "name": "Swallowtail Angelfish",
+    "use": "eat",
+    "hunger": 0.08,
+    "side_effect": "sick"
+  },
+  "cooked_fish_swallowtail": {
+    "name": "Swallowtail Angelfish Fillet",
+    "use": "eat",
+    "hunger": 0.42,
+    "thirst": 0.05,
+    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
   }
 }

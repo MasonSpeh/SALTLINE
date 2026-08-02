@@ -611,5 +611,71 @@
     "title": "Escargot",
     "body": "Seared in its own shell, small and rich, the first genuinely good meal the rig has given me. It sits fine. I still think about the constellation being one light short tonight, and eat it anyway.",
     "hint": "Solid hunger, a little comfort besides — the pot is kinder to you than the tide ever was."
+  },
+  "fish_skipjack_tuna": {
+    "cat": "creature",
+    "title": "Skipjack Tuna",
+    "body": "The small one, and never alone — skipjack boil the surface in open water by day.",
+    "hint": "Takes: rod · open water · surface"
+  },
+  "fish_yellowfin_tuna": {
+    "cat": "creature",
+    "title": "Yellowfin Tuna",
+    "body": "Gold down the flank and sickle fins half its own length. Runs when it feels the hook.",
+    "hint": "Takes: rod · open water · mid"
+  },
+  "fish_albacore_tuna": {
+    "cat": "creature",
+    "title": "Albacore Tuna",
+    "body": "Pectorals like scythes, reaching most of the way down it. Cold water, long runs.",
+    "hint": "Takes: rod · open water · mid"
+  },
+  "fish_bigeye_tuna": {
+    "cat": "creature",
+    "title": "Bigeye Tuna",
+    "body": "That eye is for the dark water it hunts in. Comes up at dusk, goes down by morning.",
+    "hint": "Takes: rod · open water · deep"
+  },
+  "fish_bluefin_tuna": {
+    "cat": "creature",
+    "title": "Bluefin Tuna",
+    "body": "The big one. A quarter tonne of muscle built like a torpedo — it will empty the spool.",
+    "hint": "Takes: rod · open water · deep"
+  },
+  "fish_bluelined_grouper": {
+    "cat": "creature",
+    "title": "Bluelined Grouper",
+    "body": "Electric blue pinstripes on olive. Holds station in the leg shadow and waits.",
+    "hint": "Takes: rod · near water · mid"
+  },
+  "fish_peacock_grouper": {
+    "cat": "creature",
+    "title": "Peacock Grouper",
+    "body": "Covered in blue eyespots, every one ringed black. It watches the whole reef at once.",
+    "hint": "Takes: rod · near water · mid"
+  },
+  "fish_humpback_grouper": {
+    "cat": "creature",
+    "title": "Humpback Grouper",
+    "body": "Small head on a steep white back, all over black spots. Odd, slow, unbothered.",
+    "hint": "Takes: rod · near water · mid"
+  },
+  "fish_leopard_grouper": {
+    "cat": "creature",
+    "title": "Leopard Coral Grouper",
+    "body": "Coral red, spotted electric blue, and faster off the mark than a fish that size has any right to be.",
+    "hint": "Takes: rod · near water · deep"
+  },
+  "fish_mahi_mahi": {
+    "cat": "creature",
+    "title": "Mahi-Mahi",
+    "body": "Green-gold and lit from inside, with a forehead like a blunt axe. Fast, and it jumps.",
+    "hint": "Takes: rod · open water · surface"
+  },
+  "fish_swallowtail": {
+    "cat": "creature",
+    "title": "Swallowtail Angelfish",
+    "body": "Two long tail filaments trailing behind it like a swallow. Barely worth eating; worth looking at.",
+    "hint": "Takes: rod · near water · mid"
   }
 }

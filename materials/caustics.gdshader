@@ -14,6 +14,11 @@ uniform float scale = 0.7;
 uniform float strength : hint_range(0.0, 3.0) = 1.0;
 
 varying vec3 v_world;
+// THE SURFACE'S OWN NORMAL, IN WORLD SPACE. Godot's fragment-stage `NORMAL` is in VIEW space,
+// so branching on it below picked the projection plane by where the CAMERA was rather than by
+// which way the face pointed. Same idiom as seabed_rock.gdshader:16 and seabed.gdshader:20,
+// which build this varying for exactly this reason.
+varying vec3 v_wn;
 
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -48,6 +53,7 @@ float caustic(vec2 p, float t) {
 
 void vertex() {
 	v_world = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz;
+	v_wn = normalize((MODEL_MATRIX * vec4(NORMAL, 0.0)).xyz);
 }
 
 void fragment() {
@@ -61,7 +67,16 @@ void fragment() {
 	// and the "caustic net" degenerated into vertical stripes that never moved down the
 	// leg — which is what made the four quads read as the flat panels of a glass box
 	// rather than light playing on steel. Pick the two in-plane axes from the normal.
-	vec3 an = abs(normalize(NORMAL));
+	// WORLD normal, not the view-space one. This selector is what the comment above describes,
+	// and it never worked: fragment `NORMAL` is VIEW space, so the branch was chosen by the
+	// camera. Pitch down past ~45 deg while looking at a leg — from the pontoon walkway, the
+	// tidal ladder, or in the water — and `an.y` wins, taking the `v_world.xz` branch on a
+	// VERTICAL face. There world z (or x) is constant across the whole quad, so the 2-D
+	// caustic net collapses to iso-lines of a single axis, i.e. vertical stripes; and
+	// `caustic()` translates its noise field by `t * 0.12` every frame, so those stripes crawl
+	// sideways at a constant 0.06-0.09 m/s for ever. That is the "vertical lines all moving to
+	// the left constantly" on the foundation pillars.
+	vec3 an = abs(normalize(v_wn));
 	vec2 pp;
 	if (an.y > max(an.x, an.z)) {
 		pp = v_world.xz;                 // horizontal face: the classic floor projection

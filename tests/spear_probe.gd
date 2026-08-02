@@ -124,7 +124,14 @@ func _run() -> void:
 
 	# 2. The same fish, from the same distance, with the aim pointed the other way.
 	var away: Dictionary = uw.spear_target(eye, -aim, 3.0)
-	_ok(away.is_empty(), "a thrust aimed away from the fish misses")
+	# NOT "finds nothing" — "does not find THIS fish". The first version asserted an empty
+	# result, which quietly depended on the water behind the camera being empty; s30 added
+	# eleven species and a pod drifted into that space, so the check failed over a spear cone
+	# that works perfectly. The property being tested is that the cone rejects what is behind
+	# you, and a different fish genuinely in range ahead of the reversed aim is a real hit.
+	_ok(away.is_empty() or away["node"] != hit.get("node"),
+		"a thrust aimed away does not take the fish behind it (%s)"
+		% ("nothing in range" if away.is_empty() else "found a different fish"))
 
 	# ...and out of reach.
 	var far_eye: Vector3 = fish_pos + Vector3(0, 0, 40.0)

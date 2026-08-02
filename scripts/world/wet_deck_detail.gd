@@ -611,7 +611,12 @@ func _scatter_items() -> void:
 	# actually rolls. Unlike every other readable on this rig it is a real object: [E] reads
 	# it where it lies, [F] pockets it, and it can be set down at whatever rail you fish.
 	# See scripts/components/handbook.gd.
-	preload("res://scripts/components/handbook.gd").place_origin(self, Vector3(11.7, y + 0.62, -16.6))
+	# SEATED ON THE PLATE, not floating over it. This was y + 0.62 with nothing underneath —
+	# the one Readable in the world that BOTH auto-correctors decline: it has no SurfaceSnap,
+	# and it is not in the "settle_me" group, so neither the snap pass nor SupportIndex ever
+	# looked at it. + 0.21 puts the propped book's underside on the wet-deck plate at y 2.0,
+	# which is what SupportIndex.settle() independently measured for this XZ.
+	preload("res://scripts/components/handbook.gd").place_origin(self, Vector3(11.7, y + 0.21, -16.6))
 	# Drying lines: catch goes straight from the water to the wind. Strung by the
 	# rigging bench (west of the SPHL exit) and along the loot-room wall — clear of
 	# the pod's hatch corridor (x18.6–21.4, z-22.9→-21), and raised above head.

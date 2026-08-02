@@ -450,7 +450,7 @@
     "depth": "deep",
     "drop_m": 8,
     "bait": {
-      "snail_live": 1.9
+      "crab_leg": 1.9
     },
     "fight": 1.5,
     "pull": 1.4,
@@ -1145,7 +1145,7 @@
     "depth": "deep",
     "drop_m": 20,
     "bait": {
-      "snail_live": 2.2
+      "crab_leg": 2.2
     },
     "size_kg": [
       15.0,
@@ -1191,7 +1191,6 @@
       "fish_herring": 1.8,
       "fish_copper_sprat": 1.6,
       "fish_rotten": 1.3,
-      "snail_live": 0.55,
       "crab_leg": 0.45
     },
     "size_kg": [
@@ -1216,5 +1215,537 @@
       "active": []
     },
     "note": "Deep-drop rig only, from 22 m down, and it comes up in the RAIN. Open water off a high drop, on a whole baitfish — a chunk of shell or a snail is beneath its notice. It hunts the falling glass: put a herring on the hook the hour the weather comes in and hold the drum at twenty-two. All bill and shoulder, the longest run on the line, and six to thirteen prime fillets off one."
+  },
+  "fish_skipjack_tuna": {
+    "name": "Skipjack Tuna",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 22,
+      "day": 26,
+      "dusk": 20,
+      "night": 4
+    },
+    "storm": "ok",
+    "rain": "bonus",
+    "fog": "ok",
+    "light": "any",
+    "water": "open",
+    "depth": "surface",
+    "bait": {
+      "fish_copper_sprat": 1.8,
+      "fish_herring": 1.6
+    },
+    "size_kg": [
+      3.0,
+      12.0
+    ],
+    "fillets": [
+      3,
+      6
+    ],
+    "fight": 1.5,
+    "pull": 1.5,
+    "cooked_to": "cooked_fish_skipjack_tuna",
+    "school": {
+      "count": 10,
+      "size": 0.9,
+      "tint": [
+        0.24,
+        0.28,
+        0.46
+      ],
+      "active": [
+        "dawn",
+        "day",
+        "dusk"
+      ],
+      "shape": "fusiform"
+    },
+    "note": "The small one, and never alone — skipjack boil the surface in open water by day."
+  },
+  "fish_yellowfin_tuna": {
+    "name": "Yellowfin Tuna",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 16,
+      "day": 20,
+      "dusk": 16,
+      "night": 3
+    },
+    "storm": "bonus",
+    "rain": "ok",
+    "fog": "ok",
+    "light": "any",
+    "water": "open",
+    "depth": "mid",
+    "bait": {
+      "fish_copper_sprat": 1.9,
+      "fish_herring": 1.7,
+      "fish_mirrorjack": 1.4
+    },
+    "size_kg": [
+      20.0,
+      90.0
+    ],
+    "fillets": [
+      8,
+      16
+    ],
+    "fight": 2.2,
+    "pull": 1.9,
+    "cooked_to": "cooked_fish_yellowfin_tuna",
+    "school": {
+      "count": 5,
+      "size": 2.0,
+      "tint": [
+        0.22,
+        0.34,
+        0.5
+      ],
+      "active": [
+        "dawn",
+        "day",
+        "dusk"
+      ],
+      "shape": "fusiform"
+    },
+    "note": "Gold down the flank and sickle fins half its own length. Runs when it feels the hook."
+  },
+  "fish_albacore_tuna": {
+    "name": "Albacore Tuna",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 14,
+      "day": 10,
+      "dusk": 14,
+      "night": 6
+    },
+    "storm": "ok",
+    "rain": "bonus",
+    "fog": "ok",
+    "light": "any",
+    "water": "open",
+    "depth": "mid",
+    "bait": {
+      "fish_herring": 1.8,
+      "fish_copper_sprat": 1.5
+    },
+    "size_kg": [
+      8.0,
+      30.0
+    ],
+    "fillets": [
+      5,
+      10
+    ],
+    "fight": 1.9,
+    "pull": 1.7,
+    "cooked_to": "cooked_fish_albacore_tuna",
+    "school": {
+      "count": 6,
+      "size": 1.5,
+      "tint": [
+        0.26,
+        0.32,
+        0.48
+      ],
+      "active": [
+        "dawn",
+        "dusk",
+        "night"
+      ],
+      "shape": "fusiform"
+    },
+    "note": "Pectorals like scythes, reaching most of the way down it. Cold water, long runs."
+  },
+  "fish_bigeye_tuna": {
+    "name": "Bigeye Tuna",
+    "rod": true,
+    "net": false,
+    "deep": true,
+    "w": {
+      "dawn": 12,
+      "day": 4,
+      "dusk": 12,
+      "night": 16
+    },
+    "storm": "bonus",
+    "rain": "ok",
+    "fog": "ok",
+    "light": "shy",
+    "water": "open",
+    "depth": "deep",
+    "drop_m": 22,
+    "bait": {
+      "fish_herring": 1.9,
+      "fish_slate_cod": 1.5,
+      "crab_leg": 1.2
+    },
+    "size_kg": [
+      30.0,
+      120.0
+    ],
+    "fillets": [
+      10,
+      20
+    ],
+    "fight": 2.5,
+    "pull": 2.0,
+    "cooked_to": "cooked_fish_bigeye_tuna",
+    "school": {
+      "count": 5,
+      "size": 2.4,
+      "tint": [
+        0.18,
+        0.26,
+        0.42
+      ],
+      "active": [
+        "dusk",
+        "night"
+      ],
+      "shape": "fusiform"
+    },
+    "note": "That eye is for the dark water it hunts in. Comes up at dusk, goes down by morning."
+  },
+  "fish_bluefin_tuna": {
+    "name": "Bluefin Tuna",
+    "rod": true,
+    "net": false,
+    "deep": true,
+    "w": {
+      "dawn": 7,
+      "day": 3,
+      "dusk": 8,
+      "night": 9
+    },
+    "storm": "bonus",
+    "rain": "ok",
+    "fog": "ok",
+    "light": "any",
+    "water": "open",
+    "depth": "deep",
+    "drop_m": 30,
+    "bait": {
+      "fish_mirrorjack": 2.0,
+      "fish_herring": 1.7,
+      "fish_slate_cod": 1.4
+    },
+    "size_kg": [
+      60.0,
+      250.0
+    ],
+    "fillets": [
+      16,
+      30
+    ],
+    "fight": 3.0,
+    "pull": 2.4,
+    "cooked_to": "cooked_fish_bluefin_tuna",
+    "school": {
+      "count": 3,
+      "size": 3.4,
+      "tint": [
+        0.14,
+        0.2,
+        0.38
+      ],
+      "active": [
+        "dawn",
+        "dusk",
+        "night"
+      ],
+      "shape": "fusiform"
+    },
+    "note": "The big one. A quarter tonne of muscle built like a torpedo — it will empty the spool."
+  },
+  "fish_bluelined_grouper": {
+    "name": "Bluelined Grouper",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 14,
+      "day": 18,
+      "dusk": 14,
+      "night": 6
+    },
+    "storm": "never",
+    "rain": "ok",
+    "fog": "ok",
+    "light": "any",
+    "water": "near",
+    "depth": "mid",
+    "bait": {
+      "crab_leg": 1.8,
+      "mussels": 1.5
+    },
+    "size_kg": [
+      1.0,
+      5.0
+    ],
+    "fillets": [
+      2,
+      4
+    ],
+    "fight": 1.2,
+    "pull": 1.2,
+    "cooked_to": "cooked_fish_bluelined_grouper",
+    "school": {
+      "count": 4,
+      "size": 0.8,
+      "tint": [
+        0.32,
+        0.4,
+        0.3
+      ],
+      "active": [
+        "dawn",
+        "day",
+        "dusk"
+      ],
+      "shape": "deep"
+    },
+    "note": "Electric blue pinstripes on olive. Holds station in the leg shadow and waits."
+  },
+  "fish_peacock_grouper": {
+    "name": "Peacock Grouper",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 12,
+      "day": 16,
+      "dusk": 14,
+      "night": 8
+    },
+    "storm": "never",
+    "rain": "ok",
+    "fog": "ok",
+    "light": "any",
+    "water": "near",
+    "depth": "mid",
+    "bait": {
+      "crab_leg": 1.9,
+      "fish_gutter_prawn": 1.6
+    },
+    "size_kg": [
+      2.0,
+      10.0
+    ],
+    "fillets": [
+      3,
+      6
+    ],
+    "fight": 1.4,
+    "pull": 1.3,
+    "cooked_to": "cooked_fish_peacock_grouper",
+    "school": {
+      "count": 4,
+      "size": 1.0,
+      "tint": [
+        0.3,
+        0.24,
+        0.2
+      ],
+      "active": [
+        "dawn",
+        "day",
+        "dusk"
+      ],
+      "shape": "deep"
+    },
+    "note": "Covered in blue eyespots, every one ringed black. It watches the whole reef at once."
+  },
+  "fish_humpback_grouper": {
+    "name": "Humpback Grouper",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 9,
+      "day": 12,
+      "dusk": 10,
+      "night": 5
+    },
+    "storm": "never",
+    "rain": "bonus",
+    "fog": "ok",
+    "light": "any",
+    "water": "near",
+    "depth": "mid",
+    "bait": {
+      "fish_gutter_prawn": 1.9,
+      "crab_leg": 1.5
+    },
+    "size_kg": [
+      2.0,
+      15.0
+    ],
+    "fillets": [
+      3,
+      7
+    ],
+    "fight": 1.5,
+    "pull": 1.4,
+    "cooked_to": "cooked_fish_humpback_grouper",
+    "school": {
+      "count": 4,
+      "size": 1.2,
+      "tint": [
+        0.86,
+        0.84,
+        0.8
+      ],
+      "active": [
+        "day",
+        "dusk"
+      ],
+      "shape": "deep"
+    },
+    "note": "Small head on a steep white back, all over black spots. Odd, slow, unbothered."
+  },
+  "fish_leopard_grouper": {
+    "name": "Leopard Coral Grouper",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 10,
+      "day": 13,
+      "dusk": 12,
+      "night": 7
+    },
+    "storm": "ok",
+    "rain": "ok",
+    "fog": "ok",
+    "light": "any",
+    "water": "near",
+    "depth": "deep",
+    "bait": {
+      "crab_leg": 2.0,
+      "fish_copper_sprat": 1.5
+    },
+    "size_kg": [
+      3.0,
+      20.0
+    ],
+    "fillets": [
+      4,
+      9
+    ],
+    "fight": 1.9,
+    "pull": 1.6,
+    "cooked_to": "cooked_fish_leopard_grouper",
+    "school": {
+      "count": 4,
+      "size": 1.4,
+      "tint": [
+        0.72,
+        0.24,
+        0.22
+      ],
+      "active": [
+        "day",
+        "dusk"
+      ],
+      "shape": "deep"
+    },
+    "note": "Coral red, spotted electric blue, and faster off the mark than a fish that size has any right to be."
+  },
+  "fish_mahi_mahi": {
+    "name": "Mahi-Mahi",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 20,
+      "day": 22,
+      "dusk": 18,
+      "night": 3
+    },
+    "storm": "bonus",
+    "rain": "bonus",
+    "fog": "ok",
+    "light": "any",
+    "water": "open",
+    "depth": "surface",
+    "bait": {
+      "fish_copper_sprat": 2.0,
+      "fish_herring": 1.6
+    },
+    "size_kg": [
+      5.0,
+      25.0
+    ],
+    "fillets": [
+      5,
+      10
+    ],
+    "fight": 2.0,
+    "pull": 1.8,
+    "cooked_to": "cooked_fish_mahi_mahi",
+    "school": {
+      "count": 4,
+      "size": 1.6,
+      "tint": [
+        0.3,
+        0.78,
+        0.42
+      ],
+      "active": [
+        "dawn",
+        "day",
+        "dusk"
+      ],
+      "shape": "deep"
+    },
+    "note": "Green-gold and lit from inside, with a forehead like a blunt axe. Fast, and it jumps."
+  },
+  "fish_swallowtail": {
+    "name": "Swallowtail Angelfish",
+    "rod": true,
+    "net": false,
+    "w": {
+      "dawn": 16,
+      "day": 20,
+      "dusk": 16,
+      "night": 4
+    },
+    "storm": "never",
+    "rain": "ok",
+    "fog": "ok",
+    "light": "any",
+    "water": "near",
+    "depth": "mid",
+    "bait": {
+      "mussels": 1.7,
+      "fish_gutter_prawn": 1.5
+    },
+    "size_kg": [
+      0.2,
+      1.0
+    ],
+    "fillets": [
+      1,
+      2
+    ],
+    "fight": 0.8,
+    "pull": 0.9,
+    "cooked_to": "cooked_fish_swallowtail",
+    "school": {
+      "count": 8,
+      "size": 0.5,
+      "tint": [
+        0.86,
+        0.8,
+        0.5
+      ],
+      "active": [
+        "dawn",
+        "day",
+        "dusk"
+      ],
+      "shape": "slender"
+    },
+    "note": "Two long tail filaments trailing behind it like a swallow. Barely worth eating; worth looking at."
   }
 }

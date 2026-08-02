@@ -285,15 +285,29 @@ func _spawn_giant_crabs() -> void:
 ## during the day (king_crab.gd _den) rather than lying up somewhere out in the sea.
 const KING := preload("res://scripts/world/king_crab.gd")   # by path: class cache lags new files
 const KING_COUNT: int = 2
-const KING_LANE_Z: Array = [-9.5, -12.5]
+## ONE KING PER CAISSON FOOT, not two on the same one.
+##
+## Owner, twice: "the two big crabs still just sit right next to each other all day". They
+## did. Both dens were on the SE leg and differed only in z, by 3.00 m — and KingCrab's DAY
+## state is an explicit hold-position, so each walks to its one authored point and stops. It
+## has no territory system of its own (the s21 "give each crab its own territory" pass was
+## the GIANT crabs; the kings never got one), so nothing else was ever going to separate them.
+##
+## Two animals this size should not be in the same sightline, so they get different legs: the
+## south-east foot and the south-west one, 54 m apart across the under-rig water. Each keeps
+## its own transit lane and its own climb, so their night routes do not converge either.
+const KING_DENS: Array[Vector3] = [Vector3(27.0, -8.0, -9.5), Vector3(-27.0, -8.0, -12.5)]
+## The outboard point each king swims to before it starts up the leg — on the same side as
+## its own den, or a king would cross the whole rig to begin a climb.
+const KING_RISE_X: Array[float] = [29.5, -29.5]
 
 func _spawn_king_crabs() -> void:
 	for i in range(KING_COUNT):
-		var z: float = KING_LANE_Z[i % KING_LANE_Z.size()]
+		var den: Vector3 = KING_DENS[i % KING_DENS.size()]
 		var king: Node3D = KING.new()
 		king.spawn_index = i
-		king.den = Vector3(27.0, -8.0, z)
-		king.rise_path = [Vector3(29.5, -3.0, z)] + _crab_climb(z)
+		king.den = den
+		king.rise_path = [Vector3(KING_RISE_X[i % KING_RISE_X.size()], -3.0, den.z)] + _crab_climb(den.z)
 		add_child(king)
 		king.global_position = king.den
 
