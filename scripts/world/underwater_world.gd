@@ -32,9 +32,49 @@ const SCHOOL_PODS: int = 2
 ## shoal, numbers unchanged. Pod 1 is the new open-water half — wider, slower (a shoal that
 ## far out should read as barely moving when you watch it from the rim) and a few metres
 ## down, so the added fish fill the water COLUMN as well as the plan view.
-const POD_SPREAD: Array[Vector2] = [Vector2(24.0, 28.0), Vector2(41.0, 46.0)]
-const POD_RATES: Array[Vector2] = [Vector2(0.050, 0.041), Vector2(0.029, 0.023)]
+##
+## ...AND SINCE s34, WHICH WATER A POD WORKS IS READ OFF THE SPECIES. `water` has been in
+## data/fish.json since the table was written and until now it steered exactly one thing:
+## the CATCH roll, i.e. whether a cast from the rim was in the right place. It had no say
+## at all in where the animal actually SWAM. So seventeen species that the table calls
+## open-water pelagics — including all five s31 tunas and the mahi — were stocked into the
+## same ±24 x ±28 m box around the legs as everything else, and that box is precisely the
+## water the player looks down into from the wet deck. The owner's report was that the
+## water under the rig "got messed up" with the new species in it. It did, and this is the
+## structural half of why (the count half is in fish.json).
+##
+## Three classes, and `any` is EXACTLY the historical pair so the 16 species that carry it
+## do not move at all — the owner liked the previous array and most of it is untouched:
+##   near — HELD ON A LEG. Not a tighter box in the middle of the rig: the legs stand at
+##          |x| 22 / |z| 12, so shrinking the ellipse would have pulled the groupers into
+##          the empty middle and AWAY from the structure they are supposed to be holding
+##          station on. Each near pod is anchored to one of the four caissons and works a
+##          small ellipse around it, which is what "small tight groups near the legs" means
+##          and also puts them where the coral is.
+##   any  — the historical ±24 x ±28 near-rig box and its ±41 x ±46 open ring. Unchanged.
+##   open — pushed out past the moorings, where a tuna belongs.
+const POD_SPREAD_BY_WATER: Dictionary = {
+	"near": [Vector2(6.5, 7.5), Vector2(9.0, 10.5)],
+	"any": [Vector2(24.0, 28.0), Vector2(41.0, 46.0)],
+	"open": [Vector2(33.0, 37.0), Vector2(52.0, 58.0)],
+}
+## The wander RATE is derived, not typed. The four historical numbers are within 8% of a
+## constant linear speed along each axis — 24 x 0.050 = 1.20 and 41 x 0.029 = 1.19; 28 x
+## 0.041 = 1.15 and 46 x 0.023 = 1.06 — i.e. whoever tuned them was really choosing "how
+## fast does the centre travel", and a hand-typed pair for every new class would be three
+## more chances to get that wrong. So the pair below IS the tuning surface and each pod's
+## rate is this over its own spread. A wider circuit is automatically slower, which is the
+## property the open ring wanted in the first place.
+const POD_PATH_SPEED := Vector2(1.20, 1.15)
 const POD_DROP: Array[float] = [0.0, 3.4]
+
+## Which caisson a `near` pod holds station on. Spread over the four legs by a stable index
+## so two grouper species do not pile onto the same one — the s21 king-crab lesson (two
+## animals authored to the same foot find each other and stay there) applied before it can
+## happen rather than after.
+static func _leg_anchor(i: int) -> Vector3:
+	var l: Vector3 = LEGS[i % LEGS.size()]
+	return Vector3(l.x, 0.0, l.z)
 
 ## HOW FAR A SHOAL FISH IS WORTH DRAWING.
 ##
@@ -86,6 +126,11 @@ var _kelp_phase: PackedFloat32Array = PackedFloat32Array()
 ##   climb[], warm, t}]. The four parallel arrays are the per-member swim state; `warm` is
 ## false until the pod's first live frame has seated its fish.
 var _schools: Array = []
+## Counts the species that actually stock a school, so `near` pods can be dealt round the
+## four caissons in a stable order. NOT the pod count — two pods of one species must land
+## on different legs, and NOT the fish.json key order alone, because a species with no
+## school must not consume a leg slot and shift everything after it.
+var _species_index: int = 0
 var _t: float = 0.0
 var _rng := RandomNumberGenerator.new()
 var _snow: GPUParticles3D          # marine snow, storm/depth-reactive in _process
@@ -883,6 +928,7 @@ func _spawn_schools() -> void:
 		var school: Dictionary = def.get("school", {})
 		if int(school.get("count", 0)) <= 0:
 			continue
+		_species_index += 1
 		var tint_arr: Array = school["tint"]
 		var tint := Color(tint_arr[0], tint_arr[1], tint_arr[2])
 		var mat := StandardMaterial3D.new()
@@ -896,7 +942,7 @@ func _spawn_schools() -> void:
 		# One material per species, shared by both pods — the tint is a fact about the
 		# fish, not about which patch of water this particular shoal is working.
 		for pod in range(SCHOOL_PODS):
-			_spawn_pod(id, def, school, tint, mat, band_y, pod)
+			_spawn_pod(id, def, school, tint, mat, band_y, pod, _species_index)
 
 ## THE CATCHABLE SHOALS WERE RENDERING AS BLACK SILHOUETTES, and it was light, not material.
 ##
@@ -935,7 +981,7 @@ const POD_BODY_GLOW: float = 0.38
 ## One pod of one species: its own node, its own members, its own circuit. Pod 0 works the
 ## water immediately around the rig; pod 1 and up work the open water (POD_SPREAD).
 func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
-		mat: StandardMaterial3D, band_y: float, pod: int) -> void:
+		mat: StandardMaterial3D, band_y: float, pod: int, species_i: int) -> void:
 	var root := Node3D.new()
 	add_child(root)
 	var size: float = float(school["size"])
@@ -994,10 +1040,21 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 	# a big school read as a knot rather than a shoal. Scaling on sqrt(count) keeps the
 	# density roughly constant instead: more fish, more water.
 	var spread_r: float = (0.9 + size * 0.55) * sqrt(float(maxi(members.size(), 1))) * 0.42
+	# Where this pod works, and how fast round it — see POD_SPREAD_BY_WATER. An unknown
+	# `water` value falls back to the historical box rather than to nothing, so a typo in
+	# the table cannot silently teleport a species into the middle of the world.
+	var water: String = String(def.get("water", "any"))
+	var pair: Array = POD_SPREAD_BY_WATER.get(water, POD_SPREAD_BY_WATER["any"])
+	var spread: Vector2 = pair[pod]
+	# A near pod holds a caisson; everything else wanders about the rig's centre line. The
+	# two pods of one near species take DIFFERENT legs (+1) so a species is not stacked
+	# twice on the same corner.
+	var anchor: Vector3 = _leg_anchor(species_i + pod) if water == "near" else Vector3.ZERO
 	_schools.append({
 		"root": root, "fish": members, "def": def, "id": id, "pod": pod,
-		"band_y": band_y - POD_DROP[pod], "size": size,
-		"spread": POD_SPREAD[pod], "rates": POD_RATES[pod], "radius": spread_r,
+		"band_y": band_y - POD_DROP[pod], "size": size, "anchor": anchor,
+		"spread": spread, "radius": spread_r,
+		"rates": Vector2(POD_PATH_SPEED.x / spread.x, POD_PATH_SPEED.y / spread.y),
 		"ph": phases, "spd": speeds, "head": heads, "climb": climbs,
 		"warm": false,
 		"t": _rng.randf_range(0, 100.0),
@@ -1005,7 +1062,7 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		# has accumulated but not yet spent; `centre` is where it was last seen, which is what
 		# the distance ranking uses (the root node never leaves the origin).
 		"acc": 0.0,
-		"centre": Vector3(0.0, band_y - POD_DROP[pod], 0.0),
+		"centre": anchor + Vector3(0.0, band_y - POD_DROP[pod], 0.0),
 		# A stable per-pod number to offset the tick phase by, so the 48 pods spread across the
 		# stride instead of all updating on the same frame. Taken at spawn — looking the pod's
 		# own index up per frame would be a linear scan comparing dictionaries.
@@ -1286,7 +1343,11 @@ func _process(delta: float) -> void:
 		var rates: Vector2 = s["rates"]
 		var cx: float = cos(t * rates.x) * spread.x + sin(t * rates.x * 0.37 + 1.3) * spread.x * 0.16
 		var cz: float = sin(t * rates.y) * spread.y + cos(t * rates.y * 0.43 + 2.1) * spread.y * 0.16
-		var center := Vector3(cx, s["band_y"] + sin(t * 0.11) * 0.8 + sin(t * 0.037) * 0.5, cz)
+		# ...about the pod's anchor, which is a caisson for a `near` species and the world
+		# centre line for everything else (POD_SPREAD_BY_WATER).
+		var anch: Vector3 = s["anchor"]
+		var center := Vector3(anch.x + cx,
+			s["band_y"] + sin(t * 0.11) * 0.8 + sin(t * 0.037) * 0.5, anch.z + cz)
 		s["centre"] = center
 		var members: Array = s["fish"]
 		var n: int = members.size()

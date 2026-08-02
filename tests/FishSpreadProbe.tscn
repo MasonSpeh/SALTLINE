@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://fish_spread_probe"]
+[ext_resource type="Script" path="res://tests/fish_spread_probe.gd" id="1"]
+[node name="FishSpreadProbe" type="Node3D"]
+script = ExtResource("1")

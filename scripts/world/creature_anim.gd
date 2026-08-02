@@ -116,8 +116,56 @@ const FACING_DEFAULT := {"yaw": 180.0, "pitch": 0.0, "axis": 0, "flip": 1.0, "li
 ## the mesh's TAIL on Godot's forward and the animal crawled tail-first at 0.115 m/s across
 ## the whole rig. Same case as herring_gull and the four -Z tropicals: no yaw, and the head at
 ## the MIN end of local Z (flip 0) so the pedal wave still runs tail -> head up the foot.
+## THE ELEVEN s31 SPECIES, MEASURED s34 — and three of them were swimming backwards.
+## The owner reported "at least one of the new grouper models is swimming backwards", and
+## the reason nobody had caught it is that all eleven were wired in during s31 without a
+## single facing check, which is the exact mistake the ultra_hammerhead paragraph above was
+## written to prevent. Measured two independent ways and they agree on all eleven:
+##   * tools/measure_facing.py, headless off the raw GLB — two statistics (vertex-mass
+##     centroid along the long axis, and the same centroid weighted by across-body extent)
+##     which must AGREE or the tool prints UNCERTAIN. Calibrated first against the 19 models
+##     whose facing is already pinned in this table: 19/19 correct, 0 confidently wrong.
+##   * tests/CandShot side and front views, read by eye — the method every earlier entry
+##     here used.
+## Eight of the eleven (all four remaining tunas, humpback and leopard grouper, mahi-mahi,
+## swallowtail) have the head at local +Z, i.e. the default exactly, and take no entry. The
+## three below have the head at local -Z: from the +X side camera, whose screen-right is
+## world -Z, their mouths point screen-RIGHT, so they are ALREADY on Godot's forward and the
+## default's 180 yaw was turning them round to swim tail-first. Same case as herring_gull,
+## pyramid_snail and the four -Z tropicals: no yaw, head at the MIN end of local Z (flip 0)
+## so the body wave still travels head -> tail.
+## THE RIBBON EEL WAS SWIMMING BROADSIDE, and had been since it was wired in. Found s34 by
+## tests/FishSpreadProbe, which correlates each species' mesh geometry against its live
+## velocity and reported a mean alignment of **+0.011** — not backwards, PERPENDICULAR,
+## which is the ultra_hammerhead failure exactly. Raw AABB 1.899 x 0.916 x 0.320: the body
+## runs local X, not Z, so the default's 180 yaw was spinning a fish that was already lying
+## across Godot's forward and leaving it there. CandShot's front view (camera +Z, so
+## screen-right is world +X) shows the whole animal in profile across the frame — an
+## end-on foreshortened view is what a Z-authored eel would have given — with the head and
+## its eye at screen-LEFT, i.e. head at local MIN X. R_y(-90) takes local -X onto Godot's
+## -Z, and the shader is told the body runs along X (axis 1) with the head at the MIN end
+## (flip 0) so the undulation still travels head -> tail.
+## NOTE the mesh is authored CURVED rather than straight nose-to-tail, which the UNDULATE
+## body wave assumes; this fixes the heading, not the banana. A straight re-roll is the
+## only fix for that and it is not this session's job.
+## THE CAT'S POSE MESHES (s34). Five separate Tripo rolls of the same animal came back in
+## TWO conventions, which is the whole argument for measuring every model even inside one
+## batch: cat_run, cat_walk and cat_sleep put the head at local +Z (the default, no entry),
+## while cat_sit and cat_groom are authored along local X with the nose at MAX X — the front
+## camera, whose screen-right is world +X, shows both in full profile facing right. Same case
+## as ultra_hammerhead: yaw +90 takes local +X onto Godot's -Z. `axis 1` matters less here
+## than it does for a fish (the cat runs Mode.BREATHE, which is a swell rather than a
+## travelling wave) but it is set honestly so a future gait mode finds the body where the
+## table says it is. The s32 standing ship_cat mesh was re-checked at the same time and has
+## its head at local +Z — the default — so it keeps no entry and does not move.
 const FACING_OVERRIDES: Dictionary = {
 	"mantle_ray": {"yaw": 180.0, "pitch": 90.0, "axis": 0, "flip": 1.0, "lift": 1},
+	"fish_ribbon_eel": {"yaw": -90.0, "pitch": 0.0, "axis": 1, "flip": 0.0, "lift": 0},
+	"fish_skipjack_tuna": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
+	"fish_peacock_grouper": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
+	"fish_bluelined_grouper": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
+	"cat_sit": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
+	"cat_groom": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
 	"pyramid_snail": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"herring_gull": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"ultra_hammerhead": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
