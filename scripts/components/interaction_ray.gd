@@ -71,6 +71,18 @@ func _physics_process(delta: float) -> void:
 		_current = null
 		_forget_prompt()
 		return
+	if player and player.has_method("spear_prompt_text"):
+		# A spear in hand, underwater, with a fish in the thrust cone — the player owns the chip
+		# for as long as that is true, same deal as carrying and building above. Nothing the ray
+		# can hit down there (the shoals have no colliders) would ever produce this line.
+		var spear_line: String = String(player.call("spear_prompt_text"))
+		if spear_line != "":
+			_current = null
+			if hud:
+				hud.show_prompt_raw(spear_line)
+				hud.set_targeting(true)
+			_forget_prompt()
+			return
 	if player and player.ui_locked:
 		# A panel (inventory / journal / help / bench / crate), a sit, or a lie-down. Nobody
 		# else writes the chip here, so a world prompt from the last frame would just hang

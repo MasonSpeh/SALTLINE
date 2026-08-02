@@ -720,6 +720,47 @@ func _melee_attack() -> void:
 	if best:
 		best.repel(global_position, dmg)
 
+## TELLING THE PLAYER THE SPEAR FISHES, by the same contract as every other prompt in the game:
+## look at a thing, and the answer is already there. A verb nobody can find is not a verb, and
+## this one has no binding of its own to advertise — it is the melee button doing the sensible
+## thing underwater, which is only obvious once you have seen it work.
+##
+## Polled rather than evented because the fish come to YOU: nothing about a shoal drifting into
+## range would raise a signal. Held to SPEAR_PROMPT_HZ because bloom_fauna's per-frame GDScript
+## is already the wall at every vantage (KNOWN_ISSUES) and a per-frame walk of 48 pods to write
+## a label nobody asked for is exactly the kind of cost this project keeps having to claw back.
+## The query's own pod-level distance reject means most of those 48 stop at one comparison.
+const SPEAR_PROMPT_HZ: float = 10.0
+var _spear_prompt: String = ""
+var _spear_prompt_t: float = 0.0
+
+## Read by interaction_ray, which yields the chip to whichever system owns it — the same way it
+## already yields to carrying, building and a live cast.
+func spear_prompt_text() -> String:
+	return _spear_prompt
+
+func _update_spear_prompt(delta: float) -> void:
+	_spear_prompt_t -= delta
+	if _spear_prompt_t > 0.0:
+		return
+	_spear_prompt_t = 1.0 / SPEAR_PROMPT_HZ
+	_spear_prompt = ""
+	if ui_locked or input_locked or carried != null or fishing != null:
+		return
+	var id: String = _selected_item_id()
+	var data: Dictionary = PlayerState.items.get(id, {})
+	if not data.get("spearfishing", false) or not _head_underwater():
+		return
+	var uw: Node = get_tree().get_first_node_in_group("underwater_world")
+	if uw == null:
+		return
+	var hit: Dictionary = uw.spear_target(head.global_position,
+		-camera.global_transform.basis.z, float(data.get("melee_reach", 3.0)))
+	if hit.is_empty():
+		return
+	var fid: String = String(hit["id"])
+	_spear_prompt = "[LMB]   Spear the %s" % String(PlayerState.items.get(fid, {}).get("name", fid))
+
 ## Is the EYE under the swell? The same test main.gd and underwater_fx use, so "the screen has
 ## gone underwater" and "the spear fishes" can never disagree. Not `swimming`, which is true the
 ## moment the body is in the water — you can tread water with your head out, and a thrust from
@@ -847,6 +888,7 @@ func _physics_process(delta: float) -> void:
 		_attack_cd -= delta
 	if _mantle_cd > 0.0:
 		_mantle_cd -= delta
+	_update_spear_prompt(delta)
 	# Fall damage is scored only in the normal locomotion path further down. Any special
 	# movement state — fly, mantle, lie, climb, or swimming (a splash into the sea) — clears
 	# the fall accumulator here, so a drop that ends by grabbing a ladder, mantling a lip, or

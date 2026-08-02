@@ -170,6 +170,16 @@ func _run() -> void:
 		_ok(false, "player camera found")
 		return
 	cam.look_at(live.global_position, Vector3.UP)
+
+	# The prompt is the only thing that tells a player this verb exists — it has no binding of
+	# its own, it is the melee button behaving sensibly underwater. Force the poll (it is rate
+	# limited to SPEAR_PROMPT_HZ) and read what the chip would say.
+	player.set("_spear_prompt_t", 0.0)
+	player.call("_update_spear_prompt", 0.0)
+	var line: String = String(player.call("spear_prompt_text"))
+	_ok(line.begins_with("[LMB]") and line.contains("Spear"),
+		"looking at a fish with a spear offers the thrust (%s)" % line)
+
 	var fish_items_before: int = _fish_items()
 	player.set("_attack_cd", 0.0)
 	player.call("_melee_attack")
@@ -183,6 +193,10 @@ func _run() -> void:
 	player.global_position = Vector3(0.0, 30.0, 0.0)
 	await get_tree().process_frame
 	_ok(not bool(player.call("_head_underwater")), "30 m up reads as out of the water")
+	player.set("_spear_prompt_t", 0.0)
+	player.call("_update_spear_prompt", 0.0)
+	_ok(String(player.call("spear_prompt_text")) == "",
+		"the spear offers no thrust on deck, so the chip stays with the interaction ray")
 	var before_deck: int = _fish_items()
 	player.set("_attack_cd", 0.0)
 	player.call("_melee_attack")
