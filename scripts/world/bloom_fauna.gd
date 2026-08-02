@@ -311,9 +311,15 @@ func _spawn_king_crabs() -> void:
 		add_child(king)
 		king.global_position = king.den
 
+const SHIP_CAT := preload("res://scripts/world/ship_cat.gd")   # by path: class cache lags new files
+
 func _ready() -> void:
 	_spawn_giant_crabs()
 	_spawn_king_crabs()
+	# The one animal on this rig that is company rather than weather. It is in the bunkhouse
+	# from the first minute, washing a paw, and nothing points at it — you find it or you do
+	# not. See scripts/world/ship_cat.gd.
+	add_child(SHIP_CAT.new())
 	for i in range(5):
 		add_child(Gull.new(i))
 	for i in range(7):

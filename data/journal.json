@@ -677,5 +677,11 @@
     "title": "Swallowtail Angelfish",
     "body": "Two long tail filaments trailing behind it like a swallow. Barely worth eating; worth looking at.",
     "hint": "Takes: rod · near water · mid"
+  },
+  "creature_ship_cat": {
+    "cat": "creature",
+    "title": "Ship's Cat",
+    "body": "Somebody's, once. It was washing a paw in the bunkhouse like the evacuation was a rumour. It has decided about me now, and it comes along.",
+    "hint": "Found in the bunkhouse · say hello once · follows you · settles when you rest · very interested in fish"
   }
 }

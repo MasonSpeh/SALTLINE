@@ -881,6 +881,10 @@ func _load(sp: Dictionary) -> Dictionary:
 		"hnorm": aabb.size.y / maxf(longest, 0.001), "xf": [] as Array, "col": [] as Array}
 
 ## Build the queued instances into one MultiMeshInstance3D per species and reset.
+## How far a reef batch is drawn, and the fade that hides its edge. See the note in _flush.
+const REEF_DRAW_M: float = 55.0
+const REEF_FADE_M: float = 18.0
+
 func _flush(tag: String) -> void:
 	for slug in _batches.keys():
 		var b: Dictionary = _batches[slug]
@@ -900,6 +904,20 @@ func _flush(tag: String) -> void:
 		# 9.3 fps, and it is under water where the sun does not reach anyway
 		mmi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		mmi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
+		# DISTANCE-CULLED, which it never was. render_budget.gd gives every dressing mesh a
+		# visibility range, but it walks MeshInstance3D — and MultiMeshInstance3D does NOT
+		# derive from it, so all 62 of the reef's batches fell straight through that pass and
+		# have been drawn at every range since they were built. This is the reef that
+		# KNOWN_ISSUES names as the heaviest thing in the dive band (~1 M tris per leg), on a
+		# game measured at 26-35 fps, and it is a two-line fix.
+		#
+		# The band is set by what a coral head actually resolves to: these are 0.35-1.95 m
+		# pieces seen through a fog grade that runs 0.028-0.2 per metre, so past ~55 m a
+		# colony is a few pixels of the same colour as the water behind it. The 18 m fade
+		# means nothing pops — it dissolves into the murk it was already dissolving into.
+		mmi.visibility_range_end = REEF_DRAW_M
+		mmi.visibility_range_end_margin = REEF_FADE_M
+		mmi.visibility_range_fade_mode = GeometryInstance3D.VISIBILITY_RANGE_FADE_SELF
 		add_child(mmi)
 		# instance transforms were built in world space; the MultiMesh wants them in
 		# the instance's own space

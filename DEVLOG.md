@@ -984,3 +984,56 @@ is that the cone rejects the fish behind you, and it now asserts that instead.
 
 **Not started:** the seal hover, coral tripling, deeper seabed, kelp diversity, plant rooting
 angles, wet-deck decluttering, northern lights.
+
+---
+
+## s32 — 2026-08-02 (the ship's cat; reef distance-cull; the 11 species judged)
+
+**THE SHIP'S CAT** (`scripts/world/ship_cat.gd`), the first animal on this rig that is company
+rather than weather. Found — not spawned at you — sitting on the bunkhouse deck washing a paw
+from the first minute of a run, with nothing pointing at it. Say hello once and that is the
+whole befriending: no trust meter, no minigame. Then it follows at its own pace and distance,
+sits when you stop, lies down and slows its breathing if you stay stopped, and closes right in
+when you have a fish in your hands. Kinematic and un-navmeshed per the crab's brief: it probes
+the deck under each footfall and simply declines a step that would walk it off an edge or up a
+stair, because a cat that cannot follow you down a ladder is a cat and one that clips through a
+bunk frame is a bug. It takes the four-line `AiBudget` prologue like every other per-frame
+creature. Mesh by Tripo, first roll.
+
+Two bugs found by writing the probe first, both silent:
+- `Interactable.interacted` carries ONE argument (the verb). A two-argument handler does not
+  error — it simply never connects, so the cat could not be befriended at all.
+- `available_verbs()` has to live on the INTERACTABLE, not on the creature node: the ray reads
+  the collider it hit, so a same-named method on the parent is never consulted and the prompt
+  read the base class's default "USE".
+`tests/CatProbe.tscn` — 15 checks, including that it followed 10.3 m, closed to 2.3 m, stayed
+on the deck while doing it, and settles rather than circling when the player rests.
+
+**THE REEF IS NOW DISTANCE-CULLED, and never was.** `render_budget` gives every dressing mesh a
+visibility range but it walks `MeshInstance3D`, and `MultiMeshInstance3D` does not derive from
+it — so all 62 of the reef's batches fell straight through that pass and have been drawn at
+every range since they were built. This is the thing KNOWN_ISSUES names as the heaviest in the
+dive band (~1 M tris per leg) on a game measured at 26-35 fps, and it was two lines: 55 m draw
+with an 18 m fade, set by what a 0.35-1.95 m coral head resolves to through a fog grade that
+runs 0.028-0.2 per metre.
+
+**ON "LINK THE CORAL INTO ONE OBJECT PER PILLAR TO REDUCE SIZE" — measured, and it would do the
+opposite.** The coral is already `MultiMesh`: 21 shared mesh resources plus 1,129 transforms,
+which is the most compact form it can take. Baking it per leg would turn that into 4.26 M
+triangles of UNIQUE geometry, roughly 47x more data. The actual size driver is elsewhere and
+was measured: `assets/` is 1.2 GB, `assets/models/fauna` is 637 MB, and only 228 MB of that is
+loose textures — the rest is 2048-square PBR maps embedded inside the GLBs at 4-17 MB each.
+Geometry is nearly free by comparison. The lever is texture resolution on the fauna GLBs, not
+batching, and it is the single biggest build-size win available.
+
+**Correction recorded:** the s31 note that the new fish "need decimating" was wrong. The shipped
+catchable fish are 4-6 MB too; `tools/decimate_fish.py` was for the tropical reef fish, which are
+instanced 187 times. The catchable pods share one cached mesh resource per species and are
+distance-budgeted, so the new eleven are consistent with the existing twenty-nine.
+
+All eleven new species were photographed off disk with `tests/CandShot.tscn` and sent for
+judgement. Proportions check out against the real animals (bigeye reads deeper-bodied at 0.37
+than bluefin at 0.25, which is correct). The swallowtail is the weakest — lyre tail and vertical
+bars right, face mushy, the usual generator failure on small heads.
+
+TestRunner 241, CatchProbe, SpearProbe, TideProbe, SunkProbe, CatProbe — all 0 failures.
