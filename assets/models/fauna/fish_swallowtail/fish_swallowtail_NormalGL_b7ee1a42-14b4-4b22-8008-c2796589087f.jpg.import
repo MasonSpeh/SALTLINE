@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://4hh8rv7s17xg"
-path="res://.godot/imported/fish_swallowtail_NormalGL_b7ee1a42-14b4-4b22-8008-c2796589087f.jpg-a2acdf70b097747aa22330c0fb41c260.ctex"
+path.s3tc="res://.godot/imported/fish_swallowtail_NormalGL_b7ee1a42-14b4-4b22-8008-c2796589087f.jpg-a2acdf70b097747aa22330c0fb41c260.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_swallowtail_NormalGL_b7ee1a42-14b4-4b22-8008-c2796589087f.jpg-a2acdf70b097747aa22330c0fb41c260.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "e0cd70c5613d27347789612f8dbbdf84"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_swallowtail/fish_swallowtail_NormalGL_b7ee1a42-14b4-4b22-8008-c2796589087f.jpg"
-dest_files=["res://.godot/imported/fish_swallowtail_NormalGL_b7ee1a42-14b4-4b22-8008-c2796589087f.jpg-a2acdf70b097747aa22330c0fb41c260.ctex"]
+dest_files=["res://.godot/imported/fish_swallowtail_NormalGL_b7ee1a42-14b4-4b22-8008-c2796589087f.jpg-a2acdf70b097747aa22330c0fb41c260.s3tc.ctex", "res://.godot/imported/fish_swallowtail_NormalGL_b7ee1a42-14b4-4b22-8008-c2796589087f.jpg-a2acdf70b097747aa22330c0fb41c260.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

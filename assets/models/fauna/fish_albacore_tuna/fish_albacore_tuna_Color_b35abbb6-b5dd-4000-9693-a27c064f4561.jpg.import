@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://dq7ip40rqso7i"
-path="res://.godot/imported/fish_albacore_tuna_Color_b35abbb6-b5dd-4000-9693-a27c064f4561.jpg-38a10fdffac97dab2cf57b5710cbc6b7.ctex"
+path.s3tc="res://.godot/imported/fish_albacore_tuna_Color_b35abbb6-b5dd-4000-9693-a27c064f4561.jpg-38a10fdffac97dab2cf57b5710cbc6b7.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_albacore_tuna_Color_b35abbb6-b5dd-4000-9693-a27c064f4561.jpg-38a10fdffac97dab2cf57b5710cbc6b7.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "1e833bea5a91a617935404de943facb4"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_albacore_tuna/fish_albacore_tuna_Color_b35abbb6-b5dd-4000-9693-a27c064f4561.jpg"
-dest_files=["res://.godot/imported/fish_albacore_tuna_Color_b35abbb6-b5dd-4000-9693-a27c064f4561.jpg-38a10fdffac97dab2cf57b5710cbc6b7.ctex"]
+dest_files=["res://.godot/imported/fish_albacore_tuna_Color_b35abbb6-b5dd-4000-9693-a27c064f4561.jpg-38a10fdffac97dab2cf57b5710cbc6b7.s3tc.ctex", "res://.godot/imported/fish_albacore_tuna_Color_b35abbb6-b5dd-4000-9693-a27c064f4561.jpg-38a10fdffac97dab2cf57b5710cbc6b7.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://2a7vuymki2po"
-path="res://.godot/imported/fish_bluelined_grouper_NormalGL_ec0925b4-e183-4d9f-8793-8cb6cd688622.jpg-267898c8d4181e703c4e0a136faa5d3a.ctex"
+path.s3tc="res://.godot/imported/fish_bluelined_grouper_NormalGL_ec0925b4-e183-4d9f-8793-8cb6cd688622.jpg-267898c8d4181e703c4e0a136faa5d3a.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_bluelined_grouper_NormalGL_ec0925b4-e183-4d9f-8793-8cb6cd688622.jpg-267898c8d4181e703c4e0a136faa5d3a.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "04c9ab2e37aefbdd554d5b3475c770b7"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_bluelined_grouper/fish_bluelined_grouper_NormalGL_ec0925b4-e183-4d9f-8793-8cb6cd688622.jpg"
-dest_files=["res://.godot/imported/fish_bluelined_grouper_NormalGL_ec0925b4-e183-4d9f-8793-8cb6cd688622.jpg-267898c8d4181e703c4e0a136faa5d3a.ctex"]
+dest_files=["res://.godot/imported/fish_bluelined_grouper_NormalGL_ec0925b4-e183-4d9f-8793-8cb6cd688622.jpg-267898c8d4181e703c4e0a136faa5d3a.s3tc.ctex", "res://.godot/imported/fish_bluelined_grouper_NormalGL_ec0925b4-e183-4d9f-8793-8cb6cd688622.jpg-267898c8d4181e703c4e0a136faa5d3a.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

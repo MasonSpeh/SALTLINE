@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://doa27dx43afnc"
-path="res://.godot/imported/fish_humpback_grouper_NormalGL_2baac222-9f3d-4a49-b2dc-2545896bf57a.jpg-880aafb0deeea38e96bb808e7408e20e.ctex"
+path.s3tc="res://.godot/imported/fish_humpback_grouper_NormalGL_2baac222-9f3d-4a49-b2dc-2545896bf57a.jpg-880aafb0deeea38e96bb808e7408e20e.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_humpback_grouper_NormalGL_2baac222-9f3d-4a49-b2dc-2545896bf57a.jpg-880aafb0deeea38e96bb808e7408e20e.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "5d3e73ff458c6e8761632ceb9c459e24"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_humpback_grouper/fish_humpback_grouper_NormalGL_2baac222-9f3d-4a49-b2dc-2545896bf57a.jpg"
-dest_files=["res://.godot/imported/fish_humpback_grouper_NormalGL_2baac222-9f3d-4a49-b2dc-2545896bf57a.jpg-880aafb0deeea38e96bb808e7408e20e.ctex"]
+dest_files=["res://.godot/imported/fish_humpback_grouper_NormalGL_2baac222-9f3d-4a49-b2dc-2545896bf57a.jpg-880aafb0deeea38e96bb808e7408e20e.s3tc.ctex", "res://.godot/imported/fish_humpback_grouper_NormalGL_2baac222-9f3d-4a49-b2dc-2545896bf57a.jpg-880aafb0deeea38e96bb808e7408e20e.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

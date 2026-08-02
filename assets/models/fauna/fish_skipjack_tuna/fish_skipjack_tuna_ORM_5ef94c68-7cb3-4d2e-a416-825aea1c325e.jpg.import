@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://du16gxbskrud6"
-path="res://.godot/imported/fish_skipjack_tuna_ORM_5ef94c68-7cb3-4d2e-a416-825aea1c325e.jpg-4ef2d1859354a8a7dcb0cbf06107cf3d.ctex"
+path.s3tc="res://.godot/imported/fish_skipjack_tuna_ORM_5ef94c68-7cb3-4d2e-a416-825aea1c325e.jpg-4ef2d1859354a8a7dcb0cbf06107cf3d.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_skipjack_tuna_ORM_5ef94c68-7cb3-4d2e-a416-825aea1c325e.jpg-4ef2d1859354a8a7dcb0cbf06107cf3d.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "7454ee162ef41bfc6ab73cacc352d119"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_skipjack_tuna/fish_skipjack_tuna_ORM_5ef94c68-7cb3-4d2e-a416-825aea1c325e.jpg"
-dest_files=["res://.godot/imported/fish_skipjack_tuna_ORM_5ef94c68-7cb3-4d2e-a416-825aea1c325e.jpg-4ef2d1859354a8a7dcb0cbf06107cf3d.ctex"]
+dest_files=["res://.godot/imported/fish_skipjack_tuna_ORM_5ef94c68-7cb3-4d2e-a416-825aea1c325e.jpg-4ef2d1859354a8a7dcb0cbf06107cf3d.s3tc.ctex", "res://.godot/imported/fish_skipjack_tuna_ORM_5ef94c68-7cb3-4d2e-a416-825aea1c325e.jpg-4ef2d1859354a8a7dcb0cbf06107cf3d.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1

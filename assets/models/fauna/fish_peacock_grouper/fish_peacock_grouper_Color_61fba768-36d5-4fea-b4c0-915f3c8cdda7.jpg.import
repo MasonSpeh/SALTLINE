@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://brk4tanfeorki"
-path="res://.godot/imported/fish_peacock_grouper_Color_61fba768-36d5-4fea-b4c0-915f3c8cdda7.jpg-feab3afc6218314c1fc8e929a95e7150.ctex"
+path.s3tc="res://.godot/imported/fish_peacock_grouper_Color_61fba768-36d5-4fea-b4c0-915f3c8cdda7.jpg-feab3afc6218314c1fc8e929a95e7150.s3tc.ctex"
+path.etc2="res://.godot/imported/fish_peacock_grouper_Color_61fba768-36d5-4fea-b4c0-915f3c8cdda7.jpg-feab3afc6218314c1fc8e929a95e7150.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "697c1fb50a0f55f890fc73c69e4079b9"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/fish_peacock_grouper/fish_peacock_grouper_Color_61fba768-36d5-4fea-b4c0-915f3c8cdda7.jpg"
-dest_files=["res://.godot/imported/fish_peacock_grouper_Color_61fba768-36d5-4fea-b4c0-915f3c8cdda7.jpg-feab3afc6218314c1fc8e929a95e7150.ctex"]
+dest_files=["res://.godot/imported/fish_peacock_grouper_Color_61fba768-36d5-4fea-b4c0-915f3c8cdda7.jpg-feab3afc6218314c1fc8e929a95e7150.s3tc.ctex", "res://.godot/imported/fish_peacock_grouper_Color_61fba768-36d5-4fea-b4c0-915f3c8cdda7.jpg-feab3afc6218314c1fc8e929a95e7150.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0
@@ -39,5 +41,5 @@ process/premult_alpha=false
 process/normal_map_invert_y=false
 process/hdr_as_srgb=false
 process/hdr_clamp_exposure=false
-process/size_limit=0
+process/size_limit=1024
 detect_3d/compress_to=1
