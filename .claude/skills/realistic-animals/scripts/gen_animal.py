@@ -43,6 +43,7 @@ Notes
 """
 from __future__ import annotations
 import argparse
+import json
 import os
 import sys
 import time
@@ -210,6 +211,29 @@ def _tripo_raise(r: "requests.Response", label: str) -> None:
     raise requests.HTTPError(f"{label}: HTTP {r.status_code} — {body}", response=r)
 
 
+## WHERE SUBMITTED TASK IDS ARE RECORDED, AND WHY IT IS HERE RATHER THAN IN THE CALLER.
+## docs/AGENT_TRAPS.md: "A 'FAILED' download is usually a succeeded task — Tripo polling
+## drops connections constantly in this environment, the task keeps running server-side,
+## so LOG EVERY TASK ID AT SUBMIT TIME." s34 wrote a batch script that logged the id from
+## the value `generate_mesh` RETURNS, which is a submit-time id recorded at completion
+## time — and all five connections then dropped mid-poll, taking the ids with them. They
+## were only recovered by grepping UUIDs out of the traceback text. The id has to be
+## written the instant the server hands it over, which is here, before any polling.
+## Recovery: GET /v2/openapi/task/<id>, pull data.output.pbr_model.
+SUBMIT_LOG = Path("tests/out/tripo_submitted.jsonl")
+
+
+def _record_submit(task_id: str, kind: str, note: str = "") -> None:
+    try:
+        SUBMIT_LOG.parent.mkdir(parents=True, exist_ok=True)
+        with open(SUBMIT_LOG, "a") as f:
+            f.write(json.dumps({"t": time.strftime("%Y-%m-%dT%H:%M:%S"),
+                                "id": task_id, "kind": kind, "note": note[:180]}) + "\n")
+    except OSError as e:      # never let bookkeeping kill a generation
+        print(f"  (could not write {SUBMIT_LOG}: {e})")
+    print(f"  submitted {kind} task {task_id}")
+
+
 def _tripo_task_id(resp: dict) -> str:
     data = resp.get("data") or resp
     task_id = data.get("task_id")
@@ -253,6 +277,7 @@ def tripo_text_to_3d(key: str, prompt: str, model_version: str = "") -> dict:
     r = requests.post(f"{TRIPO}/task", headers=_tripo_json_headers(key), json=body, timeout=60)
     _tripo_raise(r, "text_to_model")
     task_id = _tripo_task_id(r.json())
+    _record_submit(task_id, "text_to_model", prompt)
     return _tripo_poll(task_id, key, "text-to-model")
 
 
@@ -276,6 +301,7 @@ def tripo_image_to_3d(key: str, image_path: str) -> dict:
     }, timeout=60)
     _tripo_raise(r, "image_to_model")
     task_id = _tripo_task_id(r.json())
+    _record_submit(task_id, "image_to_model", image_path)
     return _tripo_poll(task_id, key, "image-to-model")
 
 
