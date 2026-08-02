@@ -227,6 +227,26 @@ func _vegetation_extent(main: Node) -> void:
 	_say("  kelp stand: %d tagged strands, floor y %.2f" % [strands, kelp_low])
 	_check("kelp stand found and measured", strands > 0 and kelp_low < 0.0,
 		"%d strands, floor y %.2f" % [strands, kelp_low])
+	# THE WALL PLANTS' OWN CHECK, which is the one that matters for them: they root from
+	# PLANT_TOP down, and PLANT_TOP exists because the pontoon skirt's underside is y -3.05
+	# and in plan that slab contains all four legs. Anything above it is inside the deck the
+	# player walks on. Measured off the live instance transforms, so it also catches a plant
+	# whose LEAN carried it up there from a legal root.
+	var plant_top: float = -1.0e9
+	var plants: int = 0
+	for node in get_tree().root.find_children("LegReef_Leg_*", "MultiMeshInstance3D", true, false):
+		var pm: MultiMeshInstance3D = node
+		var nm: String = String(pm.name)
+		if not (nm.contains("sea_grass") or nm.contains("creeper") or nm.contains("anemone")):
+			continue
+		for i in range(pm.multimesh.instance_count):
+			plants += 1
+			var xf: Transform3D = pm.global_transform * pm.multimesh.get_instance_transform(i)
+			plant_top = maxf(plant_top, xf.origin.y)
+	_say("  wall plants: %d, highest root y %.2f" % [plants, plant_top])
+	_check("wall plants exist", plants > 0, "%d rooted on the caisson faces" % plants)
+	_check("no wall plant is inside the pontoon slab", plants > 0 and plant_top < -3.05,
+		"highest root y %.2f against the skirt underside -3.05" % plant_top)
 	_check("coral band starts below the kelp", _band_top(false) < kelp_low,
 		"coral top y %.2f vs kelp floor y %.2f" % [_band_top(false), kelp_low])
 	# The CRUST is meant to overlap the kelp — see LegReef.CRUST_TOP. Reported, not asserted
@@ -246,7 +266,16 @@ func _band_top(with_crust: bool) -> float:
 	var top: float = -1.0e9
 	for node in get_tree().root.find_children("LegReef_Leg_*", "MultiMeshInstance3D", true, false):
 		var mmi: MultiMeshInstance3D = node
-		var crust: bool = String(mmi.name).contains("barnacle") or String(mmi.name).contains("star")
+		# WHAT "CRUST" MEANS HERE IS "RUNS THE WHOLE LEG", not "is a barnacle". The coral
+		# COLONIES start below the kelp on purpose; the barnacles, the big starfish and (s34)
+		# the wall plants all deliberately run from just under the pontoon skirt down, which
+		# is what closes the bare stripe above the coral band. Grouping the plants with the
+		# colonies made the band-top assertion fail on a feature working as designed.
+		var crust: bool = String(mmi.name).contains("barnacle") \
+			or String(mmi.name).contains("star") \
+			or String(mmi.name).contains("sea_grass") \
+			or String(mmi.name).contains("creeper") \
+			or String(mmi.name).contains("anemone")
 		if crust != with_crust:
 			continue
 		for i in range(mmi.multimesh.instance_count):

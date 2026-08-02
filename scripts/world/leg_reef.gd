@@ -69,14 +69,40 @@ const SKIRT_Z_OUT: float = 16.0
 const SKIRT_Z_IN: float = 8.0
 
 ## How far below the deepest vegetation the reef starts, and how far down it runs.
-## The floor is at -92 but the fog grade swallows everything past ~40 m and the band
-## a breath-hold dive can reach tops out around -13, so growing coral below -30 is
-## triangles nobody will ever see.
+##
+## s34: THE BAND RUNS TO -40 NOW, AND THE OLD REASON FOR -22 EXPIRED THIS SESSION. The note
+## that used to sit here said "the fog grade swallows everything past ~40 m ... so growing
+## coral below -30 is triangles nobody will ever see", and against the fog it was written
+## for that was true: 0.19/m at the band, i.e. 5% contrast at 15 m. The s34 re-grade runs
+## 0.105/m with the abyss ramp pushed to -26, so the water below -22 is now somewhere you
+## can actually see, and it was 70 m of bare concrete between the reef bottom and the mud.
+## The owner has asked three times for the reef to expand DOWN THE SUPPORTS; this is that.
+##
+## The band goes from ~9.3 m tall to ~27.3 m, and the placement counts scale with it (see
+## BAND_SCALE) so the result is roughly 3x the coral rather than the same coral stretched
+## thinner. What makes it affordable is s32's distance cull — REEF_DRAW_M 55 with an 18 m
+## fade on every one of these MultiMeshes — so a diver at any one depth is only ever paying
+## for the slice around them, not for the whole column.
 const BAND_GAP: float = 0.6
-const BAND_BOTTOM: float = -22.0
+const BAND_BOTTOM: float = -40.0
 ## Fallback if the vegetation walk finds nothing (it never has in practice) — the
 ## authored bottom of underwater_world's growth band, minus the gap.
 const BAND_TOP_FALLBACK: float = -12.6
+
+## How much taller the s34 band is than the one every count in this file was tuned against.
+## DERIVED, so that moving BAND_BOTTOM again moves the stocking with it instead of quietly
+## thinning the reef out: the old band ran from the measured vegetation floor (-12.69 on the
+## last probe) to -22.0, i.e. 9.31 m, and every "attempts" number here was chosen against
+## that. Anything that scatters over the band's full height is multiplied by this.
+const OLD_BAND_H: float = 9.31
+## ...but not linearly. Light and food both fall off with depth, so a real reef thins going
+## down rather than repeating at constant density, and so should the triangle bill: 0.78
+## puts ~2.3x the coral on a 2.9x taller band, which reads as a reef that keeps going and
+## costs less than one that is uniformly dense to -40.
+const BAND_TAPER: float = 0.78
+
+static func band_scale(top: float) -> float:
+	return maxf(1.0, ((top - BAND_BOTTOM) / OLD_BAND_H) * BAND_TAPER)
 
 ## Prevailing set. The gyre eye is at (0,0,-52), i.e. the water sets south past the
 ## rig, so a face looking north (+z) takes the oncoming flow. Colonies favour that,
@@ -222,6 +248,46 @@ const BIG_STARS := [
 		"a": Color(1.00, 0.72, 0.50), "b": Color(1.00, 0.94, 0.80)},
 ]
 
+## WALL PLANTS — the owner asked for plants ROOTED INTO THE WALL AND ANGLED OUT (s34, and
+## twice before). The reef already roots everything by raycast and leans it off the normal
+## (see _grow_axis), so what was missing was not the technique but the PLANTS: every green
+## thing in the water was either a kelp holdfast standing on the seabed or one of
+## underwater_world's growth-band pieces sitting on the concrete. These grow OUT of the
+## face, all the way down the leg.
+##
+## They lean further than coral does — a weed on a wall reaches for the light, a massive
+## coral hugs the rock — so the tilt ranges start where the coral's planar species end.
+##
+## THEY ARE THE EXISTING FLORA, RE-CUT FOR BULK. The first pass pointed these straight at
+## the fauna GLBs underwater_world plants on the leg shelves, and the build report said what
+## the traps file has always said about placing a generated mesh in bulk: 28,844 / 29,778 /
+## 30,745 triangles a piece against a reef set that runs 1,400-7,000, so 363 plants cost
+## 10.7 M of a 20.4 M total on their own. Re-cut through tools/decimate_reef.py to ~8,000,
+## which also bakes the reef contract this placement code assumes (+Y is growth, base at
+## y = 0, XZ centred) instead of leaving three special cases in GDScript.
+const PLANTS := [
+	{"slug": "bloom_sea_grass", "lo": 0.45, "hi": 1.05, "space": 0.42,
+		"tilt": [30.0, 56.0], "depth": 0.25, "w": 1.20,
+		"a": Color(0.42, 0.86, 0.58), "b": Color(0.74, 1.00, 0.80)},
+	{"slug": "glow_creeper", "lo": 0.40, "hi": 0.95, "space": 0.40,
+		"tilt": [24.0, 48.0], "depth": 0.55, "w": 1.00,
+		"a": Color(0.36, 0.78, 0.72), "b": Color(0.70, 1.00, 0.94)},
+	{"slug": "bloom_anemone", "lo": 0.30, "hi": 0.70, "space": 0.44,
+		"tilt": [20.0, 40.0], "depth": 0.75, "w": 0.85,
+		"a": Color(0.92, 0.58, 0.72), "b": Color(1.00, 0.84, 0.90)},
+]
+## THE TOP OF THE PLANT BAND, AND IT IS A HARD LINE, NOT A TASTE. The pontoon skirt's
+## underside is y -3.05 and in plan it contains all four legs, so anything rooted (or grown)
+## above that is inside the slab the player walks on. -3.60 leaves margin for the tip check
+## below. This is the clamp the s34 brief asked for, set from the measured geometry rather
+## than from the -2.5 the brief suggested — -2.5 is the top of underwater_world's growth
+## band, which is a different number that happens to be nearby.
+const PLANT_TOP: float = -3.60
+## How many attempts per face. The spacing rejection turns a lot of these down on a leg
+## that is now nearly covered in coral, which is the intended behaviour: plants fill in
+## where the reef did not take.
+const PLANTS_PER_FACE: int = 14
+
 ## How many big starfish ride each caisson leg, and how many extra go on the foundation.
 ## These are ATTEMPTS — the spacing rejection turns some of them down, and on a leg that is
 ## now nearly covered in coral it turns down a lot. Counted off the build report: 11 a leg
@@ -289,6 +355,10 @@ var _space: PhysicsDirectSpaceState3D
 ## slug -> {"mesh": Mesh, "mat": Material, "xf": Array[Transform3D], "col": Array[Color]}
 var _batches: Dictionary = {}
 var _placed: Array = []          ## [pos, radius] rejection list, for spacing
+var _plant_pool: Array = []
+## How many wall plants actually took, for the build report — attempts minus every kind of
+## rejection, which is the only number that says whether the pass did anything.
+var _plants: int = 0
 var _band_top: float = 0.0
 ## Where the coral ACTUALLY went: one {pos, n} per colony that seated at least one piece,
 ## in world space. reef_fish.gd anchors its shoals to these, so a reef fish cannot end up
@@ -339,8 +409,9 @@ func _report() -> void:
 		per_slug[slug] = [int(per_slug.get(slug, [0, each])[0]) + n, each]
 		var grp: String = String(mmi.name).trim_prefix("LegReef_").split("_" + slug)[0]
 		per_group[grp] = int(per_group.get(grp, 0)) + n * each
-	print("[leg_reef] band y %.2f .. %.2f · %d instances · %d MultiMesh draws · %d tris"
-		% [_band_top, BAND_BOTTOM, inst, calls, tris])
+	print("[leg_reef] band y %.2f .. %.2f (scale %.2fx) · %d instances · %d MultiMesh draws · %d tris"
+		% [_band_top, BAND_BOTTOM, band_scale(_band_top), inst, calls, tris])
+	print("[leg_reef]   wall plants that took: %d" % _plants)
 	for slug in per_slug.keys():
 		print("[leg_reef]   %-16s %4d x %5d tris = %8d"
 			% [slug, per_slug[slug][0], per_slug[slug][1],
@@ -508,6 +579,7 @@ func _grow_leg(leg: Vector2) -> void:
 	_mass_pool = _palette(MASSES, leg_i, 2)
 	_sponge_pool = _palette(SPONGES, leg_i, 2)
 	_crust_pool = _palette(CRUSTS, leg_i, 2)
+	_plant_pool = _palette(PLANTS, leg_i, 2)
 	_bigstar_pool = _palette(BIG_STARS, leg_i, 2)
 	for n in [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]:
 		var ex: float = _exposure(leg, n)
@@ -515,11 +587,14 @@ func _grow_leg(leg: Vector2) -> void:
 		# spent here rather than on making every face denser. s19 ran 3..9; s20 runs 5..12,
 		# because with a reef mass anchoring each one the patches now overlap and knit
 		# instead of sitting as separate islands on bare concrete.
-		var patches: int = int(round(lerpf(5.0, 12.0, ex)))
+		# Scaled with the band's height (BAND_SCALE) so extending it downward adds coral
+		# instead of spreading the same coral thinner.
+		var patches: int = int(round(lerpf(5.0, 12.0, ex) * band_scale(_band_top)))
 		for c in range(patches):
 			_colony(leg, n, ex)
 		# and the crust BETWEEN the patches, over the whole leg rather than the coral band
 		_crust_face(leg, n, ex)
+		_wall_plants(leg, n, ex)
 	_stars_down_leg(leg)
 
 ## One patch. Reefs grow out from a settled larva, so a colony is a dominant species
@@ -527,7 +602,12 @@ func _grow_leg(leg: Vector2) -> void:
 func _colony(leg: Vector2, n: Vector3, ex: float) -> void:
 	var dom: Dictionary = _pick_coral(-1.0)
 	# Colonies crowd the top of the band: light, food and the depth a player reaches.
-	var t: float = pow(_rng.randf(), 1.15)
+	# s34: the exponent eased from 1.15 toward 1.0 when the band went from 9 m to 27 m. At
+	# 1.15 over a band three times taller, the same "crowd the top" bias puts almost nothing
+	# below -30 and the expansion would have been a comment rather than a reef; 1.05 keeps
+	# the top denser than the bottom, which is the real behaviour, while actually reaching
+	# the new depth.
+	var t: float = pow(_rng.randf(), 1.05)
 	var cy: float = lerpf(_band_top, BAND_BOTTOM, t)
 	var ca: float = _rng.randf_range(-2.4, 2.4)
 	var depth_t: float = clampf((cy - _band_top) / (BAND_BOTTOM - _band_top), 0.0, 1.0)
@@ -569,6 +649,57 @@ func _colony(leg: Vector2, n: Vector3, ex: float) -> void:
 		colony_seats.append({"pos": Vector3(leg.x, cy, leg.y) + n * LEG_HALF
 			+ Vector3(n.z, 0.0, -n.x) * ca, "n": n})
 
+## PLANTS ROOTED INTO THE WALL AND ANGLED OUT (owner, s34).
+##
+## Same raycast seat as everything else on these faces — probe the concrete, take the hit
+## NORMAL as the base of the growth axis, lean it toward world up projected into the face
+## plane — but over a taller band than the coral, because weed grows where coral will not:
+## from just under the pontoon all the way down to the bottom of the reef.
+##
+## TWO CLAMPS, BOTH FROM MEASURED GEOMETRY RATHER THAN TASTE:
+##   * the ROOT stays below PLANT_TOP (-3.60), because the pontoon underside is -3.05 and
+##     in plan that slab contains all four legs;
+##   * and the grown TIP is checked too, not just the root. A plant leaning 56 deg off a
+##     vertical wall carries its tip up as well as out, so a legal root can still put
+##     foliage inside the slab. The s34 brief called this out for the new plants — and the
+##     EXISTING kelp stand turned out to be doing it already (see KELP_TIP_CEILING).
+func _wall_plants(leg: Vector2, n: Vector3, ex: float) -> void:
+	if _plant_pool.is_empty():
+		return
+	var tangent := Vector3(n.z, 0.0, -n.x)
+	var count: int = int(round(float(PLANTS_PER_FACE) * lerpf(0.7, 1.15, ex)
+		* band_scale(_band_top)))
+	for i in range(count):
+		var y: float = _rng.randf_range(BAND_BOTTOM, PLANT_TOP)
+		var depth_t: float = clampf((y - PLANT_TOP) / (BAND_BOTTOM - PLANT_TOP), 0.0, 1.0)
+		var sp: Dictionary = _pick(_plant_pool, depth_t)
+		var target := Vector3(leg.x, y, leg.y) + n * LEG_HALF \
+			+ tangent * _rng.randf_range(-2.6, 2.6)
+		var hit: Dictionary = _probe(target, n)
+		if hit.is_empty():
+			continue
+		var surface: Vector3 = hit["position"]
+		if _blocked(surface):
+			continue
+		# The face has to BE a face. An axis-aligned caisson normal dots its own axis at
+		# 1.000, so anything softer than this is a fauna touch sphere or a passing prop that
+		# the ray found instead of the concrete — the s21 mussel-bed trap, where three
+		# patches seated on a snail and reported up-axes of (0.32, 0.16, -0.93).
+		if absf((hit["normal"] as Vector3).dot(n)) < 0.985:
+			continue
+		var size: float = _rng.randf_range(float(sp["lo"]), float(sp["hi"]))
+		if not _claim(surface, size * float(sp["space"])):
+			continue
+		var tilt: Array = sp["tilt"]
+		var grow: Vector3 = _grow_axis(hit["normal"],
+			deg_to_rad(_rng.randf_range(tilt[0], tilt[1])))
+		# THE TIP, NOT JUST THE ROOT. Reject rather than shorten: a squashed plant reads as
+		# a bug and there is plenty of leg to grow on.
+		if surface.y + grow.y * size > PLANT_TOP:
+			continue
+		_add(sp, surface, hit["normal"], grow, size)
+		_plants += 1
+
 ## THE CRUST. Barnacles scattered over the whole face, from just under the pontoon skirt to
 ## the bottom of the reef band — deliberately NOT clustered into colonies, because what this
 ## is for is the concrete BETWEEN the colonies and the bare stripe above them. It is the
@@ -577,7 +708,9 @@ func _colony(leg: Vector2, n: Vector3, ex: float) -> void:
 func _crust_face(leg: Vector2, n: Vector3, ex: float) -> void:
 	if _crust_pool.is_empty():
 		return
-	var count: int = int(round(lerpf(13.0, 25.0, ex)))
+	# Scattered over the WHOLE face, so extending the band downward without scaling this
+	# would have thinned the crust per metre instead of covering the new concrete.
+	var count: int = int(round(lerpf(13.0, 25.0, ex) * band_scale(_band_top)))
 	for i in range(count):
 		var y: float = _rng.randf_range(CRUST_TOP, BAND_BOTTOM)
 		var depth_t: float = clampf((y - _band_top) / (BAND_BOTTOM - _band_top), 0.0, 1.0)
@@ -590,7 +723,7 @@ func _stars_down_leg(leg: Vector2) -> void:
 	if _bigstar_pool.is_empty():
 		return
 	const FACES := [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]
-	for i in range(BIG_STARS_PER_LEG):
+	for i in range(int(round(float(BIG_STARS_PER_LEG) * band_scale(_band_top)))):
 		var n: Vector3 = FACES[_rng.randi_range(0, 3)]
 		var tangent := Vector3(n.z, 0.0, -n.x)
 		var y: float = _rng.randf_range(CRUST_TOP, BAND_BOTTOM)
@@ -836,7 +969,10 @@ func _add(sp: Dictionary, surface: Vector3, normal: Vector3, grow: Vector3, size
 ## the same degradation every other generated asset in this project has.
 func _load(sp: Dictionary) -> Dictionary:
 	var slug: String = sp["slug"]
-	var path: String = REEF_PATH % [slug, slug]
+	# Most species live in the reef set; the WALL PLANTS reuse the flora already generated
+	# for underwater_world's growth band, which sits one directory up. Per-species so the
+	# two sets can share every other line of this loader.
+	var path: String = String(sp.get("path", REEF_PATH)) % [slug, slug]
 	if not ResourceLoader.exists(path):
 		push_warning("[leg_reef] missing %s" % path)
 		return {}

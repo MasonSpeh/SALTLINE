@@ -182,6 +182,37 @@ func _no_shadows(n: Node) -> void:
 ## here extending them below -3.8; see the comment on that _box call for why merging them
 ## was the only thing that removed the hard horizontal seam under every leg.
 
+## KELP — THREE FORMS, THREE DEPTHS, AND A CEILING IT MUST NOT BREACH.
+##
+## Owner s34: more seaweed/kelp diversity, and deeper. It was one procedural form (a strap
+## blade), 11 a leg, all on a single holdfast ring at a hand-typed y -12.0, so the "forest"
+## was one stand at one depth made of one plant repeated 44 times.
+##
+## AND IT WAS PUNCHING THROUGH THE PONTOON. Measured: a strand is 4 stacked boxes rising
+## `h` from its base with h in 7..11, so tips reached y -5.0 .. **-0.93**. The pontoon skirt
+## underside is -3.05 and in PLAN it contains all four legs (x +/-28, |z| 8..16 against legs
+## at (+/-22, +/-12)) — so the tallest strands were growing up through the slab the player
+## walks on. `Gyre.trough_floor()` is -7.14, which is the other line: above it, a low tide in
+## a storm can expose a plant to open air. The brief warned about exactly this for the NEW
+## wall plants and the existing kelp had been doing it since it was written. Every tip is
+## clamped now, which is what TIP_CEILING is.
+const KELP_TIP_CEILING: float = -3.40    ## pontoon underside -3.05, with margin
+## The three tiers. A kelp forest on a 6 m caisson standing in 90 m of water is not one
+## band: strap blades take the lit water at the top, bushy weed the middle, and thin whips
+## the deep concrete the reef now runs down to (leg_reef BAND_BOTTOM -40).
+## [base_y, count, holdfast r lo, r hi, form]
+const KELP_TIERS := [
+	[-12.0, 11, 3.2, 6.0, 0],    ## strap blades — the historical stand, unchanged in count
+	[-19.5, 7, 3.2, 5.4, 1],     ## bushy weed on the mid leg
+	[-27.0, 5, 3.0, 4.6, 2],     ## deep whips, down where the coral now goes
+]
+## [name, height lo, height hi, segments, blade width, taper, colour, tip glow]
+const KELP_FORMS := [
+	["strap", 7.0, 11.0, 4, 0.22, 0.03, Color(0.14, 0.38, 0.28), 0.25],
+	["bushy", 3.2, 5.4, 5, 0.34, 0.05, Color(0.10, 0.30, 0.20), 0.18],
+	["whip", 5.0, 8.5, 3, 0.09, 0.012, Color(0.09, 0.26, 0.26), 0.34],
+]
+
 func _kelp_forest() -> void:
 	var kelp_mat := StandardMaterial3D.new()
 	kelp_mat.albedo_color = Color(0.14, 0.38, 0.28)
@@ -191,38 +222,68 @@ func _kelp_forest() -> void:
 	tip_mat.emission_enabled = true
 	tip_mat.emission = Color(0.2, 0.9, 0.85)
 	tip_mat.emission_energy_multiplier = 0.25
+	# One material per FORM, built once rather than per strand — 92 strands sharing three
+	# materials is three draw setups, not ninety-two.
+	var form_mats: Array = []
+	var form_tips: Array = []
+	for f in KELP_FORMS:
+		var m := StandardMaterial3D.new()
+		m.albedo_color = f[6]
+		m.roughness = 0.9
+		form_mats.append(m)
+		var t := StandardMaterial3D.new()
+		t.albedo_color = (f[6] as Color).lightened(0.35)
+		t.emission_enabled = true
+		t.emission = Color(0.2, 0.9, 0.85)
+		t.emission_energy_multiplier = f[7]
+		form_tips.append(t)
 	for leg in LEGS:
-		# Denser stand — 6 procedural strands read thin against a 6 m caisson; a real kelp
-		# forest is a wall you swim through, not a scatter you swim past.
-		for i in range(11):
-			var a: float = _rng.randf_range(0, TAU)
-			var r: float = _rng.randf_range(3.2, 6.0)
-			var base := Vector3(leg.x + cos(a) * r, -12.0, leg.z + sin(a) * r)
-			var strand := Node3D.new()
-			add_child(strand)
-			strand.position = base
-			var h: float = _rng.randf_range(7.0, 11.0)
-			var segs: int = 4
-			for s in range(segs):
-				var blade := MeshInstance3D.new()
-				var bm := BoxMesh.new()
-				bm.size = Vector3(0.22 - s * 0.03, h / segs + 0.15, 0.05)
-				bm.material = tip_mat if s == segs - 1 else kelp_mat
-				blade.mesh = bm
-				strand.add_child(blade)
-				blade.position = Vector3(0, (s + 0.5) * h / segs, 0)
-				blade.rotation.y = _rng.randf_range(0, TAU)
-			# The metas stay: leg_reef._vegetation_floor() identifies a kelp strand by
-			# `has_meta("sway")` and measures the reef band top off it. But the SWAY LOOP
-			# must not read them — two get_meta() string lookups per strand per frame is 88
-			# dictionary probes a frame to fetch two numbers that never change after build.
-			var sway_k: float = _rng.randf_range(0.8, 1.4)
-			var phase_k: float = _rng.randf_range(0, TAU)
-			strand.set_meta("sway", sway_k)
-			strand.set_meta("phase", phase_k)
-			_kelp.append(strand)
-			_kelp_sway.append(sway_k)
-			_kelp_phase.append(phase_k)
+		for tier in KELP_TIERS:
+			var base_y: float = tier[0]
+			var count: int = tier[1]
+			var form_i: int = tier[4]
+			var form: Array = KELP_FORMS[form_i]
+			for i in range(count):
+				var a: float = _rng.randf_range(0, TAU)
+				var r: float = _rng.randf_range(tier[2], tier[3])
+				var base := Vector3(leg.x + cos(a) * r, base_y, leg.z + sin(a) * r)
+				var strand := Node3D.new()
+				add_child(strand)
+				strand.position = base
+				# CLAMPED, not trusted: whatever the form asks for, the tip stays under the
+				# pontoon. A form whose range would breach is shortened, never moved down,
+				# because the holdfast is the thing that has a reason to be where it is.
+				var h: float = minf(_rng.randf_range(form[1], form[2]),
+					KELP_TIP_CEILING - base_y)
+				if h < 0.8:
+					strand.queue_free()
+					continue
+				var segs: int = form[3]
+				for s in range(segs):
+					var blade := MeshInstance3D.new()
+					var bm := BoxMesh.new()
+					bm.size = Vector3(float(form[4]) - s * float(form[5]),
+						h / float(segs) + 0.15, 0.05)
+					bm.material = form_tips[form_i] if s == segs - 1 else form_mats[form_i]
+					blade.mesh = bm
+					strand.add_child(blade)
+					blade.position = Vector3(0, (s + 0.5) * h / float(segs), 0)
+					blade.rotation.y = _rng.randf_range(0, TAU)
+				# The `sway` META IS ONLY ON THE TOP TIER, AND THAT IS LOAD-BEARING.
+				# leg_reef._vegetation_floor() finds the deepest mesh carrying this meta and
+				# sets the whole reef band top 0.6 m under it. Tagging the -27 whips would
+				# drag the coral band top down with them (clamped at VEG_FLOOR_MIN -19, so a
+				# silent 6 m shift rather than an obvious 15 m one) and quietly move every
+				# colony in the game. The SWAY ANIMATION does not read the metas at all — it
+				# runs off the parallel arrays below — so the deep tiers still sway.
+				var sway_k: float = _rng.randf_range(0.8, 1.4)
+				var phase_k: float = _rng.randf_range(0, TAU)
+				if form_i == 0:
+					strand.set_meta("sway", sway_k)
+					strand.set_meta("phase", phase_k)
+				_kelp.append(strand)
+				_kelp_sway.append(sway_k)
+				_kelp_phase.append(phase_k)
 		# A few real GENERATED kelp fronds (glow_kelp.glb) mixed in among the procedural
 		# strands — same holdfast ring, a richer silhouette than boxes alone can give.
 		for i in range(4):

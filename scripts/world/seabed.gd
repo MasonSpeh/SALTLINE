@@ -31,6 +31,14 @@ const REEF := preload("res://scripts/world/reef_detail.gd")
 ## forever out of reach. Everything planted here (riprap, chains, wreck, reef slabs)
 ## rides floor_height() and follows automatically.
 const FLOOR_Y: float = -92.0
+## How far the flat silt-haze plane (and the sediment particle volume just above it) floats
+## over FLOOR_Y. It has to clear the HIGHEST ground the sculpt can produce or the mud pokes
+## up through its own haze — and that was already true before s34: the two noise octaves and
+## the spoil rim could reach FLOOR_Y + 3.45 against a haze plane parked at +1.8. Adding the
+## long swell makes the worst case 3.4 + 1.9 + 0.7 + 0.85 = FLOOR_Y + 6.85, so the plane
+## goes above that rather than being left to intersect a taller floor. Derived here in one
+## place instead of as two magic numbers 20 lines apart.
+const HAZE_CLEAR: float = 7.2
 ## The caissons (rig_builder._build_structure) run in ONE casting from the deck rim
 ## down to exactly this bottom, planted in the silt at PLANT_Y (a little ABOVE the
 ## bottom) so each leg is bedded in the mud rather than hovering over it.
@@ -82,6 +90,14 @@ static func _footprint_dist(p: Vector2, leg: Vector2) -> float:
 static func floor_height(p: Vector2) -> float:
 	var fn := _noise()
 	var h := FLOOR_Y
+	# A LONG SWELL UNDER THE OTHER TWO (s34, owner: "basic ground variation"). The two
+	# octaves below run at the noise's own 0.02 frequency and 2.7x that — roughly 50 m and
+	# 19 m wavelengths — so the floor had texture but no LANDFORM: at the 180 m scale of the
+	# field it read as one flat plain with ripples on it. This is a third of the frequency
+	# and the largest amplitude of the three, which is what puts broad rises and basins under
+	# the rig for the deep band to sit in. Kept below the silt-haze plane's headroom (see
+	# HAZE_CLEAR).
+	h += 3.4 * fn.get_noise_2d(p.x * 0.33 - 240.0, p.y * 0.33 + 180.0)
 	h += 1.9 * fn.get_noise_2d(p.x, p.y)
 	h += 0.7 * fn.get_noise_2d(p.x * 2.7 + 100.0, p.y * 2.7 - 60.0)
 	for leg in LEGS:
@@ -302,7 +318,7 @@ func _build_silt_haze() -> void:
 	mi.mesh = mesh
 	mi.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	add_child(mi)
-	mi.position = Vector3(0, FLOOR_Y + 1.8, 0)
+	mi.position = Vector3(0, FLOOR_Y + HAZE_CLEAR, 0)
 
 ## Suspended sediment drifting just over the mud — slow, sparse, big soft motes.
 func _build_sediment() -> void:
@@ -325,4 +341,4 @@ func _build_sediment() -> void:
 	p.draw_pass_1 = quad
 	p.gi_mode = GeometryInstance3D.GI_MODE_DISABLED
 	add_child(p)
-	p.position = Vector3(0, FLOOR_Y + 2.0, 0)
+	p.position = Vector3(0, FLOOR_Y + HAZE_CLEAR + 0.2, 0)
