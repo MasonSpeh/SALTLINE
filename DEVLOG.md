@@ -1037,3 +1037,78 @@ than bluefin at 0.25, which is correct). The swallowtail is the weakest — lyre
 bars right, face mushy, the usual generator failure on small heads.
 
 TestRunner 241, CatchProbe, SpearProbe, TideProbe, SunkProbe, CatProbe — all 0 failures.
+
+---
+
+## s33 — 2026-08-02 (Phase A: two real fixes, and ten plans that failed review)
+
+**A LIVE REGRESSION, found fact-checking my own last session.** `JellyGlow._base` was declared
+and consumed in `_process` but never populated in the spawn loop — `Out of bounds get index '0'`
+on EVERY frame, in every scene that builds Main, since s31. It survived because that change was
+verified with four targeted probes and `TestRunner` was never re-run afterward. The standing
+rule is now written into the code: after any edit, run the FULL suite, not the probe that
+targets what you think you touched.
+
+**39 FAUNA TEXTURES WERE SHIPPING UNCOMPRESSED — 872 MB OF VRAM.** Every asset generated in
+s31/s32 (the eleven species, the ship's cat, the re-roll candidate) imported at
+`compress/mode=0` with `size_limit=0`; all 184 pre-existing fauna textures are `mode=2` /
+`size_limit=1024`. A new texture stays Lossless until the EDITOR renders it in 3D and
+`detect_3d` fires — these were generated headlessly, so it never did, and nothing warns. They
+shipped as PNG and uploaded as uncompressed RGBA8 (22.4 MB per 2048 map). Now 223/223 at
+`mode=2`/`1024`; each `.s3tc.ctex` is exactly 699,116 B = 1024^2*0.5*4/3+66; VRAM for those maps
+872 MB -> 27 MB. Verified visually unchanged at the shipping ratio via CandShot.
+
+**CORRECTION TO s32'S RECORDED DIAGNOSIS.** s32 says the build-size lever is "2048-square PBR
+maps EMBEDDED inside the GLBs". Wrong about the mechanism: `gltf/embedded_image_handling=1`
+EXTRACTS every embedded map to a sibling at import and the `.scn` binds to those, so source GLBs
+contribute ZERO bytes to the shipped pack. The lever is `process/size_limit` and `compress/mode`
+in the `.import` sidecars — which is also far safer, touching no binary art and reversible by
+editing text. (My own 155.4 MB figure for the fauna s3tc set is ~5% above an independent count
+of 148.2 MB across 223 files; the difference is which files each side counted, and the
+direction is not in doubt.)
+
+**THE SEAL'S 1-2 m HOVER WAS A LOW-PASS FILTER ON A WAVE.** I reported earlier in the session
+that I could not reproduce it — and the reason was that BOTH existing probes miss the branch
+that carries it: `SealFloatProbe` forces `_hauled = false` and `FaunaBugsProbe` teleports the
+animal onto the shelf, so the haul-out APPROACH had never been measured. Neither obvious
+hypothesis was the cause (the tide did not break the s24 fix — the seal holds no sea-level
+literal; the seat is not hand-typed — `_snap_haul` still reports GAP +0.0 mm). The approach
+branch LERPED y toward the sea with `k = delta * 1.5`, a first-order filter with tau 0.667 s,
+while the eleven Gerstner bands run at omega 0.83-6.02 rad/s: the animal could not track the sea
+it was steering by. Measured, same probe both sides: **0.464 m mean / 0.935 m worst -> 0.083 /
+0.093 m** (the residual is the probe's own sampling floor). The climb-out is now driven by
+DISTANCE rather than time, which also fixes a predicted second defect — sharing `k` between the
+y and xz lerps let the horizontal approach outrun the vertical one and the seal transited ~3 m
+of concrete before surfacing. `tests/SealApproachProbe.tscn` ships with it.
+
+### The design pass — ten plans, ten rejected at review
+
+A ten-item design workflow produced file:line implementation plans for the rest of Phase A, each
+then reviewed adversarially by a second agent. **All ten came back `sound: false`.** That is the
+result, and it is worth more than ten half-built features:
+
+- **dive-hitch** — "ping the subtree" cannot work as literally written: `_cull_topside` leaves it
+  `visible = false` and `instance_set_visible` is GLOBAL, so a hidden instance is undrawable in
+  every viewport including one sharing the real World3D. (This also means s26's experiment 1 never
+  drew those instances at all.) The proposed proxy rack then keys by mesh RID, which leaves most
+  of the 1,120 materials unwarmed, and its census assertion is unsatisfiable by construction.
+- **light-cone** — the density constant's stated derivation from the glow threshold is ~20% wrong,
+  and an accounting comment edit would have hidden a real gate regression.
+- **tide-payoff** — the one constant everything rests on is nondeterministic (seeded RNG but
+  unseeded phase origin), and the probe's own tolerances contradict each other.
+- **reef-seabed** — the central regression assertion cannot pass, and kelp rooted at y -5 punches
+  through the pontoon and breaches the waterline.
+- **rain-ripple** — BLOCKER: `SunController.set_storm()` does not push `rain_wet` to the GPU at
+  all, so the whole verification plan is dead on arrival.
+- **seal-hover** — flagged a positive-feedback loop between the animal's POSE and its POSITION in
+  a step I had NOT implemented, and correctly noted the two steps I HAD implemented were already
+  in the tree.
+- **perf-vantages / declutter / aurora / known-issues** — each with at least one fatal or
+  hand-typed-Y defect; declutter would have dropped a relocated chain heap on top of a DeckGull.
+
+None of them should be implemented as written. They are durable in the workflow journal and want
+a revision pass, not execution.
+
+**Verified this session:** TestRunner 241 pass / 0 failures and 0 script errors on a full boot
+(the "245" quoted by one reviewer is a stale DEVLOG line, not the current suite); CatProbe,
+SpearProbe, TideProbe, SunkProbe, SealApproachProbe all 0.
