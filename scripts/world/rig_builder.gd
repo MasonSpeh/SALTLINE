@@ -778,7 +778,19 @@ func _build_wet_deck() -> void:
 
 	# Tide-line clutter — rusted drums along the SOUTH deck edge, clear of the rigging
 	# bench footprint (x24.2..26.1, z-17.15..-17.85) so nothing intersects the workbench.
-	for p in [Vector3(20.6, WET_Y + 0.5, -20.4), Vector3(22.1, WET_Y + 0.5, -21.2),
+	#
+	# s34, DECLUTTER: THE FIRST DRUM OF THIS ROW WAS STANDING IN THE SPAWN WALK and it is
+	# deleted rather than moved. It was at (20.6, -20.4), a 0.90 m cylinder directly north
+	# of the SPHL hatch, and it is the one thing on this route that actually COLLIDES
+	# (`_cyl` sets use_collision). Measured by tests/DeclutterProbe: a player-sized capsule
+	# on the walk line had **0.00 m** of free lane there — the route was blocked outright
+	# and you had to go round. There is nowhere to move it to: clearing a 1.09 m lane needs
+	# its centre east of x 20.99, and the next drum starts at 21.65, leaving a 0.66 m slot
+	# for a 0.90 m barrel. Four drums still read as a row along the south edge.
+	# NOT the x 26.0 drum, whatever else this row is trimmed to: bloom_fauna's CorvidGull
+	# perch 0 is (26.0, 3.4, -21.4) and `_snap_to_perch` raycasts down onto it, so deleting
+	# that one drops a bird onto the plate.
+	for p in [Vector3(22.1, WET_Y + 0.5, -21.2),
 			Vector3(27.2, WET_Y + 0.5, -21.3), Vector3(28.6, WET_Y + 0.5, -20.2),
 			Vector3(26.0, WET_Y + 0.5, -21.4)]:
 		_cyl(p, 0.45, 1.0, MatLib.rust_steel())
@@ -3729,7 +3741,15 @@ func _arrival_dressing() -> void:
 	# rendering of one that was wrong. Bolted flange, hazard-painted body, a rust-steel mushroom
 	# head that a loop would actually hold under, and a galvanised bar through the neck for the
 	# chain. The body keeps the collider the old block had, at a real bollard's girth.
-	for bx in [17.4, 21.6]:
+	# s34, DECLUTTER: THE RUN MOVED WEST, OFF THE HATCH LANE. It was [17.4, 21.6], so the
+	# chain slung between the two crossed the SPHL doorway lane (x 19.20..20.80) at 255-366
+	# mm above the plate — shin height — and `_wire` is a bare MeshInstance3D with no
+	# collider, so you walked straight through it. That is the owner's "uninteractable
+	# scenery" in as many words. Now [14.2, 18.4]: the east bollard's body reaches x 18.575
+	# against the gangplank's west edge at 18.90, so the whole assembly and its chain clear
+	# the lane by 0.325 m and the dock still has its chained bollards where the docstring
+	# above promises them.
+	for bx in [14.2, 18.4]:
 		_dbox(Vector3(bx, WET_Y + 0.022, -21.7), Vector3(0.46, 0.045, 0.46), MatLib.rust_steel())
 		for hx in [-0.17, 0.17]:
 			for hz in [-0.17, 0.17]:
@@ -3743,10 +3763,17 @@ func _arrival_dressing() -> void:
 		_dbox(Vector3(bx, WET_Y + 0.26, -21.53), Vector3(0.05, 0.30, 0.02), MatLib.rusty_metal())
 	# The chain now hangs off the eye bars at y+0.435 instead of ending 45 mm above where the
 	# old block stopped — the sag is unchanged, the ends land on real hardware.
-	_wire(Vector3(17.4, WET_Y + 0.435, -21.7), Vector3(19.5, WET_Y + 0.255, -21.7), 0.03, dark)
-	_wire(Vector3(19.5, WET_Y + 0.255, -21.7), Vector3(21.6, WET_Y + 0.435, -21.7), 0.03, dark)
+	_wire(Vector3(14.2, WET_Y + 0.435, -21.7), Vector3(16.3, WET_Y + 0.255, -21.7), 0.03, dark)
+	_wire(Vector3(16.3, WET_Y + 0.255, -21.7), Vector3(18.4, WET_Y + 0.435, -21.7), 0.03, dark)
 	# Tire fenders hung on the dock edge.
-	for fx in [18.2, 20.8]:
+	#
+	# s34, DECLUTTER: THE EAST FENDER WAS ON THE GANGPLANK. It was at x 20.8, which put it
+	# inside the plank's x 18.90..21.10 span — 0.0098 m3 of torus intersecting the plank,
+	# standing 0.41 m proud of the deck in the middle of the doorway lane, and (being a bare
+	# MeshInstance3D) with no collider, so the player walked through a tyre on the way out
+	# of the hatch. Moved to x 17.0, which keeps the pair on the dock edge west of the
+	# plank where a fender belongs.
+	for fx in [17.0, 18.2]:
 		var tire := MeshInstance3D.new()
 		var tm := TorusMesh.new()
 		tm.inner_radius = 0.15
@@ -3791,7 +3818,29 @@ func _arrival_dressing() -> void:
 		lm.material = MatLib.rusty_metal()
 		link.mesh = lm
 		add_child(link)
-		link.position = Vector3(22.0 + rng.randf_range(-1.1, 1.1), WET_Y + 0.06 + i * 0.1, -15.85 + rng.randf_range(-0.15, 0.15))
+		# s34, DECLUTTER: THE HEAP MOVED OFF THE TURN, AND OUT OF THE PLATING.
+		#
+		# It was centred x 22.0 with a +/-1.1 m spread, which put all three links across the
+		# walk where the route turns at the SE caisson foot — measured by DeclutterProbe as
+		# 4,964 triangles inside the walk corridor — and the y was `WET_Y + 0.06 + i * 0.1`
+		# against a 0.84 m ring lying flat, so each link was buried 0.19-0.34 m in the deck
+		# plate. No collider, so you walked through a half-sunk chain heap.
+		#
+		# Now heaped at the caisson's SOUTH-WEST foot instead, clear of the turn, and RESTING
+		# ON the plate: a ring of outer radius 0.42 laid flat about its own centre needs the
+		# centre at half the tube thickness — (outer - inner) / 2 = 0.10 — above the deck to
+		# sit on it rather than in it, plus a little stacking for the ones on top. The x
+		# spread is also halved, because a heap is a heap and not a scatter.
+		#
+		# THE SPOT WAS PROBED, NOT PICKED. tests/DeclutterProbe checks a candidate against the
+		# live world — what collides there, how far the nearest AUTHORED fauna home is, and
+		# whether it is back in the walk — and the first candidate written here (x 24.9) came
+		# back at **-0.00 m from the DeckGull home** at (24.0, 2.0, -15.5). That is precisely
+		# the defect the s33 declutter plan was rejected for, reproduced by reasoning about
+		# it instead of asking. This one measures 0 colliders, +4.11 m from the nearest fauna
+		# home and 1.65 m clear of the walk corridor.
+		link.position = Vector3(19.0 + rng.randf_range(-0.55, 0.55),
+			WET_Y + 0.10 + i * 0.16, -16.40 + rng.randf_range(-0.15, 0.15))
 		link.rotation.y = rng.randf() * TAU
 		link.rotation.x = deg_to_rad(90) + rng.randf_range(-0.2, 0.2)
 	# (The painted walk lane from the dock to the stair tower is GONE — four flat yellow
