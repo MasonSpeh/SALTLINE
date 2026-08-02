@@ -99,4 +99,102 @@ func _run() -> void:
 			PlayerState.selected_hotbar = i
 			break
 	_ok(bool(cat.call("_player_holding_fish", player)), "it can tell you are holding a fish")
+
+	# ------------------------------------------------------------------ s34: the states
+	#
+	# ONE ASSERTION PER TRANSITION, and each one checks the POSE as well as the state — the
+	# s32 cat had four states and one mesh, so "it is sitting" was a claim about a variable
+	# and not about anything the player could see. `_pose` is the mesh actually visible.
+	var poses: Dictionary = cat.get("_pose_nodes")
+	_ok(poses.size() >= 5, "every pose mesh loaded (%d of %d)" % [poses.size(), 6])
+	# Exactly one visible at a time, or the cat is two cats.
+	var shown: int = 0
+	for k in poses:
+		if (poses[k] as Node3D).visible:
+			shown += 1
+	_ok(shown == 1, "exactly one pose is drawn at a time (%d visible)" % shown)
+
+	# FISH INTEREST — it is holding the herring from check 6, and the cat should be in FISH.
+	player.global_position = cat.global_position + Vector3(3.0, 0.0, 0.0)
+	for i in range(30):
+		await get_tree().physics_frame
+	_ok(int(cat.get("_state")) == 5 and String(cat.get("_pose")) == "walk",
+		"a fish in hand puts it in FISH_INTEREST wearing the walk pose (state %d, pose %s)"
+			% [int(cat.get("_state")), str(cat.get("_pose"))])
+
+	# RUN — get well beyond RUN_M and it should break into the run pose.
+	player.global_position = cat.global_position + Vector3(14.0, 0.0, 0.0)
+	PlayerState.selected_hotbar = -1        # drop the fish interest, or FISH wins
+	var ran: bool = false
+	for i in range(60):
+		await get_tree().physics_frame
+		if String(cat.get("_pose")) == "run":
+			ran = true
+			break
+	_ok(ran, "left far enough behind, it RUNS (pose %s)" % str(cat.get("_pose")))
+
+	# PET — repeatable, and it wears the sit pose while it leans in.
+	var touch2: Node = null
+	for c in cat.get_children():
+		if c is Interactable:
+			touch2 = c
+	touch2.emit_signal("interacted", "PET")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_ok(float(cat.get("_pet_t")) > 0.0, "petting starts a head-bump (%.2f s left)"
+		% float(cat.get("_pet_t")))
+
+	# FEEDING — a raw fish in hand plus a PET is a feed, once per game day, and it pays out
+	# in comfort. The SECOND feed inside the same day must NOT.
+	PlayerState.add_item("fish_herring")
+	for i in range(PlayerState.hotbar.size()):
+		if String(PlayerState.hotbar[i]) == "fish_herring":
+			PlayerState.selected_hotbar = i
+			break
+	# COUNT the herrings rather than asking whether any remain — check 6 above already put
+	# one in the pack, so `has_item` is true either way and a presence test would pass
+	# whether the cat ate anything or not. And the SECOND feed is judged on the fish too,
+	# not on comfort: comfort eases toward its target every frame (COMFORT_EASE_PER_SEC), so
+	# "comfort did not change" is false by a few thousandths across any real await.
+	var fish_before: int = PlayerState.count_item("fish_herring")
+	var comfort_before: float = PlayerState.comfort
+	touch2.emit_signal("interacted", "PET")
+	await get_tree().physics_frame
+	_ok(PlayerState.comfort > comfort_before,
+		"feeding it a raw fish pays comfort (%.3f -> %.3f)" % [comfort_before, PlayerState.comfort])
+	_ok(PlayerState.count_item("fish_herring") == fish_before - 1,
+		"and it ate exactly one fish (%d -> %d)"
+			% [fish_before, PlayerState.count_item("fish_herring")])
+	PlayerState.add_item("fish_herring")
+	for i in range(PlayerState.hotbar.size()):
+		if String(PlayerState.hotbar[i]) == "fish_herring":
+			PlayerState.selected_hotbar = i
+			break
+	var fish_2: int = PlayerState.count_item("fish_herring")
+	touch2.emit_signal("interacted", "PET")
+	await get_tree().physics_frame
+	_ok(PlayerState.count_item("fish_herring") == fish_2,
+		"a second fish the same game day is refused (%d -> %d)"
+			% [fish_2, PlayerState.count_item("fish_herring")])
+
+	# SLEEP — when the player turns in, the cat finds a spot near them and curls up.
+	PlayerState.selected_hotbar = -1
+	player.set("_lying", true)
+	player.set("_lying_sleeping", true)
+	var slept: bool = false
+	for i in range(420):
+		await get_tree().physics_frame
+		if String(cat.get("_pose")) == "sleep":
+			slept = true
+			break
+	_ok(slept, "when the player sleeps, the cat curls up (pose %s)" % str(cat.get("_pose")))
+	_ok(cat.global_position.distance_to(player.global_position) < 4.0,
+		"...and it sleeps NEAR them (%.1f m)"
+			% cat.global_position.distance_to(player.global_position))
+	# And the spot it chose is a real surface, not the air over one.
+	_ok(absf(cat.global_position.y - player.global_position.y) < 1.4,
+		"...on the same deck they are on (cat y %.2f, player y %.2f)"
+			% [cat.global_position.y, player.global_position.y])
+	player.set("_lying", false)
+	player.set("_lying_sleeping", false)
 	_completed = true

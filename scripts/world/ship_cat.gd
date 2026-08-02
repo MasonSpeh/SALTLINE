@@ -23,7 +23,45 @@ const KIT := preload("res://scripts/world/creature_kit.gd")
 const AIB := preload("res://scripts/world/ai_budget.gd")
 const MODEL_PATH := "res://assets/models/fauna/ship_cat/ship_cat.glb"
 
-enum State { GROOM, FOLLOW, SIT, SLEEP }
+## ONE MESH PER POSE, BUILT ONCE AND TOGGLED — not swapped through ANIM.replace().
+##
+## The s32 cat was a single standing mesh doing every state, so "sitting" was a static
+## standing cat and "asleep" was a static standing cat leaning over. Tripo generated five
+## poses in s34 from one coat description (see gen_cat_batch.py) and the states below drive
+## them.
+##
+## WHY NOT `ANIM.replace()` PER TRANSITION, which is what the brief suggested: replace()
+## hides every mesh built BEFORE it, which is the documented trap, but the real problem is
+## that it re-instantiates the scene and rebuilds every ShaderMaterial on the frame the cat
+## changes its mind — several times a minute, next to the player, on the animal whose whole
+## job is to not read as a machine. All six are attached once in _ready and the transition
+## is a `visible` flip. Godot does not draw a hidden MeshInstance, so the cost of the five
+## that are off is their memory, and they share the cached .glb resources.
+##
+## `stand` is kept because the s32 mesh is the only one authored on all four feet and level,
+## which is what the walk cycle's gait bob is tuned against.
+enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET }
+
+const POSES := {
+	"stand": MODEL_PATH,
+	"sit": "res://assets/models/fauna/cat_sit/cat_sit.glb",
+	"groom": "res://assets/models/fauna/cat_groom/cat_groom.glb",
+	"walk": "res://assets/models/fauna/cat_walk/cat_walk.glb",
+	"run": "res://assets/models/fauna/cat_run/cat_run.glb",
+	"sleep": "res://assets/models/fauna/cat_sleep/cat_sleep.glb",
+}
+## Which pose each state wears. Kept as a table rather than a match statement inside the
+## per-frame code so a state cannot silently forget to set one.
+const STATE_POSE := {
+	State.GROOM: "groom",
+	State.FOLLOW: "walk",
+	State.RUN: "run",
+	State.SIT: "sit",
+	State.SLEEP: "sleep",
+	State.FISH: "walk",
+	State.PET: "sit",
+}
+
 
 ## Where it is found. The bunkhouse floor, in the aisle at the west end — off the walking line
 ## between the door and the bunks, so it reads as a thing that lives here rather than a prop
@@ -38,6 +76,15 @@ const LOST_M: float = 26.0           ## past this it gives up and settles where 
 const GREET_M: float = 2.4           ## how close you must come to say hello
 const FISH_M: float = 9.0            ## it can smell a fish in your hands from here
 const TURN_RATE: float = 6.0
+## Further behind than this and the walk becomes a run.
+const RUN_M: float = 8.0
+const RUN_SPEED: float = 4.4
+## How long the head-bump lean lasts when you pet it.
+const PET_SEC: float = 1.1
+## Feeding it a raw fish is worth this much comfort, once per game day. Small on purpose —
+## it is a moment with an animal, not a food source.
+const FED_COMFORT: float = 0.12
+const FED_REST: float = 0.06
 const STEP_UP: float = 0.45          ## coamings yes, stairs no
 
 ## Seconds of stillness from the player before the cat decides this is a rest, not a pause.
@@ -52,6 +99,19 @@ var _still: float = 0.0
 var _last_player_pos: Vector3 = Vector3.ZERO
 var _gen_mats: Array = []
 var _body: Node3D
+## pose key -> the Node3D holding that mesh, and its ShaderMaterials.
+var _pose_nodes: Dictionary = {}
+var _pose_mats: Dictionary = {}
+var _pose: String = ""
+## Petting: how long the head-bump lean lasts, and when the next purr is allowed.
+var _pet_t: float = 0.0
+## Feeding: the absolute GAME HOUR the cat was last fed, so "once per game day" survives a
+## night's sleep. Measured in game hours rather than delta seconds for the reason
+## KNOWN_ISSUES records about the mussel beds: sleeping advances the calendar and no real
+## time passes, so a countdown in seconds sits through five slept nights unchanged.
+var _fed_game_h: float = -1000.0
+## Counts down after a feed — the happy wiggle, the seal's _pet_bump idea on a cat.
+var _fed_wiggle: float = 0.0
 var _touch: Interactable
 var _ai_acc: float = 0.0
 var _rng := RandomNumberGenerator.new()
@@ -63,8 +123,26 @@ func _ready() -> void:
 	add_to_group("ship_cat")
 	_body = Node3D.new()
 	add_child(_body)
-	var gen: Dictionary = ANIM.attach(_body, MODEL_PATH, 0.55, ANIM.Mode.BREATHE, 0.05, 1.1,
-		Color(0.9, 0.78, 0.42), 0.0)
+	# Every pose, attached once, all hidden but the first. Each one carries its own facing
+	# (cat_sit and cat_groom are authored along +X, the rest along +Z — measured s34, see
+	# CreatureAnim.FACING_OVERRIDES) and each is GROUNDED so its paws sit on the deck rather
+	# than its origin: the five poses have wildly different heights, and a curled sleeping
+	# cat centred like a standing one floats.
+	for key in POSES:
+		var host := Node3D.new()
+		_body.add_child(host)
+		var pg: Dictionary = ANIM.attach(host, POSES[key], _pose_size(key), ANIM.Mode.BREATHE,
+			0.05, 1.1, Color(0.9, 0.78, 0.42), 0.0)
+		if pg.is_empty():
+			host.queue_free()
+			continue
+		ANIM.ground(host, pg["model"])
+		host.visible = false
+		_pose_nodes[key] = host
+		_pose_mats[key] = pg["mats"]
+	var gen: Dictionary = {"mats": _pose_mats.get("stand", [])} if not _pose_nodes.is_empty() else {}
+	if not _pose_nodes.is_empty():
+		_wear("groom")
 	if gen.is_empty():
 		# No mesh on disk yet: a placeholder that still reads as a small four-legged animal,
 		# so the behaviour can be played and tested before the asset lands.
@@ -131,12 +209,33 @@ func _on_touched(_verb: String) -> void:
 		if hud and hud.has_method("toast"):
 			hud.toast("The cat looks up, decides about you, and comes along.")
 		return
-	AudioDirector.play_one_shot("groan", global_position, -24.0)
+	# PETTING IS REPEATABLE, which is the whole point of it — the s32 cat offered PET and
+	# then did nothing observable, so there was no reason to press it twice.
+	_pet_t = PET_SEC
+	AudioDirector.play_one_shot("purr", global_position, -14.0)
+	if player != null and is_instance_valid(player):
+		_face(player.global_position, 1.0)
+	# ...and if you are holding a raw fish when you do it, that is FEEDING it. Once per game
+	# DAY, counted in absolute game hours: sleeping advances the calendar without any real
+	# time passing, so a cooldown in seconds would sit through a slept night untouched
+	# (KNOWN_ISSUES records the same trap costing the mussel beds a regrowth cycle).
+	var now_h: float = GameClock.game_time_hours()
+	if _player_holding_fish(player) and now_h - _fed_game_h >= 24.0:
+		var slot: int = PlayerState.selected_hotbar
+		var fish_id: String = String(PlayerState.hotbar[slot])
+		if PlayerState.remove_item(fish_id):
+			_fed_game_h = now_h
+			_fed_wiggle = 1.0
+			PlayerState.comfort = clampf(PlayerState.comfort + FED_COMFORT, 0.0, 1.0)
+			PlayerState.rest = clampf(PlayerState.rest + FED_REST, 0.0, 1.0)
+			AudioDirector.play_one_shot("eat", global_position, -16.0)
+			if hud and hud.has_method("toast"):
+				hud.toast("The cat takes the fish, and is briefly very pleased with you.")
+			_meow_cd = 2.0
+			return
 	if hud and hud.has_method("toast"):
 		hud.toast("The cat leans into your hand.")
 	_meow_cd = 6.0
-	if player != null and is_instance_valid(player):
-		_face(player.global_position, 1.0)
 
 func _process(delta: float) -> void:
 	# Four-line AiBudget prologue — mandatory for anything new that runs per frame here, and
@@ -150,6 +249,11 @@ func _process(delta: float) -> void:
 	_t += delta
 	if _meow_cd > 0.0:
 		_meow_cd -= delta
+	if _pet_t > 0.0:
+		_pet_t -= delta
+	if _fed_wiggle > 0.0:
+		_fed_wiggle -= delta * 0.7
+		_body.rotation.y = sin(_t * 17.0) * 0.13 * clampf(_fed_wiggle, 0.0, 1.0)
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	if player == null:
 		return
@@ -160,7 +264,7 @@ func _process(delta: float) -> void:
 
 ## Before you find it: sitting where it lives, washing a paw, looking up when you get close.
 func _groom(delta: float, player: Node3D) -> void:
-	_state = State.GROOM
+	_enter(State.GROOM)
 	var d: float = global_position.distance_to(player.global_position)
 	if d < GREET_M * 2.5:
 		_face(player.global_position, delta)   # it has noticed you
@@ -185,15 +289,26 @@ func _companion(delta: float, player: Node3D) -> void:
 		resting = true
 	_still = (_still + delta) if resting else 0.0
 
+	# BEING PETTED WINS OVER EVERYTHING for a moment: a head-bump you can interrupt is not
+	# a head-bump. Short, so it never reads as the cat freezing.
+	if _pet_t > 0.0:
+		_enter(State.PET)
+		_face(ppos, delta)
+		# The lean into the hand, and back out of it.
+		var k: float = sin((1.0 - _pet_t / PET_SEC) * PI)
+		_body.rotation.z = k * 0.22
+		_body.position.y = k * 0.04
+		return
+
 	# THE FISH. It can smell one in your hands and it does not pretend otherwise: it closes
 	# right up, and it will not settle while you are holding it.
 	var has_fish: bool = _player_holding_fish(player)
 	if has_fish and d < FISH_M:
-		_state = State.FOLLOW
+		_enter(State.FISH)
 		_walk_toward(ppos, TROT_SPEED, delta, 0.9)
 		if _meow_cd <= 0.0:
 			_meow_cd = _rng.randf_range(4.0, 9.0)
-			AudioDirector.play_one_shot("groan", global_position, -26.0)
+			AudioDirector.play_one_shot("cat_chirp", global_position, -20.0)
 		return
 
 	if d > LOST_M:
@@ -202,10 +317,28 @@ func _companion(delta: float, player: Node3D) -> void:
 		_settle(delta)
 		return
 	if d > FOLLOW_NEAR:
-		_state = State.FOLLOW
+		# ...and it BREAKS INTO A RUN when it has been left behind, which is the one moment a
+		# follower reads as an animal rather than a marker: same walk otherwise.
+		var running: bool = d > RUN_M
+		_enter(State.RUN if running else State.FOLLOW)
 		_still = 0.0
-		_walk_toward(ppos, TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED, delta, FOLLOW_NEAR)
+		_walk_toward(ppos, RUN_SPEED if running else (TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED),
+			delta, FOLLOW_NEAR)
 		return
+	# THE PLAYER HAS TURNED IN. A cat does not wait out a night standing up: it comes over,
+	# finds a spot NEAR the bed rather than on the walking line, and curls up there. The spot
+	# is PROBED (see _sleep_spot) — a hand-typed offset from a bed that another session moves
+	# is the whole floating-prop family of bugs in this repo.
+	if _player_asleep(player):
+		var spot: Vector3 = _sleep_spot(ppos)
+		if global_position.distance_to(spot) > 0.55:
+			_enter(State.FOLLOW)
+			_walk_toward(spot, WALK_SPEED, delta, 0.35)
+		else:
+			_enter(State.SLEEP)
+			ANIM.drive(_gen_mats, 0.5, 0.0)
+		return
+
 	# Within arm's reach of a player who is not going anywhere.
 	if _still > SETTLE_SEC:
 		_settle(delta)
@@ -213,16 +346,25 @@ func _companion(delta: float, player: Node3D) -> void:
 		_state = State.SIT
 		_pose_sit(delta)
 
+## Is the player actually turned in? `_lying_sleeping` is the flag player_controller sets
+## while the S-to-dawn fade runs; `_lying` is merely lying down. A cat curls up when you go
+## to bed, not when you lie on the floor for a second.
+func _player_asleep(player: Node3D) -> bool:
+	return bool(player.get("_lying_sleeping")) or bool(player.get("_lying"))
+
 func _settle(delta: float) -> void:
 	if _still > SETTLE_SEC + DOZE_SEC:
-		_state = State.SLEEP
+		_enter(State.SLEEP)
 		# Curled and breathing, nose tucked. The body sinks a little and the breathe rate
 		# halves — the same trick the denned glow worm uses to read as asleep.
-		_body.rotation.z = lerpf(_body.rotation.z, 0.55, delta * 1.5)
-		_body.position.y = lerpf(_body.position.y, -0.06, delta * 1.5)
+		# The curled mesh does the shape; this is only the breathing slowing down. The old
+		# code rolled the body 0.55 rad to fake "lying down" with a standing mesh, which is
+		# exactly what having a sleep pose removes the need for.
+		_body.rotation.z = lerpf(_body.rotation.z, 0.0, delta * 2.0)
+		_body.position.y = lerpf(_body.position.y, 0.0, delta * 2.0)
 		ANIM.drive(_gen_mats, 0.5, 0.0)
 	else:
-		_state = State.SIT
+		_enter(State.SIT)
 		_pose_sit(delta)
 
 func _pose_sit(delta: float) -> void:
@@ -284,3 +426,64 @@ func _player_holding_fish(_player: Node3D) -> bool:
 		return false
 	var id: String = String(PlayerState.hotbar[slot])
 	return id.begins_with("fish_") or id.begins_with("cooked_fish_") or id == "dried_fish"
+
+# ------------------------------------------------------------------ poses
+
+## Target longest-axis size per pose, metres. NOT one number for all six: a cat curled
+## asleep is a ~0.45 m ball and the same animal at full stride is ~0.75 m nose to tail, so
+## normalising every mesh to the same longest axis would shrink the running cat and inflate
+## the sleeping one until they read as two different animals. These are the real ratios of
+## the same cat in those poses.
+func _pose_size(key: String) -> float:
+	match key:
+		"sleep": return 0.46
+		"sit": return 0.44
+		"groom": return 0.46
+		"run": return 0.74
+		"walk": return 0.66
+	return 0.55
+
+## Show one pose, hide the rest. The transition is a visibility flip — see POSES for why it
+## is not an ANIM.replace().
+func _wear(key: String) -> void:
+	if key == _pose or not _pose_nodes.has(key):
+		return
+	for k in _pose_nodes:
+		(_pose_nodes[k] as Node3D).visible = (k == key)
+	_pose = key
+	_gen_mats = _pose_mats.get(key, [])
+
+## The pose a state wears, applied every time the state is set so a transition cannot be
+## made without one.
+func _enter(st: int) -> void:
+	_state = st
+	_wear(String(STATE_POSE.get(st, "stand")))
+
+## Somewhere to curl up NEAR the player, probed rather than typed. Returns the point, or
+## the cat's own position if nothing suitable is under it — a cat that cannot find a spot
+## sleeps where it is standing, which is also what a cat does.
+func _sleep_spot(near: Vector3) -> Vector3:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return global_position
+	# Ring of candidates around the player, nearest first — the foot of the bed, the edge of
+	# the chair, the warm spot by whatever they are sitting at.
+	for r in [0.9, 1.4, 2.0]:
+		for i in range(8):
+			var a: float = TAU * float(i) / 8.0
+			var at: Vector3 = near + Vector3(cos(a) * r, 0.0, sin(a) * r)
+			var from: Vector3 = at + Vector3(0, 1.4, 0)
+			var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 3.0, 0))
+			q.collision_mask = 1
+			q.collide_with_areas = false
+			q.exclude = [_touch.get_rid()]
+			var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+			if hit.is_empty():
+				continue
+			var p: Vector3 = hit["position"]
+			# Only a surface at about the height the cat is already on — it will not climb
+			# onto a bunk or drop off a deck to go to sleep.
+			if absf(p.y - global_position.y) > STEP_UP:
+				continue
+			return p
+	return global_position

@@ -43,6 +43,12 @@ const ONE_SHOTS: Dictionary = {
 	"scuttle_b": "res://audio/scuttle_b.wav",
 	"scuttle_c": "res://audio/scuttle_c.wav",
 	"crab_snap": "res://audio/crab_snap.wav",
+	# The ship's cat (s34). It used to borrow `groan` — the deep-hull one-shot, played
+	# quiet, with a comment calling it "the closest thing to a purr". It is not one: a purr
+	# is a 25 Hz amplitude modulation on a breathy carrier, not a groan pitched down.
+	# tools/gen_cat_audio.py synthesises both of these.
+	"purr": "res://audio/purr.wav",
+	"cat_chirp": "res://audio/cat_chirp.wav",
 	# Ambience events (scripts/world/ambience.gd schedules these).
 	"deep_groan": "res://audio/deep_groan.wav",
 	"sheet_bang": "res://audio/sheet_bang.wav",
