@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://spear_shot_rig"]
+
+[ext_resource type="Script" path="res://tests/spear_shot.gd" id="1"]
+
+[node name="SpearShot" type="Node"]
+script = ExtResource("1")

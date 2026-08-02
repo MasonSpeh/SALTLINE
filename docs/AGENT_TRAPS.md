@@ -765,3 +765,49 @@ lines before the verdict. Redirect to a file and read the file.
 autoload.** Already noted above as a false positive; restating because it is the single most
 common output of the parse gate and it will be seen on every windowed harness launch. Read past
 it and check whether any OTHER error is present — that is the signal.
+
+---
+
+## Found building spearfishing (s27)
+
+**"It renders black" has more than one cause, and s24's famous one is not always it.** The
+catchable shoals photographed as featureless black cut-outs at spear range while the tropical
+reef fish beside them showed full colour. The obvious read was s24's metallic bug (glTF putting
+PBR factors in the material SCALARS; fully metallic with no reflection probe renders black), and
+it was wrong: a scan of the imported materials showed every catchable species carrying honest
+scalars (metallic 0.000, roughness 0.800, no ORM map), while the trop_* fish are the ones at
+metallic 1.000 — already handled. The real cause was LIGHT: underwater_fx grades ambient to
+~(0.088, 0.203, 0.223) at 0.5 energy by 8 m and the sun floors near 0.06, so an unlit albedo of
+(0.80, 0.40, 0.25) lands around (0.035, 0.040, 0.028) before the filmic curve. The reef and the
+trop fish read at that depth because they carry emission and the shoals carried none. Scan the
+material before blaming the material.
+
+**`glow_energy` and `body_glow` default to 0, so a creature only glows if something CALLS
+`ANIM.drive`.** Exactly one species ever did (the herring lantern shoal). Anything relying on the
+Bloom rim to be visible in deep water needs the call; `ANIM.attach`'s `glow` argument sets the
+COLOUR of a rim whose energy is still zero, which reads in code as though it were already lit.
+
+**A harness that disables the player's `_physics_process` silently disables anything polled
+there.** SpearShot turned physics off to stop the player swimming out of frame, which also
+stopped `_update_spear_prompt` — so the first three frames photographed a working feature with no
+prompt on screen and the log cheerfully printed `prompt: (none)`. Drive the poll by hand in a
+harness, and remember the chip is written by ANOTHER node (`interaction_ray`) in ITS `_process`:
+the shutter has to come a frame or two after the value is set, not in the same frame.
+
+**Sweep a look-tuning value off ONE world build.** Picking emission by eye across separate
+launches is several windowed runs in several thermal states, and this machine's frame times drift
+enough between runs to make cross-run comparison meaningless. Re-expose the same frame at each
+candidate instead (`SpearShot` does this for the shoal rim, `ReefShot --glow` for the reef).
+
+**A probe that dies mid-run still prints `FAILURES: 0`.** A SCRIPT ERROR inside an `await`ed
+coroutine abandons it and returns quietly to the caller, which then reports on the checks that
+DID run. SpearProbe hit this on a mistyped `PlayerState.selected_slot` (it is `selected_hotbar`)
+and reported a clean pass over a run that stopped a third of the way through. Every probe that
+runs its body in a coroutine needs a completion sentinel set on the last line and checked by the
+reporter.
+
+**underwater_world only swims its schools while the subtree is VISIBLE, and the pod root never
+leaves the world origin.** So on any harness that starts topside, every fish is still stacked at
+(0,0,0) — and a query aimed at one of them "passes" while measuring nothing. Get the camera under
+the water first, give the pods real frames, and assert the pod is off the origin before trusting
+a position read.

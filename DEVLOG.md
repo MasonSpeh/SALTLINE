@@ -739,3 +739,60 @@ owner decision, focus stays on rig 1's depth):
 4. crab speciation — `crab.gd` is 2,062 lines for ONE species; refactor to a species table, then
    Tripo (820 credits, healthy; Meshy is at 4 and is not a usable provider)
 5. the calm-night Bloom — bioluminescence keyed off low sea state + NIGHT
+
+---
+
+## s27 — 2026-08-01 (spearfishing, and why the shoals were black)
+
+**The plan's item 2, and the biggest content-per-line win available:** the game already had a
+fully built ocean — 48 pods, 512 fish on real depth bands out of `fish.json` — that the player
+had no verb for. The spear had existed since the crafting pass as a crab-repelling club and
+`grep` confirmed zero underwater use. This connects them.
+
+**Spearfishing.** `underwater_world` gained three queries over the live shoal members:
+`spear_target()` (nearest fish in a ~31 deg aim cone, body length folded into the hit radius, and
+it refuses fish the cull is not drawing), `take_speared()` (RECYCLES the node to the pod centre
+rather than freeing it — the per-member arrays `ph`/`spd`/`head`/`climb` are indexed in lockstep
+with `fish`, so removing an entry would silently put one fish on another's swim personality), and
+`scatter_fish()` (a thrust startles the water whether it hits or not; a miss spooks harder,
+because nothing died to calm it).
+
+No new binding: `_melee_attack` routes to a thrust when the weapon is flagged `spearfishing` and
+the EYE is under the swell. On deck it is the swing it always was. Landing reuses
+`fishing_rod._land`'s path exactly — journal, pack-or-spill, size roll, record book, fillet count
+— or a fish would mean different things depending on how it was caught.
+
+**Discoverability**, since the verb has no binding of its own to advertise: look at a fish with a
+spear underwater and the chip says `[LMB]   Spear the Ember Snapper`. `interaction_ray` yields the
+chip the same way it already yields to carrying, building and a live cast — it has to be the ray
+that stands down, because the shoals have no colliders and nothing the ray can hit would produce
+that line. Polled at 10 Hz, not per frame: `bloom_fauna`'s GDScript is already the wall.
+
+**THE CATCHABLE SHOALS WERE RENDERING AS BLACK CUT-OUTS**, found by photographing the feature
+rather than trusting the probe. The obvious suspect was s24's metallic bug; it was measured and
+it is NOT that — every catchable species imports honest scalars (metallic 0.000, roughness 0.800,
+no ORM), and it is the trop_* fish that carry the metallic case, already handled. The cause was
+light: ambient grades to ~(0.088, 0.203, 0.223) at 0.5 energy by 8 m and the sun floors at 0.06,
+so an unlit (0.80, 0.40, 0.25) flank lands near (0.035, 0.040, 0.028). The reef and the trop fish
+read at that depth because they carry emission; the shoals carried none, because `glow_energy`
+defaults to 0 and the herring was the ONLY species that ever called `ANIM.drive`. Fixed with a
+faint rim + flank lift in the species' own tint, **swept off one world build** (0.20/0.10 still
+black, 0.45/0.22 flank but no edge, 0.75/0.38 draws the dorsal line and reads as a fish). Both
+stay under the 0.8 glow threshold, so this is legibility, not bloom.
+
+**Verified:** `tests/SpearProbe.tscn` 23 checks / 0 failures — including that the prompt is EMPTY
+on deck and that the same spear above water still swings rather than fishing. Suite 241 pass / 0
+failures. `tests/SpearShot.tscn` photographs the moment at three pods and sweeps the rim.
+
+Two things the probe caught about itself, both now in `AGENT_TRAPS.md`: a script error inside an
+awaited coroutine abandons it while the report still reads `FAILURES: 0` (it has a completion
+sentinel now), and `underwater_world` only swims its schools while visible, so a harness that
+starts topside queries fish that are all still stacked at the world origin.
+
+**Still open:** the dive hitch from s26 (285 ms, decays with time hidden — no one-time prewarm can
+fix it; the untried candidate is warming on approach to the water). Per-member size correlation
+for a speared fish needs a PERCENTILE call on FishTable rather than a roll, so the fish.json
+weight range stays the contract the stove and drying line read.
+
+**Next:** tides (item 3) — `Gyre` already solves height analytically so the tide is a slow offset;
+the session is the audit of every hand-typed waterline constant.

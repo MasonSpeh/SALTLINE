@@ -898,6 +898,40 @@ func _spawn_schools() -> void:
 		for pod in range(SCHOOL_PODS):
 			_spawn_pod(id, def, school, tint, mat, band_y, pod)
 
+## THE CATCHABLE SHOALS WERE RENDERING AS BLACK SILHOUETTES, and it was light, not material.
+##
+## Found s27 photographing spearfishing (tests/SpearShot.tscn): at 8.4 m the fish being aimed at
+## were featureless black cut-outs while the tropical reef fish beside them showed real colour.
+## The obvious suspect was s24's metallic bug — glTF putting PBR factors in the material scalars,
+## fully metallic rendering black — so it was measured rather than assumed, and it is NOT that:
+## every catchable species imports honest scalars (metallic 0.000, roughness 0.800, no ORM map).
+## It is the trop_* fish that carry the metallic case, and creature_anim already handles them.
+##
+## The real arithmetic: underwater_fx grades ambient down to ~(0.088, 0.203, 0.223) at 0.5 energy
+## by that depth and _grade_sun floors the sun near 0.06, so an ember snapper's (0.80, 0.40, 0.25)
+## albedo lands around (0.035, 0.040, 0.028) before the filmic curve — black, correctly. The reef
+## and the trop fish read at the same depth because they carry emission and these carried none:
+## `glow_energy` defaults to 0 and the HERRING was the only species that ever called ANIM.drive.
+##
+## So the fish get a little light of their own. Deliberately small, and deliberately two parts:
+## the fresnel rim draws the SILHOUETTE in the species' own tint (which is what makes a fish
+## identifiable against fog at spear range), while a touch of body glow lifts the flank enough to
+## read as a colour rather than a hole. It is on-theme rather than a cheat — this is an ocean the
+## Bloom has made faintly luminous, and the herring lantern shoal at 0.5 is the same idea louder.
+##
+## Both sit well under main.gd's `glow_hdr_threshold` of 0.8, so nothing here reaches the glow
+## buffer: this is legibility, not bloom (see the emission note in docs/AGENT_TRAPS.md). The
+## brightest tint in the table (0.80, 0.40, 0.25) peaks at 0.60 on the rim and 0.27 on the
+## flank, so no species crosses it.
+##
+## SWEPT, not picked — three candidates re-exposed on ONE world build at spear range
+## (tests/SpearShot.tscn, the same trick ReefShot uses for the reef): 0.20/0.10 was still a
+## black cut-out, 0.45/0.22 found the flank colour but no edge, 0.75/0.38 draws the dorsal line
+## and the fins and reads as a fish while staying dark water. Judging these across separate
+## launches would have been three windowed runs in three thermal states.
+const POD_RIM_ENERGY: float = 0.75
+const POD_BODY_GLOW: float = 0.38
+
 ## One pod of one species: its own node, its own members, its own circuit. Pod 0 works the
 ## water immediately around the rig; pod 1 and up work the open water (POD_SPREAD).
 func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
@@ -943,6 +977,11 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 				(m as ShaderMaterial).set_shader_parameter("tint", tint)
 			if id == "fish_herring":
 				ANIM.drive(gen["mats"], 2.2, 0.5)   # the lantern shoal keeps its glow
+			else:
+				for m in gen["mats"]:
+					var sm := m as ShaderMaterial
+					sm.set_shader_parameter("glow_energy", POD_RIM_ENERGY)
+					sm.set_shader_parameter("body_glow", POD_BODY_GLOW)
 		# This fish's own distance budget, generated mesh or silhouette alike.
 		_budget_fish(f, clampf(member_len * FISH_RANGE_PER_M, FISH_RANGE_MIN, FISH_RANGE_MAX))
 		members.append(f)
