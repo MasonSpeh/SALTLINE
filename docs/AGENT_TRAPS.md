@@ -811,3 +811,40 @@ leaves the world origin.** So on any harness that starts topside, every fish is 
 (0,0,0) — and a query aimed at one of them "passes" while measuring nothing. Get the camera under
 the water first, give the pods real frames, and assert the pod is off the origin before trusting
 a position read.
+
+---
+
+## Found clearing two KNOWN_ISSUES entries (s28)
+
+**"Fixed entries are deleted, not struck through" cuts both ways: an entry can also be HALF
+stale, and that is worse than either.** `KNOWN_ISSUES` carried "un-crouching has no headroom
+check". The gate existed and was correctly wired — but it probed only a 0.3 m sphere where the
+new HEAD lands (1.55..2.15 above the feet), and the standing capsule spans 0.00..1.80, so
+nothing between the crouched top at 0.90 and 1.55 was ever tested. A beam or pipe run at chest
+height passed the check and the capsule grew into it. Reading the code said "stale"; testing it
+said "half true". **Before deleting a stale-looking entry, write the assertion that would fail
+if it were true.**
+
+**An assertion that only ever runs in the good case cannot tell a working gate from a missing
+one.** `playtest.gd` had crouched and un-crouched for many sessions — always in open air, where
+a present gate and an absent gate produce identical output. That is precisely why the entry
+survived. Both the BLOCKED case and the released case now assert, because a "refusal" that
+passes for a player who simply cannot stand at all is not a test either.
+
+**The diagnosis in a bug entry is a hypothesis, not evidence.** The store-room crate entry said
+the prop "drops through" because the CSG deck has no collider yet. It does not drop —
+a `LootContainer` is a `StaticBody3D` and never falls. `SurfaceSnap` actively moved it: the ray
+passed through the unbaked deck, hit the structure 3 m below, and seated it there, "succeeding"
+every time. A fix built on the entry's own wording (retry while nothing is found) changed
+nothing, because that ray never failed to find something.
+
+**Bounding a correction by DISTANCE only works if the legitimate corrections are small — measure
+the distribution first.** The obvious fix for the crate was a `max_drop`. Instrumenting the live
+world showed all 36 snaps: 2.954 (the bug), 1.800, 0.900, then everything else <= 0.32 — and the
+1.800 and 0.900 are real props authored above a deck being correctly seated onto it. No threshold
+separates them. The discriminator was time, not distance: wait for the CSG colliders to bake.
+
+**A `head -N` on a probe's output can hide the very line you are looking for, and make an A/B
+read backwards.** A first pass concluded the crate fix worked because the crate was absent from a
+truncated list — the reef-shelf log lines had eaten the budget. Grep for the specific thing, or
+count, rather than eyeballing a head.

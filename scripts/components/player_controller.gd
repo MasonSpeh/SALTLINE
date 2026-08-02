@@ -1167,21 +1167,42 @@ func _posture_bob_scale() -> float:
 		_:
 			return 1.0
 
-## True if a taller capsule would clear whatever's overhead. A slim sphere probe (radius
-## under the body radius, so side walls never trip it) is placed where the new head would
-## sit; if world geometry is already there, the rise is blocked and we stay low.
+## True if a taller capsule would clear whatever's overhead.
+##
+## IT USED TO PROBE ONLY WHERE THE NEW HEAD WOULD SIT — a 0.3 m sphere at the top of the target
+## capsule — which leaves the body's whole growth path unchecked. Standing spans 0.0..1.8 and
+## crouched spans 0.0..0.9, so the sphere sat at 1.55..2.15 and NOTHING between 0.9 and 1.55 was
+## ever tested: a beam, a pipe run or a bunk frame at chest height passed the check and the
+## capsule then grew straight into it. That 0.65 m blind band is the surviving half of
+## KNOWN_ISSUES' "un-crouching has no headroom check" — the head-height gate had landed, the
+## entry was never updated, and nothing tested a BLOCKED rise, so both halves stayed invisible
+## (an assertion that only ever stands up in open air cannot tell a working gate from a missing
+## one). Found s28 while trying to prove the entry stale.
+##
+## Now it sweeps the whole band the body is about to occupy, as a slim capsule from the current
+## top to the new top. Slim on purpose — radius 0.3 against a 0.37 body radius — so a player
+## standing against a bulkhead is not pinned by the wall beside them, which is why the original
+## used a narrow probe and is a property worth keeping.
 func _posture_fits(target: int) -> bool:
 	var world: World3D = get_world_3d()
 	if world == null:
 		return true
-	var top: float = _posture_col_y(target) + _posture_height(target) * 0.5
-	var probe := SphereShape3D.new()
-	probe.radius = 0.3
+	var new_top: float = _posture_col_y(target) + _posture_height(target) * 0.5
+	var cur_top: float = _posture_col_y(_posture) + _posture_height(_posture) * 0.5
+	if new_top <= cur_top:
+		return true                 # not growing upward; nothing to clear
+	const PROBE_R: float = 0.3
+	var probe := CapsuleShape3D.new()
+	probe.radius = PROBE_R
+	# CapsuleShape3D.height is the TOTAL height including both hemispherical caps and may not
+	# be less than twice the radius, so a short band still yields a legal shape.
+	probe.height = maxf(new_top - cur_top + 0.1, PROBE_R * 2.0 + 0.01)
 	var params := PhysicsShapeQueryParameters3D.new()
 	params.shape = probe
 	params.collision_mask = 1   # world only — fauna drifting overhead don't pin you down
 	params.exclude = [get_rid()]
-	params.transform = Transform3D(Basis(), global_position + Vector3(0.0, top + 0.05, 0.0))
+	params.transform = Transform3D(Basis(),
+		global_position + Vector3(0.0, (cur_top + new_top) * 0.5 + 0.05, 0.0))
 	return world.direct_space_state.intersect_shape(params, 1).is_empty()
 
 ## Z toggles lying flat on the deck. Dropping down is always allowed; getting up is a

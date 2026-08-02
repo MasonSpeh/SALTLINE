@@ -139,6 +139,45 @@ func _run() -> void:
 		await get_tree().physics_frame
 	_check(not player.crouching and cap.height > 1.5, "releasing crouch stands back up")
 
+	# --- Un-crouching UNDER A CEILING must be refused, at BOTH heights ---
+	#
+	# KNOWN_ISSUES carried "un-crouching has no headroom check" as open. Half stale: the gate
+	# was wired (player_controller._update_posture refuses a rise when _posture_fits fails) but
+	# it only probed where the new HEAD lands (1.55..2.15 above the feet), so anything between
+	# the crouched top (0.90) and 1.55 — a beam, a pipe run, a bunk frame — passed the check and
+	# the capsule grew into it. Both cases are asserted here, because the entry survived
+	# precisely because nothing ever tested a BLOCKED rise: an assertion that only ever stands
+	# up in open air cannot tell a working gate from a missing one.
+	#
+	# Heights come from the controller's own posture constants, not typed by hand:
+	#   crouched capsule 0.00..0.90    standing capsule 0.00..1.80
+	for cse in [["chest", 1.25], ["head", 1.90]]:
+		var lid := StaticBody3D.new()
+		var lid_col := CollisionShape3D.new()
+		var lid_box := BoxShape3D.new()
+		lid_box.size = Vector3(4.0, 0.2, 4.0)
+		lid_col.shape = lid_box
+		lid.add_child(lid_col)
+		main.add_child(lid)
+		lid.global_position = player.global_position + Vector3(0.0, float(cse[1]), 0.0)
+		await get_tree().physics_frame
+		Input.action_press("crouch")
+		for i in range(24):
+			await get_tree().physics_frame
+		_check(player.crouching, "crouches under the %s-height overhang" % cse[0])
+		Input.action_release("crouch")
+		for i in range(30):
+			await get_tree().physics_frame
+		_check(player.crouching and cap.height < 1.0,
+			"rise under a %s-height obstruction is REFUSED (%.2f m capsule)" % [cse[0], cap.height])
+		# Take the lid away and the same release must stand them up, or the refusal above would
+		# pass equally for a player who simply cannot stand at all.
+		lid.queue_free()
+		for i in range(30):
+			await get_tree().physics_frame
+		_check(not player.crouching and cap.height > 1.5,
+			"with the %s obstruction gone the player stands (%.2f m capsule)" % [cse[0], cap.height])
+
 	# Build mode: craft a bloom lamp kit's worth, build it, verify REAL safety.
 	PlayerState.add_item("bloom_lamp_kit")
 	player.global_position = Vector3(0, 19.4, -5)   # open topside deck

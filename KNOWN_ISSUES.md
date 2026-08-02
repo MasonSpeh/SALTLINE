@@ -41,10 +41,6 @@ landed and nobody updated the file.
   correctly, so it is not player-visible today — but it is 2 cm from being the
   same class of bug that made three other ladders impassable. *Found s18.*
 
-- **Un-crouching has no headroom check** — standing up under low geometry can
-  grow the capsule into it. Add an upward shape-cast gate in `_update_crouch`
-  when a crawl-space area exists.
-
 - **Build placement has no overlap check** — structures can be placed
   intersecting props or each other. Grid snap keeps it mostly sane; needs a
   shape sweep.
