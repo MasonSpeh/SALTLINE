@@ -848,3 +848,111 @@ separates them. The discriminator was time, not distance: wait for the CSG colli
 read backwards.** A first pass concluded the crate fix worked because the crate was absent from a
 truncated list — the reef-shelf log lines had eaten the budget. Grep for the specific thing, or
 count, rather than eyeballing a head.
+
+---
+
+## Found doing the owner's s34 focus session
+
+**A PROBE CAN MEASURE ITSELF, AND IT LOOKS EXACTLY LIKE A PASS.** `FaunaBugsProbe` reported
+the hauled-out seal at `GAP +0.0 mm` while the owner was looking at a seal in the air, for
+two sessions. `_seat()` runs `y += _haul_floor - low_point(_model)` every frame — it DEFINES
+`low_point == _haul_floor` — and the probe compared `low_point` against an independent ray
+with the same origin, direction, mask and exclusions. The two are the same number by
+construction, so the printed gap could not have been anything but zero **however far the
+drawn animal was off the concrete**. It would have printed +0.0 mm for a seal on the moon.
+The test for this is not "is the assertion true" but **"what value of the world would make
+this assertion fail?"** — if you cannot name one, it is a tautology. Fixing it needs a
+genuinely independent path to the same quantity: the game seats a cached CONVEX HULL, the
+probe now brute-forces every vertex, and it asserts the two agree.
+
+**`global_transform * aabb` IS THE BOX OF THE ROTATED BOX, WHICH IS BIGGER THAN THE MESH.**
+`CreatureAnim.low_point` seats things on that bound. On the harbor seal at its -0.12 rad
+rest pitch the bound sits **102.0 mm** below the lowest real vertex, so seating it on the
+concrete hangs the animal 102 mm over it. Note the shape of the history: that function was
+introduced to fix a 105 mm BURIAL from an unrotated measurement — a bound that was too high
+swapped for a bound that is too low, twice without measuring the mesh. If a pose is applied
+after placement, seat on `low_vertex()` (a support query over the convex hull: exact, and
+29,064 vertices become a couple of hundred dot products).
+
+**A HARNESS THAT DROPS THE LENS OUT OF THE `player` GROUP SWITCHES OFF `underwater_fx`.**
+Its `_process` finds the player with `get_tree().get_first_node_in_group("player")` and
+returns immediately without one, so the ENTIRE depth grade stops and `main.gd`'s much
+simpler fallback curve becomes the only writer on that Environment. Every shot harness here
+drops the lens out of that group (the s20 crab census), so this is armed for all of them.
+The s34 fog sweep lost an hour to it: five candidate curves written into a node that was no
+longer listening, five logged confirmations of the write, and `fog_density=0.1700` — main.gd's
+lerp at its ceiling — on all five frames. **Read the property back off the thing that draws
+the picture** (`cam.environment`), not off the node you wrote to. And two writers on one
+Environment resolving by `process_priority` is a trap in itself; make one stand down.
+
+**A WHOLE-FRAME STATISTIC CANNOT SEE A CHANGE CONFINED TO THE SUBJECT.** The same sweep was
+nearly abandoned because mean luminance and edge energy over the full frame came back within
+1-7% across candidates that a pixel diff showed differing by up to 147 levels on 75,000
+pixels. ~90% of an underwater frame is empty graded water, which is dark either way, so the
+subject's contribution is inside the noise of any global mean. Measure the SUBJECT: pixels
+standing clear of the background's modal luminance, and how far above it they stand.
+
+**A PER-NODE SEARCH CANNOT FIND WELDED DRESSING — AND THE SIZE FILTER YOU ADD TO FIX IT
+FINISHES THE JOB.** `DeclutterProbe` reported the spawn walk clear while a tyre stood on the
+gangplank. `rig_batcher` welds the dressing into `MergedDressing` chunks, so the tyre, the
+chain and the mooring links are not nodes by probe time — they are triangles inside ArrayMesh
+chunks metres across, which a "props are smaller than 4 m" filter then discards as scenery.
+This file already says "search from the PICTURE, not the tree" for a colour hunt; for a
+GEOMETRY hunt the equivalent is to search FACES. Pre-filter meshes by AABB, then test
+triangle centroids against the volume.
+
+**"THE WIDEST FREE SPAN" IS NOT "HOW MUCH ROOM IS THERE ON THE PATH".** The same probe's
+first metric took the widest capsule-free run within range and called a station 3.00 m clear
+whose walk line was blocked outright — there was open deck 1.70 m west of the route. Take
+the run CONTAINING the path. And that run is the span of valid capsule CENTRES, which is one
+capsule DIAMETER narrower than the opening: comparing it against a width failed a doorway
+built 1.60 m wide.
+
+**TWO CORRECT FEATURES CAN BE JOINTLY WRONG, AND ONLY A SCREENSHOT WILL SAY SO.** s34 step 2
+put the abyss fog ramp at -26, correct against a reef that stopped at -22. Step 5 then took
+the coral band to -40. Neither change was wrong and neither probe could see anything amiss;
+the close-out frame at y -28 showed coral fading into murk whose entire purpose is to hide
+things. Batch the visual pass at the END of a session as well as per feature, and aim it at
+the SEAMS between features rather than only at each feature.
+
+**A COUNT-SCALED PLACEMENT PASS MUST SCALE WITH THE BAND, OR EXTENDING THE BAND THINS IT.**
+Every "attempts" number in `leg_reef.gd` was tuned against a 9.3 m band. Trebling the band's
+height without touching them would have spread the same coral over three times the concrete
+and read as a reef that got sparser. Derive the multiplier from the band so the next person
+to move `BAND_BOTTOM` does not have to know.
+
+**GENERATED FLORA IS NOT REEF-BUDGET FLORA.** Pointing a bulk placement pass at the fauna
+GLBs cost 10.7 M triangles for 363 plants — 28,844 / 29,778 / 30,745 tris a piece against a
+reef set that runs 1,400-7,000. The rule about decimating anything placed in bulk is already
+in this file; what is new is that the flora were ALREADY in the tree and looked like free
+reuse. `tools/decimate_reef.py` also bakes the placement contract (+Y growth, base at y=0),
+so re-cutting removes special cases as well as triangles.
+
+**THE HEADLESS TEXTURE TRAP FIRES ON ANYTHING THAT WRITES A TEXTURE, NOT JUST ON A DOWNLOAD.**
+It bit three times in s34: the Tripo cat poses (expected), and then the maps
+`decimate_reef.py` wrote when re-cutting three meshes. Any tool that emits an image file
+gets `compress/mode=0` on import. `grep -rl '^compress/mode=0' assets/` after ANY step that
+produces one.
+
+**A SPECIES WITH AN EMPTY `active` LIST IS ON SHIFT ONLY IN A STORM, AND A PROBE THAT WALKS
+THE FOUR CLOCK PHASES NEVER SEES IT.** `FishSpreadProbe`'s first cut measured in DAY, then
+in all four phases, and still could not judge `fish_drum_croaker` or `fish_squall_garfish`:
+`underwater_world` reads an empty list as "storming". Two species, 20 fish a pod, had never
+been watched swimming at all. Force a squall as a fifth window.
+
+**NET DISPLACEMENT OVER A CLOSED CIRCUIT IS NOT A HEADING.** Summing a pod's per-frame
+displacement over a measurement window and taking the direction of the sum reported six
+species as swimming backwards; every one was an artifact, because a pod wanders a closed
+Lissajous and over a full lap the displacements cancel, leaving a residual pointing wherever
+the lap happened to stop. Accumulate the per-frame ALIGNMENT (dot of heading against that
+frame's velocity) and average it — which is what "correlate over a few hundred frames" in
+this file's facing entry has always meant.
+
+**A GEOMETRIC HEAD-FINDER FAILS ON BILLS, NEEDLES AND WINGS, AND IT FAILS CONFIDENTLY.** The
+vertex-centroid statistic that identifies a fish's head end is correct on 19 of 19
+calibration models and wrong on five body plans: a marlin's bill and a pipefish's snout
+carry no mass in front of a heavy tail, and a ray's WINGSPAN is longer than its body so the
+"long axis" is not the body at all. Require two independent statistics to AGREE and print
+UNCERTAIN otherwise; name the species the instrument cannot judge, in the file, with what a
+render showed — an assertion that is silently skipped is how a real defect hides among four
+false alarms.

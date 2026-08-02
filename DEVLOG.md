@@ -12,11 +12,16 @@ is the index.
 
 ## Current state
 
-- **Branch:** `main`, HEAD `6395323` + uncommitted s19/s20 batch below.
+- **Branch:** `main`, HEAD at the s34 close-out.
 - **Engine:** Godot 4.7, `gl_compatibility`. macOS.
-- **Tests:** `godot --headless --path . res://tests/TestRunner.tscn` → 238 pass,
-  `FAILURES: 0`. Keep it there. `tests/ReefFishProbe.tscn` and `tests/ReefProbe.tscn`
-  (windowed only) cover the reef/fish system specifically.
+- **Tests:** `godot --headless --path . res://tests/TestRunner.tscn` → 242 pass,
+  `FAILURES: 0`. Keep it there — and run the FULL suite after every change, not the probe
+  that targets what you think you touched (a s31 regression shipped that way; see s33).
+  Windowed-only, because they read MultiMesh instance transforms or take pictures:
+  `tests/ReefProbe.tscn`, `tests/ReefFishProbe.tscn`, `tests/FogShot.tscn`,
+  `tests/S34Shot.tscn`. Headless probes worth running as a set: CatchProbe, SpearProbe,
+  TideProbe, SunkProbe, SealApproachProbe, FaunaBugsProbe, FishSpreadProbe, DeclutterProbe,
+  CatProbe.
 - **Shipping target:** itch.io. Windows packaging is `tools/package_windows.sh`;
   player-facing instructions live in `dist/START HERE - How to Play.txt`.
 
@@ -1112,3 +1117,130 @@ a revision pass, not execution.
 **Verified this session:** TestRunner 241 pass / 0 failures and 0 script errors on a full boot
 (the "245" quoted by one reviewer is a stale DEVLOG line, not the current suite); CatProbe,
 SpearProbe, TideProbe, SunkProbe, SealApproachProbe all 0.
+
+---
+
+## s34 — 2026-08-02 (the owner's focus session: fish, water, seal, walkway, reef, cat)
+
+Seven items from `docs/SESSION_BRIEF_s34.md`, each committed on its own. The through-line
+of the session is that **five separate things were green because nothing was measuring
+them** — a probe that measured itself, a harness that had switched off the feature under
+test, an assertion that could not fail, a per-node search that could not see welded
+geometry, and a whole-frame statistic that could not see the subject.
+
+**FOUR SPECIES WERE SWIMMING WRONG, and the owner reported one.** "At least one of the new
+grouper models is swimming backwards." Every one of the eleven s31 species was measured two
+independent ways — `tools/measure_facing.py` headless off the raw GLB, and CandShot views by
+eye — which agree on all eleven: `fish_skipjack_tuna`, `fish_peacock_grouper` and
+`fish_bluelined_grouper` are authored head-at-local-−Z, so the default's 180° yaw was
+swimming them tail-first. The other eight were already right. The new probe then found a
+FIFTH nobody had ever looked at: **`fish_ribbon_eel` measured +0.011 against its own travel
+— not backwards, PERPENDICULAR.** Its body is authored along local X and it has been
+swimming BROADSIDE since it was wired in, which is the ultra_hammerhead bug still shipping.
+Live after the fix: +0.968.
+
+**`water` NOW STEERS THE SPAWN, NOT JUST THE CATCH ROLL.** The structural half of "the fish
+generation got messed up under the rig": the field had been in fish.json since the table was
+written and decided exactly one thing — whether a cast from the rim was in the right place —
+while `_spawn_pod` put every species in the same ±24×28 m box round the legs. Seventeen
+species the table calls open-water pelagics, including all five s31 tunas, were swimming in
+the water you look down into from the wet deck. Three classes now: `near` pods HOLD A
+CAISSON, `any` is exactly the historical pair (so the sixteen species carrying it do not
+move at all), `open` is pushed past the moorings. Measured on one harness, before and after:
+
+    the eleven's share of the ocean    21.8%  ->  11.8%
+    the eleven's bodies under the rig    269  ->    141      -48%
+    `open` species mean distance out  32.3 m  ->  42.1 m
+    worst `near` pod from its caisson 32.3 m  ->  15.5 m
+
+**THE GOD-RAY SHAFTS ARE DELETED.** `_build_light_shafts` jittered each spot ±3.5 m from a
+leg centre against a caisson whose faces are at ±3.0, so it put a shaft inside solid
+concrete (6/7)² = 73.5% of the time per leg — "3 of 4 buried" is exactly what that geometry
+predicts. Gone with the shader, the `_rng` that existed only to jitter them, the stale
+per-frame accounting and the BETA.md line promising them.
+
+**THE WATER: 0.198/m AT THE CORAL BAND, TRANSMITTING 5% AT 15 m.** Not haze — a wall. Three
+faults: the grade resolved over 13 m while the reef is 22 m tall, so its lower two thirds
+clamped at MAX_DENS; 0.19 is a 12 m visibility ceiling; and the abyss ramp, whose only job
+is hiding the −92 floor, started at 13 m, half way up the coral. Now 0.061/m at the same
+spot. **Seven candidates swept on one build with the shipped curve as the control** — and
+the sweep is what showed that clarity alone does not answer it: fog-only candidates resolved
+the far leg at 25 m and were still dark pictures, because "can you see it" has two terms.
+The ambient curve went up too, and a seventh candidate separated the COLOUR ramp from the
+density ramp so the lower reef is not sitting in black water you can see 20 m through.
+
+**AND THE SWEEP MEASURED THE WRONG GRADE FOR AN HOUR FIRST.** `underwater_fx._process` finds
+the player through the `"player"` GROUP and returns immediately without one — and every shot
+harness here drops the lens out of that group so the fauna stop hunting it. So the entire
+depth grade had switched itself off, `main.gd`'s much simpler fallback curve was the only
+writer left, and the harness logged five different candidate values it had written into a
+node that was no longer listening. Every frame came back `density=0.1700`: main.gd's lerp at
+its ceiling. Caught by reading `cam.environment` back at shutter time instead of trusting
+the value written. main.gd's grade now stands down when underwater_fx is present, rather
+than two independent depth grades writing one Environment and resolving by process order.
+
+**THE SEAL WAS SEATED ON A BOUNDING BOX, AND THE PROBE WAS MEASURING ITSELF.** The owner saw
+a metre of air; FaunaBugsProbe said GAP +0.0 mm. Both were reporting honestly about
+different quantities. `_seat()` runs `y += _haul_floor − low_point(_model)` — it DEFINES
+low_point == _haul_floor — and the probe compared `low_point` against a ray with the same
+origin, direction, mask and exclusions. The difference could not have been anything but
+zero **however far the drawn animal was off the concrete**. And `low_point` is a BOUND: the
+axis-aligned box of the ROTATED box, which on this mesh at its −0.12 rad rest pitch sits
+**102.0 mm** below the lowest real vertex (computed off the GLB; the live world agrees to
+0.5 mm). Note the direction of the history — that function was introduced to fix a 105 mm
+BURIAL, so a bound that was too high was swapped for one that is too low and the mesh was
+never measured either time. `CreatureAnim.low_vertex()` is exact and cheap (a support query
+over a cached convex hull: 29,064 vertices become a couple of hundred dot products), and the
+probe now measures it by an INDEPENDENT method — brute-force over every vertex — so the new
+check is not the old tautology wearing a new number. They agree to 0.03 mm.
+
+**THE WALKWAY: FOUR PROPS, ONE AT A TIME, MEASURED.** The drum north of the SPHL hatch was
+the only one that collides and a player-sized capsule on the walk line had **0.00 m** of
+free lane there — the route was blocked outright. Deleted (there is nowhere to move it: a
+1.09 m lane needs its centre east of 20.99 and the next drum starts at 21.65). The other
+three are things you walked THROUGH: a tyre fender standing inside the gangplank's span, a
+bollard chain crossing the lane at shin height, three mooring links half-buried in the
+plating across the caisson turn. Clear width on the walk line went 0.00 → 5.94 m at the
+drum and 2.99 → 3.84 m at the plank; geometry in the corridor went 6,811 triangles → 0.
+**The first relocation candidate for the chain heap measured −0.00 m from a live DeckGull
+home** — the identical defect the s33 plan was rejected for, arrived at the identical way,
+and caught because the probe asks the world instead of reasoning. The shipped spot is
++4.11 m from the nearest fauna home.
+
+**THE REEF RUNS TO −40 NOW, AND THE BRIEF'S SEABED PREMISE WAS STALE.** It asked for "−23 →
+−30"; `seabed.gd` has read −92 since an earlier session deepened it 4×. What there was
+instead was 70 m of bare concrete below the reef. Band −12.68 → −40 (2.29× taller),
+instances 1129 → 2747, triangles 4.26 M → 12.55 M, and the counts scale with the band
+(derived, so moving BAND_BOTTOM moves the stocking) tapered 0.78 because a real reef thins
+with depth. **363 wall plants** rooted by raycast and angled out 20–56°, with both the root
+AND the grown tip clamped under the pontoon. Kelp went to three forms at three depths — and
+the existing stand turned out to be **growing up through the pontoon**: tips reached −0.93
+against a slab underside of −3.05, and above `trough_floor` −7.14 where a low tide can
+expose it to air. Every tip is clamped now.
+
+**THE CAT HAS SEVEN STATES AND A MESH FOR EACH.** It was four states and one mesh, so
+"sitting" was a standing cat and "asleep" was a standing cat rolled 0.55 rad onto its side.
+Five poses generated by Tripo from one byte-identical coat paragraph, attached once and
+toggled (NOT `ANIM.replace` per transition — it rebuilds every ShaderMaterial on the frame
+the cat changes its mind). SLEEP walks to a PROBED spot near the player when they turn in;
+feeding is counted in game HOURS because sleeping advances the calendar while no real time
+passes. It has a real purr instead of borrowing the deep-hull `groan`.
+
+**Verified:** TestRunner 242 / FAILURES 0, and CatchProbe, SpearProbe, TideProbe, SunkProbe,
+SealApproachProbe, FaunaBugsProbe, FishSpreadProbe, DeclutterProbe, CatProbe, ReefProbe all
+0. Screenshots `/tmp/s34_final/` — every one read back, including the frame that caught the
+last defect of the session: the reef at −28 fading into the abyss ramp, because step 2 put
+that ramp at −26 against a reef that then stopped at −22, and step 5 took the coral to −40.
+Each was right on its own and they were jointly wrong. Ramp moved to −42.
+
+**New probes:** `FishSpreadProbe` (where the shoals are + an INDEPENDENT facing check),
+`DeclutterProbe` (lane width + what you walk through), `FogShot` (the grade sweep),
+`S34Shot` (the close-out pass). `FaunaBugsProbe` gained a FAILURES report and a completion
+sentinel — it was a pure measurement dump, which is how a hovering seal stayed green.
+
+**Not done / deferred:** the dive hitch is CLOSED as owner-accepted, per the brief. The
+deep reef band (−28 to −40) reads dark; the coral is legible against it and it looks like
+depth, but it would take an ambient pass to make that band as inviting as the top. The
+owner's "about a metre" of seal hover is FIXED at the 102 mm the steady state actually
+had — if more remains, the untested branches are the climb-out and the OTHER seal, which
+never hauls out and patrols the swell nearby.

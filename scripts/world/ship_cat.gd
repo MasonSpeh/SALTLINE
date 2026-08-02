@@ -202,10 +202,10 @@ func _on_touched(_verb: String) -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if not friend:
 		friend = true
-		_state = State.FOLLOW
+		_enter(State.FOLLOW)
 		_touch.verbs = ["PET"] as Array[String]
 		Journal.discover("creature_ship_cat")
-		AudioDirector.play_one_shot("groan", global_position, -22.0)   # the closest thing to a purr
+		AudioDirector.play_one_shot("cat_chirp", global_position, -18.0)
 		if hud and hud.has_method("toast"):
 			hud.toast("The cat looks up, decides about you, and comes along.")
 		return
@@ -343,7 +343,7 @@ func _companion(delta: float, player: Node3D) -> void:
 	if _still > SETTLE_SEC:
 		_settle(delta)
 	else:
-		_state = State.SIT
+		_enter(State.SIT)
 		_pose_sit(delta)
 
 ## Is the player actually turned in? `_lying_sleeping` is the flag player_controller sets
@@ -456,6 +456,11 @@ func _wear(key: String) -> void:
 ## The pose a state wears, applied every time the state is set so a transition cannot be
 ## made without one.
 func _enter(st: int) -> void:
+	# THE ONLY PLACE `_state` IS ASSIGNED. Two sites were still writing it directly after the
+	# s34 pass and the close-out screenshots caught it: the cat photographed as state 3 (SIT)
+	# wearing the WALK mesh, which is the exact class of bug the pose table exists to stop —
+	# a state that is true in a variable and false on screen. `grep "_state = " ship_cat.gd`
+	# should only ever find this line.
 	_state = st
 	_wear(String(STATE_POSE.get(st, "stand")))
 

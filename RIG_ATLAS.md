@@ -1,6 +1,6 @@
 # RIG ATLAS — SALTLINE main rig, sonar scan briefing
 
-*Generated 2026-08-02 00:17 · 855,460 tris · 715 manifest props · regenerate with `~/SALTLINE/tools/export_rig.sh`*
+*Generated 2026-08-02 17:57 · 855,644 tris · 715 manifest props · regenerate with `~/SALTLINE/tools/export_rig.sh`*
 
 ## Coordinate contract (verified exact)
 

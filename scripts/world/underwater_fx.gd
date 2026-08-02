@@ -95,7 +95,15 @@ var max_dens: float = 0.105
 ## Where the ABYSS ramp starts — the separate, much heavier murk whose only job is to hide
 ## the -92 gyre floor from anyone looking down from the surface. Was implicitly
 ## REACHABLE_DEPTH_M (13 m), which put it inside the reef.
-var abyss_start_m: float = 26.0
+## s34, AFTER THE REEF MOVED: 26 -> 42. Step 2 set this to 26 against a reef that stopped
+## at -22, which was right at the time. Step 5 then took the coral band down to -40, which
+## put its whole lower half inside the ramp whose ENTIRE PURPOSE is to hide things — the
+## close-out frame at y -28 photographed coral fading into deliberate murk. The two features
+## were each correct and jointly wrong, which is the kind of thing only a screenshot finds.
+## 42 clears the reef and still saturates the ramp by the -92 floor (it runs over 50 m), so
+## the gyre floor stays as invisible as it was; the integrated optical depth from the surface
+## to -92 is ~16, i.e. e^-16 of the light gets back.
+var abyss_start_m: float = 42.0
 ## The shallow end of the grade. Was an unnamed literal 0.028 inside the lerp, which is
 ## exactly the kind of number a sweep needs to be able to reach.
 var near_dens: float = 0.028

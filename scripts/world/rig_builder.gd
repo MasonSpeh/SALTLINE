@@ -814,8 +814,8 @@ const STAIR_ZN: float = -1.1      # north lane — even flights climb E->W
 const STAIR_PZ0: float = -4.0     # turn-platform south edge
 const STAIR_PZ1: float = 2.0      # turn-platform north edge (reaches the annex doors at z2)
 const STAIR_APRON_Z0: float = 0.0 # door-landing extension starts here — NORTH of both
-                                  # flight lanes (south -3.8..-2.0, north -2.0..-0.2), so
-                                  # the extension can never overhang a run below it
+								  # flight lanes (south -3.8..-2.0, north -2.0..-0.2), so
+								  # the extension can never overhang a run below it
 const OPS_Y: float = WET_Y + STAIR_N * STAIR_RISE   # 38.0 — the lookout floor
 
 # Shell footprint. Was x22..30 (8m) — the flight endpoints (STAIR_XW/XE) only left a
