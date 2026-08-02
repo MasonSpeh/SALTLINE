@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://seal_approach_rig"]
+[ext_resource type="Script" path="res://tests/seal_approach_probe.gd" id="1"]
+[node name="SealApproachProbe" type="Node"]
+script = ExtResource("1")

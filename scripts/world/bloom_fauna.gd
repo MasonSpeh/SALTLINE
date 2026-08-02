@@ -2213,12 +2213,34 @@ class HarborSeal extends Node3D:
 				_haul.z - global_position.z).length()
 			global_position.x = lerpf(global_position.x, _haul.x, k)
 			global_position.z = lerpf(global_position.z, _haul.z, k)
+			# THE 1-2 m HOVER, AND IT WAS A LOW-PASS FILTER ON A WAVE.
+			#
+			# Both of these used to LERP y with the same `k = delta * 1.5`. That is a
+			# first-order filter with a 0.667 s time constant, and the eleven Gerstner bands
+			# run at omega 0.83-6.02 rad/s — so the animal could not track the sea it was
+			# steering by. It held near mean water while the surface swung around it: summed
+			# per-band lag is ~0.53 m RMS and ~1.50 m peak at the shipped calm sea state, and
+			# 1.07 / 3.00 m in a squall. It fires only on the run in toward the pontoon, which
+			# is exactly when the animal is seen against the foundation — hence the report.
+			#
+			# The patrol branch never had this because it ASSIGNS (`global_position = pos`),
+			# which is also why both existing probes missed it: SealFloatProbe forces
+			# `_hauled = false` and FaunaBugsProbe teleports the seal onto the shelf, so the
+			# approach had never been measured at all.
+			var sea_y: float = Gyre.wave_height(
+				Vector2(global_position.x, global_position.z), Gyre.water_time()) \
+				- CRUISE_UNDER - _crown
 			if to_haul > HAUL_CLIMB_M:
-				var swell: float = Gyre.wave_height(
-					Vector2(global_position.x, global_position.z), Gyre.water_time())
-				global_position.y = lerpf(global_position.y, swell - CRUISE_UNDER - _crown, k)
+				global_position.y = sea_y      # assigned, like the patrol — no filter, no lag
 			else:
-				global_position.y = lerpf(global_position.y, _haul.y, k)
+				# THE CLIMB OUT, driven by DISTANCE rather than by time. A time-based lerp let
+				# the horizontal approach outrun the vertical one, so the animal crossed the
+				# slab face (z -16, top y 0.95) still down at sea level and transited ~3 m of
+				# solid concrete before surfacing. As a function of how far it still has to go,
+				# it is provably at the sea when the climb begins and at the seat when it
+				# arrives, whatever the frame rate.
+				var climb: float = clampf(1.0 - to_haul / HAUL_CLIMB_M, 0.0, 1.0)
+				global_position.y = lerpf(sea_y, _haul.y, smoothstep(0.0, 1.0, climb))
 			rotation.z = lerp_angle(rotation.z, 0.0, delta * 2.0)
 			rotation.x = lerp_angle(rotation.x, -0.12, delta * 2.0)   # chest-up rest pose
 			# THE SEAT owns the height once it has arrived — see _seat(). Gated on being
