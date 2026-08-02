@@ -25,10 +25,11 @@ const SHOTS := [
 	["surface_up", "day", Vector3(16.0, -5.0, -6.0), Vector3(22.0, 1.0, -6.0), false],
 	# Straight up from the same depth: the disc centred, so the rim is a full ring.
 	["surface_up_axis", "day", Vector3(16.0, -6.0, -6.0), Vector3(17.6, 1.0, -5.0), false],
-	# mid-water beside a leg — light shafts, caustics on the caisson, kelp
-	["leg_shafts", "day", Vector3(15.0, -4.2, -6.0), Vector3(22.0, -5.5, -12.0), false],
+	# mid-water beside a leg — caustics on the caisson, kelp (the god-ray shafts that
+	# used to be the point of this vantage were deleted in s34; the rest still frames)
+	["leg_caustics", "day", Vector3(15.0, -4.2, -6.0), Vector3(22.0, -5.5, -12.0), false],
 	# the same mid-water leg shot during a storm — sediment murk, denser snow
-	["leg_shafts_storm", "day", Vector3(15.0, -4.2, -6.0), Vector3(22.0, -5.5, -12.0), true],
+	["leg_caustics_storm", "day", Vector3(15.0, -4.2, -6.0), Vector3(22.0, -5.5, -12.0), true],
 	# a leg base planting into its scour pit + riprap
 	["seabed_scour", "day", Vector3(14.5, -15.5, 3.5), Vector3(22.0, -22.0, 12.0), false],
 	# the wreck field + reef communities on the bottom

@@ -77,9 +77,10 @@ It boots straight into the start screen; a save is written and restored automati
   surface per shadow split; batching cut draw calls ~66%, but the remaining per-primitive
   cost is the ceiling without further mesh-merging work. Expect 40–55 fps, dipping at sea
   level in a storm.
-- **Underwater fidelity is uneven.** Depth-graded water, light shafts and a Snell's-window
-  surface are in, but directly sun-lit rig surfaces can still read a touch bright for their
-  depth, and the diving polish is the least-tested area.
+- **Underwater fidelity is uneven.** Depth-graded water, caustics on the caissons and a
+  Snell's-window surface are in, but directly sun-lit rig surfaces can still read a touch
+  bright for their depth, and the diving polish is the least-tested area. (The god-ray
+  light shafts were removed in s34 — three of the four spawned inside the solid concrete.)
 - **Fauna motion is vertex-shader animation, not skeletal rigging.** Creatures swim, flap,
   scuttle and pulse convincingly at gameplay distance; legged animals bend as a whole
   rather than at joints, so they won't hold up to a close inspection.

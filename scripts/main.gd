@@ -332,6 +332,19 @@ func _on_dawn() -> void:
 
 var _underwater_env: Environment = null
 var _was_under: bool = false
+## Cached answer to "is underwater_fx in the tree and therefore grading the water?" —
+## resolved once and re-resolved only while it is still missing, so a scene that builds the
+## FX late still hands the grade over rather than fighting it for ever.
+var _uw_fx: Node = null
+
+func _fx_owns_grade() -> bool:
+	if _uw_fx != null and is_instance_valid(_uw_fx):
+		return true
+	_uw_fx = null
+	for n in get_tree().get_nodes_in_group("underwater_fx"):
+		_uw_fx = n
+		return true
+	return false
 var _star_dome: MeshInstance3D = null
 
 ## THE ONE-SECOND FREEZE ON GOING UNDER, and why it was self-inflicted.
@@ -408,8 +421,22 @@ func _process(_delta: float) -> void:
 	# frames the state actually changes.
 	if sun_ctl != null:
 		sun_ctl.set_dive_depth(maxf(wave_y - cam.global_position.y, 0.0) if under else 0.0)
-	if under:
-		# Deeper = darker and thicker; near the surface the world still glows.
+	if under and not _fx_owns_grade():
+		# FALLBACK ONLY. Deeper = darker and thicker; near the surface the world still glows.
+		#
+		# TWO DEPTH GRADES WERE WRITING THIS ONE ENVIRONMENT EVERY FRAME, and s34 lost an
+		# hour to it. underwater_fx has a far more careful grade (colour, shimmer, storm
+		# murk, the abyss ramp) and `process_priority = 100` so it runs last and wins — which
+		# means these two lines were dead in the shipped game while remaining the number a
+		# debugger, a probe, or a fog sweep reads back off the camera. The s34 sweep
+		# photographed five different candidate curves and got `density=0.1700` for all five:
+		# exactly this lerp at its ceiling, because the harness had removed the player from
+		# the "player" group and underwater_fx finds the player THROUGH that group, so the
+		# real grade had silently switched itself off and left this one standing.
+		#
+		# So it is now explicitly the fallback it always was in practice: it still grades the
+		# water for any scene that builds Main WITHOUT underwater_world's FX node, and it
+		# stops fighting the owner of that environment everywhere else.
 		var depth: float = maxf(wave_y - cam.global_position.y, 0.0)
 		_underwater_env.fog_density = lerpf(0.055, 0.17, clampf(depth / 14.0, 0.0, 1.0))
 		_underwater_env.ambient_light_energy = lerpf(0.8, 0.25, clampf(depth / 14.0, 0.0, 1.0))

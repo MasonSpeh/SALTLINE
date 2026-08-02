@@ -828,15 +828,26 @@ func _run() -> void:
 	var line: Node = preload("res://scripts/components/hang_line.gd").new()
 	main.add_child(line)
 	line.global_position = Vector3(0, DECK_Y_TEST + 1.8, 12)
+	# CLEAR THE PACK FIRST — this is the fix for the long-standing intermittent failure
+	# KNOWN_ISSUES carried from s19 as "a test bug rather than a game bug", and its own
+	# diagnosis named this as the real fix. `_hang()` takes the first HANGABLE item in the
+	# player's pack, which is not necessarily the herring this block just added: whatever an
+	# earlier fishing or drop-net check left behind gets hung instead, and a BIG fish CURES
+	# to dried_fish rather than rotting. Whether that happened depended on RNG draws and on
+	# how many engine frames elapsed inside the suite's await timers, so it failed on some
+	# machines and some runs and not others — and it went from "never reproduced in 5 local
+	# runs" to failing every run the moment s34 changed the school counts, because that
+	# shifts the RNG stream. Nothing after this point reads the pack (the cure test below
+	# clears it too), so clearing here is safe.
+	PlayerState.load_inventory([], [], [], [])
 	PlayerState.add_item("fish_herring")
 	line._hang()
 	_check(line._hung.size() == 1, "raw fish hangs on the line")
-	# WHICH fish actually went on the hook matters, and the old assertion did not say.
-	# _hang() takes the first hangable thing in the player's hotbar/pack, not necessarily
-	# the herring this block just added — so anything an earlier check left in the pack can
-	# be hung instead, and a BIG fish cures to dried_fish rather than rotting. That made
-	# this check a silent hostage to test order. Report what was hung and what it became.
+	# ...and assert WHICH fish went on the hook, rather than only reporting it. A test that
+	# merely prints what it measured still passes silently when the setup drifts.
 	var hung_id: String = String(line._hung[0]["id"])
+	_check(hung_id == "fish_herring",
+		"the hung fish is the one this check put in the pack (hung %s)" % hung_id)
 	line._hung[0]["age_h"] = 4.1
 	line._process(0.016)
 	_check(line._hung[0]["id"] == "fish_rotten",
