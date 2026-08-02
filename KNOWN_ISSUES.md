@@ -33,13 +33,6 @@ landed and nobody updated the file.
   `main.gd::_prewarm_underwater_env` is a real but PARTIAL fix (the Environment only); its
   comment used to read as though it had solved the freeze, and it had not.
 
-- **`SurfaceSnap` fires before CSG collision exists.** A store-room storage
-  crate ends up at y −0.9, about 3 m below the wet deck. The snap runs on the
-  first physics tick, but the deck slab is CSG and has no collider yet, so the
-  prop drops through. Same root cause as the deferred `_snap_to_deck()` /
-  `_snap_to_perch()` helpers in `bloom_fauna.gd` — those defer out of `_ready()`
-  for exactly this reason. Fix `SurfaceSnap` the same way. *Found s18.*
-
 - **`Sealed Crate` (16.5, −8.0) nicks a folding stool** by 0.0157 m³. Small, but
   it is a real intersection. *Found s18.*
 
