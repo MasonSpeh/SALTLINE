@@ -541,7 +541,13 @@ func _on_drip() -> void:
 # ====================================================================== visuals
 
 func _build_visuals() -> void:
-	_spray = _make_particles(_spray_process(), Color(0.80, 0.93, 0.95, 0.5), 0.16, 2.6, 900)
+	# THE "FAT UGLY CIRCLES ON THE WATER" WERE THIS. Not a rain-impact system at all — swell
+	# spray, drawn from a radial alpha gradient (a literal soft-edged disc) at up to 0.35 m
+	# across with a 2.6 s life, so every particle read as a big pale ring sitting on the sea.
+	# Real spray is small, fast and gone: droplets, not rings. Diameter down 0.16 -> 0.045 and
+	# life 2.6 -> 0.55 s, with the count raised so the band still reads as a haze rather than
+	# a handful of dots.
+	_spray = _make_particles(_spray_process(), Color(0.80, 0.93, 0.95, 0.5), 0.045, 0.55, 1600)
 	_motes = _make_particles(_motes_process(), Color(0.86, 0.88, 0.80, 0.30), 0.022, 9.0, 220)
 
 
@@ -673,7 +679,10 @@ func _update_visuals(delta: float) -> void:
 			want = 0.0
 		_spray.emitting = want > 0.02
 		_spray.amount_ratio = want
-		_spray.global_position = Vector3(pos.x, 0.6, pos.z)
+		# RIDE THE TIDE. This was pinned to a literal y 0.6, which was mean sea level right up
+		# until the sea started moving — at low water the whole emission slab floated over a
+		# metre clear of the sea and sprayed open air.
+		_spray.global_position = Vector3(pos.x, Gyre.tide() + 0.6, pos.z)
 
 	if _motes != null:
 		var indoor: float = clampf((_cover - 0.5) / 0.4, 0.0, 1.0)

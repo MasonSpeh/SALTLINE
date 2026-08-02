@@ -153,6 +153,16 @@ func _forget_prompt() -> void:
 	_clear_t = 0.0
 
 func _unhandled_input(event: InputEvent) -> void:
+	# NOTHING UNDER THE CROSSHAIR: E falls through to "use what is in your hand". The ray gets
+	# first refusal — a stove, a crate or a ladder always wins over eating — so this cannot
+	# steal a world interaction, it only fills in the case where E previously did nothing at
+	# all. That is the explicit consume the owner asked for after the number keys stopped
+	# doubling as an eat button.
+	if event.is_action_pressed("interact") and _current == null:
+		var pl: Node3D = _player()
+		if pl != null and pl.has_method("_try_use_held") and bool(pl.call("_try_use_held")):
+			get_viewport().set_input_as_handled()
+			return
 	if not event.is_action_pressed("interact") or _current == null:
 		return
 	# A target freed between the last physics tick and this press (a prop that despawned, an

@@ -607,16 +607,42 @@ func _identify_looked_at() -> void:
 		chain, c2.x, c2.y, c2.z, best_box.position.y, best_d])
 	print("[F9] ", chain, "  centre=", c2, "  base_y=", best_box.position.y)
 
-## Select-then-use: first press of a number selects the slot (item shows in hand),
-## pressing the SAME number again uses it. Selecting an empty slot clears the hand.
+## PURE SELECTION. A number key brings the slot to hand and does nothing else.
+##
+## It used to be select-THEN-use: pressing a number that was already selected consumed the
+## item. That reads fine written down and is a trap in play, because the inventory panel makes
+## the destination slot the selected one — so stashing a fish and then pressing its number to
+## LOOK at it hit the already-selected branch and ate it. Owner: "sometimes it glitches and
+## just eats it... player should have to click E to eat or use those inventory items."
+##
+## Using is now an explicit, separate verb on E (see _try_use_held), which is also where every
+## other "do the thing in front of you" verb in this game lives.
 func _hotbar_pressed(slot: int) -> void:
 	if ui_locked:
 		return
-	if PlayerState.selected_hotbar == slot and PlayerState.hotbar[slot] != null:
-		PlayerState.use_hotbar(slot)   # inventory_changed refreshes the hand visual
-	else:
-		PlayerState.selected_hotbar = slot
+	PlayerState.selected_hotbar = slot
 	_update_held_item()
+
+## E WITH NOTHING TO INTERACT WITH = use what is in your hand.
+##
+## interaction_ray owns E whenever the crosshair is on something and consumes the event
+## (interaction_ray._unhandled_input), so this only ever runs when the ray found no target —
+## which makes it a free verb rather than a conflict: looking at a stove and pressing E still
+## opens the stove, and looking at nothing while holding a fish eats the fish.
+func _try_use_held() -> bool:
+	if ui_locked or input_locked or carried != null or fishing != null:
+		return false
+	var slot: int = PlayerState.selected_hotbar
+	if slot < 0 or slot >= PlayerState.HOTBAR_SIZE or PlayerState.hotbar[slot] == null:
+		return false
+	var id: String = String(PlayerState.hotbar[slot])
+	# Only CONSUMABLES answer to E. A held tool (rod, spear, knife) has its own verb and must
+	# not be silently spent by a stray press at open air.
+	if String(PlayerState.items.get(id, {}).get("use", "")) == "":
+		return false
+	PlayerState.use_hotbar(slot)   # inventory_changed refreshes the hand visual
+	_update_held_item()
+	return true
 
 ## F is a double-purpose key: a single press throws the rigging hook (gameplay),
 ## a quick double-tap toggles dev fly mode (testing). The stray single-tap hook

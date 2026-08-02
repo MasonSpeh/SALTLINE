@@ -254,7 +254,7 @@
   },
   "fish_barrel_grouper": {
     "cat": "creature",
-    "title": "Barrel Grouper",
+    "title": "Goliath Grouper",
     "body": "Bloom-big. It feeds a week. My arms will remember this one.",
     "hint": "Bites: dawn/day/dusk/night · storms help · open water — cast far · takes: rod · sears to Prime Fillet"
   },
@@ -344,7 +344,7 @@
   },
   "item_fish_barrel_grouper": {
     "cat": "item",
-    "title": "Barrel Grouper (raw)",
+    "title": "Goliath Grouper (raw)",
     "body": "Bloom-big. Feeds days.",
     "hint": "Sears into a Prime Fillet."
   },

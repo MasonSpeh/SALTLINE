@@ -3757,9 +3757,15 @@ func _arrival_dressing() -> void:
 		tire.position = Vector3(fx, WET_Y + 0.1, -22.05)
 		tire.rotation.x = deg_to_rad(90)
 	# Draft marks climbing the SE caisson's south face — the scale ruler.
+	#
+	# RE-DATUMED TO MEAN SEA LEVEL. These used to be drawn from y 0.4, a number with no
+	# physical meaning, so the scale was decoration that read a draft nobody could check.
+	# Mean water is y 0 (Gyre), so a mark labelled "N m" now genuinely sits N metres above
+	# mean water and the waterline against it is a real reading.
 	for i in range(7):
 		var m: int = 2 + i * 2
-		_plabel("— %d m" % m, Vector3(20.2, 0.4 + m, -15.1), 180, 24, Color(0.9, 0.85, 0.6))
+		_plabel("— %d m" % m, Vector3(20.2, float(m), -15.1), 180, 24, Color(0.9, 0.85, 0.6))
+	_tide_board()
 	_plabel("SALTLINE-1 · CAISSON SE-3", Vector3(22, 13.2, -15.12), 180, 42, Color(0.7, 0.6, 0.42))
 	# The rig's name on the deck rim girder, read from the dock looking straight up.
 	_plabel("S A L T L I N E - 1", Vector3(17, 17.55, -20.3), 180, 110, Color(0.72, 0.6, 0.4),
@@ -3792,6 +3798,68 @@ func _arrival_dressing() -> void:
 	# dashes on the plating, the last of the untextured floor decals. Promo shot 17
 	# caught them still reading as glitch quads lying on the deck after the rest were
 	# pulled; the wall stencils carry the route on their own.)
+
+## THE TIDE BOARD — the answer to "I don't notice the tide".
+##
+## The tide is real and measured (Gyre.TIDE_AMP 0.70, so a 1.4 m range twice a game day),
+## but it was INVISIBLE, and the owner was right to ask whether it was worth keeping. The
+## reason is straightforward once you look for it: the swell already moves the water +/-1.5 m
+## every few seconds, so a 1.4 m change spread over ~25 real minutes is buried in noise. There
+## was nothing in the world to measure the water AGAINST — the draft marks nearby are 2 m
+## apart and were datumed to an arbitrary y 0.4, so a whole tidal cycle did not move the
+## waterline past a single graduation.
+##
+## So: a harbour tide staff, on the caisson leg you walk past on the way to the dock. It is
+## how every real tide gauge on earth works and it needs no HUD — alternating quarter-metre
+## bands, read by eye against the water, with numerals at each metre. A glance tells you
+## which way the water is going; the exposed weed band below it tells you how long it has
+## been there. The bands are 0.25 m because that is the smallest graduation still legible at
+## the range the player stands, and the tide crosses six of them each way.
+## A FREE-STANDING TIDE STAFF ON THE OPEN PONTOON, which is what a harbour actually uses.
+##
+## Two placements were tried against the geometry and both were wrong, so the reasoning is
+## written down. The SE caisson's south face (z -15) sits directly under the wet-deck slab
+## (y 1.5..2.0, spanning x8..30, z-22..2) — a roofed void with no view of the water at all.
+## Its WEST face at x19 is no better: the pontoon top is y 0.95 and that soffit is y 1.5, so
+## the walkway under the deck is a 0.55 m crawl space, not somewhere you stand and read a
+## scale. The pontoon is only OPEN TO THE SKY west of x8, which is exactly where its ladder
+## lands (7.8, 0.95, -12) — and there is no leg there to paint on. Hence a post.
+##
+## It is graduated in quarter metres because that is the smallest band still legible at the
+## range you stand, and the tide crosses six of them each way. Bands run all four sides so it
+## reads from any approach, and the numerals face the ladder.
+## AT THE PONTOON'S SOUTH EDGE, STANDING IN OPEN WATER — the third placement, and the reason
+## is the slab itself: the south pontoon is a 4 m thick box spanning y -3.05..0.95, so a staff
+## planted ON its deck has its entire lower half buried INSIDE the slab and the waterline
+## (-0.7..+0.7) is hidden under your feet. A tide scale has to stand IN the sea. The pontoon's
+## south face is z -16, so this sits just proud of it: you walk to the edge, look down, and the
+## water is against the graduations.
+const TIDE_STAFF := Vector3(6.4, 0.0, -16.35)
+const TIDE_BOARD_STEP: float = 0.25
+const TIDE_BOARD_LO: float = -2.0     ## well under the lowest water the tide can reach
+const TIDE_BOARD_HI: float = 2.5      ## and above the highest crest that washes the plating
+
+func _tide_board() -> void:
+	var pale: Material = MatLib.flat(Color(0.88, 0.87, 0.80))   # weathered white
+	var dark: Material = MatLib.flat(Color(0.10, 0.12, 0.14))   # tar black
+	var n: int = int(round((TIDE_BOARD_HI - TIDE_BOARD_LO) / TIDE_BOARD_STEP))
+	for i in range(n):
+		var y0: float = TIDE_BOARD_LO + float(i) * TIDE_BOARD_STEP
+		# Non-colliding: a collider here would put an invisible post in the swim band right
+		# where a diver surfaces beside the walkway.
+		_box(Vector3(TIDE_STAFF.x, y0 + TIDE_BOARD_STEP * 0.5, TIDE_STAFF.z),
+			Vector3(0.16, TIDE_BOARD_STEP, 0.16),
+			dark if i % 2 == 0 else pale, self, false)
+	# Numerals facing the ladder (east), and the datum named so the zero says what it MEANS.
+	for m in range(int(TIDE_BOARD_LO), int(TIDE_BOARD_HI) + 1):
+		if m == 0:
+			continue
+		_plabel("%+d" % m, Vector3(TIDE_STAFF.x + 0.30, float(m), TIDE_STAFF.z - 0.10),
+			0, 24, Color(0.92, 0.88, 0.7))
+	_plabel("0  MSL", Vector3(TIDE_STAFF.x + 0.42, 0.0, TIDE_STAFF.z - 0.10),
+		0, 24, Color(0.95, 0.82, 0.35))
+	_plabel("TIDE", Vector3(TIDE_STAFF.x, TIDE_BOARD_HI + 0.30, TIDE_STAFF.z - 0.10),
+		0, 28, Color(0.9, 0.85, 0.6))
 
 ## Deck A + wet deck density: stools, pots, footlockers, hose reels — the
 ## second half of "double the interior detail".

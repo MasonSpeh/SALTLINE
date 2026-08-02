@@ -994,7 +994,13 @@ class JellyDrifter extends Node3D:
 		var jx: float = cos(angle) * radius
 		var jz: float = sin(angle) * radius
 		var sea: float = Gyre.wave_height(Vector2(jx, jz), Gyre.water_time())
-		global_position = Vector3(jx, sea + 0.35 + sin(_t * 0.8 + _idx) * 0.25, jz)
+		# BELOW the surface, not above it. s29 correctly made this ring ride the swell but kept
+		# the old flat-sea offset with its sign unchanged — and wave_height() IS the drawn
+		# surface, so `sea + 0.35` put the node up to 0.60 m OVER the water and the bell's own
+		# half-height lifted it further. Seven glowing jellies hovering in open air beside the
+		# wet-deck rail. The offset is sized off the model: 0.55 m half-height + the 0.25 m bob,
+		# so the bell rides fully submerged just under the surface where it belongs.
+		global_position = Vector3(jx, sea - 0.80 + sin(_t * 0.8 + _idx) * 0.25, jz)
 		# The pulse: the bell squeezes, the body surges up a beat later.
 		var squeeze: float = sin(_t * 2.2 + _idx)
 		_bell.scale = Vector3(1.0 - squeeze * 0.08, 1.0 + squeeze * 0.16, 1.0 - squeeze * 0.08)
@@ -1903,7 +1909,12 @@ class Epic4EyedWhale extends Node3D:
 		_ai_acc = 0.0
 		_t += delta
 		_presence = move_toward(_presence, 1.0 if GameClock.current_phase == GameClock.Phase.NIGHT else 0.0, delta * 0.08)
-		visible = _presence > 0.02
+		# GATED ON _flying, and that is the whole "the whale was inside the rig" bug. Position
+		# is only ever WRITTEN inside the flying branch below, so between passes this node sits
+		# at its parent's untouched origin — the middle of the rig. Showing it on night
+		# presence alone therefore parked a 20 m animal inside the structure until a pass
+		# began, at which point it "disappeared and started flying".
+		visible = _flying and _presence > 0.02
 		# Generated mesh: the vein-glow swells as it fades in out of the dark.
 		ANIM.drive(_gen_mats, 0.28, _presence * 1.5)
 
@@ -1948,8 +1959,14 @@ class Epic4EyedWhale extends Node3D:
 		var angle: float = randf_range(0, TAU)
 		var dist: float = 240.0
 		var dir := Vector3(cos(angle), 0, sin(angle))
-		_from = -dir * dist + Vector3(0, randf_range(45.0, 55.0), 0)
-		_to = dir * dist + Vector3(0, randf_range(45.0, 55.0), 0)
+		# HIGH ENOUGH TO CLEAR THE RIG. The track is a straight line whose XZ path crosses the
+		# world origin — i.e. the rig's own axis — every single pass, and _process dips the arc
+		# 8 m at its midpoint, which is exactly over the structure. At 45-55 that put the
+		# lowest point at 37-47 m, inside the derrick and comms mast (high iron reaches y 52).
+		# 66-76 puts the mid-arc low point at 58-68 m: clear of the tallest steel, and still
+		# close enough overhead to read as twenty metres of animal rather than a distant shape.
+		_from = -dir * dist + Vector3(0, randf_range(66.0, 76.0), 0)
+		_to = dir * dist + Vector3(0, randf_range(66.0, 76.0), 0)
 		AudioDirector.play_one_shot("groan", global_position, -4.0)
 
 # ------------------------------------------------- Harbor Seal (Bloom)

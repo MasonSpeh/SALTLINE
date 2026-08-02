@@ -128,7 +128,7 @@
     "side_effect": "sick"
   },
   "fish_barrel_grouper": {
-    "name": "Barrel Grouper",
+    "name": "Goliath Grouper",
     "use": "eat",
     "hunger": 0.08,
     "side_effect": "sick"
@@ -417,7 +417,7 @@
     "thirst": 0.1
   },
   "cooked_fish_barrel_grouper": {
-    "name": "Barrel Grouper Fillet",
+    "name": "Goliath Grouper Fillet",
     "use": "eat",
     "hunger": 0.45,
     "thirst": 0.05,
