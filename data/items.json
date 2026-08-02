@@ -283,7 +283,9 @@
     "use": "tool",
     "melee_damage": 1.7,
     "melee_reach": 3.0,
-    "swing_sec": 0.7
+    "swing_sec": 0.7,
+    "spearfishing": true,
+    "spear_note": "underwater, a thrust takes the fish you are aiming at"
   },
   "glow_mucus": {
     "name": "Glow Mucus",
@@ -688,7 +690,9 @@
     "use": "tool",
     "melee_damage": 2.6,
     "melee_reach": 3.3,
-    "swing_sec": 0.62
+    "swing_sec": 0.62,
+    "spearfishing": true,
+    "spear_note": "underwater, a thrust takes the fish you are aiming at"
   },
   "tool_belt": {
     "name": "Tool Belt",

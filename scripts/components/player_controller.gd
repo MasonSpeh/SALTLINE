@@ -690,6 +690,13 @@ func _melee_attack() -> void:
 	var reach: float = float(data.get("melee_reach", 2.0))
 	var dmg: float = float(data.get("melee_damage", 1.0))
 	_attack_cd = float(data.get("swing_sec", 0.5))
+	# UNDERWATER, A SPEAR IS FOR FISH. No new binding, no new mode to enter: the same weapon
+	# on the same button does the thing the situation calls for, which is the whole "it just
+	# works" contract the rest of this game's interactions are held to. On deck it stays the
+	# crab-repelling swing it has always been.
+	if data.get("spearfishing", false) and _head_underwater():
+		_spear_thrust(reach)
+		return
 	_swing_hand(_attack_cd)
 	AudioDirector.play_one_shot("hiss", global_position, -18.0)   # a whistle of air
 	# Closest hittable roughly in front, within reach. Distance is measured from the
@@ -712,6 +719,94 @@ func _melee_attack() -> void:
 			best_d = dist
 	if best:
 		best.repel(global_position, dmg)
+
+## Is the EYE under the swell? The same test main.gd and underwater_fx use, so "the screen has
+## gone underwater" and "the spear fishes" can never disagree. Not `swimming`, which is true the
+## moment the body is in the water — you can tread water with your head out, and a thrust from
+## up there should be the deck swing.
+func _head_underwater() -> bool:
+	if head == null:
+		return false
+	var p: Vector3 = head.global_position
+	return p.y < Gyre.wave_height(Vector2(p.x, p.z), Gyre.water_time()) * 0.85
+
+## THE SPEAR THRUST — the other half of this game's fishing, and the opposite verb to the rod.
+##
+## The rod fishes the water from above it: you stand on the plating, cast, and the table rolls
+## you an anonymous fish out of whatever is theoretically down there. The spear makes you go in
+## and pick one. What you hit is the individual you were aiming at, out of the shoal you swam
+## into, at the depth it actually lives — so the two systems reach different fish and neither
+## makes the other redundant. Breath is the cost, and it is already ticking.
+const SPEAR_SCATTER_R: float = 4.5    ## how far the shoal feels a thrust go past
+const SPEAR_SCATTER_HIT: float = 1.4  ## metres the startled members are shoved
+const SPEAR_SCATTER_MISS: float = 2.1 ## a miss spooks them HARDER — nothing died to calm it
+
+func _spear_thrust(reach: float) -> void:
+	_lunge_hand(_attack_cd)
+	var uw: Node = get_tree().get_first_node_in_group("underwater_world")
+	if uw == null:
+		return
+	var origin: Vector3 = head.global_position
+	var forward: Vector3 = -camera.global_transform.basis.z
+	var hit: Dictionary = uw.spear_target(origin, forward, reach)
+	if hit.is_empty():
+		# A miss still moves the water. Without this a thrust into empty water is silent and
+		# reads as a broken control rather than a missed fish.
+		uw.scatter_fish(origin + forward * reach * 0.6, SPEAR_SCATTER_R, SPEAR_SCATTER_MISS)
+		AudioDirector.play_one_shot("splash", global_position, -22.0)
+		return
+	var point: Vector3 = (hit["node"] as Node3D).global_position
+	var taken: Dictionary = uw.take_speared(hit)
+	uw.scatter_fish(point, SPEAR_SCATTER_R, SPEAR_SCATTER_HIT)
+	if taken.is_empty():
+		return
+	_land_speared(String(taken["id"]), point)
+
+## Bank a speared fish. Deliberately the SAME landing path as the rod (fishing_rod._land):
+## journal discovery, pack-or-spill, the size roll, the record book and the fillet count all
+## have to behave identically or a fish would mean different things depending on how it was
+## caught — and the stove and drying line read those numbers.
+func _land_speared(id: String, point: Vector3) -> void:
+	var rng := RandomNumberGenerator.new()
+	rng.randomize()
+	Journal.discover(id)
+	AudioDirector.play_one_shot("splash", global_position, -8.0)
+	# A FULL PACK MUST NOT COST YOU THE FISH — same rule the rod follows. Underwater there is
+	# no deck to spill onto, so it goes into the world at the kill and can be swum back for.
+	var stowed: bool = PlayerState.add_item(id)
+	if not stowed:
+		SaveManager.drop_into_world(id, point, Vector3.ZERO)
+	var spill: String = "" if stowed else "  Pack's full — it's in the water where you took it."
+	var data: Dictionary = PlayerState.items.get(id, {})
+	var fish_name: String = String(data.get("name", id))
+	var kg: float = FishTable.roll_size(id, rng)
+	if kg <= 0.0:
+		_spear_toast("Speared: %s%s" % [fish_name, spill])
+		return
+	FishTable.record_size(id, kg)
+	var n: int = FishTable.fillets_for(id, kg)
+	if n <= 1:
+		_spear_toast("Speared: %s — %.1f kg%s" % [fish_name, kg, spill])
+		return
+	_spear_toast("Speared: %s — %.1f kg. That'll fillet out %d times over.%s"
+		% [fish_name, kg, n, spill])
+
+func _spear_toast(text: String) -> void:
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("toast"):
+		hud.toast(text)
+
+## A THRUST, not a swing. The deck arc is a wide down-and-across sweep that reads as clubbing;
+## underwater the same motion on the same weapon should drive straight out along the aim and
+## come back, or the spear looks like it is being waved at the fish.
+func _lunge_hand(dur: float) -> void:
+	if _hand_item == null:
+		return
+	var rest: Vector3 = _hand_item.position
+	var tw: Tween = create_tween()
+	tw.tween_property(_hand_item, "position", rest + Vector3(0, 0, -0.55), dur * 0.28) \
+		.set_trans(Tween.TRANS_EXPO).set_ease(Tween.EASE_OUT)
+	tw.tween_property(_hand_item, "position", rest, dur * 0.72).set_trans(Tween.TRANS_SINE)
 
 ## Arc the hand item down-and-across, then settle back — a melee swing.
 func _swing_hand(dur: float) -> void:
