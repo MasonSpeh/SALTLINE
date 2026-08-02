@@ -71,7 +71,7 @@ func _physics_process(delta: float) -> void:
 		State.FLYING:
 			_velocity.y -= GRAVITY * delta
 			global_position += _velocity * delta
-			var water_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85
+			var water_y: float = Gyre.swim_line(Vector2(global_position.x, global_position.z), t)
 			if global_position.y <= water_y + 0.05:
 				global_position.y = water_y + 0.05
 				AudioDirector.play_one_shot("splash", global_position, -6.0)
@@ -81,7 +81,7 @@ func _physics_process(delta: float) -> void:
 				_state = State.REELING
 			_try_catch()
 		State.SETTLING:
-			global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 + 0.05
+			global_position.y = Gyre.swim_line(Vector2(global_position.x, global_position.z), t) + 0.05
 			_try_catch()
 			_settle -= delta
 			if _settle <= 0.0:
@@ -97,7 +97,7 @@ func _physics_process(delta: float) -> void:
 				# Drag phase: skim the surface toward the player — this is the sweep
 				# that combs debris out of the water.
 				global_position += flat.normalized() * REEL_SPEED * delta
-				global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 + 0.05
+				global_position.y = Gyre.swim_line(Vector2(global_position.x, global_position.z), t) + 0.05
 			else:
 				# Close in: lift out of the water up to the hand.
 				global_position += to_hand.normalized() * REEL_SPEED * delta

@@ -44,6 +44,90 @@ static func sea_state() -> float:
 
 static func set_sea_state(v: float) -> void:
 	_sea_state = clampf(v, 0.0, 1.0)
+
+# ------------------------------------------------------------------------------- THE TIDE
+#
+# Mean sea level is no longer the world origin plane. It rides slowly up and down, and every
+# one of the ~90 callers of wave_height/wave_offset follows it for free because the tide is
+# added as a RIGID scalar after the band sum — outside the loop, never multiplied by
+# amp_scale, by the gust, or by a swell envelope. A tide is not a wave; it does not get
+# bigger in a storm, it moves the whole sea.
+#
+# ONE NUMBER, ONE CLOCK. The drawn sea is raised by moving the OceanSurface node
+# (ocean_surface.gd), NOT by adding anything in GLSL, for three measured reasons:
+#   * ocean_water.gdshader damps `disp` to nothing between 180 m and 620 m so the horizon
+#     reads as haze — a tide folded into disp would be erased out there, leaving a 1.5 m
+#     ledge across the sea and a horizon that disagrees with the water at your feet;
+#   * the shader's colour ramp keys off `v_height = disp.y`, so a tide in disp would whiten
+#     the sea at high water and blacken it at low;
+#   * shader TIME is wall clock. GameClock pauses and carries a time_scale, so a tide derived
+#     from TIME would diverge from the simulated sea without bound the first time the game is
+#     paused. The node transform is translation-only, so gerstner(world_pos.xz) is untouched.
+#
+# DRIVEN OFF GAME TIME, not delta. game_time_hours() is monotonic and advances only while the
+# clock runs — it is also what survives SLEEPING, which skips a night without spending real
+# seconds. A tide integrated from delta would stand still through a sleep, and would lurch on
+# unpause; this one is a pure function of the hour, so it cannot.
+## AMPLITUDE IS SET BY THE SPAWN DECK, not by taste. The wet deck plating is WET_Y = 2.0 and
+## everything on Z1 is built relative to it (player spawn 2.2, wet-deck respawn 2.6, the SPHL,
+## both loot rooms, the pump room). Mean high water plus a calm crest has to stay under it or
+## the deck the player starts on is sea: replaying this file's own Gerstner sum at the shipped
+## calm sea state puts the p99 crest at ~1.28 m, leaving 2.00 - 1.28 = 0.72 m for the tide.
+## Asked for +/-1.5; the geometry pays for 0.72, so this is 0.70 and the deck keeps 2 cm of
+## honest freeboard at calm high water. A STORM at high water still washes the plating, which
+## is correct and was already anticipated (see the "Cold. Swim..." cooldown in
+## player_controller._check_water) — what must not happen is the deck being permanently sea.
+##
+## The prize sits just under that ceiling: the pontoon walkway tops out at y +0.95, so at high
+## water it is awash and at low water it stands 1.65 m clear. That band is the intertidal zone
+## — the walkable mussel band, the tide pools — and it exists because the tide is 0.70, not
+## despite it. Raising WET_Y to buy a bigger tide would move the whole Z1 build with it.
+const TIDE_AMP: float = 0.70         ## metres from mean water to high (and to low): a 1.4 m range
+## Semi-diurnal, like the North Sea this rig is standing in: two highs and two lows a day.
+## Against the ~60 min game day that is a full cycle roughly every 25 real minutes, so a
+## session sees the water move without anyone waiting on it.
+const TIDE_PERIOD_H: float = 12.42
+## SELF-DRIVING, because Gyre IS NOT AN AUTOLOAD. `_tide` is a process-wide static, and the
+## obvious way to advance it — a line in Gyre._process — makes a global quantity depend on a
+## scene NODE existing. Every harness that does not build the whole world (tests/WaveBench.tscn
+## is a bare Node with one script) would then run at a permanent tide of 0.0 and go on
+## certifying the old fixed sea, passing cleanly while testing nothing. That is the exact
+## vacuous-pass shape docs/AGENT_TRAPS.md keeps recording, so the tide derives itself instead:
+## GameClock IS an autoload and is always there.
+##
+## Cached per frame because wave_height is sampled hundreds of times a frame (every fish in
+## every pod clamps against the surface) and game_time_hours() walks the phase table on each
+## call. The frame stamp makes that cache self-invalidating rather than something a caller has
+## to remember to refresh.
+static var _tide: float = 0.0
+static var _tide_frame: int = -1
+static var _tide_forced: bool = false
+
+## Height of mean water right now, metres, relative to the old fixed sea level of y = 0.
+static func tide() -> float:
+	if _tide_forced:
+		return _tide
+	var f: int = Engine.get_process_frames()
+	if f != _tide_frame:
+		_tide_frame = f
+		_tide = tide_at(GameClock.game_time_hours())
+	return _tide
+
+## The tide as a pure function of the hour. Side-effect free, so a harness can ask "what would
+## the tide be at hour X" without moving the world.
+static func tide_at(game_hours: float) -> float:
+	return TIDE_AMP * sin(TAU * game_hours / TIDE_PERIOD_H)
+
+## TEST HOOK ONLY. Pins the tide until release_tide() — a probe sweeping high/low water needs
+## the value to survive the next frame, and without the pin the per-frame recompute above would
+## silently overwrite it and the probe would measure the live clock three times instead.
+static func set_tide(v: float) -> void:
+	_tide = clampf(v, -TIDE_AMP, TIDE_AMP)
+	_tide_forced = true
+
+static func release_tide() -> void:
+	_tide_forced = false
+	_tide_frame = -1
 const W_DIR: Array[Vector2] = [
 	Vector2(0.990, 0.139), Vector2(0.995, -0.105), Vector2(0.951, 0.309),
 	Vector2(0.866, 0.500), Vector2(0.940, -0.342), Vector2(0.695, 0.719),
@@ -91,7 +175,14 @@ static func _static_init() -> void:
 	var wind: float = 0.0
 	for i in range(3, 11):
 		wind += W_AMP[i]
-	_floor = -(0.18 + 0.92) * (swell + wind * 1.42)
+	# MINUS THE FULL TIDE RANGE, not the live tide — the same reasoning that makes this line
+	# use sea_state 1.0 rather than the current one. This value is a PROOF ("nothing below it
+	# can ever be reached by the surface") that callers cache decisions on, so it has to hold at
+	# the worst combination the game can produce: full storm AND dead low water. Using tide()
+	# here would re-introduce exactly the bug the sea_state choice was made to avoid, and it
+	# would do it silently — at the shipped calm sea state the old -6.44 stays a valid loose
+	# bound, so it would pass every calm test and only fail once a squall arrived at low tide.
+	_floor = -(0.18 + 0.92) * (swell + wind * 1.42) - TIDE_AMP
 
 ## THE DEEPEST THE SEA CAN EVER GET, metres. Analytic, not sampled: every band's contribution
 ## to `h` is bounded by its own amplitude times the largest multiplier that band can take
@@ -141,7 +232,12 @@ static func wave_offset(raw_p: Vector2, t: float) -> Vector3:
 		dx += qa * dir.x * c
 		dz += qa * dir.y * c
 		h += a * sin(phase)
-	return Vector3(dx, h, dz)
+	# THE SAME RIGID TIDE TERM wave_height adds, and it has to be added in the same commit.
+	# These two functions live forty lines apart and one of them returns a Vector3, which makes
+	# "tide added to only one" the easy mistake — and a silent one: the player, the underwater
+	# test and every fish read wave_height, while the gyre's foam streaks and all floating
+	# debris read this. They would ride seas up to 3.0 m apart and nothing would error.
+	return Vector3(dx, h + tide(), dz)
 
 ## SURFACE HEIGHT ONLY — the same number `wave_offset().y` returns, without computing the
 ## horizontal displacement nobody asked for.
@@ -160,7 +256,7 @@ static func wave_offset(raw_p: Vector2, t: float) -> Vector3:
 ## of a micrometre on a wave several metres tall, in the direction of MORE accuracy.
 ## tests/WaveBench.tscn and the suite both assert the difference stays inside one float32
 ## ULP, which pins it as exactly that rounding and nothing else.
-static func wave_height(raw_p: Vector2, t: float) -> float:
+static func _swell(raw_p: Vector2, t: float) -> float:
 	var w: Vector2 = _warp(raw_p, t)
 	var ss: float = _sea_state
 	var amp_scale: float = 0.18 + 0.92 * ss
@@ -180,6 +276,29 @@ static func wave_height(raw_p: Vector2, t: float) -> float:
 		var phase: float = _K[i] * dir.dot(w) - _OMEGA[i] * t
 		h += a * sin(phase)
 	return h
+
+## THE SEA SURFACE: swell about mean water, plus the tide that moves mean water. This is what
+## ~90 call sites read, and every one of them follows the tide for free.
+static func wave_height(raw_p: Vector2, t: float) -> float:
+	# Rigid: outside the band loop, unscaled by amp_scale/gust/envelope. Must stay
+	# byte-identical to the term in wave_offset — the suite pins the two together.
+	return _swell(raw_p, t) + tide()
+
+## WHERE THE WATER TAKES YOU, which is NOT the drawn surface. The player, main.gd and
+## underwater_fx all test against 85% of the wave height rather than the surface itself: a
+## Gerstner crest is sharp and its very tip is spray, so a swimmer's head reads as submerged
+## slightly under the drawn peak and the "am I underwater" flag does not chatter on every
+## whitecap. That 0.85 was written when the sea's mean level was permanently y = 0.
+##
+## IT MUST NOT SCALE THE TIDE. A tide is mean water, not swell — scaling it would put the swim
+## line, the head-underwater test (which now also gates spearfishing), the buoyant float
+## height, the breath drain and the "the sea broke your fall" test 0.225 m BELOW the drawn
+## surface at high water and 0.225 m ABOVE it at low, in six places that are documented to
+## agree with each other. So the tide is added at full weight and only the swell is scaled.
+const SWIM_SCALE: float = 0.85
+
+static func swim_line(raw_p: Vector2, t: float) -> float:
+	return tide() + SWIM_SCALE * _swell(raw_p, t)
 
 static func water_time() -> float:
 	return Time.get_ticks_msec() * 0.001

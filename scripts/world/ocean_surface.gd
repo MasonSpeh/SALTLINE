@@ -117,4 +117,15 @@ func _process(_delta: float) -> void:
 	# the whole sea visibly popped underfoot with every few steps ("choppy and jumps").
 	# Sliding smoothly resamples the world-locked wave field continuously instead.
 	var cp: Vector3 = cam.global_position
-	global_position = Vector3(cp.x, 0.0, cp.z)
+	# THE Y IS THE TIDE, and this is the ONLY place the drawn sea learns about it. The literal
+	# 0.0 that used to sit here WAS mean sea level: the mesh is built flat at local y 0 and
+	# ocean_water.gdshader only ever adds displacement to it.
+	#
+	# Raising the node rather than adding a term in GLSL is deliberate and was the auditors'
+	# unanimous recommendation. The node transform is translation-only, so gerstner(world_pos.xz)
+	# samples the identical wave field and no pattern swims. Whereas folding the tide into the
+	# shader's `disp` would put it through `disp *= damp` (the far-field flattening between
+	# 180 m and 620 m), erasing the tide at the horizon and leaving a 1.5 m ledge across the
+	# sea; and it would shift `v_height = disp.y`, which drives the foam/colour ramp, whitening
+	# the water at high tide and blackening it at low. This way the shader needs no edit at all.
+	global_position = Vector3(cp.x, Gyre.tide(), cp.z)

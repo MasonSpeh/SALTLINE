@@ -400,7 +400,7 @@ func _process(_delta: float) -> void:
 	var cam: Camera3D = player.get_node_or_null("Head/Camera3D")
 	if cam == null:
 		return
-	var wave_y: float = Gyre.wave_height(Vector2(cam.global_position.x, cam.global_position.z), Gyre.water_time()) * 0.85
+	var wave_y: float = Gyre.swim_line(Vector2(cam.global_position.x, cam.global_position.z), Gyre.water_time())
 	var under: bool = cam.global_position.y < wave_y
 	# The sun's shadow cascade is not worth rendering once the water has taken the sun (see
 	# SunController.set_dive_depth — measured at 3.33 ms and 796 draw calls at -12 m). The

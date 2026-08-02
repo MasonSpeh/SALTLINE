@@ -80,6 +80,11 @@ const DOUBLE_TAP_MS: int = 320
 const SWIM_SPEED: float = 2.3
 const SWIM_SPRINT_MULT: float = 1.5
 const FLOAT_DEPTH: float = 0.45        ## neutral float: this far under the swell, head above
+## How deep the water has to get over a floor you are STANDING ON before it stops being wading
+## and starts being swimming. Chest-deep on a 1.8 m capsule: below this you keep the walking
+## controls (and can walk back out), above it the sea has you. Only consulted when there is a
+## floor underfoot — step off the edge and any depth past 0.15 m is a swim, as before.
+const WADE_DEPTH: float = 1.15
 const SWIM_WARMTH_DRAIN: float = 0.016 ## the North Atlantic taxes you per second
 ## Seconds between "Cold. Swim…" warnings — see the note in _check_water(). A swell washing
 ## the Wet Deck puts the player under the wave line for a moment at a time, and without this
@@ -769,7 +774,7 @@ func _head_underwater() -> bool:
 	if head == null:
 		return false
 	var p: Vector3 = head.global_position
-	return p.y < Gyre.wave_height(Vector2(p.x, p.z), Gyre.water_time()) * 0.85
+	return p.y < Gyre.swim_line(Vector2(p.x, p.z), Gyre.water_time())
 
 ## THE SPEAR THRUST — the other half of this game's fishing, and the opposite verb to the rod.
 ##
@@ -1436,8 +1441,20 @@ func _exit_reachable(from: Vector3, to: Vector3) -> bool:
 func _check_water() -> void:
 	if _drowning or _fly:
 		return
-	var wave_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), Gyre.water_time()) * 0.85
-	var now_swimming: bool = global_position.y < wave_y - 0.15
+	var wave_y: float = Gyre.swim_line(Vector2(global_position.x, global_position.z), Gyre.water_time())
+	# DEPTH ALONE IS NOT ENOUGH ONCE THE SEA MOVES. The wet deck plating is WET_Y = 2.0 and the
+	# tide takes mean water to +0.70, so an ordinary crest already washes over the plate — and
+	# on the intertidal pontoon walkway (top y +0.95) the water is over your boots at every
+	# high tide by design. Testing depth by itself would latch `swimming` while the player is
+	# stood on solid steel, and _physics_process hands the whole frame to _swim_process: no
+	# jump, no sprint, no footsteps, no step-up, so every coaming becomes a wall and the
+	# controls change under someone who has not moved.
+	#
+	# You are swimming when the water has taken you, not when it has reached you. Standing on a
+	# floor keeps you walking until it is genuinely deep enough to lift you — which is also just
+	# true: you can wade.
+	var deep: float = wave_y - global_position.y
+	var now_swimming: bool = deep > 0.15 and (not is_on_floor() or deep > WADE_DEPTH)
 	if now_swimming and not swimming:
 		AudioDirector.play_one_shot("splash", global_position, -4.0)
 		_prone = false   # you don't belly-crawl in the swell
@@ -1470,7 +1487,7 @@ func _check_water() -> void:
 ## whole time; submerging spends the breath in PlayerState.oxygen, and an empty
 ## chest (past DROWN_GRACE_SEC) drowns you.
 func _swim_process(delta: float) -> void:
-	var wave_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), Gyre.water_time()) * 0.85
+	var wave_y: float = Gyre.swim_line(Vector2(global_position.x, global_position.z), Gyre.water_time())
 	var input_dir: Vector2 = Vector2.ZERO
 	if not input_locked and not ui_locked:
 		input_dir = Input.get_vector("move_left", "move_right", "move_forward", "move_back")
@@ -1604,7 +1621,7 @@ func _update_fall_landing(was_on_floor: bool) -> void:
 ## so it is a buoyant water landing, not a hard deck impact. Mirrors _check_water's swim line
 ## so "the sea broke your fall" means exactly "you are in swimming water".
 func _landing_in_water() -> bool:
-	var wave_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), Gyre.water_time()) * 0.85
+	var wave_y: float = Gyre.swim_line(Vector2(global_position.x, global_position.z), Gyre.water_time())
 	return global_position.y < wave_y - 0.15
 
 ## A hard landing bleeds life with the drop. The tracked impact speed is read back as a fall

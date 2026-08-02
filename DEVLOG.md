@@ -796,3 +796,103 @@ weight range stays the contract the stove and drying line read.
 
 **Next:** tides (item 3) — `Gyre` already solves height analytically so the tide is a slow offset;
 the session is the audit of every hand-typed waterline constant.
+
+---
+
+## s29 — 2026-08-01 (tides; plus two KNOWN_ISSUES bugs cleared)
+
+**The plan's item 3.** Mean sea level is no longer the world origin plane. Preceded by a
+ten-subsystem waterline audit (136 findings, 20 blockers) because a moving sea touches every
+constant anyone ever hand-typed near the water — and it found things reading the code would not.
+
+**The shape of it: one number, two injections, one clock.**
+- CPU — the 11-band Gerstner sum is factored into `Gyre._swell()`, and `wave_height()` is
+  `_swell + tide()`. Rigid: outside the loop, never scaled by amp_scale/gust/envelope. A tide is
+  not a wave; it does not get bigger in a storm.
+- GPU — `ocean_surface.gd`'s `Vector3(cp.x, 0.0, cp.z)` becomes `Vector3(cp.x, Gyre.tide(), cp.z)`.
+  **`ocean_water.gdshader` is not touched at all.** Folding the tide into the shader's `disp`
+  would put it through `disp *= damp` (the 180–620 m far-field flattening), erasing it at the
+  horizon and leaving a ledge across the sea; and it would shift `v_height = disp.y`, which
+  drives the foam ramp, whitening the water at high tide and blackening it at low.
+- Clock — `tide_at(game_hours) = TIDE_AMP * sin(TAU*h/12.42)`, semi-diurnal. Off `GameClock`,
+  never shader `TIME` (wall clock, unpausable), and off the HOUR rather than integrated from
+  delta so a sleep — which skips a night without spending real seconds — moves the water the
+  right amount instead of none.
+
+**`Gyre.swim_line()` — the `* 0.85` idiom was about to become a bug.** Fourteen sites across
+seven files tested against 85% of the wave height. That scale predates the tide, and scaling a
+tide-bearing height puts the swim line, the head-underwater test (which now also gates
+spearfishing), the buoyant float, the breath drain and the fall-into-water test 0.2 m off the
+drawn water at both extremes. `swim_line = tide + 0.85 * swell` — the tide at full weight, only
+the swell scaled — and all fourteen sites now call it.
+
+**AMPLITUDE IS SET BY THE SPAWN DECK, NOT BY TASTE.** Asked for ±1.5 m. Two independent
+replications of this file's own Gerstner sum (one auditor's, one 300k-sample) put the calm p99
+crest at ~1.28 m, and `WET_Y` is 2.0, so the budget is 2.0 − 1.28 = **0.72 m**. Shipped 0.70.
+At ±1.5 the wet deck is sea for hours at a time, which is what detonates six player-controller
+blockers, three sea ladders and the respawn; at ±0.70 all of them vanish untouched.
+
+**The payoff is at the LOW end, and it is real:** the pontoon walkway tops out at y 0.95, so
+measured, **33% of it is under water at high tide and 0% at low**. That band is the intertidal
+zone — and the pontoon's side already carries a painted `MatLib.tide_band()` algae stain that is
+now exposed at low water and submerged at high, which is what it was always drawing.
+
+**Four things that were deaf to the sea, now fixed:**
+- `underwater_world`'s topside cull was an absolute-Y test — at high water a swimmer on a crest
+  had the whole underwater subtree switched off around them. Now `TOPSIDE_MARGIN + Gyre.tide()`.
+  This does NOT undo s21's fix (which was to stop referencing the *swell*): the tide moves 1.4 m
+  over ~25 real minutes and cannot produce that flip-flop.
+- `JellyDrifter` was the file's only declared surface animal and the only fauna that never asked
+  Gyre anything — at low water all seven glowing bells hovered a metre up in open air beside the
+  wet-deck rail. They ride `wave_height` now.
+- `TideWorm` — the one species the game NAMES after the tide was the one animal deaf to it,
+  emerging on a DAWN/DUSK clock. It now comes out on the ebb and through low water, which makes
+  it the game's free tide indicator: the worms are out, so the walkway is exposed.
+- `_check_water` latched `swimming` on depth alone, so a crest washing the plating would take
+  the walking controls away from someone standing on solid steel. Now requires no floor
+  underfoot, or water past `WADE_DEPTH` (1.15 m). You can wade.
+
+**THE HIGHEST-VALUE CATCH, and it came from the audit rather than from writing the code:**
+`Gyre` is NOT an autoload. Driving `_tide` from `Gyre._process` would have made a process-wide
+static depend on a scene NODE existing, so every harness that does not build the whole world
+would run at a permanent tide of 0.0 and go on certifying the old fixed sea while passing
+cleanly. `tide()` derives itself from `GameClock` (which IS an autoload) with a self-invalidating
+per-frame cache. `set_tide()` is now an explicit test pin released by `release_tide()`.
+
+**`WaveBench` failed loudly and was right.** It carries a frozen pre-optimisation reference of
+the wave sum; the reference had no tide, so it scored the whole offset as a 0.593 m error — which
+was exactly the live tide. Reference updated to read `Gyre.tide()` rather than restate the curve.
+Now `|wave_offset − reference| = 0.0` exactly.
+
+**Verified:** `tests/TideProbe.tscn` — 22 checks. It pins the rigid-scalar property, that
+`wave_offset().y` still equals `wave_height()` at every tide (they live 40 lines apart and one
+returns a Vector3 — "added to only one" is the easy silent mistake), that the drawn sea node
+tracks `tide()`, that `trough_floor()` is still a proof at full storm AND dead low water, the
+intertidal fractions, and the cull fix. `tests/TideShot.tscn` photographs low/mean/high.
+TestRunner 241 pass, SpearProbe, SunkProbe, WaveBench all clean.
+
+### Also this session — two KNOWN_ISSUES entries retired
+
+- **The store-room crate 3 m under the wet deck** was `SurfaceSnap` itself. It does not "drop
+  through" as the entry said (a `LootContainer` is a StaticBody and never falls): its ray passed
+  through a wet deck whose CSG collider had not baked yet, hit the structure 3 m below, and
+  seated it there, succeeding every time. Bounding the drop cannot separate that from the real
+  corrections — measured all 36 snaps: 2.954 (the bug), 1.800 and 0.900 (both props authored
+  above a deck being correctly seated onto it), everything else ≤ 0.32. The discriminator is
+  time, not distance: wait 8 physics ticks for the colliders. `tests/SunkProbe.tscn` ships with
+  it; `PlacementProbe` measures the opposite failure and had reported FLOATING: 0 throughout.
+- **Un-crouching** had a gate after all — but it probed only where the new HEAD lands
+  (1.55–2.15), and the standing capsule spans 0.00–1.80, so a beam at chest height passed the
+  check and the capsule grew into it. It now sweeps the whole band as a slim capsule. It
+  survived because `playtest.gd` only ever stood up in open air, where a present gate and an
+  absent one look identical.
+
+**Deferred with reasons** (from the audit's own list): storm surge, the fish-depth datum
+question, raising `WET_Y`, the `_tide_bands()` stain rework (welded into `MergedDressing`, so it
+cannot be repositioned at runtime), and re-deriving the perf vantages — those should be PINNED to
+a fixed tide first so historical rows stay comparable, not re-based.
+
+**Next:** the intertidal band has the geometry and the clock but no FOOD yet — nothing
+harvestable lives in the band the tide sweeps (the mussel beds sit 11 m below the lowest water).
+That is the mussel course and the tide pools, and it is now a content task rather than a systems
+one.

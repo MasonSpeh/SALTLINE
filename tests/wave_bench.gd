@@ -45,7 +45,13 @@ func _ref_offset(raw_p: Vector2, t: float, ss: float) -> Vector3:
 		dx += qa * dir.x * c
 		dz += qa * dir.y * c
 		h += a * sin(phase)
-	return Vector3(dx, h, dz)
+	# THE TIDE, ADDED THE SAME RIGID WAY THE SOLVER ADDS IT. The reference is deliberately the
+	# pre-optimisation code kept verbatim, but "verbatim" cannot mean "a different sea": mean
+	# water is no longer y = 0, so a reference that omitted the tide would score the whole
+	# offset as an error (measured 0.593 m, which is exactly the live tide) and this harness
+	# would refuse to report a timing for a solver that is perfectly correct. Read through
+	# Gyre.tide() rather than restating the curve, so the reference cannot drift from it.
+	return Vector3(dx, h + Gyre.tide(), dz)
 
 func _ready() -> void:
 	var rng := RandomNumberGenerator.new()

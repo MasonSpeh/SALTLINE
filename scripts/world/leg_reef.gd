@@ -1031,7 +1031,7 @@ func _cull_above_water() -> void:
 	if cam == null:
 		return
 	var cp: Vector3 = cam.global_position
-	var surf: float = Gyre.wave_height(Vector2(cp.x, cp.z), Gyre.water_time()) * 0.85
+	var surf: float = Gyre.swim_line(Vector2(cp.x, cp.z), Gyre.water_time())
 	var edge: float = maxf(CULL_FLOOR, surf + CULL_OVER_SWELL)
 	var want: bool = cp.y < edge + (CULL_HYST if _reef_shown else 0.0)
 	if want == _reef_shown:

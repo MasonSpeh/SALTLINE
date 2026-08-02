@@ -266,7 +266,7 @@ func _process(_delta: float) -> void:
 
 	var px: float = player.global_position.x
 	var pz: float = player.global_position.z
-	var surf: float = Gyre.wave_height(Vector2(px, pz), Gyre.water_time()) * 0.85
+	var surf: float = Gyre.swim_line(Vector2(px, pz), Gyre.water_time())
 	var cam_y: float = cam.global_position.y
 	var under: bool = cam_y < surf
 

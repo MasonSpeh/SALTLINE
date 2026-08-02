@@ -420,7 +420,7 @@ func _physics_process(delta: float) -> void:
 				_finish("The lead clatters off the steel — stand at the rail and drop it over the side." \
 					if _deep else "No open water there.")
 				return
-			var water_y: float = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85
+			var water_y: float = Gyre.swim_line(Vector2(global_position.x, global_position.z), t)
 			if global_position.y <= water_y + 0.02:
 				global_position.y = water_y + 0.02
 				AudioDirector.play_one_shot("splash", global_position, -14.0)
@@ -527,7 +527,7 @@ func _physics_process(delta: float) -> void:
 	_update_line()
 
 func _ride_water(t: float, _delta: float) -> void:
-	global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 + 0.02 - _dip
+	global_position.y = Gyre.swim_line(Vector2(global_position.x, global_position.z), t) + 0.02 - _dip
 
 ## The deep rig's line-out. The lead pulls the spool down at its own rate and the prompt
 ## reads the depth back, because depth is the mechanic: every metre opens more of the
@@ -659,7 +659,7 @@ func _fight(delta: float, t: float) -> void:
 		global_position.y = -(_depth + DEEP_FIGHT_SURGE * surge) * (1.0 - _progress)
 	else:
 		# The float drags toward the fish's runs.
-		global_position.y = Gyre.wave_height(Vector2(global_position.x, global_position.z), t) * 0.85 - 0.2 * surge
+		global_position.y = Gyre.swim_line(Vector2(global_position.x, global_position.z), t) - 0.2 * surge
 	if _tension >= 1.0:
 		AudioDirector.play_one_shot("scuttle_a", _hand_pos(), -16.0)   # dry snap of parting line
 		_finish("The line parts. Gone.")

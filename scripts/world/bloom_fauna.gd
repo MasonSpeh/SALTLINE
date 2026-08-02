@@ -987,7 +987,14 @@ class JellyDrifter extends Node3D:
 		Journal.discover_if_near(self, "creature_jelly_drifter", 16.0)
 		var angle: float = _idx * 0.9 + _t * 0.045
 		var radius: float = 15.0 + _idx * 3.2 + sin(_t * 0.2 + _idx) * 2.0
-		global_position = Vector3(cos(angle) * radius, 0.35 + sin(_t * 0.8 + _idx) * 0.25, sin(angle) * radius)
+		# RIDE THE WATER, not the world origin. This ring is the file's only declared SURFACE
+		# animal and was the only one that never asked Gyre anything — at low water all seven
+		# glowing bells hovered about a metre up in open air, in a ring that passes the
+		# wet-deck south rail, which is the first thing anyone would look at from the deck.
+		var jx: float = cos(angle) * radius
+		var jz: float = sin(angle) * radius
+		var sea: float = Gyre.wave_height(Vector2(jx, jz), Gyre.water_time())
+		global_position = Vector3(jx, sea + 0.35 + sin(_t * 0.8 + _idx) * 0.25, jz)
 		# The pulse: the bell squeezes, the body surges up a beat later.
 		var squeeze: float = sin(_t * 2.2 + _idx)
 		_bell.scale = Vector3(1.0 - squeeze * 0.08, 1.0 + squeeze * 0.16, 1.0 - squeeze * 0.08)
@@ -1574,9 +1581,19 @@ class TideWorm extends Node3D:
 		delta = _ai_acc
 		_ai_acc = 0.0
 		_t += delta
-		var tide_time: bool = GameClock.current_phase == GameClock.Phase.DAWN \
-			or GameClock.current_phase == GameClock.Phase.DUSK
-		var want: float = 1.0 if tide_time else 0.0
+		# THE TIDE WORM NOW READS THE TIDE. It is named for the tide line, its Codex entry says
+		# it works the tide line, and until the sea started moving it had nothing to read — so
+		# it keyed off DAWN/DUSK, which is a clock, not a water level. A worm that feeds on
+		# what the falling water leaves behind comes out when the water LEAVES: it is out on the
+		# ebb and through low water, and gone once the flood covers its burrow again.
+		#
+		# This also makes it the game's free tide indicator. The worms are on the wet-deck tide
+		# line where the player walks past them constantly, so "the worms are out" becomes a
+		# readable signal that the pontoon walkway is exposed and worth going down to — taught
+		# by an animal rather than by a HUD gauge.
+		var tide_now: float = Gyre.tide()
+		var out_below: float = Gyre.TIDE_AMP * 0.35     # the lower third of the cycle
+		var want: float = 1.0 if tide_now < out_below else 0.0
 		var player: Node3D = get_tree().get_first_node_in_group("player")
 		if player:
 			var spook: float = SPOOK_M_CROUCHED if BloomFauna.player_crouching(self) else SPOOK_M

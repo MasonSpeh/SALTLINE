@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://tide_shot_rig"]
+
+[ext_resource type="Script" path="res://tests/tide_shot.gd" id="1"]
+
+[node name="TideShot" type="Node"]
+script = ExtResource("1")

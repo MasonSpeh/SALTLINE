@@ -1179,7 +1179,18 @@ func _cull_topside() -> void:
 	# lookups for one value that is already in hand here.
 	_cam_eye = cp
 	_cam_eye_ok = true
-	var want: bool = cp.y < TOPSIDE_MARGIN + (TOPSIDE_HYST if visible else 0.0)
+	# PLUS THE TIDE, AND STILL NOT THE SWELL. The margin is measured from mean water, and mean
+	# water now moves — at high tide a calm crest reaches ~y 3.0, so a fixed 2.8 threshold would
+	# switch the entire underwater subtree (seabed, reef, kelp, 512 fish, marine snow) OFF while
+	# a swimmer on that crest is submerged in it.
+	#
+	# Adding the TIDE does not undo s21's fix, which was to stop referencing the SWELL: that
+	# flipped this subtree on and off one to two times a SECOND at the wet deck because the
+	# threshold chased every passing wave. The tide is a slow term — it moves 1.4 m over ~25
+	# real minutes — so it cannot produce that flip-flop, and the deadband still owns the
+	# boundary. What it restores is the property the margin was supposed to have all along:
+	# a fixed height above the water, rather than a fixed height above the world origin.
+	var want: bool = cp.y < TOPSIDE_MARGIN + Gyre.tide() + (TOPSIDE_HYST if visible else 0.0)
 	if visible != want:
 		visible = want
 
