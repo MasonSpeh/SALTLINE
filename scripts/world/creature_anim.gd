@@ -356,6 +356,18 @@ static func belly(host: Node3D, model: Node3D) -> float:
 ## about 0.1 m on a 2 m animal, and a haul height derived from the unpitched bounds buried it
 ## exactly that far in the concrete (measured -105 mm). Seat against this instead and the
 ## pose can change freely without the placement going wrong. INF when there is no mesh.
+## AND IT IS A BOUND, NOT THE ANIMAL — which is the whole of the s34 seal bug.
+##
+## `global_transform * aabb` is the axis-aligned bounding box OF THE ROTATED BOX, and that
+## is strictly bigger than the rotated mesh whenever the basis is not axis-aligned. Measured
+## exactly on the shipped harbor_seal mesh in its -0.12 rad chest-up rest pose: the lowest
+## actual VERTEX is 0.385001 m below the node, this function returns 0.487041 m, and _seat()
+## puts THIS number on the concrete. So the drawn animal floats 102.0 mm above the slab
+## while every probe reports a perfect seat. Note the direction of the history: the comment
+## above records fixing a 105 mm BURIAL by switching to this function, i.e. a bound that was
+## too high was swapped for a bound that is too low, and the mesh itself was never measured
+## either time. Use low_vertex() to seat anything; this stays for callers that genuinely
+## want a conservative bound.
 static func low_point(model: Node3D) -> float:
 	var low: float = INF
 	for m in _mesh_instances(model):
@@ -364,6 +376,41 @@ static func low_point(model: Node3D) -> float:
 			continue
 		low = minf(low, (inst.global_transform * inst.get_aabb()).position.y)
 	return low
+
+## WORLD y of the lowest point of the DRAWN MESH in its current pose. Exact, not a bound.
+##
+## The minimum of (M * v).y over every vertex v is a support query, so it is enough to test
+## the CONVEX HULL — the hull contains every extreme point in every direction, so its
+## minimum IS the mesh's minimum, for any transform. The hull is built once per mesh and
+## cached on the instance, which turns a 29,000-vertex walk into a couple of hundred dot
+## products a frame: affordable for something a seated animal re-runs continuously, which a
+## full vertex walk would not be. Falls back to the AABB corners (i.e. exactly low_point's
+## answer) for a mesh that will not produce a hull, so this is never worse than what it
+## replaces. INF when there is no mesh.
+static func low_vertex(model: Node3D) -> float:
+	var low: float = INF
+	for m in _mesh_instances(model):
+		var inst: MeshInstance3D = m
+		if inst.mesh == null:
+			continue
+		var xf: Transform3D = inst.global_transform
+		for p in _hull_points(inst):
+			low = minf(low, (xf * p).y)
+	return low
+
+static func _hull_points(inst: MeshInstance3D) -> PackedVector3Array:
+	if inst.has_meta("_hull_pts"):
+		return inst.get_meta("_hull_pts")
+	var pts := PackedVector3Array()
+	var shape: ConvexPolygonShape3D = inst.mesh.create_convex_shape(true, false)
+	if shape != null:
+		pts = shape.points
+	if pts.is_empty():
+		var b: AABB = inst.get_aabb()
+		for i in range(8):
+			pts.append(b.get_endpoint(i))
+	inst.set_meta("_hull_pts", pts)
+	return pts
 
 ## Attach the generated mesh and hide the procedural geometry it supersedes.
 ##

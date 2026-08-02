@@ -26,8 +26,31 @@ const AXIS_NAMES := ["+X", "-X", "+Y", "-Y", "+Z", "-Z"]
 
 var _main: Node3D
 var _player: Node3D
+## s34: this was a pure measurement DUMP — no PASS/FAIL line anywhere and `quit()` with no
+## code — so nothing it measured could ever fail a run, and the seal hovered through two
+## sessions of it being green by virtue of being silent. The seat is asserted now.
+var _fail: int = 0
+## A script error inside an awaited coroutine abandons it and returns quietly to the caller,
+## which then reports on the checks that DID run (docs/AGENT_TRAPS.md, s27).
+var _done: bool = false
+
+func _ok(cond: bool, msg: String) -> void:
+	print(("PASS  " if cond else "FAIL  ") + msg)
+	if not cond:
+		_fail += 1
 
 func _ready() -> void:
+	await _run()
+	# THE SENTINEL, CHECKED. `_run` sets `_done` on its own last line; if a script error
+	# inside it abandoned the coroutine, control returns here with `_done` still false.
+	if not _done:
+		print("[faunabugs] the probe body did not reach its end — a script error inside an "
+			+ "awaited coroutine abandoned it. Everything above is a PARTIAL run.")
+		_fail += 1
+	print("\n[faunabugs] FAILURES: %d" % _fail)
+	get_tree().quit(1 if _fail > 0 else 0)
+
+func _run() -> void:
 	AiBudget.enabled = false          # every animal at full rate: this is a measurement
 	_dump_snail_material()
 	_main = load("res://scenes/Main.tscn").instantiate()
@@ -41,7 +64,7 @@ func _ready() -> void:
 	_rays()
 	_grubs()
 	await _grubs_at_dawn()
-	get_tree().quit()
+	_done = true
 
 # --------------------------------------------------------------- 1a. the snail's material
 func _dump_snail_material() -> void:
@@ -191,12 +214,59 @@ func _seal_seat() -> void:
 	if model == null:
 		print("[seal] NO GENERATED MODEL — running the procedural body")
 		return
-	var low: float = ANIM.low_point(model)
+	# THE GAP THIS USED TO PRINT WAS A TAUTOLOGY, AND IT READ +0.0 mm BY CONSTRUCTION.
+	#
+	# It measured `ANIM.low_point(model)` against an independent floor ray — and `_seat()`
+	# runs every frame doing exactly `global_position.y += _haul_floor - low_point(_model)`,
+	# i.e. it DEFINES low_point == _haul_floor. `_haul_floor` comes from `_snap_haul`'s ray
+	# and `shelf` comes from a ray with the same origin, direction, mask and exclusions, so
+	# the two quantities are the same number and their difference could not have been
+	# anything but zero however far the drawn animal was off the concrete. The owner was
+	# looking at a seal in the air while this printed a perfect seat, for two sessions.
+	#
+	# So it now measures the VISIBLE MESH — the lowest real vertex in the pose the animal
+	# actually settled into — which is a quantity `_seat` does not get to define, and it
+	# prints the bound alongside it so the difference between the two is on the record.
+	# ...AND IT HAS TO BE MEASURED A DIFFERENT WAY THAN _seat COMPUTES IT, or the new check
+	# is the old tautology wearing the new number. `_seat` seats `ANIM.low_vertex`, which is
+	# a support query over a CACHED CONVEX HULL; this walks EVERY vertex of every surface by
+	# brute force. Same quantity, independent code paths — so if create_convex_shape ever
+	# simplifies the hull or drops an extreme point, the two disagree and this says so
+	# instead of certifying a seal that is seated on a hull that is not the animal.
+	var low: float = _brute_low_vertex(model)
+	var hull_low: float = ANIM.low_vertex(model)
+	var bound: float = ANIM.low_point(model)
+	_ok(absf(low - hull_low) < 0.001,
+		"the cached hull finds the same low point as an exhaustive vertex walk "
+		+ "(hull %.4f vs brute %.4f, %.2f mm apart)" % [hull_low, low, (hull_low - low) * 1000.0])
 	print("[seal] settled at %s  rot=%s"
 		% [str(seal.global_position.snappedf(0.001)),
 			str(seal.rotation.snappedf(0.0001))])
+	print("[seal] MESH low y=%.4f  (bounding-box low y=%.4f, %.1f mm of AABB inflation)"
+		% [low, bound, (low - bound) * 1000.0])
 	print("[seal] model low point y=%.4f   shelf y=%.4f   GAP=%+.1f mm  (+ = hovering)"
 		% [low, shelf, (low - shelf) * 1000.0])
+	_ok(is_finite(shelf) and absf(low - shelf) < 0.03,
+		"the resting seal's DRAWN BELLY is on the concrete (gap %+.1f mm)" % [(low - shelf) * 1000.0])
+	# ...AND AGAIN UNDER AI DECIMATION, which no probe has ever done. Every seal probe in the
+	# repo sets `AiBudget.enabled = false` first, so the seated animal has only ever been
+	# measured at full rate — and `_seat()` lives behind the AiBudget prologue, so in the
+	# shipped game it runs on a fraction of frames. The correction is absolute rather than
+	# incremental (y += floor - low, recomputed from the live pose), so it should hold at a
+	# lower rate; "should" is not a measurement.
+	AiBudget.enabled = true
+	for i in range(240):
+		seal.set("_hauled", true)
+		seal.set("_haul_timer", 1.0e9)
+		await get_tree().process_frame
+	var low_dec: float = _brute_low_vertex(model)
+	print("[seal] under AiBudget decimation: mesh low y=%.4f  GAP=%+.1f mm"
+		% [low_dec, (low_dec - shelf) * 1000.0])
+	_ok(absf(low_dec - shelf) < 0.03,
+		"the seat holds with AiBudget ON, as it does in the shipped game (gap %+.1f mm)"
+			% [(low_dec - shelf) * 1000.0])
+	AiBudget.enabled = false
+
 	# Where every mesh of the model sits, so a hover can be told from a tilt.
 	var box: AABB = _world_bounds(model)
 	print("[seal] model world AABB pos=%s size=%s"
@@ -488,3 +558,20 @@ func _fauna_rids() -> Array[RID]:
 			host = host.get_parent()
 			depth += 1
 	return out
+
+## The lowest drawn vertex in world space, by exhaustive walk. Deliberately NOT the method
+## the game uses (CreatureAnim.low_vertex's cached convex hull) — see the call site.
+func _brute_low_vertex(model: Node3D) -> float:
+	var low: float = INF
+	for n in model.find_children("*", "MeshInstance3D", true, false):
+		var inst: MeshInstance3D = n
+		if inst.mesh == null:
+			continue
+		var xf: Transform3D = inst.global_transform
+		for s in range(inst.mesh.get_surface_count()):
+			var arrays: Array = inst.mesh.surface_get_arrays(s)
+			if arrays.is_empty() or arrays[Mesh.ARRAY_VERTEX] == null:
+				continue
+			for v in (arrays[Mesh.ARRAY_VERTEX] as PackedVector3Array):
+				low = minf(low, (xf * v).y)
+	return low

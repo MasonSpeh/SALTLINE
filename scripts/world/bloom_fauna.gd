@@ -2363,12 +2363,21 @@ class HarborSeal extends Node3D:
 	## pitched: chest up, tail down. On this 2 m body that buried the tail 105 mm in the
 	## concrete (measured). Correcting the constant would only hold until the pose changed,
 	## so the live low point is what the height is derived from instead — the same "the seat
-	## owns the floor" rule the crab and the snails already run on. One model, so the cost is
-	## a couple of AABB transforms on the frames it is actually hauled out.
+	## owns the floor" rule the crab and the snails already run on.
+	##
+	## s34: AND THEN IT FLOATED, BY ALMOST EXACTLY THE AMOUNT IT HAD BEEN BURIED. Owner:
+	## "when it rests on the foundation there's like a meter of room under it", against a
+	## probe reporting GAP +0.0 mm. `ANIM.low_point` is a BOUND — the axis-aligned box of the
+	## ROTATED box — and on this mesh at this pitch that bound sits 102.0 mm below the lowest
+	## real vertex (computed exactly from the GLB: true low 0.385001 m under the node,
+	## low_point 0.487041 m). Seating the bound on the concrete therefore hangs the animal
+	## 102 mm over it. The fix is to seat the MESH: ANIM.low_vertex is exact (a support query
+	## over the cached convex hull) and costs a couple of hundred dot products on the frames
+	## the animal is actually hauled out.
 	func _seat() -> void:
 		if _model == null:
 			return
-		var low: float = ANIM.low_point(_model)
+		var low: float = ANIM.low_vertex(_model)
 		if low == INF:
 			return
 		global_position.y += _haul_floor - low
