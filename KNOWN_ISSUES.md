@@ -6,6 +6,33 @@ landed and nobody updated the file.
 
 ## Bugs
 
+- **The first dive of a session stalls ~285 ms, and the warm state DECAYS — OPEN, characterised
+  s26.** Owner-reported as "it freezes for a good second before you can see underwater". Measured
+  with `tests/DiveProbe.tscn` (windowed, foreground); the discriminating experiment is to dive
+  twice, because a cost only the FIRST dive pays is a one-off and a cost every dive pays is the
+  visibility walk:
+
+      dive 1  peak 285.1 ms, ~365 ms of frames over the line    dive 2  peak 46.5 ms, none
+
+  So the ~4,100-node `visible` flip in `underwater_world._cull_topside` is **innocent** and needs
+  no staggering. **Three fixes were built, measured and reverted** — do not re-attempt them:
+  drawing all 1,120 of the subtree's materials at load through a SubViewport sharing the real
+  World3D (verified rasterising 37.76 M prims/frame — dive still 239.5 ms); hanging the
+  underwater Environment on the real camera topside (that frame alone cost 275.5 ms, dive still
+  239.6 ms — two separate bills); and gating a full rehearsal on `rig_batcher`'s weld so the
+  warmed configuration matched the welded one (dive still 264.2 ms).
+
+  **The reason none of them work is that it decays with time hidden.** Rehearse the transition,
+  then sit topside before diving: gap ~3 s → 67 ms, 30 s → 127 ms, ~36 s → 264 ms, never →
+  285 ms. Monotonic. Something is released for not having been drawn recently, which on this
+  machine's GL-over-Metal path reads as GPU residency. **A one-time prewarm therefore cannot
+  fix this.** The untried candidate is to keep the subtree warm *near the water* — start
+  rendering it into a small SubViewport once the player's eye drops toward the waterline, or
+  ping it periodically — trading a small recurring cost against the 285 ms cliff. Note the
+  ceiling on that: drawing the subtree costs ~35–55 ms/frame, so a naive ping is not free.
+  `main.gd::_prewarm_underwater_env` is a real but PARTIAL fix (the Environment only); its
+  comment used to read as though it had solved the freeze, and it had not.
+
 - **`SurfaceSnap` fires before CSG collision exists.** A store-room storage
   crate ends up at y −0.9, about 3 m below the wet deck. The snap runs on the
   first physics tick, but the deck slab is CSG and has no collider yet, so the

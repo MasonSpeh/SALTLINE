@@ -730,3 +730,38 @@ wired to `save_game`. **A restore step that writes to a system with signals atta
 re-entrancy hazard; guard the whole apply with a `_loading` flag.** And when a test sets up
 state before exercising a save, check the setup is not quietly avoiding the only conditions the
 feature ever runs under — assert on the file re-read off disk, not on live memory.
+
+---
+
+## Found characterising the dive hitch (s26)
+
+**A performance fix that "should obviously work" needs the same proof as any other claim, and
+three of them here did not.** The first dive of a session stalls ~285 ms. Every intuitive cause
+was wrong: first-draw of the subtree's 1,120 materials (drawn at load, verified rasterising
+37.76 M prims/frame — no change), the underwater Environment (paid topside, cost 275.5 ms by
+itself, no change), and load ordering against `rig_batcher`'s weld (no change). The actual
+property is that the warm state **decays with time hidden** — 3 s → 67 ms, 30 s → 127 ms, 36 s →
+264 ms, never → 285 ms. Nothing about the first three hypotheses was unreasonable; what was
+unreasonable would have been shipping any of them on the strength of the reasoning. The
+harness is `tests/DiveProbe.tscn` and the full account is in `KNOWN_ISSUES.md`.
+
+**Instrument the prewarm, not just the thing being prewarmed.** A prewarm that silently draws
+nothing looks exactly like one that works. `_prewarm_underwater_world` printed its
+primitives-per-frame precisely so "it ran and rasterised 37.76 M" was a *measurement* rather than
+an assumption — which is what made it possible to reject the hypothesis instead of the
+implementation. The pre-existing `_prewarm_underwater_env` had no such readout and its comment
+had claimed the freeze solved for several sessions.
+
+**Two dives, not one.** Any "first time X is slow" bug should be measured by doing X twice in one
+session. The ratio between them separates a one-off (build/upload/compile) from a per-transition
+cost, and those need opposite fixes. Here it immediately exonerated the ~4,100-node visibility
+walk that was the obvious suspect.
+
+**`head -N` on a Godot run can SIGPIPE the engine before it prints its result.** The first
+DiveProbe run reached its report, printed the header, and was killed by the pipe closing three
+lines before the verdict. Redirect to a file and read the file.
+
+**`--check-only --script` reports `Identifier not found: GameClock` for any file touching an
+autoload.** Already noted above as a false positive; restating because it is the single most
+common output of the parse gate and it will be seen on every windowed harness launch. Read past
+it and check whether any OTHER error is present — that is the signal.

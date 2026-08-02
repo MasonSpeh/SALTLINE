@@ -676,3 +676,66 @@ autosaves at dawn and dusk") — one `_ready()` line to remove if manual-only is
 **Note for whoever reads the suite next:** `test_runner.gd`'s save block still calls
 `force_phase(DAY)` before saving, which is exactly what hid this bug for a whole batch. The two
 new probes cover the real phases; consider dropping that line from the suite too.
+
+---
+
+## s26 — 2026-08-01 (the dive hitch, measured; three fixes built and rejected)
+
+**Session goal was to plan the next phase and then fix the owner's top-named bug: "any way to
+make less glitchy transition moving from surface to underwater? It freezes for a good second."**
+The bug is real, it is now quantified, and it is **not fixed** — what shipped is the instrument
+and the evidence, plus three eliminated hypotheses so the next attempt starts from the right
+place.
+
+**Built `tests/DiveProbe.tscn`** (windowed, foreground). Its discriminating experiment is diving
+TWICE: a cost only the first dive pays is a one-off, a cost every dive pays is the per-transition
+visibility walk. First result:
+
+    dive 1  peak 285.1 ms, ~365 ms of frames over the line
+    dive 2  peak  46.5 ms, zero frames over the line — identical move
+
+6.1x. So `_cull_topside`'s ~4,100-node `visible` flip — the obvious suspect, and the thing a
+"stagger the reveal" fix would have targeted — is **innocent**.
+
+**Three fixes built, measured, reverted.** Each was plausible and each was wrong:
+1. Draw all 1,120 of the subtree's materials at load through a SubViewport sharing the real
+   World3D. Instrumented to prove it actually rasterised: 37.76 M prims/frame. Dive: 239.5 ms.
+2. Hang the underwater Environment on the real camera topside. That frame alone cost **275.5 ms**
+   — and the dive still cost 239.6 ms. Two separate ~250 ms bills, not one.
+3. Gate a full transition rehearsal on `rig_batcher.finished`, so the warmed configuration is the
+   welded one rather than the pre-weld one. Dive: 264.2 ms.
+
+**What it actually is: the warm state DECAYS with time hidden.** Rehearse, then sit topside:
+
+    gap ~3 s -> 67 ms     gap 30 s -> 127 ms     gap ~36 s -> 264 ms     never -> 285 ms
+
+Monotonic. Something is released for not having been drawn recently — consistent with GPU
+residency on this machine's GL-over-Metal path. **This is why no one-time prewarm can work**, and
+it is the constraint the next attempt has to beat.
+
+**Next candidate (untried):** keep the subtree warm *near the water* rather than at load — begin
+rendering it into a small SubViewport once the player's eye drops toward the waterline, or ping it
+periodically. The ceiling to respect: drawing the subtree costs ~35–55 ms/frame, so a naive
+periodic ping trades one 285 ms cliff for a lot of 40 ms ones. Predictive-on-approach is the
+better shape.
+
+**Reverted:** `scripts/main.gd` and `scripts/world/rig_batcher.gd` are back at HEAD. The rehearsal
+bought a 2–4 s black load screen and no measured improvement, so it did not ship.
+
+**Also measured, incidentally:** topside 28.6–29.6 ms / 6.3–6.8 M prims / ~2595 draws; underwater
+38.1–39.4 ms / 14.1–14.3 M prims / ~2790 draws. Subtree: 4,144 nodes, 1,650 VisualInstance3D,
+1,120 unique materials, 8 shaders (`tests/MatCensus.tscn`, headless — material counting needs no
+drawing).
+
+**Suite: 241 pass, 0 failures** (unchanged — no game code shipped this session).
+
+**Assessment for the roadmap** (owner asked for 5 prioritised improvements; multi-rig deferred by
+owner decision, focus stays on rig 1's depth):
+1. the dive door — above; blocks everything underwater
+2. spearfishing + underwater foraging — the spear is melee-only today, `grep` confirms zero
+   underwater use, and the reef has no interactive verbs at all
+3. tides — `Gyre` already solves height analytically, so a tide is a slow offset; the risk is the
+   audit of every hand-typed waterline constant
+4. crab speciation — `crab.gd` is 2,062 lines for ONE species; refactor to a species table, then
+   Tripo (820 credits, healthy; Meshy is at 4 and is not a usable provider)
+5. the calm-night Bloom — bioluminescence keyed off low sea state + NIGHT
