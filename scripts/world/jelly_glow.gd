@@ -64,6 +64,13 @@ func _ready() -> void:
 		quad.rotation.x = deg_to_rad(-90)
 		quad.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		_spots.append(quad)
+		# REGRESSION, s31: _base was declared and consumed in _process but never populated
+		# here — every frame indexed an empty PackedVector3Array and threw "Out of bounds get
+		# index '0'" continuously. Silent in that session because the change was verified with
+		# targeted probes (SunkProbe/SpearProbe/TideProbe/CatchProbe) and TestRunner was never
+		# re-run afterward. Lesson: after ANY edit, re-run the full suite, not just the probes
+		# that exercise the change you think you made.
+		_base.append(quad.position)
 	GameClock.dusk.connect(func() -> void: _target_energy = 1.6)
 	GameClock.dawn.connect(func() -> void: _target_energy = 0.0)
 	GameClock.day.connect(func() -> void: _target_energy = 0.0)
