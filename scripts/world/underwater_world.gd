@@ -39,6 +39,28 @@ const DIVE_DEATH_Y: float = -13.0
 ## open water the owner was pointing at. The counts themselves stay in data/fish.json: how
 ## many fish are in a shoal is a fact about the species; how much ocean we stock is not.
 const SCHOOL_PODS: int = 2
+## ...AND THREE OF THEM IN THE SURFACE BAND SINCE s36 (owner: "overall, increase the fish
+## budget by 50%" and "add more fish around the surface ... to fit more normal fish to
+## visually fill space").
+##
+## The stocking is keyed to the BAND, not to the species, and that follows directly from the
+## line above: `school.count` is a fact about the species, so it is the wrong knob for "put
+## more fish in this slice of water". The number of pods IS that knob, and keying it to the
+## band puts the entire rise in the top three metres — the mid and deep columns are not
+## touched at all, and both interpolations below degenerate to today's numbers at 2 pods, so
+## those two bands are unchanged to the bit.
+##
+## AND A THIRD POD FILLS SPACE WHERE A BIGGER `count` WOULD NOT. `spread_r` already grows on
+## sqrt(count), so a fatter shoal does spread rather than knot — but it is still ONE shoal,
+## at ONE place, on ONE plane. A third pod is a third place, a third ring and a third plane.
+## The owner's word was "fill space", and that is the difference between the two levers.
+const SCHOOL_PODS_BY_BAND: Dictionary = {"surface": 3, "mid": 2, "deep": 2}
+
+## How many pods this band is stocked with. Unknown band -> the historical pair, the same way
+## every other lookup in this file falls back rather than teleporting a species somewhere new.
+static func _pods_for(band: String) -> int:
+	return int(SCHOOL_PODS_BY_BAND.get(band, SCHOOL_PODS))
+
 ## Per pod: how far its slow centre-wander carries it in x/z, how fast that wander runs,
 ## and how far below the species' own depth band it sits. Pod 0 IS the historical near-rig
 ## shoal, numbers unchanged. Pod 1 is the new open-water half — wider, slower (a shoal that
@@ -70,6 +92,25 @@ const POD_SPREAD_BY_WATER: Dictionary = {
 	"any": [Vector2(24.0, 28.0), Vector2(41.0, 46.0)],
 	"open": [Vector2(33.0, 37.0), Vector2(52.0, 58.0)],
 }
+
+## WHERE THE RINGS BETWEEN THOSE TWO COME FROM WHEN A BAND RUNS MORE THAN TWO PODS (s36).
+##
+## The pair above is a class's INNER and OUTER ring. A third pod needs a third ring, and
+## hand-typing one per class would be three more numbers nobody has tuned — the same
+## objection POD_PATH_SPEED already makes about the wander rates. So pod k takes
+## lerp(inner, outer, k / (pods - 1)): at two pods that is EXACTLY the pair as written (k=0
+## -> inner, k=1 -> outer), which is what makes the mid and deep bands byte-identical to
+## before; at three it inserts the midpoint and both endpoints are still stocked, so nothing
+## the owner liked about the previous spread is given up to add water between it.
+static func _pod_spread(water: String, pod: int, pods: int) -> Vector2:
+	# An unknown `water` value falls back to the historical box rather than to nothing, so a
+	# typo in the table cannot silently teleport a species into the middle of the world.
+	var pair: Array = POD_SPREAD_BY_WATER.get(water, POD_SPREAD_BY_WATER["any"])
+	var lo: Vector2 = pair[0]
+	if pods <= 1:
+		return lo
+	return lo.lerp(pair[1] as Vector2, float(pod) / float(pods - 1))
+
 ## The wander RATE is derived, not typed. The four historical numbers are within 8% of a
 ## constant linear speed along each axis — 24 x 0.050 = 1.20 and 41 x 0.029 = 1.19; 28 x
 ## 0.041 = 1.15 and 46 x 0.023 = 1.06 — i.e. whoever tuned them was really choosing "how
@@ -101,18 +142,27 @@ const POD_PATH_SPEED := Vector2(1.20, 1.15)
 ## the deep band is water you look down INTO and cannot swim to. Ceiling = band + reach, and
 ## it has to clear DIVE_DEATH_Y: 9.5 - 1.9 + 13.0 = 5.4 m of drop, i.e. -14.9.
 ##
-## Resulting ladder: -1.2 / -2.85 | -4.5 / -7.0 | -9.5 / -14.9. Six distinct planes where
-## there were five (two of them coincident), top-heavy, no gaps wider than 2.5 m above -9.
-static func _pod_drop(band: String, pod: int) -> float:
-	if pod <= 0:
+## ...AND WITH MORE THAN TWO PODS THE DROP IS SHARED OUT ACROSS THEM (s36). The rules above
+## fix the drop of the LAST pod — half way to the band below, or clear of the death line for
+## the deepest band. Everything between is `deepest * pod / (pods - 1)`, i.e. evenly spaced
+## planes, which reproduces the two-pod ladder exactly (pod 0 -> 0, pod 1 -> deepest) and,
+## with the surface band's third pod, inserts one plane between -1.2 and -2.85 instead of
+## pushing anything further down. That matters: the ask was for density NEAR THE SURFACE, so
+## the extra shoal must not buy its room by sinking.
+##
+## Resulting ladder: -1.2 / -2.03 / -2.85 | -4.5 / -7.0 | -9.5 / -14.9. Seven distinct planes,
+## three of them in the top three metres, no gap wider than 2.5 m above -9.
+static func _pod_drop(band: String, pod: int, pods: int) -> float:
+	if pod <= 0 or pods <= 1:
 		return 0.0
 	var i: int = BAND_ORDER.find(band)
 	if i < 0:
 		i = BAND_ORDER.find("mid")
 	var y: float = float(DEPTH_BAND[BAND_ORDER[i]])
+	var deepest: float = maxf(y + POD_VERTICAL_REACH - DIVE_DEATH_Y, 0.0)
 	if i + 1 < BAND_ORDER.size():
-		return (y - float(DEPTH_BAND[BAND_ORDER[i + 1]])) * 0.5
-	return maxf(y + POD_VERTICAL_REACH - DIVE_DEATH_Y, 0.0)
+		deepest = (y - float(DEPTH_BAND[BAND_ORDER[i + 1]])) * 0.5
+	return deepest * (float(pod) / float(pods - 1))
 
 ## Which caisson a `near` pod holds station on. Spread over the four legs by a stable index
 ## so two grouper species do not pile onto the same one — the s21 king-crab lesson (two
@@ -241,6 +291,8 @@ func _ready() -> void:
 	# walking the tree every thrust.
 	add_to_group("underwater_world")
 	_rng.seed = 7411
+	# Before _spawn_schools, because the swim loop reads it on the pods' first live frame.
+	_derive_leg_envelope()
 	_kelp_forest()
 	_leg_reef_growth()
 	_marine_snow()
@@ -1119,11 +1171,12 @@ func _spawn_schools() -> void:
 		if not DEPTH_BAND.has(band):
 			band = "mid"
 		var band_y: float = float(DEPTH_BAND[band])
-		# One material per species, shared by both pods — the tint is a fact about the
+		# One material per species, shared by every pod of it — the tint is a fact about the
 		# fish, not about which patch of water this particular shoal is working.
-		for pod in range(SCHOOL_PODS):
-			_spawn_pod(id, def, school, tint, mat, band_y - _pod_drop(band, pod), pod,
-				_species_index)
+		var pods: int = _pods_for(band)
+		for pod in range(pods):
+			_spawn_pod(id, def, school, tint, mat, band_y - _pod_drop(band, pod, pods), pod,
+				_species_index, pods)
 
 ## THE CATCHABLE SHOALS WERE RENDERING AS BLACK SILHOUETTES, and it was light, not material.
 ##
@@ -1164,7 +1217,7 @@ const POD_BODY_GLOW: float = 0.38
 ## `band_y` arrives with this pod's own drop already applied (see _pod_drop) — it is the
 ## plane this shoal works, not the species' band.
 func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
-		mat: StandardMaterial3D, band_y: float, pod: int, species_i: int) -> void:
+		mat: StandardMaterial3D, band_y: float, pod: int, species_i: int, pods: int) -> void:
 	var root := Node3D.new()
 	add_child(root)
 	var size: float = float(school["size"])
@@ -1223,12 +1276,9 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 	# a big school read as a knot rather than a shoal. Scaling on sqrt(count) keeps the
 	# density roughly constant instead: more fish, more water.
 	var spread_r: float = (0.9 + size * 0.55) * sqrt(float(maxi(members.size(), 1))) * 0.42
-	# Where this pod works, and how fast round it — see POD_SPREAD_BY_WATER. An unknown
-	# `water` value falls back to the historical box rather than to nothing, so a typo in
-	# the table cannot silently teleport a species into the middle of the world.
+	# Where this pod works, and how fast round it — see POD_SPREAD_BY_WATER and _pod_spread.
 	var water: String = String(def.get("water", "any"))
-	var pair: Array = POD_SPREAD_BY_WATER.get(water, POD_SPREAD_BY_WATER["any"])
-	var spread: Vector2 = pair[pod]
+	var spread: Vector2 = _pod_spread(water, pod, pods)
 	# A near pod holds a caisson; everything else wanders about the rig's centre line. The
 	# two pods of one near species take DIFFERENT legs (+1) so a species is not stacked
 	# twice on the same corner.
@@ -1415,13 +1465,13 @@ func _cull_topside() -> void:
 		_cam_eye_ok = false
 		return
 	var cp: Vector3 = cam.global_position
-	# Cached for _pod_due: 68 pods asking the viewport for its camera every frame is 68 tree
+	# Cached for _pod_due: 83 pods asking the viewport for its camera every frame is 83 tree
 	# lookups for one value that is already in hand here.
 	_cam_eye = cp
 	_cam_eye_ok = true
 	# PLUS THE TIDE, AND STILL NOT THE SWELL. The margin is measured from mean water, and mean
 	# water now moves — at high tide a calm crest reaches ~y 3.0, so a fixed 2.8 threshold would
-	# switch the entire underwater subtree (seabed, reef, kelp, 562 fish, marine snow) OFF while
+	# switch the entire underwater subtree (seabed, reef, kelp, 1033 fish, marine snow) OFF while
 	# a swimmer on that crest is submerged in it.
 	#
 	# Adding the TIDE does not undo s21's fix, which was to stop referencing the SWELL: that
@@ -1497,7 +1547,8 @@ func _process(delta: float) -> void:
 		if not want or not swim:
 			continue
 		# --- PER-POD DECIMATION -----------------------------------------------------------
-		# 562 fish across 68 pods (34 species x 2), every one re-solving its slot on the ring, sampling
+		# 1033 fish across 83 pods (34 species; the 15 surface ones run 3 pods since s36, the
+		# rest 2), every one re-solving its slot on the ring, sampling
 		# the swell and running a look_at, every frame. The pods are 24-60 m across the water
 		# from the camera at any moment, and a shoal at that range moving in 5 cm steps at 8 Hz
 		# is indistinguishable from one moving in 1 cm steps at 30. So a pod that is far away
@@ -1641,7 +1692,7 @@ func _process(delta: float) -> void:
 ## Ranked on the pod's last known centre, which is honest for a shoal: `radius` is a couple
 ## of metres, so the whole school is effectively at one distance. A pod inside AiBudget's
 ## NEAR_M runs every frame — the shoal you are actually swimming through is never decimated.
-## The instance-free phase comes from the pod's own index so the 68 pods do not all land on
+## The instance-free phase comes from the pod's own index so the 83 pods do not all land on
 ## the same frame, and the MAX_STEP guarantee is honoured for the same reason it exists
 ## there: nothing may go longer than that without an update.
 func _pod_due(s: Dictionary, acc: float) -> bool:
@@ -1659,9 +1710,43 @@ func _pod_due(s: Dictionary, acc: float) -> bool:
 
 ## Is `p` close enough to a rig leg (in plan) that a wall test is worth casting? The legs
 ## are 6 m square; 4.5 m from a centre clears the caisson plus a fish's turn radius.
-func _near_leg(p: Vector3) -> bool:
+const NEAR_LEG_M: float = 4.5
+
+## THE FOUR-LEG LOOP IS SKIPPED FOR ANYTHING OUTSIDE THE LEG RING'S OWN ENVELOPE (s36). This
+## test runs once per fish per tick over the whole ocean, and s36 put ~470 more bodies in it —
+## most of them in pods whose ring is 33-58 m out, i.e. nowhere near a caisson, paying eight
+## abs+compare each to find that out. |a - b| >= | |a| - |b| | for any a, b, so a point whose
+## |x| is further than max|leg.x| + NEAR_LEG_M, or nearer than min|leg.x| - NEAR_LEG_M, cannot
+## be within NEAR_LEG_M of ANY leg on that axis — and likewise for z. That is an identity, not
+## a tolerance: the early-out returns false only where the loop provably would, so the swim is
+## unchanged. Derived off LEGS at build so moving or adding a caisson moves the envelope with
+## it (a hand-typed 17.5/26.5 would be a silent tunnel the day a fifth leg is added).
+##
+## The DEFAULTS are the "never skip" pair on purpose (nothing is below 0 and nothing is above
+## INF), so a path that somehow reaches _near_leg before _ready has derived the envelope gets
+## the old behaviour rather than a silent tunnel through every caisson — which is the failure
+## a zero-initialised ceiling would produce, and it would look exactly like nothing wrong.
+var _leg_env_lo := Vector2.ZERO      ## |x|,|z| below which no leg is reachable
+var _leg_env_hi := Vector2(INF, INF) ## ...and above which none is either
+
+func _derive_leg_envelope() -> void:
+	var lo := Vector2(1.0e9, 1.0e9)
+	var hi := Vector2.ZERO
 	for leg in LEGS:
-		if absf(p.x - leg.x) < 4.5 and absf(p.z - leg.z) < 4.5:
+		lo.x = minf(lo.x, absf(leg.x))
+		lo.y = minf(lo.y, absf(leg.z))
+		hi.x = maxf(hi.x, absf(leg.x))
+		hi.y = maxf(hi.y, absf(leg.z))
+	_leg_env_lo = Vector2(maxf(lo.x - NEAR_LEG_M, 0.0), maxf(lo.y - NEAR_LEG_M, 0.0))
+	_leg_env_hi = hi + Vector2(NEAR_LEG_M, NEAR_LEG_M)
+
+func _near_leg(p: Vector3) -> bool:
+	var ax: float = absf(p.x)
+	var az: float = absf(p.z)
+	if ax < _leg_env_lo.x or ax > _leg_env_hi.x or az < _leg_env_lo.y or az > _leg_env_hi.y:
+		return false
+	for leg in LEGS:
+		if absf(p.x - leg.x) < NEAR_LEG_M and absf(p.z - leg.z) < NEAR_LEG_M:
 			return true
 	return false
 

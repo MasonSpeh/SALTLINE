@@ -21,6 +21,15 @@ extends Node3D
 ##      had never been counted). See `_report_surface_density`. The goliath's own three
 ##      words get their own report — `_report_goliath`.
 ##
+##   1c. s36: "overall, increase fish budget by 50%", "decrease small tropical fish by 25%",
+##      "add more fish around the surface ... to fit more normal fish to visually fill space."
+##      The first two are a CENSUS and nothing counted either population — see
+##      `_report_stocking`, which also prints the triangle bill, because the schools turn out
+##      to be the largest triangle population in the game and the eleven s31 species import
+##      at four to six times every other species' budget. The third is a MIX, not a count:
+##      the shallow shell was two thirds small fish, so `_report_surface_density` now splits
+##      it on the species' own body length and asserts the normal share.
+##
 ##   2. "At least one of the new grouper models is swimming backwards."
 ##      The facing table is measured off the raw mesh (tools/measure_facing.py) and read
 ##      off a render (tests/CandShot). Neither of those watches the animal SWIM, so
@@ -69,14 +78,61 @@ const PROFILE_BINS: int = 12          ## 24 m of column, which is past the deepe
 ## same way, cannot decide it. Predicted on the analytic pod model over day/night/dawn/dusk,
 ## BEFORE the s35 change: 0.79 / 1.01 / 0.95 / 0.97. The top four metres held LESS than the
 ## four metres under it, worst of all in daylight. That is the owner's complaint as a number.
-## AFTER: 1.82 / 2.43 / 2.42 / 2.87. The bar is set in the gap and nearer the old side, so a
-## live run that lands below the model still passes and a regression to the old shape cannot.
-const TOP_HEAVY_MIN: float = 1.40
+## AFTER s35: 1.82 / 2.43 / 2.42 / 2.87 (a second, independently written model of the same
+## algebra got 1.63 / 2.22 / 2.29 / 2.80 — the two agree on the shape and disagree by ~10% on
+## the number, which is about what a model of a wandering shoal is worth).
+## AFTER s36 — third surface pod plus the restocked counts: 2.52 / 4.10 / 4.20 / 4.45, taken
+## on the same model off the shipped data/fish.json.
+## The bar is set in the gap and nearer the OLD side, so a live run landing well below the
+## model still passes and a regression to either previous shape cannot.
+const TOP_HEAVY_MIN: float = 2.00
 ## Bodies in the shallow shell over the rig, meaned across the four clock phases. Model says
-## 105 before and 148 after. Same reasoning as the ratio: the bar sits between them rather
-## than under the new figure, because this probe's job is to catch the shape coming back, not
-## to score the tuning. The PROOF of the change is the before/after table it prints.
-const SHELL_MIN: float = 125.0
+## 140 before s36 and 253 after (the s35 model called the same pre-s36 figure 148). Same
+## reasoning as the ratio: the bar sits between them rather than under the new figure, because
+## this probe's job is to catch the shape coming back, not to score the tuning. The PROOF of
+## the change is the before/after table it prints.
+const SHELL_MIN: float = 190.0
+
+## ---------------------------------------------------------------- the MIX (s36)
+## "Add more fish around the surface ... to fit more NORMAL fish to visually fill space."
+##
+## Neither bar above can see that, and this is the ask that was actually hardest to satisfy:
+## the water the player swims in was two thirds SMALL fish and the two most populous shoals in
+## the game (34 copper sprat, 28 bilge blenny) are 0.6 m animals. A stocking rise that scaled
+## everything would have kept that ratio exactly and the complaint with it. So the shallow
+## shell's bodies are split on the species' own `school.size` and the NORMAL share asserted.
+##
+## 0.85 m is the gap in the table, not a round number: the school sizes run 0.5 / 0.6 / 0.65 /
+## 0.7 / 0.8 then 0.9 / 0.95 / 1.0 / 1.1 / 1.2 / 1.3 / 1.6, so nothing sits within 0.05 of it
+## and the split cannot flip on a rounding.
+const NORMAL_M: float = 0.85
+## Model, in the shallow shell, meaned over the four clock phases: 33% normal before s36,
+## 61% after. The bar is in the gap and nearer the old side, same convention as the two above.
+const SHELL_NORMAL_MIN: float = 0.45
+
+## ---------------------------------------------------------------- the budget (s36)
+## "Overall, increase fish budget by 50%", and the population it is 50% OF is the whole fish
+## population of the world — the pelagic schools here PLUS the tropical reef community on the
+## caisson legs (scripts/world/reef_fish.gd), which is where the other owner ask, "decrease
+## small tropical fish by 25%", lands. Counting only one of the two would let a rise in one
+## pay for the ask about the other, so both are measured off the live tree and the bar is
+## stated against the census taken before the change.
+const OCEAN_BEFORE: int = 562        ## school bodies, s35: 281 per pod x 2 pods
+const REEF_BEFORE: int = 252         ## reef_fish.gd SPECIES, sum of st x n
+## 5% under (562 + 252) * 1.5 = 1221. The slack is for a species whose .glb is still
+## generating, not for a shortfall in stocking — the census is a node count and is exact.
+const WORLD_MIN: int = 1160
+## The 25% cut, as a ceiling on the reef community. 252 * 0.75 = 189.
+const REEF_MAX: int = 195
+
+## A school species' mesh budget, triangles. NOT asserted — reported, loudly, because it is
+## the number that decides whether a population rise is affordable and nothing in this repo
+## has ever printed it. The s20-era catchable species all import at 25,026-31,247 triangles;
+## the eleven s31 species import at 109,714-198,902, i.e. four to six times as much, because
+## the s31 note that they "need decimating" was withdrawn on FILE SIZE (4-6 MB, same as the
+## rest) and nobody counted the triangles. s36 steered its whole stocking rise onto the cheap
+## meshes and held the expensive species' body count flat because of what this report says.
+const MESH_BUDGET_TRIS: int = 40000
 ## The pontoons: rig_builder.gd:698-699 casts two `_box(Vector3(0, -1.05, ±12),
 ## Vector3(56, 4, 8))` CSG boxes — x ±28, y -3.05..0.95, |z| 8..16. These are the AUTHORED
 ## numbers and they are only the fallback: `_find_pontoons` measures the real boxes off the
@@ -251,6 +307,7 @@ func _run() -> void:
 		await _snapshot_burst("STORM")
 		st.set("_intensity", 0.0)
 	Gyre.release_tide()
+	_report_stocking()
 	_report_spread()
 	_report_surface_density()
 	_report_goliath()
@@ -361,12 +418,15 @@ func _snapshot(phase: String, verbose: bool = true) -> void:
 		shown += 1
 		var water: String = String((s["def"] as Dictionary).get("water", "any"))
 		var band: String = String((s["def"] as Dictionary).get("depth", "mid"))
+		# The species' own body length, carried into the snapshot so the shallow shell can be
+		# split normal/small without a second walk of the table.
+		var size: float = float(s["size"])
 		for f in s["fish"]:
 			if is_instance_valid(f):
 				var p: Vector3 = (f as Node3D).global_position
 				var surf: float = Gyre.wave_height(Vector2(p.x, p.z), wave_t)
 				_snap.append({"id": s["id"], "water": water, "pos": p,
-					"centre": s["centre"], "phase": phase, "band": band,
+					"centre": s["centre"], "phase": phase, "band": band, "size": size,
 					"below": surf - p.y, "buried": _in_pontoon(p)})
 	if verbose:
 		print("  [%s] %d pods on shift, %d off" % [phase, shown, hidden])
@@ -416,6 +476,136 @@ func _find_pontoons() -> Array[AABB]:
 func _schools() -> Array:
 	var v: Variant = _uw.get("_schools")
 	return (v as Array) if v != null else []
+
+# ----------------------------------------------------- 0. the census and the bill (s36)
+
+## HOW MANY FISH ARE THERE, WHERE ARE THEY STOCKED, AND WHAT DO THEY COST TO DRAW?
+##
+## The owner's first two asks are pure census — "increase the fish budget by 50%", "decrease
+## small tropical fish by 25%" — and until s36 nothing counted either population. Three
+## things are taken here, all off the LIVE tree rather than off data/fish.json, so a species
+## that fails to spawn (a missing .glb, a band that lost a pod) shows up as a shortfall
+## instead of being restated from the table that was supposed to produce it:
+##
+##   THE POD LADDER — pods and bodies per depth band. This is what a band-keyed stocking
+##   change moves, and it is the one line that makes "the rise went to the surface" legible.
+##
+##   THE TWO POPULATIONS — pelagic school bodies and reef_fish.gd's tropical community, which
+##   are separate systems with separate owners and are the two halves of "overall".
+##
+##   THE TRIANGLE BILL. New, and it is the finding that shaped s36's allocation: the shipped
+##   fish meshes are NOT one budget. The s20-era species import at 25-31k triangles each and
+##   the eleven s31 species at 110-199k, because the s31 "they do not need decimating" note
+##   was settled on file size and never on geometry. Reported per species and summed, because
+##   the schools are now the largest triangle population in the game — larger than the reef —
+##   and no probe or profile in this repo has ever said so.
+func _report_stocking() -> void:
+	print("\n=== the census, and what it costs to draw (s36) ===")
+	var by_band: Dictionary = {}          # band -> [pods, bodies]
+	var by_species: Dictionary = {}       # id -> [bodies, size, band]
+	var bodies: int = 0
+	for s in _schools():
+		var band: String = String((s["def"] as Dictionary).get("depth", "mid"))
+		var row: Array = by_band.get(band, [0, 0])
+		var n: int = (s["fish"] as Array).size()
+		row[0] = int(row[0]) + 1
+		row[1] = int(row[1]) + n
+		by_band[band] = row
+		var id: String = String(s["id"])
+		var sp: Array = by_species.get(id, [0, float(s["size"]), band])
+		sp[0] = int(sp[0]) + n
+		by_species[id] = sp
+		bodies += n
+	for b in ["surface", "mid", "deep"]:
+		if by_band.has(b):
+			var r: Array = by_band[b]
+			print("  %-8s %2d pods, %4d bodies" % [b, int(r[0]), int(r[1])])
+	# The reef community, counted through reef_fish.gd's own census() — a public query over
+	# its live stations, so this is a measurement of that system and not a copy of its table.
+	var reef_n: int = _reef_population()
+	print("  pelagic schools %4d bodies (s35: %d)   tropical reef %4d (s35: %d)   WORLD %d"
+		% [bodies, OCEAN_BEFORE, reef_n, REEF_BEFORE, bodies + reef_n])
+
+	# ---- the triangle bill, per species, off the imported mesh
+	print("\n  --- triangles per species (imported mesh x bodies) ---")
+	var rows: Array = []
+	var total_tris: int = 0
+	var over: int = 0
+	for id_v in by_species:
+		var id2: String = String(id_v)
+		var sp2: Array = by_species[id2]
+		var t: int = _species_tris(id2)
+		total_tris += t * int(sp2[0])
+		if t > MESH_BUDGET_TRIS:
+			over += 1
+		rows.append([id2, t, int(sp2[0]), t * int(sp2[0]), String(sp2[2])])
+	rows.sort_custom(func(a, b): return int(a[3]) > int(b[3]))
+	for r_v in rows:
+		var r2: Array = r_v
+		print("  %-26s %-8s %7d tris x %4d bodies = %6.2f M%s"
+			% [String(r2[0]), String(r2[4]), int(r2[1]), int(r2[2]), float(r2[3]) / 1.0e6,
+				"   <- OVER BUDGET" if int(r2[1]) > MESH_BUDGET_TRIS else ""])
+	print("  TOTAL %.2f M triangles of school geometry spawned (the leg reef is 12.55 M);"
+		% [float(total_tris) / 1.0e6]
+		+ " %d of %d species import above the %dk the rest of the table ships"
+		% [over, rows.size(), MESH_BUDGET_TRIS / 1000])
+
+	# ---- the assertions
+	_ok(bodies + reef_n >= WORLD_MIN,
+		"the world's fish population is up ~50%% — %d bodies (%d schools + %d reef), bar %d, "
+			% [bodies + reef_n, bodies, reef_n, WORLD_MIN]
+			+ "against %d before s36" % [OCEAN_BEFORE + REEF_BEFORE])
+	# THIS BAR IS RED UNTIL THE REEF EDIT LANDS, AND THAT IS THE POINT. The 25% cut is a
+	# change to reef_fish.gd's SPECIES table, which s36's fish agent did not own; a probe that
+	# went green over an owner ask nobody had implemented is the failure mode this repo keeps
+	# writing down. If this fails, the fix is in reef_fish.gd, not here.
+	_ok(reef_n <= REEF_MAX,
+		"the small tropical population is CUT 25%% — %d reef fish, ceiling %d (was %d). "
+			% [reef_n, REEF_MAX, REEF_BEFORE]
+			+ "If this fails: the cut is reef_fish.gd's SPECIES `n` column, not this file.")
+
+## Every fish alive under reef_fish.gd, through its own public census(). Returns 0 (and says
+## so) if the node is not in the tree, rather than passing an unmeasured world.
+func _reef_population() -> int:
+	var rf: Node = _by_script(_main, "reef_fish.gd")
+	if rf == null:
+		print("  !! no reef_fish.gd in the tree — the tropical population was NOT measured")
+		return 0
+	var c: Variant = rf.call("census")
+	if not (c is Array):
+		return 0
+	var n: int = 0
+	for st_v in (c as Array):
+		n += ((st_v as Dictionary).get("fish", []) as Array).size()
+	return n
+
+## Triangles in one species' imported mesh. Read off the ArrayMesh's index buffer, which is
+## resource data and therefore honest under --headless (unlike MultiMesh instance transforms).
+## Cached: the same mesh resource is shared by every member of every pod of the species.
+var _tri_cache: Dictionary = {}
+
+func _species_tris(id: String) -> int:
+	if _tri_cache.has(id):
+		return int(_tri_cache[id])
+	var n: int = 0
+	for s in _schools():
+		if String(s["id"]) != id:
+			continue
+		var fish: Array = s["fish"]
+		if fish.is_empty():
+			break
+		for m_v in (fish[0] as Node3D).find_children("*", "MeshInstance3D", true, false):
+			var mi: MeshInstance3D = m_v
+			var am := mi.mesh as ArrayMesh
+			if am == null:
+				continue
+			for si in range(am.get_surface_count()):
+				var idx: int = am.surface_get_array_index_len(si)
+				# A surface with no index buffer is a plain vertex list.
+				n += (idx if idx > 0 else am.surface_get_array_len(si)) / 3
+		break
+	_tri_cache[id] = n
+	return n
 
 # ------------------------------------------------------------------ 1. spread
 
@@ -565,11 +755,12 @@ func _report_surface_density() -> void:
 		% [RIG_BOX.x * 2.0, RIG_BOX.y * 2.0, SHALLOW_M, shell, solid, water_vol])
 	print("  columns are BODIES AT ONE INSTANT. top/next are measured against MEAN WATER;"
 		+ " `sea` repeats the top figure against the LIVE swell.")
-	print("  %-6s %6s %6s %7s %6s %6s %7s   %s"
-		% ["phase", "top4", "4-8m", "ratio", "sea", "inbox", "buried",
+	print("  %-6s %6s %6s %7s %6s %6s %7s %6s %6s   %s"
+		% ["phase", "top4", "4-8m", "ratio", "sea", "inbox", "buried", "normal", "small",
 			"profile from mean water, bodies per 2 m"])
 	var ratios: Array[float] = []
 	var box_counts: Array[float] = []
+	var normal_shares: Array[float] = []
 	var buried_total: int = 0
 	var snaps: float = float(maxi(SNAPS_PER_PHASE, 1))
 	for ph_v in phases:
@@ -579,6 +770,10 @@ func _report_surface_density() -> void:
 		var live_top: int = 0
 		var inbox: int = 0
 		var buried: int = 0
+		# The MIX in the shallow shell — see NORMAL_M. Split inside the same walk that counts
+		# the shell, so the two can never disagree about which bodies are in it.
+		var normal: int = 0
+		var small: int = 0
 		var prof: PackedInt32Array = PackedInt32Array()
 		prof.resize(PROFILE_BINS)
 		for row_v2 in _snap:
@@ -595,6 +790,10 @@ func _report_surface_density() -> void:
 				top += 1
 				if absf(p.x) <= RIG_BOX.x and absf(p.z) <= RIG_BOX.y:
 					inbox += 1
+					if float(e.get("size", 0.0)) >= NORMAL_M:
+						normal += 1
+					else:
+						small += 1
 			elif d < SHALLOW_M * 2.0:
 				nxt += 1
 			if float(e["below"]) < SHALLOW_M:      # ...and against the sea as drawn
@@ -608,22 +807,31 @@ func _report_surface_density() -> void:
 		var bars: String = ""
 		for k in range(PROFILE_BINS):
 			bars += " %.0f" % (float(prof[k]) / snaps)
-		print("  %-6s %6.0f %6.0f %7.2f %6.0f %6.0f %7.0f  %s"
+		var share: float = float(normal) / maxf(float(normal + small), 1.0)
+		print("  %-6s %6.0f %6.0f %7.2f %6.0f %6.0f %7.0f %6.0f %6.0f  %s"
 			% [ph2, float(top) / snaps, float(nxt) / snaps, ratio, float(live_top) / snaps,
-				float(inbox) / snaps, float(buried) / snaps, bars])
+				float(inbox) / snaps, float(buried) / snaps, float(normal) / snaps,
+				float(small) / snaps, bars])
 		# The forced squall stocks only the two storm species (40 bodies), so it cannot be
 		# held to the same shape as a full shift and is reported but not asserted.
 		if ph2 != "STORM":
 			ratios.append(ratio)
 			box_counts.append(float(inbox) / snaps)
+			normal_shares.append(share)
 	var mean_box: float = 0.0
 	for c in box_counts:
 		mean_box += c
 	mean_box /= maxf(float(box_counts.size()), 1.0)
-	print("  MEAN over the four clock phases: %.0f bodies in the shell = %.1f per 1000 m3 of water"
-		% [mean_box, 1000.0 * mean_box / water_vol])
-	print("  (model, same statistic: 105 bodies / 7.7 per 1000 m3 before s35;"
-		+ " 148 / 10.9 after. Worst-phase ratio 0.79 -> 1.82.)")
+	var mean_share: float = 0.0
+	for c2 in normal_shares:
+		mean_share += c2
+	mean_share /= maxf(float(normal_shares.size()), 1.0)
+	print("  MEAN over the four clock phases: %.0f bodies in the shell = %.1f per 1000 m3 of water,"
+		% [mean_box, 1000.0 * mean_box / water_vol]
+		+ " %.0f%% of them >= %.2f m long" % [100.0 * mean_share, NORMAL_M])
+	print("  (model, same statistic: 105 bodies / 7.7 per 1000 m3 before s35; 148 / 10.9 after."
+		+ " s36 model: 140 / 10.3 before, 253 / 18.6 after; worst-phase ratio 1.63 -> 2.52;"
+		+ " normal share 33%% -> 61%%.)")
 	# ---- the assertions
 	_ok(buried_total == 0,
 		"no fish is swimming inside a pontoon casting (%d body-samples were)" % buried_total)
@@ -638,6 +846,13 @@ func _report_surface_density() -> void:
 	_ok(mean_box >= SHELL_MIN,
 		"the shallow shell is stocked — %.0f bodies in the top %.0f m over the rig (bar %.0f)"
 			% [mean_box, SHALLOW_M, SHELL_MIN])
+	# THE ASK THE OTHER TWO BARS CANNOT SEE (s36). "More NORMAL fish to visually fill space":
+	# a stocking rise that scaled every species would satisfy both bars above while leaving the
+	# shallow water two thirds small fish, which is the state the owner was looking at.
+	_ok(mean_share >= SHELL_NORMAL_MIN,
+		"the shallow shell is mostly NORMAL-sized fish now — %.0f%% of its bodies are >= %.2f m "
+			% [100.0 * mean_share, NORMAL_M]
+			+ "(bar %.0f%%, model 33%% before s36 and 61%% after)" % [100.0 * SHELL_NORMAL_MIN])
 
 # ------------------------------------------------------- 1c. the goliath grouper (s35)
 
