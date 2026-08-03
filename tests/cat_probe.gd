@@ -41,7 +41,52 @@ func _run() -> void:
 	var p: Vector3 = cat.global_position
 	_ok(p.x > -28.0 and p.x < -8.0 and p.z > 4.0 and p.z < 18.0,
 		"it is in the bunkhouse (%.1f, %.1f)" % [p.x, p.z])
-	_ok(absf(p.y - 18.0) < 1.2, "it is seated on the bunkhouse deck (y %.2f)" % p.y)
+
+	# THE SEAT GAP, MEASURED INDEPENDENTLY — and this assertion is the one that was missing.
+	# The old check was `absf(p.y - 18.0) < 1.2` against the literal deck height, which
+	# passes for a cat hanging 1.19 m in the air; the real bug was a DETERMINISTIC 0.500 m
+	# float (the spawn ray hit the cat's own interaction box, since it set collision_mask 1
+	# with no exclusions). A tolerance wider than the defect cannot see the defect.
+	#
+	# So: cast our own ray, exclude the cat's whole body, and compare. Independent of what
+	# _seat() computed — the s34 seal lesson is that a probe re-deriving the game's own
+	# number is a tautology that prints +0.0 mm for an animal on the moon.
+	var skip: Array[RID] = []
+	for c in cat.get_children():
+		if c is CollisionObject3D:
+			skip.append((c as CollisionObject3D).get_rid())
+	var from: Vector3 = p + Vector3(0, 1.2, 0)
+	var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 4.0, 0))
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = skip
+	var hit: Dictionary = cat.get_world_3d().direct_space_state.intersect_ray(q)
+	_ok(not hit.is_empty(), "there is a deck under the cat at all")
+	if not hit.is_empty():
+		var gap: float = p.y - (hit["position"] as Vector3).y
+		_ok(absf(gap) < 0.05,
+			"it stands ON the deck, not over it (gap %+.1f mm)" % (gap * 1000.0))
+
+	# YOU CAN WALK THROUGH IT. The handle must not be on the layer the player's capsule
+	# masks — but it must still be on SOME layer, or the crosshair loses it entirely.
+	var handle: Interactable = null
+	for c in cat.get_children():
+		if c is Interactable:
+			handle = c
+			break
+	_ok(handle != null, "it carries an interaction handle")
+	if handle != null:
+		_ok((handle.collision_layer & 1) == 0,
+			"the player walks through it — handle is off the solid layer (layer bits %d)"
+				% handle.collision_layer)
+		_ok(handle.collision_layer != 0,
+			"...but it is still on a layer the interaction ray masks (bits %d)"
+				% handle.collision_layer)
+
+	# IT HAS A SKELETON. The whole point of s35: without a rig this is the s34 cat with
+	# extra machinery, and that difference must be visible to a test.
+	var rigs: Dictionary = cat.get("_rigs")
+	_ok(rigs.size() >= 4, "the pose meshes carry skeletons to drive (%d rigged)" % rigs.size())
 
 	# 2. IT IS NOT YOUR FRIEND YET, and it offers to be.
 	_ok(not bool(cat.get("friend")), "it starts as a stranger")
@@ -78,9 +123,43 @@ func _run() -> void:
 	for i in range(200):
 		await get_tree().physics_frame
 	var moved: float = cat.global_position.distance_to(start)
-	var gap: float = cat.global_position.distance_to(player.global_position)
+	var gap2: float = cat.global_position.distance_to(player.global_position)
 	_ok(moved > 1.0, "it followed (moved %.1f m)" % moved)
-	_ok(gap < 8.0, "and it closed on the player (%.1f m away)" % gap)
+	_ok(gap2 < 8.0, "and it closed on the player (%.1f m away)" % gap2)
+
+	# IT WALKS HEAD-FIRST. The owner's "the cat walks backwards", as a number.
+	#
+	# Measured the way this repo measures a facing: accumulate the per-frame ALIGNMENT of
+	# the head against that frame's velocity and average it. NOT the net displacement over
+	# the window — AGENT_TRAPS records that summing displacement over a wandering path
+	# reports the direction the lap happened to stop in, which read six species as
+	# backwards when none of them were.
+	#
+	# The head is the node's -Z: CreatureAnim normalises every generated mesh onto Godot's
+	# forward, so -Z is the head for every pose the cat can be wearing.
+	player.global_position = Vector3(-24.0, 18.1, 12.0)
+	var prev: Vector3 = cat.global_position
+	var align_sum: float = 0.0
+	var align_n: int = 0
+	for i in range(180):
+		await get_tree().physics_frame
+		var now: Vector3 = cat.global_position
+		var vel: Vector3 = now - prev
+		vel.y = 0.0
+		prev = now
+		if vel.length() < 0.0005:
+			continue
+		var head: Vector3 = -cat.global_transform.basis.z
+		head.y = 0.0
+		if head.length() < 0.0001:
+			continue
+		align_sum += head.normalized().dot(vel.normalized())
+		align_n += 1
+	var align: float = align_sum / maxf(float(align_n), 1.0)
+	_ok(align_n > 20, "the cat actually moved enough to judge its facing (%d frames)" % align_n)
+	_ok(align > 0.6,
+		"it walks HEAD-first, not tail-first (head-vs-travel alignment %+.3f over %d frames)"
+			% [align, align_n])
 	# It must not have walked off the deck chasing him.
 	_ok(absf(cat.global_position.y - 18.0) < 1.2,
 		"it stayed on the deck while following (y %.2f)" % cat.global_position.y)

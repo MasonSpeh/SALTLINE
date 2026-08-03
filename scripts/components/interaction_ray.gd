@@ -42,10 +42,26 @@ var _popup_cd: float = 0.0    ## seconds until the next name popup may fire (0 =
 var _shown: String = ""
 var _clear_t: float = 0.0     ## seconds aimed at nothing with one of our prompts still up
 
+## Layer 3 is the INTERACTABLE-BUT-NOT-SOLID layer, added s35.
+##
+## Everything in this game lived on layer 1 — the layer the player's own capsule masks —
+## so "the interaction ray can see it" and "the player's body is stopped by it" were the
+## same statement. That is fine for a crate and wrong for an animal: the ship's cat is an
+## Interactable, i.e. a StaticBody3D, so a 0.6 x 0.5 x 0.7 solid box stood in the bunkhouse
+## aisle and the player was physically blocked by the cat.
+##
+## bloom_fauna's existing lever (`collision_layer = 1 if solid else 0`) cannot express this
+## either: layer 0 unblocks the animal AND makes it unreachable by this ray, so it is
+## non-solid at the price of being non-interactive. Layer 3 gives the third option, and the
+## ray masks 1 | 3 so nothing that already worked changes.
+const SOLID_LAYER: int = 1
+const INTERACT_LAYER: int = 1 << 2
+
 func _ready() -> void:
 	target_position = Vector3(0, 0, -REACH)
 	collide_with_areas = false
 	collide_with_bodies = true
+	collision_mask = SOLID_LAYER | INTERACT_LAYER
 
 func _player() -> Node3D:
 	return get_tree().get_first_node_in_group("player")

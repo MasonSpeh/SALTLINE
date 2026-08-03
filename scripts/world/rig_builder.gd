@@ -3887,7 +3887,34 @@ const TIDE_STAFF := Vector3(6.4, 0.0, -16.35)
 const TIDE_BOARD_STEP: float = 0.25
 const TIDE_BOARD_LO: float = -2.0     ## well under the lowest water the tide can reach
 const TIDE_BOARD_HI: float = 2.5      ## and above the highest crest that washes the plating
+const TIDE_POST_W: float = 0.16       ## the staff's square section — every mark derives from it
 
+## THE STAFF CARRIES NO TEXT.
+##
+## Owner: "the tide meter has floating text, REMOVE ALL FLOATING TEXT". They were right,
+## and the measurement is unambiguous: the six numerals were authored at
+## `TIDE_STAFF.x + 0.30/+0.42` on a post whose section is 0.16, so their glyph boxes ran
+## x 6.59..6.81 against a post spanning 6.32..6.48 — 110 mm of clear air at the nearest
+## point, over open sea, with nothing behind them. `_plabel` yaws them to face +Z and its
+## backing direction is therefore -Z, i.e. away from the post and out to sea; the "TIDE"
+## header sat 300 mm ABOVE the topmost band as well. Six labels, none of them touching
+## anything. That is the definition this rig uses (tests/label_anchor_probe.gd) and they
+## fail it in both axes.
+##
+## The house fix for a floating label is to mount it on a real object (see the SPHL
+## pressure board). Here that is the wrong answer, because a tide staff does not need
+## letters at all — the graduation IS the instrument, and a real harbour staff is read by
+## counting bands, not by reading numbers at 15 m through spray. So the numerals are
+## REPLACED with the physical marks a gauge carries:
+##   - a galvanised cleat standing proud of the post at every whole metre, so the metres
+##     can be counted by eye from the pontoon edge;
+##   - a DOUBLE-WIDTH RED collar at the datum, which is what makes the zero say what it
+##     means without spelling it (mean sea level is where the red band is);
+##   - a spherical topmark on a spindle above the last band, so the thing reads as a
+##     purpose-built marker rather than a striped post — and so the head of the staff is
+##     an object rather than a word.
+## Everything below derives from TIDE_POST_W / TIDE_BOARD_* ; nothing here is a typed
+## world coordinate.
 func _tide_board() -> void:
 	var pale: Material = MatLib.flat(Color(0.88, 0.87, 0.80))   # weathered white
 	var dark: Material = MatLib.flat(Color(0.10, 0.12, 0.14))   # tar black
@@ -3897,18 +3924,30 @@ func _tide_board() -> void:
 		# Non-colliding: a collider here would put an invisible post in the swim band right
 		# where a diver surfaces beside the walkway.
 		_box(Vector3(TIDE_STAFF.x, y0 + TIDE_BOARD_STEP * 0.5, TIDE_STAFF.z),
-			Vector3(0.16, TIDE_BOARD_STEP, 0.16),
+			Vector3(TIDE_POST_W, TIDE_BOARD_STEP, TIDE_POST_W),
 			dark if i % 2 == 0 else pale, self, false)
-	# Numerals facing the ladder (east), and the datum named so the zero says what it MEANS.
+	# Metre cleats. Square, so they read from any approach exactly as the bands do. The
+	# datum's is twice the reach and twice the thickness of a plain metre mark, which is
+	# the only distinction the scale needs to be unambiguous.
+	var galv: Material = MatLib.galvanized()
+	var datum: Material = MatLib.red_paint()
 	for m in range(int(TIDE_BOARD_LO), int(TIDE_BOARD_HI) + 1):
-		if m == 0:
-			continue
-		_plabel("%+d" % m, Vector3(TIDE_STAFF.x + 0.30, float(m), TIDE_STAFF.z - 0.10),
-			0, 24, Color(0.92, 0.88, 0.7))
-	_plabel("0  MSL", Vector3(TIDE_STAFF.x + 0.42, 0.0, TIDE_STAFF.z - 0.10),
-		0, 24, Color(0.95, 0.82, 0.35))
-	_plabel("TIDE", Vector3(TIDE_STAFF.x, TIDE_BOARD_HI + 0.30, TIDE_STAFF.z - 0.10),
-		0, 28, Color(0.9, 0.85, 0.6))
+		var is_datum: bool = m == 0
+		var reach: float = TIDE_POST_W * (0.75 if is_datum else 0.40)
+		var thick: float = TIDE_BOARD_STEP * (0.20 if is_datum else 0.10)
+		_box(Vector3(TIDE_STAFF.x, float(m), TIDE_STAFF.z),
+			Vector3(TIDE_POST_W + reach * 2.0, thick, TIDE_POST_W + reach * 2.0),
+			datum if is_datum else galv, self, false)
+	# Topmark: cap plate flush on the last band, a short spindle, and a sphere. Sized off
+	# the post so it stays in proportion if the section ever changes.
+	var cap_t: float = TIDE_POST_W * 0.25
+	_box(Vector3(TIDE_STAFF.x, TIDE_BOARD_HI + cap_t * 0.5, TIDE_STAFF.z),
+		Vector3(TIDE_POST_W * 1.5, cap_t, TIDE_POST_W * 1.5), galv, self, false)
+	var spindle: float = TIDE_POST_W * 2.0
+	_cyl_nc(Vector3(TIDE_STAFF.x, TIDE_BOARD_HI + cap_t + spindle * 0.5, TIDE_STAFF.z),
+		TIDE_POST_W * 0.2, spindle, galv)
+	KIT_BALL(Vector3(TIDE_STAFF.x, TIDE_BOARD_HI + cap_t + spindle + TIDE_POST_W * 1.1,
+		TIDE_STAFF.z), TIDE_POST_W * 1.1, MatLib.sphl_orange(), Vector3.ONE)
 
 ## Deck A + wet deck density: stools, pots, footlockers, hose reels — the
 ## second half of "double the interior detail".

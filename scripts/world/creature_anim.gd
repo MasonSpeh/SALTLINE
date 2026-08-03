@@ -166,6 +166,15 @@ const FACING_OVERRIDES: Dictionary = {
 	"fish_bluelined_grouper": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"cat_sit": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
 	"cat_groom": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
+	# The s35 RIGGED re-exports of the same five meshes. Tripo re-exports a model when it
+	# rigs it, so their orientation could not be assumed to survive — it was re-measured,
+	# and every one reproduces its static original's numbers to three decimals
+	# (cat_walk/run/sleep +Z, i.e. the default; sit's long axis is X and groom's is its
+	# HEIGHT, which is the body-plan blind spot the facing instrument is documented to fail
+	# on). So these inherit their originals' entries rather than a fresh guess, and the two
+	# uncertain ones are confirmed by eye in the s35 close-out frames.
+	"cat_sit_idle": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
+	"cat_groom_idle": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
 	"pyramid_snail": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"herring_gull": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"ultra_hammerhead": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
@@ -283,6 +292,46 @@ static func load_model(path: String, target_m: float) -> Node3D:
 	if longest > 0.001:
 		model.scale = Vector3.ONE * (target_m / longest)
 	return model
+
+## THE RIGGED PATH — load + scale + parent a SKINNED mesh, keeping its imported materials.
+##
+## Everything else in this file exists because generated meshes had no skeleton: the swim,
+## the flap and the pulse live in a vertex shader precisely because there were no bones to
+## turn. s35 broke that assumption for the ship's cat (Tripo will rig a quadruped even
+## though Meshy will not), so a species with a real skin needs a different entry point.
+##
+## Two deliberate differences from attach():
+##   * NO MOTION SHADER. creature_swim.gdshader is written for STATIC meshes and its whole
+##     job — displacing vertices to fake motion — is redundant on an animal whose bones
+##     move. Keeping the imported StandardMaterial3D also side-steps the s23 metallic trap
+##     outright: that bug was a custom shader reading only the PBR SCALARS while Tripo puts
+##     the real values in a texture, and Godot's own material samples the map correctly.
+##   * THE ANIMATION PLAYER IS STOPPED AND DEACTIVATED. Tripo bakes a retargeted clip into
+##     the GLB, and for the cat that clip is a HUMAN walk cycle fitted to a quadruped — it
+##     photographs as a wrung-out animal (tests/out/cat_anim). Left running it would also
+##     win every frame, because AnimationPlayer writes the skeleton AFTER a caller's
+##     set_bone_pose_rotation. The skin is the asset here; the clip is discarded.
+##
+## Returns {model, skeleton, anim} — skeleton is null if the GLB carried no skin, which is
+## the caller's signal to fall back to the static path.
+static func attach_rigged(host: Node3D, path: String, target_m: float) -> Dictionary:
+	var model := load_model(path, target_m)
+	if model == null:
+		return {}
+	host.add_child(model)
+	var ap: AnimationPlayer = null
+	for n in model.find_children("*", "AnimationPlayer", true, false):
+		ap = n
+		ap.stop()
+		ap.active = false
+		break
+	var skel: Skeleton3D = null
+	for n in model.find_children("*", "Skeleton3D", true, false):
+		skel = n
+		break
+	var fac := facing_for(path)
+	model.rotation = Vector3(deg_to_rad(fac["pitch"]), deg_to_rad(fac["yaw"]), 0.0)
+	return {"model": model, "skeleton": skel, "anim": ap}
 
 ## Load + scale + parent + shade a generated species mesh in one call. Returns {} when
 ## the asset isn't there, which is the signal for a species to build its procedural body

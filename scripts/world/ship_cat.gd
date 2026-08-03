@@ -21,6 +21,7 @@ extends Node3D
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 const KIT := preload("res://scripts/world/creature_kit.gd")
 const AIB := preload("res://scripts/world/ai_budget.gd")
+const RIG := preload("res://scripts/world/cat_rig.gd")
 const MODEL_PATH := "res://assets/models/fauna/ship_cat/ship_cat.glb"
 
 ## ONE MESH PER POSE, BUILT ONCE AND TOGGLED — not swapped through ANIM.replace().
@@ -42,8 +43,21 @@ const MODEL_PATH := "res://assets/models/fauna/ship_cat/ship_cat.glb"
 ## which is what the walk cycle's gait bob is tuned against.
 enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET }
 
+## s35: THE RIGGED MESHES, where they exist. Same five poses, same look — Tripo rigged the
+## ALREADY-SHIPPING meshes off the task ids s34 logged, and the bind pose photographs
+## identically to the static original (tests/out/cat_bind). What is new is 41 bones, which
+## is the difference between a cat that changes pose and a cat that MOVES.
+## The static paths remain the fallback: a missing rigged asset degrades to the s34 look
+## rather than to a crash, which is the same contract every generated species here has.
 const POSES := {
 	"stand": MODEL_PATH,
+	"sit": "res://assets/models/fauna/_rigged/cat_sit_idle.glb",
+	"groom": "res://assets/models/fauna/_rigged/cat_groom_idle.glb",
+	"walk": "res://assets/models/fauna/_rigged/cat_walk_walk.glb",
+	"run": "res://assets/models/fauna/_rigged/cat_run_run.glb",
+	"sleep": "res://assets/models/fauna/_rigged/cat_sleep_idle.glb",
+}
+const POSES_STATIC := {
 	"sit": "res://assets/models/fauna/cat_sit/cat_sit.glb",
 	"groom": "res://assets/models/fauna/cat_groom/cat_groom.glb",
 	"walk": "res://assets/models/fauna/cat_walk/cat_walk.glb",
@@ -85,7 +99,15 @@ const PET_SEC: float = 1.1
 ## it is a moment with an animal, not a food source.
 const FED_COMFORT: float = 0.12
 const FED_REST: float = 0.06
-const STEP_UP: float = 0.45          ## coamings yes, stairs no
+const STEP_UP: float = 0.45          ## the probe's own reach above the next footfall
+## HOW HIGH A STEP IT WILL TAKE. Was STEP_UP, i.e. "coamings yes, stairs no" — the cat
+## could not follow the player off the deck they met on, which reads as a pet that gives up
+## rather than as a cat. A rig stair tread is well inside this, so it climbs one tread at a
+## time; a bunk frame or a wall is still refused.
+const CLIMB_UP: float = 0.62
+## Metres of ground covered per stride cycle. The gait's cycle rate is speed / this, which
+## is what keeps the paws from skating at one speed and mincing at another.
+const STRIDE_M: float = 0.62
 
 ## Seconds of stillness from the player before the cat decides this is a rest, not a pause.
 const SETTLE_SEC: float = 6.0
@@ -117,6 +139,26 @@ var _ai_acc: float = 0.0
 var _rng := RandomNumberGenerator.new()
 var _meow_cd: float = 0.0
 var _seated_y: float = 0.0
+## pose key -> CatRig, for the poses whose GLB carried a skin. Empty for any that fell back
+## to the static mesh, and every call site tolerates a missing entry.
+var _rigs: Dictionary = {}
+## The gait's own phase, in cycles, INTEGRATED rather than derived from `_t * speed`.
+## docs/AGENT_TRAPS.md is explicit about why: a tuning value multiplied by an accumulating
+## clock inside a sine cannot be animated at all — changing speed at second T teleports the
+## wave phase, which is what made a shoal detonate at the first touch of alarm. Integrating
+## the paced time makes a speed change continuous by construction.
+var _gait: float = 0.0
+## What the cat is currently paying attention to, in world space, and how strongly. This is
+## the "every state should have a focus" the owner asked for: the head tracks it even when
+## the body does not turn.
+var _focus: Vector3 = Vector3.ZERO
+var _focus_w: float = 0.0
+## Signed slope of the ground under the last step, radians. Drives the body pitch so the cat
+## leans into a climb and noses down a descent instead of staying level through both.
+var _slope: float = 0.0
+## The speed the last step was actually taken at, so the gait picks its footfall pattern
+## from what the body did rather than from what a state hoped it would do.
+var _last_speed: float = 0.0
 
 func _ready() -> void:
 	_rng.seed = 5150
@@ -131,15 +173,31 @@ func _ready() -> void:
 	for key in POSES:
 		var host := Node3D.new()
 		_body.add_child(host)
-		var pg: Dictionary = ANIM.attach(host, POSES[key], _pose_size(key), ANIM.Mode.BREATHE,
-			0.05, 1.1, Color(0.9, 0.78, 0.42), 0.0)
-		if pg.is_empty():
-			host.queue_free()
-			continue
+		# THE RIGGED PATH FIRST. attach_rigged keeps the imported PBR materials and stops
+		# Tripo's baked clip (a human walk cycle fitted to a quadruped — unusable, see
+		# cat_rig.gd), handing back the skeleton for this script to pose itself.
+		var pg: Dictionary = ANIM.attach_rigged(host, POSES[key], _pose_size(key))
+		var skel: Skeleton3D = pg.get("skeleton") as Skeleton3D if not pg.is_empty() else null
+		if skel != null:
+			var rig = RIG.new(skel)
+			if rig.valid():
+				_rigs[key] = rig
+			_pose_mats[key] = []
+		else:
+			# No skin on disk: fall back to the s34 static mesh under the motion shader, so
+			# a missing rigged asset costs the articulation and nothing else.
+			if not pg.is_empty():
+				(pg["model"] as Node3D).queue_free()
+			var fallback: String = String(POSES_STATIC.get(key, POSES[key]))
+			pg = ANIM.attach(host, fallback, _pose_size(key), ANIM.Mode.BREATHE,
+				0.05, 1.1, Color(0.9, 0.78, 0.42), 0.0)
+			if pg.is_empty():
+				host.queue_free()
+				continue
+			_pose_mats[key] = pg["mats"]
 		ANIM.ground(host, pg["model"])
 		host.visible = false
 		_pose_nodes[key] = host
-		_pose_mats[key] = pg["mats"]
 	var gen: Dictionary = {"mats": _pose_mats.get("stand", [])} if not _pose_nodes.is_empty() else {}
 	if not _pose_nodes.is_empty():
 		_wear("groom")
@@ -167,6 +225,22 @@ func _ready() -> void:
 	col.shape = box
 	col.position.y = 0.25
 	_touch.add_child(col)
+	# YOU CAN WALK THROUGH THE CAT. An Interactable is a StaticBody3D and nothing here ever
+	# set its layer, so it sat on the default layer 1 — the layer the player's own capsule
+	# masks — and a 0.6 x 0.5 x 0.7 solid box stood in the middle of the bunkhouse aisle.
+	# Being physically stopped by a cat reads as a bug in a way that being stopped by a
+	# crate does not, and the owner asked for it explicitly.
+	#
+	# It moves to layer 3 rather than to NO layer, because the layer is how the game finds
+	# it: InteractionRay casts against a mask, and bloom_fauna's existing lever
+	# (`collision_layer = 1 if solid else 0`) would make the animal unpettable as well as
+	# unblocking. Layer 3 was unused by anything in this project, and InteractionRay now
+	# masks 1 | 3 — so the cat is reachable by the crosshair and invisible to the capsule.
+	#
+	# The seat ray is a separate matter and stays excluded by RID (see _reseat): the cat
+	# must not stand on itself even on a layer the player ignores.
+	_touch.collision_layer = InteractionRay.INTERACT_LAYER
+	_touch.collision_mask = 0
 	_touch.interacted.connect(_on_touched)
 	# PROBED, NOT TYPED. HOME's Y is the bunkhouse deck as authored, and every floating-prop
 	# bug in this repo came from trusting exactly that kind of constant. Deferred because CSG
@@ -174,9 +248,28 @@ func _ready() -> void:
 	global_position = HOME
 	call_deferred("_seat")
 
+## THE SEAT RAY MUST EXCLUDE THE CAT'S OWN HANDLE, and for two sessions it did not.
+##
+## `_touch` is an Interactable, i.e. a StaticBody3D on the default layer, carrying a
+## 0.6 x 0.5 x 0.7 box centred 0.25 m above the feet. This ray drops from +1.2 with
+## `collision_mask = 1` and no exclusions, so the FIRST thing it hit was the top face of
+## that box at +0.50 — and the cat was then "seated" exactly 0.500 m in the air, every
+## time, deterministically. That is the owner's "cat is found floating".
+##
+## The reason it looked intermittent — "floating UNTIL the player says hello" — is that the
+## other two rays in this file already exclude the handle (`_walk_toward` and
+## `_sleep_spot`), so the moment the cat took its first step it re-seated itself correctly
+## and the bug vanished. Befriending it was never the cure; walking was.
 func _seat() -> void:
 	await get_tree().physics_frame
 	await get_tree().physics_frame
+	_reseat()
+
+## Put the cat on whatever is under it, right now. Called at spawn and then every frame it
+## is NOT walking — because `_walk_toward` is the only thing that used to re-ground it, so
+## a cat that stands still on a deck another session moves would hang in the air until it
+## happened to take a step.
+func _reseat() -> void:
 	var world: World3D = get_world_3d()
 	if world == null:
 		return
@@ -184,6 +277,7 @@ func _seat() -> void:
 	var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 4.0, 0))
 	q.collision_mask = 1
 	q.collide_with_areas = false
+	q.exclude = [_touch.get_rid()]
 	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
 	if not hit.is_empty():
 		global_position.y = (hit["position"] as Vector3).y
@@ -251,27 +345,50 @@ func _process(delta: float) -> void:
 		_meow_cd -= delta
 	if _pet_t > 0.0:
 		_pet_t -= delta
+	# EVERY FRAME STARTS FROM A CLEAN BODY, and this is the whole of "it does not walk
+	# straight". `_groom` wrote `_body.rotation.x` and `_pose_sit` wrote `_body.rotation.y`,
+	# and NOTHING ever cleared either — only roll was eased home. So the cat picked up a few
+	# degrees of permanent pitch the moment you met it, and a yaw skew off its direction of
+	# travel every time it sat down, and carried both for the rest of the session. Each
+	# state now writes the offsets it wants onto a body that is already neutral.
+	_body.rotation.x = lerpf(_body.rotation.x, 0.0, clampf(delta * 6.0, 0.0, 1.0))
+	_body.rotation.y = lerpf(_body.rotation.y, 0.0, clampf(delta * 6.0, 0.0, 1.0))
 	if _fed_wiggle > 0.0:
 		_fed_wiggle -= delta * 0.7
 		_body.rotation.y = sin(_t * 17.0) * 0.13 * clampf(_fed_wiggle, 0.0, 1.0)
+	# The lean into a slope, eased so a step onto a stair tread is not a snap.
+	_body.rotation.x += -_slope * 0.55
+	_focus_w = maxf(0.0, _focus_w - delta * 1.5)
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	if player == null:
 		return
 	if not friend:
 		_groom(delta, player)
+		_drive_rig(delta)
 		return
 	_companion(delta, player)
+	_drive_rig(delta)
 
 ## Before you find it: sitting where it lives, washing a paw, looking up when you get close.
 func _groom(delta: float, player: Node3D) -> void:
 	_enter(State.GROOM)
+	# It has not moved, so it must still be on the deck — the seat ray is the only thing
+	# that grounds a cat that never walks, and before s35 it ran exactly once, at spawn,
+	# against its own collider.
+	_reseat()
+	_last_speed = 0.0
 	var d: float = global_position.distance_to(player.global_position)
 	if d < GREET_M * 2.5:
 		_face(player.global_position, delta)   # it has noticed you
-	# The wash: a slow lean and a nod, driven off the shared breathe animation plus a little
-	# extra motion so it does not read as a statue from across the room.
+		_watch(player.global_position + Vector3(0, 1.2, 0), 1.0)
+	elif d < FISH_M * 2.0:
+		# Further off it does not turn, but it does LOOK — a cat clocks you from across a
+		# room without getting up, and this is the cheapest thing that says it is alive.
+		_watch(player.global_position + Vector3(0, 1.2, 0), 0.55)
+	# The wash: a slow lean and a nod on top of the skeletal groom, so the body moves with
+	# the head rather than the head alone.
 	_body.rotation.z = sin(_t * 1.7) * 0.10
-	_body.rotation.x = sin(_t * 2.3) * 0.07
+	_body.rotation.x += sin(_t * 2.3) * 0.07
 
 ## After: it comes with you, at its own pace, and settles when you do.
 func _companion(delta: float, player: Node3D) -> void:
@@ -371,8 +488,14 @@ func _pose_sit(delta: float) -> void:
 	_body.rotation.z = lerpf(_body.rotation.z, 0.0, delta * 3.0)
 	_body.position.y = lerpf(_body.position.y, 0.0, delta * 3.0)
 	ANIM.drive(_gen_mats, 1.1, 0.0)
-	# The tail-tip flick of a cat that is awake and paying attention.
-	_body.rotation.y = sin(_t * 0.9) * 0.06
+	_last_speed = 0.0
+	# A sitting cat is on the deck it sat down on — and the seat ray is the only thing that
+	# keeps it there if another session moves that deck.
+	_reseat()
+	# The small weight-shift of a cat that is awake and paying attention. This is ADDED to
+	# a body that _process has already eased back to neutral; it used to be ASSIGNED, and
+	# because nothing ever cleared it the skew rode along into the next walk.
+	_body.rotation.y += sin(_t * 0.9) * 0.06
 
 ## Walk the deck toward a point, stopping `stop_at` short. Kinematic and deliberately simple:
 ## it steps up a coaming, refuses anything taller, and re-seats on whatever it is standing on
@@ -401,21 +524,49 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	if hit.is_empty():
 		return
 	var ground: float = (hit["position"] as Vector3).y
-	if ground - global_position.y > STEP_UP:
-		return          # a stair or a bunk frame: not its problem
+	var rise: float = ground - global_position.y
+	# STAIRS. The old rule was "coamings yes, stairs no" (STEP_UP 0.45) and the cat simply
+	# refused anything taller — which is why it could not follow you off the deck it met you
+	# on. A rig stair tread rises STAIR_RISE per step, well inside CLIMB_UP, so the animal
+	# takes them one tread at a time like everything else does; what it still refuses is a
+	# wall or a bunk frame.
+	if rise > CLIMB_UP:
+		return
+	# The slope it is standing on, for the body pitch. Taken from the rise over the step
+	# actually taken rather than from a second probe, so it cannot disagree with the move.
+	var run: float = maxf(step.length(), 0.0001)
+	_slope = lerpf(_slope, clampf(atan2(rise, run), -0.7, 0.7), clampf(delta * 5.0, 0.0, 1.0))
 	global_position = Vector3(want.x, ground, want.z)
-	# Gait: a small vertical lilt and a body roll, scaled to speed. Nothing skeletal — the
-	# generated mesh has no rig (Tripo/Meshy auto-rig is humanoid-only), so motion is pose.
-	var gait: float = _t * speed * 3.4
-	_body.position.y = absf(sin(gait)) * 0.035
-	_body.rotation.z = sin(gait * 0.5) * 0.05
+	_last_speed = speed
+	# THE GAIT PHASE IS INTEGRATED, never `_t * speed`. Writing a new rate at second T
+	# teleports the phase of everything downstream of it — the trap this repo paid for
+	# twice (see AGENT_TRAPS, "rate being a time multiplier"). Stride length scales with
+	# speed so the cycle rate is speed / stride, i.e. faster legs AND longer strides.
+	_gait = fposmod(_gait + delta * speed / STRIDE_M, 1.0)
+	# A small vertical lilt on top of the skeletal gait — the whole-body rise and fall that
+	# the legs alone do not carry, since the rig has no root motion.
+	_body.position.y = absf(sin(_gait * TAU)) * 0.030
+	_body.rotation.z = sin(_gait * TAU * 0.5) * 0.045
 
+## `+ PI` IS THE WHOLE OF "THE CAT WALKS BACKWARDS", and it was the only call site in the
+## repo missing it.
+##
+## `atan2(d.x, d.z)` is the yaw that puts a node's LOCAL +Z on the target. Godot's forward
+## is -Z, and CreatureAnim normalises every generated mesh so its head sits on the host's
+## -Z (the blanket 180 yaw). So without the half turn the cat aimed its TAIL at wherever it
+## was going. Every sibling — fauna_move.gd:511, bloom_fauna.gd:2927/2969/4423/4455 — adds
+## it, one of them with the comment "this turns the head toward the player instead of
+## pointing its tail at them".
+##
+## Confirmed three ways rather than reasoned once: the algebra above; tools/measure_facing.py
+## reading +Z off cat_walk/cat_run/cat_sleep with both statistics agreeing, so no mesh error
+## cancels it; and the rendered side view in tests/out/cat_bind.
 func _face(target: Vector3, delta: float) -> void:
 	var to: Vector3 = target - global_position
 	to.y = 0.0
 	if to.length_squared() < 0.0004:
 		return
-	var want: float = atan2(to.x, to.z)
+	var want: float = atan2(to.x, to.z) + PI
 	rotation.y = lerp_angle(rotation.y, want, clampf(TURN_RATE * delta, 0.0, 1.0))
 
 ## Is there a fish in the player's hand right now? Reads the hotbar the same way the spear
@@ -426,6 +577,57 @@ func _player_holding_fish(_player: Node3D) -> bool:
 		return false
 	var id: String = String(PlayerState.hotbar[slot])
 	return id.begins_with("fish_") or id.begins_with("cooked_fish_") or id == "dried_fish"
+
+# ------------------------------------------------------------------ the rig
+
+## POSE THE SKELETON FOR WHATEVER THE CAT IS DOING. One call at the end of the frame, after
+## the state machine has decided, so there is exactly one writer and a state cannot forget.
+##
+## Every state gets its own motion AND its own focus, which is the owner's "every state
+## should have a focus": the head tracks what the animal cares about even when the body is
+## pointing somewhere else, and that is most of the difference between an animal and a prop.
+func _drive_rig(delta: float) -> void:
+	var rig = _rigs.get(_pose)
+	if rig == null:
+		return
+	match _state:
+		State.RUN, State.FOLLOW, State.FISH:
+			# The gait mode is chosen by SPEED, not by state: a cat trots before it runs,
+			# and picking the footfall pattern off the actual pace means the two never
+			# disagree with how fast the body is moving.
+			var sp: float = _last_speed
+			var mode: String = "walk"
+			if sp > RUN_SPEED * 0.8:
+				mode = "bound"
+			elif sp > WALK_SPEED * 1.2:
+				mode = "trot"
+			# Stride amplitude grows with speed, and the CYCLE RATE is what carries the
+			# animal — a fixed rate at a higher speed is the skating look.
+			rig.walk(_gait, 0.30 + clampf(sp / RUN_SPEED, 0.0, 1.0) * 0.24, mode)
+		State.SIT, State.PET:
+			rig.idle(_t, 1.0)
+		State.GROOM:
+			rig.groom(_t)
+		State.SLEEP:
+			rig.sleep(_t)
+		_:
+			rig.idle(_t, 1.0)
+	# The head, last, so it wins over whatever the gait did to the neck.
+	if _focus_w > 0.01:
+		var to: Vector3 = _focus - global_position
+		if to.length_squared() > 0.0004:
+			# Into the BODY's frame: the neck yaw is relative to where the animal is facing,
+			# so a cat walking north looking east is +90, not a world bearing.
+			var want: float = atan2(to.x, to.z) + PI
+			var rel: float = wrapf(want - rotation.y, -PI, PI)
+			var pitch: float = atan2(to.y - 0.25, Vector2(to.x, to.z).length())
+			rig.look(rel * _focus_w, clampf(pitch, -0.5, 0.5) * _focus_w)
+
+## Point the cat's ATTENTION at something without turning it. Weight decays, so a glance
+## fades unless whatever caused it keeps calling.
+func _watch(at: Vector3, weight: float = 1.0) -> void:
+	_focus = at
+	_focus_w = maxf(_focus_w, clampf(weight, 0.0, 1.0))
 
 # ------------------------------------------------------------------ poses
 
