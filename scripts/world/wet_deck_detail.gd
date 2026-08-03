@@ -502,7 +502,22 @@ func _under_deck_girders() -> void:
 func _vents_and_hatches() -> void:
 	var y: float = WET_Y
 	# Gooseneck tank vents.
-	for vp in [Vector3(12.5, y, -15.0), Vector3(19.2, y, -2.6)]:
+	#
+	# THE FIRST ONE WAS STANDING IN THE STORE ROOM'S DOOR LANE. It was at (12.5, -15.0):
+	# measured off the live scan it occupies x 12.41..12.59, y 2.00..3.06 — one metre due
+	# north of a doorway whose CLEAR opening is x 12.39..13.61, so it stood in the western
+	# 0.20 m of the approach and left 12.59..13.61 = 1.02 m of lane, under the 1.09 m
+	# (0.74 m capsule + 0.35 m comfort) tests/declutter_probe.gd asks of a route. Being a
+	# `_dcyl` it has no collider either, so you walked through it. That doorway is now a
+	# deliberate duck-under (rig_builder._loot_door_duck) and a crouched body is exactly as
+	# wide as a standing one, so the lane had to come clear.
+	#
+	# Moved 1.2 m WEST into the alley between the two rooms, where it is still a tank vent
+	# on the same service run beside the pipe-rack stand at x 11.0, and where the scan
+	# reports a 0.35 m cylinder from y 2.00 to 3.15 hitting NOTHING. Nearest authored fauna
+	# home (the DeckGull at 24.0, -15.5) is 12.71 m away — the s33 plan that dropped a prop
+	# on a gull is the reason that gets checked rather than assumed.
+	for vp in [Vector3(11.3, y, -15.05), Vector3(19.2, y, -2.6)]:
 		_dcyl(vp + Vector3(0, 0.45, 0), 0.09, 0.9, MatLib.galvanized())
 		var bend := _dtorus(vp + Vector3(0, 0.92, 0.09), 0.06, 0.14, MatLib.galvanized())
 		bend.rotation.z = deg_to_rad(90)
@@ -565,9 +580,16 @@ func _stair_entry() -> void:
 	_dbox(Vector3(27.9, y + 1.5, -6.12), Vector3(0.62, 0.82, 0.05), MatLib.galvanized())
 	_readable("breaker_notice", "Station Notice - Main Power", Vector3(27.9, y + 1.5, -6.16), Vector3(0.5, 0.66, 0.04))
 	# THE FEED-CABLE SPOOL — moved here from the stair-tower machinery room so the player
-	# finds it down low, near spawn, and carries it UP to Breaker 4-A. Racked on the floor
-	# beside the dead pump (pump at x12 z-12; this sits clear of it and the z-14 door).
-	_takeable("cable_spool", "Cable Spool", Vector3(15.4, y + 0.05, -9.6))
+	# finds it down low, near spawn, and carries it UP to Breaker 4-A.
+	#
+	# It was at (15.4, -9.6), which cleared the pump and the door and still sat IN THE
+	# ARCHWAY LANE: the pump room's east arch is a 1.5 m opening on z -10.75..-9.25 with no
+	# leaf, the respawn point is at (15.0, -10.5), and the spool's 0.5 m footprint stood
+	# 0.98 m from it in the middle of that lane — a takeable on the floor of the one crossing
+	# the room has. Moved into the SE corner bay, which rig_builder._pump_room_plant keeps
+	# clear of both lanes; the scan reports the destination CLEAR, and it is still the first
+	# lit thing you see from the arch.
+	_takeable("cable_spool", "Cable Spool", Vector3(16.0, y + 0.05, -13.1))
 
 # ---------------------------------------------------------------- tide bands
 

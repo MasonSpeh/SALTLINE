@@ -348,7 +348,12 @@ func _wet_deck() -> void:
 	# rack's AABB). On the deck beside the rack it settles clean.
 	_p("plastic_container", Vector3(10.42, y + 0.02, -9.5), -37)
 	_p("vintage_flashlight", Vector3(13.3, y + 0.02, -7.6), 70)  # dropped by the cot
-	_pc("folding_wooden_stool", Vector3(15.9, y, -7.4), 30)      # pulled to the cot's foot
+	# The stool moved 0.5 m NORTH. At z -7.4 its rotated footprint (x 15.57..16.23,
+	# z -7.74..-7.06) overlapped rig_builder's Sealed Crate (x 15.95..17.05, z -8.40..-7.60)
+	# by 0.0157 m3 — that is KNOWN_ISSUES' open s18 intersection, measured off the live scan
+	# and found to be in this room. At z -6.9 it stands 0.36 m clear of the crate and 0.32 m
+	# clear of the cot's east end, still at the cot's foot.
+	_pc("folding_wooden_stool", Vector3(15.9, y, -6.9), 30)      # pulled to the cot's foot
 	_pw("lifebuoy", Vector3(17.82, y + 1.7, -12.2), -90, 1.1)    # east wall, seen from the arch
 	_pw("life_jacket", Vector3(12.6, y + 1.5, -6.24), 180)       # hung over the cot
 	# The room light used to be a bare OmniLight floating 1m off the wall above the
@@ -1568,7 +1573,12 @@ func _scatter_wetdeck() -> void:
 	_p("oil_tin", Vector3(26.65, w + 1.05, -17.6), 40)
 	# Pump-room dead-pump top (the orange toolbox sits at 11.6, -12.6, top ~w+2.04).
 	_p("russian_food_cans_01", Vector3(11.5, w + 2.25, -12.5), 15)
-	_p("plastic_thermos", Vector3(11.75, w + 2.25, -12.75), -20)
+	# The thermos was authored at z -12.75, which is the toolbox's SOUTH EDGE to the
+	# millimetre (box centre -12.6, 0.30 deep), so the settle found no surface under it, it
+	# dropped the full 1.8 m to the plating and ended up clipping the dead pump by 0.0031 m3
+	# (measured off the live scan). Onto the lid properly: the cans beside it at z -12.5 land
+	# at gap +0.01, which is what a correct placement on this surface looks like.
+	_p("plastic_thermos", Vector3(11.72, w + 2.25, -12.62), -20)
 	_p("plastic_container", Vector3(10.8, w + 0.05, -12.8), 0)
 	# Loot-room shelf boards (x 10.4, tops w+0.63 / w+1.33, z -20.3..-17.7) — the crates
 	# already standing on them sit at z -19.8 / -19.0 / -18.2, so use the gaps.

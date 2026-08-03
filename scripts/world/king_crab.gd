@@ -308,6 +308,7 @@ func _process(delta: float) -> void:
 			_seat(delta)
 			return
 	Journal.discover_if_near(self, "creature_lamplight_crab", 26.0)
+	_resolve_den_face()      # one measurement, retried until the CSG collision has baked
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	_check_light(delta, player)
 	match state:
@@ -327,8 +328,100 @@ func _process(delta: float) -> void:
 			_retreat(delta)
 	_seat(delta)
 
-## Resting on the leg foundation, not swimming (owner call, 2026-07-25b: `den` now sits
-## against the SE leg's submerged foot instead of out in open water — see bloom_fauna.gd
+## ---------- THE DEN FACE: measured once, then held as a plane ----------
+##
+## OWNER: "standing straight up, but should be sideways clinging to wall". True by
+## construction, and the arithmetic is short. BloomFauna authors the dens at
+## (+-27.0, -8.0, -9.5 / -12.5); the caisson faces are at |x| 25.00, unbroken from y 1.0 to
+## y -23.5 (CrabLifeProbe's own column sweep prints exactly that). So the animal lay up
+## 2.00 m out in open water. SEAT_REACH is 0.7, so FaunaMove.seat cast at most 1.19 m along
+## -up from the body, found nothing, and returned seated=false — whereupon _seat's own
+## fallback eases `up` toward world UP every frame. A boss "resting on the leg foundation"
+## was hovering bolt upright beside it, with nothing under its feet at all. (That is also
+## the sighting the deleted capsule limbs were hanging in — see the header.)
+##
+## The pack already solved this and AGENT_TRAPS records the rule: where a surface is
+## provably ONE PLANE, hold it analytically and delete the raycast. crab.gd's ROOST branch
+## is the reference; this is the same pin for a den.
+##
+## THE ONE MEASUREMENT IS FAUNA-PROOF THREE WAYS, because every creature on this rig carries
+## a solid 0.6-0.85 m FaunaTouch sphere on the default layer and the reef seeds thirteen
+## snails onto exactly these faces:
+##   * MOVE.kin_bodies(self) excludes every fauna collider under the BloomFauna host;
+##   * the hit normal must agree with the expected axis to FACE_DOT — an axis-aligned
+##     casting answers, a sphere almost never does (the s21 mussel-bed rule);
+##   * and it takes the DEEPEST of FACE_RAYS parallel casts. Anything the skip list missed —
+##     a snail, a mussel bed, a coral head, a barnacle crust — is bolted ONTO the concrete
+##     and therefore stands PROUD of it, so it can only ever be the shallower answer.
+## After that there is no cast at all: immune to whatever the next session bolts on, and it
+## cannot let go of the face.
+const FACE_DOT: float = 0.985       ## a caisson face is axis-aligned; a touch sphere is not
+const FACE_RAYS: int = 5            ## parallel casts across the face, spread FACE_SPREAD
+## Spread VERTICALLY, not along z. The face is unbroken over 24.5 m of column (y 1.0 to
+## y -23.5) and the dens lie at y -8, so a +-2 m vertical fan is guaranteed to stay on the
+## same casting. A horizontal fan is not: den 0 sits at z -9.5 against a leg whose footprint
+## ends at z -9, so rays spread in z would walk straight off the end of the concrete.
+const FACE_SPREAD: float = 2.0      ## metres above and below the den
+const FACE_REACH: float = 9.0       ## start this far outboard and cast in past the face
+const FACE_MAX_STANDOFF: float = 5.0  ## a plane further in than this is not this den's leg
+## Frames of retries. The CSG caissons bake their collision over the first frames of a boot
+## (the s28 store-room lesson: a ray fired too early sails straight through the deck), so a
+## single attempt in _ready would silently leave the animal unpinned for the session.
+const FACE_TRIES: int = 240
+var _den_n: Vector3 = Vector3.ZERO   ## outward normal of the face this den clings to
+var _den_d: float = 0.0              ## p.dot(_den_n) ON the concrete — the face plane
+var _den_tries: int = 0
+
+func _resolve_den_face() -> void:
+	if _den_n != Vector3.ZERO or _den_tries >= FACE_TRIES or not is_inside_tree():
+		return
+	_den_tries += 1
+	# The outward normal comes from the den the spawner injected, not from a coordinate
+	# repeated here: both dens lie outboard of a caisson's east/west face, so the sign of
+	# their own x IS the normal. This file states none of the rig's numbers (see the header).
+	if is_zero_approx(den.x):
+		return
+	var n := Vector3(signf(den.x), 0.0, 0.0)
+	# The same cached list `_seat` uses. Building it walks every CollisionObject3D under the
+	# BloomFauna host, so it is built once here and reused rather than rebuilt on each of the
+	# up-to-FACE_TRIES retries.
+	if _skip.is_empty():
+		_skip = MOVE.kin_bodies(self)
+	var best: float = INF
+	for i in range(FACE_RAYS):
+		var t: float = -1.0 + 2.0 * float(i) / float(FACE_RAYS - 1)
+		var at: Vector3 = den + Vector3(0.0, t * FACE_SPREAD, 0.0)
+		var hit: Dictionary = MOVE.surface_hit(self, at + n * FACE_REACH, n,
+			0.0, FACE_REACH * 2.0, _skip)
+		if hit.is_empty():
+			continue
+		if (hit["normal"] as Vector3).dot(n) < FACE_DOT:
+			continue
+		# Gate EACH ray on a sane stand-off before taking the deepest. Gating only the winner
+		# would let one spurious deep hit — a ray that slipped past the leg and answered off
+		# something inboard — reject the whole resolution and silently leave the animal
+		# unpinned, which is the failure that looks exactly like the bug being fixed.
+		var d: float = (hit["point"] as Vector3).dot(n)
+		var standoff: float = den.dot(n) - d
+		if standoff < 0.0 or standoff > FACE_MAX_STANDOFF:
+			continue
+		best = minf(best, d)
+	if best == INF:
+		return       # unresolved: the animal keeps today's open-water behaviour, and retries
+	_den_n = n
+	_den_d = best
+
+## Where the animal actually lies up. The authored den names a FACE and a DEPTH; this is
+## that point pulled onto the measured concrete at the body's own stand-off, so the king
+## walks to the wall rather than to a spot 2 m out in front of it. Unresolved, it is the
+## authored point unchanged.
+func _den_point() -> Vector3:
+	if _den_n == Vector3.ZERO:
+		return den
+	return den + _den_n * ((_den_d + CLEAR) - den.dot(_den_n))
+
+## Resting ON the leg foundation, not swimming (owner call, 2026-07-25b: `den` now sits
+## against a caisson's submerged foot instead of out in open water — see bloom_fauna.gd
 ## _spawn_king_crabs). It settles onto that point once and stays there, motionless, for
 ## the whole day; the old version drifted a few metres round its lie-up continuously,
 ## which read as swimming in place rather than a boss lying up at the base of the rig.
@@ -336,9 +429,9 @@ func _den(delta: float) -> void:
 	_leave_hunt()
 	# Settled and motionless, _step_free stops calling _orient — and a body that never
 	# orients never takes up the frame the seat is handing it. So square up every frame:
-	# on the leg foundation that is what lays the shell down along the concrete instead of
-	# leaving it standing upright with its feet in the slope.
-	if _step_free(den, SWIM_SPEED * 0.2, delta):
+	# on the leg face that is what lays the shell SIDEWAYS along the concrete instead of
+	# leaving it standing upright beside it.
+	if _step_free(_den_point(), SWIM_SPEED * 0.2, delta):
 		_orient(delta)
 	if _committed and not _beaten and GameClock.current_phase == GameClock.Phase.NIGHT:
 		_wait -= delta
@@ -478,12 +571,12 @@ func _retreat(delta: float) -> void:
 		if _step_free(rise_path[_wp_index], SWIM_SPEED, delta):
 			_wp_index -= 1
 		return
-	if _step_free(den, SWIM_SPEED * 0.8, delta):
+	if _step_free(_den_point(), SWIM_SPEED * 0.8, delta):
 		state = State.DEN
 		_level = CRABS.L_WATER
 		_seated = false
-		up = Vector3.UP
-		_roam_target = den
+		up = Vector3.UP          # the DEN pin in _seat rolls this onto the face next frame
+		_roam_target = _den_point()
 		_roam_hold = 0.0
 
 ## ---------- climbing: the crab's own flights ----------
@@ -652,6 +745,20 @@ func _seat(delta: float) -> void:
 	if state == State.RISE or state == State.RETREAT:
 		_seated = false
 		up = up.lerp(Vector3.UP, clampf(delta * 2.5, 0.0, 1.0)).normalized()
+		return
+	# THE DEN IS A PLANE PIN (see THE DEN FACE above), not a raycast. It is what lays the
+	# king SIDEWAYS on the caisson instead of standing it upright in the water beside it,
+	# and — being analytic — no snail, mussel bed or coral head bolted to that concrete in a
+	# later session can ever seat the animal on itself. The correction is eased at
+	# SEAT_CATCHUP, never assigned, so nothing blinks even from the authored 2 m stand-off.
+	if state == State.DEN and _den_n != Vector3.ZERO:
+		up = _den_n
+		var flat: Vector3 = heading - _den_n * heading.dot(_den_n)
+		heading = flat.normalized() if flat.length() > 0.05 \
+			else Vector3.UP.cross(_den_n).normalized()
+		_seated = true
+		var off: float = (_den_d + CLEAR) - global_position.dot(_den_n)
+		global_position += (_den_n * off).limit_length(SEAT_CATCHUP * delta)
 		return
 	if _skip.is_empty():
 		_skip = MOVE.kin_bodies(self)
