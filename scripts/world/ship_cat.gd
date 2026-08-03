@@ -60,22 +60,22 @@ enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET, JUMP }
 ## (tools/gen_cat_s36.py) and measured the result — the across-body extent fell from 0.488
 ## to 0.387 of the body length, i.e. the animal genuinely got straighter rather than just
 ## looking it from one angle.
-const POSES := {
-	"stand": MODEL_PATH,
-	"sit": "res://assets/models/fauna/_rigged/cat_sit_idle.glb",
-	"groom": "res://assets/models/fauna/_rigged/cat_groom_idle.glb",
-	"walk": "res://assets/models/fauna/_rigged/cat_walk_walk.glb",
-	"run": "res://assets/models/fauna/_rigged/cat_run2_run.glb",
-	"jump": "res://assets/models/fauna/_rigged/cat_jump_jump.glb",
-	"sleep": "res://assets/models/fauna/_rigged/cat_sleep_idle.glb",
-}
-const POSES_STATIC := {
-	"sit": "res://assets/models/fauna/cat_sit/cat_sit.glb",
-	"groom": "res://assets/models/fauna/cat_groom/cat_groom.glb",
-	"walk": "res://assets/models/fauna/cat_walk/cat_walk.glb",
-	"run": "res://assets/models/fauna/cat_run/cat_run.glb",
-	"sleep": "res://assets/models/fauna/cat_sleep/cat_sleep.glb",
-}
+## s37: ONE MESH, ONE SKELETON — the pose-per-mesh design is gone.
+##
+## Why it had to go: six separate rigged meshes swapped by a `visible` flip meant every
+## state change was a whole-body teleport (one frame walking, the next sitting, nothing
+## between), and the gait swung limbs on meshes AUTHORED mid-stride, double-posing the
+## legs. That is unfixable by tuning — the architecture cannot express a transition.
+##
+## Now the neutral STANDING mesh is the only body, and every pose (sit, groom, sleep,
+## run stance, jump stretch) is a set of joint rotations extracted from the other rigged
+## meshes' rest poses (tools/extract_cat_poses.py — same Tripo template, bone-for-bone)
+## and BLENDED onto the one skeleton by cat_rig.gd. Transitions are continuous by
+## construction. BASE_FALLBACK keeps the s34 static path alive if the rigged stand is
+## ever missing: the cat degrades to a statue, never to a crash.
+const BASE_RIGGED := "res://assets/models/fauna/_rigged/cat_stand_idle.glb"
+const BASE_FALLBACK := "res://assets/models/fauna/_rigged/cat_walk_walk.glb"
+const POSE_LIBRARY := "res://assets/models/fauna/_rigged/cat_poses.json"
 ## Which pose each state wears. Kept as a table rather than a match statement inside the
 ## per-frame code so a state cannot silently forget to set one.
 const STATE_POSE := {
@@ -129,6 +129,10 @@ const JUMP_CD: float = 0.9
 ## Metres of ground covered per stride cycle. The gait's cycle rate is speed / this, which
 ## is what keeps the paws from skating at one speed and mincing at another.
 const STRIDE_M: float = 0.62
+## The stand mesh's longest-axis target, hull-volume-equalised against walk@0.66 (s36's
+## sizing method, one entry now that there is one mesh). Recomputed if the base mesh is
+## ever re-rolled: tools/extract_cat_poses.py prints the reminder.
+const STAND_SIZE_M: float = 0.66   ## nose-to-tail parity with the walk mesh's 0.66
 
 ## Seconds of stillness from the player before the cat decides this is a rest, not a pause.
 const SETTLE_SEC: float = 6.0
@@ -143,8 +147,9 @@ var _last_player_pos: Vector3 = Vector3.ZERO
 var _gen_mats: Array = []
 var _body: Node3D
 ## pose key -> the Node3D holding that mesh, and its ShaderMaterials.
-var _pose_nodes: Dictionary = {}
-var _pose_mats: Dictionary = {}
+## THE one drawn body. Kept as a single node rather than a dictionary of them because a
+## dictionary of bodies is what made transitions teleports.
+var _host: Node3D = null
 var _pose: String = ""
 ## Petting: how long the head-bump lean lasts, and when the next purr is allowed.
 var _pet_t: float = 0.0
@@ -162,7 +167,7 @@ var _meow_cd: float = 0.0
 var _seated_y: float = 0.0
 ## pose key -> CatRig, for the poses whose GLB carried a skin. Empty for any that fell back
 ## to the static mesh, and every call site tolerates a missing entry.
-var _rigs: Dictionary = {}
+var _rig = null   ## the cat_rig.gd blender driving _host's skeleton
 ## The gait's own phase, in cycles, INTEGRATED rather than derived from `_t * speed`.
 ## docs/AGENT_TRAPS.md is explicit about why: a tuning value multiplied by an accumulating
 ## clock inside a sine cannot be animated at all — changing speed at second T teleports the
@@ -180,6 +185,9 @@ var _slope: float = 0.0
 ## The speed the last step was actually taken at, so the gait picks its footfall pattern
 ## from what the body did rather than from what a state hoped it would do.
 var _last_speed: float = 0.0
+## Metres the body ACTUALLY covered this frame — the blender's gait phase runs off this,
+## never off commanded speed, so a blocked cat's legs stop instead of treadmilling.
+var _moved_frame: float = 0.0
 ## The leap, in flight: time left, and the two ends of the arc. While `_jump_t` is positive
 ## the state machine hands the animal over to _fly_jump and nothing else moves it.
 var _jump_t: float = 0.0
@@ -198,36 +206,27 @@ func _ready() -> void:
 	# CreatureAnim.FACING_OVERRIDES) and each is GROUNDED so its paws sit on the deck rather
 	# than its origin: the five poses have wildly different heights, and a curled sleeping
 	# cat centred like a standing one floats.
-	for key in POSES:
-		var host := Node3D.new()
-		_body.add_child(host)
-		# THE RIGGED PATH FIRST. attach_rigged keeps the imported PBR materials and stops
-		# Tripo's baked clip (a human walk cycle fitted to a quadruped — unusable, see
-		# cat_rig.gd), handing back the skeleton for this script to pose itself.
-		var pg: Dictionary = ANIM.attach_rigged(host, POSES[key], _pose_size(key))
-		var skel: Skeleton3D = pg.get("skeleton") as Skeleton3D if not pg.is_empty() else null
-		if skel != null:
-			var rig = RIG.new(skel)
-			if rig.valid():
-				_rigs[key] = rig
-			_pose_mats[key] = []
-		else:
-			# No skin on disk: fall back to the s34 static mesh under the motion shader, so
-			# a missing rigged asset costs the articulation and nothing else.
-			if not pg.is_empty():
-				(pg["model"] as Node3D).queue_free()
-			var fallback: String = String(POSES_STATIC.get(key, POSES[key]))
-			pg = ANIM.attach(host, fallback, _pose_size(key), ANIM.Mode.BREATHE,
-				0.05, 1.1, Color(0.9, 0.78, 0.42), 0.0)
-			if pg.is_empty():
-				host.queue_free()
-				continue
-			_pose_mats[key] = pg["mats"]
+	# ONE host, ONE skeleton. attach_rigged keeps the imported PBR materials and stops
+	# Tripo's baked clip; the pose library and every transition live in cat_rig.gd.
+	var host := Node3D.new()
+	_body.add_child(host)
+	var pg: Dictionary = ANIM.attach_rigged(host, BASE_RIGGED, _pose_size("stand"))
+	if pg.is_empty() or pg.get("skeleton") == null:
+		if not pg.is_empty():
+			(pg["model"] as Node3D).queue_free()
+		pg = ANIM.attach_rigged(host, BASE_FALLBACK, _pose_size("stand"))
+	var skel: Skeleton3D = pg.get("skeleton") as Skeleton3D if not pg.is_empty() else null
+	if skel != null:
+		_rig = RIG.new(skel, POSE_LIBRARY)
+		if _rig != null and not _rig.valid():
+			_rig = null
+	if not pg.is_empty():
 		ANIM.ground(host, pg["model"])
-		host.visible = false
-		_pose_nodes[key] = host
-	var gen: Dictionary = {"mats": _pose_mats.get("stand", [])} if not _pose_nodes.is_empty() else {}
-	if not _pose_nodes.is_empty():
+		_host = host
+	else:
+		host.queue_free()
+	var gen: Dictionary = {"mats": []} if _host != null else {}
+	if _rig != null:
 		_wear("groom")
 	if gen.is_empty():
 		# No mesh on disk yet: a placeholder that still reads as a small four-legged animal,
@@ -420,7 +419,9 @@ func _fly_jump(delta: float) -> void:
 	# Peak height scales with the rise so a small hop does not launch the cat at the
 	# deckhead, with a floor so a flat leap still leaves the ground.
 	var lift: float = maxf(_jump_to.y - _jump_from.y, 0.0) * 0.35 + 0.14
+	var before_fly: Vector3 = global_position
 	global_position = Vector3(flat.x, flat.y + sin(k * PI) * lift, flat.z)
+	_moved_frame += global_position.distance_to(before_fly)
 	_face(_jump_to, delta * 2.0)
 	_last_speed = RUN_SPEED
 	if _jump_t <= 0.0:
@@ -655,15 +656,16 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# actually taken rather than from a second probe, so it cannot disagree with the move.
 	var run: float = maxf(step.length(), 0.0001)
 	_slope = lerpf(_slope, clampf(atan2(rise, run), -0.7, 0.7), clampf(delta * 5.0, 0.0, 1.0))
+	var before_step: Vector3 = global_position
 	global_position = Vector3(want.x, ground, want.z)
 	_last_speed = speed
-	# THE GAIT PHASE IS INTEGRATED, never `_t * speed`. Writing a new rate at second T
-	# teleports the phase of everything downstream of it — the trap this repo paid for
-	# twice (see AGENT_TRAPS, "rate being a time multiplier"). Stride length scales with
-	# speed so the cycle rate is speed / stride, i.e. faster legs AND longer strides.
-	_gait = fposmod(_gait + delta * speed / STRIDE_M, 1.0)
-	# A small vertical lilt on top of the skeletal gait — the whole-body rise and fall that
-	# the legs alone do not carry, since the rig has no root motion.
+	# The blender's phase runs off DISTANCE ACTUALLY MOVED (see cat_rig.tick) — recorded
+	# here, where the movement really happens, so a refused or slid step is felt by the
+	# legs instead of them cycling against a wall.
+	_moved_frame += global_position.distance_to(before_step)
+	_gait = fposmod(_gait + global_position.distance_to(before_step) / STRIDE_M, 1.0)
+	# A small vertical lilt — the whole-body rise and fall the legs alone do not carry,
+	# since the rig has no root motion. Phase-locked to the same distance the legs use.
 	_body.position.y = absf(sin(_gait * TAU)) * 0.030
 	_body.rotation.z = sin(_gait * TAU * 0.5) * 0.045
 
@@ -694,11 +696,11 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 ## of its length could not fit through a doorway it walks through nose-first every day.
 ## The nose is covered separately by testing the far end of the body too (see _step_clear).
 func _body_r() -> float:
-	var host: Node3D = _pose_nodes.get(_pose)
-	if host == null:
+	if _host == null:
 		return 0.18
 	if _body_r_cache.has(_pose):
 		return _body_r_cache[_pose]
+	var host: Node3D = _host
 	var acc := AABB()
 	var first := true
 	for n in host.find_children("*", "MeshInstance3D", true, false):
@@ -738,9 +740,9 @@ func _step_clear(at: Vector3, dir: Vector3) -> bool:
 	return true
 
 func _body_len() -> float:
-	var host: Node3D = _pose_nodes.get(_pose)
-	if host == null:
+	if _host == null:
 		return 0.6
+	var host: Node3D = _host
 	var acc := AABB()
 	var first := true
 	for n in host.find_children("*", "MeshInstance3D", true, false):
@@ -840,37 +842,14 @@ func _player_holding_fish(_player: Node3D) -> bool:
 ## Every state gets its own motion AND its own focus, which is the owner's "every state
 ## should have a focus": the head tracks what the animal cares about even when the body is
 ## pointing somewhere else, and that is most of the difference between an animal and a prop.
+## One call per frame, AFTER the state machine has decided. The state machine's whole
+## output is a POSE NAME (set in _enter via the STATE_POSE table) plus the distance the
+## body actually covered; the blender does everything else — the pose blend, the gait, the
+## breathing, the look. There is no per-state animation code left to disagree with itself.
 func _drive_rig(delta: float) -> void:
-	var rig = _rigs.get(_pose)
-	if rig == null:
+	if _rig == null:
 		return
-	match _state:
-		State.JUMP:
-			# Airborne: the legs hold the leap shape the mesh is already in rather than
-			# cycling a gait, which is what a jumping animal actually does.
-			rig.idle(_t, 0.35)
-		State.RUN, State.FOLLOW, State.FISH:
-			# The gait mode is chosen by SPEED, not by state: a cat trots before it runs,
-			# and picking the footfall pattern off the actual pace means the two never
-			# disagree with how fast the body is moving.
-			var sp: float = _last_speed
-			var mode: String = "walk"
-			if sp > RUN_SPEED * 0.8:
-				mode = "bound"
-			elif sp > WALK_SPEED * 1.2:
-				mode = "trot"
-			# Stride amplitude grows with speed, and the CYCLE RATE is what carries the
-			# animal — a fixed rate at a higher speed is the skating look.
-			rig.walk(_gait, 0.30 + clampf(sp / RUN_SPEED, 0.0, 1.0) * 0.24, mode)
-		State.SIT, State.PET:
-			rig.idle(_t, 1.0)
-		State.GROOM:
-			rig.groom(_t)
-		State.SLEEP:
-			rig.sleep(_t)
-		_:
-			rig.idle(_t, 1.0)
-	# The head, last, so it wins over whatever the gait did to the neck.
+	# The head, first, so tick applies it this frame: attention wins over the gait's neck.
 	if _focus_w > 0.01:
 		var to: Vector3 = _focus - global_position
 		if to.length_squared() > 0.0004:
@@ -879,7 +858,9 @@ func _drive_rig(delta: float) -> void:
 			var want: float = atan2(to.x, to.z) + PI
 			var rel: float = wrapf(want - rotation.y, -PI, PI)
 			var pitch: float = atan2(to.y - 0.25, Vector2(to.x, to.z).length())
-			rig.look(rel * _focus_w, clampf(pitch, -0.5, 0.5) * _focus_w)
+			_rig.look(rel, clampf(pitch, -0.5, 0.5), _focus_w)
+	_rig.tick(delta, _last_speed, _moved_frame)
+	_moved_frame = 0.0
 
 ## Point the cat's ATTENTION at something without turning it. Weight decays, so a glance
 ## fades unless whatever caused it keeps calling.
@@ -912,25 +893,24 @@ func _watch(at: Vector3, weight: float = 1.0) -> void:
 ## The two biggest corrections fall out as +79% on sit and -9% on run — which are exactly
 ## the owner's two complaints, in the right directions. That agreement is the reason to
 ## trust the method rather than the individual numbers.
-func _pose_size(key: String) -> float:
-	match key:
-		"sleep": return 0.601
-		"sit": return 0.788
-		"groom": return 0.603
-		"run": return 0.736      ## cat_run2 — the straight-headed re-roll
-		"jump": return 0.718
-		"walk": return 0.660
-	return 0.66
+## ONE mesh now, so ONE number — and size consistency across states is by construction,
+## which retires the s36 hull-volume table this replaces. The value is that table's method
+## applied to the stand mesh: equal convex-hull volume with the walk mesh anchored at
+## 0.66 m (computed offline; see the s37 DEVLOG entry).
+func _pose_size(_key: String) -> float:
+	return STAND_SIZE_M
 
 ## Show one pose, hide the rest. The transition is a visibility flip — see POSES for why it
 ## is not an ANIM.replace().
 func _wear(key: String) -> void:
-	if key == _pose or not _pose_nodes.has(key):
+	if key == _pose:
 		return
-	for k in _pose_nodes:
-		(_pose_nodes[k] as Node3D).visible = (k == key)
 	_pose = key
-	_gen_mats = _pose_mats.get(key, [])
+	if _rig != null:
+		# Settling into rest is gentle; being startled into motion is not. The rate is the
+		# only thing that differs between "eases down to sleep" and "bolts upright".
+		var rate: float = 10.0 if key in ["run", "jump", "walk"] else 5.0
+		_rig.set_pose(key, rate)
 
 ## The pose a state wears, applied every time the state is set so a transition cannot be
 ## made without one.

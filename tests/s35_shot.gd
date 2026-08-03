@@ -254,10 +254,9 @@ func _cat_frame(cat: Node3D, player: Node3D, cam: Camera3D, nm: String, setup: C
 	var ok: bool = String(cat.get("_pose")) == want
 	if not ok:
 		_fail += 1
-	# ...and the RIG has to be driving, or this is the s34 cat with more machinery. A pose
-	# with no entry in _rigs is a static mesh however good the state machine looks.
-	var rigs: Dictionary = cat.get("_rigs")
-	var rigged: bool = rigs != null and rigs.has(String(cat.get("_pose")))
+	# ...and the BLENDER has to be driving, or this is a statue with a state machine.
+	var rig_o = cat.get("_rig")
+	var rigged: bool = rig_o != null and bool(rig_o.call("has_pose", String(cat.get("_pose"))))
 	if not rigged:
 		_fail += 1
 	print("  %-16s state=%s pose=%s (want %s)%s rigged=%s at %s"

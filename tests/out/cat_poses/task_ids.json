@@ -31,5 +31,9 @@
   "cat_run2": {
     "id": "7ab694c6-82ef-4016-814b-0dc3157c4cd6",
     "status": "success"
+  },
+  "cat_stand": {
+    "id": "d0e7eca2-75ac-4632-86c3-37be31acb600",
+    "status": "success"
   }
 }

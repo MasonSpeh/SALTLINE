@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://bj1msfj6vm1l3"
-path="res://.godot/imported/cat_run2_run_NormalGL_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-b33e77dc57674f6a6ddd36f183271f22.ctex"
+path.s3tc="res://.godot/imported/cat_run2_run_NormalGL_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-b33e77dc57674f6a6ddd36f183271f22.s3tc.ctex"
+path.etc2="res://.godot/imported/cat_run2_run_NormalGL_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-b33e77dc57674f6a6ddd36f183271f22.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "482d91f1ea7bebee96c8ad11855765b8"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/_rigged/cat_run2_run_NormalGL_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg"
-dest_files=["res://.godot/imported/cat_run2_run_NormalGL_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-b33e77dc57674f6a6ddd36f183271f22.ctex"]
+dest_files=["res://.godot/imported/cat_run2_run_NormalGL_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-b33e77dc57674f6a6ddd36f183271f22.s3tc.ctex", "res://.godot/imported/cat_run2_run_NormalGL_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-b33e77dc57674f6a6ddd36f183271f22.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

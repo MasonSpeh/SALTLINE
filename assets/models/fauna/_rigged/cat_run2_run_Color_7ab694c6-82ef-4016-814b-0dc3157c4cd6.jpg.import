@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://d216ia3r7nbui"
-path="res://.godot/imported/cat_run2_run_Color_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-4ef889dd75f2fd78391b155b9351e162.ctex"
+path.s3tc="res://.godot/imported/cat_run2_run_Color_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-4ef889dd75f2fd78391b155b9351e162.s3tc.ctex"
+path.etc2="res://.godot/imported/cat_run2_run_Color_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-4ef889dd75f2fd78391b155b9351e162.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "2d4d6b8a45add9df677420d1767b1caa"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/_rigged/cat_run2_run_Color_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg"
-dest_files=["res://.godot/imported/cat_run2_run_Color_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-4ef889dd75f2fd78391b155b9351e162.ctex"]
+dest_files=["res://.godot/imported/cat_run2_run_Color_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-4ef889dd75f2fd78391b155b9351e162.s3tc.ctex", "res://.godot/imported/cat_run2_run_Color_7ab694c6-82ef-4016-814b-0dc3157c4cd6.jpg-4ef889dd75f2fd78391b155b9351e162.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

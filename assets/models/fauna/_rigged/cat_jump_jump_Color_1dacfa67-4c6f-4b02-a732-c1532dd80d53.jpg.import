@@ -3,9 +3,11 @@
 importer="texture"
 type="CompressedTexture2D"
 uid="uid://daffvli8b5lun"
-path="res://.godot/imported/cat_jump_jump_Color_1dacfa67-4c6f-4b02-a732-c1532dd80d53.jpg-4cd056091585cccb6aad14dd8ac8c837.ctex"
+path.s3tc="res://.godot/imported/cat_jump_jump_Color_1dacfa67-4c6f-4b02-a732-c1532dd80d53.jpg-4cd056091585cccb6aad14dd8ac8c837.s3tc.ctex"
+path.etc2="res://.godot/imported/cat_jump_jump_Color_1dacfa67-4c6f-4b02-a732-c1532dd80d53.jpg-4cd056091585cccb6aad14dd8ac8c837.etc2.ctex"
 metadata={
-"vram_texture": false
+"imported_formats": ["s3tc_bptc", "etc2_astc"],
+"vram_texture": true
 }
 generator_parameters={
 "md5": "c54749d5de6a1bdd2b284c30d8b008e3"
@@ -14,11 +16,11 @@ generator_parameters={
 [deps]
 
 source_file="res://assets/models/fauna/_rigged/cat_jump_jump_Color_1dacfa67-4c6f-4b02-a732-c1532dd80d53.jpg"
-dest_files=["res://.godot/imported/cat_jump_jump_Color_1dacfa67-4c6f-4b02-a732-c1532dd80d53.jpg-4cd056091585cccb6aad14dd8ac8c837.ctex"]
+dest_files=["res://.godot/imported/cat_jump_jump_Color_1dacfa67-4c6f-4b02-a732-c1532dd80d53.jpg-4cd056091585cccb6aad14dd8ac8c837.s3tc.ctex", "res://.godot/imported/cat_jump_jump_Color_1dacfa67-4c6f-4b02-a732-c1532dd80d53.jpg-4cd056091585cccb6aad14dd8ac8c837.etc2.ctex"]
 
 [params]
 
-compress/mode=0
+compress/mode=2
 compress/high_quality=false
 compress/lossy_quality=0.7
 compress/uastc_level=0

@@ -175,6 +175,9 @@ const FACING_OVERRIDES: Dictionary = {
 	# uncertain ones are confirmed by eye in the s35 close-out frames.
 	"cat_sit_idle": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
 	"cat_groom_idle": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
+	# s37: the neutral standing base for the one-skeleton cat. Authored along +X — measured,
+	# both statistics agreeing (+0.065/+0.064) — so it takes the same entry as cat_sit.
+	"cat_stand_idle": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},
 	"pyramid_snail": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"herring_gull": {"yaw": 0.0, "pitch": 0.0, "axis": 0, "flip": 0.0, "lift": 0},
 	"ultra_hammerhead": {"yaw": 90.0, "pitch": 0.0, "axis": 1, "flip": 1.0, "lift": 0},

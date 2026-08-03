@@ -85,45 +85,57 @@ func _run() -> void:
 
 	# IT HAS A SKELETON. The whole point of s35: without a rig this is the s34 cat with
 	# extra machinery, and that difference must be visible to a test.
-	var rigs: Dictionary = cat.get("_rigs")
-	_ok(rigs.size() >= 4, "the pose meshes carry skeletons to drive (%d rigged)" % rigs.size())
+	_ok(cat.get("_rig") != null, "the blender exists — one skeleton drives everything")
+	_ok(cat.get("_host") != null, "and there is exactly one drawn body")
+	if cat.get("_rig") != null:
+		_ok(int(cat.get("_rig").call("pose_count")) >= 7,
+			"the pose library is complete (%d poses)" % int(cat.get("_rig").call("pose_count")))
 
-	# EVERY POSE IS THE SAME ANIMAL. The owner's "Cat is too small when sitting, and too big
-	# when running, all states are currently different sizes."
-	#
-	# This is measured on the DRAWN geometry, not on the _pose_size table — the table is
-	# the thing under test, and a probe that re-read it would be the s34 seal tautology
-	# again. Each pose is scaled to a target LONGEST AXIS, and the longest axis means a
-	# different part of the animal per pose, so the invariant asserted here is the one that
-	# actually corresponds to "the same cat": the world-space extents must all sit inside a
-	# band around the walking cat rather than spanning a 1.8x range as they did.
-	var nodes: Dictionary = cat.get("_pose_nodes")
-	var spans: Dictionary = {}
-	for k in nodes:
-		var host: Node3D = nodes[k]
+	# SIZE CONSISTENCY IS BY CONSTRUCTION NOW — one mesh cannot be two sizes — so what is
+	# asserted is that the one body is a sane cat-sized thing at all.
+	var host_node: Node3D = cat.get("_host")
+	if host_node != null:
 		var acc := AABB()
 		var first := true
-		for n in host.find_children("*", "MeshInstance3D", true, false):
+		for n in host_node.find_children("*", "MeshInstance3D", true, false):
 			var mi: MeshInstance3D = n
 			var b: AABB = mi.global_transform * mi.get_aabb()
 			acc = b if first else acc.merge(b)
 			first = false
-		if not first:
-			spans[k] = maxf(acc.size.x, maxf(acc.size.y, acc.size.z))
-	var lo: float = 1e9
-	var hi: float = 0.0
-	for k in spans:
-		lo = minf(lo, spans[k])
-		hi = maxf(hi, spans[k])
-	var ratio: float = hi / maxf(lo, 0.0001)
-	_ok(spans.size() >= 5, "every pose was measurable (%d)" % spans.size())
-	# 1.35 rather than 1.0: a curled sleeping cat and a stretched leaping one genuinely do
-	# not have the same longest extent, and pretending they should would force the sleeping
-	# mesh to be scaled up until it read as a bigger animal. Before this fix the spread was
-	# 0.44..0.74 = 1.68x on the TARGETS alone, before the meshes' own differences.
-	_ok(ratio <= 1.35,
-		"all poses read as one animal (longest extent %.2f..%.2f m, spread %.2fx)"
-			% [lo, hi, ratio])
+		var span: float = maxf(acc.size.x, maxf(acc.size.y, acc.size.z))
+		_ok(span > 0.4 and span < 1.1,
+			"the drawn cat is cat-sized (longest extent %.2f m)" % span)
+
+	# CONTINUITY — the assertion the pose-per-mesh design could never pass, and the whole
+	# point of s37. Drive the cat through its states and sample a FOREPAW's skeleton-space
+	# position every physics frame: a blend moves it a few centimetres a frame; a swap
+	# teleports it. The bound is generous (8 cm) precisely so only architecture-level
+	# discontinuities can trip it.
+	var skel_c: Skeleton3D = null
+	for n in host_node.find_children("*", "Skeleton3D", true, false):
+		skel_c = n
+		break
+	_ok(skel_c != null, "the drawn body carries the skeleton")
+	if skel_c != null:
+		var paw_i: int = skel_c.find_bone("L_Hand")
+		var prev_p: Vector3 = skel_c.get_bone_global_pose(paw_i).origin
+		var worst_step: float = 0.0
+		var steps: int = 0
+		# Walk it through: near (sit) -> far (run) -> near again (sit) -> rest long enough
+		# to groom. Every hop is a live transition sampled mid-flight.
+		for leg in [Vector3(-22.0, 18.1, 12.0), Vector3(-9.5, 18.1, 5.5),
+				Vector3(-22.0, 18.1, 12.0)]:
+			player.global_position = leg
+			for i in range(140):
+				await get_tree().physics_frame
+				var now_p: Vector3 = skel_c.get_bone_global_pose(paw_i).origin
+				worst_step = maxf(worst_step, prev_p.distance_to(now_p))
+				prev_p = now_p
+				steps += 1
+		_ok(steps > 300, "the continuity sweep sampled the paw (%d frames)" % steps)
+		_ok(worst_step < 0.08,
+			"no pose change ever teleports the body (worst paw step %.1f mm/frame)"
+				% (worst_step * 1000.0))
 
 	# IT DOES NOT WALK THROUGH WALLS. Put the player on the far side of a bulkhead and let
 	# the cat try to follow: it must NOT end up on the player's side. The bunkhouse's west
@@ -230,19 +242,11 @@ func _run() -> void:
 			break
 	_ok(bool(cat.call("_player_holding_fish", player)), "it can tell you are holding a fish")
 
-	# ------------------------------------------------------------------ s34: the states
+	# ------------------------------------------------------------------ the states
 	#
-	# ONE ASSERTION PER TRANSITION, and each one checks the POSE as well as the state — the
-	# s32 cat had four states and one mesh, so "it is sitting" was a claim about a variable
-	# and not about anything the player could see. `_pose` is the mesh actually visible.
-	var poses: Dictionary = cat.get("_pose_nodes")
-	_ok(poses.size() >= 5, "every pose mesh loaded (%d of %d)" % [poses.size(), 6])
-	# Exactly one visible at a time, or the cat is two cats.
-	var shown: int = 0
-	for k in poses:
-		if (poses[k] as Node3D).visible:
-			shown += 1
-	_ok(shown == 1, "exactly one pose is drawn at a time (%d visible)" % shown)
+	# ONE ASSERTION PER TRANSITION, each checking the POSE TARGET as well as the state —
+	# `_pose` is the blender's target, and the blend to it is covered by the continuity
+	# sweep above, so together they say "the right pose, reached smoothly".
 
 	# FISH INTEREST — it is holding the herring from check 6, and the cat should be in FISH.
 	player.global_position = cat.global_position + Vector3(3.0, 0.0, 0.0)

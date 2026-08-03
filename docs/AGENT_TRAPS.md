@@ -1068,3 +1068,44 @@ back the way it came, or it orbits a pillar for ever).
 that strands the player outside the bunkhouse, and the sleep test that follows it never moved
 them back — so it asserted that a cat can curl up beside someone it is correctly refusing to
 walk through a bulkhead to reach. It failed for the right reason and read like a broken feature.
+
+---
+
+## Found rebuilding the cat as one skeleton (s37)
+
+**ROTATIONS ONLY MEAN SOMETHING ON THE SKELETON THEY WERE MEASURED ON.** Seven cat meshes,
+all auto-rigged by Tripo with the SAME 41-bone template, bone names identical — and applying
+the sit mesh's local rest rotations to the stand mesh's skeleton still mangled the animal
+(sleep and run arrived candy-wrapped inside their own torsos; tests/out/cat_blend). The
+template being shared does not make the joint FRAMES shared: each fit orients its bone axes
+to its own mesh. Pose transfer across auto-rig fits is not a shortcut; author on the target
+skeleton.
+
+**PROBE THE AXES BEFORE AUTHORING ON AN UNKNOWN RIG — one bone, one axis, one frame.** Two
+rounds of hand-authored poses failed because the rotation signs were guessed. A 15-frame
+"axis atlas" (tests/CatAxisDiag.tscn: +0.6 rad per axis per key bone, rendered and read
+back) replaced guessing with facts: Hip +X pitches the whole body rear-down; Thigh +X folds
+a hind leg forward on BOTH sides; Calf +X flexes the knee BACK (a negative calf angle
+hyperextends the shin — that one error mangled a whole round); the upperarms are MIRRORED
+left/right. Fifteen frames cost two minutes and ended the guessing.
+
+**HAND-TUNED FOLD ANGLES CANNOT SIT A QUADRUPED — THE FEET NEED IK.** With no foot pinning,
+every torso change (hip drop, body pitch) sends the paws wherever the fold leaves them, and
+this rig's L/R bone lengths differ (documented Tripo defect), so one set of angles cannot
+even be symmetric. Hinge-constrained CCD (every limb joint here is a hinge about its own
+local X, per the atlas), run at POSE-BUILD time against the paws' rest anchors, planted all
+four feet in one round and absorbed the length asymmetry for free. Seed the legs FOLDED so
+the solve converges to the anatomical knee branch. Runtime stays ~40 slerps a frame; the IK
+never runs per-frame.
+
+**A RENDER HARNESS WITHOUT A FLOOR CANNOT JUDGE GROUND CONTACT.** Three rounds of pose
+judgement happened against empty background, where "is it sitting ON something" is
+guesswork and the auto-framing camera hides whole-body drift. One grey box at the rest paw
+height turned every later verdict from an impression into a read.
+
+**A PROBE'S SCRIPT ERROR CORRUPTS THE WORLD IT IS MEASURING.** CatProbe kept a block that
+read the retired `_pose_nodes`; the null access aborted the coroutine MID-RUN, the
+completion sentinel caught it — but the aborted run had already repositioned the player and
+poked the cat's state machine, so the NEXT assertions in partial reruns failed in ways that
+looked like animal bugs (a cat "stuck in walk" that was nothing of the kind). When a probe
+dies mid-run, fix the probe before believing anything it printed after the corpse.

@@ -41,5 +41,11 @@
     "clips": {
       "jump": "assets/models/fauna/_rigged/cat_jump_jump.glb"
     }
+  },
+  "cat_stand": {
+    "ok": true,
+    "clips": {
+      "idle": "assets/models/fauna/_rigged/cat_stand_idle.glb"
+    }
   }
 }

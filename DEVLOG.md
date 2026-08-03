@@ -1316,3 +1316,35 @@ now a number in CatProbe rather than a claim:
 * The rod fix is a real bug fixed at the cause, but the owner's own route was
   never reproduced; if they use number keys, their bug is something else.
 * `submerged_deep` has still not been re-profiled, now at a modelled 12.67 M tris.
+
+---
+
+## s37 — the cat becomes one skeleton, and the poses learn IK
+
+The owner rejected the s36 cat, correctly: six rigged meshes swapped by a
+`visible` flip is a whole-body teleport at every state change, and no amount of
+per-mesh quality can make a teleport read as fluid. Architecture, not tuning.
+
+**Now:** ONE mesh (a new neutral-standing generation, byte-identical coat), one
+41-bone skeleton, and every pose blended onto it by `cat_rig.gd` — per-bone
+slerp toward the state's target at `1-exp(-rate*dt)`, gait ADDED on top with its
+phase advanced by DISTANCE ACTUALLY MOVED, footfall tables eased walk→trot→bound
+by speed, breathing on every pose, head-tracking applied last. Transitions are
+continuous by construction.
+
+**What failed on the way, in order:** (1) transferring donor rest rotations
+across auto-rig fits — same template, different joint frames, mangled poses;
+(2) two rounds of hand-guessed FK signs — fixed by rendering a 15-frame axis
+atlas instead of guessing; (3) hand-tuned folds could never keep the paws
+planted while the torso moved — fixed with hinge-constrained CCD IK at
+pose-build time, which also absorbed the rig's L/R bone-length asymmetry.
+
+**Verified:** CatProbe 30+ assertions green including the new CONTINUITY sweep —
+a forepaw sampled every physics frame through live state transitions, worst step
+68.6 mm/frame against an 80 mm architectural bound (a mesh swap measures
+hundreds); full TestRunner green; in-world frames read back (level mid-gallop,
+tucked sleeping loaf, sitting sit).
+
+**Still open, honestly:** no runtime foot-lock IK (paws can drift a little on
+turns); the tail has no bones (Tripo's template ends at the pelvis) so it rides
+the hip; the stretch pose exists in the library but no behaviour plays it yet.
