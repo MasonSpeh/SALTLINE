@@ -956,3 +956,90 @@ carry no mass in front of a heavy tail, and a ray's WINGSPAN is longer than its 
 UNCERTAIN otherwise; name the species the instrument cannot judge, in the file, with what a
 render showed — an assertion that is silently skipped is how a real defect hides among four
 false alarms.
+
+---
+
+## Found doing the owner's s35 fix list
+
+**TRIPO WILL RIG A QUADRUPED — AND ITS CLIPS ARE STILL UNUSABLE.** `creature_swim.gdshader`
+has asserted in its own header for many sessions that "Meshy (and most text-to-3D services)
+only auto-rig HUMANOIDS", and the whole vertex-displacement architecture in `creature_anim.gd`
+follows from it. That is true of Meshy and FALSE of Tripo: rigging the ship's cat off the task
+ids s34 logged returned a real skin — 41 joints, clean weights, and a bind pose that
+photographs identically to the static mesh. Zero of this project's 165 GLBs had ever contained
+an animation or a skin, so nobody had checked. **Two things are still wrong with what comes
+back, and both are invisible in the glTF:** the joint names are HUMANOID (Hip/Pelvis/Thigh/
+Clavicle/Upperarm/Hand fitted to a cat), so `preset:walk` is a human walk cycle on a quadruped
+and photographs as a wrung-out animal; and the BONE LENGTHS ARE ASYMMETRIC — `L_Calf->L_Foot`
+0.156 against `R_Calf->R_Foot` 0.569, with the forelimbs disagreeing the same way. So: take the
+SKIN, discard the CLIPS, and drive it with forward kinematics on the proximal joints, which is
+immune to the length asymmetry because rotating a bone swings whatever is weighted to it.
+`tests/BoneDump.tscn` prints the rest pose; `tests/AnimShot.tscn` samples a clip at eight
+phases, because a single frame of a bad retarget looks fine at almost any phase.
+
+**A CREATURE THAT SEATS ITSELF BY RAYCAST MUST EXCLUDE ITS OWN INTERACTION HANDLE.** The ship's
+cat spawned exactly 0.500 m in the air for two sessions. `_seat()` dropped a ray from +1.2 with
+`collision_mask = 1` and no exclusions, and an `Interactable` is a `StaticBody3D` on the default
+layer carrying a 0.5 m box centred 0.25 m up — so the first thing the ray hit was the top of the
+cat's own collider. The existing FaunaTouch trap in this file is about a probe measuring OTHER
+animals; this is the animal measuring ITSELF. It read as intermittent ("floating until you say
+hello") only because the other two rays in the same file DO exclude the handle, so the first
+step re-seated it and the bug vanished — which sent one investigation looking at the greeting
+code. **If a bug appears to be cured by an unrelated action, find what that action re-runs.**
+
+**`atan2(d.x, d.z)` POINTS +Z AT THE TARGET, AND GODOT'S FORWARD IS -Z.** Every creature here
+adds `+ PI` after it (`fauna_move.gd:511`, `bloom_fauna.gd:2927/2969/4423/4455`, one of them
+commented "this turns the head toward the player instead of pointing its tail at them") because
+`CreatureAnim` normalises every generated mesh's head onto the host's -Z. `ship_cat.gd` was the
+one call site that missed it, so the cat aimed its tail wherever it was going. The half turn is
+invisible in review precisely because the line looks like the correct idiom.
+
+**A BODY OFFSET WRITTEN BY ONE STATE AND NEVER CLEARED IS CARRIED BY EVERY OTHER STATE.**
+`_groom()` wrote `_body.rotation.x` and `_pose_sit()` wrote `_body.rotation.y`; only ROLL was
+ever eased home. So the cat picked up a permanent pitch the moment the player met it and a yaw
+skew off its direction of travel every time it sat down, and kept both for the session — the
+owner's "not straight". Ease the whole offset to neutral once per frame and let each state ADD
+what it wants; a state machine whose states leave residue is not one.
+
+**`Interactable` IS A `StaticBody3D`, SO EVERY INTERACTABLE IS SOLID TO THE PLAYER.** Fine for a
+crate, wrong for an animal — you could not walk through the cat. `bloom_fauna`'s existing lever
+(`collision_layer = 1 if solid else 0`) cannot express the third case, because layer 0 also
+makes the thing unreachable by `InteractionRay`. Everything in this project lived on layer 1,
+so layer 3 is now INTERACTABLE-BUT-NOT-SOLID and `InteractionRay` masks `1 | 3`. Assert BOTH
+halves when you use it: off the solid layer, and not on no layer at all.
+
+**A SHARED ShaderMaterial FED A PER-PLAYER QUANTITY MAKES EVERY SURFACE MOVE WITH THE VIEWER.**
+The owner reported "wall textures still moving" across several sessions and every investigation
+went to the wall MATERIALS, where nothing was wrong — `mat_lib.gd` had not been touched in
+twelve sessions. The actual defect was `underwater_fx.gd` writing the caustic shader's `top_y`
+from `surf`, i.e. `Gyre.swim_line()` sampled at the PLAYER's xz, into the ONE material every
+caisson shares: the band of moving light on all four legs rose and fell with the wave the player
+happened to be standing in. **When a complaint is that something moves WITH the observer, look
+for an observer-derived value crossing into shared render state** — the fault is a coupling, not
+a mapping, and no amount of staring at the material will show it.
+
+**A TOLERANCE WIDER THAN THE DEFECT CANNOT SEE THE DEFECT.** `CatProbe` asserted the cat's
+height as `absf(y - 18.0) < 1.2` against the literal deck height — which passes for an animal
+hanging 1.19 m in the air, while the real bug was a 0.5 m float. It had no notion of facing,
+collision layer or skeleton at all. Sibling of the s34 seal tautology and just as green: pick
+the tolerance from the smallest defect worth reporting, not from what currently passes.
+
+**TRIPO SILENTLY TRUNCATES A PROMPT AT 1000 CHARACTERS, AND THE TAIL IS WHERE THE NEGATION
+LIVES.** All three s35 goliath grouper drafts came out 1067-1098 chars. The template this file
+recommends puts the shape and the pattern first and the "NOT glossy, NOT plastic, NOT a toy, no
+base, no plinth" clause LAST — so an over-long prompt loses exactly the part that fights the
+default failure mode, and comes back as a glossy toy that looks like a prompting failure rather
+than a truncation. Assert the length before spending the credits.
+
+**A FUNCTION CAN EXIST, BE CALLED CORRECTLY, AND HAVE EVERY LINE IN IT BE DEAD.**
+`AudioDirector.set_underwater()` was wired from `main.gd` and did nothing at all: every bed id
+it faded is in `AMBIENCE_OWNED`, and `_fade` forces exactly those to -80 dB, so
+`_fade("sea", -8.0, 0.6)` set the sea to SILENCE. The feature read as implemented in every
+review. The same shape as the shadow-property trap at the top of this file — the tell is that
+nobody had ever measured the OUTPUT, only read the call site.
+
+**AN AGENT FLEET SHARING ONE WORKING TREE MAKES `git add -A` A LANDMINE.** Two agents' mid-flight
+edits were swept into commits describing something else entirely. Nothing was lost and the suite
+stayed green, but the history now misdescribes itself. With concurrent agents, commit by explicit
+PATH, always — and give each agent a disjoint file set up front, because the alternative is
+per-agent worktrees and this repo's working tree is 18 GB.
