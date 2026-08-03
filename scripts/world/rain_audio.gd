@@ -41,7 +41,8 @@ func _ready() -> void:
 
 func _make(path: String) -> AudioStreamPlayer:
 	var p := AudioStreamPlayer.new()
-	p.bus = "Master"
+	# World, so rain is muffled from below like everything else (see audio_director).
+	p.bus = "World"
 	p.volume_db = FLOOR_DB
 	add_child(p)
 	if ResourceLoader.exists(path):

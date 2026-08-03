@@ -339,7 +339,22 @@ func _process(_delta: float) -> void:
 
 	for m in _caustic_mats:
 		m.set_shader_parameter("daylight", day * (1.0 - storm * 0.6))
-		m.set_shader_parameter("top_y", surf)
+		# THE CAUSTIC BAND'S HEIGHT IS THE TIDE, NOT THE PLAYER'S OWN WAVE — and this is the
+		# owner's "wall textures still moving", found s35.
+		#
+		# `surf` is Gyre.swim_line() sampled at the PLAYER's xz (line ~297): the local
+		# instantaneous swell height under whoever is looking. It was written into the ONE
+		# ShaderMaterial every caisson shares, so the light band on all four legs rose and
+		# fell with the wave the PLAYER happened to be under — a pattern on a wall that
+		# moves when you move, which is exactly the complaint and exactly what no amount of
+		# looking at the wall MATERIALS was ever going to explain.
+		#
+		# Gyre.tide() is the mean sea level: it moves over a tide cycle, which is correct
+		# and is what the band should track, and it does not depend on where the viewer is
+		# standing. Per-leg swell would be more correct still, but it needs a sample per
+		# leg rather than one shared material — and the wrong thing here is the COUPLING to
+		# the observer, not the missing chop.
+		m.set_shader_parameter("top_y", Gyre.tide())
 
 	# ---- the rig's own surfaces must obey the water too ----
 	_grade_sun(surf, cam_y, under, storm)

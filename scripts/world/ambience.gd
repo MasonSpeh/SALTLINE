@@ -112,14 +112,16 @@ func _ready() -> void:
 	_rng.randomize()
 	for bed_name: String in BED_DEFS:
 		var p := AudioStreamPlayer.new()
-		p.bus = "Master"
+		# The WORLD bus, not Master: AudioDirector hangs the underwater low-pass and reverb
+		# on World, so anything left on Master is heard bone-dry from under the sea.
+		p.bus = "World"
 		p.volume_db = FLOOR_DB
 		add_child(p)
 		_beds[bed_name] = p
 		_target_db[bed_name] = FLOOR_DB
 	for i in range(STEP_POOL):
 		var sp := AudioStreamPlayer3D.new()
-		sp.bus = "Master"
+		sp.bus = "World"
 		sp.max_distance = 22.0
 		sp.unit_size = 3.0
 		add_child(sp)
