@@ -20,6 +20,32 @@ landed and nobody updated the file.
 
 ## Watch items
 
+## Open after s35 — unverified, not unknown
+
+- **The reef SWAY has never been seen moving.** `materials/reef_sway.gdshader` is new and
+  the close-out pass photographs STILL frames, so "the plants move" is an argument from the
+  shader source, not an observation. Two frames ~2 s apart at a leg face (the frequencies
+  are 0.63 and 1.51 Hz) settles it. The specific risk is the per-instance phase: without a
+  working INSTANCE_ID term a whole MultiMesh field sways in lockstep like one flag, and a
+  single frame cannot tell that apart from correct.
+
+- **The fish rebalance is MODELLED, not measured.** No probe was run against it — six
+  agents shared one working tree and windowed runs were barred. FishSpreadProbe's two new
+  bars (TOP_HEAVY_MIN 1.40, SHELL_MIN 125) were deliberately set nearer the OLD values than
+  the new ones, so a live run landing under the model still passes. Run it: if it fails,
+  the probe is right and the model is wrong.
+
+- **The fishing rod fix is a real bug that may not be the owner's bug.** The pack-panel
+  route (hud.gd's move_slot re-pointing `selected_hotbar` without an inventory change) is
+  measurably broken and matches the report exactly. If the owner was using number keys
+  throughout, the cause is something else. Unexercised: a LIVE CAST (`fishing != null`,
+  the cast-pose branch of `_apply_hand_pose`) and prone.
+
+- **`submerged_deep` has still not been re-profiled**, now at a modelled 12.67 M triangles
+  (s34 left it at 12.55 M and said the same thing). The reef gained structures, a weed band
+  and a sway shader this session and paid for them by thinning the barnacle crust, so the
+  net is ~1% — but that is arithmetic, not a frame time.
+
 - **The deep reef band (-28 to -40) reads DARK, and it is the grade rather than the reef.**
   s34 took the coral down to -40 and cleared the water above it, but `reef_depth_m` is 24: past
   that depth the colour and ambient curves are both at their end stops, so the new lower band
