@@ -1,74 +1,89 @@
-extends SceneTree
+extends Node
 ## TEMPORARY agent probe — delete after use.
-## Rebuilds the held-rod chain OUTSIDE the world (no Main, no rig) and asks the one
-## question a screenshot would: after ItemVisual.build + _normalize_hand_visual +
-## _apply_hand_pose, is any of the rod inside the camera frustum?
+##
+## Holds the fishing rod in the LIVE world and re-measures the held visual across the whole
+## streaming window (render_budget sweeps to 22.5 s, rig_batcher fires on settle_done), asking
+## the three questions a screenshot would answer: is anything parented under the hand, is it
+## visible in tree, and does it project inside the frustum.
+##
+##   godot --headless --path . --script res://tests/_agent_rod_probe.gd
 
-const PC := preload("res://scripts/components/player_controller.gd")
+const SAMPLES: Array[float] = [6.0, 12.0, 20.0, 28.0, 34.0]
 
-## Copied verbatim from player_controller (that script cannot COMPILE under --script
-## because the autoloads are absent, so its statics are unreachable here).
-const HAND_ITEM_POS := Vector3(0.28, -0.24, -0.5)
-const POSE := {
-	"fishing_rod": {
-		"axis": Vector3(0, 1, 0), "face": Vector3(1, 0, 0),
-		"idle": {"axis_to": Vector3(0.34, 0.80, -0.50), "face_to": Vector3(0.0, 0.86, 0.51),
-			"off": Vector3(0.08, 0.21, -0.04)},
-	},
-	"deep_rig_pole": {
-		"axis": Vector3(0, 1, 0), "face": Vector3(1, 0, 0),
-		"idle": {"axis_to": Vector3(-0.24, 0.93, -0.28), "face_to": Vector3(0.91, 0.18, 0.37),
-			"off": Vector3(0.0, 0.12, -0.08)},
-	},
-}
+var _t: float = 0.0
+var _next: int = 0
+var _armed: bool = false
 
-static func _aim_basis(axis: Vector3, face: Vector3, axis_to: Vector3, face_to: Vector3) -> Basis:
-	var a1: Vector3 = axis.normalized()
-	var f1: Vector3 = face - a1 * face.dot(a1)
-	var a2: Vector3 = axis_to.normalized()
-	var f2: Vector3 = face_to - a2 * face_to.dot(a2)
-	if f1.length() < 0.001:
-		f1 = a1.cross(Vector3.UP if absf(a1.dot(Vector3.UP)) < 0.9 else Vector3.RIGHT)
-	if f2.length() < 0.001:
-		f2 = a2.cross(Vector3.UP if absf(a2.dot(Vector3.UP)) < 0.9 else Vector3.RIGHT)
-	f1 = f1.normalized()
-	f2 = f2.normalized()
-	var s := Basis(a1, f1, a1.cross(f1))
-	var t := Basis(a2, f2, a2.cross(f2))
-	return t * s.transposed()
+func _ready() -> void:
+	add_child((load("res://scenes/Main.tscn") as PackedScene).instantiate())
 
-func _initialize() -> void:
-	for id in ["fishing_rod", "deep_rig_pole"]:
-		_check(id)
-	quit()
-
-func _basis_relative_to(node: Node3D, base: Node3D) -> Basis:
-	var b: Basis = Basis.IDENTITY
-	var cur: Node3D = node
-	while cur != null and cur != base:
-		b = cur.transform.basis * b
-		cur = cur.get_parent() as Node3D
-	return b
-
-func _xf_relative_to(node: Node3D, base: Node3D) -> Transform3D:
-	var t: Transform3D = Transform3D.IDENTITY
-	var cur: Node3D = node
-	while cur != null and cur != base:
-		t = cur.transform * t
-		cur = cur.get_parent() as Node3D
-	return t
-
-func _check(id: String) -> void:
-	print("\n=== %s ===" % id)
-	var visual: Node3D = ItemVisual.build(id)
-	if visual == null:
-		print("  BUILD RETURNED NULL")
+func _process(d: float) -> void:
+	_t += d
+	if not _armed and _t > 4.0:
+		_armed = true
+		_equip()
+	if _next >= SAMPLES.size():
 		return
-	# --- what _normalize_hand_visual measures ---
-	var combined := AABB()
-	var found := false
-	var meshes := 0
-	var stack: Array[Node] = [visual]
+	if _t < SAMPLES[_next]:
+		return
+	_report(SAMPLES[_next])
+	_next += 1
+	if _next >= SAMPLES.size():
+		get_tree().quit()
+
+func _equip() -> void:
+	var p: Node = get_tree().get_first_node_in_group("player")
+	if p == null:
+		print("NO PLAYER")
+		get_tree().quit()
+		return
+	PlayerState.add_item("fishing_rod")
+	for i in range(PlayerState.hotbar.size()):
+		if str(PlayerState.hotbar[i]) == "fishing_rod":
+			PlayerState.selected_hotbar = i
+	p.call("_update_held_item")
+	print("[probe] equipped, selected_hotbar=%d  held=%s"
+		% [PlayerState.selected_hotbar, str(p.get("_held_item_id"))])
+
+func _report(at: float) -> void:
+	var p: Node = get_tree().get_first_node_in_group("player")
+	if p == null:
+		return
+	var hand: Node3D = p.get("_hand_item")
+	var cam: Camera3D = p.get("camera")
+	print("\n--- t=%.0fs ---" % at)
+	if hand == null:
+		print("  _hand_item is NULL")
+		return
+	print("  held id: '%s'   hand children: %d   hand.visible=%s in_tree=%s"
+		% [str(p.get("_held_item_id")), hand.get_child_count(), str(hand.visible),
+			str(hand.is_visible_in_tree())])
+	print("  hand.position=%s  hand.rotation(deg)=%s  (built at (0.28,-0.24,-0.5) / (8.6,-20.1,0))"
+		% [str(hand.position.snappedf(0.001)),
+			str((hand.rotation * 180.0 / PI).snappedf(0.1))])
+	if hand.get_child_count() == 0:
+		print("  NOTHING IN HAND")
+		return
+	var container: Node3D = hand.get_child(0) as Node3D
+	print("  container.visible=%s in_tree=%s  scale=%s  pos=%s"
+		% [str(container.visible), str(container.is_visible_in_tree()),
+			str(container.transform.basis.get_scale().snappedf(0.001)),
+			str(container.position.snappedf(0.001))])
+	var meshes: int = 0
+	var hidden: int = 0
+	var nolayer: int = 0
+	var noshadow: int = 0
+	var ranged: int = 0
+	var alpha0: int = 0
+	var on: int = 0
+	var total: int = 0
+	var nearest: float = 1e9
+	var min_ndc := Vector2(1e9, 1e9)
+	var max_ndc := Vector2(-1e9, -1e9)
+	var aspect: float = 16.0 / 9.0
+	var tan_half: float = tan(deg_to_rad(cam.fov) * 0.5)
+	var cam_inv: Transform3D = cam.global_transform.affine_inverse()
+	var stack: Array[Node] = [container]
 	while not stack.is_empty():
 		var n: Node = stack.pop_back()
 		for c in n.get_children():
@@ -77,85 +92,32 @@ func _check(id: String) -> void:
 		if mi == null or mi.mesh == null:
 			continue
 		meshes += 1
-		var box: AABB = _xf_relative_to(mi, visual) * mi.mesh.get_aabb()
-		combined = box if not found else combined.merge(box)
-		found = true
-	print("  meshes with geometry: %d   found=%s" % [meshes, found])
-	if not found:
-		print("  NO MESHES -> _normalize_hand_visual returns early, no pose, nothing scaled")
-		return
-	print("  combined AABB pos=%s size=%s" % [str(combined.position.snappedf(0.001)),
-		str(combined.size.snappedf(0.001))])
-	var largest: float = maxf(combined.size.x, maxf(combined.size.y, combined.size.z))
-	var target: float = 0.18
-	if id == "fishing_rod" or id == "deep_rig_pole":
-		target = 0.9
-	target = maxf(target, ItemVisual.hand_size_m(id))
-	var hand_scale: float = (target / largest) if largest > 0.0001 else 1.0
-	print("  largest=%.4f  target=%.3f  hand_scale=%.4f" % [largest, target, hand_scale])
-
-	# --- rebuild the live node chain: camera -> _hand_item -> container -> visual ---
-	var cam := Camera3D.new()
-	cam.fov = 75.0
-	var hand := Node3D.new()
-	cam.add_child(hand)
-	hand.position = HAND_ITEM_POS
-	hand.rotation.y = -0.35
-	hand.rotation.x = 0.15
-	var container := Node3D.new()
-	hand.add_child(container)
-	container.add_child(visual)
-	visual.position = -combined.get_center()
-
-	var marker: Node = visual.find_child("hand_tip", true, false)
-	print("  hand_tip present: %s" % str(marker is Node3D))
-	var pivot: Node3D = null
-	if marker is Node3D:
-		pivot = (marker as Node3D).get_parent() as Node3D
-	var b_pivot: Basis = Basis.IDENTITY
-	if pivot != null and pivot != visual:
-		b_pivot = _basis_relative_to(pivot, visual)
-	var def: Dictionary = POSE[id]
-	var pose: Dictionary = def["idle"]
-	var aim: Basis = _aim_basis(def["axis"], def["face"], pose["axis_to"], pose["face_to"])
-	var b: Basis = hand.transform.basis.inverse() * aim * b_pivot.inverse()
-	container.transform = Transform3D(b.scaled(Vector3.ONE * hand_scale), pose["off"])
-
-	# --- project every mesh corner into the camera's clip space ---
-	var aspect: float = 16.0 / 9.0
-	var near: float = 0.05
-	var tan_half: float = tan(deg_to_rad(cam.fov) * 0.5)     # fov is VERTICAL in Godot
-	var on: int = 0
-	var total: int = 0
-	var min_ndc := Vector2(1e9, 1e9)
-	var max_ndc := Vector2(-1e9, -1e9)
-	var nearest: float = 1e9
-	var farthest: float = 0.0
-	stack = [visual]
-	while not stack.is_empty():
-		var n2: Node = stack.pop_back()
-		for c in n2.get_children():
-			stack.append(c)
-		var mi2 := n2 as MeshInstance3D
-		if mi2 == null or mi2.mesh == null:
-			continue
-		var xf: Transform3D = _xf_relative_to(mi2, cam)
-		var bx: AABB = xf * mi2.mesh.get_aabb()
+		if not mi.is_visible_in_tree():
+			hidden += 1
+		if mi.layers == 0:
+			nolayer += 1
+		if mi.cast_shadow == GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
+			noshadow += 1
+		if mi.visibility_range_end > 0.0:
+			ranged += 1
+		var mat := mi.get_active_material(0) as StandardMaterial3D
+		if mat != null and mat.albedo_color.a < 0.02:
+			alpha0 += 1
+		var bx: AABB = (cam_inv * mi.global_transform) * mi.mesh.get_aabb()
 		for i in range(8):
-			var p: Vector3 = bx.get_endpoint(i)
+			var q: Vector3 = bx.get_endpoint(i)
 			total += 1
-			var d: float = -p.z
-			nearest = minf(nearest, d)
-			farthest = maxf(farthest, d)
-			if d <= near:
+			var dd: float = -q.z
+			nearest = minf(nearest, dd)
+			if dd <= cam.near:
 				continue
-			var ndc := Vector2(p.x / (d * tan_half * aspect), p.y / (d * tan_half))
+			var ndc := Vector2(q.x / (dd * tan_half * aspect), q.y / (dd * tan_half))
 			min_ndc = Vector2(minf(min_ndc.x, ndc.x), minf(min_ndc.y, ndc.y))
 			max_ndc = Vector2(maxf(max_ndc.x, ndc.x), maxf(max_ndc.y, ndc.y))
 			if absf(ndc.x) <= 1.0 and absf(ndc.y) <= 1.0:
 				on += 1
-	print("  corners on screen: %d / %d" % [on, total])
-	print("  depth in front of eye: %.3f .. %.3f m (near plane %.3f)" % [nearest, farthest, near])
-	print("  NDC x %.2f..%.2f   y %.2f..%.2f   (on screen = -1..1)"
-		% [min_ndc.x, max_ndc.x, min_ndc.y, max_ndc.y])
-	cam.free()
+	print("  meshes=%d  hidden=%d  layers==0: %d  shadow_off=%d  vis_range_set=%d  alpha0=%d"
+		% [meshes, hidden, nolayer, noshadow, ranged, alpha0])
+	print("  corners on screen %d/%d   nearest %.3f m (cam.near %.3f)  cull_mask=%d"
+		% [on, total, nearest, cam.near, cam.cull_mask])
+	print("  NDC x %.2f..%.2f  y %.2f..%.2f" % [min_ndc.x, max_ndc.x, min_ndc.y, max_ndc.y])

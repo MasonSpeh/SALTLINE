@@ -56,7 +56,6 @@ class_name KingCrab extends Node3D
 ## crab.gd as statics, so there is exactly one set of coordinates for the whole species.
 
 const CRABS := preload("res://scripts/world/crab.gd")   # by path: class cache lags new files
-const KIT := preload("res://scripts/world/creature_kit.gd")
 const ANIM := preload("res://scripts/world/creature_anim.gd")
 const MOVE := preload("res://scripts/world/fauna_move.gd")
 const MODEL_PATH := "res://assets/models/fauna/giant_crab/giant_crab.glb"
@@ -123,12 +122,11 @@ var _mats: Array = []
 ## Deliberately EMPTY, and deliberately present. TestRunner's crab-anatomy block walks the
 ## "giant_crab" group, takes an arbitrary member, and asserts BOTH that it has a body
 ## (`_model != null or _legs.size() == 8`) and that nothing visible hangs off `_legs` —
-## that second assertion is the guard against the old floating-claw-overlay bug. A king
-## satisfies the first through `_model` and the second by keeping its real, deliberately
-## VISIBLE articulation in `_limbs` instead. Do not move the limbs into `_legs`.
+## that second assertion is the guard against the floating-claw-overlay bug. A king
+## satisfies the first through `_model`, and satisfies the second trivially now that its
+## own capsule overlay is deleted (see the header): there is no procedural geometry on this
+## animal at all, so there is nothing to hide and nothing to keep in step with the mesh.
 var _legs: Array = []
-var _limbs: Array = []              ## the eight jointed walking legs
-var _claws: Array = []              ## the two pincer arms
 var _model_base_y: float = 0.0
 
 var _level: int = CRABS.L_WATER
@@ -152,7 +150,6 @@ var _backoff: float = 0.0
 var _commit: float = 0.0
 var _sense_cd: float = 0.0          ## brief blindness after a blocked approach — see _pursue
 
-var _gait: float = 0.0              ## in CYCLES, advanced by distance — never by time
 var _idle_t: float = 0.0
 var _snap_t: float = 0.0
 var _speed: float = 0.0
@@ -670,21 +667,17 @@ func _seat(delta: float) -> void:
 
 ## ---------- articulation ----------
 
-## The gait clock. THIS is the anti-moonwalk rule: _gait advances by metres of ground
-## actually covered divided by STRIDE, so it is impossible for the legs to cycle while the
-## body is stationary, or to cycle at the wrong rate while it is moving. Amplitude fades
-## with speed on top of that, so a standing king settles into a rest pose instead of
-## marching in place.
+## The gait now lives entirely on the mesh: `_set_beat` writes the SCUTTLE shader's rate off
+## STATE, and the rear/lurch below is written on the model's own transform. The distance-
+## driven `_gait` counter that used to phase the capsule legs went with them — the
+## anti-moonwalk rule it enforced is not needed for a shader wave that is a creak rather
+## than a stride, and keeping a counter nothing reads is how dead code accumulates.
 func _animate(delta: float) -> void:
 	var moved: float = global_position.distance_to(_last_pos)
 	_last_pos = global_position
 	_speed = moved / maxf(delta, 0.0001)
-	_gait = fmod(_gait + moved / STRIDE, 1.0)
 	_idle_t += delta
 	_snap_t = maxf(_snap_t - delta, 0.0)
-	var drive: float = clampf(_speed / CHASE_SPEED, 0.0, 1.0)
-	_pose_legs(delta, drive)
-	_pose_claws(delta)
 	if _model:
 		# The shell itself: a slow creak of the carapace, a rear in a chase, a lurch on the
 		# strike. Written on the model's own transform so nothing can detach from it.
@@ -703,55 +696,6 @@ func _animate(delta: float) -> void:
 		elif _speed > 0.25:
 			want_beat = 1.05
 		_set_beat(want_beat)
-
-## Sideways walking, which is what a crab actually does: the propulsive stroke is the leg
-## EXTENDING and FLEXING along the body's own left-right axis, not swinging fore and aft.
-## So `reach` (a cosine) drives hip elevation and knee flex together — the foot goes out,
-## plants, is dragged in as the body passes over it — while `lift` (the quarter-cycle
-## offset sine) takes it off the plating for the return. Four feet are down at all times.
-func _pose_legs(delta: float, drive: float) -> void:
-	for leg in _limbs:
-		var side: float = leg["side"]
-		var ph: float = _gait + float(leg["phase"])
-		var reach: float = cos(TAU * ph)
-		var lift: float = maxf(sin(TAU * ph), 0.0)
-		# At rest the whole chain eases to a wide, planted stance with only a slow swell in
-		# it — a stopped animal is still breathing, but it is not stepping.
-		var idle: float = sin(_idle_t * 0.9 + float(leg["phase"]) * TAU) * 0.022
-		var hip_z: float = side * ((0.30 * lift + 0.12 * reach) * drive + idle)
-		var knee_z: float = -side * ((0.42 * reach + 0.26 * lift) * drive + idle * 0.5)
-		var foot_z: float = side * (0.20 * lift * drive)
-		var t: float = clampf(delta * 14.0, 0.0, 1.0)
-		var hip := leg["hip"] as Node3D
-		var knee := leg["knee"] as Node3D
-		var foot := leg["foot"] as Node3D
-		hip.rotation.z = lerpf(hip.rotation.z, hip_z, t)
-		knee.rotation.z = lerpf(knee.rotation.z, knee_z, t)
-		foot.rotation.z = lerpf(foot.rotation.z, foot_z, t)
-
-## The arms. Idling they hang and breathe; hunting they come up and the jaws hold open;
-## _snap_t slams them shut — the same timer the bite and the melee riposte set.
-func _pose_claws(delta: float) -> void:
-	var reared: bool = state == State.PURSUE
-	var t: float = clampf(delta * 8.0, 0.0, 1.0)
-	for claw in _claws:
-		var side: float = claw["side"]
-		var sh := claw["shoulder"] as Node3D
-		var el := claw["elbow"] as Node3D
-		var want_sh: float = -side * (0.40 if reared else 0.06)
-		var want_el: float = -side * (0.30 if reared else 0.10)
-		sh.rotation.z = lerpf(sh.rotation.z, want_sh + side * sin(_idle_t * 1.3) * 0.03, t)
-		el.rotation.z = lerpf(el.rotation.z, want_el, t)
-		# Gape: wide while it threatens, shut hard on the strike.
-		var gape: float = 16.0 if reared else 7.0
-		gape += sin(_idle_t * 2.1 + side) * 2.5
-		if _snap_t > 0.0:
-			gape = 1.0
-		var up_jaw := claw["upper"] as Node3D
-		var lo_jaw := claw["lower"] as Node3D
-		var snap_t: float = clampf(delta * (26.0 if _snap_t > 0.0 else 7.0), 0.0, 1.0)
-		up_jaw.rotation_degrees.x = lerpf(up_jaw.rotation_degrees.x, -90.0 - gape, snap_t)
-		lo_jaw.rotation_degrees.x = lerpf(lo_jaw.rotation_degrees.x, -90.0 + gape, snap_t)
 
 ## The motion shader computes t = TIME * rate + phase, so a new rate written at second T
 ## teleports the wave's phase by T * delta_rate — at ten minutes in, a small nudge is

@@ -156,14 +156,25 @@ func groom(t: float) -> void:
 	if not valid():
 		return
 	rest_pose()
-	var lick: float = sin(t * 3.1)
-	var raise_paw: float = 0.55 + sin(t * 0.6) * 0.12
+	# The wash has a SHAPE, not just a wobble: the paw comes up and stays up, and the head
+	# works over it in short strokes. A first cut drove both off one slow sine and read as
+	# the cat nodding vaguely — the tell was that paw and head reached their extremes
+	# together, which is the one thing a real wash never does.
+	var stroke: float = sin(t * 4.2)
+	# Held high, with a slow drift rather than a return to the floor.
+	var raise_paw: float = 0.95 + sin(t * 0.5) * 0.10
 	var L: Dictionary = _limb["lf"]
 	_rot(L["prox"], -raise_paw)
-	_rot(L["dist"], raise_paw * 0.8)
-	_rot(_neck, -0.30 - lick * 0.10)
-	_rot(_head, -0.18 - lick * 0.12)
-	_rot(_spine2, 0.06, Vector3(0, 1, 0))
+	_rot(L["dist"], raise_paw * 0.55)
+	_rot(L["paw"], -0.35)
+	# The head comes DOWN to the paw — the neck does most of it, the skull the rest — and
+	# the short stroke rides on top.
+	_rot(_neck, -0.52 - stroke * 0.13)
+	_rot(_head, -0.34 - stroke * 0.16)
+	# ...and the shoulder turns in toward the raised paw, or the cat is washing thin air
+	# half a body-width to its left.
+	_rot(_spine2, 0.20, Vector3(0, 1, 0))
+	_rot(_spine, 0.10, Vector3(0, 1, 0))
 
 ## Turn the head toward something without turning the animal — the "focus" every state is
 ## supposed to have. `yaw`/`pitch` are radians in the body's frame, clamped to what a neck
