@@ -674,6 +674,40 @@ func _ladder(pos: Vector3, height: float, facing_deg: float, name_: String = "La
 
 # ---------- structure ----------
 
+const LEG_SIZE := Vector3(6.0, 109.0, 6.0)   ## one caisson casting, y 17.0 down to -92.0
+
+## GIVE THE CASTING AN INSIDE. Owner, s36: "I glitched myself into the pillar."
+##
+## A `_box` is a CSGBox3D and its collision is a CSG-baked ConcavePolygonShape3D — the one
+## shape class in Godot with no interior (tests/prop_settle_probe.gd says exactly this about
+## the wet-deck plate, for exactly this reason). Triangle soup can stop a body approaching a
+## face, but it cannot PUSH OUT a body that is already past one: there is nothing to
+## depenetrate against, and every wall is then a one-way door from the inside.
+##
+## Two things make the SE leg in particular a trap rather than a curiosity, and both are
+## geometry already in this file. The wet-deck plate (x 8..30, z -22..2) and the north/south
+## pontoons (z -16..-8 and 8..16) are single boxes that run STRAIGHT THROUGH the castings —
+## so the inside of a caisson has a floor at y 2.0 and another at y 0.95. Get in and you are
+## not falling through the world, you are standing in a 6 m concrete room with no way out
+## and both of the rig's walkways passing through it: the wet deck at the pillar the player
+## spawns beside, and the under-rig pontoon walk that the Pontoon Ladder exists to reach.
+##
+## The fix is a convex solid INSET into the casting. Inset rather than flush on purpose:
+##  - the CSG faces are still the first thing any legitimate approach meets, 20 mm before
+##    this box, so a capsule walking up to a leg is stopped by exactly what stopped it
+##    before and no two colliders fight over the same contact;
+##  - every raycast that seats coral, snails, mussels or a crab on these faces casts INWARD
+##    from outside and still hits the CSG face first, at the same |x| 25.00 / |z| 15.00 it
+##    always did — none of them can see this;
+##  - and a body that is nevertheless inside now has a shape to be pushed out of.
+## `use_collision` on the CSG is deliberately LEFT ON: turning it off would make the casting
+## eligible for rig_batcher's dressing weld (it skips colliding CSG at rig_batcher.gd:230),
+## which would fold a 109 m box into a merged chunk and cost the whole leg its own culling.
+const LEG_INSET: float = 0.02
+
+func _leg_interior(center: Vector3) -> void:
+	_col_wall(center, LEG_SIZE - Vector3.ONE * (LEG_INSET * 2.0))
+
 func _build_structure() -> void:
 	var legs := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 	for leg_pos in legs:
@@ -693,12 +727,32 @@ func _build_structure() -> void:
 		# Height/centre put the top just below the deck slab and the bottom at exactly
 		# Seabed.CAISSON_BOTTOM (-92) — the ocean is 4x deeper now, and one casting still
 		# runs the whole way down so no join line ever shows through the water.
-		_box(leg_pos + Vector3(0, -37.5, 0), Vector3(6, 109.0, 6), MatLib.concrete())
+		_box(leg_pos + Vector3(0, -37.5, 0), LEG_SIZE, MatLib.concrete())
+		_leg_interior(leg_pos + Vector3(0, -37.5, 0))
 	# Pontoons riding just above the bigger v2 swell (crests reach ~0.9).
 	_box(Vector3(0, -1.05, -12), Vector3(56, 4, 8), MatLib.concrete_floor())
 	_box(Vector3(0, -1.05, 12), Vector3(56, 4, 8), MatLib.concrete_floor())
 
 # ---------- Z1: Wet Deck ----------
+
+## THE DEAD PUMP, declared once. It had SEVEN things bolted to it across three functions
+## and two files — three rust weeps, the lockout tag, two dead gauges, a flashlight, a
+## prybar, a toolbox and (s35) a suction manifold — every one of them carrying the pump's
+## coordinates again as literals, and one of them (the manifold's flange, at z -11.0
+## against a casing that ended at -11.25) already 0.25 m off the face it claimed to be
+## bolted to. Moving the pump out of the doorway is one edit because of these.
+const PUMP_C := Vector3(11.0, WET_Y, -7.2)   ## FLOOR centre of the casing
+const PUMP_SIZE := Vector3(1.5, 1.8, 1.5)
+const PUMP_PROUD: float = 0.03               ## how far a plate/weep/gauge stands off the casing
+
+## The casing's SOUTH face, plus PUMP_PROUD. That is the face that looks back down the room
+## at the door, so it is the one that carries the tag, the gauges and the weeps.
+func pump_face_z() -> float:
+	return PUMP_C.z - PUMP_SIZE.z * 0.5 - PUMP_PROUD
+
+## The top of the casing — what the loose tools on it rest on.
+func pump_top_y() -> float:
+	return PUMP_C.y + PUMP_SIZE.y
 
 func _build_wet_deck() -> void:
 	# Platform slung at the waterline — anti-slip checker plate, not bare deck.
@@ -724,15 +778,16 @@ func _build_wet_deck() -> void:
 	_fit_door(Vector3(10, WET_Y, -14), Vector3(18, WET_Y, -14), WALL_H, pr_mat, 0.5, true, true, "Pump Room")
 	_wall(Vector3(10, WET_Y, -6), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
 	_wall(Vector3(10, WET_Y, -14), Vector3(10, WET_Y, -6), WALL_H, pr_mat)
-	# East wall carries the READY-ROOM ARCHWAY (z -10.75..-9.25): a real opening with
-	# steel jambs, a header and a checker threshold — no leaf, so respawn access can
-	# never be blocked by a stuck door. The respawn point wakes up just inside it.
-	_wall(Vector3(18, WET_Y, -14), Vector3(18, WET_Y, -10.75), WALL_H, pr_mat)
-	_wall(Vector3(18, WET_Y, -9.25), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
-	_box(Vector3(18, WET_Y + 2.75, -10), Vector3(0.25, 0.9, 1.9), pr_mat)   # header over the arch
-	for jz in [-10.75, -9.25]:
-		_box(Vector3(18, WET_Y + 1.6, jz), Vector3(0.34, 3.2, 0.2), MatLib.rust_steel(), self, false)
-	_box(Vector3(18, WET_Y + 0.02, -10), Vector3(0.7, 0.06, 1.6), MatLib.checker_plate())
+	# EAST WALL IS SOLID AGAIN. Owner, s36: "reove the 2nd backdoor." This wall carried the
+	# ready-room ARCHWAY (a leafless 1.5 m opening on z -10.75..-9.25 with steel jambs, a
+	# header and a checker threshold) and it was the room's second way in. It is gone: one
+	# unbroken run, and the pump room now has exactly one door, the south one at x 14.
+	#
+	# Nothing is trapped by that. The archway's stated job was respawn access — but
+	# `wet_deck_respawn` has read (20.0, WET_Y + 0.6, -19.0) since it was moved onto the open
+	# deck by the SPHL dock, 5 m OUTSIDE this room's south-east corner, so no respawn has
+	# landed inside here for several sessions and the comment claiming it did was stale.
+	_wall(Vector3(18, WET_Y, -14), Vector3(18, WET_Y, -6), WALL_H, pr_mat)
 	_corner_posts([Vector3(10, 0, -14), Vector3(18, 0, -14), Vector3(10, 0, -6), Vector3(18, 0, -6)],
 		WET_Y, WALL_H, pr_mat)
 	_box(Vector3(14, WET_Y + WALL_H, -10), Vector3(8.5, 0.25, 8.5), pr_mat) # roof
@@ -741,27 +796,54 @@ func _build_wet_deck() -> void:
 	# Waterline stain band on the inner wall faces, at the old flood height (~knee).
 	var stain: Material = MatLib.tide_band()
 	_box(Vector3(10.2, WET_Y + 0.55, -10), Vector3(0.04, 0.42, 7.5), stain, self, false)   # west
-	# East stain splits around the ready-room archway (opening z -10.75..-9.25).
-	_box(Vector3(17.8, WET_Y + 0.55, -12.4), Vector3(0.04, 0.42, 2.8), stain, self, false)   # east, S of arch
-	_box(Vector3(17.8, WET_Y + 0.55, -7.7), Vector3(0.04, 0.42, 2.9), stain, self, false)    # east, N of arch
+	# East stain is ONE run now the archway it used to split around is walled up.
+	_box(Vector3(17.8, WET_Y + 0.55, -10), Vector3(0.04, 0.42, 7.5), stain, self, false)   # east
 	_box(Vector3(14, WET_Y + 0.55, -6.2), Vector3(7.5, 0.42, 0.04), stain, self, false)    # north
 	_box(Vector3(15.6, WET_Y + 0.55, -13.8), Vector3(4.2, 0.42, 0.04), stain, self, false) # south (clear of the door)
 	# Silt drifts and a puddle or two the drain never took — flat, wet-dark, on the deck.
+	# The silt moved east off the NW corner: the dead pump stands there now and a floor
+	# decal under a solid box is geometry nobody will ever see. It sits under the lube drum
+	# instead, which is where a drift collects anyway.
 	var wet: Material = MatLib.flat(Color(0.05, 0.09, 0.09))
 	var silt: Material = MatLib.flat(Color(0.17, 0.15, 0.11))
 	_box(Vector3(13.4, WET_Y + 0.015, -9.2), Vector3(2.6, 0.03, 1.9), wet, self, false)
 	_box(Vector3(16.2, WET_Y + 0.015, -11.4), Vector3(1.7, 0.03, 1.3), wet, self, false)
-	_box(Vector3(11.4, WET_Y + 0.02, -7.4), Vector3(1.5, 0.04, 1.1), silt, self, false)
-	# Corroded gear: the dead pump, now weeping rust down its flanks.
-	_box(Vector3(12, WET_Y + 0.9, -12), Vector3(1.5, 1.8, 1.5), MatLib.rusty_metal()) # dead pump
+	_box(Vector3(12.6, WET_Y + 0.02, -7.0), Vector3(1.5, 0.04, 1.1), silt, self, false)
+	# THE DEAD PUMP, OUT OF THE DOORWAY. Owner, s36: "big pump right in front of door".
+	#
+	# It stood at (12, -12): footprint x 11.25..12.75, z -12.75..-11.25, with its nearest
+	# corner 1.77 m from the door's own centre (14, -14) and its east face 0.64 m off the
+	# west edge of the door lane. The lane was never NARROW — the free run containing the
+	# door line measured 3.98 m at the worklight's z and 5.13 m at the pump's — but a 1.5 m
+	# rusty cube 1.7 m from the threshold at chest height is the whole left side of the view
+	# as you step through it, which is what /tmp/s35e/pump_door.png photographs.
+	#
+	# Now in the NW corner, hard against the west wall (0.125 m clear) and under the north
+	# wall (0.325 m clear): nearest corner 6.46 m from the door centre, 1.64 m clear of the
+	# door lane's west edge, and the sight line from the threshold runs the room's full
+	# 7.75 m with nothing standing in it. Every part bolted to the pump — the rust weeps,
+	# the lockout tag, the two dead gauges, the flashlight, the prybar, the toolbox, and the
+	# discharge riser in _pump_room_plant — is derived from PUMP_C/PUMP_SIZE rather than
+	# repeating its coordinates, which is why the move is one edit instead of eight.
+	_box(PUMP_C + Vector3(0, PUMP_SIZE.y * 0.5, 0), PUMP_SIZE, MatLib.rusty_metal())
 	for sx in [-0.6, 0.0, 0.55]:
-		_box(Vector3(12 + sx, WET_Y + 0.9, -11.22), Vector3(0.06, 1.7, 0.02), stain, self, false)
-	_readable("pump_room_tag", "Lockout Tag", Vector3(12, WET_Y + 1.4, -11.1), Vector3(0.25, 0.3, 0.05))
+		_box(Vector3(PUMP_C.x + sx, PUMP_C.y + 0.9, pump_face_z()), Vector3(0.06, 1.7, 0.02),
+			stain, self, false)
+	_readable("pump_room_tag", "Lockout Tag", Vector3(PUMP_C.x, PUMP_C.y + 1.4, pump_face_z()),
+		Vector3(0.25, 0.3, 0.05))
 	_crate(["canned_food", "flare"], "Sealed Crate", Vector3(16.5, WET_Y + 0.01, -8))
 
 	# Loot room on the south edge.
+	#
+	# NO LEAF. Owner, s36: "get rid of the door in the roo, blocked by the pipe" — the
+	# opening stays, the pipes stay solid across it, the DOOR ITSELF goes. It was the one
+	# leaf on the rig you could never use as a door: s35 made the pipe bank at chest height
+	# a real collider, so the only way through is crouched, and a swinging leaf hung in a
+	# hole you have to crawl under is a thing you fight rather than open. `_wall` cuts the
+	# same opening `_fit_door` did and cases it through the same DoorFrame — the only
+	# difference is that nothing is hung in it.
 	var lr_mat: Material = MatLib.concrete()
-	_fit_door(Vector3(10, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat, 0.5, true, false, "Store Room")
+	_wall(Vector3(10, WET_Y, -16), Vector3(16, WET_Y, -16), WALL_H, lr_mat, 0.5)
 	_wall(Vector3(10, WET_Y, -22), Vector3(16, WET_Y, -22), WALL_H, lr_mat)
 	_wall(Vector3(10, WET_Y, -22), Vector3(10, WET_Y, -16), WALL_H, lr_mat)
 	_wall(Vector3(16, WET_Y, -22), Vector3(16, WET_Y, -16), WALL_H, lr_mat)
@@ -850,6 +932,7 @@ func _build_stair_tower() -> void:
 	_north_wall_with_room_doors(mat, shell_h)                                  # north (+2 room doors)
 	_wall(Vector3(TOWER_X1, WET_Y, -6), Vector3(TOWER_X1, WET_Y, 2), shell_h, mat)  # east
 	_west_wall_with_deck_door(mat, shell_h)                                    # west (deck door cut in)
+	_hub_welcome_zone()                                                        # arrival beat, once ever
 	_corner_posts([Vector3(TOWER_X0, 0, -6), Vector3(TOWER_X1, 0, -6),
 			Vector3(TOWER_X0, 0, 2), Vector3(TOWER_X1, 0, 2)],
 		WET_Y, shell_h, mat, 0.5)
@@ -1058,6 +1141,63 @@ func _build_stair_tower() -> void:
 	# The lookout that the whole climb finally leads to.
 	_build_ops_room(OPS_Y)
 
+## The stair tower's deck-level doorway — the top of the main climb, and the way onto the
+## topside deck. One rect, used by the CSG cut, the DoorFrame casing and the arrival
+## trigger, so none of the three can drift from the other two.
+const DECK_DOOR_W: float = 1.8
+const DECK_DOOR_H: float = 2.4
+const DECK_DOOR_Z: float = 0.5
+
+## ARRIVING ON THE MAIN DECK, ONCE. Owner, s36: "a one time popup that shows up on the
+## bottom of the screen the first time the player walks up the main stairs, and through the
+## doors onto the main deck."
+##
+## WHERE. Not a typed spot: the trigger is the deck doorway's own rect. `_west_wall_with_deck_door`
+## cuts DECK_DOOR_W x DECK_DOOR_H at (TOWER_X0, DECK_Y, DECK_DOOR_Z) and DoorFrame lines it,
+## so the volume is DoorFrame.clear_w() wide, a standing body tall, and sits on the WEST side
+## of the wall — i.e. it fires when the player is out of the tower and standing on the deck,
+## not while they are still in the stairwell. Move the door and it moves with it.
+##
+## ONCE, AND IT STAYS ONCE. `Journal.discovered` is the project's existing set of one-time
+## events: `Journal.payload()` writes its keys into every slot save, `Journal.restore()`
+## unions them back, and `_clear_run()` empties it on a new game — which is exactly the
+## lifetime an arrival beat wants. This is the same shape `comfort_furniture.gd` uses for the
+## camp acknowledgement. The key is deliberately NOT a "place_*" id: `entries_by_category`
+## reads `data.get(id, {}).get("cat")`, so an id with no entry in data/journal.json scores ""
+## and is skipped by the journal panel — the flag persists and never shows up as a blank
+## entry. (Give it a journal.json entry and it would ALSO toast "Journal — ...", which would
+## step on the line below.)
+##
+## WHICH HUD CHANNEL. `hud.toast` — toast_label is anchored PRESET_CENTER_BOTTOM at -170 px,
+## the bottom-of-screen channel the owner asked for, and the one every other world script
+## already uses to say something about right now.
+const HUB_WELCOME_ID: String = "seen_hub_welcome"
+const HUB_WELCOME_TEXT: String = "Welcome Home — Saltline 1;  The Hub"
+const HUB_ZONE_DEPTH: float = 1.2   ## how far out onto the deck the arrival volume reaches
+
+func _hub_welcome_zone() -> void:
+	var zone := Area3D.new()
+	zone.name = "HubWelcome"
+	var shape := CollisionShape3D.new()
+	var box := BoxShape3D.new()
+	box.size = Vector3(HUB_ZONE_DEPTH, PC_STAND_H, DOORFRAME.clear_w(DECK_DOOR_W))
+	shape.shape = box
+	zone.add_child(shape)
+	add_child(zone)
+	# Hard against the wall's WEST face (the wall is centred on TOWER_X0 at WALL_T thick),
+	# reaching HUB_ZONE_DEPTH out onto the plating.
+	zone.global_position = Vector3(TOWER_X0 - WALL_T * 0.5 - HUB_ZONE_DEPTH * 0.5,
+		DECK_Y + PC_STAND_H * 0.5, DECK_DOOR_Z)
+	zone.body_entered.connect(_on_hub_zone_entered)
+
+func _on_hub_zone_entered(body: Node3D) -> void:
+	if not body.is_in_group("player") or Journal.discovered.has(HUB_WELCOME_ID):
+		return
+	Journal.discovered[HUB_WELCOME_ID] = true
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("toast"):
+		hud.toast(HUB_WELCOME_TEXT)
+
 ## West wall of the stair tower (x=TOWER_X0, z -6..2), solid except a deck-level doorway
 ## at z -0.4..1.4 (y 18..20.4) so the climb spills out onto the topside deck. Cut as
 ## one CSG subtraction so the opening is a clean hole, not overlaid jamb boxes.
@@ -1070,10 +1210,11 @@ func _west_wall_with_deck_door(mat: Material, shell_h: float) -> void:
 	wall.material = mat
 	comb.add_child(wall)
 	wall.position = Vector3(TOWER_X0, WET_Y + shell_h * 0.5, -2)
-	# The opening rect, declared ONCE and used for both the cut and the casing.
-	var ow: float = 1.8
-	var oh: float = 2.4
-	var oz: float = 0.5
+	# The opening rect, declared ONCE and used for the cut, the casing, and the arrival
+	# trigger that fires on the far side of it (see _hub_welcome_zone).
+	var ow: float = DECK_DOOR_W
+	var oh: float = DECK_DOOR_H
+	var oz: float = DECK_DOOR_Z
 	var door := CSGBox3D.new()
 	door.size = Vector3(WALL_T + 0.8, oh, ow)
 	door.operation = CSGShape3D.OPERATION_SUBTRACTION
@@ -1519,9 +1660,10 @@ func _build_floodlights() -> void:
 	# pump room — the pump-room door's centre to the centimetre (OPEN_W 1.4 centred on x 14),
 	# 2.0 m in, a 0.09 m upright 2.4 m tall. You walked in the door and into the pole; the
 	# lane either side of it on the door axis measures 0.565 m against a 0.74 m body. Moved
-	# to the room's SE corner, which the scan reports CLEAR and which is outside both of the
-	# room's walk lanes (see _pump_room_plant for the plan those lanes come from). It still
-	# lights the door and the archway from there, which is what a corner worklight is for.
+	# to the room's SE corner, which the scan reports CLEAR and which is outside the room's
+	# walk lane (see _pump_room_plant for the plan that lane comes from). It still lights the
+	# door and the length of the room from there, which is what a corner worklight is for.
+	# (It lit the east archway too until s36 walled that up; the corner is unaffected.)
 	for wl in [Vector3(17.8, WET_Y + 2.4, -19.0), Vector3(12, WET_Y + 2.4, -21.5),
 			Vector3(16.9, WET_Y + 2.4, -12.9)]:
 		var base := Vector3(wl.x, WET_Y + 0.03, wl.z)
@@ -2670,7 +2812,9 @@ func _decorate_machine_shop() -> void:
 func _decorate_pump_room() -> void:
 	var y: float = WET_Y
 	# A flashlight left on the dead pump — the pump room is unlit until power is back.
-	_takeable("flashlight", "Flashlight", Vector3(12.0, y + 1.85, -12.0))
+	# On the casing TOP, derived: the pump moved out of the doorway in s36 and a torch
+	# authored at its old xz would have been left hanging over open deck.
+	_takeable("flashlight", "Flashlight", Vector3(PUMP_C.x - 0.35, pump_top_y() + 0.05, PUMP_C.z))
 	# Pipe runs along the north wall, one valve wheel each.
 	for py in [2.6, 3.2]:
 		var pipe := _cyl_nc(Vector3(14, y + py, -6.5), 0.12, 7.0, MatLib.rusty_metal())
@@ -2684,9 +2828,11 @@ func _decorate_pump_room() -> void:
 		add_child(wheel)
 		wheel.position = Vector3(vx, y + 2.6, -6.75)
 		wheel.rotation.x = deg_to_rad(90)
-	# Gauges on the dead pump — needles all at zero.
-	for gx in [11.6, 12.4]:
-		_cyl_nc(Vector3(gx, y + 1.9, -11.2), 0.11, 0.04, MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
+	# Gauges on the dead pump — needles all at zero. On the casing's south face, which is
+	# the one you read from the door.
+	for gx in [-0.4, 0.4]:
+		_cyl_nc(Vector3(PUMP_C.x + gx, y + 1.35, pump_face_z()), 0.11, 0.04,
+			MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
 
 ## A moulded survival-pod bench: grey GRP shell flush on the pod floor, a hi-vis orange
 ## nosing along the top front edge, a dark anti-slip seat pad, and two kick recesses at
@@ -2809,7 +2955,11 @@ func _build_env_objects() -> void:
 	# so there is no bulkhead here for a sign to be mounted on.
 	_plabel("RIGGING BENCH", Vector3(25.0, WET_Y + 0.2, -17.86), 180, 16, Color(0.85, 0.82, 0.7))
 	_takeable("rope", "Rope Coil", Vector3(17.2, DECK_Y + 0.01, -15.8), Vector3(0.45, 0.3, 0.45))
-	_takeable("prybar", "Prybar", Vector3(12.8, WET_Y + 1.81, -12.0), Vector3(0.15, 0.12, 0.9))
+	# The prybar is left ON the dead pump's casing — derived, so it travelled with it when
+	# the pump came out of the doorway (s36). It was authored at x 12.8 against a casing
+	# whose east face was 12.75, i.e. already 50 mm over the edge.
+	_takeable("prybar", "Prybar", Vector3(PUMP_C.x + 0.35, pump_top_y() + 0.01, PUMP_C.z),
+		Vector3(0.15, 0.12, 0.9))
 	# 1. Oil drums — loose physics props, wet deck and topside.
 	# The first two used to sit at (23.5,-15.5) and (24.4,-14.6): both fall inside the SE
 	# caisson-leg footprint (solid concrete, x19..25 z-15..-9), so as loose RigidBodies they
@@ -3555,11 +3705,23 @@ func _loot_door_duck() -> void:
 	_wire(Vector3(door_x - half, WET_Y + lo_h, LOOT_PIPE_Z),
 		Vector3(door_x + half, WET_Y + lo_h, LOOT_PIPE_Z), lo_r + SLEEVE_PROUD,
 		MatLib.hazard_stripe())
-	# THE PROMPT. Not a new system: `hud.toast` is what every other world script uses to say
-	# something about right now (the crab's arrival, a hauled fish, a full bench), and unlike
-	# `set_hint` it does not lock the prompt chip away from InteractionRay — the store room
-	# is full of things that need that chip. Fired from an Area3D rather than a per-frame
-	# poll, so it costs nothing at all until somebody walks into the doorway.
+	# THE PROMPT, and it is `hud.set_hint`, not `hud.toast`. Owner, s36: "that popup should
+	# stay up as long as player is next to that doorframe."
+	#
+	# A toast is a ONE-SHOT by construction — `hud.toast` starts a 2.5 s hold and a 1.0 s
+	# fade and there is no way to hold it, so s35's version fired once on entry and was gone
+	# whether or not the player had worked out what to do. The only channel on the HUD that
+	# stays up while a condition holds is `set_hint`, which sets `prompt_locked` and keeps
+	# the chip until it is handed "" back. So: set on enter, clear on exit.
+	#
+	# s35 rejected set_hint because it locks the chip away from InteractionRay in a room
+	# full of loot. That objection is answered by the ZONE, not by the channel, and the
+	# clearances are counted rather than assumed. The box is the doorway's own clear width
+	# (x 12.39..13.61) by 1.6 m of depth (z -16.90..-15.30), and every Interactable near it
+	# is outside: the Storage Crate's north face is 2.70 m south, the Origin handbook at
+	# (11.7, -16.6) is 0.69 m west of the x span, the stores fishing rod at (11.0, -17.2)
+	# is 1.39 m west, and the glow-worm den at (13.0, -18.2) is 1.30 m south. Nothing that
+	# needs the chip is inside the volume that takes it.
 	var zone := Area3D.new()
 	zone.name = "StoreDoorDuckHint"
 	var shape := CollisionShape3D.new()
@@ -3576,25 +3738,47 @@ func _loot_door_duck() -> void:
 ## It is a file this pass does not own, so the number is named where it is used and the
 ## derivation above shows its work.
 const PC_STAND_H: float = 1.8
-var _duck_hint_armed: bool = true
+const DUCK_HINT: String = "The pipe bank crosses this doorway at chest height. Hold Shift and duck under it."
+## How many player bodies are standing in the doorway volume. A counter rather than a bool
+## because `body_entered` fires per body and the zone sees every collider on layer 1 — the
+## pipe barrier and the frame among them — so "did the LAST thing to leave happen to be the
+## player" is not a safe way to decide whether to take the hint down.
+var _duck_hint_bodies: int = 0
 
 func _on_duck_zone_entered(body: Node3D) -> void:
-	# The zone sees every body on layer 1, including the barrier and the door leaf.
-	if not _duck_hint_armed or not body.is_in_group("player"):
+	# The zone sees every body on layer 1, including the pipe barrier itself.
+	if not body.is_in_group("player"):
 		return
-	# Already down: they have worked it out, and a hint for something you are doing is noise.
-	# `crouching` is a script VAR on the controller, so Object.get resolves it (a const would
-	# come back null and this would fire every time — the s23 trap).
-	if bool(body.get("crouching")):
-		return
-	_duck_hint_armed = false
-	var hud: Node = get_tree().get_first_node_in_group("hud")
-	if hud and hud.has_method("toast"):
-		hud.toast("The pipe bank crosses this doorway at chest height. Hold Ctrl and duck under it.")
+	_duck_hint_bodies += 1
+	if _duck_hint_bodies == 1:
+		_set_duck_hint(DUCK_HINT)
 
 func _on_duck_zone_exited(body: Node3D) -> void:
-	if body.is_in_group("player"):
-		_duck_hint_armed = true
+	if not body.is_in_group("player"):
+		return
+	_duck_hint_bodies = maxi(0, _duck_hint_bodies - 1)
+	if _duck_hint_bodies == 0:
+		_set_duck_hint("")
+
+## `set_hint` LOCKS the prompt chip, so leaving one set is not a cosmetic bug — it takes
+## the interaction prompt away from the whole rest of the game. Every path that stops
+## showing the hint goes through here, and it never writes a hint into a HUD that has gone
+## (scene change, quit) or one that does not carry the channel.
+func _set_duck_hint(text: String) -> void:
+	var tree: SceneTree = get_tree()
+	if tree == null:
+		return                       # already out of the tree: there is no HUD to release
+	var hud: Node = tree.get_first_node_in_group("hud")
+	if hud and hud.has_method("set_hint"):
+		hud.set_hint(text)
+
+## The zone is inside the rig, so the rig leaving the tree (restart, load, quit to menu) is
+## the one way the player can be "in the doorway" and never get a body_exited. Releasing the
+## chip here is what stops a reload starting with the crouch hint burned into it.
+func _exit_tree() -> void:
+	if _duck_hint_bodies > 0:
+		_duck_hint_bodies = 0
+		_set_duck_hint("")
 
 ## Everything the working rig would actually be strung with — run AFTER the
 ## primary dressing so it reads as a plant, not a diagram. Triples the pipe count
@@ -3614,15 +3798,14 @@ func _more_industry() -> void:
 	_gauge(Vector3(12.5, WET_Y + 2.05, -14.4), "z")
 	_gauge(Vector3(13.0, WET_Y + 1.75, -14.4), "z")
 	# Pump room east face (x=18.1) — vertical risers dropping to the deck manifold.
-	# Rerouted around the ready-room ARCHWAY (z -10.75..-9.25): two risers south of
-	# the opening, one north, and the manifold split into two capped segments that
-	# flank the doorway. Pipes respect doors; the old middle riser stood dead
-	# centre in the new opening at head height (sonar audit).
+	# s35 split this in two around the ready-room ARCHWAY and left the middle riser out,
+	# because pipes respect doors. s36 walled that opening up (owner: "reove the 2nd
+	# backdoor"), so the wall is unbroken again and the run goes back to being ONE header
+	# from z -13.0 to -7.0 across a face with nothing to dodge. The risers are unchanged.
 	for rz in [-12.6, -11.5, -7.9]:
 		_pipe_fitted(Vector3(18.15, WET_Y + 0.2, rz), Vector3(18.15, WET_Y + 2.7, rz), 0.09, "y", pipe, false, false)
 		_valve_wheel(Vector3(18.3, WET_Y + 1.3, rz), "y", pipe)
-	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -13.0), Vector3(18.3, WET_Y + 0.3, -11.1), 0.11, "z", pipe, true, true)
-	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -8.9), Vector3(18.3, WET_Y + 0.3, -7.0), 0.11, "z", pipe, true, true)
+	_pipe_fitted(Vector3(18.3, WET_Y + 0.3, -13.0), Vector3(18.3, WET_Y + 0.3, -7.0), 0.11, "z", pipe, true, true)
 	# Loot room north face (z=-16.1) and stair tower west face (x=TOWER_X0-0.15).
 	for spec2 in LOOT_PIPES:
 		_pipe_fitted(Vector3(LOOT_PIPE_X0, WET_Y + spec2[0], LOOT_PIPE_Z),
@@ -4098,20 +4281,23 @@ func _tide_board() -> void:
 ##  4. NOTHING WAS ZONED. Cot, stool, rack, crate, drum, wheels, cable spool and pump were
 ##     spread across the whole floor with both walk lines running through the middle of them.
 ##
-## THE PLAN. The room has exactly two openings and the layout is built from them:
-##   LANE A  the door lane, x 13.39..14.61 (the door's own clear width), z -13.875..-9.25
-##   LANE B  the arch lane, z -10.75..-9.25 (the archway's own clear width), x 13.39..17.875
-## They cross ON the respawn point (15.0, -10.5), which is why you wake up standing in one
-## and looking down the other. Both are empty for their whole length now. Around them:
-##   WEST BAY   x 10.125..13.30 — THE PLANT: the dead pump, a floor manifold and handwheels
-##              running from it to the wall, the motor starter cabinet, the hose reel on a
-##              real bracket, the spare wheels stood on edge against the concrete.
-##   NORTH BAY  z -8.9..-6.125 — the ready room somebody moved into: cot, stool, pipe lamp.
-##   EAST BAY   x 14.9..17.875 — stores, the lifebuoy and the worklight, out of both lanes.
+## THE PLAN, RE-CUT IN s36 AROUND ONE DOOR. The east archway is walled up (owner: "reove
+## the 2nd backdoor") and the dead pump has left the doorway, so the room reads from its one
+## opening:
+##   LANE A  the door lane, x 13.39..14.61 (the door's own clear width), the full depth
+##           z -13.875..-6.125. Nothing stands in it at any z.
+##   WEST BAY   x 10.125..12.0 — THE PLANT: the motor starter cabinet, the hose reel on a
+##              real bracket, the spare wheels stood on edge against the concrete, and (in
+##              the NW corner) the dead pump with its discharge riser.
+##   NORTH BAY  z -8.05..-6.125 — plant-room stores: a lube drum, a spares rack, a works
+##              stool, a tool cart. NOT the cot and the wooden stool it held until s36.
+##   EAST BAY   x 14.9..17.875 — the sealed crate, the lifebuoy, the cable spool and the
+##              corner worklight.
 ##
-## Every destination below was probed against the scan before it was written: all nine
-## report CLEAR of existing geometry, none of them enters either lane, and the nearest
-## authored fauna home (the DeckGull at 24.0, -15.5) is outside the room entirely.
+## The lane figures the s35 plan quoted for LANE B are gone with the archway, and its claim
+## that the two lanes "cross ON the respawn point (15.0, -10.5)" was already stale when it
+## was written: `wet_deck_respawn` has read (20.0, WET_Y + 0.6, -19.0) — out on the open
+## deck by the SPHL dock — for several sessions.
 func _pump_room_plant() -> void:
 	var y: float = WET_Y
 	var steel: Material = MatLib.painted_steel()
@@ -4119,18 +4305,35 @@ func _pump_room_plant() -> void:
 	var red: Material = MatLib.red_paint()
 	var teal: Material = MatLib.teal_paint()
 	var dark: Material = MatLib.dark_metal()
-	# --- the dead pump gets plumbed. A suction run leaves its west face at knee height,
-	# crosses the 1.13 m of deck to the wall and turns down into the plating, with two
-	# handwheels on it. The pump has read as an unconnected box since it was built; this is
-	# the smallest thing that makes it a pump.
-	const PUMP_W: float = 11.25          # the dead pump's west face (rig_builder _build_wet_deck)
 	const WALL_W: float = 10.125         # the room's west interior face
-	var man_y: float = y + 0.15
-	_wire(Vector3(WALL_W + 0.08, man_y, -11.0), Vector3(PUMP_W, man_y, -11.0), 0.11, teal)
-	_flange(Vector3(PUMP_W, man_y, -11.0), 0.17, "x", galv)
-	for vx in [10.55, 11.05]:
-		_valve_wheel(Vector3(vx, man_y, -11.0), "x", red)   # _valve_wheel lifts the rim 0.2 itself
-	_cyl_nc(Vector3(WALL_W + 0.08, y + 0.075, -11.0), 0.11, 0.15, teal)   # elbow into the deck
+	# --- THE PUMP IS PLUMBED OVERHEAD, not across the floor. s35 ran a suction manifold from
+	# the casing's west face across the deck at knee height (y + 0.15, 0.11 m radius, so
+	# 0.26 m of pipe standing in the walk) with two handwheels on it — and every part of it
+	# was `_wire`/`_cyl_nc`, i.e. a bare MeshInstance3D with no collider. It was the west
+	# bay's share of the owner's "player has to walk thru": a pipe run and two red
+	# handwheels you passed straight through. It also missed the thing it claimed to be
+	# bolted to, flanging the casing's west face at z -11.0 when the casing ended at -11.25.
+	#
+	# A dead pump discharges UP. The riser leaves the casing top, carries the two handwheels
+	# in the 0.8 m between the casing and the deckhead header, and turns north into the
+	# header `_decorate_pump_room` already runs along the north wall at y + 2.6, z -6.5 —
+	# so the pump is connected to something that exists instead of to a stub. Nothing of it
+	# is under 1.8 m off the plating, which is why none of it needs a collider to stop being
+	# a lie: a standing capsule tops out at exactly 1.80 (player_controller.STAND_HEIGHT).
+	var riser_top: float = y + 2.6                     # the north-wall header's own height
+	var riser_x: float = PUMP_C.x
+	_flange(Vector3(riser_x, pump_top_y(), PUMP_C.z), 0.17, "y", galv)
+	_wire(Vector3(riser_x, pump_top_y(), PUMP_C.z), Vector3(riser_x, riser_top, PUMP_C.z), 0.11, teal)
+	for vy in [y + 2.05, y + 2.42]:
+		_valve_wheel(Vector3(riser_x, vy, PUMP_C.z), "y", red)
+	# Over the top and north to the header (header centre z -6.5, run along X at y + 2.6).
+	_wire(Vector3(riser_x, riser_top, PUMP_C.z), Vector3(riser_x, riser_top, -6.5), 0.11, teal)
+	# Suction: a short stub off the casing's south face turning straight down into the
+	# plating. 0.35 m of pipe against the machine, not 1.1 m of it across the floor.
+	var suc_z: float = PUMP_C.z - PUMP_SIZE.z * 0.5 - 0.18
+	_wire(Vector3(riser_x, y + 0.15, PUMP_C.z - PUMP_SIZE.z * 0.5), Vector3(riser_x, y + 0.15, suc_z),
+		0.11, teal)
+	_cyl_nc(Vector3(riser_x, y + 0.075, suc_z), 0.11, 0.15, teal)   # elbow into the deck
 	# --- motor starter. Every pump on a rig has one on the bulkhead beside it, and it is
 	# the object that says "this machinery was switched on and off by hand".
 	_box(Vector3(WALL_W + 0.20, y + 0.65, -10.2), Vector3(0.40, 1.30, 0.70), steel)
@@ -4154,10 +4357,19 @@ func _pump_room_plant() -> void:
 	for lz2 in [REEL_Z - 0.42, REEL_Z + 0.42]:
 		_box(Vector3(WALL_W + 0.35, y + (REEL_R + 0.02) * 0.5, lz2),
 			Vector3(0.70, REEL_R + 0.02, 0.08), MatLib.rust_steel(), self, false)
+	# AND THE REEL IS SOLID. Every part of it above is `_cyl_nc` or `_box(..., collide=false)`,
+	# so a 1.0 m drum on a 0.84 m bracket stood on the west wall and you walked through it —
+	# the same defect s34 pulled four props off the spawn walk for, and half of the owner's
+	# "player has to walk thru". One collision-only box over drum AND bracket rather than a
+	# shape per part: the parts are the picture, this is the volume. Spans the axle's own
+	# length (0.92) about its centre and the drum's full diameter in Y and Z.
+	_col_wall(Vector3(10.55, y + REEL_R + 0.02, REEL_Z),
+		Vector3(0.90, REEL_R * 2.0 + 0.04, REEL_R * 2.0 + 0.04))
 	# --- the spare wheels, on their rims against the concrete as the authored Y always
 	# intended. Standing, the centre sits exactly OUTER_R above the plating, which is what
 	# WET_Y + 0.2 already was; the roll that was missing is the whole fix. Moved south, out
-	# of the metal rack they were inside.
+	# of the metal rack they were inside. Solid too, for the reason above — 0.4 m of steel
+	# leaning on a wall is not something you should be able to stand inside.
 	const WHEEL_IN: float = 0.1
 	const WHEEL_OUT: float = 0.2
 	for wz in [-13.25, -12.80]:
@@ -4170,6 +4382,8 @@ func _pump_room_plant() -> void:
 		ww.position = Vector3(10.33, y + WHEEL_OUT, wz)
 		ww.rotation.z = deg_to_rad(90)     # ring plane vertical, leaning on the west wall
 		ww.rotation.x = deg_to_rad(6)      # a wheel on edge is never dead plumb
+	_col_wall(Vector3(10.33, y + WHEEL_OUT, -13.025),
+		Vector3(0.42, WHEEL_OUT * 2.0, 0.85))
 
 ## floating at a fixed height with nothing holding them up — from the couch they read
 ## as props stuck in mid-air. Now a real cord runs wall to wall with a catenary sag and
@@ -4232,10 +4446,11 @@ func _density_a() -> void:
 	for hx in [-24.0, -16.0]:
 		_box(Vector3(hx, y + 1.5, 17.83), Vector3(0.35, 0.55, 0.05), MatLib.flat(Color(0.75, 0.72, 0.68)), self, false)
 	_box(Vector3(-9.0, y + 0.4, 5.0), Vector3(0.7, 0.8, 0.4), MatLib.flat(Color(0.6, 0.3, 0.16)))
-	# Pump room: the toolbox on the dead pump stays where it is (it sits ON the pump top at
-	# WET_Y+1.8 and the scan reports gap +0.00). The hose reel and the spare wheels moved
-	# into the west plant bay with the rest of the machinery — see _pump_room_plant().
-	_box(Vector3(11.6, WET_Y + 1.92, -12.6), Vector3(0.5, 0.24, 0.3), MatLib.flat(Color(0.7, 0.45, 0.15)), self, false)
+	# Pump room: the toolbox sits ON the pump's casing top (the scan reported gap +0.00 at
+	# its old xz). Derived from PUMP_C so it followed the casing out of the doorway in s36
+	# instead of being left standing in mid-air over the old spot.
+	_box(Vector3(PUMP_C.x - 0.3, pump_top_y() + 0.12, PUMP_C.z + 0.45),
+		Vector3(0.5, 0.24, 0.3), MatLib.flat(Color(0.7, 0.45, 0.15)), self, false)
 	_pump_room_plant()
 	# Loot room: shelf rack with mixed boxes.
 	for sy in [0.6, 1.3]:

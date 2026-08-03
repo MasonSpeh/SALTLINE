@@ -334,28 +334,57 @@ func _wet_deck() -> void:
 	_pw("korean_fire_extinguisher_01", Vector3(24.6, y + 0.55, -6.3), 180, 1.1)
 	_p("long_life_food", Vector3(11.0, y + 0.02, -21.3), 20)
 
-	# ---- the pump READY ROOM (respawn lives here now) ----
-	# The drained pump room keeps its aftermath — stains, silt, the dead pump — but
-	# someone has moved in: a cot along the north wall, a storage rack squared on the
-	# west wall, safety gear where a hand finds it from the bunk. The respawn point
-	# (15.0, +0.6, -10.5) wakes up facing the east archway and open deck beyond.
-	_pc("vintage_day_bed", Vector3(14.3, y, -6.9), 180)          # cot, back to the north wall
+	# ---- THE PUMP ROOM, dressed as a pump room ----
+	#
+	# Owner, s36: "the pumproom is still awful, unfitting furniture". It was true and it was
+	# ours: s35 read the room as a ready room somebody had moved into and gave it a VICTORIAN
+	# DAY BED and a FOLDING WOODEN STOOL — the two most domestic pieces in the whole library
+	# — in the one room on the rig whose entire subject is machinery. The premise those were
+	# authored on ("the respawn point wakes up facing the east archway") was already false
+	# when it was written: `wet_deck_respawn` reads (20.0, WET_Y + 0.6, -19.0), out on the
+	# open deck by the SPHL dock, and s36 walled the archway up.
+	#
+	# The NORTH BAY is now plant stores, laid west-to-east along the north wall (interior
+	# face z -6.125) with the gaps written down. rig_builder's dead pump moved into the NW
+	# corner (PUMP_C, x 10.25..11.75 by z -7.95..-6.45) in the same pass, so it opens the
+	# row; every piece after it is smaller than what it replaced or stands where the scan
+	# already reported clear.
+	#
+	#   dead pump   x 10.25..11.75  z -7.95..-6.45   (rig_builder, not ours)
+	#   lube drum   x 12.25..13.15  z -7.20..-6.30   0.50 m clear of the pump
+	#   -- THE DOOR LANE, x 13.39..14.61, LEFT EMPTY TO THE NORTH WALL --
+	#   works stool x 15.60..16.20  z -7.20..-6.60   0.99 m east of the lane
+	#   tool cart   x 16.45..17.35  z -7.30..-6.40   0.25 m clear of the stool,
+	#                                                0.53 m clear of the east wall
+	# and the Sealed Crate (rig_builder, x 15.95..17.05, z -8.40..-7.60) keeps 0.40 m to the
+	# stool and 0.30 m to the cart. The spares rack is deliberately NOT in this row: on the
+	# north wall it would have to stand somewhere in x 13.15..15.60, and a 1.0 m rack there
+	# lands on the door axis — which is exactly what the vintage day bed was doing (x
+	# 13.35..15.25 off the live scan, i.e. straddling the lane and closing it to 0.00 m at
+	# the north wall). It goes on the east wall instead, in the stores bay.
+	_pc("Barrel_01", Vector3(12.7, y, -6.75), 0)                 # lube drum, on the silt drift
+	# The stool is METAL now and it keeps s35's coordinates, which is deliberate: those were
+	# measured off the live scan to clear the Sealed Crate by 0.36 m (KNOWN_ISSUES' open s18
+	# intersection lives in this room), and metal_stool_01 is 0.60 m against the wooden
+	# stool's 0.50, so the clearance it inherits is 0.31 m rather than a new guess.
+	_pc("metal_stool_01", Vector3(15.9, y, -6.9), 30)
+	_pc("tool_cart", Vector3(16.9, y, -6.85), 180)               # NE corner, out of the lane
+	# Spares rack on the east wall (interior face x 17.875), in the bay the plan already
+	# reserves for stores. x 17.45..17.85, z -10.00..-9.00: 0.60 m clear of the Sealed
+	# Crate, 2.20 m from the lifebuoy's bracket, and 3.39 m of open floor west of it. That
+	# wall was the ready-room archway until s36 walled it up, which is what freed it.
+	_pc("steel_frame_shelves_01", Vector3(17.65, y, -9.5), -90)
 	_pc("worn_metal_rack", Vector3(10.38, y, -8.6), -90)         # rack flush on the west wall (face x 10.125)
 	_p("medical_tape", Vector3(10.38, y + 1.3, -8.5), 30)        # first-aid on the rack shelf
 	# Authored onto the rack shelf, but SupportIndex never sees the GLB's thin shelf
 	# boards, so settle dropped it to the deck INSIDE the rack frame — a tote visibly
 	# clipping through both rack rails (sonar overlap: 76% of its volume inside the
-	# rack's AABB). On the deck beside the rack it settles clean.
-	_p("plastic_container", Vector3(10.42, y + 0.02, -9.5), -37)
-	_p("vintage_flashlight", Vector3(13.3, y + 0.02, -7.6), 70)  # dropped by the cot
-	# The stool moved 0.5 m NORTH. At z -7.4 its rotated footprint (x 15.57..16.23,
-	# z -7.74..-7.06) overlapped rig_builder's Sealed Crate (x 15.95..17.05, z -8.40..-7.60)
-	# by 0.0157 m3 — that is KNOWN_ISSUES' open s18 intersection, measured off the live scan
-	# and found to be in this room. At z -6.9 it stands 0.36 m clear of the crate and 0.32 m
-	# clear of the cot's east end, still at the cot's foot.
-	_pc("folding_wooden_stool", Vector3(15.9, y, -6.9), 30)      # pulled to the cot's foot
-	_pw("lifebuoy", Vector3(17.82, y + 1.7, -12.2), -90, 1.1)    # east wall, seen from the arch
-	_pw("life_jacket", Vector3(12.6, y + 1.5, -6.24), 180)       # hung over the cot
+	# rack's AABB). On the deck beside the rack it settles clean. A can of oil rather than
+	# a household tote: same 0.30 m size hint, so the clearance is unchanged.
+	_p("oil_tin", Vector3(10.42, y + 0.02, -9.5), -37)
+	_p("vintage_flashlight", Vector3(13.3, y + 0.02, -7.6), 70)  # set down on the deck mid-job
+	_pw("lifebuoy", Vector3(17.82, y + 1.7, -12.2), -90, 1.1)    # east wall, faces the door
+	_pw("life_jacket", Vector3(12.6, y + 1.5, -6.24), 180)       # on the north bulkhead, over the drum
 	# The room light used to be a bare OmniLight floating 1m off the wall above the
 	# cot — warm light from empty air. Now a pipe lamp on the north wall carries it.
 	_pw("industrial_pipe_lamp", Vector3(14.3, y + 2.15, -6.3), 180)

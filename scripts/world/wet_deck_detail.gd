@@ -539,9 +539,11 @@ func _vents_and_hatches() -> void:
 	_dbox(Vector3(8.22, y + 0.015, -10.0), Vector3(0.24, 0.03, 23.6), MatLib.dark_metal())
 	_dbox(Vector3(12.0, y + 0.015, -21.86), Vector3(7.6, 0.03, 0.24), MatLib.dark_metal())
 	# Escape-route signage — photoluminescent green, the offshore lingua franca.
-	# The escape-route sign used to be painted mid-wall here; that wall now carries the
-	# ready-room ARCHWAY (z -10.75..-9.25), so the sign rides the header ABOVE the
-	# opening — over-door placement, which is where escape signage lives anyway.
+	# It rode the header over the pump room's ready-room ARCHWAY; s36 walled that opening
+	# up (owner: "reove the 2nd backdoor"), so it is now painted high on a solid east face.
+	# Left at y + 2.85 rather than dropped to eye level on purpose: that clears the top of
+	# the three pipe risers on this face (y + 0.2 .. y + 2.7) by 0.15 m, and the sign is
+	# read from out on the deck, not from arm's length.
 	_plabel("ESCAPE ROUTE → STAIRS", Vector3(18.2, y + 2.85, -10.0), 90, 18, Color(0.55, 0.9, 0.6))
 	_plabel("↑ MUSTER STATION B — TOPSIDE", Vector3(21.86, y + 2.0, -2.5), -90, 16, Color(0.55, 0.9, 0.6))
 	# Ballast tank stencil on the caisson's west face.
@@ -583,12 +585,11 @@ func _stair_entry() -> void:
 	# finds it down low, near spawn, and carries it UP to Breaker 4-A.
 	#
 	# It was at (15.4, -9.6), which cleared the pump and the door and still sat IN THE
-	# ARCHWAY LANE: the pump room's east arch is a 1.5 m opening on z -10.75..-9.25 with no
-	# leaf, the respawn point is at (15.0, -10.5), and the spool's 0.5 m footprint stood
-	# 0.98 m from it in the middle of that lane — a takeable on the floor of the one crossing
-	# the room has. Moved into the SE corner bay, which rig_builder._pump_room_plant keeps
-	# clear of both lanes; the scan reports the destination CLEAR, and it is still the first
-	# lit thing you see from the arch.
+	# ARCHWAY LANE — a takeable on the floor of the one crossing the room had. It moved into
+	# the SE corner bay, which rig_builder._pump_room_plant keeps clear of the walk. s36
+	# walled that archway up and there is only the south door now, so the spool is no longer
+	# the first lit thing seen from the arch — it is 1.14 m east of the door lane's edge, on
+	# the plating just inside the threshold, which is the same job done from one opening.
 	_takeable("cable_spool", "Cable Spool", Vector3(16.0, y + 0.05, -13.1))
 
 # ---------------------------------------------------------------- tide bands

@@ -401,8 +401,25 @@ func _ready() -> void:
 	for i in range(pyramid_starts.size()):
 		add_child(PyramidSnail.new(i, pyramid_starts[i]))
 	# Anchor limpets welded into the splash zone (54d), near the barnacle faces.
+	#
+	# THREE OF THE FIVE WERE AUTHORED INSIDE SOLID CASTINGS. The caisson legs are 6x6 boxes
+	# centred on (+-22, +-12) with faces at |x| 19/25 and |z| 9/15, and (24.6, 1.5, -12.4)
+	# sits 0.4 m INSIDE the east face — which is the owner's "there is a barrel of anchor
+	# limpets stuck there". It is a named Interactable, so the crosshair reads "Anchor
+	# Limpet" off a thing you cannot see, on the SE casting the pontoon walk runs along at
+	# eye height.
+	#
+	# Index 3 is the one the owner asked to go INTO THE WATER, and it does — but NOT at the
+	# 2.6 m depth first proposed. `Gyre.trough_floor()` is the analytic deepest the sea can
+	# EVER reach (-6.44 m at the shipped sea state), so anything above that line is left dry
+	# in a trough, which is the opposite of the request. It goes to y -8.0 on the same
+	# |x| 25.00 plane the two working limpets already use: permanently submerged, 4.1 m clear
+	# of the king crab's east-face den at (25, -8, -9.5), and 4.6 m above the coral band
+	# (BAND_TOP_FALLBACK -12.6).
+	# The other two come out to their nearest face and stay in the splash zone where they
+	# belong.
 	var limpet_spots: Array[Vector3] = [Vector3(-19.0, 1.55, -11.4), Vector3(19.0, 1.7, 11.4),
-			Vector3(-21.6, 1.35, -9.6), Vector3(24.6, 1.5, -12.4), Vector3(22.2, 1.25, 9.6)]
+			Vector3(-21.6, 1.35, -9.0), Vector3(25.0, -8.0, -13.6), Vector3(22.2, 1.25, 9.0)]
 	for i in range(limpet_spots.size()):
 		var lim := AnchorLimpet.new(i)
 		add_child(lim)
