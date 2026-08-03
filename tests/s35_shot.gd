@@ -45,7 +45,13 @@ const SHOTS := [
 	# A crouched eye is 0.9 m, so the shot is taken from there: if the frame does not show
 	# daylight under the pipe run from a crouched eye, the crouch route does not exist.
 	["store_door", Vector3(13.0, 2.85, -18.6), Vector3(13.0, 3.30, -16.1),
-		"the store-room doorway from inside, crouched — daylight UNDER the pipes or no route"],
+		"the store-room doorway from inside, crouched — the DOOR LEAF is gone, pipes remain"],
+	# s36: the limpet the owner found buried in the SE casting, now on the |x| 25 face at
+	# y -8.0 (below Gyre.trough_floor, so it can never be left dry by a trough).
+	["limpet", Vector3(29.5, -7.4, -13.6), Vector3(25.2, -8.0, -13.6),
+		"the anchor limpet — OUT of the pillar and under water"],
+	["crab_face", Vector3(30.5, -7.0, -9.5), Vector3(25.4, -8.0, -9.5),
+		"the king crab — flat on the wall AND pointing along it, not tipped into gravity"],
 	["pump_door", Vector3(14.0, 2.9, -11.4), Vector3(14.0, 3.05, -14.6),
 		"the pump-room doorway — the stand that blocked it has moved east"],
 	["pump_room", Vector3(16.6, 3.3, -12.0), Vector3(11.6, 2.7, -12.0),
@@ -207,9 +213,15 @@ func _cat_states(player: Node3D, cam: Camera3D) -> void:
 		player.global_position = cat.global_position + Vector3(23.0, 0.0, 0.0), 20)
 	await _cat_frame(cat, player, cam, "cat_sit", func() -> void:
 		player.global_position = cat.global_position + Vector3(1.6, 0.0, 0.0))
+	# THE PLAYER HAS TO BE SOMEWHERE THE CAT CAN ACTUALLY REACH. This used to set `_lying`
+	# without moving them, which left them 23 m away from the RUN frame — and since s36 gave
+	# the cat a wall check, it now correctly refuses to walk through the bunkhouse bulkhead
+	# to get there and stays in FOLLOW forever. The frame was only ever "passing" because
+	# the animal used to walk through the wall. Put them back in the room first.
 	await _cat_frame(cat, player, cam, "cat_sleep", func() -> void:
+		player.global_position = cat.global_position + Vector3(1.4, 0.0, 0.6)
 		player.set("_lying", true)
-		player.set("_lying_sleeping", true))
+		player.set("_lying_sleeping", true), 460)
 	player.set("_lying", false)
 	player.set("_lying_sleeping", false)
 

@@ -828,5 +828,19 @@ func _sleep_spot(near: Vector3) -> Vector3:
 			# onto a bunk or drop off a deck to go to sleep.
 			if absf(p.y - global_position.y) > STEP_UP:
 				continue
+			# ...AND IT MUST BE ABLE TO WALK THERE. Until s36 this returned any surface it
+			# could SEE, which was fine only because the cat could walk through whatever
+			# stood in the way. Now that it cannot, an unreachable spot is a cat treading
+			# water for ever: the ring is drawn around the PLAYER, the bunkhouse is full of
+			# bunk frames, so a candidate behind one is easy to draw and impossible to reach.
+			# Caught by the close-out pass — the cat held FOLLOW at one spot through four
+			# frames while the player lay down 1.5 m away.
+			var wq := PhysicsRayQueryParameters3D.create(
+				global_position + Vector3(0, 0.22, 0), p + Vector3(0, 0.22, 0))
+			wq.collision_mask = 1
+			wq.collide_with_areas = false
+			wq.exclude = _walk_skip()
+			if not world.direct_space_state.intersect_ray(wq).is_empty():
+				continue
 			return p
 	return global_position

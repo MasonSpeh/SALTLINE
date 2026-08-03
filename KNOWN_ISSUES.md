@@ -167,3 +167,35 @@ landed and nobody updated the file.
 - **macOS:** the project lives at `~/SALTLINE`, not `~/Desktop/SALTLINE`, because
   a macOS privacy (TCC) denial blocks shell access to Desktop. Any orphaned
   Desktop copy can be deleted manually.
+
+## Open after s36
+
+- **The pelagic schools are the biggest triangle population in the game, and eleven of them
+  are undecimated.** Found by accident while sizing the s36 +50% rise. The s20-era school
+  species import at 25,026-31,247 tris each; the ELEVEN s31 species import at
+  109,714-198,902 — leopard grouper 198,902, bluelined grouper 180,534, swallowtail 169,828
+  for a 0.5 m fish. The s31 DEVLOG withdrew "they need decimating" on FILE SIZE (4-6 MB,
+  the same as the rest) and never counted geometry. `FishSpreadProbe` now names them OVER
+  BUDGET in its stocking report. Re-cutting the eleven to ~31k removes millions of spawned
+  triangles. Unverified: whether the import-time LOD (`meshes/generate_lods=true`) reduces
+  what is actually submitted on gl_compatibility — s34 costed the same GLBs at raw counts
+  and re-cut them, which suggests not. MEASURE BEFORE ADDING MORE FISH.
+
+- **The s36 reef, rain and crab changes are unphotographed in the respects that matter.**
+  The re-angled plants and the shortened stalk were computed off GLB vertices, not seen;
+  MultiMesh transforms read back as identity headless so no probe can see them either. The
+  sway shader has never been COMPILED (`--check-only` is GDScript only). The rain is
+  arithmetic — x0.75 size, x1.20 count — and rain only draws in a squall, which the shot
+  harness deliberately pins OFF, so it needs a harness that forces one.
+
+- **The caisson interior collider is REASONED, not reproduced.** s36 gave every casting a
+  box collider inset 20 mm inside its CSG, because the CSG-baked ConcavePolygonShape3D has
+  no interior and the owner glitched into a pillar. Nobody reproduced the glitch, so this
+  is "the casting demonstrably had no interior", not "this was the cause".
+
+- **The dive-depth removal leaves several downstream constants stale.** `DIVE_DEATH_Y` in
+  underwater_world.gd is now fish maths only but still documents itself as a death line;
+  leg_reef's plant taper is weighted off "the reachable slice is 0.258 of the band" when
+  the whole band is now reachable; and mussel_beds' two-rate oxygen integration is
+  degenerate (both rates equal) with `_dive_floor()` moving past `DIVE_FLOOR_MIN`, which
+  will clamp and push_warning on every world build.
