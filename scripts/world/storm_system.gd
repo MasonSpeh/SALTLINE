@@ -108,13 +108,24 @@ func rain_level() -> float:
 
 func _build_rain() -> void:
 	_rain = GPUParticles3D.new()
-	_rain.amount = 5000
+	# DENSITY, owner call 2026-08-03: "20% denser". The quantity scaled is the drop COUNT
+	# with the emission GEOMETRY held fixed — emit_extents, lifetime and fall_speed are all
+	# untouched below, so the swept column (52 x 52 m sheet falling ~47 m) is the same volume
+	# it was and 5000 -> 6000 is exactly x1.20 drops per cubic metre as well as x1.20 drops.
+	# Those two are only the same number because the volume did not move: shrinking
+	# emit_extents would have bought the same density for free and been the wrong answer,
+	# because the sheet is 52 m wide precisely so its edge is never in shot.
+	_rain.amount = 6000
 	_rain.lifetime = 1.3
 	_rain.preprocess = 1.3
 	_rain.local_coords = false
-	# Pin the sim to 30fps + interpolate: the 5000-drop x 16-AABB cull loop no longer
+	# Pin the sim to 30fps + interpolate: the 6000-drop x 16-AABB cull loop no longer
 	# re-runs every rendered frame, so rain stops taxing high-refresh framerates. The
 	# drops still MOVE every frame (interpolation), so the look is unchanged.
+	# NOTE the cost of `amount` is paid in FULL at every non-zero intensity: `amount_ratio`
+	# (set in _apply_intensity) throttles how many are EMITTED, and Godot still allocates and
+	# processes the whole buffer regardless. So the +1000 slots are a drizzle cost, not just
+	# a full-gale one.
 	_rain.fixed_fps = 30
 	_rain.interpolate = true
 	_rain.visibility_aabb = AABB(Vector3(-40, -40, -40), Vector3(80, 80, 80))
@@ -133,7 +144,14 @@ func _build_rain() -> void:
 	# skinny box. The mask is a tiny generated texture (same trick MatLib.soft_mote uses
 	# for marine snow), so there is zero per-frame cost and it is gl_compat-safe.
 	var streak := QuadMesh.new()
-	streak.size = Vector2(0.05, 0.55)
+	# SIZE, owner call 2026-08-03: "25% smaller". Scaled HERE and not in the shader because
+	# rain_particles.gdshader's v_wid / v_len are dimensionless MULTIPLIERS on this quad
+	# (0.86..1.26 and 0.72..1.42, one shared calibre per drop) — multiplying the base metre
+	# size by 0.75 shrinks every drop by exactly 0.75 and leaves that whole distribution and
+	# its aspect ratio intact, where re-tuning four shader constants would have had to
+	# reproduce it by hand. Was Vector2(0.05, 0.55); drops now measure 0.032..0.047 m wide by
+	# 0.30..0.59 m long in world space (billboard_keep_scale keeps these in metres).
+	streak.size = Vector2(0.0375, 0.4125)
 	var smat := StandardMaterial3D.new()
 	smat.albedo_color = Color(0.78, 0.85, 0.95, 0.34)   # soft: streaks read, don't glare
 	smat.albedo_texture = _raindrop_mask()

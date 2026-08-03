@@ -420,6 +420,73 @@ func _den_point() -> Vector3:
 		return den
 	return den + _den_n * ((_den_d + CLEAR) - den.dot(_den_n))
 
+## THE TURN ABOUT THE FACE — the half of the den pose s35 did not name.
+##
+## Pinning `up` to the caisson decided which way the animal LIES. It left the rotation ABOUT
+## that normal to `heading`, and on an animal that has been motionless since dawn `heading`
+## is whatever its last approach happened to leave. That is two different poses on two
+## different days, and neither of them was chosen:
+##   * a fresh spawn walks in along -n, so the in-plane residue is ZERO and the old
+##     `Vector3.UP.cross(_den_n)` fallback — a value whose only job was to keep a zero vector
+##     out of normalized() — silently BECAME the pose;
+##   * a king coming home lands off rise_path[0], which sits 5.00 m ABOVE the den and 4.47 m
+##     outboard, so the residue is straight DOWN and it settles 90 degrees from the first.
+##
+## AND THAT SECOND CASE IS ALREADY WHAT THIS FUNCTION RETURNS. Worked through for both dens,
+## the retreat approach projects to (0,-1,0) on either face — so a king that has been out and
+## come home has been lying BROADSIDE all along, and only a king that had never left kept the
+## fallback. The two branches disagreed with each other; this is not a new pose, it is the
+## one the animal already took on the days it had somewhere to come back from.
+##
+## What shipped is the first, and it shipped standing on end. `_orient` turns `heading` 90
+## degrees about `up` to carry the body square across its travel — right when `up` is world
+## UP and the turn stays in the ground plane, and wrong here, because on a caisson face `up`
+## is HORIZONTAL and the same turn tips the body's fore-aft axis out of the horizontal and
+## into GRAVITY. Head at the surface, tail at the seabed, claws pointing at the sky.
+## (Not inferred: simulating this basis chain off the GLB and correlating the result against
+## the s35 close-out frame /tmp/s35/king_crab.png scores +0.620 at zero offset, against
+## +0.219 for the next-best candidate pose — the shipped animal is head-up-the-wall.)
+##
+## So the den names its own turn, and names it from GRAVITY instead of from a leftover: the
+## travel axis is the face's own DOWN, and `_orient`'s existing sidle turns that into a head
+## lying ACROSS the concrete at `_den_n.cross(down)`. A crab's legs work laterally — the axis
+## that runs up and down a wall is its LEG SPAN, not its body. Two things fall out, both
+## measured rather than preferred:
+##   * the 3.000 m span (SHELL_M is the mesh's LONGEST axis, and that axis is the leg span —
+##     see the header's accessor bounds) now runs along the COLUMN, which is unbroken
+##     concrete from y +1.0 to y -23.5. Head-up ran it along Z instead, across a casting that
+##     ends at z -9.0 while den 0 lies at z -9.5. Measured off the GLB through this whole
+##     basis chain, den 0's world AABB goes z -11.001..-8.001 (0.999 m of animal — a third of
+##     its span — hanging off the end of the SE leg in open water) to z -10.355..-8.641,
+##     0.359 m over, and what is over is the tail rather than the legs. Its y goes
+##     1.714 -> 3.000 m, all of it on face. Den 1 sits mid-face and overhangs neither way.
+##   * both kings take the same attitude relative to their OWN wall, because `n x down` is
+##     handed rather than signed — where the old fallback gave a mirror-image pair.
+## Written for any plane even though both faces are vertical: on a face whose normal IS world
+## up there is no "down the wall", and the tangent fallback still answers.
+##
+## The look call, recorded so nobody re-derives it: BROADSIDE is one line from head-up-the-
+## wall (`return _den_n.cross(down).normalized()`), and head-up-the-wall is the pose that was
+## just rejected. Head-DOWN is the same rejected pose turned 180 and is not a third option.
+func _den_heading() -> Vector3:
+	var down: Vector3 = -Vector3.UP
+	down -= _den_n * down.dot(_den_n)
+	if MOVE.usable(down):
+		return down.normalized()
+	var t: Vector3 = Vector3.UP.cross(_den_n)
+	if not MOVE.usable(t):
+		t = Vector3.FORWARD.cross(_den_n)     # a floor-facing den: never normalize a zero
+	return t.normalized()
+
+## What the den pose actually resolved to, so a probe asserts it instead of inferring it
+## (same contract as GiantCrab.territory()). `head` is where the MESH's head points —
+## CreatureAnim normalises every generated head onto the host's -Z — and `span` is the
+## leg-span axis, which on a wall should be the one lying along gravity.
+func den_frame() -> Dictionary:
+	return {"resolved": _den_n != Vector3.ZERO, "n": _den_n, "plane": _den_d,
+		"point": _den_point(), "up": up, "heading": heading, "seated": _seated,
+		"head": -global_basis.z, "span": global_basis.x}
+
 ## Resting ON the leg foundation, not swimming (owner call, 2026-07-25b: `den` now sits
 ## against a caisson's submerged foot instead of out in open water — see bloom_fauna.gd
 ## _spawn_king_crabs). It settles onto that point once and stays there, motionless, for
@@ -751,11 +818,14 @@ func _seat(delta: float) -> void:
 	# and — being analytic — no snail, mussel bed or coral head bolted to that concrete in a
 	# later session can ever seat the animal on itself. The correction is eased at
 	# SEAT_CATCHUP, never assigned, so nothing blinks even from the authored 2 m stand-off.
+	# The pin is TWO axes, not one: the plane fixes `up`, and _den_heading fixes the turn
+	# about it — s35 named the first and left the second to whatever the approach left.
 	if state == State.DEN and _den_n != Vector3.ZERO:
 		up = _den_n
-		var flat: Vector3 = heading - _den_n * heading.dot(_den_n)
-		heading = flat.normalized() if flat.length() > 0.05 \
-			else Vector3.UP.cross(_den_n).normalized()
+		# NOT the projected leftover of the last approach — see _den_heading. A hold-position
+		# state has no travel to project, so projecting one is how the animal ended up in two
+		# different attitudes on two different days with nothing choosing either.
+		heading = _den_heading()
 		_seated = true
 		var off: float = (_den_d + CLEAR) - global_position.dot(_den_n)
 		global_position += (_den_n * off).limit_length(SEAT_CATCHUP * delta)
