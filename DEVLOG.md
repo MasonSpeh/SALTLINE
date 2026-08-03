@@ -1244,3 +1244,75 @@ depth, but it would take an ambient pass to make that band as inviting as the to
 owner's "about a metre" of seal hover is FIXED at the 102 mm the steady state actually
 had — if more remains, the untested branches are the climb-out and the OTHER seal, which
 never hauls out and patrols the swell nearby.
+
+---
+
+## s35 — the owner's fix list, and the cat gets a skeleton
+
+Thirteen owner complaints, worked as one recon fan-out (10 agents, read-only)
+followed by one implementation fleet (6 agents, partitioned by FILE OWNERSHIP so
+they could share a single 18 GB working tree without colliding), with the cat,
+the grouper asset and all verification done in the main loop.
+
+**The repo is on GitHub now** — https://github.com/MasonSpeh/SALTLINE, public.
+It had NO remote at all before this session, back through s28 and earlier: every
+commit existed only on the one Mac, so "ensure everything was pushed" had never
+been satisfiable. Worth saying plainly because it was reported as done twice.
+
+### The cat now has a skeleton, and it is the first one in this project
+
+Zero of the 165 GLBs here had ever contained an animation or a skin.
+`creature_swim.gdshader`'s header asserts "Meshy (and most text-to-3D services)
+only auto-rig HUMANOIDS", and the entire vertex-displacement architecture
+follows from that. It is true of Meshy and FALSE of Tripo. Rigging the
+ALREADY-SHIPPING cat meshes off the task ids s34 logged returns 41 joints, clean
+weights, and a bind pose that photographs identically to the static mesh — so
+the cat keeps its look and gains bones.
+
+Two things Tripo got wrong, both caught by looking:
+* its retargeted CLIPS are unusable (humanoid joint layout, so `preset:walk` is
+  a human walk cycle on a quadruped — it photographs as a wrung-out animal);
+* its bone LENGTHS are asymmetric, `L_Calf->L_Foot` 0.156 vs `R_Calf->R_Foot`
+  0.569.
+
+What survives both is FK on the proximal joints. `cat_rig.gd` poses angles only,
+never positions, with a real lateral footfall sequence for the walk, diagonal
+pairs for the trot and fore-then-hind for the bound.
+
+Five separate defects produced the owner's five cat complaints, and every one is
+now a number in CatProbe rather than a claim:
+* **backwards** — `_face` omitted the `+ PI` every other creature here adds.
+  Head-vs-travel alignment **+0.946** over 126 frames.
+* **floating until you say hello** — `_seat()` raycast with no exclusions and hit
+  the cat's OWN interaction box: a deterministic 0.500 m float. It looked
+  intermittent only because the walk code DOES exclude the handle, so the first
+  step cured it. Gap **+0.0 mm** against an independent ray.
+* **not straight** — `_groom` wrote `_body.rotation.x`, `_pose_sit` wrote `.y`,
+  nothing ever cleared either.
+* **walk through it** — layer 3 is now interactable-but-not-solid.
+* **unanimated** — the gait, per state, chosen by actual speed.
+
+### What the complaints actually were
+
+* **"wall textures still moving"** was NOT the wall materials — `mat_lib.gd` had
+  not been touched in twelve sessions and no wall fix was ever committed. It was
+  `underwater_fx` feeding the shared caustic material a swell height sampled at
+  the PLAYER's xz, so the light band on all four legs rode the player's own wave.
+* **the underwater audio function existed, was called, and every line was dead** —
+  `_fade` forces the beds it fades to -80 dB.
+* **the fishing rod** was never a render bug: the controller did not listen to
+  `hotbar_selection_changed`, so a pack-panel swap left the held visual stale.
+* **the big crab** stood upright because its den is authored 2 m OUTBOARD of the
+  caisson face, so the seat ray found nothing and `up` eased back to world +Y.
+* **the tide staff's text** floated for two reasons at once: offsets sized for a
+  wide board on a 0.16 m post, and a z that put every glyph on the far side of it.
+* **the plants** were placed all along — drawn uniformly over a 36.4 m band, so
+  most were below the ~13 m the player can dive to.
+
+### Not verified, and worth knowing
+
+* The reef SWAY is unproven in motion — the close-out pass is still frames.
+* The fish rebalance is modelled, not measured: no probe was run on it.
+* The rod fix is a real bug fixed at the cause, but the owner's own route was
+  never reproduced; if they use number keys, their bug is something else.
+* `submerged_deep` has still not been re-profiled, now at a modelled 12.67 M tris.
