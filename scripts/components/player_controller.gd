@@ -91,16 +91,38 @@ const SWIM_WARMTH_DRAIN: float = 0.016 ## the North Atlantic taxes you per secon
 ## the warning fired on every one of them.
 const COLD_WARN_COOLDOWN: float = 120.0
 var _cold_warn_t: float = -1000.0      ## last time the cold warning was actually shown
-# Oxygen: a held breath, not a fixed death line. A full lungful lasts ~28s submerged;
-# the deep (past DEEP_UNEASE_M) burns it near twice as fast — pressure and dread — so
-# you CAN dive to glimpse what lives down there, but never linger. Surfacing (head above
-# the swell) refills fast; climbing out tops you off almost at once.
-const OXYGEN_DRAIN: float = 1.0 / 28.0     ## per second, head submerged, shallow
-const OXYGEN_DRAIN_DEEP: float = 1.0 / 16.0 ## per second, past the unease line
+# Oxygen: a held breath, and now the ONE thing that limits a dive. Owner: "get rid of the
+# dive too deep mechanic, player should be able to go as deep as they want until oxygen runs
+# out", and "increase breath by 25%".
+#
+# THE DEPTH RULE THAT WAS LEFT. The fixed deep-death line went several sessions ago, but a
+# second depth rule survived inside the oxygen system and was doing the same job more
+# quietly: past DEEP_UNEASE_M the bar burned at 1/16 instead of 1/28, i.e. 1.75x. That is a
+# depth cap wearing the breath's clothes — integrated over a straight down-and-back at
+# SWIM_SPEED it stopped you at 25.3 m no matter how good your lungs were, because every
+# metre past 16 cost nearly twice what it was worth. One rate at any depth now: the sea is
+# as deep as you have air for.
+#
+# THE BREATH, +25%: 28.0 s submerged -> 35.0 s (1/28 -> 1/35 per second), plus DROWN_GRACE_SEC
+# of flailing before the black. What that buys, integrated over a straight down-and-back at
+# swimming speed with no pause at the bottom — both terms, since the rate change and the
+# removed penalty compound:
+#     walk-speed dive    25.26 m  ->  40.25 m
+#     holding sprint     34.46 m  ->  60.37 m
+# The reef's own floor is y -40 and the seabed is y -92, so the bottom of the coral is now
+# just inside a very good breath and the abyss below it still is not.
+const OXYGEN_DRAIN: float = 1.0 / 35.0     ## per second, head submerged, AT ANY DEPTH
 const OXYGEN_RECOVER: float = 0.5          ## per second, breathing at the surface (~2s)
 const OXYGEN_RECOVER_LAND: float = 1.5     ## per second, out of the water entirely
-const DEEP_UNEASE_M: float = 16.0          ## below this the dark eats air faster
 const DROWN_GRACE_SEC: float = 1.2         ## flailing on an empty chest before the black
+## RETAINED, NOT USED HERE. `mussel_beds.gd` and `tests/mussel_probe.gd` integrate the
+## controller's drain piecewise across these two to derive how deep a harvestable bed may
+## sit, and neither file is this session's to edit — deleting the pair would drop their
+## scripts at parse time. Held equal to OXYGEN_DRAIN so that integration still evaluates to
+## the single rate above and their answer stays correct. Delete all three when those two
+## files can be changed with them.
+const DEEP_UNEASE_M: float = 16.0
+const OXYGEN_DRAIN_DEEP: float = OXYGEN_DRAIN
 
 @export var invert_y: bool = false
 @export var mouse_sensitivity_scale: float = 1.0
@@ -296,10 +318,13 @@ const JUMP_BUFFER_TIME: float = 0.15
 #      the contact normal tips past floor_max_angle and CharacterBody3D calls the lip a
 #      WALL. Everything from 0.12 m to knee height is therefore an invisible fence. This
 #      lifts the body over it the way a leg does.
-#   2. UNSTICK (_unstick_nudge) — the wedge. Two colliders meeting at a corner can trap the
-#      capsule in a pocket where every slide direction is blocked by the other face, and
-#      move_and_slide() will happily spend the rest of the session there. If the player is
-#      ASKING to move and the body has gone nowhere for several frames, we push it out.
+#   2. UNSTICK (_unstick_nudge) — the wedge: the player is ASKING to move, has a real target
+#      velocity, and the body has gone nowhere for several frames WHILE a direction it is
+#      allowed to travel still exists. Note the last clause, which is new and which is most
+#      of the fix: a right-angle rail corner does NOT trap a 0.37 m capsule (measured — 17 of
+#      24 headings out of a seated corner carry you 2.2-3.1 m per second, and the 7 that do
+#      not are the ones pointing into it), so a body pressed into one is stopped, not stuck,
+#      and shoving it is how the assist became the bug it was written to fix.
 #   3. Solver margins, set in _ready() — safe_margin, floor_snap_length, max_slides.
 #
 # Deliberately NOT a fix for a genuinely embedded capsule: that is _leave_climb() and
@@ -311,9 +336,19 @@ const STEP_MIN_BLOCKED: float = 0.35    ## step only if we kept under this fract
 const STUCK_SPEED: float = 0.22         ## m/s of real travel under which a moving player counts as stuck
 const STUCK_FRAMES: float = 0.30        ## seconds of that before we push the body out
 const STUCK_NUDGE: float = 0.10         ## how hard the push is (a shove, not a teleport)
+## How much of the player's own wish has to survive the faces they are touching before the
+## body counts as WEDGED rather than merely STOPPED. Pressing into a corner leaves nothing —
+## both faces take their component out and the remainder is ~0 — and stopping there is the
+## right answer, not a bug to shove your way out of. See _unstick_nudge.
+const FREE_DIR_MIN: float = 0.20
 ## Margin for "is this spot inside geometry?" overlap tests. Deliberately NOT safe_margin:
 ## a resting body sits roughly one safe_margin off the surface it stands on, so an overlap
 ## test run at safe_margin calls every standable spot occupied. See _try_step_up step 4.
+## MEASURED on the shipping body (0.37 capsule, safe_margin 0.01, Jolt, 30 Hz): at rest the
+## body sits y +0.0091 above the plating, and the zero-motion overlap test answers
+## clear / clear / BLOCKED / BLOCKED / BLOCKED at margins 0.001 / 0.005 / 0.01 / 0.02 / 0.03.
+## The deck you are standing on is the thing that answers. Any probe that asks "is that spot
+## free?" at safe_margin has already decided the answer is no.
 const OCCUPANCY_MARGIN: float = 0.001
 var _stuck_t: float = 0.0
 
@@ -477,14 +512,20 @@ func _configure_body() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
 
 ## Guarantee the posture actions exist even if project.godot lacks them. `crouch` is
-## defined in the project map (Ctrl); `prone` is registered here at runtime (Z) so we
-## never have to touch project.godot. Safe to call once — skips actions already present.
+## defined in the project map (SHIFT since the owner's swap — sprint took Ctrl in exchange);
+## `prone` is registered here at runtime (Z) so we never have to touch project.godot. Safe to
+## call once — skips actions already present.
+##
+## This fallback has to be kept in step with the map by hand, and it is exactly the kind of
+## second copy that goes stale: it sat on KEY_CTRL and would have re-bound crouch to the old
+## key on any run where project.godot lost its `[input]` section — which is a thing that
+## happens here (see AGENT_TRAPS on the project manager stripping this file).
 func _ensure_posture_bindings() -> void:
 	if not InputMap.has_action("crouch"):
 		InputMap.add_action("crouch")
-		var ev_ctrl := InputEventKey.new()
-		ev_ctrl.physical_keycode = KEY_CTRL
-		InputMap.action_add_event("crouch", ev_ctrl)
+		var ev_shift := InputEventKey.new()
+		ev_shift.physical_keycode = KEY_SHIFT
+		InputMap.action_add_event("crouch", ev_shift)
 	if not InputMap.has_action("prone"):
 		InputMap.add_action("prone")
 		var ev_z := InputEventKey.new()
@@ -636,12 +677,30 @@ func _hotbar_pressed(slot: int) -> void:
 	PlayerState.selected_hotbar = slot
 	_update_held_item()
 
-## E WITH NOTHING TO INTERACT WITH = use what is in your hand.
+## E WITH NOTHING TO INTERACT WITH = CONSUME OR EQUIP the selected item.
 ##
 ## interaction_ray owns E whenever the crosshair is on something and consumes the event
 ## (interaction_ray._unhandled_input), so this only ever runs when the ray found no target —
 ## which makes it a free verb rather than a conflict: looking at a stove and pressing E still
 ## opens the stove, and looking at nothing while holding a fish eats the fish.
+##
+## WHAT IT DID BEFORE, and why it needed the second half. Its own comment said "only
+## CONSUMABLES answer to E", but the gate it wrote was `use == ""` — and data/items.json gives
+## every tool `"use": "tool"` and every build kit `"use": "build"`. So a tool DID pass the
+## gate, went straight into `PlayerState.use_hotbar()`, whose entire body is inside an
+## `if use == "eat" or use == "drink"` — and then returned TRUE. Pressing E at open air with
+## the knife, the spear, either rod or a build kit in hand therefore did nothing at all AND
+## swallowed the keypress, in three separate places that each looked correct on its own.
+##
+## Owner: "moving forward it should be consume/equip". Read as: the use verb should always
+## resolve to one of the two, never to silence. ASSUMED, and worth a second's thought before
+## it ships: there is no wear/wield SLOT in this game — the selected hotbar item IS what your
+## hand holds — so "equip" can only mean "bring this slot to hand and say so". That is a real
+## action rather than a no-op only because the hand and the selection can disagree: hud.gd's
+## pack panel re-points `selected_hotbar` without an inventory change (the s35 fishing-rod
+## bug), and a failed ItemVisual.build leaves `_held_item_id` empty. E now resyncs both.
+## Already in hand and not edible: return false and let the press fall through rather than
+## eat it, which is strictly more than it did before.
 func _try_use_held() -> bool:
 	if ui_locked or input_locked or carried != null or fishing != null:
 		return false
@@ -649,12 +708,21 @@ func _try_use_held() -> bool:
 	if slot < 0 or slot >= PlayerState.HOTBAR_SIZE or PlayerState.hotbar[slot] == null:
 		return false
 	var id: String = String(PlayerState.hotbar[slot])
-	# Only CONSUMABLES answer to E. A held tool (rod, spear, knife) has its own verb and must
-	# not be silently spent by a stray press at open air.
-	if String(PlayerState.items.get(id, {}).get("use", "")) == "":
+	var use: String = String(PlayerState.items.get(id, {}).get("use", ""))
+	# CONSUME. Only eat/drink is spendable — a tool must never be silently used up by a stray
+	# press at open air, which is the whole reason the number keys stopped doubling as an eat
+	# button (see _hotbar_pressed).
+	if use == "eat" or use == "drink":
+		PlayerState.use_hotbar(slot)   # inventory_changed refreshes the hand visual
+		_update_held_item()
+		return true
+	# EQUIP. Everything else comes to hand instead of being spent.
+	if _held_item_id == id and _hand_item.get_child_count() > 0:
 		return false
-	PlayerState.use_hotbar(slot)   # inventory_changed refreshes the hand visual
 	_update_held_item()
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud and hud.has_method("toast"):
+		hud.toast("In hand: %s." % String(PlayerState.items.get(id, {}).get("name", id)))
 	return true
 
 ## F is a double-purpose key: a single press throws the rigging hook (gameplay),
@@ -694,11 +762,12 @@ func _toggle_fly() -> void:
 	set_collision_mask_value(1, not _fly)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
-		hud.toast("FLY MODE %s  ·  Space up / Ctrl down / Shift boost" % ("ON" if _fly else "OFF"))
+		hud.toast("FLY MODE %s  ·  Space up / Shift down / Ctrl boost" % ("ON" if _fly else "OFF"))
 
 ## Free 6-axis noclip flight for testing. Look direction drives horizontal thrust
-## (pitch-aware), Space/Ctrl handle vertical, Shift boosts. Moves the transform
-## directly so it passes through geometry.
+## (pitch-aware), Space/Shift handle vertical, Ctrl boosts (it reads `jump`/`crouch`/`sprint`,
+## so it followed the owner's key swap on its own — only the toast naming them had to move).
+## Moves the transform directly so it passes through geometry.
 func _fly_process(delta: float) -> void:
 	var speed: float = FLY_SPEED * (FLY_SPRINT_MULT if Input.is_action_pressed("sprint") else 1.0)
 	var input_dir: Vector2 = Vector2.ZERO
@@ -1119,18 +1188,50 @@ func _try_step_up(wish: Vector3, before: Vector3, wanted: float) -> bool:
 	apply_floor_snap()
 	return true
 
-## UNSTICK. The wedge case the step-up cannot help with: a capsule pinched in the pocket
-## where two colliders meet, where every slide direction move_and_slide() picks is blocked
-## by the other face. The signature is unambiguous — the player is HOLDING a movement key,
-## the body has a real target velocity, and it has travelled essentially nothing for
-## STUCK_FRAMES seconds — so we can act on it without ever firing on someone who is simply
-## standing still or pressed against a bulkhead on purpose (walking into a wall head-on
-## still moves you along it, and releasing the key resets the timer immediately).
+## UNSTICK. The wedge case the step-up cannot help with: a capsule pinched where two
+## colliders meet, where every slide direction move_and_slide() picks is blocked by the other
+## face. The trigger is unchanged — the player is HOLDING a movement key, the body has a real
+## target velocity, and it has travelled essentially nothing for STUCK_FRAMES seconds.
 ##
-## The push is small and it is tried in the least-surprising order: back the way we came
-## first (undo the wedge), then the two sideways slides, then a short hop's worth of lift.
-## Anything that does not land the capsule somewhere genuinely clear is discarded, so this
-## can never shove the player through a bulkhead or off a deck.
+## OWNER, THIS SESSION: "player still gets stuck badly on railing corners". Reproduced and
+## measured off the shipping configuration in an isolated project (the real body constants,
+## Jolt, 30 Hz, against a corner built from rig_builder's own _rail_slab grammar including
+## RAIL_END_SHAVE). Two separate faults, and NEITHER of them is the rail geometry:
+##
+## 1. THIS FUNCTION ASKED ITS CLEARANCE QUESTION AT `safe_margin`, SO THE DECK ANSWERED IT.
+##    A resting body sits one safe_margin off the plating — measured y +0.0091 at
+##    safe_margin 0.01 — so a zero-motion overlap test at that same margin reports every
+##    horizontal candidate BLOCKED, by the floor underfoot, not by anything you are stuck on.
+##    `-dir`, `side` and `-side` — the only three that can free a wedged capsule — were
+##    therefore rejected on 100% of firings on flat plating; at OCCUPANCY_MARGIN the same
+##    spots read clear. This is the identical defect that left `_try_step_up` dead for its
+##    whole life (s25), in the same file, three functions apart; OCCUPANCY_MARGIN exists
+##    BECAUSE of it and this call site was never converted.
+##
+## 2. SO THE ONLY CANDIDATE THAT EVER FIRED WAS THE ONE THAT LEAVES THE FLOOR, and what the
+##    player felt as "stuck badly" was this assist rather than the corner. Measured, holding
+##    a heading into a rail corner for 4 s: 12 firings, 12 of them `Vector3.UP`, the body
+##    teleported +0.100 m and floor-snapped back every 0.30 s — a 10 cm vertical pop through
+##    the eye line, three times a second, for as long as you lean on the rail. With BOTH rail
+##    faces in contact even that one is blocked (the faces are inside safe_margin too): 12
+##    firings, 0 mm of movement. Fire and do nothing, or fire and judder.
+##
+## STOPPED IS NOT STUCK, and that is the fix rather than a bigger shove. What the body may
+## still legally travel is the wish with the into-the-face component of every wall contact
+## removed; at a corner both faces take their share and nothing is left, which means the body
+## is not trapped, it has arrived — measured from a seated corner position, 17 of 24 headings
+## carry you 2.2-3.1 m in one second and the 7 that do not are exactly the ones pointing into
+## the corner. So the assist stands down there, and only pushes when a legal direction exists
+## and the solver still delivered nothing. That also retires the s35 stair complaint at the
+## cause ("_unstick_nudge then shoves them 0.10 m BACK DOWN the run every 0.30 s", see
+## _configure_body): a convex stair edge reads as a wall dead ahead, so nothing survives and
+## nothing is shoved. REJECTED: simply swapping the margin. On its own it converts the pop
+## into a 0.10 m backwards shove every 0.30 s against any flat wall you walk into, which is
+## that stair stutter re-created on the whole rig.
+##
+## Measured after the change, same harness: leaning on a rail or a corner fires 0 nudges and
+## moves the eye 0.000 m vertically; the escape sweep and a 3 s open-plating traverse
+## (9.48 m, 0.0000 m of wobble, 0 nudges) are unchanged to the millimetre.
 func _unstick_nudge(wish: Vector3, before: Vector3, delta: float) -> void:
 	var dir: Vector3 = Vector3(wish.x, 0.0, wish.z)
 	if dir.length() < 0.001 or not is_on_floor():
@@ -1144,12 +1245,33 @@ func _unstick_nudge(wish: Vector3, before: Vector3, delta: float) -> void:
 	_stuck_t += delta
 	if _stuck_t < STUCK_FRAMES:
 		return
+	# What is still legal to walk this frame, from the faces the solver actually reported.
+	# Read here rather than raycast: move_and_slide()'s own contacts are the ground truth for
+	# what stopped it, and _try_step_up's refusal paths only test_move, which leaves them.
+	var free: Vector3 = dir
+	for i in get_slide_collision_count():
+		var n: Vector3 = get_slide_collision(i).get_normal()
+		if n.angle_to(Vector3.UP) <= floor_max_angle:
+			continue                        # the deck holding you up, not something in the way
+		var flat := Vector3(n.x, 0.0, n.z)
+		if flat.length() < 0.01:
+			continue                        # a soffit overhead blocks no horizontal travel
+		flat = flat.normalized()
+		if free.dot(flat) < 0.0:
+			free = free.slide(flat)
+	free.y = 0.0
+	if free.length() < FREE_DIR_MIN:
+		_stuck_t = 0.0                      # pressed into a corner or a wall: stopped, not stuck
+		return
 	_stuck_t = 0.0
-	var side: Vector3 = dir.cross(Vector3.UP).normalized()
-	for d in [-dir, side, -side, dir + Vector3.UP, Vector3.UP]:
+	# A legal direction exists and the frame delivered nothing: push along what the player is
+	# actually still allowed to do, then the plain retreat, then a hop for a capsule caught on
+	# something low. Every spot is proved clear at OCCUPANCY_MARGIN first, so this can still
+	# never shove the player through a bulkhead or off a deck.
+	for d in [free, -dir, Vector3.UP]:
 		var off: Vector3 = d.normalized() * STUCK_NUDGE
 		var to := Transform3D(global_transform.basis, global_position + off)
-		if not test_move(to, Vector3.ZERO, null, safe_margin, true):
+		if not test_move(to, Vector3.ZERO, null, OCCUPANCY_MARGIN, true):
 			global_position += off
 			return
 
@@ -1568,13 +1690,12 @@ func _swim_process(delta: float) -> void:
 	move_and_slide()
 	PlayerState.warmth -= SWIM_WARMTH_DRAIN * delta
 	_update_posture(delta)   # keeps the capsule sane if a posture was held on entry
-	# Breath. Your head under the swell spends air; at the surface you breathe. The deep
-	# burns it faster — you can dive to see what's down there, but you're racing your lungs.
-	var depth: float = wave_y - global_position.y
+	# Breath. Your head under the swell spends air; at the surface you breathe. ONE rate, at
+	# any depth — the water 30 m down costs exactly what the water 3 m down costs, and how
+	# far you get is a question about your lungs and nothing else (see OXYGEN_DRAIN).
 	var head_submerged: bool = head.global_position.y < wave_y
 	if head_submerged:
-		var rate: float = OXYGEN_DRAIN_DEEP if depth > DEEP_UNEASE_M else OXYGEN_DRAIN
-		PlayerState.oxygen = maxf(PlayerState.oxygen - rate * delta, 0.0)
+		PlayerState.oxygen = maxf(PlayerState.oxygen - OXYGEN_DRAIN * delta, 0.0)
 		if PlayerState.oxygen <= 0.25 and not _low_air_warned:
 			_low_air_warned = true
 			var hud0: Node = get_tree().get_first_node_in_group("hud")

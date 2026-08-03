@@ -806,8 +806,8 @@ func _build_panels() -> void:
 splice the burned cable → throw Master Breaker 4-A → when night falls,
 [b]stay inside the floodlight wash[/b] → see the dawn.
 
-[b]Move[/b]           WASD · Shift sprint · Space jump
-[b]Posture[/b]        Ctrl (hold) crouch — slow, quiet, hard to spot
+[b]Move[/b]           WASD · Ctrl sprint · Space jump
+[b]Posture[/b]        Shift (hold) crouch — slow, quiet, hard to spot
                 Z lie flat on the deck — a slow crawl, eye to the plating, sky overhead
                 (Space or Z to rise · a low ceiling keeps you down until you crawl clear)
 [b]Interact[/b]       E — one context verb (take / open / read / connect / operate)
