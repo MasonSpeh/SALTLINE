@@ -1,0 +1,33 @@
+{
+  "cat_walk": {
+    "ok": true,
+    "clips": {
+      "jump": "assets/models/fauna/_rigged/cat_walk_jump.glb",
+      "climb": "assets/models/fauna/_rigged/cat_walk_climb.glb"
+    }
+  },
+  "cat_run": {
+    "ok": true,
+    "clips": {
+      "run": "assets/models/fauna/_rigged/cat_run_run.glb"
+    }
+  },
+  "cat_sit": {
+    "ok": true,
+    "clips": {
+      "idle": "assets/models/fauna/_rigged/cat_sit_idle.glb"
+    }
+  },
+  "cat_groom": {
+    "ok": true,
+    "clips": {
+      "idle": "assets/models/fauna/_rigged/cat_groom_idle.glb"
+    }
+  },
+  "cat_sleep": {
+    "ok": true,
+    "clips": {
+      "idle": "assets/models/fauna/_rigged/cat_sleep_idle.glb"
+    }
+  }
+}

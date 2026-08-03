@@ -1,0 +1,7 @@
+[1/2] text -> 3D mesh (Tripo) ...
+  submitted text_to_model task 0d075c88-1f27-40bb-9cc6-ec04ca0e5a69
+  text-to-model: running   1%     text-to-model: running   8%     text-to-model: running  15%     text-to-model: running  22%     text-to-model: running  28%     text-to-model: running  36%     text-to-model: running  42%     text-to-model: running  49%     text-to-model: running  55%     text-to-model: running  63%     text-to-model: running  70%     text-to-model: running  76%     text-to-model: running  84%     text-to-model: running  90%     text-to-model: success 100%   
+  downloading GLB -> /Users/mjspeh/SALTLINE/assets/models/fauna/_reroll/goliath_c_anatomy/goliath_c_anatomy.glb
+
+Done -> /Users/mjspeh/SALTLINE/assets/models/fauna/_reroll/goliath_c_anatomy/goliath_c_anatomy.glb
+Next:  godot --headless --path . --import   then swap into the creature script's _build_body() (see the skill, Step 5).
