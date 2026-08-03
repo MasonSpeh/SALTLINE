@@ -2,6 +2,15 @@ extends Node
 ## Layered environmental audio beds crossfaded by GameClock phase and PowerGrid state.
 ## NO MUSIC — canon law. Night rule: one-shot audible range doubles, reverb deepens.
 ## Assets are synthesized placeholders in res://audio/; the architecture is the point.
+##
+## THE BUS GRAPH (built in code by _build_buses, see the note there for why not a .tres):
+##
+##     World ──┐  AudioEffectLowPassFilter -> AudioEffectReverb, both DISABLED topside
+##     UI    ──┴──> Master   (bus 0: the pause menu's volume slider, nothing else)
+##
+## Everything diegetic lives on World and goes through the water; the non-positional
+## one-shot path (play_one_shot with Vector3.ZERO) lives on UI and never does. See
+## `set_underwater` for the underwater treatment and the hysteresis it uses.
 
 const BED_DEFS: Dictionary = {
 	"wind": "res://audio/wind_loop.wav",
@@ -79,6 +88,7 @@ var _beds: Dictionary = {}       ## name -> AudioStreamPlayer
 var _streams: Dictionary = {}    ## name -> AudioStream (one-shots)
 var _groan_timer: Timer
 var _gull_timer: Timer
+var _adopt_timer: Timer
 var night_range_multiplier: float = 1.0
 
 ## AUDIO OPTIONS (pause menu). The rig was over-stimulating: too many competing sources
@@ -118,12 +128,26 @@ func set_atmosphere(on: bool) -> void:
 
 func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
+	# Before any player exists — this autoload runs ahead of Ambience (project.godot
+	# order) and ahead of every scene, so the buses are there to be named by the time
+	# anything asks for one.
+	_build_buses()
 	for bed_name in BED_DEFS:
 		var p := AudioStreamPlayer.new()
 		p.volume_db = -80.0
-		p.bus = "Master"
+		p.bus = BUS_WORLD
 		add_child(p)
 		_beds[bed_name] = p
+
+	# RainAudio is created by StormSystem when the world builds, i.e. long after us, and
+	# a respawn/reload builds another one — so this is a repeating sweep, not a one-shot.
+	# It walks ~20 nodes; see _adopt_world_players for what it is fixing and why.
+	_adopt_timer = Timer.new()
+	_adopt_timer.wait_time = 2.0
+	_adopt_timer.timeout.connect(_adopt_world_players)
+	add_child(_adopt_timer)
+	_adopt_timer.start()
+	call_deferred("_adopt_world_players")
 
 	_groan_timer = Timer.new()
 	_groan_timer.one_shot = true
@@ -188,9 +212,109 @@ func set_storm(intensity: float) -> void:
 var _underwater: bool = false
 var _storm_level: float = 0.0
 
-## Below the wave line the topside world goes distant: wind and rain vanish, the
-## sea becomes a low pressure-hush all around.
+# ============================================================================= UNDERWATER
+#
+# THERE WAS NO UNDERWATER TREATMENT BEFORE THIS, and the reason is worth recording because
+# it is the shape docs/AGENT_TRAPS.md keeps warning about: `set_underwater` existed, it was
+# called, and every line in it was DEAD. All four of its bed ids are in AMBIENCE_OWNED (or
+# are "rain"), and `_fade` forces exactly those to -80 dB — so `_fade("sea", -8.0)` set the
+# sea bed to SILENCE. The function ran, nothing changed, and the code read as a feature.
+#
+# What you actually hear under the swell today is Ambience's `sea_swell` (pushed to 1.35
+# gain) and `hull_groan` (0.5), plus whatever one-shots fire — all of it unfiltered, i.e.
+# byte-identical to the topside mix. Hence a real treatment, on the bus, not on volumes.
+#
+# LEVELS ARE DELIBERATELY NOT TOUCHED HERE. Ambience already drops wind/interior_hum to its
+# floor underwater and RainAudio already mutes, and this file's whole HAND-OVER note at the
+# top exists because two systems mixing one bed is how the wind ended up howling indoors.
+# So the underwater work here is CHARACTER only: a filter and a room. Nothing ducks.
+
+## Bus names. Everything diegetic goes to World and is filtered; the non-positional
+## one-shot path goes to UI and is not. Both send to Master, so the pause menu's volume
+## slider (which writes bus 0) still owns the whole output.
+const BUS_MASTER: String = "Master"
+const BUS_WORLD: String = "World"
+const BUS_UI: String = "UI"
+
+## WATER KILLS HIGH FREQUENCY — the single cue that reads as "under". 20500 is the top of
+## Godot's cutoff range, i.e. the filter is transparent (and it is also switched OFF
+## outright at wet == 0, so topside costs nothing and is bit-identical to before).
+const DRY_CUTOFF_HZ: float = 20500.0
+## At 12 dB/oct this puts a gull three octaves up (4960 Hz) 36 dB down. 24 dB/oct was
+## rejected: -72 dB there leaves the bed with no texture at all, which reads as broken
+## rather than as submerged.
+const WET_CUTOFF_HZ: float = 620.0
+## Reverb wet/dry at full submersion. The water is a close, dark, everywhere room — not a
+## hall — so the tail is short and heavily damped (see _build_buses) and `dry` only steps
+## back far enough for the tail to be felt.
+const WET_REVERB: float = 0.42
+const WET_DRY: float = 0.80
+
+# ------------------------------------------------------------------- HYSTERESIS, MEASURED
+#
+# THE WATERLINE MOVES: an 11-band Gerstner swell (Gyre) on top of a 0.70 m tide, and
+# main.gd's flag is a bare `cam.y < Gyre.swim_line(...)` re-evaluated every frame. Replaying
+# Gyre's own band table off-line (scratchpad waterline_chatter.py — same W_DIR/W_LEN/W_AMP,
+# same _warp and _patchiness, 900 s at 120 Hz):
+#
+#   camera held at mean water     : 189 crossings / 900 s = one every 4.8 s;
+#                                   submerged spans median 2.40 s, p10 0.78 s, 3% < 0.45 s
+#   camera at +0.60 m (bobbing)   : submerged spans median 0.96 s, p10 0.28 s, 19% < 0.45 s
+#                                   above-water spans  median 6.32 s,           1% < 0.45 s
+#   (at the mean line the crossing statistics are identical at sea_state 0.4 and 1.0 —
+#    a squall scales the amplitude, it does not move the zero crossings.)
+#
+# Two things fall out of that:
+#   * THE CROSSFADE IS MOST OF THE HYSTERESIS. The shortest tenth of genuine submerged
+#     spans at the line is 0.78 s, longer than FADE_DOWN, so a real dunk reaches full wet;
+#     the 3% that do not get a partial swell instead of a click. A hard boolean would have
+#     re-cut the mix every 4.8 s while treading water.
+#   * THE SHORT EXCURSIONS ARE DUNKS, NOT GASPS — 19% of submerged spans are under 0.45 s
+#     against 1% of dry ones. So the dwell is asymmetric the way the sea is: quick in, slow
+#     out. Entering fast keeps the dive immediate (a brief dunk SHOULD sound wet); leaving
+#     slowly bridges the moments a swell top clears your head while you are plainly still
+#     in the water, which is the flip that reads as a glitch rather than as a moment.
+const ENTER_DWELL: float = 0.10   ## raw flag must hold this long before we commit to wet
+const EXIT_DWELL: float = 0.35    ## ...and this long before we commit back to dry
+const FADE_DOWN: float = 0.45     ## seconds from fully dry to fully wet
+const FADE_UP: float = 0.30       ## and back — faster, so surfacing is a snap of clarity
+
+var _uw_raw: bool = false         ## last thing main.gd told us, undebounced
+var _uw_hold: float = 0.0         ## seconds _uw_raw has held its value
+var _wet: float = 0.0             ## 0 topside .. 1 fully submerged; the crossfade itself
+var _world_bus: int = -1
+var _ui_bus: int = -1
+var _lpf: AudioEffectLowPassFilter = null
+var _reverb: AudioEffectReverb = null
+
+## Called by main.gd on every change of `cam.global_position.y < Gyre.swim_line(...)` —
+## THE one authoritative underwater test in this project. This node does not re-derive it
+## (a second depth test is how ambience.gd ended up with its own cruder `pos.y < 0.0`);
+## it debounces what it is given and crossfades from it.
 func set_underwater(under: bool) -> void:
+	if under == _uw_raw:
+		return
+	_uw_raw = under
+	_uw_hold = 0.0
+
+## Commit + crossfade. Early-outs to two compares in the topside steady state, which is
+## most of the game.
+func _process(delta: float) -> void:
+	_uw_hold += delta
+	if _uw_raw != _underwater and _uw_hold >= (ENTER_DWELL if _uw_raw else EXIT_DWELL):
+		_commit_underwater(_uw_raw)
+	var goal: float = 1.0 if _underwater else 0.0
+	if _wet == goal:
+		return
+	_wet = move_toward(_wet, goal, delta / (FADE_DOWN if goal > _wet else FADE_UP))
+	_apply_wetness()
+
+## The debounced transition. The bed calls are the ORIGINAL ones and they are still no-ops
+## by design (see _fade) — they are kept because `set_storm` gates on `_underwater` and
+## must restore the sky's mix on the way up, and because the ids are the contract other
+## files call through. What changed is that they now fire on the DEBOUNCED edge, so a
+## swimmer at the line no longer spawns a Tween per wave crest.
+func _commit_underwater(under: bool) -> void:
 	_underwater = under
 	if under:
 		_fade("wind", -80.0, 0.6)
@@ -201,6 +325,115 @@ func set_underwater(under: bool) -> void:
 		_fade("sea", -16.0, 0.8)
 		_update_hum()
 		set_storm(_storm_level)   # restore whatever the sky is doing
+
+## Write the crossfade into the bus. THE CUTOFF IS INTERPOLATED IN LOG SPACE, and that is
+## not a flourish: a linear ramp 20500 -> 620 is at 10560 Hz half way through, which is
+## still audibly transparent, so the entire audible part of the transition would happen in
+## the last handful of frames and read as a hard cut anyway. Geometric interpolation is at
+## 3565 Hz at the same instant — i.e. genuinely half way there by ear.
+func _apply_wetness() -> void:
+	if _world_bus < 0 or _lpf == null:
+		return
+	var on: bool = _wet > 0.0
+	AudioServer.set_bus_effect_enabled(_world_bus, 0, on)
+	AudioServer.set_bus_effect_enabled(_world_bus, 1, on)
+	if not on:
+		# Leave the parameters at their dry ends so a probe reading the bus topside sees
+		# the resting state rather than whatever the last frame of the fade wrote.
+		_lpf.cutoff_hz = DRY_CUTOFF_HZ
+		_reverb.wet = 0.0
+		_reverb.dry = 1.0
+		return
+	var s: float = smoothstep(0.0, 1.0, _wet)   # ease both ends; linear reads as a wipe
+	_lpf.cutoff_hz = DRY_CUTOFF_HZ * pow(WET_CUTOFF_HZ / DRY_CUTOFF_HZ, s)
+	_reverb.wet = WET_REVERB * s
+	_reverb.dry = lerpf(1.0, WET_DRY, s)
+
+## How submerged the mix currently sounds, 0..1. Read by probes; nothing in the game
+## depends on it (the treatment is all on the bus).
+func underwater_wetness() -> float:
+	return _wet
+
+# ----------------------------------------------------------------------------- the buses
+#
+# BUILT IN CODE, NOT AS A default_bus_layout.tres, for the same reason the rig is built in
+# code: a .tres bus layout is an opaque table with nowhere to put the reasoning above, it
+# cannot be diffed usefully, and it would put the audio contract in a file that nothing
+# else in this project's build reads. Everything here is idempotent, so a harness that
+# re-enters the autoload or a scene reload cannot stack a second filter on the bus.
+
+func _build_buses() -> void:
+	_world_bus = _ensure_bus(BUS_WORLD)
+	_ui_bus = _ensure_bus(BUS_UI)
+	if AudioServer.get_bus_effect_count(_world_bus) == 0:
+		# ORDER MATTERS: filter first, then reverb, so the tail is built out of already
+		# muffled signal. Reverb-then-filter gives a bright room heard through water,
+		# which is the wrong way round — the water is the room.
+		var lpf := AudioEffectLowPassFilter.new()
+		lpf.cutoff_hz = DRY_CUTOFF_HZ
+		lpf.db = AudioEffectFilter.FILTER_12DB
+		lpf.resonance = 0.2   # default 0.5 rings at the corner; water does not whistle
+		AudioServer.add_bus_effect(_world_bus, lpf)
+		var rev := AudioEffectReverb.new()
+		rev.room_size = 0.85       # everywhere at once, no walls to find
+		rev.damping = 0.75         # dark tail, matching what the filter has already done
+		rev.spread = 1.0
+		rev.hipass = 0.05
+		rev.predelay_msec = 20.0   # the medium is ON you: no distance, no slap
+		rev.predelay_feedback = 0.25
+		rev.wet = 0.0
+		rev.dry = 1.0
+		AudioServer.add_bus_effect(_world_bus, rev)
+	_lpf = AudioServer.get_bus_effect(_world_bus, 0) as AudioEffectLowPassFilter
+	_reverb = AudioServer.get_bus_effect(_world_bus, 1) as AudioEffectReverb
+	# Topside is the common case and it pays nothing: both effects are switched off at the
+	# bus, so the World bus is a straight pass-through until the first dive.
+	AudioServer.set_bus_effect_enabled(_world_bus, 0, false)
+	AudioServer.set_bus_effect_enabled(_world_bus, 1, false)
+
+func _ensure_bus(bus_name: String) -> int:
+	var idx: int = AudioServer.get_bus_index(bus_name)
+	if idx < 0:
+		AudioServer.add_bus()
+		idx = AudioServer.bus_count - 1
+		AudioServer.set_bus_name(idx, bus_name)
+	AudioServer.set_bus_send(idx, BUS_MASTER)
+	return idx
+
+## THE WORLD'S BEDS ARE NOT CREATED IN THIS FILE, and the filter is worthless if it does
+## not reach them. scripts/world/ambience.gd (5 beds + an 8-deep footstep pool) and
+## scripts/world/rain_audio.gd (3 loops) both hard-code `bus = "Master"`, which routes them
+## AROUND World — leaving underwater sounding exactly like topside, i.e. exactly the bug
+## this whole section exists to fix. The permanent fix is one word in each of those three
+## lines (ambience.gd:115 and :122, rain_audio.gd:44 -> BUS_WORLD); they are owned
+## elsewhere, so until that lands this adopts anything still pointed at Master.
+##
+## It only ever moves players that are ON Master, so it is a silent no-op the day those
+## lines change, and it cannot fight an owner who has deliberately chosen another bus.
+func _adopt_world_players() -> void:
+	var amb: Node = get_node_or_null("/root/Ambience")
+	if amb != null:
+		_adopt_from(amb, 1)          # beds and step pool are direct children
+	var scn: Node = get_tree().current_scene
+	if scn == null:
+		return
+	# StormSystem is a direct child of Main and owns RainAudio, whose players are its own
+	# children. Found by duck-typing rather than `is StormSystem` so this autoload keeps
+	# no compile-time dependency on a world script.
+	for c in scn.get_children():
+		if c.has_method("is_storming"):
+			_adopt_from(c, 2)
+
+func _adopt_from(n: Node, depth: int) -> void:
+	for c in n.get_children():
+		if c is AudioStreamPlayer:
+			if String((c as AudioStreamPlayer).bus) == BUS_MASTER:
+				(c as AudioStreamPlayer).bus = BUS_WORLD
+		elif c is AudioStreamPlayer3D:
+			if String((c as AudioStreamPlayer3D).bus) == BUS_MASTER:
+				(c as AudioStreamPlayer3D).bus = BUS_WORLD
+		elif depth > 1:
+			_adopt_from(c, depth - 1)
 
 func _fade(bed_name: String, target_db: float, duration: float = 2.5) -> void:
 	var p: AudioStreamPlayer = _beds.get(bed_name)
@@ -243,6 +476,12 @@ func play_one_shot(shot_name: String, world_pos: Vector3, volume_db: float = 0.0
 		var p := AudioStreamPlayer.new()
 		p.stream = stream
 		p.volume_db = volume_db
+		# UI bus: this path is the player's own close, non-diegetic sounds and it must NOT
+		# go through the water filter. Three call sites use it today — main.gd's airlock
+		# hiss, item_effects' hiss, PlayerState's eat — and all three are things you do
+		# with your hands, in your own head, on dry land. Move one to a positional call if
+		# it ever needs to belong to the world instead.
+		p.bus = BUS_UI
 		add_child(p)
 		p.finished.connect(p.queue_free)
 		p.play()
@@ -250,6 +489,7 @@ func play_one_shot(shot_name: String, world_pos: Vector3, volume_db: float = 0.0
 		var p3 := AudioStreamPlayer3D.new()
 		p3.stream = stream
 		p3.volume_db = volume_db
+		p3.bus = BUS_WORLD   # everything with a position is in the water with you
 		p3.max_distance = 40.0 * night_range_multiplier
 		p3.unit_size = 6.0 * night_range_multiplier
 		get_tree().current_scene.add_child(p3)

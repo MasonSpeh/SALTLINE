@@ -14,14 +14,42 @@ class_name KingCrab extends Node3D
 ## inside its reach with the beam dead on it to make that trade — and it only backs off a
 ## couple of metres before it comes on again.
 ##
-## THE ARTICULATION (this codebase's fact #4: the motion shader bends a mesh as a whole
-## and there is no skeleton in the glb — Meshy auto-rigs humanoids only). The shell is the
-## generated giant_crab mesh, scaled up; every LIMB is built here in code as jointed
-## segments, and posed per frame. The gait clock advances with GROUND DISTANCE TRAVELLED,
-## not with time, so the legs physically cannot moonwalk: stop the body and the cycle
-## stops mid-stride. Fact #2 is why the limbs are built where they are — CreatureAnim
-## .replace() hides every MeshInstance3D that already exists on the host, so the limbs are
-## constructed AFTER that call, never before.
+## THE ARTICULATION IS THE MESH'S OWN, AND THE CAPSULE OVERLAY IS GONE (owner: "big crab has
+## 3-d texture connector tubes visible underneath").
+##
+## What was drawn: the generated giant_crab shell — a complete crab, eight sculpted legs and
+## two sculpted claws — and then, built AFTER `ANIM.replace()` and therefore fully visible,
+## a SECOND set of anatomy in bare capsules: eight hip->femur->knee->tibia->dactyl chains
+## and two claw arms with prism jaws. 28 `CreatureKit.limb` capsules and 4 prisms, in flat
+## untextured `KIT.mat` fills. Sixteen legs and four claws on one animal.
+##
+## Measured off the GLB (accessor bounds x +-0.949, y +-0.628, z +-0.541; `load_model`
+## scales the LONGEST axis to SHELL_M 3.0, so x1.5813): the shell occupies x +-1.501,
+## y 0.000..1.986, z +-0.855 above the body origin. Against that —
+##   * every tibia ran from (+-1.77, 1.90) to (+-2.62, 0.00): 2.1 m of bare tube, entirely
+##     outside the shell's own silhouette, descending past it to the plating. Eight of them.
+##     That is the geometry "visible underneath".
+##   * the dactyl stubs reached y -0.155 with their radius counted, so at CLEAR 0.14 the toe
+##     tips were 15 mm INSIDE the deck — not the "about 3 cm off the plating" the old
+##     comment claimed, which had left the capsule radius out of the sum.
+##   * the claw shoulders sat at z -1.15 against a shell whose front face is z -0.855, i.e.
+##     295 mm clear of the carapace in open air, with the mesh's own sculpted claws directly
+##     behind them. That is exactly the bug crab.gd already deleted on the ordinary crab
+##     after the owner reported "weird shapes hovering in front of crab claws"; the king was
+##     left carrying it because it was the one species whose overlay was load-bearing.
+##
+## It is not load-bearing. `ANIM.Mode.SCUTTLE` walks the generated mesh's own legs in a
+## metachronal wave (that is what the mode is for — crab.gd relies on nothing else), and
+## menace is expressed the way the ordinary crab expresses it: the body rears in a chase and
+## `_snap_t` drives a hard lurch on the strike. So the whole overlay is deleted.
+##
+## WHAT THAT COSTS, stated so nobody has to re-derive it: the old silhouette was 5.58 m
+## toe-to-toe (the overlay's feet) by 1.986 m tall (the shell). The shell alone is 3.00 m by
+## 1.986 m. HEIGHT is unchanged — the animal is still the promised "taller than you" and
+## still 2.7x the ordinary crab's 1.1 m — and the span is what went. If the 5 m span is
+## wanted back, SHELL_M is the whole lever now that the anatomy is sculpted rather than
+## bolted on; at SHELL_M 5.0 the mesh measures 5.00 x 3.31 m, which is a much taller animal
+## than the docstring above ever promised. That trade is a look call, not a code change.
 ##
 ## It shares the crab's rig knowledge rather than copying it: the level tree, the authored
 ## stair-tower flights, the light-brightness model and the no-go volumes all live in
@@ -48,13 +76,6 @@ var spawn_index: int = 0
 
 # ---- size and shape ----------------------------------------------------------------
 const SHELL_M: float = 3.0          ## generated shell, longest axis (the ordinary crab: 1.1)
-const HIP_OUT: float = 0.62         ## hip sockets, out along the body's X (its left/right)
-const HIP_Y: float = 1.15           ## hips sit ON TOP of the carapace — the legs arch over
-const KNEE_OUT: float = 1.15
-const KNEE_UP: float = 0.75         ## knee apex ~1.9 m: the tallest part of the animal
-const FOOT_OUT: float = 0.85
-const FOOT_DROP: float = 1.90       ## HIP_Y + KNEE_UP - FOOT_DROP = 0.0 — feet on the deck
-const STRIDE: float = 1.15          ## metres of ground per complete leg cycle
 
 # ---- behaviour ---------------------------------------------------------------------
 const HUNT_SPEED: float = 1.05      ## heavy: slower than the ordinary crab's 1.6 roam
@@ -79,10 +100,14 @@ const SCARE_TIME: float = 1.4       ## and it has to be HELD there, not flicked 
 const BACKOFF_TIME: float = 2.4     ## then it comes on again
 const SAME_LEVEL_Y: float = 3.0
 const COMMIT_TIME: float = 6.0
-# Body origin above the seated surface. Not arbitrary: HIP_Y + KNEE_UP - FOOT_DROP puts the
-# ankle exactly on the origin plane and the dactyl reaches 0.11 below it, so 0.14 stands the
-# toe tips about 3 cm off the plating — touching, without the capsules z-fighting the deck.
-const CLEAR: float = 0.14
+# Body origin above the seated surface. This used to be 0.14, derived from the capsule
+# overlay's dactyl — and derived wrong, since it left the dactyl capsule's own 0.045 radius
+# out of the sum and buried the toe tips 15 mm in the plate. With the overlay gone the only
+# thing standing on the surface is the generated shell, and `CreatureAnim.ground()` (via
+# CRABS.ground_model) already puts that mesh's LOWEST point exactly on the host origin. So
+# CLEAR is now nothing but z-fight margin: 30 mm is invisible on a 3 m animal and keeps the
+# shell off the plate. Anything larger is a hover, because the mesh is grounded at zero.
+const CLEAR: float = 0.03
 ## Ground-seat catch-up rate. MUST exceed CHASE_SPEED or the seat lags and teleports.
 const SEAT_CATCHUP: float = 8.0
 const BODY_R: float = 0.85
@@ -161,96 +186,18 @@ func _ready() -> void:
 ## ---------- body ----------
 
 func _build_body() -> void:
-	# 1. THE SHELL. Nothing procedural is built before this call, so replace() has nothing
-	#    of ours to hide; it attaches the generated mesh and shades it with the motion
-	#    shader. A slow SCUTTLE beat: the shader's whole-mesh limb wave is the carapace's
-	#    creak, and the real leg motion is the jointed geometry built in step 3.
+	# THE SHELL, and nothing else. Nothing procedural is built before this call, so
+	# replace() has nothing of ours to hide; it attaches the generated mesh and shades it
+	# with the motion shader. SCUTTLE walks the mesh's OWN sculpted legs in a metachronal
+	# wave — the same mode and the same asset the ordinary crab uses — which is why the
+	# capsule overlay this function used to add after the call is gone rather than moved.
+	# See the header for the measurement that condemned it.
 	var gen: Dictionary = ANIM.replace(self, MODEL_PATH, SHELL_M, ANIM.Mode.SCUTTLE,
 		0.05, 0.9, NO_GLOW)
 	if not gen.is_empty():
 		_model = gen["model"]
 		_mats = gen["mats"]
 		_model_base_y = CRABS.ground_model(_model)
-	# 2. FACT #2, the one that has already cost a session: CreatureAnim.replace() hides
-	#    every MeshInstance3D that exists on the host when it runs. Every piece of limb
-	#    geometry below is therefore built AFTER it. Built before, it would be created and
-	#    then immediately hidden — visible in the scene tree, invisible on screen, and
-	#    animated perfectly for nobody.
-	# 3. THE LIMBS.
-	var chitin: Material = KIT.mat(Color(0.52, 0.20, 0.11), 0.55)   # deep rust-red shell
-	var joint: Material = KIT.mat(Color(0.30, 0.13, 0.09), 0.45)    # darker at the joints
-	var pale: Material = KIT.mat(Color(0.86, 0.79, 0.64), 0.6)      # bone-pale pincers
-	_build_legs(chitin, joint)
-	_build_claws(chitin, pale)
-
-## Eight walking legs, four a side, each a hip -> femur -> knee -> tibia -> dactyl chain.
-## The femur arches UP and OUT over the carapace and the tibia comes back DOWN outside it,
-## which is what makes a king crab read as a king crab: the shell is low and the legs are
-## the animal. The rest pose puts every foot exactly on the deck plane (y = 0), so the
-## body origin can be seated at CLEAR above the plating and the feet land on it.
-func _build_legs(chitin: Material, joint: Material) -> void:
-	for i in range(8):
-		var side: float = 1.0 if i < 4 else -1.0
-		var j: int = i % 4
-		var z_along: float = -0.85 + float(j) * 0.57      # front to back along the body
-		var femur: Vector3 = Vector3(side * KNEE_OUT, KNEE_UP, 0.0)
-		var tibia: Vector3 = Vector3(side * FOOT_OUT, -FOOT_DROP, 0.0)
-		var hip := Node3D.new()
-		add_child(hip)
-		hip.position = Vector3(side * HIP_OUT, HIP_Y, z_along)
-		# NO joint-knuckle balls here (there used to be one at every hip and knee: 16
-		# total). They were meant to cap the seam where two limb capsules meet at an
-		# angle, but because they're built AFTER ANIM.replace() (fact #2 — the limbs
-		# have to be, so they stay visible), nothing ever hides them, and in the darker
-		# `joint` material they read as a scattered dotted pattern across the whole
-		# animal instead of a clean shell. The capsule overlap at each hinge is enough
-		# on its own; owner call, 2026-07-25b: remove them.
-		KIT.limb(hip, Vector3.ZERO, femur, 0.085, chitin)
-		var knee := Node3D.new()
-		hip.add_child(knee)
-		knee.position = femur
-		KIT.limb(knee, Vector3.ZERO, tibia, 0.062, chitin)
-		var foot := Node3D.new()
-		knee.add_child(foot)
-		foot.position = tibia
-		KIT.limb(foot, Vector3.ZERO, Vector3(side * 0.17, -0.11, 0.0), 0.045, joint)
-		# Metachronal wave: a quarter-cycle apart down each side, and the two sides in
-		# antiphase, so four feet are always planted and the animal never floats.
-		_limbs.append({"hip": hip, "knee": knee, "foot": foot, "side": side,
-			"phase": float(j) * 0.25 + (0.0 if side > 0.0 else 0.5)})
-
-## Two arms, forward and outboard of the shell, each ending in a jaw that really opens.
-## Shoulders sit AHEAD of the front hip pair (z -1.15 against the front hip's -0.85) and
-## inboard of them, so an arm and a walking leg never grow out of the same socket. Fully
-## extended the jaw tips reach about 3 m in front of the body origin — which is deliberate:
-## CONTACT is 2.35 m, so the claw arrives on the player at the moment the bite lands
-## instead of a hit registering from empty air.
-func _build_claws(chitin: Material, pale: Material) -> void:
-	for i in range(2):
-		var side: float = 1.0 if i == 0 else -1.0
-		var arm: Vector3 = Vector3(side * 0.32, -0.12, -0.62)
-		var fore: Vector3 = Vector3(side * -0.05, -0.18, -0.60)
-		var shoulder := Node3D.new()
-		add_child(shoulder)
-		shoulder.position = Vector3(side * 0.45, 0.95, -1.15)
-		KIT.limb(shoulder, Vector3.ZERO, arm, 0.11, chitin)
-		var elbow := Node3D.new()
-		shoulder.add_child(elbow)
-		elbow.position = arm
-		KIT.limb(elbow, Vector3.ZERO, fore, 0.13, chitin)
-		var wrist := Node3D.new()
-		elbow.add_child(wrist)
-		wrist.position = fore
-		# Two prism jaws on their own pivots, laid forward (-Z) and hinged in that plane.
-		# The base rotation is kept so the per-frame gape is an offset from it and the jaws
-		# can never wander off their hinge.
-		var jaw_size := Vector3(0.17, 0.66, 0.12)
-		var upper: Node3D = KIT.fin(wrist, Vector3.ZERO, jaw_size, pale,
-			Vector3(-90, 0, 0), Vector3(0, jaw_size.y * 0.5, 0))
-		var lower: Node3D = KIT.fin(wrist, Vector3.ZERO, jaw_size, pale,
-			Vector3(-90, 0, 0), Vector3(0, jaw_size.y * 0.5, 0))
-		_claws.append({"shoulder": shoulder, "elbow": elbow,
-			"upper": upper, "lower": lower, "side": side})
 
 ## ---------- the night coin ----------
 
