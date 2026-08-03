@@ -1092,7 +1092,29 @@ func _try_step_up(wish: Vector3, before: Vector3, wanted: float) -> bool:
 	# reasoning is already written out in _leave_climb(), which is why that one uses 0.001.
 	if test_move(Transform3D(base.basis, top), Vector3.ZERO, null, OCCUPANCY_MARGIN, true):
 		return false                                   # the destination is occupied
-	global_position = top
+	# RISE IN PLACE. DO NOT TELEPORT TO `top` — that is the owner's "some stairs are worse".
+	#
+	# `top` is 0.30 m forward (STEP_PROBE_FWD) and up to 0.34 m up (STEP_MAX_HEIGHT) of the
+	# body's position, and assigning it moved the player all of that IN ONE 30 Hz TICK
+	# against a normal walk step of ~0.107 m — a 3x lurch forward with a vertical pop on top,
+	# fired on any flight that presents a momentary blocking contact. s25 un-broke this
+	# assist (it had been dead its whole life, refusing every step it correctly computed
+	# because it asked the occupancy question at safe_margin), and un-breaking it is exactly
+	# when the lurch started being felt.
+	#
+	# The forward half was never the part that helps. What unblocks a capsule caught on a
+	# lip is the RISE; once it is above the tread, ordinary movement carries it forward at
+	# walking pace on the next frame. So take the height and leave the travel to the solver.
+	# The probes above are unchanged and still prove there is a real tread to land on — this
+	# only changes what the assist DOES once it has proven it, and step 1 already established
+	# that the vertical lane is clear.
+	var lift := Vector3(base.origin.x, top.y, base.origin.z)
+	if test_move(Transform3D(base.basis, lift), Vector3.ZERO, null, OCCUPANCY_MARGIN, true):
+		# Rising in place is blocked (a soffit or an overhang directly above). Fall back to
+		# the old behaviour rather than refusing the step outright — a jerk beats a wall.
+		global_position = top
+	else:
+		global_position = lift
 	velocity.y = maxf(velocity.y, 0.0)
 	apply_floor_snap()
 	return true
