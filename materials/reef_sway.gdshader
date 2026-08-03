@@ -20,6 +20,14 @@ render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 //     at y = 0", so the height fraction is just VERTEX.y / mesh_h and h^2 pins the
 //     holdfast: at the base the displacement is identically zero, so a plant physically
 //     cannot detach from the concrete it was raycast onto.
+//     s36: THE ANCHOR IS IN MESH LOCAL SPACE, SO TILTING AN INSTANCE CANNOT MOVE IT — the
+//     question the owner asked is the next one along, "is the holdfast still where the plant
+//     meets the wall". It is, and by more than it was. leg_reef now seats a rooted plant with
+//     its cross-axis columns IN THE WALL PLANE (see _add), so a vertex's distance out of the
+//     concrete is a function of local Y ALONE and the wall cuts every plant at one height:
+//     the recess bite, ~6-10% of the stem. The old rigid tilt cut the mesh diagonally and on
+//     a 1.80 m sea grass at 56 deg the up-slope side emerged 56.5% of the way up, where this
+//     shader is already moving it 63.7 mm. leg_reef prints both numbers every build.
 //   * SWAYS ALONG THE WORLD CURRENT, not along a local axis. leg_reef seats every piece
 //     with a RANDOM roll about its growth axis, so a fixed local sway direction would be
 //     a random world direction per plant and the stand would read as noise rather than as
@@ -28,6 +36,8 @@ render_mode cull_disabled, diffuse_burley, specular_schlick_ggx;
 //     mesh stretched 1.9x tall and 0.5x wide by its instance transform; that skews the
 //     normals (Godot uses mat3(MODEL_MATRIX), not its inverse transpose) and it would
 //     shrink the sway in exactly the axis the plant is thinnest in. Both are corrected.
+//     s36: AND SO IS SHEAR. A rooted plant's instance basis is no longer orthogonal — see
+//     the block above `s2` for which of the reads below that changes and which it does not.
 //
 // *** THE `rate` TRAP (docs/AGENT_TRAPS.md). ***
 // There is deliberately NO rate uniform. Every frequency below is a `const` inside the
@@ -107,9 +117,22 @@ void vertex() {
 		* 43758.5453) * TAU_ * 0.55;
 	phase += dot(wp, vec3(0.31, 0.0, 0.27));
 
-	// The model matrix' columns: rotation * scale. leg_reef builds them orthogonal (a
-	// right-handed basis scaled per axis), so the squared column lengths ARE the squared
-	// local scale and the inverse is three dots — no inverse() in a per-vertex path.
+	// The model matrix' columns: orientation * scale.
+	//
+	// s36 — THEY ARE NO LONGER ALWAYS ORTHOGONAL, and this file used to assume they were.
+	// leg_reef seats a ROOTED plant (the wall plants and the kelp) with its two cross-axis
+	// columns lying in the WALL PLANE and only its +Y column on the diagonal, so the holdfast
+	// stays flat on the concrete while the stem leans out of it. That is a shear: cx and cz
+	// are still orthonormal to each other, but cy is up to the lean angle away from their
+	// normal. Everything below that reads the columns has been checked against it:
+	//   * s2 is still EXACTLY the squared scale — all three columns are built from unit
+	//     vectors before scaled_local, sheared or not;
+	//   * the current transform is still exact where it is used. cl.y is discarded, and cx/cz
+	//     ARE orthonormal, so (cl.x, 0, cl.z) mapped back through the basis is precisely the
+	//     projection of `current` onto the wall plane — which is where a plant on a wall can
+	//     sway anyway;
+	//   * the normal correction was the one that broke, and it is fixed properly below rather
+	//     than approximated.
 	vec3 cx = MODEL_MATRIX[0].xyz;
 	vec3 cy = MODEL_MATRIX[1].xyz;
 	vec3 cz = MODEL_MATRIX[2].xyz;
@@ -147,13 +170,38 @@ void vertex() {
 	p += side * (x * sway_amp * 0.55 * mesh_h * k * aniso);
 	VERTEX = p;
 
-	// NORMALS UNDER NON-UNIFORM SCALE. Godot transforms normals with mat3(MODEL_MATRIX),
-	// not its inverse transpose, so a (0.5, 1.9, 0.5) instance tilts every normal toward
-	// vertical and the plant lights as though it were facing the surface. Pre-dividing by
-	// the squared scale makes the engine's own R*S apply R*S^-1, which is the correct
-	// transform. A uniformly scaled instance divides by a constant and normalises back to
-	// itself, so this is a no-op for every piece that does not stretch.
-	NORMAL = normalize(NORMAL / s2);
+	// NORMALS UNDER NON-UNIFORM SCALE *AND* SHEAR. Godot transforms normals with
+	// mat3(MODEL_MATRIX), not its inverse transpose, so a (0.5, 1.9, 0.5) instance tilts every
+	// normal toward vertical and the plant lights as though it were facing the surface. What
+	// has to be written here is therefore (M^T M)^-1 * NORMAL: the engine's own M then turns
+	// that into M^-T * NORMAL, which is the correct transform.
+	//
+	// This used to be written `NORMAL / s2`, which is (M^T M)^-1 ONLY when the columns are
+	// mutually perpendicular — true of every coral here and false of a rooted plant, whose
+	// +Y column is up to the lean angle off the plane of the other two. On a 45 deg plant the
+	// worst case is a surface facing along its own stem, which lit as though it faced 45 deg
+	// out of the wall. So the general form is used instead. It is three cross products and
+	// four dots, it needs no inverse() builtin, and for a diagonal Gram it reduces ALGEBRAICALLY
+	// to the old line — g0=(a,0,0), g1=(0,b,0), g2=(0,0,c) gives (bc*Nx, ca*Ny, ab*Nz)/abc,
+	// i.e. NORMAL / s2 exactly — so nothing that was already right has changed.
+	// The Gram matrix is scaled to put its largest entry at 1 before the adjugate is taken.
+	// Its entries are squared world scales, so on a 0.35 m anemone (scale 0.18) the adjugate
+	// would otherwise land around 1e-3 and its SQUARE around 1e-6 — under a mediump float's
+	// smallest normal. The answer is only defined up to a positive factor anyway, because
+	// normalize() removes it, so scaling costs nothing and takes the precision question away.
+	float gs = 1.0 / max(max(s2.x, s2.y), s2.z);
+	vec3 g0 = vec3(s2.x, dot(cx, cy), dot(cx, cz)) * gs;
+	vec3 g1 = vec3(dot(cx, cy), s2.y, dot(cy, cz)) * gs;
+	vec3 g2 = vec3(dot(cx, cz), dot(cy, cz), s2.z) * gs;
+	vec3 a0 = cross(g1, g2);
+	vec3 a1 = cross(g2, g0);
+	vec3 a2 = cross(g0, g1);
+	// the determinant is a POSITIVE scale factor — a Gram matrix is positive definite for any
+	// basis that is not degenerate — and normalize() removes it, so it is never divided out.
+	// The guard is for the degenerate case only: a zero-scale instance would otherwise hand
+	// normalize() a zero vector, and this repo has spent 5.4 GB of stderr on a NaN before.
+	vec3 nb = vec3(dot(a0, NORMAL), dot(a1, NORMAL), dot(a2, NORMAL));
+	NORMAL = dot(nb, nb) > 1e-12 ? normalize(nb) : NORMAL;
 	// The bend is not folded into the normal. It is a shear of at most ~20 deg at the tip
 	// of a soft-lit plant 15 m under an opaque sea; the tangent-frame correction costs a
 	// second displacement evaluation per vertex and would not be visible through the fog

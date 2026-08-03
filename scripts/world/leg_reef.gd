@@ -301,17 +301,37 @@ const BIG_STARS := [
 ## the count comes DOWN — these are 8,000-triangle meshes, the joint most expensive pieces in
 ## the whole set, and 363 of them were 23% of the reef's triangle budget spent on the thing
 ## nobody could see.
+##
+## s36 — THE ANGLE, AND THE BASE (owner: "angle plants diagonal so they can root against the
+## base"). `tilt` was degrees off the FACE NORMAL, and on a vertical caisson that convention
+## makes small numbers mean HORIZONTAL: 20-24 deg is a plant fired straight out of the wall.
+## /tmp/s35/plants.png is the evidence — a clump of sea grass rooted on the concrete with
+## every blade radiating out over open water like a bottle brush. The range then ran to 56, so
+## the family spanned "flat out of the wall" to "mostly up" and nothing in it was a diagonal.
+##
+## `diag` replaces it and is degrees off the DERIVED diagonal: the bisector of the probed face
+## normal and world up (see _diag_axis), which is exactly 45 deg out of any vertical face and
+## needs no number typed per face. A species keeps its character as a BAND about that bisector
+## — the blade wanders furthest, the anemone (a column with a crown) least.
+##
+## `root` is the seating half, and it is the half the owner actually asked about. See _add: a
+## rooted species is seated with its local XZ plane IN THE WALL PLANE and only its growth axis
+## leaning out, which is what a holdfast does. The old rigid tilt rotated the base plate with
+## the plant, so its down-slope edge lifted off the concrete — measured off the glTF at up to
+## 128 mm on a 1.8 m sea grass at 56 deg, against a recess capped at 220 mm that could not
+## reach it.
 const PLANTS := [
 	{"slug": "bloom_sea_grass", "lo": 0.70, "hi": 1.80, "space": 0.42,
-		"tilt": [30.0, 56.0], "depth": 0.25, "w": 1.20, "sway": 0.055,
+		"diag": [-14.0, 14.0], "depth": 0.25, "w": 1.20, "sway": 0.055, "root": true,
 		"a": Color(0.42, 0.86, 0.58), "b": Color(0.74, 1.00, 0.80)},
 	{"slug": "glow_creeper", "lo": 0.60, "hi": 1.60, "space": 0.40,
-		"tilt": [24.0, 48.0], "depth": 0.55, "w": 1.00, "sway": 0.065,
+		"diag": [-12.0, 12.0], "depth": 0.55, "w": 1.00, "sway": 0.065, "root": true,
 		"a": Color(0.36, 0.78, 0.72), "b": Color(0.70, 1.00, 0.94)},
 	# The anemone is a column with a crown, not a blade: it bends far less than weed does and
-	# its own lean is most of what reads as motion, so it takes a third of the sway.
+	# its own lean is most of what reads as motion, so it takes a third of the sway — and the
+	# narrowest band about the diagonal, because a column that wanders reads as a mistake.
 	{"slug": "bloom_anemone", "lo": 0.35, "hi": 0.85, "space": 0.44,
-		"tilt": [20.0, 40.0], "depth": 0.75, "w": 0.85, "sway": 0.022,
+		"diag": [-8.0, 8.0], "depth": 0.75, "w": 0.85, "sway": 0.022, "root": true,
 		"a": Color(0.92, 0.58, 0.72), "b": Color(1.00, 0.84, 0.90)},
 ]
 
@@ -330,12 +350,21 @@ const PLANTS := [
 ## deliberately large. A kelp bed's job here is SILHOUETTE in the band the player swims in;
 ## 100-odd strands 3–7 m tall buy that, and 400 half-metre tufts do not, at four times the
 ## price. `sway` is high because this is the thing the owner will actually see moving.
+##
+## s36 — THESE TOOK THE SAME `diag` AND `root` TREATMENT AS THE WALL PLANTS, and they are the
+## worse half of the defect rather than an extension of the fix. `tilt` 12-16 deg off a
+## vertical wall's NORMAL is a 7.7 m kelp strand pointing HORIZONTALLY out over open water,
+## and at 4.40 m x 1.75 stretch that is the largest single object this file plants. The fan of
+## pale blades shooting sideways out of the caisson in /tmp/s35/plants.png is this pass, not
+## the wall-plant pass. The bands are biased toward the vertical rather than centred: kelp
+## carries gas bladders and reaches for the surface, and the sway shader's `lean` then bends
+## it back downstream, so a symmetric band about 45 deg would double-count the bend.
 const WEEDS := [
 	{"key": "kelp_blade", "slug": "bloom_sea_grass", "space": 0.30,
-		"tilt": [16.0, 42.0], "depth": 0.30, "w": 1.15, "sway": 0.090,
+		"diag": [-12.0, 16.0], "depth": 0.30, "w": 1.15, "sway": 0.090, "root": true,
 		"a": Color(0.24, 0.62, 0.36), "b": Color(0.56, 0.96, 0.62)},
 	{"key": "kelp_whip", "slug": "glow_creeper", "space": 0.28,
-		"tilt": [12.0, 34.0], "depth": 0.60, "w": 1.00, "sway": 0.115,
+		"diag": [-10.0, 20.0], "depth": 0.60, "w": 1.00, "sway": 0.115, "root": true,
 		"a": Color(0.20, 0.58, 0.52), "b": Color(0.52, 0.98, 0.86)},
 ]
 ## The form roll, and what it means. ONE random number per strand drives size, height stretch
@@ -477,6 +506,17 @@ const STRUCTURES := [
 ## top stays under PLANT_TOP — measured from the loaded meshes, not authored (see _structure).
 const STRUCTURE_DEPTHS: Array[float] = [0.14, 0.31, 0.52, 0.76]
 
+## WHAT COUNTS AS A STALK, and the number is measured off the meshes rather than tasted.
+## Drawn height along the growth axis over drawn girth across it, taken over every member of
+## every structure above on every leg, from the decimated glTF extents:
+##     terrace 0.30 · fan_wall 0.68 · brain_head <=0.85 · bommie <=1.33
+##     PILLAR  2.30 .. 2.89
+## The set has an EMPTY BAND 0.97 wide between the pillar and everything else, and this sits
+## in it. That is what tells a coral boulder stretched a bit tall (a bommie course at 1.33)
+## from a mast (a rope sponge at 2.89) without naming either structure — so a later session
+## that adds a stretched member gets judged on its shape rather than on its table entry.
+const STALK_ASPECT: float = 1.60
+
 ## How many big starfish ride each caisson leg, and how many extra go on the foundation.
 ## These are ATTEMPTS — the spacing rejection turns some of them down, and on a leg that is
 ## now nearly covered in coral it turns down a lot. Counted off the build report: 11 a leg
@@ -556,6 +596,22 @@ var _plants_reachable: int = 0
 var _weeds: int = 0
 var _weeds_reachable: int = 0
 var _structures_built: int = 0
+## THE BASE-CONTACT MEASUREMENT (s36) — see _check_root for what each of these is and why the
+## pair of them is a PROOF that no rooted plant can have daylight under it, rather than a
+## sample that happened to pass.
+var _root_n: int = 0
+var _root_fail: int = 0
+var _root_flush_max: float = 0.0
+var _root_bite_min: float = 1.0e9
+var _root_bite_max: float = -1.0e9
+var _root_det_min: float = 1.0e9
+## Where the WALL CUTS THE STEM, as a fraction of the plant's own height, and what the sway
+## shader is therefore doing at the point the plant meets the concrete. See _add.
+var _root_cut_max: float = 0.0
+var _root_sway_max: float = 0.0
+## The s36 shallow stalk clamp — see STALK_ASPECT and _member_plan.
+var _stalks_clamped: int = 0
+var _stalks_dropped: int = 0
 ## The dive limit, from seabed.gd's own note ("the 13 m death line keeps it out of reach").
 ## Used only for reporting — nothing is placed or withheld because of it.
 const DIVE_LIMIT: float = -13.0
@@ -618,6 +674,24 @@ func _report() -> void:
 	print("[leg_reef]   kelp/seaweed %d (%d above the dive limit, %.0f%%) · %d big structures"
 		% [_weeds, _weeds_reachable,
 			100.0 * float(_weeds_reachable) / maxf(1.0, float(_weeds)), _structures_built])
+	# BASE CONTACT — the s36 owner item, as a number rather than a claim. This is measured off
+	# the real holdfast vertices of each placed instance, not off the scalar that seated it.
+	if _root_n > 0:
+		print("[leg_reef]   base contact: %d rooted plants · cut edge %.1f..%.1f mm INSIDE the concrete · base plate off the wall plane by at most %.4f mm · min det %+.5f · %d failed"
+			% [_root_n, _root_bite_min * 1000.0, _root_bite_max * 1000.0,
+				_root_flush_max * 1000.0, _root_det_min, _root_fail])
+		if _root_fail > 0:
+			push_warning("[leg_reef] %d rooted plants are not flush on the concrete (worst base-plate error %.2f mm)"
+				% [_root_fail, _root_flush_max * 1000.0])
+		# ...and what that means for the sway shader, whose displacement is anchored at the
+		# mesh's local y = 0 and grows as h^2. Because a rooted instance's local XZ plane IS
+		# the wall plane, the concrete cuts every one of them at ONE local height, so this is
+		# the whole answer to "does the anchor land at the holdfast".
+		print("[leg_reef]   sway anchor: the concrete cuts a rooted plant at most %.1f%% up its own stem, where the shader moves it %.2f mm"
+			% [_root_cut_max * 100.0, _root_sway_max * 1000.0])
+	if _stalks_clamped > 0 or _stalks_dropped > 0:
+		print("[leg_reef]   shallow stalk clamp: %d structure members unstretched above y %.1f, %d dropped to the scatter"
+			% [_stalks_clamped, DIVE_LIMIT, _stalks_dropped])
 	for slug in per_slug.keys():
 		print("[leg_reef]   %-16s %4d x %5d tris = %8d"
 			% [slug, per_slug[slug][0], per_slug[slug][1],
@@ -898,12 +972,18 @@ func _wall_plants(leg: Vector2, n: Vector3, ex: float) -> void:
 		var t: float = pow(_rng.randf(), PLANT_TAPER)
 		var sp: Dictionary = _pick(_plant_pool, t)
 		var size: float = _rng.randf_range(float(sp["lo"]), float(sp["hi"]))
-		var tilt: Array = sp["tilt"]
-		var lean: float = deg_to_rad(_rng.randf_range(tilt[0], tilt[1]))
+		var band: Array = sp["diag"]
+		# THE LEAN IS DERIVED, NOT TYPED (s36). `_diag_axis` builds the bisector of this face
+		# and world up and wanders `band` degrees about it; the species table no longer carries
+		# an angle measured off the normal, which is the convention that let 20 deg mean
+		# "horizontal" and produced the bottle-brush plants in the s35 frames.
+		var off: float = deg_to_rad(_rng.randf_range(band[0], band[1]))
+		var grow_n: Vector3 = _diag_axis(n, off)
 		# The ceiling this plant may root at: the pontoon clamp, minus how far its own grown
-		# tip rides UP the wall. Height along the growth axis is size * hnorm (the mesh's own
-		# aspect, measured at load), and a vertical wall's growth axis lifts by sin(lean).
-		var rise: float = size * _hnorm(sp) * sin(lean)
+		# tip rides UP the wall — measured off the mesh's radius-by-height profile rather than
+		# from the growth axis alone, because a ROOTED plant's cross sections lie in the wall
+		# plane and half its width is therefore also half its reach upward (see _tip_rise).
+		var rise: float = _tip_rise(sp, size, grow_n.y, Vector3.ONE)
 		var top: float = PLANT_TOP - rise
 		if top <= BAND_BOTTOM:
 			continue
@@ -924,10 +1004,13 @@ func _wall_plants(leg: Vector2, n: Vector3, ex: float) -> void:
 			continue
 		if not _claim(surface, size * float(sp["space"])):
 			continue
-		var grow: Vector3 = _grow_axis(hit["normal"], lean)
+		# Rebuilt off the HIT normal rather than the face this loop aimed at: the 0.985 dot
+		# check above only bounds them to ~10 deg of each other, and the plane the plant is
+		# actually seated on is the one the shear has to lie in.
+		var grow: Vector3 = _diag_axis(hit["normal"], off)
 		# Belt and braces: the ray decides the seat, so the surface it returns can be a few
 		# centimetres off the target it was aimed at. Cheap to re-check what was just derived.
-		if surface.y + grow.y * size * _hnorm(sp) > PLANT_TOP:
+		if surface.y + _tip_rise(sp, size, grow.y, Vector3.ONE) > PLANT_TOP:
 			continue
 		_add(sp, surface, hit["normal"], grow, size)
 		_plants += 1
@@ -960,14 +1043,14 @@ func _weed_band(leg: Vector2, n: Vector3, ex: float) -> void:
 		var size: float = lerpf(WEED_SIZE[0], WEED_SIZE[1], f)
 		var stretch := Vector3(lerpf(WEED_SXZ[0], WEED_SXZ[1], f),
 			lerpf(WEED_SY[0], WEED_SY[1], f), lerpf(WEED_SXZ[0], WEED_SXZ[1], f))
-		var tilt: Array = sp["tilt"]
-		var lean: float = deg_to_rad(_rng.randf_range(tilt[0], tilt[1]))
+		var band: Array = sp["diag"]
+		var off: float = deg_to_rad(_rng.randf_range(band[0], band[1]))
+		var grow_n: Vector3 = _diag_axis(n, off)
 		# Both weed meshes are y-longest (bloom_sea_grass 1.905, glow_creeper 1.896 against
-		# xz under 1.4), so hnorm is ~1.0 and `size` is very nearly the drawn height — but it
-		# is READ rather than assumed, because a re-cut that changed the aspect would
-		# otherwise put kelp tips through the pontoon without anything noticing.
-		var height: float = size * _hnorm(sp) * stretch.y
-		var top: float = PLANT_TOP - height * sin(lean)
+		# xz under 1.4), so hnorm is ~1.0 and `size` is very nearly the drawn height — but the
+		# whole shape is READ rather than assumed, because a re-cut that changed the aspect
+		# would otherwise put kelp tips through the pontoon without anything noticing.
+		var top: float = PLANT_TOP - _tip_rise(sp, size, grow_n.y, stretch)
 		if top <= BAND_BOTTOM:
 			continue
 		var y: float = lerpf(top, BAND_BOTTOM, t)
@@ -986,8 +1069,8 @@ func _weed_band(leg: Vector2, n: Vector3, ex: float) -> void:
 		# of wall and the bed would have come out as a dozen lonely poles.
 		if not _claim(surface, size * stretch.x * float(sp["space"])):
 			continue
-		var grow: Vector3 = _grow_axis(hit["normal"], lean)
-		if surface.y + grow.y * height > PLANT_TOP:
+		var grow: Vector3 = _diag_axis(hit["normal"], off)
+		if surface.y + _tip_rise(sp, size, grow.y, stretch) > PLANT_TOP:
 			continue
 		_add(sp, surface, hit["normal"], grow, size, stretch)
 		_weeds += 1
@@ -1024,24 +1107,28 @@ func _structure(leg: Vector2, n: Vector3, kind: Dictionary, depth_f: float) -> v
 	# is normalised to a 1 m longest axis, so it spans `size` across and half of that stands
 	# above its seat. A clamp on the growth axis alone would have let the top member of a
 	# bommie sit 1.7 m higher than it thought it was.
-	var rise: float = 0.0
-	for mi in range(members.size()):
-		var m: Dictionary = members[mi]
-		var sp: Dictionary = _member_species(m, mi)
-		if sp.is_empty():
-			continue
-		var mh: float = float(m["size"]) * _hnorm(sp) * float(m["sy"])
-		rise = maxf(rise, float(m["dy"]) + mh * sin(deg_to_rad(float(m["tilt"])))
-			+ float(m["size"]) * float(m["sxz"]) * 0.5)
+	var plan: Dictionary = _member_plan(members, false)
+	var rise: float = plan["rise"]
 	var y0: float = minf(lerpf(CRUST_TOP, BAND_BOTTOM, depth_f), PLANT_TOP - rise)
 	if y0 - rise < BAND_BOTTOM:
 		y0 = BAND_BOTTOM + rise
+	# THE SHALLOW STALK CLAMP (owner s36: "reduce the extreme stalk coral near the surface").
+	# Decided on the UNCLAMPED geometry — where the structure WOULD have grown to — so the test
+	# cannot chase its own tail through the rise it is about to change. `DIVE_LIMIT` is the only
+	# depth in it and it is already in this file, off seabed.gd: the water the player can be in.
+	if y0 + rise > DIVE_LIMIT:
+		plan = _member_plan(members, true)
+		rise = plan["rise"]
+		y0 = minf(lerpf(CRUST_TOP, BAND_BOTTOM, depth_f), PLANT_TOP - rise)
+		if y0 - rise < BAND_BOTTOM:
+			y0 = BAND_BOTTOM + rise
+	var rows: Array = plan["rows"]
 	var along0: float = _rng.randf_range(-0.9, 0.9)
 	var seated: int = 0
 	for mi in range(members.size()):
 		var m: Dictionary = members[mi]
 		var sp: Dictionary = _member_species(m, mi)
-		if sp.is_empty():
+		if sp.is_empty() or not bool(rows[mi]["build"]):
 			continue
 		# KEEP THE MEMBER ON THE FACE. Everything else this file places is under a metre
 		# across and the existing passes just cap the offset at 2.5-2.6 against a 3.0 m half
@@ -1049,7 +1136,7 @@ func _structure(leg: Vector2, n: Vector3, kind: Dictionary, depth_f: float) -> v
 		# hang half of it off the caisson corner over open water. The limit is the member's
 		# own girth subtracted from the face, floored at zero so a piece wider than the
 		# caisson simply centres on it rather than flipping sign.
-		var halfw: float = float(m["size"]) * float(m["sxz"]) * 0.5
+		var halfw: float = float(m["size"]) * float(rows[mi]["sxz"]) * 0.5
 		var room: float = maxf(0.0, LEG_HALF - 0.15 - halfw)
 		var across: float = clampf(along0 + float(m["ds"]), -room, room)
 		var target := Vector3(leg.x, y0 + float(m["dy"]), leg.y) + n * LEG_HALF \
@@ -1063,7 +1150,8 @@ func _structure(leg: Vector2, n: Vector3, kind: Dictionary, depth_f: float) -> v
 		if absf((hit["normal"] as Vector3).dot(n)) < 0.985:
 			continue
 		var size: float = float(m["size"])
-		var stretch := Vector3(float(m["sxz"]), float(m["sy"]), float(m["sxz"]))
+		var stretch := Vector3(float(rows[mi]["sxz"]), float(rows[mi]["sy"]),
+			float(rows[mi]["sxz"]))
 		var tilt: float = deg_to_rad(float(m["tilt"]))
 		var grow: Vector3 = _grow_axis(hit["normal"], tilt)
 		# THE STANDOFF, and it is computed rather than authored because it is a consequence of
@@ -1088,6 +1176,69 @@ func _structure(leg: Vector2, n: Vector3, kind: Dictionary, depth_f: float) -> v
 		# A structure is the best address on the wall, so the fish get told about it too.
 		colony_seats.append({"pos": Vector3(leg.x, y0 + rise * 0.5, leg.y) + n * LEG_HALF
 			+ tangent * along0, "n": n})
+
+## WHAT EACH MEMBER OF A STRUCTURE IS ACTUALLY BUILT AT, and how high the whole thing reaches.
+## Returns one row per member — {build, sy, sxz} — plus `rise`, so the two passes that need
+## those numbers (the pontoon clamp, and the placement loop) cannot drift apart.
+##
+## `clamp` is the s36 owner item: "reduce the extreme stalk coral near the surface."
+##
+## WHAT THE OWNER IS LOOKING AT, identified rather than guessed. /tmp/s35/reef_top.png is shot
+## from (34, -9, -12) at the SE leg's outboard face, and the tall cream branching thing in the
+## middle of it is `sponge_rope` — its glTF silhouette is a narrow foot splitting into vertical
+## finger-tubes, which is the shape in the frame, and its tint pair (0.96,0.72,0.44 ->
+## 1.00,0.92,0.74) is the colour. The kind rotation puts a PILLAR on exactly that face, and the
+## pillar stretches sponge_rope by sy 1.70 into a 4.42 m mast standing 1 m off the concrete.
+## Root -10.58, top -3.60: it spans the whole of the water a player can be in.
+##
+## THE RULE: IN THAT WATER, A STALK MEMBER IS SCALED BUT NOT STRETCHED. `sy` comes down to
+## `sxz`, which restores the mesh's OWN aspect (sponge_rope is 1.25 tall for 1 wide already —
+## it is a bundle of finger-tubes; the stretch is what turns it into a mast) and takes nothing
+## off its width, so the piece stays a big sponge instead of becoming a small one. Below the
+## dive limit the pillar keeps every metre of its 7 m silhouette, which is the depth that
+## silhouette was added for. Nothing else in STRUCTURES is a stalk — see STALK_ASPECT.
+##
+## AND THEN THE SECOND HALF, which is where the triangles go. A structure member exists to
+## carry a silhouette the SCATTER cannot. Once the clamp has taken one down to no taller than
+## the scatter's own maximum for that species, it is a duplicate of the scatter with a bespoke
+## seat, so it is not built at all: on the shallow pillar that is the third course, 1.44 m
+## against a scattered sponge_rope's 1.60 m.
+##
+## WHAT IT COMES TO, worked off the tables and the glTF extents rather than promised. Three
+## pillars exist; two of them grow into reachable water and are clamped, the third does not:
+##     leg SE face +x  y -10.58..-3.60 -> -8.52..-4.44, tallest member 4.42 -> 2.21 m,
+##                     third course dropped (sponge_rope, 3,600 tris)
+##     leg NW face -x  y -14.75..-7.76 -> -14.75..-9.19, tallest member 4.42 -> 2.21 m
+##     leg NE face +z  y -22.43..-15.45  UNTOUCHED — it is below the dive limit
+## Six members unstretched, one not built, -3,600 triangles. Nothing else in STRUCTURES is
+## caught, at any depth: the next-most-slender thing on the reef is a bommie course at 1.33.
+func _member_plan(members: Array, clamp: bool) -> Dictionary:
+	var rows: Array = []
+	var rise: float = 0.0
+	for mi in range(members.size()):
+		var m: Dictionary = members[mi]
+		var sp: Dictionary = _member_species(m, mi)
+		if sp.is_empty():
+			rows.append({"build": false, "sy": float(m["sy"]), "sxz": float(m["sxz"])})
+			continue
+		var hn: float = _hnorm(sp)
+		var sy: float = float(m["sy"])
+		var sxz: float = float(m["sxz"])
+		var build: bool = true
+		# as DRAWN: height along the growth axis over width across it
+		var aspect: float = (hn * sy) / maxf(_gnorm(sp) * sxz, 1.0e-4)
+		if clamp and aspect > STALK_ASPECT and sy > sxz:
+			sy = sxz
+			_stalks_clamped += 1
+			build = float(m["size"]) * hn * sy > float(sp["hi"]) * hn
+			if not build:
+				_stalks_dropped += 1
+		rows.append({"build": build, "sy": sy, "sxz": sxz})
+		if build:
+			rise = maxf(rise, float(m["dy"])
+				+ float(m["size"]) * hn * sy * sin(deg_to_rad(float(m["tilt"])))
+				+ float(m["size"]) * sxz * 0.5)
+	return {"rows": rows, "rise": rise}
 
 ## Which species a structure member is made of. A literal slug takes that species out of the
 ## full table; "mass"/"sponge" take THIS LEG's palette slice, which is what keeps a structure
@@ -1186,6 +1337,33 @@ func _grow_axis(normal: Vector3, tilt: float) -> Vector3:
 		var a: float = _rng.randf_range(0.0, TAU)
 		lean = Vector3(cos(a), 0.0, sin(a))
 	return (normal * cos(tilt) + lean * sin(tilt)).normalized()
+
+## THE DIAGONAL A WALL PLANT GROWS ALONG — derived from the probed face and world up, not
+## typed per face (owner s36: "angle plants diagonal so they can root against the base").
+##
+## `up_face` is world up with the face's own normal component removed, so `normal + up_face`
+## normalised is the BISECTOR: exactly 45 deg out of any of the sixteen vertical caisson faces
+## and off any face the probe ever returns, with no per-face number anywhere. `off` is the
+## per-instance wander about it (a species' `diag` band), in radians.
+##
+## WHY THE BISECTOR RATHER THAN A WIDER RANGE. `_grow_axis`' `tilt` is measured off the face
+## NORMAL, so on a vertical wall a small tilt is HORIZONTAL, not upright — the s35 plant table
+## started at 20-24 deg and photographed as blades fired straight out of the concrete. The
+## diagonal is the one orientation that is neither "along the normal" nor "straight up", and
+## it is the one a plant reaching from a wall toward the light actually takes.
+##
+## On a HORIZONTAL surface (the pontoon underside) world up has no component in the face and
+## there is no diagonal to build, so this degrades to _grow_axis' random-azimuth lean — which
+## is the right answer there for the same reason it always was.
+func _diag_axis(normal: Vector3, off: float) -> Vector3:
+	var up_face: Vector3 = Vector3.UP - normal * normal.y
+	if up_face.length() < 0.05:
+		return _grow_axis(normal, PI * 0.25 + off)
+	up_face = up_face.normalized()
+	# clamped well inside both ends, so no `diag` band a later session widens can flip a plant
+	# back onto the normal or fold it flat against the wall
+	var t: float = clampf(PI * 0.25 + off, 0.14, 1.43)
+	return (normal * cos(t) + up_face * sin(t)).normalized()
 
 ## Spacing rejection — this is what stops the scatter reading as a repeating pattern
 ## or as one interpenetrating blob.
@@ -1337,13 +1515,96 @@ static func _key(sp: Dictionary) -> String:
 ## because the tip clamps need this BEFORE anything is placed. 1.0 for a species that failed
 ## to load, which is the conservative direction: it makes the clamp seat things deeper.
 func _hnorm(sp: Dictionary) -> float:
+	var b: Dictionary = _batch(sp)
+	return 1.0 if b.is_empty() else float(b["hnorm"])
+
+## The mesh's own GIRTH as a fraction of its longest axis — the widest of its two cross-axis
+## extents. Only the stalk test uses it (see STALK_ASPECT), and it comes off the same AABB
+## `hnorm` does, so a re-cut that changes a species' proportions moves both together.
+func _gnorm(sp: Dictionary) -> float:
+	var b: Dictionary = _batch(sp)
+	return 1.0 if b.is_empty() else float(b["gnorm"])
+
+func _batch(sp: Dictionary) -> Dictionary:
 	var key: String = _key(sp)
 	if not _batches.has(key):
 		var loaded: Dictionary = _load(sp)
 		if loaded.is_empty():
-			return 1.0
+			return {}
 		_batches[key] = loaded
-	return float(_batches[key]["hnorm"])
+	return _batches[key]
+
+## HOW HIGH THE DRAWN PIECE REACHES ABOVE ITS SEAT, in metres.
+##
+## The s35 clamp used `size * hnorm * sin(lean)` — the growth axis and nothing else. That was
+## already an underestimate and it becomes a worse one for a ROOTED plant, because a rooted
+## instance's cross sections lie in the WALL PLANE, and the wall plane contains world up: half
+## the plant's width is also half its reach upward. Measured off the mesh's own radius-by-
+## height profile instead,
+##     rise = size * max over bands of ( sy * grow.y * y_band + sxz * r_band )
+## which is an upper bound over the random roll AND a tight one, because the two wall-plane
+## columns are orthonormal and span a plane containing up, so some roll achieves it.
+##
+## Worth the arithmetic: on a 1.8 m sea grass at 45 deg it is 1.601 m against the old formula's
+## 1.273 m, i.e. the old clamp had 328 mm of slack it did not know about, under a pontoon whose
+## underside is only 550 mm above PLANT_TOP.
+func _tip_rise(sp: Dictionary, size: float, gy: float, stretch: Vector3) -> float:
+	var b: Dictionary = _batch(sp)
+	if b.is_empty() or not b.has("prof_y"):
+		return size * _hnorm(sp) * stretch.y * maxf(gy, 0.0)
+	var ys: PackedFloat32Array = b["prof_y"]
+	var rs: PackedFloat32Array = b["prof_r"]
+	var top: float = 0.0
+	for i in range(ys.size()):
+		top = maxf(top, stretch.y * maxf(gy, 0.0) * ys[i] + stretch.x * rs[i])
+	return size * top
+
+## THE MESH'S OWN SHAPE, measured once per species at load and used by two different things
+## that must not disagree: the tip clamp (how wide is it at each height) and the build-time
+## base-contact check (which vertices ARE the holdfast).
+##
+## The holdfast ring is kept as REAL VERTICES, not as the radius the seating uses. That is the
+## whole point — the seat is one scalar along the wall normal, and a check that re-derived the
+## contact from that scalar could not fail however wrong the transform was (the s34 seal
+## tautology). Walking the actual vertices through the actual instance basis can.
+const BASE_BANDS: int = 20
+const BASE_RING: int = 48
+
+func _mesh_profile(mesh: Mesh, aabb: AABB, longest: float) -> Dictionary:
+	var h: float = maxf(aabb.size.y, 1.0e-4)
+	var ys := PackedFloat32Array()
+	var rs := PackedFloat32Array()
+	ys.resize(BASE_BANDS)
+	rs.resize(BASE_BANDS)
+	for i in range(BASE_BANDS):
+		# the TOP of band i, so the bound above is taken at the highest point of each band
+		ys[i] = (aabb.position.y + h * float(i + 1) / float(BASE_BANDS)) / longest
+		rs[i] = 0.0
+	var ring_v: Array[Vector3] = []
+	var ring_r := PackedFloat32Array()
+	ring_v.resize(BASE_RING)
+	ring_r.resize(BASE_RING)
+	for i in range(BASE_RING):
+		ring_r[i] = -1.0
+	var cut: float = aabb.position.y + h / float(BASE_BANDS)
+	for v in mesh.get_faces():
+		var band: int = clampi(int((v.y - aabb.position.y) / h * float(BASE_BANDS)),
+			0, BASE_BANDS - 1)
+		var r: float = Vector2(v.x, v.z).length()
+		rs[band] = maxf(rs[band], r / longest)
+		if v.y <= cut:
+			# the widest vertex in each of 48 directions round the stem: those are the ones
+			# that lift first under any basis error, so they are the ones worth checking
+			var bin: int = clampi(int((atan2(v.z, v.x) + PI) / TAU * float(BASE_RING)),
+				0, BASE_RING - 1)
+			if r > ring_r[bin]:
+				ring_r[bin] = r
+				ring_v[bin] = v
+	var ring := PackedVector3Array()
+	for i in range(BASE_RING):
+		if ring_r[i] >= 0.0:
+			ring.append(ring_v[i])
+	return {"prof_y": ys, "prof_r": rs, "base_ring": ring}
 
 ## Queue one instance. Nothing is built until _flush, so a leg's whole colony becomes
 ## one MultiMesh per species.
@@ -1373,6 +1634,55 @@ func _add(sp: Dictionary, surface: Vector3, normal: Vector3, grow: Vector3, size
 	# few centimetres. Scaling by lean alone drove the planar species (which lean 40-70
 	# deg on purpose) to 385 mm and started swallowing whole sea fans.
 	var recess: float = minf(0.035 + size * 0.26 * lean, minf(height * 0.32, RECESS_MAX))
+	# A ROOTED SPECIES IS SEATED DIFFERENTLY, and this is the s36 owner item.
+	#
+	# WHAT WAS WRONG. Every other piece here is placed with a RIGID rotation whose +Y is the
+	# growth axis, so its base plate turns with it: tilt the plant and one edge of the base
+	# digs into the concrete while the opposite edge lifts off it, by base_radius * sin(lean).
+	# Off the glTF, for a 1.80 m bloom_sea_grass at the old table's 56 deg that is 348 mm of
+	# lift against a recess the cap holds at 220 mm — 128 mm of daylight under the plant, which
+	# is "standing proud of it" exactly. A 4.40 m kelp_blade at 42 deg was 96 mm. Recessing far
+	# enough to close it is not the answer either: burying the up-slope edge means the wall
+	# plane cuts the mesh diagonally, and on that same sea grass it emerges 56.5% of the way up
+	# its own stem — which is also where the sway shader is already moving it 63.7 mm.
+	#
+	# WHAT REPLACES IT. A holdfast is FLAT ON THE ROCK and the stem leans away from it, so the
+	# instance is built with its local XZ plane IN THE WALL PLANE and only its +Y column on the
+	# diagonal. That is a shear, not a rotation, and it is the one that matches the biology:
+	#   * the base ring lies exactly in the probed plane, at every lean, for every size — the
+	#     gap is zero by construction rather than by tuning;
+	#   * because both cross-axis columns are perpendicular to the wall normal, a local point's
+	#     distance out of the concrete depends on its local Y ALONE. The wall therefore cuts
+	#     every rooted plant at ONE height, and that height is just the bite (below);
+	#   * the plant's cross sections stay parallel to the concrete as it rises, which is what a
+	#     clump of blades leaning off a wall actually looks like.
+	# The determinant stays POSITIVE (see the column order) — a negative one inverts triangle
+	# winding and renders the model inside out, which cost s23 a run. It would not bite the
+	# three flora meshes today, because reef_sway.gdshader is `cull_disabled`; the branch is
+	# general and _check_root watches it for one dot product a plant.
+	var basis: Basis
+	if bool(sp.get("root", false)) and absf(normal.dot(Vector3.UP)) < 0.8:
+		# the bite: sink the flat cut base by the height of the mesh's OWN holdfast band, so
+		# the cut edge is under the concrete and never shows. Measured, not chosen — it is one
+		# band of the profile _mesh_profile already walks, and RECESS_MAX still caps it so a
+		# 7.7 m kelp strand does not swallow half a metre of itself.
+		recess = minf(height / float(BASE_BANDS), RECESS_MAX)
+		var side: Vector3 = Vector3.UP.cross(normal)
+		if side.length() < 0.05:
+			side = Vector3.RIGHT.cross(normal)
+		side = side.normalized()
+		# side.cross(normal), NOT normal.cross(side): that order is what makes the determinant
+		# +cos(lean) instead of -cos(lean).
+		basis = Basis(side, grow, side.cross(normal))
+		# the roll is applied about the piece's OWN +Y (a right multiply), so it mixes the two
+		# columns that are already in the wall plane and leaves them there. Rolling about the
+		# growth axis the way the other branches do would tip the base plate off the concrete.
+		basis = basis * Basis(Vector3.UP, _rng.randf_range(0.0, TAU))
+		basis = basis.scaled_local(stretch * size * float(b["norm"]))
+		_check_root(b, basis, surface - normal * recess, surface, normal, sp, height, recess)
+		b["xf"].append(Transform3D(basis, surface - normal * recess))
+		b["col"].append(Color(sp["a"]).lerp(Color(sp["b"]), _rng.randf()))
+		return
 	var origin: Vector3 = surface - normal * recess
 	# A right-handed basis with +Y on the growth axis. The ROLL about that axis is what
 	# decides whether a sea fan stands out from the wall or lies flat on it — a random
@@ -1381,7 +1691,6 @@ func _add(sp: Dictionary, surface: Vector3, normal: Vector3, grow: Vector3, size
 	# blade normal aligned to the wall's horizontal tangent, so the blade plane contains
 	# the wall normal and the fan presents its face to the flow, the way a gorgonian
 	# actually grows. Everything else rolls freely.
-	var basis: Basis
 	if bool(sp.get("planar", false)):
 		# blade normal (local +Z) points away from the wall, so the blade plane lies
 		# roughly PARALLEL to the concrete and a swimmer meets its face, not its edge
@@ -1404,6 +1713,64 @@ func _add(sp: Dictionary, surface: Vector3, normal: Vector3, grow: Vector3, size
 	basis = basis.scaled_local(stretch * size * float(b["norm"]))
 	b["xf"].append(Transform3D(basis, origin))
 	b["col"].append(Color(sp["a"]).lerp(Color(sp["b"]), _rng.randf()))
+
+## THE BASE-CONTACT MEASUREMENT — run on every rooted instance as it is queued, because "the
+## base is on the concrete" is the thing the s36 change is FOR and a claim is not a number.
+##
+## IT MEASURES THE TWO PREMISES OF A PROOF rather than sampling for a symptom, because
+## sampling is what let a floating seal stay green for two sessions:
+##   FLUSH — every holdfast vertex is exactly where a base plate lying IN the wall plane would
+##     put it, i.e. its distance out of the concrete is a function of its own local height and
+##     nothing else. That is the claim the sheared basis makes.
+##   BITE  — the mesh's lowest geometry, its cut base edge, is inside the concrete.
+## Distance-out is then monotone in local height, so the plant's surface crosses the wall plane
+## exactly once and everything below that crossing is buried: there is no configuration of
+## size, lean or roll that can leave daylight under a plant. That is stronger than "no gap was
+## observed", and it is what the two numbers buy.
+##
+## NEITHER IS A TAUTOLOGY. The seating is a single scalar along the wall normal; this walks the
+## mesh's REAL holdfast vertices through the REAL scaled instance basis against the plane the
+## raycast actually returned. FLUSH goes non-zero if the cross-axis columns are not in the wall
+## plane (a Basis row/column mix-up, `scaled` instead of `scaled_local`, the roll applied about
+## the growth axis instead of local +Y, a rigid tilt creeping back in — that last one puts
+## base_radius * sin(lean), up to 420 mm, straight into this number). BITE goes negative if the
+## bite went the wrong way or the probe handed back a plane the caller did not expect. The
+## determinant is watched too: negative flips triangle winding and renders the mesh inside out.
+func _check_root(b: Dictionary, basis: Basis, origin: Vector3, surface: Vector3,
+		normal: Vector3, sp: Dictionary, height: float, recess: float) -> void:
+	if not b.has("base_ring"):
+		return
+	_root_n += 1
+	# how far out of the wall the piece's own +Y column carries one local unit of height. The
+	# WHOLE claim is that this is the only term: nothing in the cross-axis columns leaves the
+	# wall plane, so a vertex's depth cannot depend on where it sits round the stem.
+	var k_out: float = basis.y.dot(normal)
+	var flush: float = 0.0
+	var bite: float = -1.0e9
+	for v in (b["base_ring"] as PackedVector3Array):
+		var d: float = (origin + basis * v - surface).dot(normal)
+		flush = maxf(flush, absf(d - (v.y * k_out - recess)))
+		bite = maxf(bite, -d)            # deepest = lowest, because d is monotone in v.y
+	var det: float = basis.determinant()
+	if flush > 0.0005 or bite <= 0.0 or det <= 0.0:
+		_root_fail += 1
+	_root_flush_max = maxf(_root_flush_max, flush)
+	_root_bite_min = minf(_root_bite_min, bite)
+	_root_bite_max = maxf(_root_bite_max, bite)
+	_root_det_min = minf(_root_det_min, det)
+	# WHERE THE CONCRETE CUTS THE STEM, which is the sway shader's half of this. The shader
+	# anchors at the mesh's local y = 0 and grows as h^2, so the question the owner asked is not
+	# "is the anchor at the base" (it is, by the decimator's contract, and an instance transform
+	# cannot move it) but "how far up the stem is the plant when it leaves the wall". By the
+	# same monotonicity as above that is a SINGLE height for every rooted plant:
+	# recess / (drawn height * cos(lean)). The displacement there is the shader's own algebra —
+	# (lean + w * sway_amp) * <drawn height> * h^2, with lean = 0.6 * amp and w peaking at
+	# 1.42 — i.e. the peak travel of the plant AT the point it meets the concrete.
+	var cos_lean: float = maxf(basis.y.normalized().dot(normal), 0.05)
+	var cut: float = clampf(recess / maxf(height * cos_lean, 1.0e-4), 0.0, 1.0)
+	_root_cut_max = maxf(_root_cut_max, cut)
+	_root_sway_max = maxf(_root_sway_max,
+		2.02 * float(sp.get("sway", 0.0)) * height * cut * cut)
 
 ## Load a reef piece once: its mesh, and a material that takes the per-instance colour.
 ## Returns {} when the .glb is missing, which drops that species instead of crashing —
@@ -1457,8 +1824,16 @@ func _load(sp: Dictionary) -> Dictionary:
 	var out: Material = mat
 	if sp.has("sway"):
 		out = _sway_material(mat, aabb, float(sp["sway"]), float(sp.get("glow", 1.0)))
-	return {"mesh": mesh, "mat": out, "norm": 1.0 / maxf(longest, 0.001),
-		"hnorm": aabb.size.y / maxf(longest, 0.001), "xf": [] as Array, "col": [] as Array}
+	var b: Dictionary = {"mesh": mesh, "mat": out, "norm": 1.0 / maxf(longest, 0.001),
+		"hnorm": aabb.size.y / maxf(longest, 0.001),
+		"gnorm": maxf(aabb.size.x, aabb.size.z) / maxf(longest, 0.001),
+		"xf": [] as Array, "col": [] as Array}
+	# Only the ROOTED species pay for the vertex walk — three meshes, five batch keys, ~24k
+	# vertices each. Nothing else needs the profile, and _report already shows that walking
+	# every species' faces at build time is not free.
+	if bool(sp.get("root", false)):
+		b.merge(_mesh_profile(mesh, aabb, maxf(longest, 0.001)))
+	return b
 
 ## THE SWAY MATERIAL. Nothing on this reef has ever moved — not a frond, not a fan — and the
 ## owner has now asked for it twice. This is the same trick every animal in the game uses
