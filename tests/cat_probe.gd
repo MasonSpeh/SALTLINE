@@ -88,6 +88,57 @@ func _run() -> void:
 	var rigs: Dictionary = cat.get("_rigs")
 	_ok(rigs.size() >= 4, "the pose meshes carry skeletons to drive (%d rigged)" % rigs.size())
 
+	# EVERY POSE IS THE SAME ANIMAL. The owner's "Cat is too small when sitting, and too big
+	# when running, all states are currently different sizes."
+	#
+	# This is measured on the DRAWN geometry, not on the _pose_size table — the table is
+	# the thing under test, and a probe that re-read it would be the s34 seal tautology
+	# again. Each pose is scaled to a target LONGEST AXIS, and the longest axis means a
+	# different part of the animal per pose, so the invariant asserted here is the one that
+	# actually corresponds to "the same cat": the world-space extents must all sit inside a
+	# band around the walking cat rather than spanning a 1.8x range as they did.
+	var nodes: Dictionary = cat.get("_pose_nodes")
+	var spans: Dictionary = {}
+	for k in nodes:
+		var host: Node3D = nodes[k]
+		var acc := AABB()
+		var first := true
+		for n in host.find_children("*", "MeshInstance3D", true, false):
+			var mi: MeshInstance3D = n
+			var b: AABB = mi.global_transform * mi.get_aabb()
+			acc = b if first else acc.merge(b)
+			first = false
+		if not first:
+			spans[k] = maxf(acc.size.x, maxf(acc.size.y, acc.size.z))
+	var lo: float = 1e9
+	var hi: float = 0.0
+	for k in spans:
+		lo = minf(lo, spans[k])
+		hi = maxf(hi, spans[k])
+	var ratio: float = hi / maxf(lo, 0.0001)
+	_ok(spans.size() >= 5, "every pose was measurable (%d)" % spans.size())
+	# 1.35 rather than 1.0: a curled sleeping cat and a stretched leaping one genuinely do
+	# not have the same longest extent, and pretending they should would force the sleeping
+	# mesh to be scaled up until it read as a bigger animal. Before this fix the spread was
+	# 0.44..0.74 = 1.68x on the TARGETS alone, before the meshes' own differences.
+	_ok(ratio <= 1.35,
+		"all poses read as one animal (longest extent %.2f..%.2f m, spread %.2fx)"
+			% [lo, hi, ratio])
+
+	# IT DOES NOT WALK THROUGH WALLS. Put the player on the far side of a bulkhead and let
+	# the cat try to follow: it must NOT end up on the player's side. The bunkhouse's west
+	# wall is around x -28 (RIG_ATLAS zone x[-28,-8]), so a player well outside the room is
+	# unreachable without passing through it.
+	player.set("_lying", false)
+	player.set("_lying_sleeping", false)
+	PlayerState.selected_hotbar = -1
+	player.global_position = Vector3(-33.0, 18.1, 11.0)
+	for i in range(240):
+		await get_tree().physics_frame
+	_ok(cat.global_position.x > -28.5,
+		"it did not walk through the bunkhouse wall chasing the player (cat x %.2f)"
+			% cat.global_position.x)
+
 	# 2. IT IS NOT YOUR FRIEND YET, and it offers to be.
 	_ok(not bool(cat.get("friend")), "it starts as a stranger")
 	var verbs: Array = cat.call("available_verbs")

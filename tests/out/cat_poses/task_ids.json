@@ -23,5 +23,13 @@
     "id": "e6ac5215-a862-4885-8e4d-5065802adb83",
     "status": "success",
     "url": "https://tripo-data.rg1.data.tripo3d.com/tcli_1ea3e91f613d4f6db966758dcd4731ec/20260802/e6ac5215-a862-4885-8e4d-5065802adb83/tripo_pbr_model_e6ac5215-a862-4885-8e4d-5065802adb83.glb?Key-Pair-Id=K1676C64NMVM2J&Policy=eyJTdGF0ZW1lbnQiOlt7IlJlc291cmNlIjoiaHR0cHM6Ly90cmlwby1kYXRhLnJnMS5kYXRhLnRyaXBvM2QuY29tL3RjbGlfMWVhM2U5MWY2MTNkNGY2ZGI5NjY3NThkY2Q0NzMxZWMvMjAyNjA4MDIvZTZhYzUyMTUtYTg2Mi00ODg1LThlNGQtNTA2NTgwMmFkYjgzL3RyaXBvX3Bicl9tb2RlbF9lNmFjNTIxNS1hODYyLTQ4ODUtOGU0ZC01MDY1ODAyYWRiODMuZ2xiIiwiQ29uZGl0aW9uIjp7IkRhdGVMZXNzVGhhbiI6eyJBV1M6RXBvY2hUaW1lIjoxNzg1NzE1MjAwfX19XX0_&Signature=nK5wpDPVF1JBux6C-7SjENMBcMKd0DLFTorNradgL543V9ev3q-aM6tjhqCvSy2nGfLRoBBAKpUHikV4JV~DWg~xO6Id-gdKMGHVVmbAgTO19ORaMiual62Nq2U7e3Ftudpi-bVELAprEIbjv6IHtqzo8Tg9iOfYFSSNEfsLtWJrsX40cj9WDFP-340CRUQ1BpUsQ1xufWQciI3pRSPC5K2VDWcy7TTqaDBJc3A--jGMauNRCP1XrykzDFWcCU-c6AlIOaQFeF47Pf6iYNsxaTw-2Qi8~NIEKqxgH5vTxowotep3C92NapJlUvKxkzmAXTvWZp7-WSTvO7c055rMiA__"
+  },
+  "cat_jump": {
+    "id": "1dacfa67-4c6f-4b02-a732-c1532dd80d53",
+    "status": "success"
+  },
+  "cat_run2": {
+    "id": "7ab694c6-82ef-4016-814b-0dc3157c4cd6",
+    "status": "success"
   }
 }

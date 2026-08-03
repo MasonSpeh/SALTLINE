@@ -41,7 +41,10 @@ const MODEL_PATH := "res://assets/models/fauna/ship_cat/ship_cat.glb"
 ##
 ## `stand` is kept because the s32 mesh is the only one authored on all four feet and level,
 ## which is what the walk cycle's gait bob is tuned against.
-enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET }
+## JUMP is APPENDED, never inserted. CatProbe and the close-out harness assert on the
+## integer values of these (state 2 is RUN, state 5 is FISH), so inserting anywhere but the
+## end silently re-numbers the states out from under every test that names one.
+enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET, JUMP }
 
 ## s35: THE RIGGED MESHES, where they exist. Same five poses, same look — Tripo rigged the
 ## ALREADY-SHIPPING meshes off the task ids s34 logged, and the bind pose photographs
@@ -49,12 +52,21 @@ enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET }
 ## is the difference between a cat that changes pose and a cat that MOVES.
 ## The static paths remain the fallback: a missing rigged asset degrades to the s34 look
 ## rather than to a crash, which is the same contract every generated species here has.
+## `run` is cat_run2, NOT cat_run. The s34 run mesh has its head and shoulders turned —
+## the owner's "the cat is looking/turning to the left, so the running straight is
+## currently crooked". That is a MESH fault and no amount of yaw fixes it: straightening
+## the head by rotating the node would aim the body off the line of travel. s36 re-rolled
+## the pose with the head, neck, spine and shoulders named explicitly in the prompt
+## (tools/gen_cat_s36.py) and measured the result — the across-body extent fell from 0.488
+## to 0.387 of the body length, i.e. the animal genuinely got straighter rather than just
+## looking it from one angle.
 const POSES := {
 	"stand": MODEL_PATH,
 	"sit": "res://assets/models/fauna/_rigged/cat_sit_idle.glb",
 	"groom": "res://assets/models/fauna/_rigged/cat_groom_idle.glb",
 	"walk": "res://assets/models/fauna/_rigged/cat_walk_walk.glb",
-	"run": "res://assets/models/fauna/_rigged/cat_run_run.glb",
+	"run": "res://assets/models/fauna/_rigged/cat_run2_run.glb",
+	"jump": "res://assets/models/fauna/_rigged/cat_jump_jump.glb",
 	"sleep": "res://assets/models/fauna/_rigged/cat_sleep_idle.glb",
 }
 const POSES_STATIC := {
@@ -74,6 +86,7 @@ const STATE_POSE := {
 	State.SLEEP: "sleep",
 	State.FISH: "walk",
 	State.PET: "sit",
+	State.JUMP: "jump",
 }
 
 
@@ -105,6 +118,14 @@ const STEP_UP: float = 0.45          ## the probe's own reach above the next foo
 ## rather than as a cat. A rig stair tread is well inside this, so it climbs one tread at a
 ## time; a bunk frame or a wall is still refused.
 const CLIMB_UP: float = 0.62
+## Taller than CLIMB_UP and up to this, the cat JUMPS instead of refusing. A real cat
+## clears five times its shoulder height; this is deliberately far short of that, because
+## the failure mode of a generous number is an animal that leaps onto things the level
+## design assumed were out of reach.
+const JUMP_UP: float = 1.25
+const JUMP_SEC: float = 0.52
+## Stops a cat that lands just under another lip from jumping every frame forever.
+const JUMP_CD: float = 0.9
 ## Metres of ground covered per stride cycle. The gait's cycle rate is speed / this, which
 ## is what keeps the paws from skating at one speed and mincing at another.
 const STRIDE_M: float = 0.62
@@ -159,6 +180,12 @@ var _slope: float = 0.0
 ## The speed the last step was actually taken at, so the gait picks its footfall pattern
 ## from what the body did rather than from what a state hoped it would do.
 var _last_speed: float = 0.0
+## The leap, in flight: time left, and the two ends of the arc. While `_jump_t` is positive
+## the state machine hands the animal over to _fly_jump and nothing else moves it.
+var _jump_t: float = 0.0
+var _jump_cd: float = 0.0
+var _jump_from: Vector3 = Vector3.ZERO
+var _jump_to: Vector3 = Vector3.ZERO
 
 func _ready() -> void:
 	_rng.seed = 5150
@@ -359,6 +386,15 @@ func _process(delta: float) -> void:
 	# The lean into a slope, eased so a step onto a stair tread is not a snap.
 	_body.rotation.x += -_slope * 0.55
 	_focus_w = maxf(0.0, _focus_w - delta * 1.5)
+	if _jump_cd > 0.0:
+		_jump_cd -= delta
+	# A LEAP OWNS THE ANIMAL UNTIL IT LANDS. Taken before the state machine, so nothing
+	# downstream can re-seat the cat onto the deck it just left — which is what would
+	# otherwise cancel the jump on its first airborne frame.
+	if _jump_t > 0.0:
+		_fly_jump(delta)
+		_drive_rig(delta)
+		return
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	if player == null:
 		return
@@ -368,6 +404,24 @@ func _process(delta: float) -> void:
 		return
 	_companion(delta, player)
 	_drive_rig(delta)
+
+## The arc. A jump is not a lerp: a straight line between two points reads as an animal
+## being slid up a ramp. The horizontal runs linearly and the vertical carries a parabola
+## over the top, so the cat rises clear of the lip it is clearing and comes down onto it.
+func _fly_jump(delta: float) -> void:
+	_jump_t -= delta
+	var k: float = clampf(1.0 - _jump_t / JUMP_SEC, 0.0, 1.0)
+	var flat: Vector3 = _jump_from.lerp(_jump_to, k)
+	# Peak height scales with the rise so a small hop does not launch the cat at the
+	# deckhead, with a floor so a flat leap still leaves the ground.
+	var lift: float = maxf(_jump_to.y - _jump_from.y, 0.0) * 0.35 + 0.14
+	global_position = Vector3(flat.x, flat.y + sin(k * PI) * lift, flat.z)
+	_face(_jump_to, delta * 2.0)
+	_last_speed = RUN_SPEED
+	if _jump_t <= 0.0:
+		global_position = _jump_to
+		_jump_cd = JUMP_CD
+		_reseat()
 
 ## Before you find it: sitting where it lives, washing a paw, looking up when you get close.
 func _groom(delta: float, player: Node3D) -> void:
@@ -525,12 +579,51 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 		return
 	var ground: float = (hit["position"] as Vector3).y
 	var rise: float = ground - global_position.y
+	# IS THERE A WALL IN THE WAY? The owner's "Cat glitches through walls".
+	#
+	# Every probe above asks about the FLOOR — "is there deck under the next footfall, and
+	# is the step up small enough". None asked whether anything stands BETWEEN the cat and
+	# that footfall, so a bulkhead with sound deck on both sides answered every question
+	# correctly and the animal walked straight through it. The bunkhouse is full of exactly
+	# that geometry.
+	#
+	# THE HEIGHT THIS IS CAST AT IS THE WHOLE DIFFICULTY, and the first cut got it wrong.
+	# Casting at the cat's own body height refuses STAIRS: a tread's riser is a vertical
+	# face standing between the animal and the deck above it, indistinguishable from a
+	# bulkhead by its normal alone. So cast from ABOVE the destination floor — anything
+	# still in the way once you are already at the height you are stepping up to is a wall
+	# and not a step. A riser ends at `ground`; a bulkhead does not.
+	var probe_y: float = maxf(global_position.y, ground) + 0.16
+	var wq := PhysicsRayQueryParameters3D.create(
+		Vector3(global_position.x, probe_y, global_position.z),
+		Vector3(want.x, probe_y, want.z))
+	wq.collision_mask = 1
+	wq.collide_with_areas = false
+	# EXCLUDE THE PLAYER AND THE OTHER ANIMALS, or this refuses the one place the cat most
+	# wants to walk. The sleep spot is a ring 0.9-2.0 m around a lying player, so the
+	# player's own capsule stands between the cat and almost every candidate — the first
+	# cut of this check made the cat unable to come to bed, which is exactly how it was
+	# found. And every creature here carries a solid 0.6-0.85 m FaunaTouch sphere on the
+	# default layer (the documented trap), so a passing snail would stop the cat dead.
+	wq.exclude = _walk_skip()
+	if not world.direct_space_state.intersect_ray(wq).is_empty():
+		return
 	# STAIRS. The old rule was "coamings yes, stairs no" (STEP_UP 0.45) and the cat simply
 	# refused anything taller — which is why it could not follow you off the deck it met you
 	# on. A rig stair tread rises STAIR_RISE per step, well inside CLIMB_UP, so the animal
 	# takes them one tread at a time like everything else does; what it still refuses is a
 	# wall or a bunk frame.
+	# A RISE TOO TALL TO STEP IS A RISE TO JUMP. Between CLIMB_UP and JUMP_UP the cat leaves
+	# the ground properly — which is what the jump mesh is for, and it is also the honest
+	# answer to a follower that used to give up at every crate and coaming it could plainly
+	# get onto. Above JUMP_UP it still refuses: a cat does not scale a bulkhead.
 	if rise > CLIMB_UP:
+		if rise <= JUMP_UP and _jump_t <= 0.0 and _jump_cd <= 0.0:
+			_jump_t = JUMP_SEC
+			_jump_from = global_position
+			_jump_to = Vector3(want.x, ground, want.z)
+			_enter(State.JUMP)
+			AudioDirector.play_one_shot("cat_chirp", global_position, -24.0)
 		return
 	# The slope it is standing on, for the body pitch. Taken from the rise over the step
 	# actually taken rather than from a second probe, so it cannot disagree with the move.
@@ -561,6 +654,26 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 ## Confirmed three ways rather than reasoned once: the algebra above; tools/measure_facing.py
 ## reading +Z off cat_walk/cat_run/cat_sleep with both statistics agreeing, so no mesh error
 ## cancels it; and the rendered side view in tests/out/cat_bind.
+## Everything the cat's WALL ray must not mistake for a wall: its own handle, the player,
+## and every other animal's touch sphere. Rebuilt each call rather than cached, because
+## fauna are spawned and freed through the session and a stale RID is a silent hole in the
+## skip list — the cost is a handful of group lookups on an animal that already raycasts
+## twice a step.
+func _walk_skip() -> Array[RID]:
+	var skip: Array[RID] = [_touch.get_rid()]
+	var player: Node3D = get_tree().get_first_node_in_group("player")
+	if player != null and is_instance_valid(player):
+		if player is CollisionObject3D:
+			skip.append((player as CollisionObject3D).get_rid())
+		for c in player.find_children("*", "CollisionObject3D", true, false):
+			skip.append((c as CollisionObject3D).get_rid())
+	var bf: Node = get_tree().get_first_node_in_group("bloom_fauna")
+	if bf != null and bf.get("fauna_bodies") != null:
+		for r in (bf.get("fauna_bodies") as Array):
+			if r is RID:
+				skip.append(r)
+	return skip
+
 func _face(target: Vector3, delta: float) -> void:
 	var to: Vector3 = target - global_position
 	to.y = 0.0
@@ -591,6 +704,10 @@ func _drive_rig(delta: float) -> void:
 	if rig == null:
 		return
 	match _state:
+		State.JUMP:
+			# Airborne: the legs hold the leap shape the mesh is already in rather than
+			# cycling a gait, which is what a jumping animal actually does.
+			rig.idle(_t, 0.35)
 		State.RUN, State.FOLLOW, State.FISH:
 			# The gait mode is chosen by SPEED, not by state: a cat trots before it runs,
 			# and picking the footfall pattern off the actual pace means the two never
@@ -636,14 +753,33 @@ func _watch(at: Vector3, weight: float = 1.0) -> void:
 ## normalising every mesh to the same longest axis would shrink the running cat and inflate
 ## the sleeping one until they read as two different animals. These are the real ratios of
 ## the same cat in those poses.
+## MEASURED, NOT AUTHORED — and the previous numbers were the owner's "too small when
+## sitting, too big when running, all states are currently different sizes".
+##
+## The bug is in the QUANTITY being normalised. `load_model` scales a mesh so its LONGEST
+## AXIS equals this number, and the longest axis means a different part of the animal in
+## every pose: nose-to-tail on a walking cat, but roughly height on a sitting one and
+## roughly width on a curled one. Handing all of them one hand-picked length therefore
+## guarantees they read as different-sized animals — it normalises the wrong thing.
+##
+## What is actually invariant is the CAT. Its body does not shrink when it sits down. So
+## these are derived by equalising CONVEX HULL VOLUME across the pose set and anchoring on
+## the walk mesh at 0.66 m, which is the one that already looked right. The hull rather
+## than the raw volume because not one of the seven meshes is watertight (checked), and
+## `Mesh.volume` on a non-watertight mesh is meaningless.
+##
+## The two biggest corrections fall out as +79% on sit and -9% on run — which are exactly
+## the owner's two complaints, in the right directions. That agreement is the reason to
+## trust the method rather than the individual numbers.
 func _pose_size(key: String) -> float:
 	match key:
-		"sleep": return 0.46
-		"sit": return 0.44
-		"groom": return 0.46
-		"run": return 0.74
-		"walk": return 0.66
-	return 0.55
+		"sleep": return 0.601
+		"sit": return 0.788
+		"groom": return 0.603
+		"run": return 0.736      ## cat_run2 — the straight-headed re-roll
+		"jump": return 0.718
+		"walk": return 0.660
+	return 0.66
 
 ## Show one pose, hide the rest. The transition is a visibility flip — see POSES for why it
 ## is not an ANIM.replace().
