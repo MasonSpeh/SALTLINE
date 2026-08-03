@@ -253,9 +253,9 @@ const WET_DRY: float = 0.80
 # ------------------------------------------------------------------- HYSTERESIS, MEASURED
 #
 # THE WATERLINE MOVES: an 11-band Gerstner swell (Gyre) on top of a 0.70 m tide, and
-# main.gd's flag is a bare `cam.y < Gyre.swim_line(...)` re-evaluated every frame. Replaying
-# Gyre's own band table off-line (scratchpad waterline_chatter.py — same W_DIR/W_LEN/W_AMP,
-# same _warp and _patchiness, 900 s at 120 Hz):
+# main.gd's flag is a bare `cam.y < Gyre.swim_line(...)` re-evaluated every frame. So the
+# question "how long does a crossing last" was answered by replaying Gyre's own band table
+# off-line — same W_DIR/W_LEN/W_AMP, same _warp and _patchiness, 900 s at 120 Hz:
 #
 #   camera held at mean water     : 189 crossings / 900 s = one every 4.8 s;
 #                                   submerged spans median 2.40 s, p10 0.78 s, 3% < 0.45 s
@@ -264,16 +264,43 @@ const WET_DRY: float = 0.80
 #   (at the mean line the crossing statistics are identical at sea_state 0.4 and 1.0 —
 #    a squall scales the amplitude, it does not move the zero crossings.)
 #
-# Two things fall out of that:
-#   * THE CROSSFADE IS MOST OF THE HYSTERESIS. The shortest tenth of genuine submerged
-#     spans at the line is 0.78 s, longer than FADE_DOWN, so a real dunk reaches full wet;
-#     the 3% that do not get a partial swell instead of a click. A hard boolean would have
-#     re-cut the mix every 4.8 s while treading water.
+# Three things fall out of that, and the third is the one that decided these constants:
+#   * THE CROSSFADE IS MOST OF THE HYSTERESIS, NOT THE DWELL. The shortest tenth of genuine
+#     submerged spans at the line is 0.78 s — longer than FADE_DOWN — so a real dunk still
+#     reaches full wet and the 3% that do not get a partial swell instead of a click. Run
+#     against that same signal these dwells reject only 2% of the raw edges: the sea does
+#     not flicker, it heaves, and no dwell short enough to keep a dive responsive will
+#     "fix" a waterline crossing that genuinely lasts two and a half seconds. Riding the
+#     line therefore breathes with the swell, which is what actually happens to your ears.
 #   * THE SHORT EXCURSIONS ARE DUNKS, NOT GASPS — 19% of submerged spans are under 0.45 s
 #     against 1% of dry ones. So the dwell is asymmetric the way the sea is: quick in, slow
 #     out. Entering fast keeps the dive immediate (a brief dunk SHOULD sound wet); leaving
 #     slowly bridges the moments a swell top clears your head while you are plainly still
 #     in the water, which is the flip that reads as a glitch rather than as a moment.
+#   * WHAT THE DWELL IS ACTUALLY FOR is a flag that flips faster than the fade — a stalled
+#     frame, a teleport, a respawn at the line, a swimmer thrashing at the surface.
+#
+# THE RESPONSE TO AN OSCILLATING FLAG WAS SWEPT, NOT ASSUMED (square wave on
+# set_underwater, 30 s per point, 60 fps, reading cutoff_hz back off the bus):
+#
+#   half-period      committed transitions   what the bus does
+#   below ENTER_DWELL        0               stays dry; the flicker never lands
+#   0.10 .. 0.33 s           1               ONE smooth fade to wet, then latched — the
+#                                            0.35 s exit dwell is never satisfied, so
+#                                            thrashing at the line picks wet and holds
+#   0.34 .. 0.40 s         36..50            stays wet; cutoff breathes 620..2009 Hz at
+#                                            0.34 s, 620..4766 Hz at 0.40 s. No click:
+#                                            the filter never switches back off
+#   0.50 s and slower      tracks            full 620..20500 Hz travel, which is correct —
+#                                            at half a second in and out you ARE surfacing
+#
+# There is no half-period that produces an on/off stutter of the effect itself; the worst
+# case is a cutoff that breathes inside the underwater band. Note the first row is a
+# property of ENTER_DWELL, not a tuned number: verified at 0.05 s, marginal at exactly
+# 0.10 s (it is the threshold), which is why the probe below uses 0.05.
+#
+# Measured end to end at 60 fps: the filter engages 0.12 s after the flag, diving is 50%
+# wet at 0.33 s and fully wet at 0.57 s; surfacing is fully dry at 0.63 s.
 const ENTER_DWELL: float = 0.10   ## raw flag must hold this long before we commit to wet
 const EXIT_DWELL: float = 0.35    ## ...and this long before we commit back to dry
 const FADE_DOWN: float = 0.45     ## seconds from fully dry to fully wet
@@ -317,6 +344,9 @@ func _process(delta: float) -> void:
 func _commit_underwater(under: bool) -> void:
 	_underwater = under
 	if under:
+		# Close the 2 s window in which a just-built RainAudio could still be on Master:
+		# sweep once more at the exact moment the filter is about to matter.
+		_adopt_world_players()
 		_fade("wind", -80.0, 0.6)
 		_fade("rain", -80.0, 0.6)
 		_fade("sea", -8.0, 0.6)    # the water itself, close and everywhere
@@ -351,6 +381,26 @@ func _apply_wetness() -> void:
 
 ## How submerged the mix currently sounds, 0..1. Read by probes; nothing in the game
 ## depends on it (the treatment is all on the bus).
+##
+## HOW TO VERIFY THIS WITHOUT EARS — audio cannot be screenshotted, so a probe reads the
+## bus back instead of trusting anything written here. `_wet` is the state; the AudioServer
+## is the ground truth, and the two must be checked separately or the test is measuring
+## itself (see the s34 seal probe in docs/AGENT_TRAPS.md):
+##
+##     var w := AudioServer.get_bus_index("World")
+##     AudioServer.get_bus_send(w)                        # -> "Master"
+##     AudioServer.get_bus_effect_count(w)                # -> 2, and exactly 2 after a reload
+##     AudioServer.is_bus_effect_enabled(w, 0)            # false topside, true submerged
+##     AudioServer.get_bus_effect(w, 0).cutoff_hz         # 20500 topside -> 620 submerged
+##     AudioServer.get_bus_effect(w, 1).wet               # 0.0 topside -> 0.42 submerged
+##
+## and that the treatment REACHES the world: every AudioStreamPlayer(3D) under /root/Ambience
+## and under StormSystem's RainAudio must report bus == "World", not "Master" — that is the
+## assertion that would have caught the whole feature being routed around the filter. The
+## transition itself is checked by calling AudioDirector.set_underwater(true) and stepping
+## frames: cutoff_hz must fall MONOTONICALLY over ~0.57 s rather than jump, and a square
+## wave faster than ENTER_DWELL (0.05 s half-period) must leave underwater_wetness() at
+## exactly 0.0 with the effect still disabled.
 func underwater_wetness() -> float:
 	return _wet
 
@@ -365,27 +415,45 @@ func underwater_wetness() -> float:
 func _build_buses() -> void:
 	_world_bus = _ensure_bus(BUS_WORLD)
 	_ui_bus = _ensure_bus(BUS_UI)
-	if AudioServer.get_bus_effect_count(_world_bus) == 0:
+	# Reuse the pair if it is already exactly what we want. The casts do the checking:
+	# anything other than [low-pass, reverb] in that order leaves one of them null and
+	# falls through to a full rebuild, so a hot-reload cannot stack a second filter on the
+	# bus and a half-built bus cannot leave _apply_wetness dereferencing a null.
+	_lpf = null
+	_reverb = null
+	if AudioServer.get_bus_effect_count(_world_bus) == 2:
+		_lpf = AudioServer.get_bus_effect(_world_bus, 0) as AudioEffectLowPassFilter
+		_reverb = AudioServer.get_bus_effect(_world_bus, 1) as AudioEffectReverb
+	if _lpf == null or _reverb == null:
+		while AudioServer.get_bus_effect_count(_world_bus) > 0:
+			AudioServer.remove_bus_effect(_world_bus, 0)
 		# ORDER MATTERS: filter first, then reverb, so the tail is built out of already
 		# muffled signal. Reverb-then-filter gives a bright room heard through water,
-		# which is the wrong way round — the water is the room.
-		var lpf := AudioEffectLowPassFilter.new()
-		lpf.cutoff_hz = DRY_CUTOFF_HZ
-		lpf.db = AudioEffectFilter.FILTER_12DB
-		lpf.resonance = 0.2   # default 0.5 rings at the corner; water does not whistle
-		AudioServer.add_bus_effect(_world_bus, lpf)
-		var rev := AudioEffectReverb.new()
-		rev.room_size = 0.85       # everywhere at once, no walls to find
-		rev.damping = 0.75         # dark tail, matching what the filter has already done
-		rev.spread = 1.0
-		rev.hipass = 0.05
-		rev.predelay_msec = 20.0   # the medium is ON you: no distance, no slap
-		rev.predelay_feedback = 0.25
-		rev.wet = 0.0
-		rev.dry = 1.0
-		AudioServer.add_bus_effect(_world_bus, rev)
-	_lpf = AudioServer.get_bus_effect(_world_bus, 0) as AudioEffectLowPassFilter
-	_reverb = AudioServer.get_bus_effect(_world_bus, 1) as AudioEffectReverb
+		# which is the wrong way round — the water IS the room.
+		#
+		# EVERY LINE HERE OVERRIDES A DEFAULT THAT WOULD HAVE BEEN WRONG, and the defaults
+		# were read off the live engine rather than assumed: a fresh
+		# AudioEffectLowPassFilter is 2000 Hz (so an un-set filter low-passes the whole
+		# game from boot), `db` is FILTER_6DB (-18 dB three octaves up, nowhere near
+		# underwater), and a fresh AudioEffectReverb is wet 0.5 (the rig would sit in a
+		# room before anyone dived). Nothing here is neutral by omission.
+		_lpf = AudioEffectLowPassFilter.new()
+		_lpf.db = AudioEffectFilter.FILTER_12DB
+		_lpf.resonance = 0.2   # default 0.5 rings at the corner; water does not whistle
+		AudioServer.add_bus_effect(_world_bus, _lpf)
+		_reverb = AudioEffectReverb.new()
+		_reverb.room_size = 0.85       # everywhere at once, no walls to find
+		_reverb.damping = 0.75         # dark tail, matching what the filter already did
+		_reverb.spread = 1.0
+		_reverb.hipass = 0.05
+		_reverb.predelay_msec = 20.0   # the medium is ON you: no distance, no slap
+		_reverb.predelay_feedback = 0.25
+		AudioServer.add_bus_effect(_world_bus, _reverb)
+	# The resting state is written in ONE place — here — so "what does the bus look like
+	# topside" has a single answer whether the pair was just built or adopted.
+	_lpf.cutoff_hz = DRY_CUTOFF_HZ
+	_reverb.wet = 0.0
+	_reverb.dry = 1.0
 	# Topside is the common case and it pays nothing: both effects are switched off at the
 	# bus, so the World bus is a straight pass-through until the first dive.
 	AudioServer.set_bus_effect_enabled(_world_bus, 0, false)
