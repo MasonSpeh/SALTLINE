@@ -143,6 +143,16 @@ const CORALS := [
 		"depth": 0.55, "w": 1.05, "a": Color(0.92, 0.68, 0.44), "b": Color(1.00, 0.88, 0.70)},
 	{"slug": "coral_brain", "lo": 0.35, "hi": 0.95, "space": 0.62, "tilt": [4.0, 22.0],
 		"depth": 0.50, "w": 0.75, "a": Color(0.72, 0.90, 0.68), "b": Color(0.92, 1.00, 0.82)},
+	# THE ONE CORAL THAT SHOULD MOVE, AND DELIBERATELY DOES NOT YET (s35). A gorgonian is a
+	# flexible protein skeleton and it is the one thing on a real reef that visibly flexes in
+	# a surge, so `"sway": 0.03` here is written, tested and then REMOVED — because
+	# reef_sway.gdshader is `cull_disabled` (the three flora meshes are glTF doubleSided and
+	# lose half of every frond without it) and coral_fan_a's material is NOT: it is a solid
+	# lattice, and moving it onto this shader would silently start rasterising the back faces
+	# of 268 six-thousand-triangle instances. That is a real change to a species the owner
+	# says is fine, on a backend nobody can render from this seat. The two-line fix is the
+	# creature_swim / creature_swim_glass pattern — a `cull_back` copy of the shader — and it
+	# is the first thing to do next session if the still fans read wrong beside moving kelp.
 	{"slug": "coral_fan_a", "lo": 0.95, "hi": 1.95, "space": 0.42, "tilt": [10.0, 34.0],
 		"depth": 0.45, "w": 1.20, "planar": true, "tilt_planar": [40.0, 70.0],
 		"a": Color(0.62, 0.56, 0.92), "b": Color(0.90, 0.80, 0.96)},
@@ -211,8 +221,16 @@ const CRUSTS := [
 	# giving the warm, cheap species the bulk fixed the colour and the budget in one move.
 	# The tint is chalk-grey rather than white for the same reason — a barnacle is dead
 	# calcite on concrete, not a light source.
+	#
+	# s35 — HALVED AGAIN, and this is where the kelp is paid for. The s34 close-out frames
+	# (/tmp/s34_final/reef_mid.png, reef_deep.png) are the measurement: at 20 m the caisson
+	# reads as grey concrete with PALE SCABS on it, and the scabs are this pass. It is also
+	# the documented cheapest lever in KNOWN_ISSUES, and the two moves — 0.70 -> 0.28 here
+	# and the count in _crust_face — pull roughly 440k triangles out of the least-liked
+	# thing on the wall. The crust's actual job (fill the concrete BETWEEN colonies) is
+	# unchanged; it is barnacle_giant, warm and 1,400 tris, that now does it.
 	{"slug": "barnacle_cluster_a", "lo": 0.35, "hi": 0.95, "space": 0.52, "tilt": [0.0, 9.0],
-		"depth": 0.35, "w": 0.70, "glow": 0.40,
+		"depth": 0.35, "w": 0.28, "glow": 0.40,
 		"a": Color(0.68, 0.72, 0.76), "b": Color(0.90, 0.92, 0.92)},
 	{"slug": "barnacle_giant", "lo": 0.28, "hi": 0.70, "space": 0.58, "tilt": [0.0, 12.0],
 		"depth": 0.45, "w": 1.45, "glow": 0.40,
@@ -265,17 +283,74 @@ const BIG_STARS := [
 ## 10.7 M of a 20.4 M total on their own. Re-cut through tools/decimate_reef.py to ~8,000,
 ## which also bakes the reef contract this placement code assumes (+Y is growth, base at
 ## y = 0, XZ centred) instead of leaving three special cases in GDScript.
+##
+## s35 — WHAT WAS ACTUALLY WRONG WITH THEM, MEASURED BEFORE ANYTHING WAS CHANGED. The owner
+## says "nothing was updated/changed with the plants at all" and the s34 report says 363 wall
+## plants. Both are true. The pass runs, the code path is reachable, nothing culls it — and
+## it is invisible for three reasons that are all arithmetic:
+##   1. THEY ARE SPREAD OVER WATER THE PLAYER CANNOT ENTER. `y` was drawn UNIFORMLY over the
+##      whole 36.4 m band, and the death line is 13 m: only (13 − 3.6) / 36.4 = 25.8% of them,
+##      i.e. ~94 plants over 16 leg faces, ~6 a face, are in water you can swim in.
+##   2. THEY ARE THE SMALLEST THINGS ON THE WALL. 0.30–1.05 m longest axis against reef
+##      masses at 1.6–3.4 and sea fans at 0.95–1.95, on a face 6 m wide and 36 m tall.
+##   3. THEY ARE THE SAME THREE MESHES THAT WERE ALREADY THERE. bloom_sea_grass and
+##      bloom_anemone are both in underwater_world._leg_reef_growth's species list, at the
+##      same 0.3–1.0 m, in the band directly above. Nothing new arrived to be noticed.
+## So the fix is not "place more": it is depth, size and motion. `t` is now biased hard toward
+## the top (see _wall_plants), the sizes below roughly double, every one of them SWAYS, and
+## the count comes DOWN — these are 8,000-triangle meshes, the joint most expensive pieces in
+## the whole set, and 363 of them were 23% of the reef's triangle budget spent on the thing
+## nobody could see.
 const PLANTS := [
-	{"slug": "bloom_sea_grass", "lo": 0.45, "hi": 1.05, "space": 0.42,
-		"tilt": [30.0, 56.0], "depth": 0.25, "w": 1.20,
+	{"slug": "bloom_sea_grass", "lo": 0.70, "hi": 1.80, "space": 0.42,
+		"tilt": [30.0, 56.0], "depth": 0.25, "w": 1.20, "sway": 0.055,
 		"a": Color(0.42, 0.86, 0.58), "b": Color(0.74, 1.00, 0.80)},
-	{"slug": "glow_creeper", "lo": 0.40, "hi": 0.95, "space": 0.40,
-		"tilt": [24.0, 48.0], "depth": 0.55, "w": 1.00,
+	{"slug": "glow_creeper", "lo": 0.60, "hi": 1.60, "space": 0.40,
+		"tilt": [24.0, 48.0], "depth": 0.55, "w": 1.00, "sway": 0.065,
 		"a": Color(0.36, 0.78, 0.72), "b": Color(0.70, 1.00, 0.94)},
-	{"slug": "bloom_anemone", "lo": 0.30, "hi": 0.70, "space": 0.44,
-		"tilt": [20.0, 40.0], "depth": 0.75, "w": 0.85,
+	# The anemone is a column with a crown, not a blade: it bends far less than weed does and
+	# its own lean is most of what reads as motion, so it takes a third of the sway.
+	{"slug": "bloom_anemone", "lo": 0.35, "hi": 0.85, "space": 0.44,
+		"tilt": [20.0, 40.0], "depth": 0.75, "w": 0.85, "sway": 0.022,
 		"a": Color(0.92, 0.58, 0.72), "b": Color(1.00, 0.84, 0.90)},
 ]
+
+## KELP AND SEAWEED (owner s35: "add underwater plants like kelp/seaweed"). Two entries, two
+## meshes, and every form in a kelp bed comes out of them.
+##
+## NO NEW ASSET WAS GENERATED, AND NONE WAS NEEDED. What is on disk that is a plant and is
+## already decimated to the reef's budget is exactly three meshes, and two of them are the
+## right shape for this: bloom_sea_grass (glTF extent 1.357 x 1.905 x 1.163) and glow_creeper
+## (0.565 x 1.896 x 0.908) are both TALLER than they are wide with their base on y = 0, which
+## is a strap blade and a vine. The variety comes from the instance transform instead:
+## `_add` now takes a NON-UNIFORM stretch, so one mesh spans a squat 1 m bush and a 7 m
+## strand off a single `form` roll (see _weed_band). One MultiMesh per species per leg still.
+##
+## Cheap it is not — 8,000 triangles a piece — so the count is deliberately low and the size
+## deliberately large. A kelp bed's job here is SILHOUETTE in the band the player swims in;
+## 100-odd strands 3–7 m tall buy that, and 400 half-metre tufts do not, at four times the
+## price. `sway` is high because this is the thing the owner will actually see moving.
+const WEEDS := [
+	{"key": "kelp_blade", "slug": "bloom_sea_grass", "space": 0.30,
+		"tilt": [16.0, 42.0], "depth": 0.30, "w": 1.15, "sway": 0.090,
+		"a": Color(0.24, 0.62, 0.36), "b": Color(0.56, 0.96, 0.62)},
+	{"key": "kelp_whip", "slug": "glow_creeper", "space": 0.28,
+		"tilt": [12.0, 34.0], "depth": 0.60, "w": 1.00, "sway": 0.115,
+		"a": Color(0.20, 0.58, 0.52), "b": Color(0.52, 0.98, 0.86)},
+]
+## The form roll, and what it means. ONE random number per strand drives size, height stretch
+## and width stretch together, so the bed is a continuum from short-and-bushy to tall-and-thin
+## instead of a random mix of the two extremes:
+##   f = 0  ->  0.9 m longest axis, 0.80 y-stretch, 1.45 xz  — a squat weed clump
+##   f = 1  ->  4.4 m longest axis, 1.75 y-stretch, 0.46 xz  — a 7.7 m strand
+## Both meshes are y-longest, so `size` IS the drawn height before the stretch multiplies it.
+const WEED_SIZE := [0.90, 4.40]
+const WEED_SY := [0.80, 1.75]
+const WEED_SXZ := [1.45, 0.46]
+## Attempts per leg face, before the band scaling. Four is not a typo — see the triangle note
+## on WEEDS. At band_scale 2.29 this is ~9 a face, ~150 attempts, and the spacing rejection
+## turns roughly 30% of them down (the rate _wall_plants measured at s34: 363 of 516).
+const WEEDS_PER_FACE: int = 4
 ## THE TOP OF THE PLANT BAND, AND IT IS A HARD LINE, NOT A TASTE. The pontoon skirt's
 ## underside is y -3.05 and in plan it contains all four legs, so anything rooted (or grown)
 ## above that is inside the slab the player walks on. -3.60 leaves margin for the tip check
@@ -286,7 +361,121 @@ const PLANT_TOP: float = -3.60
 ## How many attempts per face. The spacing rejection turns a lot of these down on a leg
 ## that is now nearly covered in coral, which is the intended behaviour: plants fill in
 ## where the reef did not take.
-const PLANTS_PER_FACE: int = 14
+##
+## s35: 14 -> 11. This is not a retreat from the owner's ask, it is where the triangles for
+## the kelp came from. 516 attempts took 363 plants at 8,000 tris each = 2.90 M, 23% of the
+## whole reef, and 74% of them were below the death line. 405 attempts take ~284, and the new
+## depth bias puts ~54% of those in reach: ~153 plants a player can swim to, against ~94
+## before. Fewer plants, 1.6x the plants that can be SEEN, 624k triangles for the kelp.
+const PLANTS_PER_FACE: int = 11
+## How the plant band is stacked. `t` is raised to this before it is lerped from PLANT_TOP to
+## BAND_BOTTOM, so the distribution crowds the lit water instead of being uniform over 36 m.
+## Derived from the death line rather than tasted: the player cannot pass y -13, so the
+## reachable slice is (13.0 - 3.6) / 36.4 = 0.258 of the band and a uniform draw puts 25.8% of
+## the plants in it. pow(u, 2.2) puts 0.258 ^ (1 / 2.2) = 54.0% there. It is also the true
+## thing — weed is light-limited in a way that a coral colony is not, which is why the coral
+## band's own exponent stays at the near-uniform 1.05 it was tuned to.
+const PLANT_TAPER: float = 2.2
+## Kelp is more light-hungry still, and a 7 m strand at y -35 is triangles in the dark.
+const WEED_TAPER: float = 3.0
+
+## HUGE CORAL STRUCTURE (owner s35: "add more huge coral structure graphics" — things that
+## read as STRUCTURE at distance, a bommie, an arch, a pillar, a big brain-coral head).
+##
+## THE SCALE DISTRIBUTION IS THE WHOLE PROBLEM, AND IT WAS MEASURED BEFORE ANYTHING WAS ADDED.
+## Longest-axis metres per species, from the tables above, with the DRAWN HEIGHT taken from
+## the decimated glTF extents (assets/models/fauna/reef/*/*.glb):
+##     reefmass_a..d   1.60–3.40   tallest drawn height 2.90 x 0.824 = 2.39 m
+##     coral_fan_a     0.95–1.95   sponges 0.50–1.60   coral_plate 0.60–1.70
+##     coral_branch_a  0.55–1.40   coral_brain 0.35–0.95   coral_bubble 0.25–0.58
+##     barnacles       0.28–0.95   wall plants 0.30–1.05   big starfish 0.70–1.75
+## Nothing on this reef is over 3.4 m across or 2.4 m tall, on a caisson face 6 m wide and 36 m
+## deep. That is exactly why the wall photographs as a texture rather than as a place: at 20 m
+## through the fog grade every piece resolves to the same size blob, so the eye reads pattern
+## and stops. No number of extra 1 m pieces fixes that — only a piece with its own silhouette.
+##
+## BUILT FROM WHAT IS ON DISK, BY COMPOSING AND SCALING. No asset was generated. A structure
+## is a handful of EXISTING reef pieces at 2–5x their scattered size, arranged in a face-local
+## frame (out = the probed normal, up = world up, side = the face tangent) and seated by the
+## same raycast as everything else. Members register in `_placed`, so the colony and crust
+## passes that run afterwards settle AROUND a structure instead of through it.
+##
+## `pool` is which family the member is drawn from — "mass"/"sponge" take this leg's palette
+## slice (so a structure adds no new MultiMesh to a leg), a literal slug takes that species.
+## `size` is longest-axis metres, `sy`/`sxz` the non-uniform stretch, `dy`/`ds` the offset from
+## the structure root in the face frame, `dout` an extra push off the wall, `tilt` degrees.
+##
+## READ THE TILTS BEFORE CHANGING THEM — THEY ARE OFF THE WALL NORMAL, NOT OFF VERTICAL.
+## `_grow_axis` builds the growth axis as normal*cos(tilt) + up*sin(tilt), so on a VERTICAL
+## caisson face a tilt of 0 grows STRAIGHT OUT, horizontally, and only a tilt near 90 grows UP.
+## Everything else in this file scatters small pieces at 0-40 deg, which is right for a coral
+## head bulging off concrete — but the whole point of a bommie or a pillar is that its LONG
+## axis is vertical, so the members that carry the silhouette sit at 72-84 deg. The first
+## draft of this table had them at 6-12 deg and would have produced a 5 m sponge sticking out
+## of the caisson like a cannon: the stretch went along whatever the growth axis was, and the
+## growth axis was horizontal. Caught by working the arithmetic, not by rendering it.
+##
+## The consequence for seating is handled in _structure rather than authored here: a piece
+## standing UP the wall carries half its own girth INTO the concrete (its local XZ plane now
+## contains the wall normal), so the standoff is computed from the member's girth and how
+## vertical it stands. `dout` is only a small extra bias on top of that.
+const STRUCTURES := [
+	# BOMMIE — a coral pillar growing UP the face. Three reef masses stretched along a
+	# near-vertical growth axis and stacked with rising bases, so they fuse into one column
+	# ~9.4 m tall, with a branching crown and a fan and a plate off its flanks. Nothing on
+	# this reef today is over 2.4 m tall; this is the piece that changes what the wall is.
+	{"name": "bommie", "members": [
+		{"pool": "mass", "size": 3.40, "sy": 1.45, "sxz": 1.00, "dy": 0.0, "ds": 0.0, "dout": 0.10, "tilt": 74.0},
+		{"pool": "mass", "size": 3.05, "sy": 1.55, "sxz": 0.95, "dy": 2.6, "ds": 0.5, "dout": 0.20, "tilt": 80.0},
+		{"pool": "mass", "size": 2.40, "sy": 1.45, "sxz": 0.90, "dy": 5.0, "ds": -0.4, "dout": 0.10, "tilt": 76.0},
+		{"pool": "coral_branch_a", "size": 1.90, "sy": 1.25, "sxz": 1.00, "dy": 6.6, "ds": 0.7, "dout": 0.0, "tilt": 55.0},
+		{"pool": "coral_fan_a", "size": 2.60, "sy": 1.00, "sxz": 1.00, "dy": 3.9, "ds": -1.5, "dout": 0.25, "tilt": 52.0},
+		{"pool": "coral_plate", "size": 2.40, "sy": 1.00, "sxz": 1.00, "dy": 1.5, "ds": 1.4, "dout": 0.0, "tilt": 40.0},
+	]},
+	# BRAIN HEAD — the cheapest structure in the file and the best value in it: ONE
+	# coral_brain at 4.8 m is 5,000 triangles, 4.6 m across and 2.8 m proud of a 6 m face,
+	# i.e. a boulder coral the size of a car for the price of one scattered colony member.
+	# Low tilt is CORRECT here — a massive Porites really does grow out of a wall, not up it.
+	{"name": "brain_head", "members": [
+		{"pool": "coral_brain", "size": 4.80, "sy": 0.85, "sxz": 1.00, "dy": 0.0, "ds": 0.0, "dout": 0.0, "tilt": 12.0},
+		{"pool": "coral_bubble", "size": 1.30, "sy": 1.00, "sxz": 1.00, "dy": 2.2, "ds": 1.6, "dout": 0.0, "tilt": 18.0},
+		{"pool": "coral_branch_b", "size": 1.70, "sy": 1.20, "sxz": 1.00, "dy": 0.5, "ds": -2.0, "dout": 0.0, "tilt": 40.0},
+	]},
+	# TERRACE — three table corals cantilevered off the wall at rising heights. coral_plate is
+	# a disc 0.30 of its longest axis thick, and its growth axis is the disc NORMAL, so a tilt
+	# near 80 lays the slab out HORIZONTALLY: a 4.6 m one reaches 2.3 m out over open water and
+	# throws a real shadow line under it. The closest thing this asset set has to an arch.
+	{"name": "terrace", "members": [
+		{"pool": "coral_plate", "size": 4.60, "sy": 1.00, "sxz": 1.00, "dy": 0.0, "ds": 0.0, "dout": 0.0, "tilt": 72.0},
+		{"pool": "coral_plate", "size": 3.90, "sy": 1.00, "sxz": 1.00, "dy": 2.1, "ds": 1.1, "dout": 0.0, "tilt": 80.0},
+		{"pool": "coral_plate", "size": 3.20, "sy": 1.00, "sxz": 1.00, "dy": 4.0, "ds": -0.9, "dout": 0.0, "tilt": 66.0},
+	]},
+	# FAN WALL — a gorgonian thicket at 2.7-3.6 m against a scattered fan's 0.95-1.95. The
+	# `planar` flag turns its blade to the flow, so these are sails seen face-on rather than
+	# the purple scratches the s19 render rejected.
+	{"name": "fan_wall", "members": [
+		{"pool": "coral_fan_a", "size": 3.60, "sy": 1.00, "sxz": 1.00, "dy": 0.0, "ds": 0.0, "dout": 0.25, "tilt": 58.0},
+		{"pool": "coral_fan_a", "size": 3.10, "sy": 1.00, "sxz": 1.00, "dy": 1.6, "ds": 1.7, "dout": 0.25, "tilt": 64.0},
+		{"pool": "coral_fan_a", "size": 2.70, "sy": 1.00, "sxz": 1.00, "dy": 2.9, "ds": -1.4, "dout": 0.25, "tilt": 50.0},
+	]},
+	# PILLAR — barrel sponges stretched into chimneys. sponge_barrel is y-longest, so at 2.6 m
+	# and sy 1.70 it is a 4.4 m tube 1.8 m across; three of them staggered make a column with a
+	# broken top, which is the silhouette a real sponge pillar has. ~7 m tall for 9,000 tris.
+	{"name": "pillar", "members": [
+		{"pool": "sponge", "size": 2.60, "sy": 1.70, "sxz": 0.85, "dy": 0.0, "ds": 0.0, "dout": 0.10, "tilt": 80.0},
+		{"pool": "sponge", "size": 2.20, "sy": 1.85, "sxz": 0.80, "dy": 1.5, "ds": 1.2, "dout": 0.15, "tilt": 76.0},
+		{"pool": "sponge", "size": 1.80, "sy": 1.60, "sxz": 0.80, "dy": 3.4, "ds": -0.8, "dout": 0.10, "tilt": 84.0},
+	]},
+]
+## One structure per face, so four a leg and sixteen in the ocean, and the kind ROTATES with
+## the leg the same way _palette rotates the species — every leg gets a different set, and no
+## two structures on one leg are the same shape.
+##
+## The depth fractions are of the CRUST_TOP..BAND_BOTTOM span and are deliberately top-heavy:
+## the player cannot pass the 13 m death line, so the shallowest two are things you swim up
+## to and the deep two are things you look DOWN at. Each one is then clamped so its own grown
+## top stays under PLANT_TOP — measured from the loaded meshes, not authored (see _structure).
+const STRUCTURE_DEPTHS: Array[float] = [0.14, 0.31, 0.52, 0.76]
 
 ## How many big starfish ride each caisson leg, and how many extra go on the foundation.
 ## These are ATTEMPTS — the spacing rejection turns some of them down, and on a leg that is
@@ -359,6 +548,17 @@ var _plant_pool: Array = []
 ## How many wall plants actually took, for the build report — attempts minus every kind of
 ## rejection, which is the only number that says whether the pass did anything.
 var _plants: int = 0
+## ...and how many of those a player can actually reach. s34 reported 363 plants and the
+## owner reported no change; both were right, because three quarters of them were below the
+## 13 m death line. A count that cannot distinguish those two states is not a measurement, so
+## the report now carries the reachable one as well.
+var _plants_reachable: int = 0
+var _weeds: int = 0
+var _weeds_reachable: int = 0
+var _structures_built: int = 0
+## The dive limit, from seabed.gd's own note ("the 13 m death line keeps it out of reach").
+## Used only for reporting — nothing is placed or withheld because of it.
+const DIVE_LIMIT: float = -13.0
 var _band_top: float = 0.0
 ## Where the coral ACTUALLY went: one {pos, n} per colony that seated at least one piece,
 ## in world space. reef_fish.gd anchors its shoals to these, so a reef fish cannot end up
@@ -411,7 +611,13 @@ func _report() -> void:
 		per_group[grp] = int(per_group.get(grp, 0)) + n * each
 	print("[leg_reef] band y %.2f .. %.2f (scale %.2fx) · %d instances · %d MultiMesh draws · %d tris"
 		% [_band_top, BAND_BOTTOM, band_scale(_band_top), inst, calls, tris])
-	print("[leg_reef]   wall plants that took: %d" % _plants)
+	# WITH the reachable split. "363 plants" was a true number that hid the whole defect.
+	print("[leg_reef]   wall plants %d (%d above the %.0f m dive limit, %.0f%%)"
+		% [_plants, _plants_reachable, -DIVE_LIMIT,
+			100.0 * float(_plants_reachable) / maxf(1.0, float(_plants))])
+	print("[leg_reef]   kelp/seaweed %d (%d above the dive limit, %.0f%%) · %d big structures"
+		% [_weeds, _weeds_reachable,
+			100.0 * float(_weeds_reachable) / maxf(1.0, float(_weeds)), _structures_built])
 	for slug in per_slug.keys():
 		print("[leg_reef]   %-16s %4d x %5d tris = %8d"
 			% [slug, per_slug[slug][0], per_slug[slug][1],
@@ -579,8 +785,15 @@ func _grow_leg(leg: Vector2) -> void:
 	_mass_pool = _palette(MASSES, leg_i, 2)
 	_sponge_pool = _palette(SPONGES, leg_i, 2)
 	_crust_pool = _palette(CRUSTS, leg_i, 2)
-	_plant_pool = _palette(PLANTS, leg_i, 2)
+	# ALL THREE, not a two-of-three slice. The plant pass is the sparsest on the wall
+	# (11 attempts a face against the crust's 20 and a colony's 13 members), so slicing it
+	# meant a whole leg could have exactly two kinds of green on it. Three MultiMeshes a leg
+	# instead of two is +4 draws in the game for the family the owner is asking about.
+	_plant_pool = _palette(PLANTS, leg_i, 3)
 	_bigstar_pool = _palette(BIG_STARS, leg_i, 2)
+	# STRUCTURES FIRST, so their members are in `_placed` before anything scatters and the
+	# colonies settle around them — the same reason a colony seats its reef mass first.
+	_structures(leg, leg_i)
 	for n in [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]:
 		var ex: float = _exposure(leg, n)
 		# Colony COUNT is what makes a reef read as patchy, so the exposure difference is
@@ -595,6 +808,7 @@ func _grow_leg(leg: Vector2) -> void:
 		# and the crust BETWEEN the patches, over the whole leg rather than the coral band
 		_crust_face(leg, n, ex)
 		_wall_plants(leg, n, ex)
+		_weed_band(leg, n, ex)
 	_stars_down_leg(leg)
 
 ## One patch. Reefs grow out from a settled larva, so a colony is a dominant species
@@ -663,6 +877,17 @@ func _colony(leg: Vector2, n: Vector3, ex: float) -> void:
 ##     vertical wall carries its tip up as well as out, so a legal root can still put
 ##     foliage inside the slab. The s34 brief called this out for the new plants — and the
 ##     EXISTING kelp stand turned out to be doing it already (see KELP_TIP_CEILING).
+##
+## s35 — THE DEPTH DRAW, AND WHY THE TIP CLAMP MOVED FROM A REJECT TO A CEILING.
+## `y` used to be a flat `randf_range(BAND_BOTTOM, PLANT_TOP)`: 74% of the plants below the
+## 13 m death line, in water the player cannot enter (see PLANT_TAPER for the arithmetic).
+## It is now drawn from a tapered distribution over the same band.
+## That change alone breaks the old tip REJECT, though, and in the worst possible way: the
+## clamp threw away any plant whose grown tip cleared PLANT_TOP, which is exactly the tall
+## ones at the top of the band — so biasing toward the top would have systematically deleted
+## the big plants from the shallow water it was moving them into. The tip is now what sets
+## the CEILING of the y draw, so the same plant is seated legally a little deeper instead of
+## being discarded. Same guarantee, no bias, no wasted attempts.
 func _wall_plants(leg: Vector2, n: Vector3, ex: float) -> void:
 	if _plant_pool.is_empty():
 		return
@@ -670,9 +895,19 @@ func _wall_plants(leg: Vector2, n: Vector3, ex: float) -> void:
 	var count: int = int(round(float(PLANTS_PER_FACE) * lerpf(0.7, 1.15, ex)
 		* band_scale(_band_top)))
 	for i in range(count):
-		var y: float = _rng.randf_range(BAND_BOTTOM, PLANT_TOP)
-		var depth_t: float = clampf((y - PLANT_TOP) / (BAND_BOTTOM - PLANT_TOP), 0.0, 1.0)
-		var sp: Dictionary = _pick(_plant_pool, depth_t)
+		var t: float = pow(_rng.randf(), PLANT_TAPER)
+		var sp: Dictionary = _pick(_plant_pool, t)
+		var size: float = _rng.randf_range(float(sp["lo"]), float(sp["hi"]))
+		var tilt: Array = sp["tilt"]
+		var lean: float = deg_to_rad(_rng.randf_range(tilt[0], tilt[1]))
+		# The ceiling this plant may root at: the pontoon clamp, minus how far its own grown
+		# tip rides UP the wall. Height along the growth axis is size * hnorm (the mesh's own
+		# aspect, measured at load), and a vertical wall's growth axis lifts by sin(lean).
+		var rise: float = size * _hnorm(sp) * sin(lean)
+		var top: float = PLANT_TOP - rise
+		if top <= BAND_BOTTOM:
+			continue
+		var y: float = lerpf(top, BAND_BOTTOM, t)
 		var target := Vector3(leg.x, y, leg.y) + n * LEG_HALF \
 			+ tangent * _rng.randf_range(-2.6, 2.6)
 		var hit: Dictionary = _probe(target, n)
@@ -687,18 +922,187 @@ func _wall_plants(leg: Vector2, n: Vector3, ex: float) -> void:
 		# patches seated on a snail and reported up-axes of (0.32, 0.16, -0.93).
 		if absf((hit["normal"] as Vector3).dot(n)) < 0.985:
 			continue
-		var size: float = _rng.randf_range(float(sp["lo"]), float(sp["hi"]))
 		if not _claim(surface, size * float(sp["space"])):
 			continue
-		var tilt: Array = sp["tilt"]
-		var grow: Vector3 = _grow_axis(hit["normal"],
-			deg_to_rad(_rng.randf_range(tilt[0], tilt[1])))
-		# THE TIP, NOT JUST THE ROOT. Reject rather than shorten: a squashed plant reads as
-		# a bug and there is plenty of leg to grow on.
-		if surface.y + grow.y * size > PLANT_TOP:
+		var grow: Vector3 = _grow_axis(hit["normal"], lean)
+		# Belt and braces: the ray decides the seat, so the surface it returns can be a few
+		# centimetres off the target it was aimed at. Cheap to re-check what was just derived.
+		if surface.y + grow.y * size * _hnorm(sp) > PLANT_TOP:
 			continue
 		_add(sp, surface, hit["normal"], grow, size)
 		_plants += 1
+		if surface.y > DIVE_LIMIT:
+			_plants_reachable += 1
+
+## THE KELP BED (owner s35: "add underwater plants like kelp/seaweed").
+##
+## Same probed seat and the same two clamps as _wall_plants — this is deliberately not a new
+## placement technique, because the technique was never what was missing. What is new is the
+## FORM: one roll picks a strand's size and its non-uniform stretch together, so a single
+## MultiMesh carries everything from a 0.9 m squat clump to a 7.7 m strand (see WEED_SIZE).
+##
+## It stands on the caisson faces rather than on the mud, and that is measured, not a
+## preference: seabed.gd's floor is y -92 with underwater_fx's abyss ramp at -42, so anything
+## planted on the bottom is drawn in black water 50 m below the deepest coral. The legs are
+## where a kelp bed can both exist and be seen.
+func _weed_band(leg: Vector2, n: Vector3, ex: float) -> void:
+	var tangent := Vector3(n.z, 0.0, -n.x)
+	var count: int = int(round(float(WEEDS_PER_FACE) * lerpf(0.7, 1.15, ex)
+		* band_scale(_band_top)))
+	for i in range(count):
+		var t: float = pow(_rng.randf(), WEED_TAPER)
+		var sp: Dictionary = _pick(WEEDS, t)
+		if sp.is_empty():
+			return
+		# ONE form roll drives all three: tall strands are thin, short ones are bushy, and
+		# nothing in between is a stretched copy of something else in the bed.
+		var f: float = _rng.randf()
+		var size: float = lerpf(WEED_SIZE[0], WEED_SIZE[1], f)
+		var stretch := Vector3(lerpf(WEED_SXZ[0], WEED_SXZ[1], f),
+			lerpf(WEED_SY[0], WEED_SY[1], f), lerpf(WEED_SXZ[0], WEED_SXZ[1], f))
+		var tilt: Array = sp["tilt"]
+		var lean: float = deg_to_rad(_rng.randf_range(tilt[0], tilt[1]))
+		# Both weed meshes are y-longest (bloom_sea_grass 1.905, glow_creeper 1.896 against
+		# xz under 1.4), so hnorm is ~1.0 and `size` is very nearly the drawn height — but it
+		# is READ rather than assumed, because a re-cut that changed the aspect would
+		# otherwise put kelp tips through the pontoon without anything noticing.
+		var height: float = size * _hnorm(sp) * stretch.y
+		var top: float = PLANT_TOP - height * sin(lean)
+		if top <= BAND_BOTTOM:
+			continue
+		var y: float = lerpf(top, BAND_BOTTOM, t)
+		var target := Vector3(leg.x, y, leg.y) + n * LEG_HALF \
+			+ tangent * _rng.randf_range(-2.5, 2.5)
+		var hit: Dictionary = _probe(target, n)
+		if hit.is_empty():
+			continue
+		var surface: Vector3 = hit["position"]
+		if _blocked(surface):
+			continue
+		if absf((hit["normal"] as Vector3).dot(n)) < 0.985:
+			continue
+		# A kelp strand claims by its FOOTPRINT, not by its height — a 7 m plant is a holdfast
+		# the size of a fist. Claiming on `size` would have let one strand clear a 2 m circle
+		# of wall and the bed would have come out as a dozen lonely poles.
+		if not _claim(surface, size * stretch.x * float(sp["space"])):
+			continue
+		var grow: Vector3 = _grow_axis(hit["normal"], lean)
+		if surface.y + grow.y * height > PLANT_TOP:
+			continue
+		_add(sp, surface, hit["normal"], grow, size, stretch)
+		_weeds += 1
+		if surface.y > DIVE_LIMIT:
+			_weeds_reachable += 1
+
+## ONE HUGE STRUCTURE PER FACE. See STRUCTURES for what they are and why the reef needed them.
+##
+## Members are laid out in the face frame around a root offset and EACH ONE is raycast onto
+## the concrete separately, so a structure follows the wall rather than being rigidly posed
+## off one probe — the same contract as every other pass here. They do NOT go through _claim
+## (a structure is authored composition and must not be eaten by the spacing rejection) but
+## they ARE registered in `_placed`, which is what makes the colony and crust passes that run
+## afterwards settle around them instead of through them.
+func _structures(leg: Vector2, leg_i: int) -> void:
+	const FACES := [Vector3(1, 0, 0), Vector3(-1, 0, 0), Vector3(0, 0, 1), Vector3(0, 0, -1)]
+	for i in range(FACES.size()):
+		var n: Vector3 = FACES[i]
+		var kind: Dictionary = STRUCTURES[(leg_i * FACES.size() + i) % STRUCTURES.size()]
+		_structure(leg, n, kind, STRUCTURE_DEPTHS[i % STRUCTURE_DEPTHS.size()])
+
+func _structure(leg: Vector2, n: Vector3, kind: Dictionary, depth_f: float) -> void:
+	var tangent := Vector3(n.z, 0.0, -n.x)
+	var members: Array = kind["members"]
+	# THE CLAMP, DERIVED FROM THE LOADED MESHES. Every height below comes from the glTF AABB
+	# the loader measured, so nothing here types a Y. Without it a bommie rooted at the
+	# shallowest depth fraction would put 9 m of coral through the pontoon the player walks
+	# on — the s34 kelp bug with a bigger mesh.
+	#
+	# TWO TERMS, and leaving the second one out is how a bommie ends up in the walkway. On a
+	# VERTICAL face the growth axis is nearly HORIZONTAL (`tilt` is measured off the wall
+	# NORMAL), so a reef mass at 6 deg grows almost straight out and its height contributes
+	# almost nothing to how far up the wall it reaches. What does is its own girth: the mesh
+	# is normalised to a 1 m longest axis, so it spans `size` across and half of that stands
+	# above its seat. A clamp on the growth axis alone would have let the top member of a
+	# bommie sit 1.7 m higher than it thought it was.
+	var rise: float = 0.0
+	for mi in range(members.size()):
+		var m: Dictionary = members[mi]
+		var sp: Dictionary = _member_species(m, mi)
+		if sp.is_empty():
+			continue
+		var mh: float = float(m["size"]) * _hnorm(sp) * float(m["sy"])
+		rise = maxf(rise, float(m["dy"]) + mh * sin(deg_to_rad(float(m["tilt"])))
+			+ float(m["size"]) * float(m["sxz"]) * 0.5)
+	var y0: float = minf(lerpf(CRUST_TOP, BAND_BOTTOM, depth_f), PLANT_TOP - rise)
+	if y0 - rise < BAND_BOTTOM:
+		y0 = BAND_BOTTOM + rise
+	var along0: float = _rng.randf_range(-0.9, 0.9)
+	var seated: int = 0
+	for mi in range(members.size()):
+		var m: Dictionary = members[mi]
+		var sp: Dictionary = _member_species(m, mi)
+		if sp.is_empty():
+			continue
+		# KEEP THE MEMBER ON THE FACE. Everything else this file places is under a metre
+		# across and the existing passes just cap the offset at 2.5-2.6 against a 3.0 m half
+		# width; a 4.8 m brain head is 2.3 m of half width on its own, so the same cap would
+		# hang half of it off the caisson corner over open water. The limit is the member's
+		# own girth subtracted from the face, floored at zero so a piece wider than the
+		# caisson simply centres on it rather than flipping sign.
+		var halfw: float = float(m["size"]) * float(m["sxz"]) * 0.5
+		var room: float = maxf(0.0, LEG_HALF - 0.15 - halfw)
+		var across: float = clampf(along0 + float(m["ds"]), -room, room)
+		var target := Vector3(leg.x, y0 + float(m["dy"]), leg.y) + n * LEG_HALF \
+			+ tangent * across
+		var hit: Dictionary = _probe(target, n)
+		if hit.is_empty():
+			continue
+		var surface: Vector3 = hit["position"]
+		if _blocked(surface):
+			continue
+		if absf((hit["normal"] as Vector3).dot(n)) < 0.985:
+			continue
+		var size: float = float(m["size"])
+		var stretch := Vector3(float(m["sxz"]), float(m["sy"]), float(m["sxz"]))
+		var tilt: float = deg_to_rad(float(m["tilt"]))
+		var grow: Vector3 = _grow_axis(hit["normal"], tilt)
+		# THE STANDOFF, and it is computed rather than authored because it is a consequence of
+		# the tilt, not a taste. A piece grown straight OUT of the wall (tilt 0) has its girth
+		# in the wall PLANE and needs no standoff; a piece grown UP the wall (tilt ~80, which
+		# is what a bommie and a pillar are) has its local XZ plane containing the wall NORMAL,
+		# so seating it on the surface buries half its width in the concrete. 0.85 of the half
+		# girth leaves the inner edge just inside the wall, which is what "grown into it"
+		# looks like. `dout` is a small authored bias on top.
+		var stand: float = halfw * sin(tilt) * 0.85 + float(m["dout"])
+		# ...except for the PLANAR species, whose girth along the wall normal is the blade
+		# THICKNESS (coral_fan_a is 0.21 of its longest axis through the blade, against 1.00
+		# across it). _add aligns their blade plane to the wall, so the general formula would
+		# float a sea fan a metre off the concrete on its own stalk.
+		if bool(sp.get("planar", false)):
+			stand = float(m["dout"])
+		_add(sp, surface + n * stand, hit["normal"], grow, size, stretch)
+		_placed.append([surface, size * 0.55])
+		seated += 1
+	if seated > 0:
+		_structures_built += 1
+		# A structure is the best address on the wall, so the fish get told about it too.
+		colony_seats.append({"pos": Vector3(leg.x, y0 + rise * 0.5, leg.y) + n * LEG_HALF
+			+ tangent * along0, "n": n})
+
+## Which species a structure member is made of. A literal slug takes that species out of the
+## full table; "mass"/"sponge" take THIS LEG's palette slice, which is what keeps a structure
+## from adding a new MultiMesh (and a new draw call) to a leg that did not already have one.
+## The member index walks the slice, so a three-mass bommie is not the same head three times.
+func _member_species(m: Dictionary, i: int = 0) -> Dictionary:
+	var pool: String = String(m["pool"])
+	if pool == "mass":
+		return _mass_pool[i % _mass_pool.size()] if not _mass_pool.is_empty() else {}
+	if pool == "sponge":
+		return _sponge_pool[i % _sponge_pool.size()] if not _sponge_pool.is_empty() else {}
+	for sp in CORALS:
+		if String(sp["slug"]) == pool:
+			return sp
+	return {}
 
 ## THE CRUST. Barnacles scattered over the whole face, from just under the pontoon skirt to
 ## the bottom of the reef band — deliberately NOT clustered into colonies, because what this
@@ -710,7 +1114,14 @@ func _crust_face(leg: Vector2, n: Vector3, ex: float) -> void:
 		return
 	# Scattered over the WHOLE face, so extending the band downward without scaling this
 	# would have thinned the crust per metre instead of covering the new concrete.
-	var count: int = int(round(lerpf(13.0, 25.0, ex) * band_scale(_band_top)))
+	#
+	# s35: 13..25 -> 9..17, 782 attempts down to 534. KNOWN_ISSUES names this pass as one of
+	# the two cheapest levers on the reef and the s34 close-out frames say it is also the one
+	# doing the most damage to the look: reef_mid.png and reef_deep.png are a grey caisson
+	# with PALE SCABS all over it, and this is the pass that puts them there. Cutting a third
+	# of it and shifting the mix off the white 4,000-tri species (see CRUSTS) is the whole
+	# payment for the kelp bed, and it should make the wall read better rather than worse.
+	var count: int = int(round(lerpf(9.0, 17.0, ex) * band_scale(_band_top)))
 	for i in range(count):
 		var y: float = _rng.randf_range(CRUST_TOP, BAND_BOTTOM)
 		var depth_t: float = clampf((y - _band_top) / (BAND_BOTTOM - _band_top), 0.0, 1.0)
@@ -914,23 +1325,48 @@ func _seat_star(target: Vector3, n: Vector3, sp: Dictionary, force: bool = false
 
 # ------------------------------------------------------------ batching
 
+## The batch a species goes into. Normally its slug — but the WEEDS build several distinct
+## FORMS out of one mesh (a strap blade and a whip are the same glTF at different stretches),
+## and those need their own MultiMesh and their own tint pair, so a species may name its own
+## key. Keeping the two separate is also what lets `path`/`slug` stay purely about the file.
+static func _key(sp: Dictionary) -> String:
+	return String(sp.get("key", sp.get("slug", "")))
+
+## The mesh's own height as a fraction of its longest axis, i.e. what `size` metres of a
+## species actually stands up off the wall. Loads the batch if it has not been touched yet,
+## because the tip clamps need this BEFORE anything is placed. 1.0 for a species that failed
+## to load, which is the conservative direction: it makes the clamp seat things deeper.
+func _hnorm(sp: Dictionary) -> float:
+	var key: String = _key(sp)
+	if not _batches.has(key):
+		var loaded: Dictionary = _load(sp)
+		if loaded.is_empty():
+			return 1.0
+		_batches[key] = loaded
+	return float(_batches[key]["hnorm"])
+
 ## Queue one instance. Nothing is built until _flush, so a leg's whole colony becomes
 ## one MultiMesh per species.
-func _add(sp: Dictionary, surface: Vector3, normal: Vector3, grow: Vector3, size: float) -> void:
-	var slug: String = sp["slug"]
-	if not _batches.has(slug):
+##
+## `stretch` is a NON-UNIFORM scale in the piece's OWN frame (x/z across, y along the growth
+## axis). It is what makes a kelp bed out of two meshes and a pillar out of a barrel sponge;
+## the sway shader undoes the normal skew it causes (see materials/reef_sway.gdshader).
+func _add(sp: Dictionary, surface: Vector3, normal: Vector3, grow: Vector3, size: float,
+		stretch: Vector3 = Vector3.ONE) -> void:
+	var key: String = _key(sp)
+	if not _batches.has(key):
 		var loaded: Dictionary = _load(sp)
 		if loaded.is_empty():
 			return
-		_batches[slug] = loaded
-	var b: Dictionary = _batches[slug]
+		_batches[key] = loaded
+	var b: Dictionary = _batches[key]
 	# RECESS — bite the base into the concrete so no flat cut edge shows against the
 	# wall, and so a piece leaning off the normal does not lift one side of its base
 	# off it. Scaled by how far it leans (that is what opens the gap) and capped at a
 	# third of the piece's OWN height along its growth axis, which is the measurement
 	# that matters: a 1.7 m table coral is only half a metre tall, and a recess sized
 	# off its longest axis buried it.
-	var height: float = size * float(b["hnorm"])
+	var height: float = size * float(b["hnorm"]) * stretch.y
 	var lean: float = sqrt(maxf(0.0, 1.0 - pow(grow.dot(normal), 2.0)))
 	# The absolute ceiling matters as much as the proportional one. What the recess has
 	# to hide is the lift of the BASE edge, which is at most half a holdfast wide — a
@@ -959,8 +1395,13 @@ func _add(sp: Dictionary, surface: Vector3, normal: Vector3, grow: Vector3, size
 		var x_ax: Vector3 = ref.cross(grow).normalized()
 		basis = Basis(x_ax, grow, x_ax.cross(grow))
 		basis = basis.rotated(grow, _rng.randf_range(0.0, TAU))
-	# the mesh is normalised to a 1 m longest axis by _load, so scale IS the size
-	basis = basis.scaled(Vector3.ONE * size * float(b["norm"]))
+	# The mesh is normalised to a 1 m longest axis by _load, so scale IS the size.
+	# scaled_LOCAL, not scaled(). Basis.scaled() left-multiplies — it scales along the PARENT
+	# axes — which is identical for the uniform case this line used to be and silently wrong
+	# the moment `stretch` is anything else: a kelp strand would have been stretched along
+	# world Y instead of along its own growth axis, so a plant leaning 40 deg off the wall
+	# would have sheared rather than grown. Same class of bug as the decimator's GLTF_UP note.
+	basis = basis.scaled_local(stretch * size * float(b["norm"]))
 	b["xf"].append(Transform3D(basis, origin))
 	b["col"].append(Color(sp["a"]).lerp(Color(sp["b"]), _rng.randf()))
 
@@ -1013,8 +1454,76 @@ func _load(sp: Dictionary) -> Dictionary:
 		mat.emission_texture = mat.albedo_texture
 		mat.emission = GLOW_TINT
 		mat.emission_energy_multiplier = GLOW * float(sp.get("glow", 1.0))
-	return {"mesh": mesh, "mat": mat, "norm": 1.0 / maxf(longest, 0.001),
+	var out: Material = mat
+	if sp.has("sway"):
+		out = _sway_material(mat, aabb, float(sp["sway"]), float(sp.get("glow", 1.0)))
+	return {"mesh": mesh, "mat": out, "norm": 1.0 / maxf(longest, 0.001),
 		"hnorm": aabb.size.y / maxf(longest, 0.001), "xf": [] as Array, "col": [] as Array}
+
+## THE SWAY MATERIAL. Nothing on this reef has ever moved — not a frond, not a fan — and the
+## owner has now asked for it twice. This is the same trick every animal in the game uses
+## (vertex displacement, no bones: see materials/creature_swim.gdshader) rebuilt for the one
+## case that shader cannot serve, a MultiMesh where one material has to drive hundreds of
+## plants with different phases. The per-instance phase is derived in the shader.
+##
+## Costs nothing per frame in GDScript, which matters: KNOWN_ISSUES puts bloom_fauna's
+## per-frame script at 19-32% of the frame already, and a reef that animated from _process
+## would be the same mistake at three times the instance count.
+##
+## The PBR side is rebuilt off the StandardMaterial3D that was just configured, rather than
+## off the raw glTF, so a sway species keeps every decision the non-sway path makes — the
+## `rough` override, the glow scale, and the metallicRoughness MAP that thirteen species in
+## this project went black without (s23).
+func _sway_material(src: StandardMaterial3D, aabb: AABB, amp: float, glow: float) -> ShaderMaterial:
+	var sm := ShaderMaterial.new()
+	sm.shader = load("res://materials/reef_sway.gdshader")
+	if src.albedo_texture != null:
+		sm.set_shader_parameter("albedo_tex", src.albedo_texture)
+	sm.set_shader_parameter("tint", src.albedo_color)
+	sm.set_shader_parameter("roughness_v", src.roughness)
+	sm.set_shader_parameter("metallic_v", src.metallic)
+	# Both halves or neither — glTF packs ONE metallicRoughness image and the importer binds
+	# it to both slots, so a material carrying only one of them is not this convention.
+	if src.metallic_texture != null and src.roughness_texture != null:
+		sm.set_shader_parameter("orm_tex", src.metallic_texture)
+		sm.set_shader_parameter("use_orm", true)
+		sm.set_shader_parameter("orm_rough_mask", _channel_mask(src.roughness_texture_channel))
+		sm.set_shader_parameter("orm_metal_mask", _channel_mask(src.metallic_texture_channel))
+	if src.normal_enabled and src.normal_texture != null:
+		sm.set_shader_parameter("normal_tex", src.normal_texture)
+		sm.set_shader_parameter("use_normal", true)
+	sm.set_shader_parameter("glow_tint", GLOW_TINT)
+	sm.set_shader_parameter("glow_energy", GLOW * glow if src.albedo_texture != null else 0.0)
+	# The mesh's own height in LOCAL units — the shader's height fraction, and the reason a
+	# plant is anchored at its holdfast. Read off the live AABB, never assumed to be 1.0: the
+	# decimator normalises the BASE to y = 0, not the height to 1.
+	sm.set_shader_parameter("mesh_h", aabb.size.y)
+	# `sway` is peak tip travel as a FRACTION OF THE PLANT'S OWN DRAWN HEIGHT (the shader's
+	# header does the algebra: the stretch cancels, so one number means the same thing on a
+	# 0.7 m tuft and a 7.7 m strand). 0.09 on kelp is ~1.8 m of peak-to-peak travel at the
+	# tip of a 7 m frond; 0.022 on the anemone is a column breathing, not a blade waving.
+	sm.set_shader_parameter("sway_amp", amp)
+	# The steady bend, 0.6 of the wander. A plant in a current is bent and wanders about the
+	# bend; without this it stands vertical and oscillates, which reads as a metronome rather
+	# than as water going past.
+	sm.set_shader_parameter("lean", amp * 0.6)
+	sm.set_shader_parameter("current", CURRENT)
+	return sm
+
+## Which channel of an ORM texture a BaseMaterial3D says a value lives in, as a dot mask.
+## Same rule (and same reason) as CreatureAnim._channel_mask: glTF is always G = roughness,
+## B = metallic, but the enum is ASKED rather than the convention assumed.
+static func _channel_mask(channel: int) -> Color:
+	match channel:
+		BaseMaterial3D.TEXTURE_CHANNEL_RED:
+			return Color(1.0, 0.0, 0.0, 0.0)
+		BaseMaterial3D.TEXTURE_CHANNEL_GREEN:
+			return Color(0.0, 1.0, 0.0, 0.0)
+		BaseMaterial3D.TEXTURE_CHANNEL_BLUE:
+			return Color(0.0, 0.0, 1.0, 0.0)
+		BaseMaterial3D.TEXTURE_CHANNEL_ALPHA:
+			return Color(0.0, 0.0, 0.0, 1.0)
+	return Color(1.0, 0.0, 0.0, 0.0)
 
 ## Build the queued instances into one MultiMeshInstance3D per species and reset.
 ## How far a reef batch is drawn, and the fade that hides its edge. See the note in _flush.

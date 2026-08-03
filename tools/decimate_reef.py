@@ -79,6 +79,27 @@ TARGET_OVERRIDE = {
     "mussel_bed_a": 4200, "mussel_bed_b": 4200, "mussel_bed_c": 4200,
     "mussel_clump_d": 2200,
     "mussel_clump": 3000, "mussel_bed_e": 4200, "mussel_bed_f": 4200,
+    # s34 — THE WALL FLORA, re-cut out of assets/models/fauna (28,844 / 29,778 / 30,745 tris
+    # raw). They arrive from the FAUNA set, where a mesh is one animal drawn once and 30k is
+    # fine; on the wall they are placed in the hundreds. See the traps file, "GENERATED FLORA
+    # IS NOT REEF-BUDGET FLORA".
+    #
+    # s35 — THEY ARE THE MOST EXPENSIVE PIECES IN THE REEF AND THE LEAST SEEN, AND THIS IS
+    # THE OPEN LEVER. At 8,000 they are joint-dearest with the reef masses, and the s34 build
+    # placed 363 of them: 2.90 M triangles, 23% of the whole 12.55 M reef, on 0.3-1.05 m
+    # plants of which three quarters were below the 13 m death line. s35 cut the count and
+    # moved them up the band, which is most of the answer — but a re-cut to 4,000 would take
+    # another ~1.1 M off what remains, and these are the right SHAPE for it: smooth blades and
+    # vines, not the dense field of small hard bumps that made the mussel beds shatter below
+    # 4k. It is deliberately NOT taken here, because it cannot be judged without a render:
+    #     /Applications/Blender.app/Contents/MacOS/Blender --background \
+    #         --python tools/decimate_reef.py -- assets/models/fauna \
+    #         assets/models/fauna/reef bloom_sea_grass,glow_creeper,bloom_anemone
+    # then re-import and look at it in tests/CandShot.tscn at the shipping ratio before
+    # believing it. The .import sidecars for these three already exist and already carry
+    # compress/mode=2 + size_limit=1024, so re-writing the JPGs does NOT re-fire the headless
+    # texture trap — that one only bites files Godot has never seen.
+    "bloom_sea_grass": 8000, "glow_creeper": 8000, "bloom_anemone": 8000,
 }
 MAX_TEX = 1024
 
@@ -157,6 +178,14 @@ KEEP = [
     "sponge_barrel", "sponge_tube_cluster", "sponge_rope",
     "barnacle_cluster_a", "barnacle_giant",
     "star_big_red", "star_big_spiny", "star_big_sunflower",
+    # s35 — THE WALL FLORA WAS MISSING FROM THIS LIST, which is a latent bug rather than a
+    # decision: s34 re-cut the three by passing them as the trailing slug argument, so they
+    # exist in the reef set but a plain `--python tools/decimate_reef.py -- <src> <dst>` run
+    # would silently NOT regenerate them and the set would come back three pieces short. They
+    # are placed in bulk on the caisson faces (leg_reef PLANTS and WEEDS) exactly like the
+    # coral, so they belong here. Their source root is assets/models/fauna, not a _cand dir —
+    # find_src takes several roots, so pass both.
+    "bloom_sea_grass", "glow_creeper", "bloom_anemone",
 ]
 
 
