@@ -14,6 +14,30 @@ extends Node
 ## exactly as it did loose: no UVs, no seams, no visible change. ~6,700 dressing draw calls
 ## collapse to a dozen. (seabed.gd bakes its floor the same way; this generalises it.)
 ##
+## THAT CLAIM WAS AUDITED IN s35 AND HOLDS — recorded because the weld is the obvious
+## suspect for an owner report of "wall textures moving as the player moves", and the next
+## agent will suspect it too. Three things had to be true and all three are:
+##   1. `_bake` writes `xf * sv[vi]`, i.e. GLOBAL vertices, and hangs the chunk off a plain
+##      Node3D under rig_root — and main.gd:48 adds RigBuilder with no transform, so
+##      rig_root is identity. A baked vertex therefore holds the world position it had.
+##   2. Godot 4.7's BaseMaterial3D emits, verbatim,
+##        uv1_triplanar_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz * uv1_scale + uv1_offset;
+##      for world triplanar. There is no camera term in it.
+##   3. The gl_compatibility scene shader's model_matrix is the raw instance transform; the
+##      camera-relative rebase only exists under USE_DOUBLE_PRECISION, which this build is
+##      not. (Both read out of the shipping binary, not from memory.)
+## So a welded wall cannot swim, and neither can a loose one. What DOES move on a wall here
+## is the caustic band — see materials/caustics.gdshader.
+##
+## KNOWN GAP, deliberately left: mesh_batcher.gd (dead code — main.gd only ever builds this
+## one) refuses to weld OBJECT-space triplanar because baking rotates the projection axes
+## out from under it. This pass has no such guard, so MatLib.rope_mat and every _surface /
+## _fine fallback gets welded with its mapping quietly rebased. Not fixed: placement_probe.gd
+## records that the room floor overlays (lino, rubber, tile, medical) are a large share of
+## the ~2,950 primitives this collapses, so the guard would cost real interior draw calls to
+## correct a shift that is invisible on isotropic noise. Worth doing only for rope_mat, whose
+## strands are directional, and only with a draw-call measurement in hand.
+##
 ## WHAT IT LEAVES ALONE (so nothing gameplay- or physics-related shifts):
 ##   - Interactables (Interactable = StaticBody3D subclass), rigid/movable props, and their
 ##     subtrees — they move, hide, get carried, or are queried by id.

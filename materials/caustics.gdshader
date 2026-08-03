@@ -13,6 +13,17 @@ uniform float reach = 6.0;
 uniform float scale = 0.7;
 uniform float strength : hint_range(0.0, 3.0) = 1.0;
 
+// THE RIDGE SUM IS A HUMP, NOT A FLOOR WITH SPIKES — measured off this exact function at
+// the shipped scale (0.85) over a real caisson face, four times, 360k samples: mean 0.661,
+// median 0.670, p99 0.924. An exponent applied to that cannot produce "near black except
+// filaments", and it did not: pow(v, 5.5) left median 0.110 with 54.0% of the quad above a
+// tenth of peak. Cut the hump off BELOW the ridge tips first, then shape, then put the peak
+// back with the gain, so the filaments keep their brightness while the DC that painted the
+// panel goes. See caustic().
+const float RIDGE_FLOOR = 0.68;
+const float RIDGE_SHAPE = 2.2;
+const float RIDGE_GAIN = 1.175;
+
 varying vec3 v_world;
 // THE SURFACE'S OWN NORMAL, IN WORLD SPACE. Godot's fragment-stage `NORMAL` is in VIEW space,
 // so branching on it below picked the projection plane by where the CAMERA was rather than by
@@ -46,9 +57,19 @@ float caustic(vec2 p, float t) {
 		v += 1.0 - abs(n * 2.0 - 1.0);      // ridge
 	}
 	v /= 3.0;
-	// High exponent: the field stays near black (invisible additive) and only the
-	// braided filaments light up, so it reads as caustics on the steel, not a lit box.
-	return pow(clamp(v, 0.0, 1.0), 5.5);
+	// THE "LIT BOX" IS THIS LINE, and it outlived both of the fixes aimed at it. s31 fixed
+	// the branch below (real, and it worked — the stripes are gone), but the quads still
+	// photograph as a hard-edged teal panel sleeved over the leg in /tmp/s34_final/two_legs.png,
+	// captured AFTER that fix. An additive quad that is lit over half its area IS a panel,
+	// however good its pattern is. Measured, same 360k samples, shipped -> this:
+	//     median        0.110 -> 0.000
+	//     lit fraction  54.0% -> 19.7%   (above a tenth of peak)
+	//     mean          0.157 -> 0.065
+	//     p99           0.649 -> 0.649   (filament brightness deliberately unchanged)
+	// The edge feather below was never the problem: an 0.84 m feather on a wash reads as a
+	// hard border because the wash is what draws the border.
+	float f = clamp((v - RIDGE_FLOOR) / (1.0 - RIDGE_FLOOR), 0.0, 1.0);
+	return clamp(pow(f, RIDGE_SHAPE) * RIDGE_GAIN, 0.0, 1.0);
 }
 
 void vertex() {
@@ -57,6 +78,14 @@ void vertex() {
 }
 
 void fragment() {
+	// `top_y` IS THE SEA HEIGHT AT THE PLAYER'S XZ, NOT AT THIS LEG. underwater_fx.gd:342
+	// writes `Gyre.swim_line(player.xz, ...)` into the one shared material all 16 quads use,
+	// so the whole caustic band on all four caissons rides the player's own Gerstner phase:
+	// swim 10 m and it slides up and down every pillar in the rig, including ones 40 m away.
+	// That is a pattern on a wall that moves because the PLAYER moved, which is the owner's
+	// original report, and it is not what s31 fixed. The still-water line (`Gyre.tide()`) is
+	// the correct reference — same call this repo already made for the topside cull in s21 —
+	// but it is set from underwater_fx.gd, so it is not fixable here.
 	float d = top_y - v_world.y;
 	float belowness = clamp(d, 0.0, reach) / reach;
 	float fall = (1.0 - belowness);

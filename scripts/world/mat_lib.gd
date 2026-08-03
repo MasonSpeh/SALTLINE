@@ -103,9 +103,24 @@ static func decal_cutout(folder: String, tint: Color = Color.WHITE) -> StandardM
 	return m
 
 ## Texture-backed weathered surface. tint multiplies albedo (keep it bright —
-## heavy tints crush the maps). uv_scale: texture repeats per world meter.
-## local=true switches to object-space triplanar for props that move (world
-## triplanar makes texture swim across moving meshes).
+## heavy tints crush the maps). Above 1.0 is legal and deliberate where a dark map has to
+## hold a pale surface's tone: albedo_color is a `source_color` uniform, so Godot runs it
+## through srgb_to_linear, which extrapolates past 1.0 monotonically. Solve the tint against
+## the map's LINEAR mean and check the map's 99.9th percentile times that tint stays under
+## 1.0, or the highlights flatten into white. See concrete().
+##
+## uv_scale: texture repeats per world meter (0.45 = one tile per 2.22 m).
+##
+## local=true switches to object-space triplanar for props that MOVE — a world-space
+## projection on a mesh whose transform changes slides the texture across it every frame.
+## "Moving" means the node's transform changes at run time. It does NOT mean welded:
+## rig_batcher.gd bakes its chunks in world space under an identity holder (main.gd:48
+## adds RigBuilder with no transform), so a welded vertex samples the same world position
+## it did loose. Verified against the shipping engine too — Godot 4.7's BaseMaterial3D
+## emits `uv1_triplanar_pos = (MODEL_MATRIX * vec4(VERTEX, 1.0)).xyz * uv1_scale`, with no
+## camera term, and the gl_compatibility scene shader's model_matrix carries no
+## camera-relative offset outside USE_DOUBLE_PRECISION builds. None of these surfaces can
+## swim with the player; if something on a wall appears to move, it is not this.
 static func _pbr(key: String, folder: String, tint: Color = Color.WHITE,
 		uv_scale: float = 0.35, roughness: float = 1.0, metallic: float = 0.0,
 		fallback_base: Color = Color(0.5, 0.5, 0.5), local: bool = false) -> StandardMaterial3D:
@@ -217,8 +232,36 @@ static func sphl_hi_vis() -> StandardMaterial3D:
 
 # ---------- mineral & organic ----------
 
+## CONCRETE046 IS A BLANK CARD, AND THIS IS THE MATERIAL THE WALLS ARE MADE OF.
+## `rig_superstructure.gd:774/799/1017/1144` builds the shaft walls and the accommodation
+## block's exterior and room walls out of this, and `rig_builder.gd:696` builds all four
+## 6 x 109 m caisson legs out of it — the largest surfaces in the game. Measured over the
+## whole 23-set library in res://assets/textures: Concrete046 has an albedo RMS contrast of
+## 0.0408 (second flattest of 23; only Metal032 and ContainerSide are lower) and a normal
+## map whose mean slope is 0.0158 — 0.9 degrees of relief, i.e. planar. It is a photograph
+## of a smooth painted panel, not of concrete.
+##
+## That is not a tiling or a UV problem and no triplanar work can touch it: the wall in
+## /tmp/s34_final/walk_turn.png measures RMS contrast 0.0406 against the source map's
+## 0.0408, so the material is reproducing a blank map exactly, to three decimals. The deck
+## treadplate in the same frame measures 0.1673.
+##
+## Concrete012 is already in the project (concrete_floor, tide_band) so nothing new imports.
+## Against Concrete046 it is 1.76x the albedo contrast in LINEAR light (0.0869 -> 0.1531)
+## and 12.6x the normal relief (0.0158 -> 0.1997 mean slope, 0.9 deg -> 11.5 deg) — under a
+## low sun the relief is the bigger half of the win. The tint is NOT art direction: it is
+## solved so the linear mean lands on Concrete046's exact shipped tone (0.6093, 0.6165,
+## 0.4874), because the complaint is that the wall has no surface, not that it is the wrong
+## colour. Above 1.0 for the same reason sphl_orange is; the map's 99.9th percentile times
+## this tint is (0.837, 0.895, 0.818) linear, so nothing clips into flat white.
+##
+## 0.25 put ONE tile across 4.00 m. Same defect painted_steel was fixed for below, never
+## applied here: a 3.2 m interior wall carried less than one tile, so what you saw was a
+## slice of a single photograph. 0.45 is 2.22 m/tile — form-panel scale, 2.7 tiles across a
+## 6 m caisson face, 461 texel/m.
 static func concrete() -> StandardMaterial3D:
-	return _pbr("concrete", "Concrete046", Color.WHITE, 0.25, 1.0, 0.0, Color(0.66, 0.65, 0.62))
+	return _pbr("concrete", "Concrete012", Color(1.477, 1.577, 1.607), 0.45, 1.0, 0.0,
+		Color(0.66, 0.65, 0.62))
 
 static func concrete_floor() -> StandardMaterial3D:
 	return _pbr("concrete_floor", "Concrete012", Color.WHITE, 0.3, 1.0, 0.0, Color(0.52, 0.52, 0.5))
@@ -244,13 +287,26 @@ static func rope_mat() -> StandardMaterial3D:
 
 # ---------- interiors (procedural fine-grain kept where it reads best) ----------
 
+## The other two Concrete046 surfaces, same defect and same fix as concrete() above — see
+## the measurement there. Both tints are solved to hold their SHIPPED linear tone (0.5043,
+## 0.4854, 0.3373 and 0.4444, 0.4266, 0.2861), so the crew spaces stay as pale as they are
+## today and only gain a surface. Peak x tint is (0.692, 0.705, 0.566) and (0.610, 0.620,
+## 0.480) linear — well clear of clipping.
+##
+## 0.55 = 1.82 m/tile: a 3.2 m interior wall now carries 1.8 tiles instead of 0.94. NOT
+## fully solved for dirty_white_panel, which is also hung on small props (the 0.70 m fridge
+## carcass at interior_props.gd:1398, a 0.55 m dish) — those still show under half a tile,
+## and tightening the tile far enough to fix a fridge would visibly repeat the map on a
+## crew divider. Split the prop use onto its own key if it reads wrong up close.
 static func interior_wall() -> StandardMaterial3D:
-	## Crew-space walls: smooth pale panel with faint aging.
-	return _pbr("wall", "Concrete046", Color(0.92, 0.9, 0.85), 0.3, 1.0, 0.0, Color(0.8, 0.8, 0.74))
+	## Crew-space walls: pale panel with faint aging.
+	return _pbr("wall", "Concrete012", Color(1.361, 1.423, 1.371), 0.55, 1.0, 0.0,
+		Color(0.8, 0.8, 0.74))
 
 static func dirty_white_panel() -> StandardMaterial3D:
 	## Once-white paneling, salt-grimed at the edges.
-	return _pbr("panel", "Concrete046", Color(0.87, 0.85, 0.79), 0.35, 1.0, 0.0, Color(0.76, 0.75, 0.71))
+	return _pbr("panel", "Concrete012", Color(1.288, 1.345, 1.276), 0.55, 1.0, 0.0,
+		Color(0.76, 0.75, 0.71))
 
 static func kitchen_tile() -> StandardMaterial3D:
 	return _fine("tile", Color(0.78, 0.8, 0.78), 0.35, 1313, 1.8, 0.1)
