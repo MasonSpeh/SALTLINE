@@ -219,7 +219,7 @@
     "storm": "ok",
     "light": "any",
     "water": "near",
-    "depth": "mid",
+    "depth": "surface",
     "fight": 1.1,
     "pull": 1.0,
     "cooked_to": "cooked_fish_ember_snapper",
@@ -472,26 +472,26 @@
   },
   "fish_barrel_grouper": {
     "name": "Goliath Grouper",
-    "rod": true,
+    "rod": false,
     "net": false,
     "deep": true,
     "w": {
-      "dawn": 4,
-      "day": 3,
-      "dusk": 4,
-      "night": 5
+      "dawn": 2,
+      "day": 1,
+      "dusk": 2,
+      "night": 2
     },
     "storm": "bonus",
     "light": "any",
     "water": "open",
     "depth": "deep",
-    "drop_m": 16,
+    "drop_m": 26,
     "bait": {
       "crab_leg": 2.0,
       "fish_rotten": 1.3
     },
     "size_kg": [
-      12.0,
+      28.0,
       48.0
     ],
     "fillets": [
@@ -502,20 +502,17 @@
     "pull": 1.7,
     "cooked_to": "cooked_fish_barrel_grouper",
     "school": {
-      "count": 2,
-      "size": 2.6,
+      "count": 0,
+      "size": 0,
       "tint": [
         0.5,
         0.38,
         0.3
       ],
-      "active": [
-        "day",
-        "night"
-      ],
+      "active": [],
       "shape": "barrel"
     },
-    "note": "The hardest fight on any rod, and the whole reason for the deep rig: drop a baited lead past 16 m of open water and hold on. A storm stirs them up off the bottom. One fish breaks down into six to twelve fillets, by its size — a big one feeds you for a week."
+    "note": "Rarest thing the spool reaches and the whole reason for the deep rig: 26 m of open water before one will look at a bait, and nothing under thirty kilos comes up. A storm stirs them up off the bottom. One fish breaks down into six to twelve fillets, by its size — a big one feeds you for a week. Never on the surface rod: this is a deep-rig fish and only a deep-rig fish."
   },
   "fish_stone_crab": {
     "name": "Stone Crab",
@@ -1477,7 +1474,7 @@
     "fog": "ok",
     "light": "any",
     "water": "near",
-    "depth": "mid",
+    "depth": "surface",
     "bait": {
       "crab_leg": 1.8,
       "mussels": 1.5
@@ -1525,7 +1522,7 @@
     "fog": "ok",
     "light": "any",
     "water": "near",
-    "depth": "mid",
+    "depth": "surface",
     "bait": {
       "crab_leg": 1.9,
       "fish_gutter_prawn": 1.6
@@ -1573,7 +1570,7 @@
     "fog": "ok",
     "light": "any",
     "water": "near",
-    "depth": "mid",
+    "depth": "surface",
     "bait": {
       "fish_gutter_prawn": 1.9,
       "crab_leg": 1.5
@@ -1620,7 +1617,7 @@
     "fog": "ok",
     "light": "any",
     "water": "near",
-    "depth": "deep",
+    "depth": "mid",
     "bait": {
       "crab_leg": 2.0,
       "fish_copper_sprat": 1.5
@@ -1715,7 +1712,7 @@
     "fog": "ok",
     "light": "any",
     "water": "near",
-    "depth": "mid",
+    "depth": "surface",
     "bait": {
       "mussels": 1.7,
       "fish_gutter_prawn": 1.5

@@ -11,6 +11,16 @@ extends Node3D
 ##      and measures how many bodies are in the volume a player looks down into from the
 ##      wet deck, so "less crowded under the rig" is a number rather than an impression.
 ##
+##   1b. s35: "fish distribution still bad ... fish should take up a larger visual density
+##      closer to the surface", and "make goliath grouper rarer, deeper only, and only
+##      appear as huge." Sweep 1 above measures the PLAN — how far out the shoals are — and
+##      it cannot see either of these, because both are statements about the water COLUMN.
+##      So this probe now also measures the vertical distribution: a per-2-m depth profile
+##      of every fish on shift, the count and the density in the top SHALLOW_M metres, and
+##      the number of bodies sitting INSIDE the two pontoon castings (which draw nothing and
+##      had never been counted). See `_report_surface_density`. The goliath's own three
+##      words get their own report — `_report_goliath`.
+##
 ##   2. "At least one of the new grouper models is swimming backwards."
 ##      The facing table is measured off the raw mesh (tools/measure_facing.py) and read
 ##      off a render (tests/CandShot). Neither of those watches the animal SWIM, so
@@ -42,6 +52,48 @@ const ANIM := preload("res://scripts/world/creature_anim.gd")
 ## x ±28, so a body inside this box is "under the rig" in the sense that was meant.
 const RIG_BOX := Vector2(30.0, 34.0)
 const LEGS := [Vector2(-22, -12), Vector2(22, -12), Vector2(-22, 12), Vector2(22, 12)]
+
+## ---------------------------------------------------------------- the surface band (s35)
+## "Closer to the surface" is measured against the LIVE DRAWN SEA at each fish's own xz, not
+## against y = 0: mean water moves with the tide (~1.4 m over 25 real minutes) and the swell
+## puts ±2 m on top of that, so a fixed plane would measure the tide as often as the fish.
+## The instrument's own floor is ~0.15 m — the shader displaces the surface horizontally as
+## well as vertically, so the drawn waterline at a given world xz differs from the number the
+## CPU steers by (see tests/SealFloatProbe.tscn, which inverts that displacement). On a 4 m
+## band that is under 4% and it does not need inverting here.
+const SHALLOW_M: float = 4.0
+const PROFILE_BIN: float = 2.0
+const PROFILE_BINS: int = 12          ## 24 m of column, which is past the deepest pod plane
+## Top-heavy, stated as a RATIO so it is a fact about the shape of the column rather than
+## about how many fish happen to be stocked — and so the swell, which moves both terms the
+## same way, cannot decide it. Predicted on the analytic pod model over day/night/dawn/dusk,
+## BEFORE the s35 change: 0.79 / 1.01 / 0.95 / 0.97. The top four metres held LESS than the
+## four metres under it, worst of all in daylight. That is the owner's complaint as a number.
+## AFTER: 1.82 / 2.43 / 2.42 / 2.87. The bar is set in the gap and nearer the old side, so a
+## live run that lands below the model still passes and a regression to the old shape cannot.
+const TOP_HEAVY_MIN: float = 1.40
+## Bodies in the shallow shell over the rig, meaned across the four clock phases. Model says
+## 105 before and 148 after. Same reasoning as the ratio: the bar sits between them rather
+## than under the new figure, because this probe's job is to catch the shape coming back, not
+## to score the tuning. The PROOF of the change is the before/after table it prints.
+const SHELL_MIN: float = 125.0
+## The pontoons: rig_builder.gd:698-699 casts two `_box(Vector3(0, -1.05, ±12),
+## Vector3(56, 4, 8))` CSG boxes — x ±28, y -3.05..0.95, |z| 8..16. These are the AUTHORED
+## numbers and they are only the fallback: `_find_pontoons` measures the real boxes off the
+## live tree first, so this check does not restate the constant the game steers by.
+const PONTOON_FALLBACK := [
+	[Vector3(0.0, -1.05, -12.0), Vector3(56.0, 4.0, 8.0)],
+	[Vector3(0.0, -1.05, 12.0), Vector3(56.0, 4.0, 8.0)],
+]
+## The deepest water a player can reach (leg_reef.gd derives its plant taper from the same
+## number; the handbook tells the player "past ~13 m down, not yours").
+const DIVE_DEATH_Y: float = -13.0
+## What "only appear as huge" has to mean for a body in the water. The two ambient goliaths
+## are authored at 3.6 m and 4.4 m and their size jitter now runs 1.00..1.15, so the smallest
+## one the world can build is 3.60 m; the leviathan is 12.8-15.2. The bar is set under the
+## smallest AUTHORED animal, not under the smallest measured one, so a future spec row that
+## sneaks a small one back in fails here.
+const GOLIATH_MIN_M: float = 3.2
 
 ## The eleven species s31 added. Broken out on its own line in the report because THIS is
 ## the number the owner's complaint is actually about — "a few extra appearances" — and
@@ -168,11 +220,23 @@ func _run() -> void:
 	# here — and it is re-asserted every frame of the swim window below, because the
 	# controller keeps integrating across an await (the s21 "a vantage has to be HELD" trap).
 	var cam: Camera3D = _camera(player)
+	# Measured off the live tree before any snapshot is taken — see _find_pontoons.
+	_pontoons = _find_pontoons()
+	# THE TIDE IS PINNED TO MEAN WATER FOR THE WHOLE MEASUREMENT. Every depth below is taken
+	# against the live drawn sea, and mean water moves 1.4 m over a 12.42 h tidal period — so
+	# an unpinned run measures the hour it happened to start at as well as the fish, and two
+	# runs of the same build disagree by more than the change being looked for. `Gyre.set_tide`
+	# is the hook that exists for this; it is released at the end of _run.
+	# (The SWELL is not pinned and does not need to be: `below` is measured against the
+	# surface at each fish's OWN xz, and a few hundred fish spread over 100 m of ocean sample
+	# the eleven Gerstner bands evenly. What a tide does that a swell does not is bias every
+	# sample the same way.)
+	Gyre.set_tide(0.0)
 
 	for ph in PHASES:
 		GameClock.force_phase(GameClock.Phase[ph])
 		await _swim(player, cam)
-		_snapshot(ph)
+		await _snapshot_burst(ph)
 	# ...AND ONE SQUALL. Two species (the drum croaker chorus and the squall garfish) carry
 	# an EMPTY `active` list, which underwater_world reads as "on shift when it is storming"
 	# rather than "never" — so a probe that only walks the four daylight phases leaves 20
@@ -184,9 +248,12 @@ func _run() -> void:
 		st.set("_intensity", 1.0)
 		st.set("_phase", 2)
 		await _swim(player, cam)
-		_snapshot("STORM")
+		await _snapshot_burst("STORM")
 		st.set("_intensity", 0.0)
+	Gyre.release_tide()
 	_report_spread()
+	_report_surface_density()
+	_report_goliath()
 	_report_facing()
 	_done = true
 
@@ -260,11 +327,32 @@ func _swim(player: Node3D, cam: Camera3D) -> void:
 ## One position snapshot per phase, of the pods that are ACTUALLY ON SHIFT — a hidden pod
 ## is parked at its anchor and counting it would report the night shift as a crowd under
 ## the rig that no player can ever see.
-var _snap: Array = []             # [{id, water, pos, visible_pods}]
+var _snap: Array = []             # [{id, water, pos, centre, phase, below, buried, band}]
+## The two pontoon castings, as world AABBs. Measured off the live tree (_find_pontoons).
+var _pontoons: Array[AABB] = []
+var _pontoon_measured: bool = false
 
-func _snapshot(phase: String) -> void:
+## THREE SNAPSHOTS A PHASE, SPACED IN REAL TIME. `Gyre.water_time()` runs off the wall clock,
+## so a single instant photographs one moment of an eleven-band swell — fine for a plan-view
+## statistic (sweep 1 never cared) and not fine for a depth one, where the crest a pod happens
+## to be under is worth ±2 m. Spaced by a real-time timer rather than a frame count, because a
+## headless main loop runs unbounded and 9 frames there is not 0.15 s (docs/AGENT_TRAPS.md).
+const SNAPS_PER_PHASE: int = 3
+const SNAP_GAP_SEC: float = 0.4
+
+func _snapshot_burst(phase: String) -> void:
+	for i in range(SNAPS_PER_PHASE):
+		if i > 0:
+			await get_tree().create_timer(SNAP_GAP_SEC).timeout
+		_snapshot(phase, i == 0)
+
+func _snapshot(phase: String, verbose: bool = true) -> void:
 	var shown: int = 0
 	var hidden: int = 0
+	# ONE SAMPLE OF THE SWELL CLOCK FOR THE WHOLE SNAPSHOT, the same way underwater_world
+	# hoists it out of its own per-fish loop: two fish in one shoal must not be measured
+	# against seas a fraction of a millisecond apart.
+	var wave_t: float = Gyre.water_time()
 	for s in _schools():
 		var root: Node3D = s["root"]
 		if not root.visible:
@@ -272,11 +360,58 @@ func _snapshot(phase: String) -> void:
 			continue
 		shown += 1
 		var water: String = String((s["def"] as Dictionary).get("water", "any"))
+		var band: String = String((s["def"] as Dictionary).get("depth", "mid"))
 		for f in s["fish"]:
 			if is_instance_valid(f):
-				_snap.append({"id": s["id"], "water": water, "pos": (f as Node3D).global_position,
-					"centre": s["centre"], "phase": phase})
-	print("  [%s] %d pods on shift, %d off" % [phase, shown, hidden])
+				var p: Vector3 = (f as Node3D).global_position
+				var surf: float = Gyre.wave_height(Vector2(p.x, p.z), wave_t)
+				_snap.append({"id": s["id"], "water": water, "pos": p,
+					"centre": s["centre"], "phase": phase, "band": band,
+					"below": surf - p.y, "buried": _in_pontoon(p)})
+	if verbose:
+		print("  [%s] %d pods on shift, %d off" % [phase, shown, hidden])
+
+## Is this point inside one of the pontoon castings? A fish in there draws NOTHING, so it
+## has to be subtracted from any claim about visible density.
+func _in_pontoon(p: Vector3) -> bool:
+	for b in _pontoons:
+		if b.has_point(p):
+			return true
+	return false
+
+## THE SLABS ARE MEASURED, NOT RESTATED. The game now keeps shallow fish out from under the
+## pontoons with an analytic ceiling built from PONTOON_UNDER / PONTOON_X / PONTOON_Z_*. If
+## this probe tested against those same constants it would be the s34 tautology again — it
+## would report a clean pass however wrong the constants were. So the boxes come off the live
+## tree: rig_builder casts each pontoon as one CSGBox3D, and a CSGBox3D's `size` and
+## `global_transform` are honest under --headless (unlike MultiMesh instance data). The
+## authored numbers are the FALLBACK only, and the report says which path it took.
+func _find_pontoons() -> Array[AABB]:
+	var out: Array[AABB] = []
+	var stack: Array = [get_tree().root]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		var b := n as CSGBox3D
+		if b == null:
+			continue
+		# The pontoons are the only 56 x 4 x 8 castings in the rig. Matched on the shape
+		# rather than on a name, because the world is built in code and node names are
+		# autogenerated.
+		if absf(b.size.x - 56.0) > 0.5 or absf(b.size.y - 4.0) > 0.5 or absf(b.size.z - 8.0) > 0.5:
+			continue
+		var o: Vector3 = b.global_position
+		out.append(AABB(o - b.size * 0.5, b.size))
+	if out.size() == 2:
+		_pontoon_measured = true
+		return out
+	out.clear()
+	for spec in PONTOON_FALLBACK:
+		var pos: Vector3 = spec[0]
+		var sz: Vector3 = spec[1]
+		out.append(AABB(pos - sz * 0.5, sz))
+	return out
 
 func _schools() -> Array:
 	var v: Variant = _uw.get("_schools")
@@ -370,6 +505,223 @@ func _report_spread() -> void:
 		var mean_d: float = float(r2[2]) / maxf(float(int(r2[0])), 1.0)
 		_ok(mean_d > 30.0,
 			"`open` species average %.1f m out, past the rig footprint" % mean_d)
+
+# --------------------------------------------------- 1b. density near the waterline (s35)
+
+## HOW MUCH FISH IS THERE IN THE WATER THE PLAYER SWIMS AND FISHES IN?
+##
+## Sweep 1 above answers "how far out are the shoals". It cannot answer this: a pod pushed
+## from -1.2 to -4.6 does not move a single metre in plan, so every number `_report_spread`
+## prints is identical either way, and the owner's complaint is entirely about that axis.
+##
+## Figures, and each one exists because a cheaper version of it lies:
+##
+##   THE PROFILE — bodies per 2 m of depth, on shift. A summary statistic hides the shape,
+##   and the shape is the whole finding: before s35 the column read 71 / 52 / 122 across
+##   0-2 / 2-4 / 4-6 m — a hole exactly where the player swims and a jam under it, because
+##   two of the three most populous pod planes had collided at -4.5.
+##
+##   THE HEADLINE COUNT — bodies in the top SHALLOW_M metres, inside the rig box. This is
+##   what the owner is looking at over the rail.
+##
+##   THE DENSITY — that count per 1000 m³ of OPEN water in the same shell. The volume has
+##   the pontoon castings subtracted, because 896 m² of that plan is solid concrete from the
+##   waterline down to -3.05 and counting it as water flatters every reading by ~20%.
+##
+##   BURIED — bodies inside a pontoon casting. Those draw nothing at all, so they are struck
+##   from every count above rather than quietly inflating them. This is the number that was
+##   never taken: the model puts it at 27 in daylight before the lid clamp went in.
+##
+## TWO DEPTHS ARE REPORTED AND ONLY ONE IS ASSERTED ON. `y` against MEAN WATER is the
+## reproducible one — the tide is pinned at 0 for the whole run, so it carries no noise at
+## all and two runs of the same build agree. `below` against the LIVE DRAWN SEA is what a
+## swimmer actually experiences, and it is the honest picture, but a pod at -2.85 is inside
+## the top four metres in a trough and outside it on a crest, so a single number off it
+## swings with whichever part of an eleven-band swell the snapshot caught. Both are printed;
+## the assertions use mean water, which is also what the analytic model behind the bars
+## computes, so the bar and the measurement are the same quantity.
+func _report_surface_density() -> void:
+	print("\n=== density near the waterline (s35) ===")
+	print("  pontoons: %s  (%d boxes)"
+		% ["MEASURED off the live tree" if _pontoon_measured
+			else "AUTHORED fallback — no 56x4x8 CSG boxes found", _pontoons.size()])
+	var phases: Array[String] = []
+	for row_v in _snap:
+		var ph: String = String((row_v as Dictionary)["phase"])
+		if not phases.has(ph):
+			phases.append(ph)
+	# The shell's OPEN-WATER volume: the rig-box slab from the waterline down to SHALLOW_M,
+	# less whatever of the pontoon castings falls inside it. Derived from the boxes actually
+	# found, so it tracks the geometry rather than a remembered number.
+	var shell: float = (RIG_BOX.x * 2.0) * (RIG_BOX.y * 2.0) * SHALLOW_M
+	var solid: float = 0.0
+	for b in _pontoons:
+		var lap_y: float = maxf(minf(b.position.y + b.size.y, 0.0) - maxf(b.position.y, -SHALLOW_M), 0.0)
+		var lap_x: float = maxf(minf(b.position.x + b.size.x, RIG_BOX.x) - maxf(b.position.x, -RIG_BOX.x), 0.0)
+		var lap_z: float = maxf(minf(b.position.z + b.size.z, RIG_BOX.y) - maxf(b.position.z, -RIG_BOX.y), 0.0)
+		solid += lap_x * lap_y * lap_z
+	var water_vol: float = maxf(shell - solid, 1.0)
+	print("  shell = rig box %.0f x %.0f x top %.1f m = %.0f m3, less %.0f m3 of pontoon = %.0f m3 of water"
+		% [RIG_BOX.x * 2.0, RIG_BOX.y * 2.0, SHALLOW_M, shell, solid, water_vol])
+	print("  columns are BODIES AT ONE INSTANT. top/next are measured against MEAN WATER;"
+		+ " `sea` repeats the top figure against the LIVE swell.")
+	print("  %-6s %6s %6s %7s %6s %6s %7s   %s"
+		% ["phase", "top4", "4-8m", "ratio", "sea", "inbox", "buried",
+			"profile from mean water, bodies per 2 m"])
+	var ratios: Array[float] = []
+	var box_counts: Array[float] = []
+	var buried_total: int = 0
+	var snaps: float = float(maxi(SNAPS_PER_PHASE, 1))
+	for ph_v in phases:
+		var ph2: String = String(ph_v)
+		var top: int = 0
+		var nxt: int = 0
+		var live_top: int = 0
+		var inbox: int = 0
+		var buried: int = 0
+		var prof: PackedInt32Array = PackedInt32Array()
+		prof.resize(PROFILE_BINS)
+		for row_v2 in _snap:
+			var e: Dictionary = row_v2
+			if String(e["phase"]) != ph2:
+				continue
+			if bool(e["buried"]):
+				buried += 1
+				buried_total += 1
+				continue           # inside concrete: invisible, so it counts for nothing
+			var p: Vector3 = e["pos"]
+			var d: float = -p.y                    # metres under MEAN water (tide pinned to 0)
+			if d < SHALLOW_M:
+				top += 1
+				if absf(p.x) <= RIG_BOX.x and absf(p.z) <= RIG_BOX.y:
+					inbox += 1
+			elif d < SHALLOW_M * 2.0:
+				nxt += 1
+			if float(e["below"]) < SHALLOW_M:      # ...and against the sea as drawn
+				live_top += 1
+			var bin_i: int = int(maxf(d, 0.0) / PROFILE_BIN)
+			if bin_i >= 0 and bin_i < PROFILE_BINS:
+				prof[bin_i] += 1
+		# Every count above is SNAPS_PER_PHASE samples of the same ocean, so divide back to
+		# bodies-at-one-instant. The ratio is unaffected either way.
+		var ratio: float = float(top) / maxf(float(nxt), 1.0)
+		var bars: String = ""
+		for k in range(PROFILE_BINS):
+			bars += " %.0f" % (float(prof[k]) / snaps)
+		print("  %-6s %6.0f %6.0f %7.2f %6.0f %6.0f %7.0f  %s"
+			% [ph2, float(top) / snaps, float(nxt) / snaps, ratio, float(live_top) / snaps,
+				float(inbox) / snaps, float(buried) / snaps, bars])
+		# The forced squall stocks only the two storm species (40 bodies), so it cannot be
+		# held to the same shape as a full shift and is reported but not asserted.
+		if ph2 != "STORM":
+			ratios.append(ratio)
+			box_counts.append(float(inbox) / snaps)
+	var mean_box: float = 0.0
+	for c in box_counts:
+		mean_box += c
+	mean_box /= maxf(float(box_counts.size()), 1.0)
+	print("  MEAN over the four clock phases: %.0f bodies in the shell = %.1f per 1000 m3 of water"
+		% [mean_box, 1000.0 * mean_box / water_vol])
+	print("  (model, same statistic: 105 bodies / 7.7 per 1000 m3 before s35;"
+		+ " 148 / 10.9 after. Worst-phase ratio 0.79 -> 1.82.)")
+	# ---- the assertions
+	_ok(buried_total == 0,
+		"no fish is swimming inside a pontoon casting (%d body-samples were)" % buried_total)
+	var worst: float = 1.0e9
+	for r in ratios:
+		worst = minf(worst, r)
+	if not ratios.is_empty():
+		_ok(worst >= TOP_HEAVY_MIN,
+			"the column is top-heavy in every clock phase — worst phase holds %.2fx as much "
+				% worst + "in its top %.0f m as in the %.0f m under it (bar %.2f)"
+				% [SHALLOW_M, SHALLOW_M, TOP_HEAVY_MIN])
+	_ok(mean_box >= SHELL_MIN,
+		"the shallow shell is stocked — %.0f bodies in the top %.0f m over the rig (bar %.0f)"
+			% [mean_box, SHALLOW_M, SHELL_MIN])
+
+# ------------------------------------------------------- 1c. the goliath grouper (s35)
+
+## "Make goliath grouper rarer, deeper only, and only appear as huge." Two of those three are
+## facts about the WORLD and this is where they are checked; the third — rarity on the line —
+## lives in the catch tables and is CatchProbe's to measure.
+##
+## The species is `fish_barrel_grouper`, whatever the other five *_grouper keys are called.
+## It reaches the water two ways and both are counted here: `underwater_world._deep_giants`
+## builds DeepGiant/PillarPatrol hosts carrying `slug`, and `_spawn_schools` would build pods
+## from fish.json's `school` block (count 0 since s35, so there should be none).
+##
+## SIZE IS MEASURED OFF THE MESH, NOT READ OFF `_size`. Reading the spec back would be the
+## s34 tautology — it would print the number the spawner was given however big the animal
+## actually is. The world AABB of the giant's own MeshInstance3Ds is an independent path to
+## the same quantity, and it is honest under --headless (these are real MeshInstance3Ds, not
+## a MultiMesh).
+func _report_goliath() -> void:
+	print("\n=== the goliath grouper: rarer, deeper, huge ===")
+	var giants: Array = []
+	var stack: Array = [_uw]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		var slug: Variant = n.get("slug")
+		if slug != null and String(slug) == "fish_barrel_grouper":
+			giants.append(n)
+	var shallow: int = 0
+	var small: int = 0
+	for g_v in giants:
+		var g: Node3D = g_v
+		# Merged in the HOST's own frame, not in world space. `global_transform * aabb` is the
+		# box of the ROTATED box and it over-reads by however much the animal is pitched — the
+		# s34 seal lesson, and here it would bias the measurement toward passing. Taking the
+		# host's inverse first strips the look_at and leaves the model's own extent (the same
+		# construction tests/catch_size_probe.gd uses on a held fish).
+		var inv: Transform3D = g.global_transform.affine_inverse()
+		var box: AABB = AABB()
+		var found: bool = false
+		for m_v in g.find_children("*", "MeshInstance3D", true, false):
+			var mi: MeshInstance3D = m_v
+			if mi.mesh == null:
+				continue
+			var lb: AABB = (inv * mi.global_transform) * mi.mesh.get_aabb()
+			box = lb if not found else box.merge(lb)
+			found = true
+		var length: float = 0.0
+		if found:
+			length = maxf(box.size.x, maxf(box.size.y, box.size.z))
+		var y: float = g.global_position.y
+		var verdict: String = "ok"
+		if y > DIVE_DEATH_Y:
+			verdict = "ABOVE THE DEATH LINE"
+			shallow += 1
+		if not found:
+			verdict = "NO MESH — not judged (still generating?)"
+		elif length < GOLIATH_MIN_M:
+			verdict = "NOT HUGE (%.2f m)" % length
+			small += 1
+		print("  goliath  y %+7.2f   %5.2f m long   %s" % [y, length, verdict])
+	# The visible schools: fish.json now stocks none, so any pod here is a regression.
+	var pods: int = 0
+	var pod_fish: int = 0
+	for s in _schools():
+		if String(s["id"]) == "fish_barrel_grouper":
+			pods += 1
+			pod_fish += (s["fish"] as Array).size()
+	print("  %d ambient/patrol bodies, %d school pods (%d fish)"
+		% [giants.size(), pods, pod_fish])
+	_ok(giants.size() > 0, "the goliath is still in the world at all (%d bodies)" % giants.size())
+	# Before s35 the species put NINE bodies in the water: five slug-carrying patrols (four
+	# DeepGiants plus the leviathan, which is a ~45% roll on its own seeded stream) and four
+	# school fish across two pods. It is three now — the -17, the -26 resident, and the
+	# leviathan. The bar counts only the slug-carrying ones, which is what this walk finds;
+	# the school half is asserted separately below.
+	_ok(giants.size() <= 4,
+		"...and it is RARE — %d patrol bodies, against 5 before s35" % giants.size())
+	_ok(shallow == 0,
+		"every goliath is below the %.0f m death line (%d were not)" % [-DIVE_DEATH_Y, shallow])
+	_ok(small == 0,
+		"every goliath is at least %.1f m long (%d were not)" % [GOLIATH_MIN_M, small])
+	_ok(pod_fish == 0,
+		"no goliath swims in a school — it is a solitary giant (%d school fish)" % pod_fish)
 
 # ------------------------------------------------------------------ 2. facing
 

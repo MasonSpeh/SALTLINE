@@ -15,6 +15,18 @@ const AIB := preload("res://scripts/world/ai_budget.gd")
 
 const LEGS := [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]
 const DEPTH_BAND := {"surface": -1.2, "mid": -4.5, "deep": -9.5}
+## The bands, shallowest first. `_pod_drop` walks this to find what is under a band, so a new
+## band inserted here is automatically accounted for by the pod-1 rule below.
+const BAND_ORDER: Array[String] = ["surface", "mid", "deep"]
+## How far above and below its band's plane a pod's fish can actually get: the pod centre
+## rides at most +-1.3 on its two vertical octaves (0.8 + 0.5) and a member adds +-0.60 of bob
+## (0.34 + 0.26). Read off the _process loop, not guessed — `pod_ceiling` down there is the
+## same sum, and if either octave is retuned both have to move together.
+const POD_VERTICAL_REACH: float = 1.9
+## The deepest water a player can reach. Not this file's number — leg_reef.gd derives its
+## whole plant taper from it ("the player cannot pass y -13") and the handbook tells the
+## player the same thing ("past ~13 m down, not yours").
+const DIVE_DEATH_Y: float = -13.0
 
 ## TWO PODS PER SPECIES (2026-07-26, owner: "there should be around double the total
 ## amount of fish shown, more in the open water around"). The ocean used to be stocked
@@ -66,7 +78,41 @@ const POD_SPREAD_BY_WATER: Dictionary = {
 ## rate is this over its own spread. A wider circuit is automatically slower, which is the
 ## property the open ring wanted in the first place.
 const POD_PATH_SPEED := Vector2(1.20, 1.15)
-const POD_DROP: Array[float] = [0.0, 3.4]
+
+## HOW FAR POD 1 SITS BELOW ITS BAND — AND WHY IT IS NO LONGER ONE NUMBER (owner s35: "fish
+## should take up a larger visual density closer to the surface").
+##
+## It was a flat 3.4 m for every band, and that ONE number was most of the bad distribution.
+## The bands are -1.2 / -4.5 / -9.5, so a surface species' second pod landed at **-4.6** —
+## which is the MID band's own first pod, at -4.5, to within a tenth of a metre. Two of the
+## three most populous pod-planes in the game were therefore stacked on the same plane, and
+## the water directly under the swell — the 2-4 m the player swims and fishes in — was the
+## emptiest slice of the top ten metres. Measured on the analytic pod model over all four
+## phases, per 2 m of depth, in daylight: 0-2 m held 93 fish, **2-4 m held 57**, and 4-6 m
+## held 122. The complaint reads exactly like that profile looks.
+##
+## So pod 1 now drops HALF WAY TO THE NEXT BAND DOWN. That is the whole rule for every band
+## that has one under it, it is derived from DEPTH_BAND rather than typed (move a band and
+## the pods follow), and it makes the collision above impossible by construction — a pod can
+## never reach the band below it, let alone land on it.
+##
+## The DEEPEST band has nothing under it to collide with, so its number comes from the other
+## end: the second deep pod is put entirely below the 13 m death line, so the deep half of
+## the deep band is water you look down INTO and cannot swim to. Ceiling = band + reach, and
+## it has to clear DIVE_DEATH_Y: 9.5 - 1.9 + 13.0 = 5.4 m of drop, i.e. -14.9.
+##
+## Resulting ladder: -1.2 / -2.85 | -4.5 / -7.0 | -9.5 / -14.9. Six distinct planes where
+## there were five (two of them coincident), top-heavy, no gaps wider than 2.5 m above -9.
+static func _pod_drop(band: String, pod: int) -> float:
+	if pod <= 0:
+		return 0.0
+	var i: int = BAND_ORDER.find(band)
+	if i < 0:
+		i = BAND_ORDER.find("mid")
+	var y: float = float(DEPTH_BAND[BAND_ORDER[i]])
+	if i + 1 < BAND_ORDER.size():
+		return (y - float(DEPTH_BAND[BAND_ORDER[i + 1]])) * 0.5
+	return maxf(y + POD_VERTICAL_REACH - DIVE_DEATH_Y, 0.0)
 
 ## Which caisson a `near` pod holds station on. Spread over the four legs by a stable index
 ## so two grouper species do not pile onto the same one — the s21 king-crab lesson (two
@@ -116,6 +162,55 @@ const FISH_RANGE_FADE: float = 0.18
 const FISH_EASE: float = 2.2     ## how hard a fish is drawn toward its wander target (1/s)
 const FISH_TURN: float = 2.4     ## how fast the remembered heading eases onto the new one (1/s)
 const FISH_PITCH: float = 0.42   ## how much of its own vertical speed a fish noses into
+
+## THE PONTOONS ARE A LID ON THE SHALLOW BAND, AND THE SHALLOW SHOALS WERE SWIMMING INSIDE
+## THEM (found s35 while measuring surface density for the owner's "larger visual density
+## closer to the surface").
+##
+## rig_builder.gd:698-699 casts the two pontoons as `_box(Vector3(0, -1.05, ±12),
+## Vector3(56, 4, 8))` — solid concrete over x ±28, z |8..16|, from y -3.05 to +0.95. That
+## is **896 m² of the plan, a third of the `any` pods' own box, filled from the waterline
+## down to 3 m**, and the four caissons the `near` pods hold station on stand dead in the
+## middle of it. A shallow fish over that footprint is not swimming in dim water, it is
+## inside a casting, and it draws nothing.
+##
+## Nothing caught it before because the only wall test the schools run is `_near_leg`, which
+## gates a raycast on being within 4.5 m of a LEG CENTRE — that covers the slab in z and
+## almost none of it in x, so most of the pontoon has never been tested against at all. And
+## where the ray does fire it reports a block and hands the fish to `_slide_leg`, which walks
+## it around the nearest caisson: the wrong obstacle.
+##
+## Measured on the analytic pod model, in daylight, before this: **26 fish sitting inside the
+## two slabs at any instant** — and the pod-drop change above would have doubled that by
+## bringing a second shallow pod up into the same 3 m. So the slab is now an analytic CEILING
+## on the school loop, in the same shape as the surface clamp beside it: two abs() compares,
+## no query, and it cannot go stale the way a raycast against other sessions' colliders can.
+## Those fish are not lost, they are moved to just under the lid — which is where
+## `_rig_underlights` puts four floodlights pointing straight down, so they read better there
+## than they ever did at -1.5 with concrete in front of them.
+const PONTOON_UNDER: float = -3.05   ## slab underside: centre -1.05, 4 m thick
+const PONTOON_TOP: float = 0.95      ## slab top — the "no constraint" end of the fade
+const PONTOON_X: float = 28.0        ## 56 m wide, centred
+const PONTOON_Z_IN: float = 8.0      ## inner edge of each slab (centres z ±12, 8 m deep)
+const PONTOON_Z_OUT: float = 16.0
+const PONTOON_CLEAR: float = 0.35    ## how far under the concrete the tallest fish's back sits
+## The ceiling ramps in over this many metres OUTSIDE the slab rather than switching on at its
+## edge. A hard edge would step a fish down ~2 m in one frame as it crossed the line; over 2.5
+## m of swimming it is a dive. It also means a fish is already below the lid by the time it is
+## actually under it, so nothing has to be pushed out of solid concrete after the fact.
+const PONTOON_FADE: float = 2.5
+
+## 1.0 anywhere the slab is overhead, falling linearly to 0 across PONTOON_FADE outside it.
+static func _pontoon_lid_t(x: float, z: float) -> float:
+	var az: float = absf(z)
+	if az < PONTOON_Z_IN - PONTOON_FADE or az > PONTOON_Z_OUT + PONTOON_FADE:
+		return 0.0
+	if absf(x) > PONTOON_X + PONTOON_FADE:
+		return 0.0
+	# How far OUTSIDE the footprint the point is, per axis; 0 on either axis it is inside.
+	var dz: float = maxf(maxf(PONTOON_Z_IN - az, az - PONTOON_Z_OUT), 0.0)
+	var dx: float = maxf(absf(x) - PONTOON_X, 0.0)
+	return clampf(1.0 - maxf(dx, dz) / PONTOON_FADE, 0.0, 1.0)
 
 var _kelp: Array[Node3D] = []
 ## Parallel to _kelp, so the per-frame sway is two array reads instead of two get_meta().
@@ -446,9 +541,9 @@ const LEVIATHAN_R: float = 12.0         # orbit radius about the pillar axis
 const LEVIATHAN_LAP_SEC: float = 58.0   # one full circuit, ~1.3 m/s: 0.09 body-lengths/s
 
 func _deep_giants() -> void:
-	# The always-present residents on slow circuits under the rig: three original plus a
-	# second halibut and a lesser grouper on the shallow edge, so there is a spread of BIG
-	# shapes at different depths to catch at the edge of the light. (mantle_ray is kept OUT
+	# The always-present residents on slow circuits under the rig — six of them since s35,
+	# spread from -16 to -29 so there is a range of BIG shapes to catch at the edge of the
+	# light, and none of them above the death line any more. (mantle_ray is kept OUT
 	# of this ambient roster on purpose — it is the special glowing night-bloom visitor
 	# elsewhere in the game, discovered as a one-off event; making it a routine deep
 	# patroller here would cheapen that encounter.)
@@ -462,8 +557,18 @@ func _deep_giants() -> void:
 		["fish_barrel_grouper", 4.4, -26.0, 9.0, 0.038, 2.4, LEG_HOME],
 		["fish_fathom_halibut", 3.2, -29.0, 11.0, 0.045, 4.2, Vector3.ZERO],
 		["fish_fathom_halibut", 4.1, -20.0, 15.0, 0.033, 1.1, Vector3.ZERO],  # a second, larger halibut
-		["fish_barrel_grouper", 2.8, -14.0, 9.0, 0.060, 5.0, Vector3.ZERO],   # a lesser one on the shallow edge
-		["fish_barrel_grouper", 3.2, -12.0, 19.0, 0.042, 3.3, Vector3.ZERO],  # shallow enough to read clearly
+		# THE TWO SHALLOW GOLIATHS ARE GONE (owner s35: "make goliath grouper rarer, deeper
+		# only, and only appear as huge"). They were a 2.8 m at -14 — "a lesser one on the
+		# shallow edge" — and a 3.2 m at -12, explicitly placed "shallow enough to read
+		# clearly". They were the SMALLEST and the SHALLOWEST of the species in the game, and
+		# -12 is above the 13 m death line, i.e. water the player swims in. Every one of the
+		# three words in the ask points at these two rows, so they are deleted rather than
+		# nudged: what is left of the species above the leviathan is the -17 (four metres
+		# below anything a diver can reach, at the top of the band underwater_fx grades as
+		# shapes at the edge of the dark) and the -26 resident on the SE leg. Nothing was
+		# moved into the slots — the shallow band gains its density from the SCHOOLS in this
+		# pass (see _pod_drop), which is the density the owner actually asked for, and a big
+		# grouper silhouette at 12 m is the thing they asked to stop seeing.
 		["fish_fathom_halibut", 3.6, -16.0, 21.0, 0.030, 0.7, Vector3.ZERO],  # wide slow lap, semi-visible
 		# THE COELACANTH (owner-supplied mesh, 2026-07-26). Deeper than every resident but
 		# the -29 halibut, and the one deep animal here that is NOT a slab: 1.8 m, half the
@@ -479,8 +584,15 @@ func _deep_giants() -> void:
 		["fish_coelacanth", 1.8, -21.0, 12.0, 0.028, 1.6, Vector3.ZERO],
 	]
 	for s in specs:
-		# Size jitter so no two runs stamp the identical fish.
-		var sz: float = float(s[1]) * _rng.randf_range(0.9, 1.15)
+		# Size jitter so no two runs stamp the identical fish — except the goliath, which
+		# draws from the TOP of that range only ("only appear as huge"). Its two remaining
+		# rows are 3.6 and 4.4 m nominal, and a 0.9 roll used to be able to bring the first
+		# one in at 3.24; it now cannot come in under its authored size at all. One draw
+		# either way, so the RNG stream length is unchanged — and everything downstream of
+		# _deep_giants runs on its own stream (the rays' seed 90210, the leviathan's 7411),
+		# which is exactly why that separation was made.
+		var jitter_lo: float = 1.0 if String(s[0]) == "fish_barrel_grouper" else 0.9
+		var sz: float = float(s[1]) * _rng.randf_range(jitter_lo, 1.15)
 		var host := DeepGiant.new(sz, s[2], s[3], s[4], s[5], s[6])
 		host.slug = s[0]
 		add_child(host)
@@ -999,11 +1111,19 @@ func _spawn_schools() -> void:
 			mat.emission_enabled = true
 			mat.emission = Color(0.2, 0.9, 0.85)
 			mat.emission_energy_multiplier = 0.5
-		var band_y: float = DEPTH_BAND.get(def.get("depth", "mid"), -4.5)
+		# The band NAME is carried, not just its plane: pod 1's drop is a property of which
+		# band this is (see _pod_drop), so resolving it to a float here would throw away the
+		# thing the rule needs. An unknown value falls back to `mid`, the same way the plane
+		# lookup always has.
+		var band: String = String(def.get("depth", "mid"))
+		if not DEPTH_BAND.has(band):
+			band = "mid"
+		var band_y: float = float(DEPTH_BAND[band])
 		# One material per species, shared by both pods — the tint is a fact about the
 		# fish, not about which patch of water this particular shoal is working.
 		for pod in range(SCHOOL_PODS):
-			_spawn_pod(id, def, school, tint, mat, band_y, pod, _species_index)
+			_spawn_pod(id, def, school, tint, mat, band_y - _pod_drop(band, pod), pod,
+				_species_index)
 
 ## THE CATCHABLE SHOALS WERE RENDERING AS BLACK SILHOUETTES, and it was light, not material.
 ##
@@ -1041,6 +1161,8 @@ const POD_BODY_GLOW: float = 0.38
 
 ## One pod of one species: its own node, its own members, its own circuit. Pod 0 works the
 ## water immediately around the rig; pod 1 and up work the open water (POD_SPREAD).
+## `band_y` arrives with this pod's own drop already applied (see _pod_drop) — it is the
+## plane this shoal works, not the species' band.
 func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		mat: StandardMaterial3D, band_y: float, pod: int, species_i: int) -> void:
 	var root := Node3D.new()
@@ -1113,7 +1235,7 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 	var anchor: Vector3 = _leg_anchor(species_i + pod) if water == "near" else Vector3.ZERO
 	_schools.append({
 		"root": root, "fish": members, "def": def, "id": id, "pod": pod,
-		"band_y": band_y - POD_DROP[pod], "size": size, "anchor": anchor,
+		"band_y": band_y, "size": size, "anchor": anchor,
 		"spread": spread, "radius": spread_r,
 		"rates": Vector2(POD_PATH_SPEED.x / spread.x, POD_PATH_SPEED.y / spread.y),
 		"ph": phases, "spd": speeds, "head": heads, "climb": climbs,
@@ -1123,8 +1245,8 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		# has accumulated but not yet spent; `centre` is where it was last seen, which is what
 		# the distance ranking uses (the root node never leaves the origin).
 		"acc": 0.0,
-		"centre": anchor + Vector3(0.0, band_y - POD_DROP[pod], 0.0),
-		# A stable per-pod number to offset the tick phase by, so the 48 pods spread across the
+		"centre": anchor + Vector3(0.0, band_y, 0.0),
+		# A stable per-pod number to offset the tick phase by, so the pods spread across the
 		# stride instead of all updating on the same frame. Taken at spawn — looking the pod's
 		# own index up per frame would be a linear scan comparing dictionaries.
 		"phase": _schools.size(),
@@ -1293,13 +1415,13 @@ func _cull_topside() -> void:
 		_cam_eye_ok = false
 		return
 	var cp: Vector3 = cam.global_position
-	# Cached for _pod_due: 48 pods asking the viewport for its camera every frame is 48 tree
+	# Cached for _pod_due: 68 pods asking the viewport for its camera every frame is 68 tree
 	# lookups for one value that is already in hand here.
 	_cam_eye = cp
 	_cam_eye_ok = true
 	# PLUS THE TIDE, AND STILL NOT THE SWELL. The margin is measured from mean water, and mean
 	# water now moves — at high tide a calm crest reaches ~y 3.0, so a fixed 2.8 threshold would
-	# switch the entire underwater subtree (seabed, reef, kelp, 512 fish, marine snow) OFF while
+	# switch the entire underwater subtree (seabed, reef, kelp, 562 fish, marine snow) OFF while
 	# a swimmer on that crest is submerged in it.
 	#
 	# Adding the TIDE does not undo s21's fix, which was to stop referencing the SWELL: that
@@ -1375,7 +1497,7 @@ func _process(delta: float) -> void:
 		if not want or not swim:
 			continue
 		# --- PER-POD DECIMATION -----------------------------------------------------------
-		# 512 fish across 48 pods, every one of them re-solving its slot on the ring, sampling
+		# 562 fish across 68 pods (34 species x 2), every one re-solving its slot on the ring, sampling
 		# the swell and running a look_at, every frame. The pods are 24-60 m across the water
 		# from the camera at any moment, and a shoal at that range moving in 5 cm steps at 8 Hz
 		# is indistinguishable from one moving in 1 cm steps at 30. So a pod that is far away
@@ -1436,11 +1558,18 @@ func _process(delta: float) -> void:
 		# no fish can be above it once seated. If that ceiling still clears the deepest
 		# trough the sea can produce plus the clamp's own margin, the sample is dead work and
 		# the whole 11-band sum is skipped. Computed per pod, per frame, from the pod's own
-		# numbers rather than a hand-typed depth, so retuning POD_DROP or a species' depth
+		# numbers rather than a hand-typed depth, so retuning _pod_drop or a species' depth
 		# band cannot leave a stale exemption behind. Every fish still swims — this drops the
 		# arithmetic, never the animal.
 		var pod_ceiling: float = s["band_y"] + 1.3 + 0.60
 		var needs_surface: bool = pod_ceiling > floor_y - 0.5 - s["size"] * 0.5
+		# ...AND THE SAME QUESTION FOR THE PONTOON LID (see the PONTOON_* block). A pod whose
+		# ceiling is already under the slab's clearance line can never touch it, so the six
+		# deep planes skip the test outright and only the shallow half of the ocean pays two
+		# abs() compares a fish. Same construction as the line above and for the same reason:
+		# derived from this pod's own numbers, so it cannot go stale when a band moves.
+		var lid_y: float = PONTOON_UNDER - PONTOON_CLEAR - s["size"] * 0.5
+		var needs_lid: bool = pod_ceiling > lid_y
 		for i in range(n):
 			var f: Node3D = members[i]
 			var ph: float = mph[i]
@@ -1464,6 +1593,19 @@ func _process(delta: float) -> void:
 			if needs_surface:
 				var surf: float = Gyre.wave_height(Vector2(next.x, next.z), wave_t)
 				next.y = minf(next.y, surf - 0.5 - s["size"] * 0.5)
+			# ...and never let one swim INSIDE a pontoon. The ceiling carries this fish's own
+			# `bob` rather than being the flat plane `minf(next.y, lid_y)` would give: a hard
+			# floor on a value already near it is a RECTIFIER, not a safety net — it would put
+			# every shoal under the slabs on one plane to three decimals and put a corner in
+			# each fish's vertical velocity (docs/AGENT_TRAPS.md, s24's MIN_STAND). Carrying
+			# 0.6 of the bob under a 0.45 m offset keeps the wander and still cannot reach the
+			# concrete: 0.6 * 0.60 = 0.36 < 0.45. Blended from PONTOON_TOP so the ramp starts
+			# outside the slab and the fish is already low by the time it is underneath.
+			if needs_lid:
+				var lid_t: float = _pontoon_lid_t(next.x, next.z)
+				if lid_t > 0.0:
+					next.y = minf(next.y,
+						lerpf(PONTOON_TOP, lid_y - 0.45 + bob * 0.6, lid_t))
 			# A school's drift band overlaps the rig legs — don't let fish swim through a
 			# caisson. Only pay for the raycast near a leg (the schools spend most of their
 			# orbit in open water), and if the step would enter the steel, stop the fish at
@@ -1499,7 +1641,7 @@ func _process(delta: float) -> void:
 ## Ranked on the pod's last known centre, which is honest for a shoal: `radius` is a couple
 ## of metres, so the whole school is effectively at one distance. A pod inside AiBudget's
 ## NEAR_M runs every frame — the shoal you are actually swimming through is never decimated.
-## The instance-free phase comes from the pod's own index so the 48 pods do not all land on
+## The instance-free phase comes from the pod's own index so the 68 pods do not all land on
 ## the same frame, and the MAX_STEP guarantee is honoured for the same reason it exists
 ## there: nothing may go longer than that without an update.
 func _pod_due(s: Dictionary, acc: float) -> bool:

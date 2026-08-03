@@ -34,12 +34,22 @@ const SHOTS := [
 		"the tide staff — the six floating Label3D glyphs must be GONE, bands remain"],
 	["tide_staff_far", Vector3(11.0, 3.2, -13.0), Vector3(6.4, 0.8, -16.35),
 		"the staff from the walkway the owner reads it from"],
-	["store_door", Vector3(13.0, 3.0, -13.6), Vector3(13.0, 2.6, -18.0),
-		"the store-room doorway — the tubes stay, and a crouch gap under them"],
-	["pump_door", Vector3(14.0, 3.0, -4.2), Vector3(14.0, 2.6, -8.5),
-		"the pump-room doorway — this is the blockage that had to go"],
-	["pump_room", Vector3(11.0, 3.2, -10.0), Vector3(17.5, 2.5, -10.0),
-		"inside the pump room, along its length — is there a lane through it"],
+	# THESE THREE WERE AIMED FROM THE ZONE BOXES THE FIRST TIME AND PHOTOGRAPHED THE WRONG
+	# ROOM'S BULKHEAD. RIG_ATLAS's zone volumes say where a room IS; they do not say where its
+	# DOOR is, and the two rooms are back to back with a wall between them. Re-derived from
+	# the authored constants instead: LOOT_PIPE_Z -16.1 with the pipes at WET_Y+1.4/+1.75
+	# (rig_builder.gd:3533), the pump rack at z -14.6, its door's clear opening x 13.39..14.61,
+	# and the dead pump at (12, WET_Y+0.9, -12).
+	# LOW AND OBLIQUE, FROM INSIDE THE STORE ROOM. Square-on from 2 m the doorframe fills the
+	# frame and the thing being judged — the GAP under the pipes — is edge-on and invisible.
+	# A crouched eye is 0.9 m, so the shot is taken from there: if the frame does not show
+	# daylight under the pipe run from a crouched eye, the crouch route does not exist.
+	["store_door", Vector3(13.0, 2.85, -18.6), Vector3(13.0, 3.30, -16.1),
+		"the store-room doorway from inside, crouched — daylight UNDER the pipes or no route"],
+	["pump_door", Vector3(14.0, 2.9, -11.4), Vector3(14.0, 3.05, -14.6),
+		"the pump-room doorway — the stand that blocked it has moved east"],
+	["pump_room", Vector3(16.6, 3.3, -12.0), Vector3(11.6, 2.7, -12.0),
+		"along the pump room at the dead pump — is there a lane through it"],
 	["king_crab", Vector3(30.5, -7.2, -9.5), Vector3(25.6, -8.0, -9.5),
 		"the big crab on the SE caisson face — sideways, and no tubes under it"],
 	["king_crab_wide", Vector3(33.0, -5.0, -4.0), Vector3(25.5, -8.0, -9.5),
@@ -209,18 +219,17 @@ func _cat_frame(cat: Node3D, player: Node3D, cam: Camera3D, nm: String, setup: C
 	for i in range(settle):
 		_pin()
 		await get_tree().process_frame
+	# TRACK THE ANIMAL THROUGH THE HOLD. A vantage computed once and then held for twenty
+	# frames photographs where the cat WAS — which is how the running frame came back with
+	# the cat leaving the picture at the left edge. Re-solve and re-aim every frame; the
+	# same lesson as s21's "a vantage derived from a live object still has to be HELD",
+	# except here the subject is the thing that moves.
 	var at: Vector3 = cat.global_position
-	# Waist height, a little back and to the side: how you actually see a cat by your feet.
-	# Taken along the cat's OWN forward so a walking cat is photographed from the quarter
-	# rather than from wherever the world axes happen to put the lens — which also makes
-	# "is it walking head-first" legible in the frame instead of only in the probe.
-	var fwd: Vector3 = -cat.global_transform.basis.z
-	var side: Vector3 = cat.global_transform.basis.x
-	var eye: Vector3 = at + fwd * 1.25 + side * 0.95 + Vector3(0, 0.85, 0)
 	for i in range(20):
 		_pin()
-		cam.global_position = eye
-		cam.look_at(at + Vector3(0, 0.16, 0), Vector3.UP)
+		at = cat.global_position
+		cam.global_position = _cat_eye(cat, at)
+		cam.look_at(at + Vector3(0, 0.20, 0), Vector3.UP)
 		await get_tree().process_frame
 	await RenderingServer.frame_post_draw
 	var img: Image = get_viewport().get_texture().get_image()
@@ -242,6 +251,53 @@ func _cat_frame(cat: Node3D, player: Node3D, cam: Camera3D, nm: String, setup: C
 	print("  %-16s state=%s pose=%s (want %s)%s rigged=%s at %s"
 		% [nm, str(cat.get("_state")), str(cat.get("_pose")), want,
 			"" if ok else "   <- MISMATCH", str(rigged), str(at.round())])
+
+## A VANTAGE ON THE CAT THAT IS ACTUALLY IN THE ROOM WITH IT.
+##
+## The first cut placed the lens along the CAT's own forward — a nice idea (it photographs a
+## walking animal from the quarter, so "head-first" is legible in the picture) and it put
+## all five frames INSIDE A WALL. The cat lives in the bunkhouse aisle with a bulkhead about
+## a metre away, and a camera offset that is correct in the cat's frame is arbitrary in the
+## room's.
+##
+## AGENT_TRAPS already says this in the reef's words — "occlusion has to be SCORED, not
+## hoped for" — so: try eight bearings round the animal, ray from the cat's shoulder out to
+## each candidate eye, and keep the one with the most unobstructed room. A blocked bearing
+## is pulled in to just short of whatever it hit rather than discarded, so a cat in a tight
+## corner still gets photographed from the best available side instead of from inside the
+## concrete.
+func _cat_eye(cat: Node3D, at: Vector3) -> Vector3:
+	var world: World3D = cat.get_world_3d()
+	var from: Vector3 = at + Vector3(0, 0.42, 0)
+	var skip: Array[RID] = []
+	for c in cat.get_children():
+		if c is CollisionObject3D:
+			skip.append((c as CollisionObject3D).get_rid())
+	var want_r: float = 1.15
+	var best: Vector3 = at + Vector3(want_r, 0.85, 0.0)
+	var best_room: float = -1.0
+	# Start from the cat's own forward so a clear room still frames it from the quarter,
+	# then walk the circle.
+	var base: float = atan2(-cat.global_transform.basis.z.x, -cat.global_transform.basis.z.z)
+	for i in range(8):
+		var a: float = base + TAU * float(i) / 8.0 + 0.55
+		var dir := Vector3(sin(a), 0.0, cos(a))
+		var eye: Vector3 = at + dir * want_r + Vector3(0, 0.85, 0)
+		var q := PhysicsRayQueryParameters3D.create(from, eye)
+		q.collision_mask = 1
+		q.collide_with_areas = false
+		q.exclude = skip
+		var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+		var room: float = want_r
+		var cand: Vector3 = eye
+		if not hit.is_empty():
+			var d: float = from.distance_to(hit["position"] as Vector3)
+			room = maxf(d - 0.28, 0.55)
+			cand = from + (eye - from).normalized() * room
+		if room > best_room:
+			best_room = room
+			best = cand
+	return best
 
 ## THE FISHING ROD, IN HAND. The owner reports the visual gone; this is a first-person
 ## viewmodel, so the frame has to be taken from the player's own eye with the rod SELECTED
