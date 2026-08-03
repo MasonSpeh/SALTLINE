@@ -1043,3 +1043,28 @@ edits were swept into commits describing something else entirely. Nothing was lo
 stayed green, but the history now misdescribes itself. With concurrent agents, commit by explicit
 PATH, always — and give each agent a disjoint file set up front, because the alternative is
 per-agent worktrees and this repo's working tree is 18 GB.
+
+**A CREATURE CHECKED AS A POINT WILL STAND HALF INSIDE A WALL, AND NO RAY CAN EVER SEE IT.**
+Every gate in `ship_cat.gd` — the deck probe, the step-up, the s36 wall check — cast a ray from
+the node ORIGIN. The origin is a point; the animal is not. Measured off the drawn meshes, the
+cat's horizontal half-diagonal runs 0.35-0.48 m across its pose set, so the origin can stop
+perfectly legally with up to half a metre of cat inside a bulkhead. The owner photographed
+exactly that: head out one face, body out the other. Worse, the failure is SELF-CONCEALING —
+a ray whose origin lies inside a shape does not report that shape in Godot, so the instant the
+bug occurs the entire detection scheme goes quiet and the animal stays there for the session.
+Test the VOLUME (`intersect_shape` with a sphere sized from the drawn AABB, plus a second probe
+at the nose, which a width-sized disc cannot see), and carry an unconditional per-frame
+RECOVERY (`collide_shape`, take the deepest contact pair, push out along it) — because every
+predictive gate is useless against a body that is already buried.
+
+**AND WHEN A VOLUME CHECK REFUSES A STEP, SLIDE — DO NOT STOP.** The first cut simply returned
+on a blocked step, and the cat then stood vibrating against the obstruction unable to close the
+last half-metre to its own sleeping spot. Nothing was intersecting and it still read as broken.
+Real movement code slides along what it touches: try the direct line, then the two tangents,
+and take whichever still carries the animal toward its target (rejecting any tangent pointing
+back the way it came, or it orbits a pillar for ever).
+
+**A PROBE THAT REPOSITIONS THE WORLD MUST PUT IT BACK.** CatProbe grew a wall-clipping check
+that strands the player outside the bunkhouse, and the sleep test that follows it never moved
+them back — so it asserted that a cat can curl up beside someone it is correctly refusing to
+walk through a bulkhead to reach. It failed for the right reason and read like a broken feature.

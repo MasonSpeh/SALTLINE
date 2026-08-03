@@ -308,7 +308,15 @@ func _run() -> void:
 			% [fish_2, PlayerState.count_item("fish_herring")])
 
 	# SLEEP — when the player turns in, the cat finds a spot near them and curls up.
+	#
+	# PUT THE PLAYER BACK IN THE ROOM FIRST. The wall check above deliberately strands them
+	# outside the bunkhouse, and leaving them there makes this test assert that a cat can
+	# curl up beside someone it is correctly refusing to walk through a bulkhead to reach —
+	# which fails for the right reason and reads like a broken feature.
 	PlayerState.selected_hotbar = -1
+	player.global_position = Vector3(-22.0, 18.1, 12.0)
+	for i in range(30):
+		await get_tree().physics_frame
 	player.set("_lying", true)
 	player.set("_lying_sleeping", true)
 	var slept: bool = false
@@ -327,4 +335,54 @@ func _run() -> void:
 			% [cat.global_position.y, player.global_position.y])
 	player.set("_lying", false)
 	player.set("_lying_sleeping", false)
+
+	# ------------------------------------------------------- THE ONE THAT WAS MISSING
+	#
+	# THE CAT'S BODY MUST NEVER BE INSIDE THE RIG. Every check before this asked about the
+	# cat's ORIGIN — a point — and the owner photographed the animal embedded in a bulkhead
+	# with its head out one face and its body out the other. A point can stop perfectly
+	# legally with up to 0.48 m of cat in the concrete, and no assertion here could see it.
+	#
+	# So: drive the animal hard against the geometry most likely to swallow it — corners,
+	# bulkheads, the far side of walls — and sample its BODY VOLUME, not its origin, every
+	# few frames. A ray cannot do this: a ray whose origin is already inside a shape does
+	# not report that shape, so the moment the bug occurs a raycast test goes silent. This
+	# uses the same sphere query the movement code does.
+	var chase: Array[Vector3] = [
+		Vector3(-27.4, 18.1, 17.4),   # NW corner of the bunkhouse
+		Vector3(-8.6, 18.1, 4.6),     # SE corner
+		Vector3(-27.4, 18.1, 4.6),    # SW corner
+		Vector3(-33.0, 18.1, 11.0),   # through the west wall — must be refused
+		Vector3(-18.0, 18.1, 17.8),   # hard against the north wall
+		Vector3(-22.0, 18.1, 12.0),   # back to open floor
+	]
+	var buried_frames: int = 0
+	var worst_depth: float = 0.0
+	var samples: int = 0
+	var sphere := SphereShape3D.new()
+	var shq := PhysicsShapeQueryParameters3D.new()
+	shq.shape = sphere
+	shq.collision_mask = 1
+	shq.collide_with_areas = false
+	for dest in chase:
+		player.global_position = dest
+		for i in range(150):
+			await get_tree().physics_frame
+			if i % 5 != 0:
+				continue
+			samples += 1
+			sphere.radius = float(cat.call("_body_r"))
+			shq.exclude = cat.call("_walk_skip")
+			shq.transform = Transform3D(Basis.IDENTITY,
+				cat.global_position + Vector3(0, sphere.radius + 0.04, 0))
+			var pairs: PackedVector3Array = \
+				cat.get_world_3d().direct_space_state.collide_shape(shq, 4)
+			if pairs.size() >= 2:
+				buried_frames += 1
+				for k in range(0, pairs.size() - 1, 2):
+					worst_depth = maxf(worst_depth, (pairs[k] - pairs[k + 1]).length())
+	_ok(samples > 100, "the burial sweep actually sampled the cat (%d samples)" % samples)
+	_ok(buried_frames == 0,
+		"the cat's BODY was never inside the rig (%d/%d samples buried, worst %.0f mm)"
+			% [buried_frames, samples, worst_depth * 1000.0])
 	_completed = true

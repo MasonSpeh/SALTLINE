@@ -184,6 +184,7 @@ var _last_speed: float = 0.0
 ## the state machine hands the animal over to _fly_jump and nothing else moves it.
 var _jump_t: float = 0.0
 var _jump_cd: float = 0.0
+var _body_r_cache: Dictionary = {}
 var _jump_from: Vector3 = Vector3.ZERO
 var _jump_to: Vector3 = Vector3.ZERO
 
@@ -386,6 +387,10 @@ func _process(delta: float) -> void:
 	# The lean into a slope, eased so a step onto a stair tread is not a snap.
 	_body.rotation.x += -_slope * 0.55
 	_focus_w = maxf(0.0, _focus_w - delta * 1.5)
+	# BEFORE ANYTHING ELSE DECIDES WHERE TO GO, GET OUT OF WHATEVER WE ARE IN. Unconditional
+	# and state-independent on purpose: a predictive gate cannot rescue an animal that is
+	# already buried, and every gate in this file is predictive.
+	_unbury()
 	if _jump_cd > 0.0:
 		_jump_cd -= delta
 	# A LEAP OWNS THE ANIMAL UNTIL IT LANDS. Taken before the state machine, so nothing
@@ -587,27 +592,48 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# correctly and the animal walked straight through it. The bunkhouse is full of exactly
 	# that geometry.
 	#
-	# THE HEIGHT THIS IS CAST AT IS THE WHOLE DIFFICULTY, and the first cut got it wrong.
-	# Casting at the cat's own body height refuses STAIRS: a tread's riser is a vertical
-	# face standing between the animal and the deck above it, indistinguishable from a
-	# bulkhead by its normal alone. So cast from ABOVE the destination floor — anything
-	# still in the way once you are already at the height you are stepping up to is a wall
-	# and not a step. A riser ends at `ground`; a bulkhead does not.
-	var probe_y: float = maxf(global_position.y, ground) + 0.16
-	var wq := PhysicsRayQueryParameters3D.create(
-		Vector3(global_position.x, probe_y, global_position.z),
-		Vector3(want.x, probe_y, want.z))
-	wq.collision_mask = 1
-	wq.collide_with_areas = false
-	# EXCLUDE THE PLAYER AND THE OTHER ANIMALS, or this refuses the one place the cat most
-	# wants to walk. The sleep spot is a ring 0.9-2.0 m around a lying player, so the
-	# player's own capsule stands between the cat and almost every candidate — the first
-	# cut of this check made the cat unable to come to bed, which is exactly how it was
-	# found. And every creature here carries a solid 0.6-0.85 m FaunaTouch sphere on the
-	# default layer (the documented trap), so a passing snail would stop the cat dead.
-	wq.exclude = _walk_skip()
-	if not world.direct_space_state.intersect_ray(wq).is_empty():
-		return
+	# DOES THE BODY FIT WHERE THE FEET ARE GOING? Not a ray — see _step_clear. A ray from
+	# the origin let the animal stop with up to 0.48 m of itself inside a bulkhead, which is
+	# the state the owner photographed. The destination is tested as a VOLUME.
+	#
+	# AND IF IT DOES NOT FIT, SLIDE — do not stop dead. A companion that refuses a blocked
+	# step just stands there vibrating against the obstruction, which is the "glitchy" read
+	# even though nothing is intersecting: the first cut of this check did exactly that and
+	# left the cat unable to close the last half-metre to its own sleeping spot. Real
+	# movement code slides along what it touches, so this tries the direct line first and
+	# then the two tangents, taking whichever still carries it toward the target.
+	var moved_dir: Vector3 = dir
+	if not _step_clear(Vector3(want.x, ground, want.z), dir):
+		var slid := false
+		for side in [1.0, -1.0]:
+			var alt: Vector3 = dir.rotated(Vector3.UP, side * PI * 0.5)
+			# Only a slide that still makes progress — a tangent pointing back the way we
+			# came is how an animal ends up orbiting a pillar for ever.
+			if alt.dot(dir) < -0.1:
+				continue
+			var awant: Vector3 = global_position + alt * speed * delta
+			var aq := PhysicsRayQueryParameters3D.create(
+				awant + Vector3(0, STEP_UP + 0.3, 0),
+				awant + Vector3(0, STEP_UP + 0.3, 0) - Vector3(0, STEP_UP + 1.4, 0))
+			aq.collision_mask = 1
+			aq.collide_with_areas = false
+			aq.exclude = _walk_skip()
+			var ahit: Dictionary = world.direct_space_state.intersect_ray(aq)
+			if ahit.is_empty():
+				continue
+			var aground: float = (ahit["position"] as Vector3).y
+			if absf(aground - global_position.y) > CLIMB_UP:
+				continue
+			if not _step_clear(Vector3(awant.x, aground, awant.z), alt):
+				continue
+			want = awant
+			ground = aground
+			rise = aground - global_position.y
+			moved_dir = alt
+			slid = true
+			break
+		if not slid:
+			return
 	# STAIRS. The old rule was "coamings yes, stairs no" (STEP_UP 0.45) and the cat simply
 	# refused anything taller — which is why it could not follow you off the deck it met you
 	# on. A rig stair tread rises STAIR_RISE per step, well inside CLIMB_UP, so the animal
@@ -654,6 +680,121 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 ## Confirmed three ways rather than reasoned once: the algebra above; tools/measure_facing.py
 ## reading +Z off cat_walk/cat_run/cat_sleep with both statistics agreeing, so no mesh error
 ## cancels it; and the rendered side view in tests/out/cat_bind.
+## THE CAT IS A VOLUME, NOT A POINT — and until s36 every check in this file forgot that.
+##
+## `_walk_toward` probed the deck with a ray from the ORIGIN and tested for walls with a ray
+## from the ORIGIN, so the origin could stop perfectly legally with half the animal inside
+## the concrete. Measured off the drawn meshes, the horizontal half-diagonal runs 0.35-0.48 m
+## across the pose set: that is how much cat a point-check is allowed to leave in a wall, and
+## it is what the owner photographed — a cat embedded in a bulkhead with its head out one
+## face and its body out the other.
+##
+## Radius is the body's half-WIDTH rather than that half-diagonal, and measured from the
+## pose actually being drawn rather than typed: a cat is not a sphere, and a disc the size
+## of its length could not fit through a doorway it walks through nose-first every day.
+## The nose is covered separately by testing the far end of the body too (see _step_clear).
+func _body_r() -> float:
+	var host: Node3D = _pose_nodes.get(_pose)
+	if host == null:
+		return 0.18
+	if _body_r_cache.has(_pose):
+		return _body_r_cache[_pose]
+	var acc := AABB()
+	var first := true
+	for n in host.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = n
+		var b: AABB = mi.global_transform * mi.get_aabb()
+		acc = b if first else acc.merge(b)
+		first = false
+	# The SMALLER horizontal extent is the body's width whatever way the animal is facing.
+	var r: float = 0.18 if first else clampf(minf(acc.size.x, acc.size.z) * 0.5, 0.10, 0.26)
+	_body_r_cache[_pose] = r
+	return r
+
+## Would the cat's BODY fit at `at`? A sphere query rather than a ray, so a step that leaves
+## the origin outside a wall but the flank inside it is refused. Tested at the body centre
+## and again at the nose, which is the one place a width-sized disc cannot see.
+func _step_clear(at: Vector3, dir: Vector3) -> bool:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return true
+	var r: float = _body_r()
+	var sphere := SphereShape3D.new()
+	sphere.radius = r
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = sphere
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = _walk_skip()
+	# `_body_r` is a half-width; the nose reaches roughly a body length ahead of centre, so
+	# probe there too or the animal walks its head into a bulkhead and stops with the face
+	# buried while its centre is legally clear.
+	var lead: float = _body_len() * 0.5 - r
+	for probe in [at + Vector3(0, r + 0.04, 0),
+			at + dir * maxf(lead, 0.0) + Vector3(0, r + 0.04, 0)]:
+		q.transform = Transform3D(Basis.IDENTITY, probe)
+		if not world.direct_space_state.intersect_shape(q, 1).is_empty():
+			return false
+	return true
+
+func _body_len() -> float:
+	var host: Node3D = _pose_nodes.get(_pose)
+	if host == null:
+		return 0.6
+	var acc := AABB()
+	var first := true
+	for n in host.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = n
+		var b: AABB = mi.global_transform * mi.get_aabb()
+		acc = b if first else acc.merge(b)
+		first = false
+	return 0.6 if first else maxf(acc.size.x, acc.size.z)
+
+## THE SAFETY NET, and the reason this can be called "no glitches" rather than "fewer".
+##
+## Every gate above is predictive — it refuses a step that WOULD bury the animal. None of
+## them can rescue a cat that is already buried, and a raycast fundamentally cannot: a ray
+## whose origin lies inside a shape does not report that shape in Godot, so once the animal
+## is in the concrete the entire detection scheme goes silent and it stays there for the
+## session. That is what shipped, and it is why the owner's frame exists.
+##
+## So this runs every frame regardless of state: sweep the body sphere, take the deepest
+## contact, and push straight back out along the contact normal. It cannot be defeated by a
+## new movement path, by another session moving a wall onto the cat, or by a spawn point
+## that turns out to be inside geometry.
+func _unbury() -> void:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return
+	var r: float = _body_r()
+	var sphere := SphereShape3D.new()
+	sphere.radius = r
+	var q := PhysicsShapeQueryParameters3D.new()
+	q.shape = sphere
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = _walk_skip()
+	q.transform = Transform3D(Basis.IDENTITY, global_position + Vector3(0, r + 0.04, 0))
+	var pairs: PackedVector3Array = world.direct_space_state.collide_shape(q, 8)
+	if pairs.size() < 2:
+		return
+	# collide_shape returns [point_on_us, point_on_them, ...]. The vector between the pair
+	# IS the overlap; take the deepest and step out along it.
+	var push := Vector3.ZERO
+	var worst: float = 0.0
+	for i in range(0, pairs.size() - 1, 2):
+		var sep: Vector3 = pairs[i] - pairs[i + 1]
+		if sep.length() > worst:
+			worst = sep.length()
+			push = sep
+	if worst <= 0.0005:
+		return
+	push.y = 0.0
+	if push.length() < 0.0005:
+		return
+	global_position += push.normalized() * (worst + 0.02)
+	_reseat()
+
 ## Everything the cat's WALL ray must not mistake for a wall: its own handle, the player,
 ## and every other animal's touch sphere. Rebuilt each call rather than cached, because
 ## fauna are spawned and freed through the session and a stale RID is a silent hole in the
@@ -841,6 +982,11 @@ func _sleep_spot(near: Vector3) -> Vector3:
 			wq.collide_with_areas = false
 			wq.exclude = _walk_skip()
 			if not world.direct_space_state.intersect_ray(wq).is_empty():
+				continue
+			# ...and the BODY has to fit where it lies down. A spot the cat can see and walk
+			# to can still be a spot it cannot occupy — a 0.9 m ring drawn round a player
+			# standing against a bulkhead puts half its candidates inside the steel.
+			if not _step_clear(p, (p - global_position).normalized()):
 				continue
 			return p
 	return global_position
