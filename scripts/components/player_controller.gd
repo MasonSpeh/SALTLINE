@@ -395,6 +395,19 @@ func _ready() -> void:
 	# _update_held_item runs on both inventory changes AND slot selection, and it drives
 	# the lantern too — so selecting/holstering the lantern lights or darkens the hand.
 	PlayerState.inventory_changed.connect(_update_held_item)
+	# ...AND ON THE SELECTION ITSELF. `inventory_changed` alone is not "what is in my hand
+	# changed": the pack panel equips a slot by writing `PlayerState.selected_hotbar` and
+	# nothing else (hud.gd `_inv_slot_clicked`), which fires `hotbar_selection_changed` —
+	# so the HUD moved its amber outline onto the item and popped its name while the hand
+	# still held the previous slot. Measured: drop the rod into an empty hotbar square from
+	# the pack and `selected_hotbar` is that square, `hotbar[square]` is "fishing_rod", and
+	# `_held_item_id` is still "". The rod is "in your hand" everywhere except your hand.
+	#
+	# Connected here rather than adding a second `_update_held_item()` call at that one HUD
+	# site, because the HUD is not the only writer (`use_hotbar`, scripted setups) and the
+	# next one added would make the same mistake silently. PlayerState already announces
+	# every write for exactly this reason — see the setter's own note.
+	PlayerState.hotbar_selection_changed.connect(_on_hotbar_selection_changed)
 	PlayerState.player_died.connect(_on_player_died)
 	_update_lantern()
 	_update_flashlight()
@@ -1725,6 +1738,11 @@ func _throw_carried() -> void:
 		(prop as RigidBody3D).apply_central_impulse(forward * 6.5 + Vector3(0, 1.6, 0))
 		AudioDirector.play_one_shot("clang", prop.global_position, -12.0)
 
+## The selection moved. A separate function only because the signal carries the slot, which
+## the hand does not need — it reads the slot back off PlayerState like everything else here.
+func _on_hotbar_selection_changed(_slot: int) -> void:
+	_update_held_item()
+
 ## Rebuild the in-hand visual for the selected hotbar slot. ItemVisual meshes are
 ## world-scale props with internal offsets, so we normalize at runtime: recenter on the
 ## combined AABB and uniform-scale so the largest dimension is HAND_ITEM_MAX_DIM.
@@ -1732,6 +1750,13 @@ func _update_held_item() -> void:
 	# The hand lights track the selected slot too — refresh them whenever the hand does.
 	_update_lantern()
 	_update_flashlight()
+	# NOTHING TO REBUILD IF IT IS THE SAME OBJECT. This now runs on selection changes as
+	# well as inventory changes, and several actions raise both (a number key sets the slot
+	# and calls this directly; `use_hotbar` sets the slot AND emits inventory_changed), so
+	# without this the rod's 63-mesh build ran twice per press. It also drops the rebuild a
+	# stack going 5 -> 4 used to cost, which cannot change the picture.
+	if _selected_item_id() == _held_item_id and _hand_item.get_child_count() > 0:
+		return
 	# Clear previous hand item
 	for child in _hand_item.get_children():
 		_hand_item.remove_child(child)
