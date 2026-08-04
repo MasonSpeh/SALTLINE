@@ -22,14 +22,25 @@ landed and nobody updated the file.
 
 ## Open after s38 — the cat
 
-- **The cat's LEAP has still never been filmed.** `tests/CatFilm`'s `jump` reel is written
-  and PROBES for a ledge in the 0.66-1.20 m band (between CLIMB_UP and JUMP_UP) rather than
-  trusting a typed coordinate; on the open main deck it correctly reports that no such
-  surface exists there. The sweep now also covers the bunkhouse origins out to 14 m, where
-  the manifest puts barrels and drawer cabinets at 0.90 m and armchairs at 0.98. One command
-  settles it: `godot --path . --fixed-fps 60 tests/CatFilm.tscn -- /tmp/j fps=10 reels=jump`.
-  The arc itself is now gated and self-terminating (s38b) and asserted by CatHuntProbe, so
-  this is a missing OBSERVATION, not a suspected bug.
+- **The cat's LEAP has still never been filmed, and there is a reason it may be close to
+  unreachable.** `tests/CatFilm`'s `jump` reel now probes for a ledge in the 0.66-1.20 m band
+  and stages the cat at a PROBED foot with a run-up (it found real 0.76 m and 1.10 m ledges).
+  The cat walks up to them and stops: telemetry says y never leaves 18.00 across 270 sampled
+  frames.
+
+  The likely cause was found and is worth the next session's time. `_walk_toward`'s deck probe
+  starts at `STEP_UP + 0.3` = **0.75 m** above the cat's feet, while `JUMP_UP` is **1.25 m** —
+  so any ledge between those heights is INVISIBLE to the very probe the jump gate reads. The
+  ray passes under the lip, finds the lower deck, reports a rise of zero, and the animal walks
+  into the face. The jump can therefore only ever fire in the narrow 0.62-0.75 m band.
+
+  A fix was attempted and REVERTED, which is the part worth knowing. Casting a second, higher
+  ray ahead of the footfall when the cat is already blocked does make ledges visible — and
+  CatHuntProbe immediately caught the cat at **y 20.26, 2.26 m above the deck**, having climbed
+  a staircase of ledges and stranded itself. That is the exact failure `JUMP_UP`'s comment
+  warns about ("an animal that leaps onto things the level design assumed were out of reach").
+  Whatever the real fix is, it needs a reachability rule, not just a longer ray. The attempt is
+  in the s38 session history if it helps.
 
 - **`ship_cat._walk_skip()` does not actually skip other fauna.** The branch reads
   `bf.get("fauna_bodies")`, but `fauna_bodies` is a STATIC FUNCTION on bloom_fauna, not a

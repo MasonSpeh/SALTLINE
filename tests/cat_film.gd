@@ -542,10 +542,28 @@ func _reel_jump(sim_per_frame: int) -> void:
 			+ "nothing to film. Widen `origins`, or build a crate.")
 		return
 	print("[film] jump: ledge probed at %s, rise %.2f m" % [str(ledge.snappedf(0.01)), ledge.y - deck])
-	# Stand the cat at the foot of it and the player on top, so the follow logic walks the
-	# animal into the rise and the jump gate fires on its own.
-	var approach: Vector3 = ledge + (base - ledge).normalized() * 1.1
+	# STAND IT AT THE FOOT, AND FIND THE FOOT BY PROBING FOR IT. A fixed 1.1 m step back from
+	# the ledge's centre is inside the ledge whenever the ledge is a PLATFORM rather than a
+	# crate — and the first run of this staged the cat on top of the thing it was supposed to
+	# jump onto. The telemetry said so plainly: y went 18.00 -> 19.10 in a single frame, wearing
+	# the SIT pose, which is `_reseat` teleporting rather than any leap. So walk outward until
+	# the ground drops back to deck height, then back off far enough for a run-up.
+	var out_dir: Vector3 = (base - ledge).normalized()
+	var approach: Vector3 = ledge + out_dir * 1.1
+	for step in range(1, 24):
+		var cand: Vector3 = ledge + out_dir * (0.4 * float(step))
+		var cq := PhysicsRayQueryParameters3D.create(
+			cand + Vector3(0, 3.0, 0), cand - Vector3(0, 2.0, 0))
+		cq.collision_mask = 1
+		var chit: Dictionary = world_ds(_cat).intersect_ray(cq)
+		if chit.is_empty():
+			continue
+		if absf((chit["position"] as Vector3).y - deck) < 0.15:
+			approach = cand + out_dir * 0.9      # a little run-up
+			break
 	approach.y = deck
+	print("[film] jump: approaching from %s (%.2f m out from the lip)"
+		% [str(approach.snappedf(0.01)), approach.distance_to(ledge)])
 	_cat.global_position = approach
 	if _cat.has_method("_reseat"):
 		_cat.call("_reseat")
