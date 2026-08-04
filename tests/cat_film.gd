@@ -508,31 +508,43 @@ func _reel_jump(sim_per_frame: int) -> void:
 		await get_tree().physics_frame
 	var deck: float = _cat.global_position.y
 	var ledge := Vector3.INF
-	for r in [1.6, 2.4, 3.2, 4.2, 5.4, 7.0]:
-		for i in range(16):
-			var a: float = TAU * float(i) / 16.0
-			var at: Vector3 = stage + Vector3(cos(a) * r, 0.0, sin(a) * r)
-			var from: Vector3 = at + Vector3(0, 3.0, 0)
-			var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 4.0, 0))
-			q.collision_mask = 1
-			var hit: Dictionary = world_ds(_cat).intersect_ray(q)
-			if hit.is_empty():
-				continue
-			var rise: float = (hit["position"] as Vector3).y - deck
-			if rise < 0.66 or rise > 1.20:
-				continue
-			ledge = hit["position"]
-			break
+	# SWEEP WIDE, AND SWEEP WHERE THE FURNITURE IS. The first cut searched a 7 m ring around
+	# the open-deck staging spot and correctly reported that there is nothing in the 0.66-1.20 m
+	# band out there — open deck is open. The props the cat can actually jump onto are indoors:
+	# .sonar-rig/rig_manifest.txt lists barrels at 0.90 m, drawer cabinets at 0.90, armchairs at
+	# 0.98, all of them around the bunkhouse the animal lives in. So the bunkhouse is searched
+	# too, and the ring goes out to 14 m.
+	var origins: Array = [stage, Vector3(-24.6, 18.0, 11.4), Vector3(-20.5, 18.0, -15.0)]
+	var base: Vector3 = stage
+	for origin in origins:
+		for r in [1.6, 2.4, 3.2, 4.2, 5.4, 7.0, 9.0, 11.0, 14.0]:
+			for i in range(24):
+				var a: float = TAU * float(i) / 24.0
+				var at: Vector3 = (origin as Vector3) + Vector3(cos(a) * r, 0.0, sin(a) * r)
+				var from: Vector3 = at + Vector3(0, 3.0, 0)
+				var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 4.0, 0))
+				q.collision_mask = 1
+				var hit: Dictionary = world_ds(_cat).intersect_ray(q)
+				if hit.is_empty():
+					continue
+				var rise: float = (hit["position"] as Vector3).y - deck
+				if rise < 0.66 or rise > 1.20:
+					continue
+				ledge = hit["position"]
+				base = origin
+				break
+			if ledge != Vector3.INF:
+				break
 		if ledge != Vector3.INF:
 			break
 	if ledge == Vector3.INF:
-		print("[film] jump: no ledge in the 0.66-1.20 m band within 7 m of the stage — "
-			+ "nothing to film. Move the stage or build a crate.")
+		print("[film] jump: no surface in the 0.66-1.20 m band anywhere in the swept area — "
+			+ "nothing to film. Widen `origins`, or build a crate.")
 		return
 	print("[film] jump: ledge probed at %s, rise %.2f m" % [str(ledge.snappedf(0.01)), ledge.y - deck])
 	# Stand the cat at the foot of it and the player on top, so the follow logic walks the
 	# animal into the rise and the jump gate fires on its own.
-	var approach: Vector3 = ledge + (stage - ledge).normalized() * 1.1
+	var approach: Vector3 = ledge + (base - ledge).normalized() * 1.1
 	approach.y = deck
 	_cat.global_position = approach
 	if _cat.has_method("_reseat"):

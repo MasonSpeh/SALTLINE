@@ -1573,3 +1573,53 @@ reading a cat owner does without being taught.
 
 Held to 0.30 rad: the bone owns the rump as well as the tail, so a large rotation bends the
 hindquarters with it. The limit was set by rendering, not by taste.
+
+
+### The sit was rolling, not pitching — and it is the same bug as the head (flaw 2)
+
+`sit` asked for 0.58 rad about the Hip's local X, meaning "pitch the body up about the
+pelvis". tests/CatYawDiag measures what Hip local X actually does, per 0.2 rad: **roll +8.03,
+pitch +5.18, yaw -5.92**. It is not a pitch axis. At 0.58 rad that is roughly 23 degrees of
+roll and 17 of yaw, and the new dead-astern reel shows precisely that — a cat that appears to
+have fallen over on its side with its head twisted up. That is the owner's "the hind legs
+trail instead of tucking", seen from the one angle that reveals it.
+
+Compare Spine01, where local X IS a clean pitch (+11.43, with 0.3 of yaw). That is why the
+same idiom worked everywhere else in the pose library and hid this one.
+
+Poses can now state offsets in BODY axes (codes 3/4/5 = pitch/yaw/roll) as well as bone-local
+ones, and all four authored Hip rotations moved to a true body pitch. Rendered from behind
+before and after: the sprawl is gone. The groom shares that Hip offset, so **flaw 8 ("groom
+reads oddly from above") had the same cause and is fixed by the same change.**
+
+### A leap turns the safety net off (flaw 7's neighbourhood)
+
+`_unbury` runs unconditionally every frame precisely because no predictive gate can rescue an
+animal that is already inside something. But it runs BEFORE `_fly_jump`, which then overwrites
+the position it just corrected — so for the whole duration of any leap, the one check that
+cannot be fooled is disabled. That has been true since the jump shipped; adding pounces is what
+made it matter. CatHuntProbe kept catching the cat ~750 mm inside the quarters bulkhead at 90%
+of an arc whose ENDPOINT tested perfectly clear, because a gull standing a body-length from a
+wall is an entirely ordinary thing for a gull to do.
+
+Fixed three ways, because a predictive gate alone was what failed: the whole arc is sampled
+rather than just the landing (`_arc_clear`, which now also gates the crate jump — same hole),
+the prey is excluded from the landing test (the point of a pounce is to land ON the bird), and
+the arc SELF-TERMINATES the moment the body stops fitting. The cat drops where it last fitted.
+A disappointing leap, never a cat in a wall.
+
+### What is verified, and how
+
+* the walk, head-on and side-on, at 30 fps with the delta pinned — read back as frames AND as
+  `tools/film_stats.py` numbers;
+* the sit, stalk, groom and sleep from dead astern, before and after the Hip fix;
+* the groom from directly above;
+* the whole predatory sequence end to end, twice: once as a narrated state trace
+  (tests/CatBehDiag) and once as 16 assertions (tests/CatHuntProbe);
+* TestRunner green, CatProbe green.
+
+**Not verified: the leap has still never been filmed.** The reel is written and it PROBES for a
+ledge in the 0.66-1.20 m band rather than trusting a typed coordinate — it swept the open deck
+and honestly reported there is nothing in that band out there, which is true, because open deck
+is open. The manifest has barrels at 0.90 m and drawer cabinets at 0.90 around the bunkhouse;
+the sweep now covers those origins out to 14 m. Run `reels=jump` to settle it.
