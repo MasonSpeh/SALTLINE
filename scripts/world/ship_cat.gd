@@ -188,6 +188,8 @@ var _last_speed: float = 0.0
 ## Metres the body ACTUALLY covered this frame — the blender's gait phase runs off this,
 ## never off commanded speed, so a blocked cat's legs stop instead of treadmilling.
 var _moved_frame: float = 0.0
+## The held sleeping spot — picked once when the player turns in, cleared when they rise.
+var _sleep_target: Vector3 = Vector3.ZERO
 ## The leap, in flight: time left, and the two ends of the arc. While `_jump_t` is positive
 ## the state machine hands the animal over to _fly_jump and nothing else moves it.
 var _jump_t: float = 0.0
@@ -507,14 +509,22 @@ func _companion(delta: float, player: Node3D) -> void:
 	# is PROBED (see _sleep_spot) — a hand-typed offset from a bed that another session moves
 	# is the whole floating-prop family of bugs in this repo.
 	if _player_asleep(player):
-		var spot: Vector3 = _sleep_spot(ppos)
-		if global_position.distance_to(spot) > 0.55:
+		# THE SPOT IS CHOSEN ONCE AND HELD. _sleep_spot used to be re-run every frame, and
+		# its winning candidate depends on the cat's own position — so as the animal walked,
+		# the target could flip between two candidates and, in the wrong geometry, oscillate
+		# for ever: a cat that paces beside the bed all night instead of lying down (seen as
+		# an intermittent probe failure, ~1 run in 5). Hysteresis: keep the chosen spot while
+		# the player stays asleep, re-picking only if it drifts out of plausibility.
+		if _sleep_target == Vector3.ZERO or ppos.distance_to(_sleep_target) > 3.0:
+			_sleep_target = _sleep_spot(ppos)
+		if global_position.distance_to(_sleep_target) > 0.55:
 			_enter(State.FOLLOW)
-			_walk_toward(spot, WALK_SPEED, delta, 0.35)
+			_walk_toward(_sleep_target, WALK_SPEED, delta, 0.35)
 		else:
 			_enter(State.SLEEP)
 			ANIM.drive(_gen_mats, 0.5, 0.0)
 		return
+	_sleep_target = Vector3.ZERO
 
 	# Within arm's reach of a player who is not going anywhere.
 	if _still > SETTLE_SEC:

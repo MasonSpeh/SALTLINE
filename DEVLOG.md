@@ -1348,3 +1348,30 @@ tucked sleeping loaf, sitting sit).
 **Still open, honestly:** no runtime foot-lock IK (paws can drift a little on
 turns); the tail has no bones (Tripo's template ends at the pelvis) so it rides
 the hip; the stretch pose exists in the library but no behaviour plays it yet.
+
+### s37b — the gait learns how cats are actually animated
+
+The owner rejected the first s37 gait, correctly again: sine-swung limbs from
+the shoulder with no fold is the "toy horse" — and the gallop had no spine.
+
+Replaced with the way animators key quadrupeds:
+* the limb cycle is AUTHORED KEYFRAMES (plant → stance → toe-off → FOLD →
+  swing-through → reach), cosine-eased between keys, duty factor 0.62 walking /
+  0.38 galloping — a leg is on the ground far longer than it swings, and 50/50
+  is precisely what read as clockwork;
+* the fold is the difference: knee/elbow flexes to lift the paw, carries it
+  forward folded, extends to plant;
+* the walk keeps the lateral sequence; the gallop is ROTARY (hinds nearly
+  together, then fores) with a SPINE ENGINE — the back rounds as the hinds
+  gather under the chest and hollows into the stretch, hips countering, body
+  bobbing with the cycle. Half of a gallop is the back;
+* footfall offsets, tables and duty all ease walk→trot→gallop by speed.
+
+The continuity bound got re-derived while at it: 94 mm/frame at a gallop is
+legitimate speed (5 Hz cycle at 4.4 m/s), not a teleport — a mesh swap measures
+300-500 mm. Bound now 150 mm, discriminating the two with margin both ways.
+
+And the intermittent "cat paces beside the bed all night": _sleep_spot was
+re-picked EVERY FRAME and its winner depends on the cat's own position, so the
+target could flip between candidates for ever. The spot is chosen once and held
+while the player sleeps.

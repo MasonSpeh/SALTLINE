@@ -32,9 +32,36 @@ const SWING := Vector3(1, 0, 0)   ## limb chains run local +Y; fore-aft swing is
 ## offsets are themselves eased between these tables as speed crosses the bands, so a cat
 ## accelerating from amble to gallop re-times its legs continuously instead of stuttering
 ## between patterns.
-const WALK_PHASE := {"lh": 0.00, "lf": 0.25, "rh": 0.50, "rf": 0.75}
-const TROT_PHASE := {"lh": 0.00, "rf": 0.00, "rh": 0.50, "lf": 0.50}
-const BOUND_PHASE := {"lf": 0.00, "rf": 0.06, "lh": 0.45, "rh": 0.51}
+## Footfall offsets per gait. Walk is the cat's LATERAL SEQUENCE (LH, LF, RH, RF a quarter
+## apart); the gallop is ROTARY — hinds land nearly together, then the fores, with two
+## airborne moments between. These are the orders every quadruped-animation reference
+## teaches, and the thing the s37 sine gait ignored.
+const WALK_OFF := {"lh": 0.00, "lf": 0.25, "rh": 0.50, "rf": 0.75}
+const TROT_OFF := {"lh": 0.00, "rf": 0.02, "rh": 0.50, "lf": 0.52}
+const GALLOP_OFF := {"lh": 0.00, "rh": 0.12, "rf": 0.55, "lf": 0.67}
+
+## THE LIMB CYCLE, AS AN ANIMATOR KEYS IT — not as a sine. Keys are
+## (cycle_t, reach, flex, paw) with touchdown at t=0: plant reaching, rotate back nearly
+## straight through stance (duty ~0.62 walking — a leg is on the ground far longer than it
+## swings, and 50/50 is exactly what reads as clockwork), toe-off trailing, then the FOLD —
+## the knee/elbow flexes to lift the paw, carries it forward folded, and extends again to
+## plant. The fold is the whole difference between an animal and a toy horse.
+## `reach` +ve is toward the head, `flex` +ve bends the joint, paw follows through. Signs
+## are mapped per limb below — this table is semantic.
+const CYC_WALK_FORE := [
+	[0.00, 0.30, 0.08, -0.12], [0.30, 0.02, 0.03, 0.02], [0.62, -0.30, 0.06, 0.18],
+	[0.72, -0.12, 0.60, 0.38], [0.86, 0.24, 0.42, 0.10], [1.00, 0.30, 0.08, -0.12]]
+const CYC_WALK_HIND := [
+	[0.00, 0.34, 0.06, 0.00], [0.34, 0.02, 0.03, 0.00], [0.62, -0.34, 0.09, 0.10],
+	[0.74, -0.12, 0.72, 0.30], [0.88, 0.28, 0.48, 0.08], [1.00, 0.34, 0.06, 0.00]]
+## Gallop: shorter stance (duty ~0.38), far bigger reach and fold. The legs GATHER under
+## the body and EXTEND — but half of a real gallop lives in the spine engine below.
+const CYC_GAL_FORE := [
+	[0.00, 0.55, 0.10, -0.15], [0.24, -0.05, 0.06, 0.10], [0.38, -0.55, 0.12, 0.30],
+	[0.55, -0.20, 0.85, 0.45], [0.80, 0.45, 0.55, 0.05], [1.00, 0.55, 0.10, -0.15]]
+const CYC_GAL_HIND := [
+	[0.00, 0.50, 0.08, 0.00], [0.22, -0.05, 0.05, 0.05], [0.38, -0.60, 0.12, 0.15],
+	[0.56, -0.25, 0.95, 0.35], [0.82, 0.42, 0.55, 0.05], [1.00, 0.50, 0.08, 0.00]]
 ## Speed bands (m/s): below WALK_V pure walk offsets; between, eased; above TROT_V pure
 ## bound. Chosen against WALK_SPEED 1.55 / TROT 2.6 / RUN 4.4 in ship_cat.gd.
 const WALK_V: float = 1.8
@@ -191,29 +218,59 @@ func tick(dt: float, speed: float, moved: float) -> void:
 	# 3. Phase from DISTANCE, not time — stride length grows a little with speed.
 	var stride: float = 0.52 + clampf(_speed_s / 4.4, 0.0, 1.0) * 0.35
 	_phase = fposmod(_phase + moved / stride, 1.0)
-	# 4. The additive gait, if any of it is live.
+	# 4. The gait — keyframed limb cycles plus the spine engine, if any of it is live.
 	if _gait_w > 0.003:
-		var amp: float = (0.26 + clampf(_speed_s / 4.4, 0.0, 1.0) * 0.30) * _gait_w
 		var mix: float = clampf((_speed_s - WALK_V) / (TROT_V - WALK_V), 0.0, 1.0)
-		for limb_key in WALK_PHASE:
-			# Eased BETWEEN tables: walk->trot->bound re-times continuously.
+		var amp: float = (0.85 + 0.15 * mix) * _gait_w
+		for limb_key in WALK_OFF:
+			# Offsets ease walk -> trot -> gallop so the footfall order re-times
+			# continuously as the animal changes pace.
 			var off: float
 			if mix < 0.5:
-				off = lerpf(WALK_PHASE[limb_key], TROT_PHASE[limb_key], mix * 2.0)
+				off = lerpf(WALK_OFF[limb_key], TROT_OFF[limb_key], mix * 2.0)
 			else:
-				off = lerpf(TROT_PHASE[limb_key], BOUND_PHASE[limb_key], mix * 2.0 - 1.0)
-			var ph: float = _phase + off
-			var a: float = sin(ph * TAU)
-			var bend: float = maxf(0.0, -cos(ph * TAU)) * amp * 0.9
+				off = lerpf(TROT_OFF[limb_key], GALLOP_OFF[limb_key], mix * 2.0 - 1.0)
+			var ph: float = fposmod(_phase + off, 1.0)
+			var fore: bool = limb_key.ends_with("f")
+			var w: Array = _cyc_eval(CYC_WALK_FORE if fore else CYC_WALK_HIND, ph)
+			var g: Array = _cyc_eval(CYC_GAL_FORE if fore else CYC_GAL_HIND, ph)
+			var reach: float = lerpf(w[0], g[0], mix) * amp
+			var flex: float = lerpf(w[1], g[1], mix) * amp
+			var paw: float = lerpf(w[2], g[2], mix) * amp
 			var L: Dictionary = _limb[limb_key]
-			var sgn: float = 1.0 if limb_key.ends_with("f") else -1.0
-			_mul(L["prox"], Quaternion(SWING, a * amp * sgn))
-			_mul(L["dist"], Quaternion(SWING, -bend * sgn))
-			_mul(L["paw"], Quaternion(SWING, bend * 0.5 * sgn))
-		var sway: float = sin(_phase * TAU * 2.0)
-		_mul(_spine, Quaternion(Vector3(0, 1, 0), sway * amp * 0.10))
-		_mul(_spine2, Quaternion(Vector3(0, 1, 0), -sway * amp * 0.07))
-		_mul(_hip, Quaternion(SWING, absf(sway) * amp * 0.05))
+			# SIGN MAP, from the rendered axis atlas: hind reach-forward is +X on BOTH
+			# sides; the fore limbs are MIRRORED (R reaches on -X, L on +X); each joint's
+			# flex folds opposite its own reach so the limb shortens instead of sweeping.
+			var pr: float
+			var fl: float
+			if fore:
+				pr = -reach if limb_key.begins_with("r") else reach
+				fl = flex if limb_key.begins_with("r") else -flex
+			else:
+				pr = reach
+				fl = flex
+			_mul(L["prox"], Quaternion(SWING, pr))
+			_mul(L["dist"], Quaternion(SWING, fl))
+			_mul(L["paw"], Quaternion(SWING, (paw if fore else paw) * (1.0 if not fore or limb_key.begins_with("l") else -1.0)))
+		# THE SPINE ENGINE — half of a gallop is the back. The body GATHERS (spine rounds,
+		# pelvis tucks, hips rise) as the hinds come under, and EXTENDS (back hollows, full
+		# stretch) as the fores reach. Scaled by the gallop mix so a walking spine only
+		# carries the gentle lateral sway a walking cat has.
+		var body_ph: float = _phase * TAU
+		var ext: float = sin(body_ph)
+		var gal: float = mix * _gait_w
+		if gal > 0.01:
+			_mul(_spine, Quaternion(SWING, ext * 0.26 * gal))
+			_mul(_spine2, Quaternion(SWING, ext * 0.16 * gal))
+			_mul(_hip, Quaternion(SWING, -ext * 0.22 * gal))
+			_mul(_neck, Quaternion(SWING, -ext * 0.10 * gal))
+			_cur_hip += Vector3(0, absf(cos(body_ph)) * 0.030 * gal, 0)
+		var sway: float = sin(body_ph)
+		var walk_w: float = (1.0 - mix) * _gait_w
+		if walk_w > 0.01:
+			_mul(_spine, Quaternion(Vector3(0, 1, 0), sway * 0.06 * walk_w))
+			_mul(_spine2, Quaternion(Vector3(0, 1, 0), -sway * 0.045 * walk_w))
+			_cur_hip += Vector3(0, absf(sin(body_ph * 2.0)) * 0.010 * walk_w, 0)
 	# 5. Idle life on top of ANY pose: slow breath always; it is what stops a still pose
 	# reading as a freeze-frame. Softer while asleep.
 	var t: float = Time.get_ticks_msec() / 1000.0
@@ -240,6 +297,21 @@ func tick(dt: float, speed: float, moved: float) -> void:
 		_sk.set_bone_pose_rotation(i, _cur_q[i])
 	if _hip >= 0:
 		_sk.set_bone_pose_position(_hip, _cur_hip)
+
+## Evaluate a limb cycle table at cycle position `t` (0..1), easing between keys with a
+## cosine — pose-to-pose with smooth in-betweens, which is exactly how a cycle is keyed by
+## hand. Returns [reach, flex, paw].
+func _cyc_eval(tab: Array, t: float) -> Array:
+	for i in range(tab.size() - 1):
+		var a: Array = tab[i]
+		var b: Array = tab[i + 1]
+		if t <= float(b[0]):
+			var span: float = float(b[0]) - float(a[0])
+			var k: float = 0.0 if span <= 0.0 else (t - float(a[0])) / span
+			k = 0.5 - 0.5 * cos(k * PI)
+			return [lerpf(a[1], b[1], k), lerpf(a[2], b[2], k), lerpf(a[3], b[3], k)]
+	var last: Array = tab[tab.size() - 1]
+	return [last[1], last[2], last[3]]
 
 ## Multiply an offset onto the CURRENT blended value — additive layers never touch _cur_q,
 ## so they cannot accumulate across frames.

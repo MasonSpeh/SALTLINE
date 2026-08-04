@@ -116,13 +116,25 @@ func _shoot(out: String) -> void:
 			await RenderingServer.frame_post_draw
 			vp.get_texture().get_image().save_png(
 				"%s/trans_%s_to_%s_p%d.png" % [out, pair[0], pair[1], p])
-	# Gait strip on the blended walk pose, phase advanced by fake distance.
+	# Gait strips, walk and gallop — phase advanced by fake distance. The warm-up ticks
+	# let _speed_s and _gait_w ease to steady state so the strip photographs the cycle,
+	# not the ramp into it.
 	rig.set_pose("walk", 100.0)
 	for i in range(6):
 		rig.tick(0.25, 0.0, 0.0)
-	for p in range(8):
-		rig.tick(1.0 / 16.0, 1.55, 1.55 / 16.0)
+	for i in range(40):
+		rig.tick(1.0 / 30.0, 1.55, 1.55 / 30.0)
+	for p in range(10):
+		rig.tick(1.0 / 12.0, 1.55, 0.55 / 10.0)
 		await RenderingServer.frame_post_draw
 		await RenderingServer.frame_post_draw
-		vp.get_texture().get_image().save_png("%s/gait_p%d.png" % [out, p])
+		vp.get_texture().get_image().save_png("%s/gait_walk_p%d.png" % [out, p])
+	rig.set_pose("run", 100.0)
+	for i in range(40):
+		rig.tick(1.0 / 30.0, 4.4, 4.4 / 30.0)
+	for p in range(10):
+		rig.tick(1.0 / 12.0, 4.4, 0.87 / 10.0)
+		await RenderingServer.frame_post_draw
+		await RenderingServer.frame_post_draw
+		vp.get_texture().get_image().save_png("%s/gait_gallop_p%d.png" % [out, p])
 	vp.queue_free()

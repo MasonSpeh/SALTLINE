@@ -133,7 +133,12 @@ func _run() -> void:
 				prev_p = now_p
 				steps += 1
 		_ok(steps > 300, "the continuity sweep sampled the paw (%d frames)" % steps)
-		_ok(worst_step < 0.08,
+		# The bound discriminates TELEPORT from FAST. A gallop is legitimately quick: at
+		# 4.4 m/s the cycle runs ~5 Hz and a swinging paw covers ~90-100 mm in one 60 Hz
+		# frame — measured 94 mm in this very sweep. A mesh SWAP (the retired design)
+		# displaces a paw by the whole pose difference, 300-500 mm, in one frame. 150 mm
+		# sits between the two with margin both ways.
+		_ok(worst_step < 0.15,
 			"no pose change ever teleports the body (worst paw step %.1f mm/frame)"
 				% (worst_step * 1000.0))
 
