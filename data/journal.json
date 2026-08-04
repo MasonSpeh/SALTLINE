@@ -3,181 +3,181 @@
  "creature_gull": {
   "cat": "creature",
   "title": "Gulls",
-  "body": "Still here, wheeling the high iron like nothing ever changed. They leave at dusk, every day, all at once — they know the schedule better than I do.",
+  "body": "Still here, wheeling around the high iron. They go at dusk, all of them at once. Whatever clock they run on, it hasn't been interrupted.",
   "hint": "Follow their lead: when the gulls go, get to the light."
  },
  "creature_jelly_drifter": {
   "cat": "creature",
   "title": "Jelly Drifters",
-  "body": "After dark the water fills with slow teal bells, pulsing as they turn around the rig. The Bloom, up close. They never touch the legs. Beautiful, honestly.",
+  "body": "After dark the water fills with slow teal bells, pulsing as they turn around the rig. They keep off the legs. I watched them for an hour and lost the time.",
   "hint": "They only surface at night. Whatever they feed on rises then too."
  },
  "creature_barnacle": {
   "cat": "creature",
   "title": "Lamp Barnacles",
-  "body": "Growths on the legs at the waterline that glow at night — until I get close. They feel me coming through the steel and go dark. Shy light.",
+  "body": "Growths on the legs at the waterline. They glow at night until I get close, then they don't. They feel me coming through the steel.",
   "hint": "If the barnacles go dark and I haven't moved… something else is on the steel."
  },
  "creature_lamp_eel": {
   "cat": "creature",
   "title": "Lamp-Eel",
-  "body": "A chain of light swimming figure-eights off the north edge, bright at the head and fading down its length. It keeps exactly the same route. Patrolling? Grazing?",
+  "body": "A chain of light doing figure-eights off the north edge, bright at the head, fading down its length. Same route every time. I can't tell if it's hunting or just going round.",
   "hint": "It surfaces at full dark, north side. Best view from the pontoon or the galley roof."
  },
  "creature_fiddler_shoal": {
   "cat": "creature",
   "title": "Fiddler Shoal",
-  "body": "Small quick fish schooling under the wet deck lip. Silver by day — but at dusk they catch a teal glint, like the Bloom is getting into them. They vanish at night.",
+  "body": "Small quick fish schooling under the wet deck lip. Silver in daylight. At dusk they take a teal glint off the Bloom. Gone by full dark.",
   "hint": "They hide when night comes. Smart fish. Consider imitating the fish."
  },
  "creature_mantle_ray": {
   "cat": "creature",
   "title": "The Mantle",
-  "body": "Something enormous crossed over the rig in the dark — wide flat wings, underside speckled with Bloom-light, a call like a hull groaning. It didn't circle. It was going somewhere.",
+  "body": "Something crossed over the rig in the dark. Wide flat wings, underside speckled with light, a noise like a hull settling. It didn't circle. Straight over and gone.",
   "hint": "The chalk tally on the bunkhouse roof counts something. I think it counts this."
  },
  "creature_tide_worm": {
   "cat": "creature",
   "title": "Tide Worms",
-  "body": "Finger-length worms that rise from the deck drains at dawn and dusk, teal-tipped, swaying. Footsteps send them back down. Harmless. I think the word is 'harmless'.",
+  "body": "Finger-length worms up out of the deck drains at dawn and dusk, teal at the tips, swaying. Footsteps put them back down. They've never done anything to me.",
   "hint": "They keep tide hours: dawn and dusk only."
  },
  "creature_lamplight_crab": {
   "cat": "creature",
   "title": "The Giant Crab",
-  "body": "Dog-sized, blue-shelled, claws like bolt cutters held high. By day they cling below the waterline — lean over the east rim and you can watch them sidle along the pontoon faces. After dark they come up over the deck edge and walk the plate like they own it. They will not cross powered light, and a beam held on one sends it straight back over the rim. In the dark, though, that claw takes a piece of you.",
+  "body": "Dog-sized, blue-shelled, claws up like bolt cutters. Daylight they hold below the waterline; lean over the east rim and you can watch them work along the pontoon faces. After dark they come up over the edge and walk the plate. They won't cross powered light and a beam held on one turns it round. In the dark that claw takes a piece out of you.",
   "hint": "Daylight: look over the east deck edge. Night: keep to the lit decks, keep a torch in hand, and if one closes — run; they quit a chase you outrun."
  },
  "creature_glow_worm": {
   "cat": "creature",
   "title": "Glow Worms",
-  "body": "A knuckle of teal light in the dark corners — under the stair, against the leg bases. Never the same corners twice. It feels footsteps through the plate and sinks back into its den before I'm anywhere near. Went in low and slow tonight and got a hand around one. Mostly light and muscle.",
+  "body": "A knuckle of teal in the dark corners. Under the stair, against the leg bases, never the same corner twice. It reads footsteps through the plate and drops into its den before I'm near. Went in slow one night and got a hand round one. Mostly light and muscle.",
   "hint": "Crouch to close the last few meters. Sear it at the bench before eating — raw ones bite back."
  },
  "creature_epic_whale": {
   "cat": "creature",
   "title": "The Four-Eyed",
-  "body": "It came over the rig higher than the mast — a body like a hull, too many fins all rowing out of time, four eyes burning teal down its back. Swimming the night air the way the sea swims. I didn't hide. It wasn't looking at me. I don't think I register at all.",
+  "body": "It came over higher than the mast. Body like a hull, too many fins all rowing out of time, four eyes burning teal down its back. Swimming the night air the way a thing swims water. I stood and watched. It never looked down.",
   "hint": "Full dark, high up, rare. When the long groan comes and the crab isn't moving — look up."
  },
  "item_canned_food": {
   "cat": "item",
   "title": "Canned Food",
-  "body": "Meridian mess-hall stock. Dented, unlabeled, edible.",
+  "body": "Meridian mess stock. Dented, no label. Fine.",
   "hint": "Eat from the hotbar (1–4). Restores a good meal's worth of hunger."
  },
  "item_canned_peaches": {
   "cat": "item",
   "title": "Canned Peaches",
-  "body": "Someone was hoarding these. I understand completely.",
+  "body": "Somebody was hoarding these behind the flour. I'd have done the same.",
   "hint": "Eat from the hotbar. Lighter than a full can of stew."
  },
  "item_water_ration": {
   "cat": "item",
   "title": "Water Ration",
-  "body": "SPHL survival stock, foil pouch, tastes like the bag.",
+  "body": "SPHL survival stock. Foil pouch. Tastes of the bag.",
   "hint": "Barely food. Better than nothing."
  },
  "item_sealed_tin": {
   "cat": "item",
   "title": "Sealed Tin",
-  "body": "Fished out of the gyre still watertight. The sea kept it cold.",
+  "body": "Came out of the gyre still watertight. Cold all the way through.",
   "hint": "Eat from the hotbar. The gyre keeps bringing them — keep the hook handy."
  },
  "item_kelp_bundle": {
   "cat": "item",
   "title": "Kelp Bundle",
-  "body": "Bloom-touched kelp, faintly glowing. The old crew's notes say it's safe. The old crew is gone. It IS safe — probably.",
+  "body": "Bloom-touched kelp, faint glow to it. The old crew's notes say it's safe to eat, and the old crew isn't here to ask. I've had it three times now with no trouble.",
   "hint": "Edible, small — or bench it: 2× kelp + scrap → bloom lamp. Light the crab honors."
  },
  "item_cable_spool": {
   "cat": "item",
   "title": "Cable Spool",
-  "body": "Marine-grade cable, enough to splice a burned run.",
+  "body": "Marine-grade, enough on the drum to splice a burned run.",
   "hint": "Take it to the burned cable gap in Breaker Room 4-A, then throw the breaker."
  },
  "item_prybar": {
   "cat": "item",
   "title": "Prybar",
-  "body": "Bent iron, honest tool. The pump room gave it up without a fight.",
+  "body": "Bent iron. The pump room gave it up without much of a fight.",
   "hint": "Craftable: lash it to a rope coil at the rigging bench → throwing hook."
  },
  "item_rope": {
   "cat": "item",
   "title": "Rope Coil",
-  "body": "Salt-stiff but sound. The riggers trusted their lives to this stuff.",
+  "body": "Salt-stiff but sound. Riggers put their weight on this stuff.",
   "hint": "Craftable: rope + prybar at the wet-deck rigging bench → throwing hook."
  },
  "item_throwing_hook": {
   "cat": "item",
   "title": "Throwing Hook",
-  "body": "A heaving line with teeth. The gyre holds what the sea took; this takes it back.",
+  "body": "A heaving line with teeth on the end. The gyre collects what the sea takes and this is how I get it back.",
   "hint": "Press F to throw. It combs the surface on the way back — aim past what you want."
  },
  "item_flare": {
   "cat": "item",
   "title": "Flare",
-  "body": "Emergency flare, dry. One loud red argument against the dark.",
+  "body": "Emergency flare, still dry.",
   "hint": "No striker yet. There'll be a use for this. (v0.2)"
  },
  "item_life_ring": {
   "cat": "item",
   "title": "Life Ring",
-  "body": "Cork and canvas, 'RIG 4 — SLIPWAY' stenciled almost gone.",
+  "body": "Cork and canvas. RIG 4 SLIPWAY stencilled on it, most of it worn off.",
   "hint": "If something goes in the water that shouldn't… this is the answer. (v0.2)"
  },
  "item_driftwood": {
   "cat": "item",
   "title": "Driftwood Plank",
-  "body": "Ship-cut lumber, sea-worn smooth. Not from this rig. From somewhere down the line.",
+  "body": "Ship-cut lumber gone smooth. Not off this rig. Came from somewhere further down the line.",
   "hint": "Bench recipes: 2× driftwood → walkway · with tarp → lean-to · with scrap → barricade."
  },
  "item_scrap_metal": {
   "cat": "item",
   "title": "Scrap Metal",
-  "body": "Plate fragments, still painted on one side. The paint matches this rig's rails.",
+  "body": "Plate fragments, paint still on one side. Same grey as our rails.",
   "hint": "Bench recipes: with 2× kelp → bloom lamp · 2× scrap + driftwood → barricade."
  },
  "item_tarp": {
   "cat": "item",
   "title": "Canvas Tarp",
-  "body": "Heavy weather canvas, whole and hemmed. A small roof, folded.",
+  "body": "Heavy weather canvas, whole, hems intact. Folds down to nothing.",
   "hint": "Bench recipe: tarp + 2× driftwood → lean-to. A pocket of warmth anywhere."
  },
  "place_sphl": {
   "cat": "place",
   "title": "The SPHL",
-  "body": "Six days sealed in an orange pressure pod while the machine gave my blood back to the surface. It kept me alive and never said a word. The hatch is open now. It stays my bed.",
+  "body": "Six days sealed in an orange pressure pod while the machine gave my blood back to the surface. It kept me alive without a word of comment. Hatch is open now. I still sleep in it.",
   "hint": "If the night goes wrong, I wake up here. It counts as 'going wrong'."
  },
  "place_gyre": {
   "cat": "place",
   "title": "The Gyre",
-  "body": "The current south of the rig turns in a slow circle, and everything the sea carries ends up turning with it — wood, rope, tins, kelp. At night the Bloom gathers under the eye like it's reading the same current.",
+  "body": "The current south of the rig turns in a slow circle and everything the sea is carrying ends up turning with it. Wood, rope, tins, kelp. At night the Bloom gathers under the eye of it.",
   "hint": "Everything spirals to the middle. A thrown hook crosses the whole eye on the reel-in."
  },
  "place_rigging_bench": {
   "cat": "place",
   "title": "The Rigging Bench",
-  "body": "A work-worn bench on the wet deck. Lay parts on its surface and they tell you what they want to become — then you hold the work and hammer it real.",
+  "body": "A work-worn bench on the wet deck. Lay parts out on it and it shows you what they'll make. Then you do the hammering yourself.",
   "hint": "Known so far: throwing hook, bloom lamp, lean-to, walkway, barricade. New parts may know new shapes."
  },
  "place_fire_barrel": {
   "cat": "place",
   "title": "The Fire Barrel",
-  "body": "A drum of coals on the wet deck that someone kept burning. I keep it burning now. Warmth that doesn't need the grid.",
+  "body": "A drum of coals somebody kept going on the wet deck. I keep it going now. It doesn't need the grid.",
   "hint": "Stand close to drive the cold out — the sea soaks into your bones down here."
  },
  "place_power": {
   "cat": "place",
   "title": "The Grid",
-  "body": "Spliced the burned run, threw Master 4-A, and the floodlights came up with a hum that felt like the rig taking a breath. Light is safety I make.",
+  "body": "Spliced the burned run, threw Master 4-A, and the floodlights came up with a hum. First proper light on this rig since the Flash.",
   "hint": "The circuit holds the topside floodlights. What walks at night won't cross their wash."
  },
  "item_bloom_lamp_kit": {
   "cat": "item",
   "title": "Bloom Lamp (kit)",
-  "body": "Kelp sealed in a scrap housing, ready to raise. Cold teal light that needs no breaker, no cable, no grid. Light is safety I make — this is that, portable.",
+  "body": "Kelp sealed in a scrap housing, ready to raise. Cold teal light, no breaker and no cable behind it.",
   "hint": "Press B to build. Place them along the paths you'll need after dark. The crab honors their light."
  },
  "item_leanto_kit": {
@@ -189,145 +189,139 @@
  "item_walkway_kit": {
   "cat": "item",
   "title": "Plank Walkway (kit)",
-  "body": "A lashed plank section. The rig ends where its decks end — unless I say otherwise.",
+  "body": "A lashed plank section. Puts deck where the rig hasn't got any.",
   "hint": "Press B to build. Bridges gaps, extends decks, makes paths."
  },
  "item_barricade_kit": {
   "cat": "item",
   "title": "Barricade (kit)",
-  "body": "Scrap plate on a wood brace. Waist-high and stubborn.",
+  "body": "Scrap plate on a wood brace. Waist-high and heavy enough.",
   "hint": "Press B to build. Cover, wind-break, or just a wall where I want a wall."
  },
  "place_building": {
   "cat": "place",
   "title": "Building",
-  "body": "I raised something on this rig with my own hands. It wasn't here yesterday; it's here now. The rig doesn't mind. I think the rig has been waiting for someone to keep making things.",
+  "body": "Raised something on this rig with my own hands. Wasn't here yesterday. The rig doesn't seem to mind.",
   "hint": "Craft kits at the bench → B for build mode → LMB places, R rotates, Tab cycles kits."
  },
  "creature_seal": {
   "cat": "creature",
   "title": "Harbor Seal",
-  "body": "One hauled out on the wet deck this morning and watched me the whole time I worked. No fear in it at all — the Bloom took that from all of them. When I looked back, it looked back. Twelve years ago they'd have bolted. Now I think it was deciding about me.",
+  "body": "One hauled out on the wet deck this morning and watched me the whole time I worked. No fear in it at all. Twelve years ago it would have gone straight back in. This one just looked, and kept looking.",
   "hint": "They herd fish toward a still net. Earn one's trust and you never fish alone."
  },
  "creature_lamp_snail": {
   "cat": "creature",
   "title": "Lamp Snails",
-  "body": "Lean over the rail on a dark night and the legs are wearing lamps — shells the size of a wheelbarrow with cold light running through them in veins, the way light runs through alabaster held up to a window. They drift slow circles at the waterline and the whole rig stands in that glow after sundown.",
+  "body": "Lean over the rail on a dark night and the legs are wearing lamps. Shells the size of a wheelbarrow with cold light running through them in veins. They go round the waterline at a crawl and the whole platform stands in that glow after sundown.",
   "hint": "On an outgoing tide some strand on the leg bracing. A gentle harvest takes the glow-mucus and leaves the animal."
- },
- "creature_corvid_gull": {
-  "cat": "creature",
-  "title": "Corvid-Gull",
-  "body": "This one didn't wheel off with the others. It sat the rail and tipped its head, tracking me with one bright eye — measuring. They steal anything loose and bright, and they remember faces. I get the feeling the trade could go both ways, if I'm patient.",
-  "hint": "Leave something shiny where one perches. Their taste is inscrutable, but they pay."
  },
  "fish_herring": {
   "cat": "creature",
   "title": "Lantern Herring",
-  "body": "The shoal glows. You can net them at night by their own light — the sea's little mercy.",
+  "body": "The shoal glows. You can net them at night by their own light, which feels like cheating and isn't.",
   "hint": "Bites: dawn/day/dusk/night · takes: rod+net · sears to Seared Fish"
  },
  "fish_slate_cod": {
   "cat": "creature",
   "title": "Slate Cod",
-  "body": "Heavy, slow, scales like roofing slate. It fought like a wet sandbag and I was still glad of it.",
+  "body": "Heavy, slow, scales like roofing slate. Fought like a wet sandbag. Still glad of it.",
   "hint": "Bites: day · storms help · takes: rod+net · sears to Seared Fish"
  },
  "fish_mirrorjack": {
   "cat": "creature",
   "title": "Mirrorjack",
-  "body": "Chrome flanks — it threw the dawn light back at me so hard I nearly lost the rod.",
+  "body": "Chrome flanks. It threw the dawn back at me hard enough that I nearly lost the rod over the rail.",
   "hint": "Bites: dawn/dusk · open water — cast far · takes: rod · sears to Seared Fish"
  },
  "fish_chimefish": {
   "cat": "creature",
   "title": "Chimefish",
-  "body": "It rang against the rail when I lifted it clear. Rang. Like a struck glass.",
+  "body": "It rang against the rail when I lifted it clear. Rang, like a struck glass. I've no explanation.",
   "hint": "Bites: dawn/day/dusk/night · calm seas only · takes: rod+net · sears to Seared Fish"
  },
  "fish_sable_hake": {
   "cat": "creature",
   "title": "Sable Hake",
-  "body": "They rise to worklight after dark like moths with fins. The floodlit rail is a fishing spot now.",
+  "body": "They come up to worklight after dark. The floodlit rail is a fishing spot now.",
   "hint": "Bites: night · close to the rig · drawn to worklight · takes: rod+net · sears to Seared Fish"
  },
  "fish_barrel_grouper": {
   "cat": "creature",
   "title": "Goliath Grouper",
-  "body": "Bloom-big. It feeds a week. My arms will remember this one.",
+  "body": "Bloom-big. Feeds a week and my arms will remember it for longer.",
   "hint": "Bites: dawn/day/dusk/night · storms help · open water — cast far · takes: rod · sears to Prime Fillet"
  },
  "fish_ribbon_eel": {
   "cat": "creature",
   "title": "Ribbon Eel",
-  "body": "It came up crackling with faint charge, taste of a storm in the line. The Bloom keeps strange batteries.",
+  "body": "Came up crackling with a faint charge and the line tasted of storm. Handle it with gloves.",
   "hint": "Bites: night · open water — cast far · takes: rod · sears to Prime Fillet"
  },
  "fish_the_looker": {
   "cat": "creature",
   "title": "The Looker",
-  "body": "I had it at the rail. It looked back at me — considered me — and I opened my hands before I decided to. Some things you release.",
+  "body": "Had it at the rail. It looked back at me, and I had my hands open before I'd decided anything.",
   "hint": "Ultra-rare. It is never kept. It was never going to be kept."
  },
  "system_fishing": {
   "cat": "system",
   "title": "Fishing",
-  "body": "The rod from the storeroom works. Cast to open water, watch the float, strike when it dips — then it's a conversation: reel when the line slacks, rest when it screams.",
+  "body": "The rod out of the storeroom works. Cast to open water, watch the float, strike when it dips. After that it's give and take: reel when the line slacks, rest when it screams.",
   "hint": "Hold LMB to reel, ease off before the tension bar tops out."
  },
  "system_drop_net": {
   "cat": "system",
   "title": "The Drop Net",
-  "body": "Rope and driftwood and patience. Lower it, walk away, come back to breakfast. The rig fishes for me now.",
+  "body": "Rope and driftwood. Lower it, go and do something else, come back to breakfast.",
   "hint": "Soaks best through dusk and dark."
  },
  "system_stove": {
   "cat": "system",
   "title": "The Galley Stove",
-  "body": "The old range still holds pressure in its bottle. Seared fish, hot pan, the galley smelling alive for the first time since the Flash.",
+  "body": "The old range still holds pressure in its bottle. Seared fish, hot pan. The galley smelled like a galley again.",
   "hint": "COOK at the stove turns raw catch into a real meal."
  },
  "item_fishing_rod": {
   "cat": "item",
   "title": "Fishing Rod",
-  "body": "A rigger's rod from the storeroom, cork grip worn to the shape of somebody's hands. The sea is a pantry now — this is the key.",
+  "body": "A rigger's rod out of the storeroom, cork grip worn to the shape of someone else's hands.",
   "hint": "Select it on the hotbar; LMB casts to open water."
  },
  "item_drop_net_kit": {
   "cat": "item",
   "title": "Drop Net",
-  "body": "Rope, driftwood, patience. The rig can fish while I sleep.",
+  "body": "Rope and driftwood. The rig can fish while I sleep.",
   "hint": "Place it at a deck edge — it needs open water below."
  },
  "item_cooked_fish": {
   "cat": "item",
   "title": "Seared Fish",
-  "body": "Hot pan, honest meat. The galley smells alive again.",
+  "body": "Hot pan, honest meat.",
   "hint": "Eat from the hotbar. Beats canned everything."
  },
  "item_cooked_fish_prime": {
   "cat": "item",
   "title": "Prime Fillet",
-  "body": "The big deep ones render down rich. A real meal, the kind you sit down for.",
+  "body": "The big deep ones render down rich. A proper meal, the sort you sit down for.",
   "hint": "The grouper and the eel sear into this."
  },
  "item_fish_herring": {
   "cat": "item",
   "title": "Lantern Herring (raw)",
-  "body": "It glows faintly even out of the water.",
+  "body": "Glows faintly even out of the water.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "item_fish_slate_cod": {
   "cat": "item",
   "title": "Slate Cod (raw)",
-  "body": "Heavy as its name. Scales like roof slate.",
+  "body": "Heavy as the name. Scales like roof slate.",
   "hint": "Sear it before eating."
  },
  "item_fish_mirrorjack": {
   "cat": "item",
   "title": "Mirrorjack (raw)",
-  "body": "Chrome-flanked and fast. Dawn water made solid.",
+  "body": "Chrome-flanked and quick.",
   "hint": "Sear it before eating."
  },
  "item_fish_chimefish": {
@@ -339,7 +333,7 @@
  "item_fish_sable_hake": {
   "cat": "item",
   "title": "Sable Hake (raw)",
-  "body": "Riser to worklight. The floodlit rail fishes best after dark.",
+  "body": "Comes up to worklight. The floodlit rail fishes best after dark.",
   "hint": "Sear it before eating."
  },
  "item_fish_barrel_grouper": {
@@ -351,295 +345,295 @@
  "item_fish_ribbon_eel": {
   "cat": "item",
   "title": "Ribbon Eel (raw)",
-  "body": "Still faintly crackling. Handle with respect.",
+  "body": "Still faintly crackling. Gloves.",
   "hint": "Sears into a Prime Fillet."
  },
  "fish_copper_sprat": {
   "cat": "creature",
   "title": "Copper Sprat",
-  "body": "Bait-tier shoals that trail anything moving. The sea's small change.",
+  "body": "Bait-tier shoals that trail anything moving. Not worth eating, worth keeping.",
   "hint": "Bites: dawn/day/dusk/night · takes: rod+net · sears to Seared Fish"
  },
  "item_fish_copper_sprat": {
   "cat": "item",
   "title": "Copper Sprat (raw)",
-  "body": "Bait-tier shoals that trail anything moving. The sea's small change.",
+  "body": "Bait-tier shoals that trail anything moving. Not worth eating, worth keeping.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_silver_ladder": {
   "cat": "creature",
   "title": "Silver Ladder",
-  "body": "Dawn columns over open water — the shoal stacks vertical, a shimmering pillar.",
+  "body": "Dawn columns over open water. The shoal stacks vertical, a shimmering pillar of them.",
   "hint": "Bites: dawn · open water — cast far · takes: rod · sears to Seared Fish"
  },
  "item_fish_silver_ladder": {
   "cat": "item",
   "title": "Silver Ladder (raw)",
-  "body": "Dawn columns over open water — the shoal stacks vertical, a shimmering pillar.",
+  "body": "Dawn columns over open water. The shoal stacks vertical, a shimmering pillar of them.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_ember_snapper": {
   "cat": "creature",
   "title": "Ember Snapper",
-  "body": "Warm-bodied — crowds the rig's outfalls and warm steel. Fish the shadow of the deck.",
+  "body": "Warm-bodied. Crowds the outfalls and any steel the rig has been heating. Fish the deck shadow.",
   "hint": "Bites: day/dusk · close to the rig · takes: rod+net · sears to Seared Fish"
  },
  "item_fish_ember_snapper": {
   "cat": "item",
   "title": "Ember Snapper (raw)",
-  "body": "Warm-bodied — crowds the rig's outfalls and warm steel. Fish the shadow of the deck.",
+  "body": "Warm-bodied. Crowds the outfalls and any steel the rig has been heating. Fish the deck shadow.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_ghost_sole": {
   "cat": "creature",
   "title": "Ghost Sole",
-  "body": "Near-invisible by day. Night water near a glow is where it shows itself.",
+  "body": "Near-invisible in daylight. Night water near a glow is where it shows up.",
   "hint": "Bites: night · close to the rig · drawn to worklight · takes: rod+net · sears to Seared Fish"
  },
  "item_fish_ghost_sole": {
   "cat": "item",
   "title": "Ghost Sole (raw)",
-  "body": "Near-invisible by day. Night water near a glow is where it shows itself.",
+  "body": "Near-invisible in daylight. Night water near a glow is where it shows up.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_glasspike": {
   "cat": "creature",
   "title": "Glasspike",
-  "body": "Clear still nights, open water — a pike you see through, found by the grit in its gut.",
+  "body": "Clear still nights, open water. A pike you can see through. You find it by the grit in its gut.",
   "hint": "Bites: night · calm seas only · open water — cast far · takes: rod · sears to Seared Fish"
  },
  "item_fish_glasspike": {
   "cat": "item",
   "title": "Glasspike (raw)",
-  "body": "Clear still nights, open water — a pike you see through, found by the grit in its gut.",
+  "body": "Clear still nights, open water. A pike you can see through. You find it by the grit in its gut.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_lodestone_bream": {
   "cat": "creature",
   "title": "Lodestone Bream",
-  "body": "Deep daylight water. Its magnetized bones spin a compass — catch enough, craft crude magnets, someday.",
+  "body": "Deep daylight water. Its bones are magnetised and spin a compass needle right round.",
   "hint": "Bites: day · open water — cast far · takes: rod · sears to Seared Fish"
  },
  "item_fish_lodestone_bream": {
   "cat": "item",
   "title": "Lodestone Bream (raw)",
-  "body": "Deep daylight water. Its magnetized bones spin a compass — catch enough, craft crude magnets, someday.",
+  "body": "Deep daylight water. Its bones are magnetised and spin a compass needle right round.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_drum_croaker": {
   "cat": "creature",
   "title": "Drum Croaker",
-  "body": "Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes — then they bite like they mean it.",
+  "body": "Storm fish. You hear the chorus drumming through the hull as the rain comes in, and then they bite hard.",
   "hint": "Bites: dawn/day/dusk/night · storms ONLY · takes: rod+net · sears to Seared Fish"
  },
  "item_fish_drum_croaker": {
   "cat": "item",
   "title": "Drum Croaker (raw)",
-  "body": "Storm fish, full stop. You hear the chorus drumming through the hull as the rain comes — then they bite like they mean it.",
+  "body": "Storm fish. You hear the chorus drumming through the hull as the rain comes in, and then they bite hard.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_inkwell_squid": {
   "cat": "creature",
   "title": "Inkwell Squid",
-  "body": "Night jigging. Comes up backwards in a huff of luminous ink — the ink's worth keeping too, someday.",
+  "body": "Night jigging. Comes up backwards in a huff of luminous ink.",
   "hint": "Bites: night · drawn to worklight · takes: rod+net · sears to Seared Fish"
  },
  "item_fish_inkwell_squid": {
   "cat": "item",
   "title": "Inkwell Squid (raw)",
-  "body": "Night jigging. Comes up backwards in a huff of luminous ink — the ink's worth keeping too, someday.",
+  "body": "Night jigging. Comes up backwards in a huff of luminous ink.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_stone_crab": {
   "cat": "creature",
   "title": "Stone Crab",
-  "body": "Walks into a soaked net, never onto a hook. Shell's ceramic-hard — keep the pieces, someday.",
+  "body": "Walks into a soaked net and never onto a hook. Shell's ceramic-hard.",
   "hint": "Bites: dusk/night · takes: net · sears to Seared Fish"
  },
  "item_fish_stone_crab": {
   "cat": "item",
   "title": "Stone Crab (raw)",
-  "body": "Walks into a soaked net, never onto a hook. Shell's ceramic-hard — keep the pieces, someday.",
+  "body": "Walks into a soaked net and never onto a hook. Shell's ceramic-hard.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_gutter_prawn": {
   "cat": "creature",
   "title": "Gutter Prawn",
-  "body": "Net filler. A soak rarely comes up without a few — the pens will want them, someday.",
+  "body": "Net filler. A soak rarely comes up without a few in it.",
   "hint": "Bites: dawn/day/dusk/night · takes: net · sears to Seared Fish"
  },
  "item_fish_gutter_prawn": {
   "cat": "item",
   "title": "Gutter Prawn (raw)",
-  "body": "Net filler. A soak rarely comes up without a few — the pens will want them, someday.",
+  "body": "Net filler. A soak rarely comes up without a few in it.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_miller_flounder": {
   "cat": "creature",
   "title": "Miller's Flounder",
-  "body": "Deck-plate camouflage, bottom habits. Nets working close to the legs find them by day.",
+  "body": "Deck-plate camouflage and bottom habits. Nets working close to the legs find them in daylight.",
   "hint": "Bites: day · close to the rig · takes: net · sears to Seared Fish"
  },
  "item_fish_miller_flounder": {
   "cat": "item",
   "title": "Miller's Flounder (raw)",
-  "body": "Deck-plate camouflage, bottom habits. Nets working close to the legs find them by day.",
+  "body": "Deck-plate camouflage and bottom habits. Nets working close to the legs find them in daylight.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "fish_fathom_halibut": {
   "cat": "creature",
   "title": "Fathom Halibut",
-  "body": "Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Feeds a week.",
+  "body": "Door-sized. Only a night-soaked net brings one up and the winch complains about it. Feeds a week.",
   "hint": "Bites: night · takes: net · sears to Prime Fillet"
  },
  "item_fish_fathom_halibut": {
   "cat": "item",
   "title": "Fathom Halibut (raw)",
-  "body": "Door-sized. Only a night-soaked net brings one up, and the winch knows about it. Feeds a week.",
+  "body": "Door-sized. Only a night-soaked net brings one up and the winch complains about it. Feeds a week.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "creature_hammerhead": {
   "cat": "creature",
   "title": "Ultra Hammerhead",
-  "body": "It came off its patrol line the moment I went under — a hammer the width of a doorway swinging through the murk to look at me with both ends of its face. Sometimes it circles. Sometimes it doesn't. I don't get a vote.",
+  "body": "It came off its patrol line the moment I went under. A hammer the width of a doorway swinging through the murk to look at me with both ends of its face. Sometimes it circles. Sometimes it carries on. I don't get a say in which.",
   "hint": "They patrol below the swell and mostly attack swimmers who come close. The deck is yours; the water is theirs."
  },
  "system_preserving": {
   "cat": "system",
   "title": "Keeping the Catch",
-  "body": "Raw fish turns in about four hours on the line. The fridge holds it forever. Cooked fish hung up cures into dried fish that keeps — the rig's larder, strung in the wind.",
+  "body": "Raw fish turns in about four hours on the line. The fridge holds it indefinitely. Cooked fish hung up cures into dried, and dried keeps.",
   "hint": "HANG fish on a marked line, or STOW it in the galley fridge. Cooked + 4 hours hung = dried, keeps forever."
  },
  "item_dried_fish": {
   "cat": "item",
   "title": "Dried Fish",
-  "body": "Wind-cured on the line. Keeps forever, eats like a hot meal's memory.",
+  "body": "Wind-cured on the line. Keeps indefinitely and eats like the memory of a hot meal.",
   "hint": "Same nourishment as seared."
  },
  "item_fish_rotten": {
   "cat": "item",
   "title": "Rotten Fish",
-  "body": "Left too long on the line. The gulls won't even argue over it.",
+  "body": "Left too long on the line. Even the gulls have passed on it.",
   "hint": "Eating this is a mistake you make once."
  },
  "codex_what_osk_chose": {
   "cat": "place",
   "title": "What Osk Chose",
-  "body": "Four scraps in four corners of the rig, one man's mind coming apart toward the light instead of the dark. Osk saw it first, on the derrick, the night the water learned his name. He didn't muster. He didn't take a boat. He walked down the line toward the Quiet Rig, toward the thing the company was hiding, because he decided it was worth seeing more than it was worth surviving. I keep his notes in a row now. On the bad nights I'm not sure he was wrong.",
+  "body": "Four scraps in four corners of the rig, one man coming apart toward the light instead of away from it. Osk saw it first, on the derrick, the night the water learned his name. He didn't muster and he didn't take a boat. He walked down the line toward the Quiet Rig, toward whatever the company was keeping down there, because he'd decided seeing it was worth more than getting off. I keep his notes in a row now. Some nights I'm not sure he had it wrong.",
   "hint": "He kept the lamps lit. So do I. It's the only prayer left that works."
  },
  "codex_down_the_line": {
   "cat": "place",
   "title": "Down the Line",
-  "body": "Food. Cable. Spool stock. Whole pallets, going out on the supply boat, offloaded at night with nobody on deck, all of it flowing toward the platform at the end of the chain — the one they wouldn't name, the one they let the bridges rot toward. A \"processing terminus.\" Nine hundred miles from anywhere, and Meridian was pouring the line's whole throat into its far end. Processing what. I think the honest answer is: they were feeding it. And I think it ate.",
+  "body": "Food, cable, spool stock. Whole pallets going out on the supply boat, offloaded at night with nobody on deck, all of it moving toward the platform at the end of the chain. The one they wouldn't name. The one they let the bridges rot toward. Filed as a processing terminus. Nine hundred miles from anywhere and Meridian was pouring the whole throat of the line into its far end. Processing what, is the question I keep coming back to. I think they were feeding it.",
   "hint": "The Quiet Rig is seven bridges east. The bridges are gone. Good."
  },
  "codex_the_flash": {
   "cat": "place",
   "title": "The Flash",
-  "body": "Every gauge on the drill deck read zero at the same second. The sea lit up under leg four. The toolpusher shut the well in and nobody argued — nobody ever doesn't argue. Then the radios: the water is AWAKE, no code for it, going dark. Whatever the company was growing down the line, it finished growing all at once, and the light came up out of the whole ocean like a held breath let go. They called it the Flash because \"the morning the sea opened its eyes\" won't fit in a log.",
+  "body": "Every gauge on the drill deck read zero in the same second. The sea lit up under leg four. The toolpusher shut the well in and nobody argued, and on this rig somebody always argues. Then the radios: the water is awake, no code for it, going dark. Whatever the company had been growing down the line finished growing all at once and the light came up out of the whole ocean. They called it the Flash because the other way of putting it won't fit in a log.",
   "hint": "It didn't end the world. It woke it. Not the same thing."
  },
  "codex_the_count": {
   "cat": "creature",
   "title": "The Count",
-  "body": "Someone on this rig spent their last good nights up here with a chalk stub, counting the Mantle's crossings. Thirty-one, then a gap where the counting stopped mattering, then four more gouged deep like they were pressing a point into the steel. IT COMES BACK. I've seen it once now. It didn't circle, didn't look down. It was going somewhere on a schedule older than the company. I understand the impulse to keep the tally. It's the only calendar out here that means anything.",
+  "body": "Somebody spent their last good nights up here with a chalk stub counting the Mantle's crossings. Thirty-one, then a gap where the counting stopped mattering, then four more gouged in deep. IT COMES BACK, underneath. I've seen it once now. It didn't circle and it didn't look down. I understand keeping the tally. It's the only calendar out here that still means anything.",
   "hint": "Add your own marks. Something should still be counting."
  },
  "place_davits": {
   "cat": "place",
   "title": "The Empty Davits",
-  "body": "Two sets of falls, both run out, both empty. Lifeboat 2 got away. The stencil says it launched full. Somebody stood right here and made the count — forty aboard, one short — and lowered away anyway, because a boat that waits is a boat that drowns. I don't hold it against them. I'd have done the count the same. I'm the number that didn't fit.",
+  "body": "Two sets of falls, both run out, both empty. Lifeboat 2 got away. The stencil says it launched full. Somebody stood right here and made the count, forty aboard and one short, and lowered away regardless, because a boat that waits is a boat that drowns. I don't hold it against them. I'd have counted the same. I'm the one that didn't fit.",
   "hint": "The falls still work. If anything ever comes back for me, this is where it lands."
  },
  "place_derrick": {
   "cat": "place",
   "title": "The Derrick",
-  "body": "The drill string goes down through the floor and keeps going, past anything I want to think about. The toolpusher's last log said the quiet coming back up it wasn't the quiet of a good hole — it was the quiet of something listening. I stood on the floor at night and put my hand on the pipe. It was warm. Wells aren't warm. I took my hand back.",
+  "body": "The drill string goes down through the floor and keeps going past anything I want to think about. The toolpusher's last log says the quiet coming back up it wasn't the quiet of a good hole. I stood on the floor one night and put my hand on the pipe. It was warm. Wells aren't warm.",
   "hint": "Osk saw it first from the catwalk up here. Best and worst view on the rig."
  },
  "place_quiet_rig": {
   "cat": "place",
   "title": "Platform 7 — The Quiet Rig",
-  "body": "Seven bridges east, or where they used to be. The end of the line. Where the food went, where the cable went, where the company grew the light and called it a terminus and hoped nobody down the line would count the pallets. I'll never stand on it. The sea took the bridges and won't give a boat leave to go west. Maybe that's the sea keeping me from it. Maybe it's the sea keeping it from me. Either way — thank you.",
+  "body": "Seven bridges east, or where the bridges used to be. The end of the line. Where the food went and the cable went and the company grew the light and filed it as a terminus. I'll never stand on it. The sea took the bridges and won't give a boat leave to go that way. I've stopped deciding whether that's the sea keeping me off it or keeping it off me.",
   "hint": "Everything came from down the line. The Bloom most of all."
  },
  "creature_rust_snail": {
   "cat": "creature",
   "title": "Rust Snails",
-  "body": "Follow a bright scoured line in the corrosion far enough and there is an animal at the end of it. Shell the colour of what it eats — oxide orange, banded, flaking — and a warm amber light down in the whorls, the only heat on the whole platform. They rasp the steel. Slowly, patiently, they are taking the rig apart and wearing it.",
+  "body": "Follow a bright scoured line in the corrosion far enough and there's an animal at the end of it. Shell the colour of what it eats, oxide orange and banded and flaking, with a warm amber light down in the whorls. They rasp the steel. Slowly, they are taking this rig apart and wearing it.",
   "hint": "Where the handrail has gone thin and clean, one has been working. The shell plate is rich in iron if you can get it off."
  },
  "creature_glass_snail": {
   "cat": "creature",
   "title": "Glass Snails",
-  "body": "Under the wet-deck lip, on the plate that never sees sun, there is nothing to see but a slow teal spiral turning in the dark. The shell is glass — truly glass — and the light is its gut, working. Come closer and it does not shrink. It burns brighter and turns the lit coil toward you, which is the Bloom all over: curiosity where you expected fear.",
+  "body": "Under the wet-deck lip, on plate that never sees sun, there's a slow teal spiral turning in the dark. The shell is glass. Actual glass. The light is its gut working. Come closer and it doesn't shrink; it burns up brighter and turns the lit coil toward you.",
   "hint": "They brighten to a nearby lamp. Stand still and the whole underside of the deck lights up."
  },
  "creature_pyramid_snail": {
   "cat": "creature",
   "title": "Pyramid Snails",
-  "body": "A spire of black and white winding to a point, ringed with pale spikes on every step, riding a broad grey foot that ripples as it goes. It carries its eyes up on stalks and swings them round to hold you while it keeps walking. The other three gastropods never leave the water line. This one crosses the whole topside on its own business, changes its mind about which way is interesting, and goes that way instead.",
+  "body": "A spire of black and white winding to a point, ringed with pale spikes on every step, riding a broad grey foot that ripples as it goes. Eyes up on stalks, and it swings them round to hold you while it keeps walking. The other three never leave the water line. This one crosses the whole topside, changes its mind about what's interesting, and goes that way instead.",
   "hint": "It is going somewhere, not patrolling — wait where you are and it will come to you. Greens will stop it dead, and a fed pair will make a third."
  },
  "creature_anchor_limpet": {
   "cat": "creature",
   "title": "Anchor Limpets",
-  "body": "A riveted iron cap welded into the splash zone, ringed underneath with a thin band of light. Walk toward one and it feels you through the plate long before you arrive — the shell settles, the ring goes out, and what is left is indistinguishable from the rig. The storm cannot move them. Neither can you.",
+  "body": "A riveted iron cap set into the splash zone with a thin band of light underneath. Walk at one and it feels you through the plate long before you arrive. The shell settles, the ring goes out, and then it's just part of the rig. Storms don't move them.",
   "hint": "The light only returns if you stop moving. Patience is the whole trick with these."
  },
  "system_snail_breeding": {
   "cat": "system",
   "title": "Feeding the Snails",
-  "body": "Kelp does it. Any lamp, rust or glass snail takes a green offering and glows a shade brighter for it — and once, out on the SW pontoon, I fed two in the same evening and carried one over to sit beside the other. By morning there was a third light, small and pale, working the same patch. Nobody taught them that. They just do it, the way anything alive does it, given enough to eat and something else fed nearby.",
+  "body": "Kelp does it. Any lamp, rust or glass snail takes a green offering and burns a shade brighter after. Out on the SW pontoon I fed two in an evening and carried one over to sit by the other. By morning there was a third light working the same patch, small and pale. Nobody taught them that.",
   "hint": "FEED a crawling snail a green item. Two fed snails of the same kind, brought within a few metres of each other, breed — a permanent baby, no despawn, ever."
  },
  "creature_snail_baby": {
   "cat": "creature",
   "title": "A New Light",
-  "body": "Half the size of its parents and twice as restless, already crawling its own short patch of the leg base. The Bloom's little lights are multiplying because I fed them — not because anyone asked me to keep this rig alive, but I am, one fed snail at a time.",
+  "body": "Half the size of its parents and twice as restless, already crawling its own short patch of the leg base. There are more lights on this rig than there were, and it's because I fed them.",
   "hint": "Babies grow to full size over a couple of days. They never starve and they never vanish."
  },
  "item_snail_live": {
   "cat": "item",
   "title": "Live Snail",
-  "body": "Collected whole — shell, foot, and the last of its light, going out slowly in the dark of the pack. It was crawling a minute ago. I try not to think about which ones I've fed.",
+  "body": "Collected whole. Shell, foot, and the last of its light going out slowly in the dark of the pack. It was crawling a minute ago.",
   "hint": "Sears on the galley stove into escargot. Works on a baby the same as a grown one."
  },
  "item_escargot": {
   "cat": "item",
   "title": "Escargot",
-  "body": "Seared in its own shell, small and rich, the first genuinely good meal the rig has given me. It sits fine. I still think about the constellation being one light short tonight, and eat it anyway.",
+  "body": "Seared in its own shell. Small, rich, and the best thing I've eaten out here. The constellation on the leg is one light short tonight and I ate it anyway.",
   "hint": "Solid hunger, a little comfort besides — the pot is kinder to you than the tide ever was."
  },
  "fish_skipjack_tuna": {
   "cat": "creature",
   "title": "Skipjack Tuna",
-  "body": "The small one, and never alone — skipjack boil the surface in open water by day.",
+  "body": "The small one, and never alone. They boil the surface in open water by day.",
   "hint": "Takes: rod · open water · surface"
  },
  "fish_yellowfin_tuna": {
   "cat": "creature",
   "title": "Yellowfin Tuna",
-  "body": "Gold down the flank and sickle fins half its own length. Runs when it feels the hook.",
+  "body": "Gold down the flank, sickle fins half its own length. Runs the moment it feels the hook.",
   "hint": "Takes: rod · open water · mid"
  },
  "fish_albacore_tuna": {
   "cat": "creature",
   "title": "Albacore Tuna",
-  "body": "Pectorals like scythes, reaching most of the way down it. Cold water, long runs.",
+  "body": "Pectorals like scythes, reaching most of the way down it. Cold water and long runs.",
   "hint": "Takes: rod · open water · mid"
  },
  "fish_bigeye_tuna": {
   "cat": "creature",
   "title": "Bigeye Tuna",
-  "body": "That eye is for the dark water it hunts in. Comes up at dusk, goes down by morning.",
+  "body": "That eye is for the dark water it hunts in. Up at dusk, down again by morning.",
   "hint": "Takes: rod · open water · deep"
  },
  "fish_bluefin_tuna": {
   "cat": "creature",
   "title": "Bluefin Tuna",
-  "body": "The big one. A quarter tonne of muscle built like a torpedo — it will empty the spool.",
+  "body": "The big one. A quarter tonne built like a torpedo. It will empty the spool.",
   "hint": "Takes: rod · open water · deep"
  },
  "fish_bluelined_grouper": {
@@ -651,43 +645,43 @@
  "fish_peacock_grouper": {
   "cat": "creature",
   "title": "Peacock Grouper",
-  "body": "Covered in blue eyespots, every one ringed black. It watches the whole reef at once.",
+  "body": "Covered in blue eyespots, every one ringed black.",
   "hint": "Takes: rod · near water · mid"
  },
  "fish_humpback_grouper": {
   "cat": "creature",
   "title": "Humpback Grouper",
-  "body": "Small head on a steep white back, all over black spots. Odd, slow, unbothered.",
+  "body": "Small head on a steep white back, black spots all over. Odd-looking, slow, unbothered.",
   "hint": "Takes: rod · near water · mid"
  },
  "fish_leopard_grouper": {
   "cat": "creature",
   "title": "Leopard Coral Grouper",
-  "body": "Coral red, spotted electric blue, and faster off the mark than a fish that size has any right to be.",
+  "body": "Coral red with electric blue spots, and quicker off the mark than a fish that size should be.",
   "hint": "Takes: rod · near water · deep"
  },
  "fish_mahi_mahi": {
   "cat": "creature",
   "title": "Mahi-Mahi",
-  "body": "Green-gold and lit from inside, with a forehead like a blunt axe. Fast, and it jumps.",
+  "body": "Green-gold and lit from inside, forehead like a blunt axe. Fast, and it jumps.",
   "hint": "Takes: rod · open water · surface"
  },
  "fish_swallowtail": {
   "cat": "creature",
   "title": "Swallowtail Angelfish",
-  "body": "Two long tail filaments trailing behind it like a swallow. Barely worth eating; worth looking at.",
+  "body": "Two long filaments trailing off the tail. Barely worth eating. Worth looking at.",
   "hint": "Takes: rod · near water · mid"
  },
  "creature_ship_cat": {
   "cat": "creature",
   "title": "Ship's Cat",
-  "body": "Somebody's, once. It was washing a paw in the bunkhouse like the evacuation was a rumour. It has decided about me now, and it comes along.",
+  "body": "Somebody's, once. Found her washing a paw in the bunkhouse like the evacuation was a rumour she hadn't heard. She's decided about me now, and she comes along.",
   "hint": "Found in the bunkhouse · say hello once · follows you · settles when you rest · very interested in fish · hunts the deck gulls · stretches when it wakes · gets the zoomies"
  },
  "cat_gift": {
   "cat": "creature",
   "title": "The Cat Brings Something",
-  "body": "It went low and slow across the plating with its belly a hand's width off the deck, froze twice, wound itself up on its back feet, and missed. The next one it did not. It carried the feather all the way back with its head held clear of its own paws and put it down in front of me, and then sat and waited to see what I would do about it.",
+  "body": "She went low and slow across the plating with her belly a hand's width off the deck, froze twice, wound herself up on her back feet, and missed. Sat down and washed for a solid minute afterwards like she'd meant to. The next one she didn't miss. Carried the feather all the way back with her head held clear of her own paws, put it down in front of me, and waited to see what I'd do about it.",
   "hint": "Stalks deck gulls · misses more often than not · washes furiously when it does · brings you what it catches"
  }
 }

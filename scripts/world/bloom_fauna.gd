@@ -3050,7 +3050,7 @@ class DeckGull extends Node3D:
 		_flush_dir = away.normalized() if away.length() > 0.1 else Vector3(1, 0, 0)
 		ANIM.drive(_gen_mats, 3.2, 0.25, 0.07)   # wings open, full beat
 		AudioDirector.play_one_shot("wingbeat", global_position, -8.0)   # wings, not voice
-		Journal.discover("creature_corvid_gull")
+		Journal.discover("creature_gull")
 
 	## Grabbable only while grounded and within reach — sneak in before it bolts.
 	func _grab_verbs() -> Array:
@@ -3069,7 +3069,7 @@ class DeckGull extends Node3D:
 			if hud and hud.has_method("toast"):
 				hud.toast("No room for it — the gull thrashes free.")
 			return
-		Journal.discover("creature_corvid_gull")
+		Journal.discover("creature_gull")
 		AudioDirector.play_one_shot("wingbeat", global_position, -6.0)   # it thrashes, it doesn't sing
 		visible = false
 		_flushing = -1.0
@@ -4468,7 +4468,7 @@ class CorvidGull extends Node3D:
 				_begin_flee(player)
 				return
 		if player and player.global_position.distance_to(global_position) < 20.0:
-			Journal.discover_if_near(self, "creature_corvid_gull", 20.0)
+			Journal.discover_if_near(self, "creature_gull", 20.0)
 			var to_p: Vector3 = player.global_position - global_position
 			var flat := Vector3(to_p.x, 0, to_p.z)
 			if flat.length_squared() > 0.01:
@@ -4530,7 +4530,7 @@ class CorvidGull extends Node3D:
 			_carry = null
 		ANIM.drive(_gen_mats, 3.0, 0.2, 0.07)
 		AudioDirector.play_one_shot("wingbeat", global_position, -8.0)   # wings, not voice
-		Journal.discover("creature_corvid_gull")
+		Journal.discover("creature_gull")
 
 	## The heist loop: pick a loose topside takeable, swoop, carry it — in view,
 	## dangling — to the nest, and glide home like nothing happened.
