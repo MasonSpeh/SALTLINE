@@ -90,6 +90,19 @@ func _shoot(out: String) -> void:
 	cam.position = centre + Vector3(1.0, 0.16, 0.30).normalized() * span * 2.2
 	cam.look_at(centre, Vector3.UP)
 
+	# THE REAR VIEW of the sit — the in-game film caught the sit reading as a sprawl from
+	# exactly this angle while every 3/4 still looked fine. The angle that failed is now in
+	# the instrument.
+	rig.set_pose("sit", 100.0)
+	for i in range(6):
+		rig.tick(0.25, 0.0, 0.0)
+	cam.position = centre + Vector3(-1.0, 0.35, 0.15).normalized() * span * 2.2
+	cam.look_at(centre, Vector3.UP)
+	await RenderingServer.frame_post_draw
+	await RenderingServer.frame_post_draw
+	vp.get_texture().get_image().save_png("%s/pose_sit_rear.png" % out)
+	cam.position = centre + Vector3(1.0, 0.16, 0.30).normalized() * span * 2.2
+	cam.look_at(centre, Vector3.UP)
 	# Stills: force the blend to the target by ticking with a huge rate.
 	for pose_name in POSES:
 		if not rig.has_pose(pose_name):

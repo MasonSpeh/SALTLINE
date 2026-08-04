@@ -1375,3 +1375,45 @@ And the intermittent "cat paces beside the bed all night": _sleep_spot was
 re-picked EVERY FRAME and its winner depends on the cat's own position, so the
 target could flip between candidates for ever. The spot is chosen once and held
 while the player sleeps.
+
+### s37c — the horror had two accumulators, and the film found both
+
+The owner rejected the cat again — "walks sideways, then falls on its side" — and
+demanded a film. The film was the fix: every earlier instrument measured the NODE
+or placed its camera from the cat's own basis, both of which structurally hide a
+drawn-orientation error. A world-fixed-bearing tracking camera plus per-frame
+telemetry (pose, drawn pitch, up_y, node vs drawn head bearing) turned the
+complaint into numbers in one run:
+
+* up_y = 1.00 always — there was never any roll;
+* a CONSTANT +23..37° nose-up pitch in every pose including plain walking;
+* `_body.rotation.y` measured at 75° — the drawn body yawed sideways off its
+  node. That is "walks sideways", literally.
+
+Two accumulation bugs, both of the same species:
+
+1. `cat_rig._mul` — the "additive" gait/breath/look layer — multiplied into the
+   PERSISTENT blend state `_cur_q`, so every per-frame offset accumulated until
+   equilibrium against the slerp: Hip 31.5°, Spine01 29.8° from rest while
+   "walking". The comment on that function claimed additives could not
+   accumulate. Additives now compose into a per-frame `_out` and are never
+   stored.
+2. `_pose_sit`'s tail-flick did `_body.rotation.y += sin(t)·0.06` PER TICK with
+   no delta term — equilibrium against the 6/s ease ≈ ±35°, measured 75°.
+   Assignment now, like the other wiggles.
+
+After: body yaw residue 3°, spine residue 0.7°, walking pitch level, and the
+film shows an upright cat walking head-first down the corridor.
+
+Also fixed on the way, each found by the film failing to show a cat at all:
+* hand-driven skeletons need a hand-set cull box (`custom_aabb` at attach) — the
+  auto skinned bounds go stale and the animal vanishes from clear line of sight;
+* rays and probes STARTING inside CSG report nothing, so two camera placements
+  "probed clear" through furniture (the documented trap, hit by the instrument
+  built to avoid it);
+* the sit pose buried its head (authored to counter the body pitch — from
+  behind it read as a sprawl); head now stands above the shoulders.
+
+Owner verdict on the latest film: the walk is BETTER, still choppy — remaining
+polish is scoped in docs/SESSION_BRIEF_s38.md as its own focused session, with
+the flaw list, the instruments, and the facts that must not be re-learned.

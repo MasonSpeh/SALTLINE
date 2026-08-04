@@ -332,6 +332,18 @@ static func attach_rigged(host: Node3D, path: String, target_m: float) -> Dictio
 	for n in model.find_children("*", "Skeleton3D", true, false):
 		skel = n
 		break
+	# A HAND-DRIVEN SKELETON NEEDS A HAND-SET CULL BOX. When every bone is posed by script,
+	# the render server's computed bounds for the skinned instance are not trustworthy —
+	# s37 shipped a cat whose mesh followed its node perfectly (verified by AABB centre
+	# logging) and still VANISHED from clear line of sight at some camera angles, popping
+	# back at others: culled against a stale/garbage skinned AABB. The owner saw it as a
+	# glitching, sideways, appearing-and-disappearing animal. A generous custom_aabb in
+	# mesh space ends the class of bug: the box is ours, it covers every pose the blender
+	# can produce, and the cull test becomes deterministic.
+	for n in model.find_children("*", "MeshInstance3D", true, false):
+		var mi := n as MeshInstance3D
+		var base: AABB = mi.get_aabb()
+		mi.custom_aabb = base.grow(maxf(base.get_longest_axis_size(), 0.5))
 	var fac := facing_for(path)
 	model.rotation = Vector3(deg_to_rad(fac["pitch"]), deg_to_rad(fac["yaw"]), 0.0)
 	return {"model": model, "skeleton": skel, "anim": ap}

@@ -202,11 +202,16 @@ func tick(dt: float, speed: float, moved: float) -> void:
 		return
 	var k: float = 1.0 - exp(-_blend_rate * dt)
 	var pose: Dictionary = _poses.get(_target, _poses["stand"])
-	# 1. Blend every bone toward the target pose.
+	# 1. Blend every bone toward the target pose — this dict is the ONLY persistent state,
+	# and only pose targets ever land in it.
 	for i in _cur_q:
 		var want: Quaternion = pose["q"].get(i, _rest[i])
 		_cur_q[i] = (_cur_q[i] as Quaternion).slerp(want, k)
 	_cur_hip = _cur_hip.lerp(pose["hip_t"], k)
+	# The frame's write starts as the blended pose; everything after this multiplies into
+	# the frame, not into the state.
+	_out.clear()
+	_out_hip = _cur_hip
 	# 2. Gait weight and smoothed speed. The weight fades IN with motion and OUT at rest,
 	# so stopping mid-stride eases the legs home instead of snapping them.
 	var moving: float = clampf(speed / 0.4, 0.0, 1.0) * clampf(moved / maxf(dt * 0.05, 1e-6), 0.0, 1.0)
@@ -264,13 +269,13 @@ func tick(dt: float, speed: float, moved: float) -> void:
 			_mul(_spine2, Quaternion(SWING, ext * 0.16 * gal))
 			_mul(_hip, Quaternion(SWING, -ext * 0.22 * gal))
 			_mul(_neck, Quaternion(SWING, -ext * 0.10 * gal))
-			_cur_hip += Vector3(0, absf(cos(body_ph)) * 0.030 * gal, 0)
+			_out_hip += Vector3(0, absf(cos(body_ph)) * 0.030 * gal, 0)
 		var sway: float = sin(body_ph)
 		var walk_w: float = (1.0 - mix) * _gait_w
 		if walk_w > 0.01:
 			_mul(_spine, Quaternion(Vector3(0, 1, 0), sway * 0.06 * walk_w))
 			_mul(_spine2, Quaternion(Vector3(0, 1, 0), -sway * 0.045 * walk_w))
-			_cur_hip += Vector3(0, absf(sin(body_ph * 2.0)) * 0.010 * walk_w, 0)
+			_out_hip += Vector3(0, absf(sin(body_ph * 2.0)) * 0.010 * walk_w, 0)
 	# 5. Idle life on top of ANY pose: slow breath always; it is what stops a still pose
 	# reading as a freeze-frame. Softer while asleep.
 	var t: float = Time.get_ticks_msec() / 1000.0
@@ -292,11 +297,12 @@ func tick(dt: float, speed: float, moved: float) -> void:
 		_mul(_neck, wq)
 		_mul(_head, Quaternion(Vector3(0, 1, 0), _look_yaw * 0.45 * _look_w) \
 			* Quaternion(SWING, _look_pitch * 0.5 * _look_w))
-	# 7. Write the skeleton, once.
+	# 7. Write the skeleton, once — the blended state where no layer touched a bone, the
+	# composed frame where one did.
 	for i in _cur_q:
-		_sk.set_bone_pose_rotation(i, _cur_q[i])
+		_sk.set_bone_pose_rotation(i, _out.get(i, _cur_q[i]))
 	if _hip >= 0:
-		_sk.set_bone_pose_position(_hip, _cur_hip)
+		_sk.set_bone_pose_position(_hip, _out_hip)
 
 ## Evaluate a limb cycle table at cycle position `t` (0..1), easing between keys with a
 ## cosine — pose-to-pose with smooth in-betweens, which is exactly how a cycle is keyed by
@@ -313,13 +319,21 @@ func _cyc_eval(tab: Array, t: float) -> Array:
 	var last: Array = tab[tab.size() - 1]
 	return [last[1], last[2], last[3]]
 
-## Multiply an offset onto the CURRENT blended value — additive layers never touch _cur_q,
-## so they cannot accumulate across frames.
-var _scratch: Dictionary = {}
+## THE FRAME'S OUTPUT, composed fresh every tick: _out starts as a copy of the blended
+## pose state and the additive layers (gait, breath, strokes, look) multiply into _OUT,
+## never into _cur_q. The first version multiplied into _cur_q itself — the persistent
+## state — so every per-frame additive ACCUMULATED: the skeleton settled ~30 deg from any
+## target (measured off the live game: Hip 31.5 deg, Spine01 29.8 deg from rest while
+## "walking"), which drew as a permanently reared, twisted animal. The comment on that
+## version claimed additives could not accumulate; the code did the opposite. Kept as the
+## sharpest example this repo has of a comment asserting what the code must do instead of
+## what it does.
+var _out: Dictionary = {}
+var _out_hip: Vector3 = Vector3.ZERO
 func _mul(bone: int, q: Quaternion) -> void:
 	if bone < 0:
 		return
-	_cur_q[bone] = (_cur_q[bone] as Quaternion) * q
+	_out[bone] = (_out.get(bone, _cur_q[bone]) as Quaternion) * q
 
 ## How far the drawn pose is from the target, 0..1 — lets behaviour wait for a settle
 ## ("stand up BEFORE walking") without hard-coding times.
@@ -442,17 +456,21 @@ func _build_poses() -> void:
 	_poses["run"] = _pose_from({"NeckTwist01": [[0, 0.10]]}, 0.012)
 	# SIT: pelvis down and body pitched about the hip; the hind paws step a little forward
 	# under the dropped pelvis, the fore paws hold their ground; IK keeps all four planted.
+	# The neck counters only PART of the body pitch: countering all of it (the first cut,
+	# -0.28) buried the head inside the body silhouette and the sit read as a sprawl from
+	# behind — a sitting cat's head must stand clearly ABOVE its shoulders.
 	_poses["sit"] = _bake({
-		"Hip": [[0, 0.55]],
-		"NeckTwist01": [[0, -0.28]], "Head": [[0, -0.10]],
-	}, 0.135, {"lf": Vector3(-0.06, 0, 0), "rf": Vector3(-0.06, 0, 0)}, 0.7)
+		"Hip": [[0, 0.58]],
+		"NeckTwist01": [[0, -0.06]], "Head": [[0, 0.04]],
+	}, 0.118, {"lf": Vector3(-0.06, 0, 0), "rf": Vector3(-0.06, 0, 0),
+		"lh": Vector3(0.13, 0, 0), "rh": Vector3(0.13, 0, 0)}, 0.7)
 	# GROOM: the sit, then the left forepaw raised to the lowered muzzle — the arm override
 	# happens AFTER the bake, which is what a raised paw is.
 	var g: Dictionary = _bake({
-		"Hip": [[0, 0.55]],
+		"Hip": [[0, 0.58]],
 		"Spine02": [[1, 0.15]],
-		"NeckTwist01": [[0, -0.62]], "Head": [[0, -0.32]],
-	}, 0.135, {}, 0.7)
+		"NeckTwist01": [[0, -0.55]], "Head": [[0, -0.28]],
+	}, 0.118, {}, 0.7)
 	var gl: Dictionary = _limb["lf"]
 	g["q"][gl["prox"]] = _rest[gl["prox"]] * Quaternion(Vector3(1, 0, 0), -1.05)
 	g["q"][gl["dist"]] = _rest[gl["dist"]] * Quaternion(Vector3(1, 0, 0), 0.55)

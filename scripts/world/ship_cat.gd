@@ -450,7 +450,7 @@ func _groom(delta: float, player: Node3D) -> void:
 	# The wash: a slow lean and a nod on top of the skeletal groom, so the body moves with
 	# the head rather than the head alone.
 	_body.rotation.z = sin(_t * 1.7) * 0.10
-	_body.rotation.x += sin(_t * 2.3) * 0.07
+	_body.rotation.x = sin(_t * 2.3) * 0.07 - _slope * 0.55
 
 ## After: it comes with you, at its own pace, and settles when you do.
 func _companion(delta: float, player: Node3D) -> void:
@@ -562,10 +562,12 @@ func _pose_sit(delta: float) -> void:
 	# A sitting cat is on the deck it sat down on — and the seat ray is the only thing that
 	# keeps it there if another session moves that deck.
 	_reseat()
-	# The small weight-shift of a cat that is awake and paying attention. This is ADDED to
-	# a body that _process has already eased back to neutral; it used to be ASSIGNED, and
-	# because nothing ever cleared it the skew rode along into the next walk.
-	_body.rotation.y += sin(_t * 0.9) * 0.06
+	# The small weight-shift of a cat that is awake and paying attention. ASSIGNED, never
+	# `+=`: a per-tick += without a delta term reaches equilibrium against _process's ease
+	# at rate_ratio * amplitude — measured at 75 DEGREES of body yaw on the live game,
+	# which drew the cat walking sideways off its own node. The s36 comment on this line
+	# argued += was safer than assignment; the opposite was true.
+	_body.rotation.y = sin(_t * 0.9) * 0.06
 
 ## Walk the deck toward a point, stopping `stop_at` short. Kinematic and deliberately simple:
 ## it steps up a coaming, refuses anything taller, and re-seats on whatever it is standing on
