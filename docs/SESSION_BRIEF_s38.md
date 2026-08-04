@@ -1,92 +1,103 @@
 # SESSION BRIEF s38 — cat animation polish (owner-approved work order)
 
-**Paste-ready opening prompt for the new session:**
+## Paste this as the opening prompt of the new session
 
 > Read `docs/SESSION_BRIEF_s38.md` FIRST — it is the complete work order and carries the
-> full context. Then read `CLAUDE.md`, the LAST ~150 lines of `DEVLOG.md` (entries are
-> appended at the bottom), the "Found rebuilding the cat" and "s37" sections of
-> `docs/AGENT_TRAPS.md`, and `KNOWN_ISSUES.md`. The project is the Godot 4 game at
-> `~/SALTLINE` (NOT ~/Desktop — TCC blocks Desktop). GitHub: MasonSpeh/SALTLINE, push
-> after each verified commit. Work the flaw list in the brief top to bottom, one item at
-> a time, verified by RENDERING before claiming anything.
+> context you need to start immediately. Then read `CLAUDE.md`, the last ~150 lines of
+> `DEVLOG.md` (entries append at the BOTTOM), the "Found rebuilding the cat as one
+> skeleton (s37)" section of `docs/AGENT_TRAPS.md`, and `KNOWN_ISSUES.md`.
+>
+> The project is the Godot 4 game at **`~/SALTLINE`** (NOT `~/Desktop/SALTLINE` — a macOS
+> TCC denial blocks shell access to Desktop). GitHub remote is **MasonSpeh/SALTLINE**,
+> already authenticated via `gh`; push after each verified commit.
+>
+> Work the flaw list below in order. Every claim must be verified by RENDERING and reading
+> the frame back before you report it. Run `godot --headless --path . res://tests/TestRunner.tscn`
+> and `res://tests/CatProbe.tscn` before each commit.
+
+## First command to run (proves the toolchain and shows you the current cat)
+
+```bash
+cd ~/SALTLINE && godot --path . tests/CatFilm.tscn -- /tmp/film && ls /tmp/film | head
+```
+
+That films the live cat on the open main deck in daylight: behaviour beats (walk, sit,
+gallop, cross, settle) then a directed pose showcase (sit, groom, stretch, sleep, stand),
+one PNG per film frame plus per-frame telemetry. **Read the frames back.**
 
 ---
 
-## Where the cat stands after s37 (2026-08-03)
+## Where the cat is right now (end of s37)
 
-The cat is **ONE mesh, ONE skeleton, every pose blended** — the pose-per-mesh design is
-gone. Know these files cold before touching anything:
+**Architecture: ONE mesh, ONE skeleton, every pose blended.** The pose-per-mesh design is
+gone — six meshes swapped by a visibility flip was a whole-body teleport at every state
+change, which is why three sessions of polish never made it fluid.
 
 | file | what it is |
 |---|---|
-| `scripts/world/cat_rig.gd` | THE ANIMATION CORE. Pose library (FK offsets from rest, legs solved by hinged-CCD IK at bake time), per-bone slerp blending, keyframed gait cycles (lateral walk / rotary gallop with a spine engine), breath, look. All state in `_cur_q`/`_cur_hip`; additive layers compose into `_out` per frame and are NEVER stored — that separation was bought with a shipped bug. |
-| `scripts/world/ship_cat.gd` | Behaviour: states (GROOM/FOLLOW/RUN/SIT/SLEEP/FISH/PET/JUMP), volume-based movement clearance (`_step_clear` + slide), per-frame `_unbury`, sticky sleep spot, jump arc. Calls `rig.tick(dt, speed, moved)` once per frame. |
-| `assets/models/fauna/_rigged/cat_stand_idle.glb` | The ONE body: neutral standing mesh, 41-bone Tripo rig, `custom_aabb` grown at attach (hand-driven skeletons corrupt the auto cull box — animal vanished from clear line of sight without it). |
-| `tests/CatFilm.tscn` | **THE INSTRUMENT THAT SETTLES ARGUMENTS.** World-fixed-bearing tracking camera films the live cat: behaviour beats + directed pose showcase, one PNG per film frame + per-frame telemetry (pose, pitch, up_y, node vs drawn head bearing). Run `godot --path . tests/CatFilm.tscn -- /tmp/film` and READ THE FRAMES BACK. |
-| `tests/CatBlendShot.tscn` | Pose stills + transition strips + walk/gallop gait strips on the raw rigged mesh, with a floor. Includes the rear-view sit. |
-| `tests/CatAxisDiag.tscn` | The axis atlas: one bone, one axis, +0.6 rad per frame. Re-render before authoring any new pose — do not guess signs. |
-| `tests/CatProbe.tscn` | Headless assertions incl. body-volume burial sweep and the continuity bound (worst paw step < 150 mm/frame — discriminates teleport from legitimate gallop speed). |
+| `scripts/world/cat_rig.gd` | **The animation core.** Pose library (FK offsets from rest; legs solved by hinge-constrained CCD IK at bake time), per-bone slerp blending, keyframed gait cycles (lateral-sequence walk / rotary gallop + spine engine), breath, look. Blend state is `_cur_q`/`_cur_hip`; additive layers compose into a per-frame `_out` and are **never** written back — that separation was bought with a shipped bug. |
+| `scripts/world/ship_cat.gd` | **Behaviour.** States GROOM/FOLLOW/RUN/SIT/SLEEP/FISH/PET/JUMP, volume-based movement clearance, per-frame re-seat, sticky sleep spot, jump arc. Calls `rig.tick(dt, speed, moved)` once per frame. |
+| `assets/models/fauna/_rigged/cat_stand_idle.glb` | The one body: neutral standing mesh, 41-bone Tripo rig. `custom_aabb` is set at attach — hand-driven skeletons corrupt the auto cull box and the animal vanishes from clear line of sight without it. |
+| `tests/CatFilm.tscn` | **The instrument that settles arguments.** World-fixed-bearing tracking camera, staged on probed open deck, per-frame telemetry (pose, drawn pitch, up_y, node vs drawn head bearing). |
+| `tests/CatBlendShot.tscn` | Pose stills (incl. a rear-view sit), transition strips, walk + gallop gait strips, with a floor. |
+| `tests/CatAxisDiag.tscn` | The axis atlas — one bone, one axis, +0.6 rad per frame. **Re-render before authoring any new pose. Do not guess signs.** |
+| `tests/CatProbe.tscn` | Headless assertions incl. burial sweep and the continuity bound (worst paw step < 150 mm/frame). |
+| `tests/DeckFind.tscn` | Sweeps the topside for open, unroofed, clear deck. Used to stage the film. |
 
-**Hard-won facts that must not be re-learned** (long form in AGENT_TRAPS):
-pose transfer across auto-rig fits does NOT work (joint frames differ — sit arrived 70%,
-sleep candy-wrapped); additive layers must never write blend state (shipped as a
-permanent ~30° rear + measured 75° body yaw — the owner's "walks sideways / horror");
-a per-tick `+=` without delta on an eased value reaches rate-ratio equilibrium;
-`Hip +X` pitches the body, `Thigh +X` folds a hind leg forward, `Calf +X` flexes the
-knee BACK, upperarms are MIRRORED L/R; rays/point queries starting inside CSG report
-nothing (two camera framings were "probed clear" through this hole); the film camera must
-derive its position per frame at world-fixed bearings with a clearance ray.
+### Facts that must not be re-learned (long form in AGENT_TRAPS)
+- **Pose transfer across auto-rig fits does not work** — shared bone names ≠ shared joint frames.
+- **Additive layers must never write blend state** — shipped as a permanent ~30° rear-up and a measured 75° body yaw (the owner's "walks sideways / horror movie").
+- **A per-tick `+=` without a delta term** reaches rate-ratio equilibrium, not zero.
+- **Axis facts:** `Hip +X` pitches the body; `Thigh +X` folds a hind leg forward; `Calf +X` flexes the knee BACK; the upperarms are MIRRORED left/right.
+- **Rays starting inside CSG report nothing** — two camera placements were "probed clear" through solid furniture.
+- **Pin the clock AND storm every frame** in any long harness, or a squall rolls in and the back half films at night in the rain.
 
-## The flaw list (owner-reviewed, work top to bottom)
+### Verified state at s37 close
+Walk/gallop head-first (node and drawn agree), level (0–8° pitch), no roll (up_y 1.00),
+no accumulation. Continuity: worst paw step 84 mm/frame (bound 150). Burial: 0/180 samples.
+TestRunner FAILURES: 0, CatProbe FAILURES: 0 twice consecutively.
 
-1. **Walk is "still choppy."** Owner-confirmed on the latest film. Suspects, in order:
-   (a) the film itself is 12 fps with 5 sim frames per film frame — capture at 30+ fps
-   before judging anything else, the choppiness may be partly the instrument;
-   (b) blend rate on FOLLOW entry (10.0) may pop the first strides — consider easing
-   gait_w in slower; (c) the cycle keys may need one more in-between key at
-   stance-mid; (d) `_gait_w`'s `moved/dt` term quantises at low speed. Measure per-frame
-   joint deltas across a walk start before changing numbers.
-2. **Sit from behind: hind legs trail instead of tucking.** `_bake`'s paw_shift
-   `+0.13 X` on the hinds did NOT move them — either the IK cannot reach the target from
-   its seed (add knee-fold seed before solving, or shift the target less far), or the
-   anchor shift axis is wrong for the hind chain. Verify with `pose_sit_rear.png` in
-   CatBlendShot. The owner suspects mesh-generation ambiguity from the rear — if the
-   tuck cannot be made to read, consider a rear-specific silhouette fix (tail overlay?)
-   or accept and document.
-3. **No runtime foot-lock.** Paws drift on turns and during in-place rotation. The
-   pose-bake IK exists (`_ik_leg`) — a cheap runtime variant: pin stance-phase paws to
-   their world spots during the gait (only the 1-2 stance legs per frame, 2 CCD
-   iterations each).
-4. **Turn-in-place looks like a turntable.** `_face` lerps yaw while feet are planted.
-   Add a small step-in-place gait tick while yaw delta is large and speed ~0.
-5. **The tail is unboned** (Tripo's template ends at the pelvis) and rides the hip.
-   Options: procedural tail as an attached bone chain built at attach time (own
-   Skeleton3D appended? heavy), a shader-bent tail cone, or accept. The tail is a large
-   part of cat body language — worth one honest attempt.
-6. **Stretch pose exists but no behaviour plays it.** Play it on wake from SLEEP
-   (blend sleep→stretch→stand over ~2 s) and occasionally after long sits.
-7. **Jump was never filmed.** The state exists (rise 0.62–1.25 m triggers it). Build a
-   film beat that lures the cat over a crate; verify the arc and the jump pose read.
-8. **Groom from top-down reads odd** (owner, s36). Lower priority; re-judge on film
-   after 1–2.
-9. **CatFilm's showcase section** drives poses with the state machine off — if the film
-   is kept as a permanent instrument (do), move the beat list to script args.
+---
 
-## Rules of engagement (unchanged, they are why the last three sessions converged)
+## The flaw list — work top to bottom
 
-- **Render, read back, then claim.** No exceptions — the s37 "sleeping" frame that went
-  out unread was the cat inside a wall.
-- **Measure before authoring** — axis atlas for any new bone work; telemetry
-  (pitch/up_y/bearings) is already in the film log.
-- One windowed Godot at a time; batch verification; TestRunner + CatProbe before every
-  commit; commit per completed item; push to GitHub (MasonSpeh/SALTLINE) after each.
-- The full suite must stay green — the cat shares `creature_anim.gd` with every other
-  animal; `attach_rigged`/`custom_aabb` changes touch all future rigged species.
+1. **The walk is still choppy** (owner-confirmed, latest film). Suspects in order:
+   (a) **the instrument may be part of it** — the film captures at 8 fps with 5 sim frames
+   per film frame; capture at 30 fps before judging anything else;
+   (b) FOLLOW's blend rate (10.0) may pop the first strides — try easing `_gait_w` in more
+   slowly; (c) the cycle tables may want one more in-between key at mid-stance;
+   (d) `_gait_w`'s `moved/dt` term quantises at low speed. **Measure per-frame joint deltas
+   across a walk start before changing any number.**
+2. **Sit from behind: the hind legs trail instead of tucking.** `_bake`'s `+0.13 X` paw
+   shift on the hinds did not move them — either the IK cannot reach from its seed, or the
+   shift axis is wrong for the hind chain. Check `pose_sit_rear.png` in CatBlendShot.
+3. **No runtime foot-lock.** Paws drift on turns and in-place rotation. `_ik_leg` already
+   exists for bake time; a cheap runtime variant would pin only the 1–2 stance-phase paws
+   per frame, 2 CCD iterations each.
+4. **Turn-in-place is a turntable.** `_face` lerps yaw with the feet planted. Add a small
+   step-in-place gait tick while yaw delta is large and speed ≈ 0.
+5. **The tail is unboned** (Tripo's template ends at the pelvis) and rides the hip. Tail is
+   a large part of cat body language — worth one honest attempt (appended bone chain, or a
+   shader-bent cone).
+6. **The stretch pose exists but no behaviour plays it.** Play it on wake from SLEEP
+   (sleep → stretch → stand over ~2 s) and occasionally after long sits.
+7. **The jump has never been filmed.** The state exists (rises 0.62–1.25 m trigger it).
+   Add a film beat that lures the cat onto a crate and verify the arc and pose.
+8. **Groom reads oddly from above** (owner, s36). Re-judge after 1–2.
+9. **The showcase drives poses with the state machine off.** If CatFilm stays a permanent
+   instrument (it should), move the beat list to script arguments.
+10. **CatProbe has an intermittent failure — roughly 1 run in 6.** Observed once at the s37
+    close; six consecutive re-runs then passed, so the failing assertion was not captured.
+    It is most likely the sleep/settle branch (timing-dependent: the cat has to walk to a
+    chosen spot inside a fixed frame budget). **Do not dismiss it as noise** — this repo has
+    twice found a real defect behind an "intermittent" probe, most recently the sleep spot
+    that could oscillate forever. Run it in a loop of 20 capturing the FAIL line, then fix
+    the cause rather than widening the window.
 
-## Current verified state (so you know what "regressed" means)
-
-- Walk/gallop: head-first (node & drawn agree, film log), level (+0-8° pitch walking),
-  no roll (up_y 1.00), no accumulation (bone deltas from rest ≈ authored values only).
-- Continuity: worst paw step 84 mm/frame through live transitions (bound 150).
-- Burial sweep: 0/180 samples inside geometry, worst 0 mm.
-- TestRunner FAILURES: 0, CatProbe FAILURES: 0 (twice consecutively) as of s37 close.
+## Rules of engagement
+- **Render, read back, then claim.** The s37 "sleeping cat" frame that went out unread was
+  the cat inside a wall.
+- **Measure before authoring** — axis atlas for any new bone work.
+- One windowed Godot at a time; batch verification; commit per completed item; push after each.
+- The suite must stay green: the cat shares `creature_anim.gd` with every other animal, and
+  `attach_rigged`/`custom_aabb` affect all future rigged species.

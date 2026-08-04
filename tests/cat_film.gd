@@ -25,15 +25,31 @@ func world_ds(n: Node3D) -> PhysicsDirectSpaceState3D:
 ## The probed film eye: world-fixed preferred bearings, first one whose ray from the cat
 ## is clear. Used by BOTH loops — the showcase's first cut used a fixed offset and filmed
 ## the inside of a wall from the cat's final resting spot.
-func film_eye(cat: Node3D, bearings: Array) -> Vector3:
+func film_eye(cat: Node3D, bearings: Array, dist: float = 2.1) -> Vector3:
 	var base: Vector3 = cat.global_position + Vector3(0, 0.35, 0)
 	for b in bearings:
-		var cand: Vector3 = base + (b as Vector3) * 2.1 + Vector3(0, 0.55, 0)
+		var cand: Vector3 = base + (b as Vector3) * dist + Vector3(0, dist * 0.26, 0)
 		var rq := PhysicsRayQueryParameters3D.create(base, cand)
 		rq.collision_mask = 1
 		if world_ds(cat).intersect_ray(rq).is_empty():
 			return cand
 	return base + Vector3(0, 0.55, 2.1)
+
+## PIN THE WEATHER AND THE SUN EVERY FRAME. Setting the clock ONCE at the start is not
+## enough: the film runs long enough for StormSystem to roll a squall in, and the s37 deck
+## showcase came back shot at night in the rain with the cat in shadow. force_phase resets
+## the phase clock (DAY f=0 is a low red sun), so it is called once and the position is
+## written directly, exactly as tests/s35_shot.gd does it.
+func _pin() -> void:
+	if _main == null:
+		return
+	var st: Node = _main.get("storm")
+	if st != null:
+		st.set_process(false)
+		st.set("_intensity", 0.0)
+		st.set("_phase", 0)
+	GameClock._phase_elapsed_sec = \
+		float(GameClock.phase_durations_minutes[GameClock.Phase.DAY]) * 60.0 * 0.45
 
 func _process(_d: float) -> void:
 	if get_tree().paused:
@@ -79,6 +95,19 @@ func _ready() -> void:
 		if c is Interactable:
 			(c as Interactable).emit_signal("interacted", "SAY HELLO")
 
+	# STAGE IT ON THE OPEN MAIN DECK, in daylight, in plain sight — the owner's ask. The
+	# spot is PROBED, not typed: tests/DeckFind.tscn sweeps the topside for floor at y18
+	# with open sky and >= 3 m of clearance on all four sides, and (3, 18, -3) came back
+	# with 8 m clear in every direction and no roof. Filming in the bunkhouse aisle put a
+	# bulkhead in every frame and cost three re-shoots.
+	var stage := Vector3(3.0, 18.0, -3.0)
+	cat.global_position = stage
+	if cat.has_method("_reseat"):
+		cat.call("_reseat")
+	player.global_position = stage + Vector3(2.0, 0.1, 0.0)
+	for i in range(30):
+		await get_tree().physics_frame
+
 	# THE CAMERA IS BOLTED TO THE WORLD. Bunkhouse aisle, looking north-west from above
 	# head height, covering x -26..-14 — the cat will cross the frame left-to-right and
 	# back, so "which end of the animal leads" is a fact of the strip, not of a basis.
@@ -96,12 +125,13 @@ func _ready() -> void:
 	# The script of the film: [player_pos, seconds, label]. The cat follows the player, so
 	# the player is the lead actor and the cat's whole behaviour stack is what is filmed:
 	# walk east, sit, groom (long stillness), gallop west, sleep.
+	# All along the open deck, so every beat is in plain sight against sky and plating.
 	var script_beats: Array = [
-		[Vector3(-14.5, 18.1, 11.5), 4.0, "walk_east"],
-		[Vector3(-14.5, 18.1, 11.5), 4.0, "settle_sit"],
-		[Vector3(-25.5, 18.1, 11.5), 3.0, "gallop_west"],
-		[Vector3(-19.0, 18.1, 8.0), 3.0, "cross_north"],
-		[Vector3(-19.0, 18.1, 8.0), 4.0, "settle_two"],
+		[Vector3(10.0, 18.1, -3.0), 4.0, "walk_east"],
+		[Vector3(10.0, 18.1, -3.0), 4.0, "settle_sit"],
+		[Vector3(-4.0, 18.1, -3.0), 3.5, "gallop_west"],
+		[Vector3(0.0, 18.1, -9.0), 3.0, "cross_south"],
+		[Vector3(0.0, 18.1, -9.0), 3.5, "settle_two"],
 	]
 	var frame_i: int = 0
 	for beat in script_beats:
@@ -109,6 +139,7 @@ func _ready() -> void:
 		var frames: int = int(float(beat[1]) * 8.0)   # 8 fps film
 		for f in range(frames):
 			for w in range(5):                         # 5 sim frames per film frame
+				_pin()
 				cam.global_position = film_eye(cat, bearings)
 				cam.look_at(cat.global_position + Vector3(0, 0.35, 0), Vector3.UP)
 				await get_tree().process_frame
@@ -153,16 +184,24 @@ func _ready() -> void:
 		["sit", 2.5], ["groom", 3.0], ["stretch", 2.5],
 		["sleep", 3.0], ["stretch", 2.0], ["stand", 1.5],
 	]
+	# Three-quarter front first: the cat is left standing facing +X (east) after the beats.
+	var show_bearings: Array = [
+		Vector3(0.82, 0, 0.57), Vector3(0.82, 0, -0.57), Vector3(0, 0, 1),
+		Vector3(0, 0, -1), Vector3(-0.82, 0, 0.57), Vector3(-1, 0, 0)]
 	cat.set_process(false)   # the state machine would fight the directed poses
 	for pose_beat in showcase:
 		rig.set_pose(String(pose_beat[0]), 5.0)
 		var pframes: int = int(float(pose_beat[1]) * 8.0)
 		for f in range(pframes):
 			for w in range(5):
+				_pin()
 				# ticked by hand while the state machine is off
 				rig.tick(1.0 / 60.0, 0.0, 0.0)
-				cam.global_position = film_eye(cat, bearings)
-				cam.look_at(cat.global_position + Vector3(0, 0.32, 0), Vector3.UP)
+				# Closer for the pose showcase, and biased to a THREE-QUARTER FRONT — the
+				# behaviour reel deliberately shoots from world-fixed bearings to expose a
+				# yaw error, but for judging a POSE the silhouette has to read.
+				cam.global_position = film_eye(cat, show_bearings, 1.35)
+				cam.look_at(cat.global_position + Vector3(0, 0.26, 0), Vector3.UP)
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			var img2: Image = get_viewport().get_texture().get_image()
