@@ -139,6 +139,8 @@ var _look_yaw: float = 0.0
 var _look_pitch: float = 0.0
 var _look_w: float = 0.0
 var _chat_w: float = 0.0
+var _groom_style: int = 0
+var _shake_w: float = 0.0
 ## bone index -> its limb's sagittal hinge, in that bone's OWN local frame. Derived from the
 ## skeleton's geometry in `_measure_gains`; replaces the hand-written local-X + sign map.
 var _hinge: Dictionary = {}
@@ -614,6 +616,23 @@ func tail(up: float, sway: float, rate: float) -> void:
 	_tail_sway_t = clampf(sway, 0.0, 1.5)
 	_tail_rate_t = clampf(rate, 0.0, 14.0)
 
+## WHICH WASH IS IT? A cat does not have one grooming animation, it has a repertoire, and
+## running the same paw-lick every time is what makes an idle animal read as a loop. The
+## styles differ in which part of the body does the work, so they are legible from across a
+## deck without any facial detail:
+##   0 PAW    — the classic. Forepaw up to the lowered muzzle, short quick strokes.
+##   1 FLANK  — head right round to the shoulder and side, long slow strokes, body curled in.
+##   2 CHEST  — head down between the forelegs, small strokes, the most hunched of the three.
+##   3 SCRATCH— the hind foot comes up behind the ear and goes at speed. The one everybody
+##              recognises, and the only one where a HIND leg does the work.
+func groom_style(i: int) -> void:
+	_groom_style = clampi(i, 0, 3)
+
+## A FULL-BODY SHAKE — the wet-dog ripple, which cats do on waking, after rain, and after any
+## indignity. Decays like the look, so one call is one shake.
+func shake(w: float) -> void:
+	_shake_w = maxf(_shake_w, clampf(w, 0.0, 1.0))
+
 ## THE CHATTER — the staccato jaw rattle a cat makes at a bird it cannot reach. There is no jaw
 ## bone on this rig, so it is carried as a fast, tiny head tremor, which is what actually reads
 ## at game distance anyway. Decays like the look, so it stops unless renewed.
@@ -822,12 +841,54 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		_mul_body(_tail, BODY_SIDE, -_tail_up * TAIL_MAX)
 		_mul_body(_tail, BODY_UP, sin(t * _tail_rate) * _tail_sway * TAIL_MAX)
 	if _target == "groom":
-		# The wash stroke rides the blended groom pose rather than replacing it.
-		var stroke: float = sin(t * 4.2)
-		_mul(_neck, Quaternion(SWING, -stroke * 0.13))
-		_mul(_head, Quaternion(SWING, -stroke * 0.16))
-		var L2: Dictionary = _limb["lf"]
-		_mul(L2["dist"], Quaternion(SWING, stroke * 0.10))
+		# THE WASH, and there is more than one of them. All four ride the blended groom pose
+		# rather than replacing it, and all four are expressed in body axes at the torso so
+		# none of them can leak a yaw into the head the way the breath layer used to.
+		match _groom_style:
+			1:
+				# FLANK. The head goes right round to the shoulder and the strokes are long
+				# and slow; the trunk curls toward the side being worked on.
+				var s1: float = sin(t * 2.1)
+				_mul_body(_neck, BODY_UP, 0.55 + s1 * 0.16)
+				_mul_body(_head, BODY_UP, 0.30)
+				_mul_body(_head, BODY_SIDE, -0.22 + s1 * 0.14)
+				_mul_body(_spine2, BODY_UP, 0.16)
+			2:
+				# CHEST. Head straight down between the forelegs, small fast strokes, and the
+				# most hunched of the set.
+				var s2: float = sin(t * 5.0)
+				_mul_body(_neck, BODY_SIDE, -0.42 + s2 * 0.10)
+				_mul_body(_head, BODY_SIDE, -0.26 + s2 * 0.12)
+				_mul_body(_spine2, BODY_SIDE, -0.12)
+			3:
+				# EAR SCRATCH. The hind foot comes up behind the ear and goes at speed — the
+				# one grooming action everybody recognises instantly, and the only one driven
+				# by a HIND leg. The head tips toward the foot to meet it, which is what makes
+				# it read rather than look like a leg spasm.
+				var s3: float = sin(t * 13.0)
+				var Lh: Dictionary = _limb["lh"]
+				_mul(Lh["prox"], Quaternion(_hinge_of(Lh["prox"]), 0.95 + s3 * 0.16))
+				_mul(Lh["dist"], Quaternion(_hinge_of(Lh["dist"]), -1.15))
+				_mul_body(_neck, BODY_UP, -0.20)
+				_mul_body(_head, BODY_FWD, -0.34 + s3 * 0.10)
+			_:
+				# PAW. The classic: forepaw up to the lowered muzzle, short quick strokes.
+				var stroke: float = sin(t * 4.2)
+				_mul(_neck, Quaternion(SWING, -stroke * 0.13))
+				_mul(_head, Quaternion(SWING, -stroke * 0.16))
+				var L2: Dictionary = _limb["lf"]
+				_mul(L2["dist"], Quaternion(SWING, stroke * 0.10))
+	# 5b2. THE SHAKE — a fast damped ripple that runs from the shoulders back, which is what a
+	# cat does on waking, after rain, and after anything undignified. Rolling the segments in
+	# sequence rather than together is the whole effect; in phase it is a wobble, out of phase
+	# it is a shake.
+	_shake_w = maxf(0.0, _shake_w - dt * 1.4)
+	if _shake_w > 0.01:
+		var sh: float = _shake_w * _shake_w        # dies away rather than stopping dead
+		_mul_body(_neck, BODY_FWD, sin(t * 30.0) * 0.30 * sh)
+		_mul_body(_spine2, BODY_FWD, sin(t * 30.0 - 0.7) * 0.24 * sh)
+		_mul_body(_spine, BODY_FWD, sin(t * 30.0 - 1.4) * 0.20 * sh)
+		_mul_body(_hip, BODY_FWD, sin(t * 30.0 - 2.1) * 0.16 * sh)
 	# 5c. The chatter, if a bird is being watched and cannot be had.
 	_chat_w = maxf(0.0, _chat_w - dt * 1.2)
 	if _chat_w > 0.01:

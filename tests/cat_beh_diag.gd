@@ -71,15 +71,15 @@ func _trace(seconds: int, tag: String) -> void:
 		var st: int = int(_cat.get("_state"))
 		seen[st] = true
 		var tgt: Vector3 = _cat.get("_sleep_target")
-		print("[%s %2ds] %-7s pose=%-6s pos=%s  d_player=%.2f  sleep_tgt=%s d=%.2f  hunt=%d cd=%.1f zoom=%.1f/%.1f play=%.1f/%.1f carry=%s"
+		print("[%s %2ds] %-7s pose=%-6s pos=%s  d_player=%.2f  sleep_tgt=%s d=%.2f  hunt=%d E=%.2f wash=%.1f/s%d glance=%.1f carry=%s"
 			% [tag, s, names[st] if st < names.size() else str(st), str(_cat.get("_pose")),
 				str(_cat.global_position.snappedf(0.1)),
 				_cat.global_position.distance_to(_player.global_position),
 				("none" if tgt == Vector3.ZERO else str(tgt.snappedf(0.1))),
 				(0.0 if tgt == Vector3.ZERO else _cat.global_position.distance_to(tgt)),
-				int(_cat.get("_hunt")), float(_cat.get("_hunt_cd")),
-				float(_cat.get("_zoom_t")), float(_cat.get("_zoom_cd")),
-				float(_cat.get("_play_t")), float(_cat.get("_play_cd")),
+				int(_cat.get("_hunt")), float(_cat.get("_energy")),
+				float(_cat.get("_wash_t")), int(_cat.get("_wash_style")),
+				float(_cat.get("_glance_hold")),
 				str(_cat.get("_carry"))])
 	var got: Array = []
 	for k in seen:

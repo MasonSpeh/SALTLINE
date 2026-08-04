@@ -262,6 +262,33 @@ var _play_spot: Vector3 = Vector3.ZERO
 ## Waking up is a beat of its own: a cat that has been asleep STRETCHES before it walks.
 var _stretch_t: float = 0.0
 var _was_asleep: bool = false
+## ENERGY, 0..1 — the thing that makes one evening different from the next.
+##
+## Everything the cat does for its own reasons (play, the zoomies, hunting, how long it will
+## sit before it lies down) is gated on this rather than on a bare cooldown, so the animal has
+## lively spells and lazy ones instead of firing every behaviour on a metronome. It falls with
+## exertion, recovers with rest, and is pushed up hard at dawn and dusk — cats are crepuscular
+## and the evening madness is the single most predictable thing about them.
+var _energy: float = 0.6
+## IDLE ATTENTION. A settled cat is not a statue: it looks at things, holds the look for a
+## while, and looks somewhere else. `_glance_cd` is when it next picks something.
+var _glance_cd: float = 1.0
+var _glance_at: Vector3 = Vector3.ZERO
+var _glance_hold: float = 0.0
+## SELF-GROOMING. `_wash_t` is how long this bout has left and `_wash_style` which of the four
+## it is; a cat washing its flank for six seconds and then its ear is a different animal from
+## one running the same paw-lick loop for ever.
+var _wash_t: float = 0.0
+var _wash_style: int = 0
+var _wash_cd: float = 12.0
+var _shake_cd: float = 25.0
+## Small per-frame speed variation, so the walk is not metronomic.
+var _pace: float = 1.0
+var _pace_cd: float = 0.0
+## Other animals' colliders, so the cat does not read a gull as a bulkhead. Cached — see
+## `_walk_skip`, which is called several times a frame against a subtree of thousands.
+var _fauna_rids: Array[RID] = []
+var _fauna_at: int = -100000
 ## The held sleeping spot — picked once when the player turns in, cleared when they rise.
 var _sleep_target: Vector3 = Vector3.ZERO
 ## How long it has been walking at the chosen spot without getting any closer, and the best it
@@ -563,6 +590,10 @@ func _companion(delta: float, player: Node3D) -> void:
 	_zoom_cd = maxf(0.0, _zoom_cd - delta)
 	_play_cd = maxf(0.0, _play_cd - delta)
 	_chatter_cd = maxf(0.0, _chatter_cd - delta)
+	_wash_cd = maxf(0.0, _wash_cd - delta)
+	_shake_cd = maxf(0.0, _shake_cd - delta)
+	_tick_energy(delta)
+	_idle_attention(delta, ppos, d)
 
 	# WAKING UP IS ITS OWN BEAT. A cat that has been asleep does not stand up and walk: it
 	# stretches, at length, and only then is it awake. Held here rather than inside the sleep
@@ -572,10 +603,12 @@ func _companion(delta: float, player: Node3D) -> void:
 		_was_asleep = true
 	elif _was_asleep:
 		_was_asleep = false
-		_stretch_t = 1.7
+		_stretch_t = _rng.randf_range(1.3, 2.4)
+		if _rig != null:
+			_rig.call("shake", 1.0)          # the first thing anything does on getting up
 		# ...and a cat that has just woken is the likeliest cat in the world to tear off
-		# across the deck for no reason at all.
-		if _rng.randf() < 0.45:
+		# across the deck for no reason at all. A full night's rest is what pays for it.
+		if _rng.randf() < 0.30 + _energy * 0.45:
 			_zoom_cd = minf(_zoom_cd, 2.5)
 	# THE CHATTER. A cat that can see a bird it cannot possibly reach does not give up on it —
 	# it fixes on the thing and makes that ridiculous staccato rattle. It is one of the most
@@ -688,16 +721,21 @@ func _companion(delta: float, player: Node3D) -> void:
 
 	# THE HUNT. Only while the player is not being left behind — a companion that abandons you
 	# across the rig to stalk a gull is a bug, however true to life.
-	if (_hunt > 0 or _hunt_cd <= 0.0) and d < RUN_M:
+	if (_hunt > 0 or (_hunt_cd <= 0.0 and _energy > 0.30)) and d < RUN_M:
 		if _hunt_step(delta):
+			_wash_t = 0.0        # a bird ends a wash mid-stroke, which is the honest order
 			return
 
 	# THE ZOOMIES, and object play. Both need the player to be somewhere near and settled,
 	# because both read as the cat entertaining itself rather than ignoring you.
-	if _zoom_t > 0.0 or (_zoom_cd <= 0.0 and d < FOLLOW_FAR and _still > 5.0):
+	# GATED ON MOOD, not just on a clock. A tired cat does not get the zoomies however long it
+	# has been since the last ones, and a cat at dusk with a full tank barely stops. This is
+	# what makes two evenings different without a second behaviour tree.
+	if _zoom_t > 0.0 or (_zoom_cd <= 0.0 and d < FOLLOW_FAR and _still > 5.0 and _energy > 0.62):
 		if _zoomies(delta, ppos):
 			return
-	if _play_t > 0.0 or (_play_cd <= 0.0 and d < FOLLOW_FAR and _still > SETTLE_SEC * 0.5):
+	if _play_t > 0.0 or (_play_cd <= 0.0 and d < FOLLOW_FAR and _still > SETTLE_SEC * 0.5
+			and _energy > 0.34):
 		if _play(delta):
 			return
 
@@ -712,15 +750,34 @@ func _companion(delta: float, player: Node3D) -> void:
 		var running: bool = d > RUN_M
 		_enter(State.RUN if running else State.FOLLOW)
 		_still = 0.0
-		_walk_toward(ppos, RUN_SPEED if running else (TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED),
-			delta, FOLLOW_NEAR)
+		_pace_cd -= delta
+		if _pace_cd <= 0.0:
+			_pace = _rng.randf_range(0.86, 1.14)
+			_pace_cd = _rng.randf_range(0.6, 2.2)
+		_walk_toward(ppos, (RUN_SPEED if running else (TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED))
+			* _pace, delta, FOLLOW_NEAR)
 		return
+	# A WASH IN PROGRESS FINISHES. Below the hunt on purpose — a bird interrupts a wash, which
+	# is exactly what happens — but above settling, so the cat is not yanked out of it by its
+	# own idle timer.
+	if _self_groom(delta):
+		return
+
 	# Within arm's reach of a player who is not going anywhere.
 	if _still > SETTLE_SEC:
 		_settle(delta)
 	else:
 		_enter(State.SIT)
 		_pose_sit(delta)
+		# ...and a settled, unbothered cat washes. This is where most of the animal's screen
+		# time actually is, so it is where the variety matters most.
+		_maybe_wash()
+		# The shake: on waking, and otherwise rarely and at random. It is a whole-body event
+		# that costs one line and reads from right across the deck.
+		if _shake_cd <= 0.0 and _rng.randf() < delta * 0.25:
+			if _rig != null:
+				_rig.call("shake", 1.0)
+			_shake_cd = _rng.randf_range(40.0, 140.0)
 
 ## THE PLAYER HAS TURNED IN. A cat does not wait out a night standing up: it comes over, finds
 ## a spot NEAR the bed rather than on the walking line, and curls up there. The spot is PROBED
@@ -1067,11 +1124,27 @@ func _walk_skip() -> Array[RID]:
 			skip.append((player as CollisionObject3D).get_rid())
 		for c in player.find_children("*", "CollisionObject3D", true, false):
 			skip.append((c as CollisionObject3D).get_rid())
-	var bf: Node = get_tree().get_first_node_in_group("bloom_fauna")
-	if bf != null and bf.get("fauna_bodies") != null:
-		for r in (bf.get("fauna_bodies") as Array):
-			if r is RID:
-				skip.append(r)
+	# THE FAUNA BRANCH HAS NEVER ADDED A SINGLE RID, and the comment above has been describing
+	# an intention rather than the code since s36. `fauna_bodies` is a STATIC FUNCTION on
+	# bloom_fauna, not a property, and `Object.get()` returns null for a method name — so this
+	# whole block has been quietly skipped every call. The visible consequence was that
+	# another animal's grab collider counted as a WALL to the cat: it is why the pounce needs
+	# an explicit prey exclusion to be able to land on the bird at all, and why a gull standing
+	# in a doorway is an obstruction the cat will slide around rather than walk through.
+	#
+	# Collected by walking the fauna subtree, and CACHED — that subtree is thousands of nodes
+	# and `_walk_skip` is called several times a frame by `_step_clear`. Half a second of
+	# staleness cannot matter here: a freed RID is simply an exclusion that no longer matches
+	# anything, and a newly spawned animal is skipped for at most one refresh.
+	var now_ms: int = Time.get_ticks_msec()
+	if now_ms - _fauna_at > 500:
+		_fauna_at = now_ms
+		_fauna_rids.clear()
+		var bfn: Node = get_tree().get_first_node_in_group("bloom_fauna")
+		if bfn != null:
+			for c in bfn.find_children("*", "CollisionObject3D", true, false):
+				_fauna_rids.append((c as CollisionObject3D).get_rid())
+	skip.append_array(_fauna_rids)
 	return skip
 
 func _face(target: Vector3, delta: float) -> void:
@@ -1090,6 +1163,108 @@ func _player_holding_fish(_player: Node3D) -> bool:
 		return false
 	var id: String = String(PlayerState.hotbar[slot])
 	return id.begins_with("fish_") or id.begins_with("cooked_fish_") or id == "dried_fish"
+
+# ------------------------------------------------------------------ mood and idle life
+
+## ENERGY DRIFTS, and that is what stops the cat being a machine with cooldowns.
+##
+## Sleeping and sitting put it back; running, hunting and playing spend it. On top of that a
+## crepuscular bump: cats are dawn-and-dusk animals and their evening burst is the most
+## reliable thing they do, so the same cat is a different companion at 06:00 and at 14:00
+## without a single behaviour having been rewritten.
+func _tick_energy(delta: float) -> void:
+	var spend: float = 0.0
+	match _state:
+		State.RUN, State.POUNCE, State.PLAY:
+			spend = 0.085
+		State.STALK, State.FOLLOW, State.GIFT:
+			spend = 0.030
+		State.SLEEP:
+			spend = -0.075
+		State.SIT, State.GROOM, State.PERCH, State.STRETCH:
+			spend = -0.030
+		_:
+			spend = -0.010
+	# The crepuscular pull. GameClock's phase is the cheapest honest source for it, and the
+	# push is toward a HIGH target rather than a flat add so a tired cat still needs its rest.
+	var ph: int = GameClock.current_phase
+	var crepuscular: bool = ph == GameClock.Phase.DAWN or ph == GameClock.Phase.DUSK
+	if crepuscular:
+		_energy = lerpf(_energy, 1.0, 1.0 - exp(-0.09 * delta))
+	_energy = clampf(_energy - spend * delta, 0.0, 1.0)
+
+## A SETTLED CAT IS NOT A STATUE. It looks at things: at you, at a bird, at a noise, at
+## nothing in particular, and it holds each look for a while before picking another. This is
+## the cheapest aliveness there is and it runs ALONGSIDE whatever the animal is otherwise
+## doing — no state, no `return`, so it never competes with the behaviour tree.
+##
+## Deliberately not a random head-jitter. A glance that lands on something and STAYS there
+## reads as attention; one that wanders continuously reads as a broken servo.
+func _idle_attention(delta: float, ppos: Vector3, d: float) -> void:
+	# The hunt, the gift and being petted all aim the head themselves and outrank this.
+	if _hunt > 0 or _carry != "" or _pet_t > 0.0 or _state == State.SLEEP:
+		return
+	if _glance_hold > 0.0:
+		_glance_hold -= delta
+		_watch(_glance_at, 0.85)
+		return
+	_glance_cd -= delta
+	if _glance_cd > 0.0:
+		return
+	# Pick something worth looking at, weighted by what a cat would actually care about.
+	var roll: float = _rng.randf()
+	var picked := false
+	if roll < 0.34 and d < FISH_M:
+		_glance_at = ppos + Vector3(0, 1.2, 0)      # you, most often
+		picked = true
+	elif roll < 0.60:
+		# The nearest bird, if there is one. Birds beat everything except you.
+		var best_d: float = HUNT_M * 1.6
+		for g in get_tree().get_nodes_in_group("deck_gull"):
+			var n: Node3D = g as Node3D
+			if n == null or not is_instance_valid(n):
+				continue
+			var gd: float = global_position.distance_to(n.global_position)
+			if gd < best_d:
+				best_d = gd
+				_glance_at = n.global_position + Vector3(0, 0.1, 0)
+				picked = true
+	if not picked:
+		# ...or nothing in particular, which is most of what a cat looks at. Off to one side
+		# and roughly level, because a cat scanning a deck is not studying its own feet.
+		var a: float = rotation.y + _rng.randf_range(-2.2, 2.2)
+		_glance_at = global_position + Vector3(sin(a), 0, cos(a)) * _rng.randf_range(3.0, 9.0) \
+			+ Vector3(0, _rng.randf_range(-0.1, 1.1), 0)
+	_glance_hold = _rng.randf_range(0.7, 2.6)
+	_glance_cd = _rng.randf_range(1.1, 4.5)
+
+## A WASH IS A BOUT, NOT A LOOP. It runs for a few seconds in ONE style and stops, and the
+## next one is a different style — which is the difference between a cat grooming and an
+## idle animation playing. Returns true while it owns the animal.
+func _self_groom(delta: float) -> bool:
+	if _wash_t <= 0.0:
+		return false
+	_wash_t -= delta
+	_enter(State.GROOM)
+	if _rig != null:
+		_rig.call("groom_style", _wash_style)
+	_last_speed = 0.0
+	_reseat()
+	# The small settling shift of an animal concentrating on one spot.
+	_body.rotation.z = sin(_t * 1.4) * 0.06
+	if _wash_t <= 0.0:
+		# Longer bouts earn a longer break, so it never reads as a rota.
+		_wash_cd = _rng.randf_range(14.0, 48.0)
+	return true
+
+## Start one, if the mood is right. Cats groom when settled and unbothered, and after
+## anything that ruffled them.
+func _maybe_wash() -> void:
+	if _wash_cd > 0.0 or _wash_t > 0.0:
+		return
+	_wash_style = [0, 0, 1, 1, 2, 3][_rng.randi_range(0, 5)]
+	# The ear scratch is short and furious; a flank wash is long and unhurried.
+	_wash_t = {0: 4.5, 1: 7.0, 2: 5.0, 3: 2.2}.get(_wash_style, 4.0) * _rng.randf_range(0.7, 1.4)
 
 # ------------------------------------------------------------------ the predatory sequence
 
