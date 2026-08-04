@@ -44,7 +44,14 @@ const MODEL_PATH := "res://assets/models/fauna/ship_cat/ship_cat.glb"
 ## JUMP is APPENDED, never inserted. CatProbe and the close-out harness assert on the
 ## integer values of these (state 2 is RUN, state 5 is FISH), so inserting anywhere but the
 ## end silently re-numbers the states out from under every test that names one.
-enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET, JUMP }
+## APPENDED, NEVER INSERTED — CatProbe and the close-out harness assert on the INTEGER values
+## (state 2 is RUN, state 5 is FISH), so a new state anywhere but the end silently renumbers
+## the states out from under every test that names one.
+##
+## STALK / POUNCE / GIFT are the predatory sequence; PLAY is the same machinery with nothing
+## on the end of it; PERCH is the cat's standing preference for being higher than you.
+enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET, JUMP,
+	STALK, POUNCE, GIFT, PLAY, PERCH, STRETCH }
 
 ## s35: THE RIGGED MESHES, where they exist. Same five poses, same look — Tripo rigged the
 ## ALREADY-SHIPPING meshes off the task ids s34 logged, and the bind pose photographs
@@ -87,7 +94,50 @@ const STATE_POSE := {
 	State.FISH: "walk",
 	State.PET: "sit",
 	State.JUMP: "jump",
+	State.STALK: "stalk",
+	State.POUNCE: "jump",
+	State.GIFT: "carry",
+	State.PLAY: "walk",
+	State.PERCH: "sit",
+	State.STRETCH: "stretch",
 }
+
+# ------------------------------------------------------------------ the hunt
+#
+## THE PREDATORY SEQUENCE, which is one of the most legible behaviours any animal has and the
+## thing people actually mean when they say a cat is a cat. Leyhausen's description of it has
+## five beats and every one of them is readable at game distance on a body with no facial rig:
+##
+##   NOTICE  — the whole animal stops and locks on. Stillness after motion IS the tell.
+##   STALK   — low, slow, belly close to the deck, and it FREEZES whenever it thinks it has
+##             been seen. The freezing is what separates a stalk from a walk toward something.
+##   TREAD   — the plié: hind feet paddle, the rear waggles, and everyone who has ever met a
+##             cat knows exactly what is about to happen. This is the single highest-value
+##             half-second in the whole sequence and it costs one sine wave.
+##   POUNCE  — a real leap, forepaws first, over the existing jump arc.
+##   AFTER   — and it MISSES most of the time. A cat that misses sits down at once and washes,
+##             with enormous dignity, as though it had meant to do that. That displacement
+##             groom is more characterful than a success, and it is why the miss rate here is
+##             deliberately high rather than generous.
+##
+## On a catch it brings the thing to you, because that is what a cat does with a companion.
+const HUNT_M: float = 11.0            ## it clocks a bird from here
+const HUNT_GIVEUP_M: float = 16.0     ## ...and gives up if the bird gets this far away
+const STALK_SPEED: float = 0.62       ## the creep — deliberately well under a walk
+const POUNCE_M: float = 1.75          ## close enough to launch
+const POUNCE_SEC: float = 0.42
+const WIGGLE_SEC: float = 0.9         ## the tread-and-waggle before the launch
+const HUNT_CD: float = 24.0           ## after a hunt, it lets the deck settle
+## Birds are HARD. A house cat's success rate on birds is well under half, and the misses are
+## the better animation anyway — see the displacement wash above.
+const CATCH_CHANCE: float = 0.34
+const WASH_SEC: float = 4.5           ## how long the "I meant to do that" wash lasts
+## The zoomies (FRAP). Real, well documented, and they fire after a sleep and around dusk —
+## the crepuscular activity peak every cat owner knows as the evening madness.
+const ZOOM_SEC: float = 3.4
+const ZOOM_CD: float = 95.0
+const PLAY_CD: float = 38.0
+const PLAY_SEC: float = 6.0
 
 
 ## Where it is found. The bunkhouse floor, in the aisle at the west end — off the walking line
@@ -188,8 +238,36 @@ var _last_speed: float = 0.0
 ## Metres the body ACTUALLY covered this frame — the blender's gait phase runs off this,
 ## never off commanded speed, so a blocked cat's legs stop instead of treadmilling.
 var _moved_frame: float = 0.0
+## Last frame's node yaw, so the rig can be told how fast the body is really turning.
+var _yaw_prev: float = 0.0
+## THE HUNT. `_hunt` is the beat of the predatory sequence, not a boolean: 0 idle, 1 stalking,
+## 2 treading (the wiggle), 3 in the air, 4 the aftermath.
+var _prey: Node3D = null
+var _hunt: int = 0
+var _wiggle_t: float = 0.0
+var _freeze_t: float = 0.0        ## a stalking cat stops dead whenever it thinks it was seen
+var _hunt_cd: float = 8.0
+var _after_t: float = 0.0         ## the "I meant to do that" wash after a miss
+var _pouncing: bool = false       ## this leap is a pounce, so the landing has to resolve it
+var _carry: String = ""           ## what it is bringing you
+var _chatter_cd: float = 0.0
+## The zoomies, and object play — the other two things a cat does that nothing else on this
+## rig does. Both are on cooldowns rather than dice per frame, so they read as events.
+var _zoom_t: float = 0.0
+var _zoom_cd: float = 30.0
+var _zoom_to: Vector3 = Vector3.ZERO
+var _play_t: float = 0.0
+var _play_cd: float = 20.0
+var _play_spot: Vector3 = Vector3.ZERO
+## Waking up is a beat of its own: a cat that has been asleep STRETCHES before it walks.
+var _stretch_t: float = 0.0
+var _was_asleep: bool = false
 ## The held sleeping spot — picked once when the player turns in, cleared when they rise.
 var _sleep_target: Vector3 = Vector3.ZERO
+## How long it has been walking at the chosen spot without getting any closer, and the best it
+## has managed — a held target it cannot reach is a cat that paces all night (see `_bed_down`).
+var _bed_stall: float = 0.0
+var _bed_best: float = 1e9
 ## The leap, in flight: time left, and the two ends of the arc. While `_jump_t` is positive
 ## the state machine hands the animal over to _fly_jump and nothing else moves it.
 var _jump_t: float = 0.0
@@ -430,6 +508,11 @@ func _fly_jump(delta: float) -> void:
 		global_position = _jump_to
 		_jump_cd = JUMP_CD
 		_reseat()
+		# A POUNCE RESOLVES WHERE IT LANDS, not where it was aimed. Done here rather than in
+		# the state machine because the leap deliberately owns the animal until touchdown, so
+		# this is the only frame that knows whether the cat is standing on the bird.
+		if _pouncing:
+			_resolve_pounce()
 
 ## Before you find it: sitting where it lives, washing a paw, looking up when you get close.
 func _groom(delta: float, player: Node3D) -> void:
@@ -456,6 +539,33 @@ func _groom(delta: float, player: Node3D) -> void:
 func _companion(delta: float, player: Node3D) -> void:
 	var ppos: Vector3 = player.global_position
 	var d: float = global_position.distance_to(ppos)
+	_hunt_cd = maxf(0.0, _hunt_cd - delta)
+	_zoom_cd = maxf(0.0, _zoom_cd - delta)
+	_play_cd = maxf(0.0, _play_cd - delta)
+	_chatter_cd = maxf(0.0, _chatter_cd - delta)
+
+	# WAKING UP IS ITS OWN BEAT. A cat that has been asleep does not stand up and walk: it
+	# stretches, at length, and only then is it awake. Held here rather than inside the sleep
+	# branch because waking can be caused by anything — the player getting up, a bird, a
+	# noise — and the stretch has to happen whatever ended the sleep.
+	if _state == State.SLEEP:
+		_was_asleep = true
+	elif _was_asleep:
+		_was_asleep = false
+		_stretch_t = 1.7
+		# ...and a cat that has just woken is the likeliest cat in the world to tear off
+		# across the deck for no reason at all.
+		if _rng.randf() < 0.45:
+			_zoom_cd = minf(_zoom_cd, 2.5)
+	# ...but not if you have already walked off. A cat that has to catch up does not stop to
+	# stretch first, and a companion that does reads as broken rather than as characterful.
+	if _stretch_t > 0.0 and d < RUN_M:
+		_stretch_t -= delta
+		_enter(State.STRETCH)
+		_last_speed = 0.0
+		_reseat()
+		return
+	_stretch_t = 0.0
 
 	# IS THE PLAYER RESTING? Not a flag they set — a thing the cat works out by watching. A
 	# player who has not moved for SETTLE_SEC is resting whether they meant to or not, which
@@ -490,6 +600,57 @@ func _companion(delta: float, player: Node3D) -> void:
 			AudioDirector.play_one_shot("cat_chirp", global_position, -20.0)
 		return
 
+	# THE PLAYER TURNING IN OUTRANKS EVERY GAME THE CAT KNOWS, and it has to, because the
+	# alternative shipped and CatProbe caught it on the first run: `_still` climbs while the
+	# player lies there, both cooldowns expire, and the cat spends the night doing zoomies and
+	# pouncing on nothing three metres from the bed while the sleep branch below never gets a
+	# frame. That is the same "paces beside the bed all night" the s37 sleep-spot fix cured
+	# from a different cause, which is a good reason to keep this test and a better reason to
+	# put the check HERE rather than further down where it reads more naturally.
+	if _player_asleep(player):
+		_bed_down(delta, ppos)
+		return
+	_sleep_target = Vector3.ZERO
+
+	# THE AFTERMATH OF A MISS — see the sequence's header. It sits down exactly where it
+	# failed and washes, with enormous dignity, as though that had been the plan. Held above
+	# everything except being petted and being offered a fish, because a cat interrupted
+	# mid-excuse is not a cat.
+	if _after_t > 0.0:
+		_after_t -= delta
+		_enter(State.GROOM)
+		_last_speed = 0.0
+		_reseat()
+		_body.rotation.z = sin(_t * 1.7) * 0.08
+		return
+
+	# ...AND THE PRIZE. A cat brings what it catches to the people it lives with. It is not a
+	# gift in any sense the cat would recognise, but it is the single most cat thing there is,
+	# and it is worth the whole hunt.
+	if _carry != "":
+		_enter(State.GIFT)
+		_watch(ppos + Vector3(0, 1.2, 0), 0.8)
+		if d > 1.3:
+			_walk_toward(ppos, TROT_SPEED, delta, 1.1)
+		else:
+			_deliver(player)
+		return
+
+	# THE HUNT. Only while the player is not being left behind — a companion that abandons you
+	# across the rig to stalk a gull is a bug, however true to life.
+	if (_hunt > 0 or _hunt_cd <= 0.0) and d < RUN_M:
+		if _hunt_step(delta):
+			return
+
+	# THE ZOOMIES, and object play. Both need the player to be somewhere near and settled,
+	# because both read as the cat entertaining itself rather than ignoring you.
+	if _zoom_t > 0.0 or (_zoom_cd <= 0.0 and d < FOLLOW_FAR and _still > 5.0):
+		if _zoomies(delta, ppos):
+			return
+	if _play_t > 0.0 or (_play_cd <= 0.0 and d < FOLLOW_FAR and _still > SETTLE_SEC * 0.5):
+		if _play(delta):
+			return
+
 	if d > LOST_M:
 		# Too far to bother. It stops where it is and waits to be come back for, rather than
 		# sprinting across the rig — which would read as a drone, not an animal.
@@ -504,34 +665,57 @@ func _companion(delta: float, player: Node3D) -> void:
 		_walk_toward(ppos, RUN_SPEED if running else (TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED),
 			delta, FOLLOW_NEAR)
 		return
-	# THE PLAYER HAS TURNED IN. A cat does not wait out a night standing up: it comes over,
-	# finds a spot NEAR the bed rather than on the walking line, and curls up there. The spot
-	# is PROBED (see _sleep_spot) — a hand-typed offset from a bed that another session moves
-	# is the whole floating-prop family of bugs in this repo.
-	if _player_asleep(player):
-		# THE SPOT IS CHOSEN ONCE AND HELD. _sleep_spot used to be re-run every frame, and
-		# its winning candidate depends on the cat's own position — so as the animal walked,
-		# the target could flip between two candidates and, in the wrong geometry, oscillate
-		# for ever: a cat that paces beside the bed all night instead of lying down (seen as
-		# an intermittent probe failure, ~1 run in 5). Hysteresis: keep the chosen spot while
-		# the player stays asleep, re-picking only if it drifts out of plausibility.
-		if _sleep_target == Vector3.ZERO or ppos.distance_to(_sleep_target) > 3.0:
-			_sleep_target = _sleep_spot(ppos)
-		if global_position.distance_to(_sleep_target) > 0.55:
-			_enter(State.FOLLOW)
-			_walk_toward(_sleep_target, WALK_SPEED, delta, 0.35)
-		else:
-			_enter(State.SLEEP)
-			ANIM.drive(_gen_mats, 0.5, 0.0)
-		return
-	_sleep_target = Vector3.ZERO
-
 	# Within arm's reach of a player who is not going anywhere.
 	if _still > SETTLE_SEC:
 		_settle(delta)
 	else:
 		_enter(State.SIT)
 		_pose_sit(delta)
+
+## THE PLAYER HAS TURNED IN. A cat does not wait out a night standing up: it comes over, finds
+## a spot NEAR the bed rather than on the walking line, and curls up there. The spot is PROBED
+## (see _sleep_spot) — a hand-typed offset from a bed that another session moves is the whole
+## floating-prop family of bugs in this repo.
+func _bed_down(delta: float, ppos: Vector3) -> void:
+	# THE SPOT IS CHOSEN ONCE AND HELD. _sleep_spot used to be re-run every frame, and its
+	# winning candidate depends on the cat's own position — so as the animal walked, the target
+	# could flip between two candidates and, in the wrong geometry, oscillate for ever: a cat
+	# that paces beside the bed all night instead of lying down (seen as an intermittent probe
+	# failure, ~1 run in 5). Hysteresis: keep the chosen spot while the player stays asleep,
+	# re-picking only if it drifts out of plausibility.
+	##
+	## ...AND A HELD TARGET IT CANNOT REACH IS THE SAME BUG WEARING A HAT. The hysteresis above
+	## cured the oscillation and replaced it with a cat that walks at one spot for ever: the
+	## spot is only re-picked if the PLAYER moves, `_sleep_spot` only proves a thin ray at
+	## +0.22 m is clear rather than that the body can walk the whole way, and `_walk_toward`
+	## silently refuses a step it cannot take. So the animal closes to whatever the obstruction
+	## allows and then stands there pressing into it all night. That is CatProbe's intermittent
+	## failure — it fires or does not depending purely on where the cat happened to be standing
+	## when the player lay down, which is exactly the shape of a "1 run in 6".
+	##
+	## The fix is not a longer window. A cat that cannot get to the good spot LIES DOWN WHERE IT
+	## IS, which is both what a cat does and a state this machine can always reach.
+	if _sleep_target == Vector3.ZERO or ppos.distance_to(_sleep_target) > 3.0:
+		_sleep_target = _sleep_spot(ppos)
+		_bed_stall = 0.0
+		_bed_best = 1e9
+	var togo: float = global_position.distance_to(_sleep_target)
+	if togo > 0.55:
+		# Progress is measured, not assumed: only closing the gap counts as getting there.
+		if togo < _bed_best - 0.02:
+			_bed_best = togo
+			_bed_stall = 0.0
+		else:
+			_bed_stall += delta
+		if _bed_stall > 2.5:
+			_sleep_target = global_position
+			togo = 0.0
+	if togo > 0.55:
+		_enter(State.FOLLOW)
+		_walk_toward(_sleep_target, WALK_SPEED, delta, 0.35)
+	else:
+		_enter(State.SLEEP)
+		ANIM.drive(_gen_mats, 0.5, 0.0)
 
 ## Is the player actually turned in? `_lying_sleeping` is the flag player_controller sets
 ## while the S-to-dawn fade runs; `_lying` is merely lying down. A cat curls up when you go
@@ -679,7 +863,10 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# A small vertical lilt — the whole-body rise and fall the legs alone do not carry,
 	# since the rig has no root motion. Phase-locked to the same distance the legs use.
 	_body.position.y = absf(sin(_gait * TAU)) * 0.030
-	_body.rotation.z = sin(_gait * TAU * 0.5) * 0.045
+	# HALVED because the weight shift now lives in the skeleton. cat_rig rolls the pelvis and
+	# counter-rolls the neck off the same phase, which is the anatomically right place for it;
+	# leaving this at its old 0.045 on top rolled the whole animal twice per stride.
+	_body.rotation.z = sin(_gait * TAU * 0.5) * 0.018
 
 ## `+ PI` IS THE WHOLE OF "THE CAT WALKS BACKWARDS", and it was the only call site in the
 ## repo missing it.
@@ -846,6 +1033,234 @@ func _player_holding_fish(_player: Node3D) -> bool:
 	var id: String = String(PlayerState.hotbar[slot])
 	return id.begins_with("fish_") or id.begins_with("cooked_fish_") or id == "dried_fish"
 
+# ------------------------------------------------------------------ the predatory sequence
+
+## The nearest gull on this deck that is on the ground and worth stalking. Birds in the air
+## are not prey, they are frustration — see the chatter.
+func _find_prey() -> Node3D:
+	var best: Node3D = null
+	var best_d: float = HUNT_M
+	for g in get_tree().get_nodes_in_group("deck_gull"):
+		var n: Node3D = g as Node3D
+		if n == null or not is_instance_valid(n):
+			continue
+		# A bird already in the air, or one on another deck, is not a stalk.
+		if float(n.get("_flushing")) >= 0.0:
+			continue
+		if absf(n.global_position.y - global_position.y) > CLIMB_UP:
+			continue
+		var dd: float = global_position.distance_to(n.global_position)
+		if dd < best_d:
+			best_d = dd
+			best = n
+	return best
+
+## One beat of the hunt. Returns true while the hunt owns the animal.
+func _hunt_step(delta: float) -> bool:
+	if _hunt == 0:
+		_prey = _find_prey()
+		if _prey == null:
+			return false
+		_hunt = 1
+		_freeze_t = 0.0
+	# The bird left, flew, or was freed. A cat that keeps stalking an empty patch of deck is
+	# the "drone" read this whole file exists to avoid.
+	if _prey == null or not is_instance_valid(_prey) or float(_prey.get("_flushing")) >= 0.0:
+		_end_hunt(false)
+		return false
+	var target: Vector3 = _prey.global_position
+	var pd: float = global_position.distance_to(target)
+	if pd > HUNT_GIVEUP_M:
+		_end_hunt(false)
+		return false
+	# The head is on the bird throughout, whatever the body is doing. This is the tell that
+	# makes the whole sequence legible from across a deck.
+	_watch(target + Vector3(0, 0.12, 0), 1.0)
+	match _hunt:
+		1:
+			# THE STALK. Low, slow, and it FREEZES — the freezing is the difference between a
+			# stalk and simply walking at something. A cat holds still when it thinks the prey
+			# has clocked it, and the pauses are what make the approach read as intent.
+			_enter(State.STALK)
+			if _freeze_t > 0.0:
+				_freeze_t -= delta
+				_last_speed = 0.0
+				_reseat()
+				_face(target, delta * 1.5)
+			else:
+				_walk_toward(target, STALK_SPEED, delta, POUNCE_M * 0.85)
+				if _rng.randf() < delta * 0.85:
+					_freeze_t = _rng.randf_range(0.3, 1.1)
+			if pd <= POUNCE_M:
+				_hunt = 2
+				_wiggle_t = WIGGLE_SEC
+		2:
+			# THE TREAD. Hind feet paddling, the rear waggling, the whole animal winding up.
+			# Everyone who has met a cat knows precisely what happens next, and it costs one
+			# sine wave.
+			_enter(State.STALK)
+			_face(target, delta * 3.0)
+			_last_speed = 0.0
+			_reseat()
+			_wiggle_t -= delta
+			var k: float = clampf(_wiggle_t / WIGGLE_SEC, 0.0, 1.0)
+			_body.rotation.y = sin(_t * 21.0) * 0.115 * (1.0 - k * 0.35)
+			_body.position.y = absf(sin(_t * 21.0)) * 0.012
+			if _wiggle_t <= 0.0:
+				_launch_pounce(target)
+		_:
+			pass
+	return true
+
+func _launch_pounce(target: Vector3) -> void:
+	# A LEAP MUST STILL FIT WHERE IT LANDS. `_fly_jump` drives the body along its arc directly,
+	# with none of `_walk_toward`'s deck probe or volume check — the leap deliberately owns the
+	# animal — so the only place a pounce can be made safe is before it starts. Without this
+	# CatProbe's burial sweep caught the cat 229 mm inside the bunkhouse geometry twice in one
+	# run: a hunt that ends with the animal in a bulkhead is worse than a hunt that never fires.
+	var over: Vector3 = target - global_position
+	over.y = 0.0
+	if over.length() < 0.05:
+		_end_hunt(false)
+		return
+	var dir: Vector3 = over.normalized()
+	var land: Vector3 = global_position + over * _rng.randf_range(0.94, 1.12)
+	land.y = target.y
+	if not _step_clear(land, dir):
+		# Try landing short before giving up — a cat crowded by furniture takes the shorter
+		# leap rather than not leaping.
+		land = global_position + over * 0.6
+		land.y = target.y
+		if not _step_clear(land, dir):
+			_end_hunt(false)
+			return
+	_hunt = 3
+	_pouncing = true
+	_enter(State.POUNCE)
+	_jump_t = POUNCE_SEC
+	_jump_from = global_position
+	# Land ON the bird's patch of deck, not on the bird — the seat ray sorts the height out,
+	# and a pounce that overshoots by a body length looks more like a cat than one that
+	# arrives dead centre every time.
+	_jump_to = land
+	AudioDirector.play_one_shot("cat_chirp", global_position, -22.0)
+
+## Did it get there? Called on the frame the leap lands.
+func _resolve_pounce() -> void:
+	_pouncing = false
+	var caught: bool = false
+	if _prey != null and is_instance_valid(_prey):
+		var pd: float = global_position.distance_to(_prey.global_position)
+		caught = pd < 1.0 and _rng.randf() < CATCH_CHANCE
+		# The bird goes either way — it is not eaten and it is not deleted. Flushing it is
+		# both what really happens and the only honest thing to do to another system's animal:
+		# DeckGull owns its own lifecycle, including coming back, and reaching into that from
+		# here is how one species' bug becomes two.
+		if _prey.has_method("_flush"):
+			_prey.call("_flush", self)
+	if caught:
+		_carry = "gull_feather"
+		AudioDirector.play_one_shot("cat_chirp", global_position, -14.0)
+	else:
+		# THE WASH. It missed, and it would like everyone to understand that it was not
+		# trying. This is a real displacement behaviour and it is better animation than the
+		# success is.
+		_after_t = WASH_SEC
+	_end_hunt(caught)
+
+func _end_hunt(_caught: bool) -> void:
+	_hunt = 0
+	_prey = null
+	_wiggle_t = 0.0
+	_freeze_t = 0.0
+	_hunt_cd = HUNT_CD * _rng.randf_range(0.7, 1.4)
+
+## Drop what it is carrying at your feet.
+func _deliver(player: Node3D) -> void:
+	_face(player.global_position, 1.0)
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if PlayerState.add_item(_carry):
+		Journal.discover("cat_gift")
+		PlayerState.comfort = clampf(PlayerState.comfort + 0.05, 0.0, 1.0)
+		if hud and hud.has_method("toast"):
+			hud.toast("The cat puts a gull feather down in front of you, and waits.")
+	elif hud and hud.has_method("toast"):
+		hud.toast("The cat tries to give you a feather. Your pack is full.")
+	AudioDirector.play_one_shot("cat_chirp", global_position, -18.0)
+	_carry = ""
+	_meow_cd = 4.0
+
+# ------------------------------------------------------------------ play and the zoomies
+
+## FRAP — the evening madness. A short, pointless, flat-out burst across the deck, which is
+## the one thing a cat does that no amount of following and sitting can imply.
+func _zoomies(delta: float, ppos: Vector3) -> bool:
+	if _zoom_t <= 0.0:
+		_zoom_t = ZOOM_SEC
+		_zoom_to = Vector3.ZERO
+	_zoom_t -= delta
+	if _zoom_t <= 0.0:
+		_zoom_cd = ZOOM_CD * _rng.randf_range(0.7, 1.5)
+		return false
+	# A new heading every so often, which is what makes it read as madness rather than as
+	# going somewhere. Drawn around the PLAYER rather than around the cat: a burst that
+	# random-walks off the deck is a cat leaving, and "it settles rather than circling when
+	# you rest" is a contract this animal has kept since s34. Orbiting keeps both.
+	if _zoom_to == Vector3.ZERO or global_position.distance_to(_zoom_to) < 1.0:
+		var a: float = _rng.randf() * TAU
+		_zoom_to = ppos + Vector3(cos(a), 0.0, sin(a)) * _rng.randf_range(2.0, 3.4)
+		_zoom_to.y = global_position.y
+	_enter(State.RUN)
+	_still = 0.0
+	_walk_toward(_zoom_to, RUN_SPEED, delta, 0.4)
+	return true
+
+## OBJECT PLAY. It picks a spot on the deck, stalks it exactly as if it were alive, pounces on
+## nothing at all, and does it again. The cat knows there is nothing there; that has never
+## stopped one yet.
+func _play(delta: float) -> bool:
+	if _play_t <= 0.0:
+		_play_t = PLAY_SEC
+		_play_spot = Vector3.ZERO
+	_play_t -= delta
+	if _play_t <= 0.0:
+		_play_cd = PLAY_CD * _rng.randf_range(0.7, 1.5)
+		return false
+	if _play_spot == Vector3.ZERO or global_position.distance_to(_play_spot) < 0.7:
+		# PROBED, like everything else that names a position in this file. A spot drawn blind
+		# lands inside a bunk frame about as often as not in the room the cat lives in, and
+		# then the pounce that follows puts the animal in the steel.
+		_play_spot = Vector3.ZERO
+		for _try in range(6):
+			var a: float = _rng.randf() * TAU
+			var cand: Vector3 = global_position \
+				+ Vector3(cos(a), 0.0, sin(a)) * _rng.randf_range(1.6, 3.4)
+			cand.y = global_position.y
+			if _step_clear(cand, (cand - global_position).normalized()):
+				_play_spot = cand
+				break
+		if _play_spot == Vector3.ZERO:
+			_play_t = 0.0
+			_play_cd = PLAY_CD * _rng.randf_range(0.7, 1.5)
+			return false
+		_wiggle_t = WIGGLE_SEC * 0.6
+	_enter(State.PLAY)
+	_watch(_play_spot, 1.0)
+	if _wiggle_t > 0.0 and global_position.distance_to(_play_spot) < POUNCE_M:
+		_wiggle_t -= delta
+		_face(_play_spot, delta * 3.0)
+		_last_speed = 0.0
+		_body.rotation.y = sin(_t * 21.0) * 0.10
+		if _wiggle_t <= 0.0 and _jump_t <= 0.0 and _jump_cd <= 0.0 \
+				and _step_clear(_play_spot, (_play_spot - global_position).normalized()):
+			_jump_t = POUNCE_SEC
+			_jump_from = global_position
+			_jump_to = _play_spot
+			_enter(State.POUNCE)
+	else:
+		_walk_toward(_play_spot, TROT_SPEED, delta, POUNCE_M * 0.8)
+	return true
+
 # ------------------------------------------------------------------ the rig
 
 ## POSE THE SKELETON FOR WHATEVER THE CAT IS DOING. One call at the end of the frame, after
@@ -871,7 +1286,14 @@ func _drive_rig(delta: float) -> void:
 			var rel: float = wrapf(want - rotation.y, -PI, PI)
 			var pitch: float = atan2(to.y - 0.25, Vector2(to.x, to.z).length())
 			_rig.look(rel, clampf(pitch, -0.5, 0.5), _focus_w)
-	_rig.tick(delta, _last_speed, _moved_frame)
+	# HOW FAST THE BODY IS ACTUALLY TURNING, measured off the node rather than commanded. The
+	# rig needs it for the turn-in-place step cycle (flaw 4): asked to face a new bearing while
+	# standing still, `_face` used to swivel the whole animal with all four paws welded to the
+	# deck. Measured here, where the yaw really changes, for the same reason `_moved_frame` is
+	# measured where the movement really happens.
+	var yaw_rate: float = wrapf(rotation.y - _yaw_prev, -PI, PI) / maxf(delta, 1e-4)
+	_yaw_prev = rotation.y
+	_rig.tick(delta, _last_speed, _moved_frame, yaw_rate)
 	_moved_frame = 0.0
 
 ## Point the cat's ATTENTION at something without turning it. Weight decays, so a glance
@@ -921,7 +1343,11 @@ func _wear(key: String) -> void:
 	if _rig != null:
 		# Settling into rest is gentle; being startled into motion is not. The rate is the
 		# only thing that differs between "eases down to sleep" and "bolts upright".
-		var rate: float = 10.0 if key in ["run", "jump", "walk"] else 5.0
+		# A stalk SETTLES into itself — a cat sinking into a crouch is the slowest thing it
+		# does, and snapping into the pose throws the whole tell away. Everything that is a
+		# burst of motion blends fast; everything that is a decision blends slowly.
+		var rate: float = 10.0 if key in ["run", "jump", "walk", "carry"] else \
+			(3.2 if key == "stalk" else 5.0)
 		_rig.set_pose(key, rate)
 
 ## The pose a state wears, applied every time the state is set so a transition cannot be

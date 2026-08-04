@@ -1,1079 +1,1083 @@
 {
-  "_schema": "item_id -> { name, use: eat|drink|tool|build, hunger/thirst: restore amounts, side_effect, melee_damage/melee_reach/swing_sec for weapons, and for worn gear: worn + the field naming its effect (pack_slots | light | cold_relief). The 'effect' string names the code that implements it — worn gear with no implementation is a lie. PlayerState.use_hotbar implements hunger/thirst/comfort/side_effect; scripts/components/item_effects.gd implements FOUR more on the same consume path: heal (adds to the 0..1 life bar), cures ('sickness'), warmth, returns (item id handed back when the consumable is spent — how a drunk bottle leaves you the bottle), plus an optional 'line' overriding the toast. NOTE: only an eat/drink item is ever SPENT by use_hotbar, so a consumable that is not food carries use:drink with thirst 0. Water vessels add vessel:true + vessel_kind (bottle|flask) + fills_to + fill_hours, read by scripts/components/rain_catcher.gd.",
-  "canned_food": {
-    "name": "Canned Food",
-    "use": "eat",
-    "hunger": 0.35
-  },
-  "canned_peaches": {
-    "name": "Canned Peaches",
-    "use": "eat",
-    "hunger": 0.25,
-    "thirst": 0.15
-  },
-  "water_ration": {
-    "name": "Water Ration",
-    "use": "drink",
-    "thirst": 0.5
-  },
-  "cable_spool": {
-    "name": "Cable Spool",
-    "use": "tool"
-  },
-  "prybar": {
-    "name": "Prybar",
-    "use": "tool"
-  },
-  "flare": {
-    "name": "Flare",
-    "use": "tool"
-  },
-  "life_ring": {
-    "name": "Life Ring",
-    "use": "tool"
-  },
-  "rope": {
-    "name": "Rope Coil",
-    "use": "tool"
-  },
-  "throwing_hook": {
-    "name": "Throwing Hook",
-    "use": "tool"
-  },
-  "driftwood": {
-    "name": "Driftwood Plank",
-    "use": "tool"
-  },
-  "scrap_metal": {
-    "name": "Scrap Metal",
-    "use": "tool"
-  },
-  "tarp": {
-    "name": "Canvas Tarp",
-    "use": "tool"
-  },
-  "sealed_tin": {
-    "name": "Sealed Tin",
-    "use": "eat",
-    "hunger": 0.3
-  },
-  "kelp_bundle": {
-    "name": "Kelp Bundle",
-    "use": "eat",
-    "hunger": 0.12
-  },
-  "bloom_lamp_kit": {
-    "name": "Bloom Lamp (kit)",
-    "use": "build"
-  },
-  "leanto_kit": {
-    "name": "Lean-To (kit)",
-    "use": "build"
-  },
-  "walkway_kit": {
-    "name": "Plank Walkway (kit)",
-    "use": "build"
-  },
-  "barricade_kit": {
-    "name": "Barricade (kit)",
-    "use": "build"
-  },
-  "glow_worm": {
-    "name": "Glow Worm",
-    "use": "eat",
-    "hunger": 0.15,
-    "side_effect": "sick"
-  },
-  "glow_worm_cooked": {
-    "name": "Seared Glow Worm",
-    "use": "eat",
-    "hunger": 0.5
-  },
-  "fishing_rod": {
-    "name": "Fishing Rod",
-    "use": "tool"
-  },
-  "drop_net_kit": {
-    "name": "Drop Net",
-    "use": "build"
-  },
-  "fish_herring": {
-    "name": "Lantern Herring",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_slate_cod": {
-    "name": "Slate Cod",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_mirrorjack": {
-    "name": "Mirrorjack",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_chimefish": {
-    "name": "Chimefish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_sable_hake": {
-    "name": "Sable Hake",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_barrel_grouper": {
-    "name": "Goliath Grouper",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_ribbon_eel": {
-    "name": "Ribbon Eel",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish": {
-    "name": "Seared Fish",
-    "use": "eat",
-    "hunger": 0.45,
-    "thirst": 0.05
-  },
-  "cooked_fish_prime": {
-    "name": "Prime Fillet",
-    "use": "eat",
-    "hunger": 0.7,
-    "thirst": 0.1
-  },
-  "fish_copper_sprat": {
-    "name": "Copper Sprat",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_silver_ladder": {
-    "name": "Silver Ladder",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_ember_snapper": {
-    "name": "Ember Snapper",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_ghost_sole": {
-    "name": "Ghost Sole",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_glasspike": {
-    "name": "Glasspike",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_lodestone_bream": {
-    "name": "Lodestone Bream",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_drum_croaker": {
-    "name": "Drum Croaker",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_inkwell_squid": {
-    "name": "Inkwell Squid",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_stone_crab": {
-    "name": "Stone Crab",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_gutter_prawn": {
-    "name": "Gutter Prawn",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_miller_flounder": {
-    "name": "Miller's Flounder",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_fathom_halibut": {
-    "name": "Fathom Halibut",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_gulper_eel": {
-    "name": "Gulper Eel",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_bloom_dragon": {
-    "name": "Bloom Dragonfish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_fathom_sturgeon": {
-    "name": "Fathom Sturgeon",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_abyss_grenadier": {
-    "name": "Abyss Grenadier",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_coelacanth": {
-    "name": "Coelacanth",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_swordfish": {
-    "name": "Swordfish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "dried_fish": {
-    "name": "Dried Fish",
-    "use": "eat",
-    "hunger": 0.45,
-    "thirst": 0.05
-  },
-  "fish_rotten": {
-    "name": "Rotten Fish",
-    "use": "eat",
-    "hunger": 0.05,
-    "side_effect": "sick"
-  },
-  "crude_knife": {
-    "name": "Crude Knife",
-    "use": "tool",
-    "melee_damage": 1.0,
-    "melee_reach": 1.9,
-    "swing_sec": 0.45
-  },
-  "crude_spear": {
-    "name": "Crude Spear",
-    "use": "tool",
-    "melee_damage": 1.7,
-    "melee_reach": 3.0,
-    "swing_sec": 0.7,
-    "spearfishing": true,
-    "spear_note": "underwater, a thrust takes the fish you are aiming at"
-  },
-  "glow_mucus": {
-    "name": "Glow Mucus",
-    "use": "tool"
-  },
-  "limpet_shell": {
-    "name": "Limpet Shell",
-    "use": "tool"
-  },
-  "mussels": {
-    "name": "Mussels",
-    "use": "eat",
-    "hunger": 0.05,
-    "side_effect": "sick"
-  },
-  "mussels_boiled": {
-    "name": "Boiled Mussels",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.06,
-    "comfort": 0.04
-  },
-  "snail_live": {
-    "name": "Live Snail",
-    "use": "eat",
-    "hunger": 0.06,
-    "side_effect": "sick"
-  },
-  "escargot": {
-    "name": "Escargot",
-    "use": "eat",
-    "hunger": 0.5,
-    "comfort": 0.05
-  },
-  "crab_leg": {
-    "name": "Crab Leg",
-    "use": "eat",
-    "hunger": 0.1,
-    "side_effect": "sick"
-  },
-  "crab_leg_seared": {
-    "name": "Seared Crab Leg",
-    "use": "eat",
-    "hunger": 0.45,
-    "thirst": 0.05
-  },
-  "cooked_fish_copper_sprat": {
-    "name": "Cooked Copper Sprat",
-    "use": "eat",
-    "hunger": 0.3,
-    "thirst": 0.05
-  },
-  "cooked_fish_herring": {
-    "name": "Cooked Lantern Herring",
-    "use": "eat",
-    "hunger": 0.45,
-    "thirst": 0.05
-  },
-  "cooked_fish_slate_cod": {
-    "name": "Cooked Slate Cod",
-    "use": "eat",
-    "hunger": 0.55,
-    "thirst": 0.05
-  },
-  "cooked_fish_mirrorjack": {
-    "name": "Cooked Mirrorjack",
-    "use": "eat",
-    "hunger": 0.48,
-    "thirst": 0.05
-  },
-  "cooked_fish_chimefish": {
-    "name": "Cooked Chimefish",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05
-  },
-  "cooked_fish_silver_ladder": {
-    "name": "Cooked Silver Ladder",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05
-  },
-  "cooked_fish_ember_snapper": {
-    "name": "Cooked Ember Snapper",
-    "use": "eat",
-    "hunger": 0.5,
-    "thirst": 0.05
-  },
-  "cooked_fish_sable_hake": {
-    "name": "Cooked Sable Hake",
-    "use": "eat",
-    "hunger": 0.46,
-    "thirst": 0.05
-  },
-  "cooked_fish_ghost_sole": {
-    "name": "Cooked Ghost Sole",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05
-  },
-  "cooked_fish_glasspike": {
-    "name": "Cooked Glasspike",
-    "use": "eat",
-    "hunger": 0.5,
-    "thirst": 0.05
-  },
-  "cooked_fish_lodestone_bream": {
-    "name": "Cooked Lodestone Bream",
-    "use": "eat",
-    "hunger": 0.5,
-    "thirst": 0.05
-  },
-  "cooked_fish_drum_croaker": {
-    "name": "Cooked Drum Croaker",
-    "use": "eat",
-    "hunger": 0.52,
-    "thirst": 0.05
-  },
-  "cooked_fish_inkwell_squid": {
-    "name": "Grilled Inkwell Squid",
-    "use": "eat",
-    "hunger": 0.48,
-    "thirst": 0.05
-  },
-  "cooked_fish_ribbon_eel": {
-    "name": "Cooked Ribbon Eel",
-    "use": "eat",
-    "hunger": 0.65,
-    "thirst": 0.1
-  },
-  "cooked_fish_barrel_grouper": {
-    "name": "Goliath Grouper Fillet",
-    "use": "eat",
-    "hunger": 0.45,
-    "thirst": 0.05,
-    "effect": "A PORTION, not the whole fish: one grouper breaks down into 6-12 of these on the stove (fish.json fillets), so the nourishment is per-fillet. It was 0.85 back when a grouper cooked one-for-one."
-  },
-  "cooked_fish_stone_crab": {
-    "name": "Boiled Stone Crab",
-    "use": "eat",
-    "hunger": 0.5,
-    "thirst": 0.05
-  },
-  "cooked_fish_gutter_prawn": {
-    "name": "Cooked Gutter Prawn",
-    "use": "eat",
-    "hunger": 0.32,
-    "thirst": 0.05
-  },
-  "cooked_fish_miller_flounder": {
-    "name": "Cooked Miller's Flounder",
-    "use": "eat",
-    "hunger": 0.46,
-    "thirst": 0.05
-  },
-  "cooked_fish_fathom_halibut": {
-    "name": "Fathom Halibut Fillet",
-    "use": "eat",
-    "hunger": 0.5,
-    "thirst": 0.05,
-    "effect": "A PORTION, not the whole fish: a door-sized halibut breaks down into 1-3 of these (fish.json fillets), so the nourishment is per-fillet."
-  },
-  "croissant": {
-    "name": "Stale Croissant",
-    "use": "eat",
-    "hunger": 0.15
-  },
-  "carrot_cake": {
-    "name": "Dry Carrot Cake",
-    "use": "eat",
-    "hunger": 0.22
-  },
-  "bananas": {
-    "name": "Spotted Bananas",
-    "use": "eat",
-    "hunger": 0.18,
-    "thirst": 0.03
-  },
-  "apple": {
-    "name": "Bruised Apple",
-    "use": "eat",
-    "hunger": 0.14,
-    "thirst": 0.06
-  },
-  "avocado": {
-    "name": "Soft Avocado",
-    "use": "eat",
-    "hunger": 0.16
-  },
-  "burger_buns": {
-    "name": "Stale Burger Buns",
-    "use": "eat",
-    "hunger": 0.16
-  },
-  "lemon": {
-    "name": "Lemon",
-    "use": "eat",
-    "hunger": 0.06,
-    "thirst": 0.06
-  },
-  "chocolate_cake": {
-    "name": "Someone's Birthday Cake",
-    "use": "eat",
-    "hunger": 0.28
-  },
-  "cheese_wedge": {
-    "name": "Wedge of Cheese",
-    "use": "eat",
-    "hunger": 0.24
-  },
-  "ration_tin": {
-    "name": "Ration Tin",
-    "use": "eat",
-    "hunger": 0.3
-  },
-  "long_life_ration": {
-    "name": "Long-Life Ration",
-    "use": "eat",
-    "hunger": 0.35
-  },
-  "wine_bottle": {
-    "name": "Bottle of Red",
-    "use": "drink",
-    "thirst": 0.35,
-    "hunger": 0.05
-  },
-  "water_jug": {
-    "name": "Gallon of Water",
-    "use": "drink",
-    "thirst": 0.4
-  },
-  "mini_anchor": {
-    "name": "Mini Anchor",
-    "use": "tool"
-  },
-  "wrench": {
-    "name": "Wrench",
-    "use": "tool"
-  },
-  "hammer_tool": {
-    "name": "Hammer",
-    "use": "tool"
-  },
-  "spanner": {
-    "name": "Spanner",
-    "use": "tool"
-  },
-  "screwdriver": {
-    "name": "Screwdriver",
-    "use": "tool"
-  },
-  "hand_file": {
-    "name": "Hand File",
-    "use": "tool"
-  },
-  "hacksaw": {
-    "name": "Hacksaw",
-    "use": "tool"
-  },
-  "raw_sea_bird": {
-    "name": "Raw Sea-Bird",
-    "use": "eat",
-    "hunger": 0.12,
-    "side_effect": "sick"
-  },
-  "cooked_sea_bird": {
-    "name": "Roast Sea-Bird",
-    "use": "eat",
-    "hunger": 0.55
-  },
-  "steel_plate": {
-    "name": "Steel Plate",
-    "use": "tool"
-  },
-  "pipe_length": {
-    "name": "Length of Pipe",
-    "use": "tool"
-  },
-  "wire_spool": {
-    "name": "Spool of Wire",
-    "use": "tool"
-  },
-  "bolt_handful": {
-    "name": "Handful of Bolts",
-    "use": "tool"
-  },
-  "glass_pane": {
-    "name": "Glass Pane",
-    "use": "tool"
-  },
-  "canvas_scrap": {
-    "name": "Canvas Scrap",
-    "use": "tool"
-  },
-  "foam_block": {
-    "name": "Foam Block",
-    "use": "tool"
-  },
-  "ceramic_shard": {
-    "name": "Ceramic Shard",
-    "use": "tool"
-  },
-  "copper_coil": {
-    "name": "Copper Coil",
-    "use": "tool"
-  },
-  "rubber_hose": {
-    "name": "Rubber Hose",
-    "use": "tool"
-  },
-  "kelp_fiber": {
-    "name": "Kelp Fiber",
-    "use": "tool"
-  },
-  "fish_bone": {
-    "name": "Fish Bone",
-    "use": "tool"
-  },
-  "shell_grit": {
-    "name": "Shell Grit",
-    "use": "tool"
-  },
-  "tar_lump": {
-    "name": "Tar Lump",
-    "use": "tool"
-  },
-  "float_buoy": {
-    "name": "Float Buoy",
-    "use": "tool"
-  },
-  "wood_slat": {
-    "name": "Wood Slats",
-    "use": "tool"
-  },
-  "raw_fillet": {
-    "name": "Raw Fillet",
-    "use": "eat",
-    "hunger": 0.14,
-    "side_effect": "sick"
-  },
-  "bedroll_kit": {
-    "name": "Bedroll (kit)",
-    "use": "build"
-  },
-  "locker_kit": {
-    "name": "Steel Locker (kit)",
-    "use": "build"
-  },
-  "rain_catcher_kit": {
-    "name": "Rain Catcher (kit)",
-    "use": "build"
-  },
-  "brazier_kit": {
-    "name": "Brazier (kit)",
-    "use": "build"
-  },
-  "chair_kit": {
-    "name": "Deck Chair (kit)",
-    "use": "build"
-  },
-  "workbench_kit": {
-    "name": "Workbench (kit)",
-    "use": "build"
-  },
-  "drying_rack_kit": {
-    "name": "Drying Rack (kit)",
-    "use": "build"
-  },
-  "planter_kit": {
-    "name": "Planter Box (kit)",
-    "use": "build"
-  },
-  "shelf_kit": {
-    "name": "Wall Shelf (kit)",
-    "use": "build"
-  },
-  "wall_panel_kit": {
-    "name": "Wall Panel (kit)",
-    "use": "build"
-  },
-  "lamp_post_kit": {
-    "name": "Lamp Post (kit)",
-    "use": "build"
-  },
-  "windbreak_kit": {
-    "name": "Windbreak (kit)",
-    "use": "build"
-  },
-  "rug_kit": {
-    "name": "Deck Rug (kit)",
-    "use": "build"
-  },
-  "honed_knife": {
-    "name": "Honed Knife",
-    "use": "tool",
-    "melee_damage": 1.6,
-    "melee_reach": 2.0,
-    "swing_sec": 0.38
-  },
-  "honed_spear": {
-    "name": "Honed Spear",
-    "use": "tool",
-    "melee_damage": 2.6,
-    "melee_reach": 3.3,
-    "swing_sec": 0.62,
-    "spearfishing": true,
-    "spear_note": "underwater, a thrust takes the fish you are aiming at"
-  },
-  "tool_belt": {
-    "name": "Tool Belt",
-    "use": "tool",
-    "worn": true,
-    "pack_slots": 4,
-    "effect": "Four more slots in the pack (PlayerState.backpack_capacity)."
-  },
-  "storm_lantern": {
-    "name": "Storm Lantern",
-    "use": "tool",
-    "worn": true,
-    "light": true,
-    "effect": "Carried light: a warm 9m omni on the player (PlayerController._update_lantern)."
-  },
-  "flashlight": {
-    "name": "Flashlight",
-    "use": "tool",
-    "worn": true,
-    "light": true,
-    "effect": "Hold it and press F to click a hard 22m beam on/off, aimed where you look (PlayerController._update_flashlight)."
-  },
-  "patched_boots": {
-    "name": "Patched Boots",
-    "use": "tool",
-    "worn": true,
-    "cold_relief": 0.35,
-    "effect": "Warmth is lost 35% slower while cold (PlayerState BOOTS_COLD_RELIEF); the spec's '35% wet protection' — no wetness stat exists, rain is a shelter-gate, so it lands as cold-loss relief."
-  },
-  "storage_bin_kit": {
-    "name": "Storage Bin (kit)",
-    "use": "build"
-  },
-  "door_kit": {
-    "name": "Wooden Door (kit)",
-    "use": "build"
-  },
-  "floor_panel_kit": {
-    "name": "Deck Panel (kit)",
-    "use": "build"
-  },
-  "window_panel_kit": {
-    "name": "Window Panel (kit)",
-    "use": "build"
-  },
-  "deep_rig_pole": {
-    "name": "Deep Rig Pole",
-    "use": "tool",
-    "effect": "The weighted hand-line, and its own game rather than a longer cast: BAIT IT FIRST (a live snail, or any cut bait) or it will not leave the drum, then heave the lead over the side from anywhere that overlooks water. It plumbs straight down and the readout counts the metres — every species in fish.json only takes a bait that has reached its own drop_m, so the deeper the lead the deeper and bigger the pool (grouper at 16 m, sturgeon at 44). LMB thumbs the drum to hold a depth, a second LMB reels in. See FishingRod._deep."
-  },
-  "fishermans_handbook": {
-    "name": "Fisherman's Handbook",
-    "use": "tool",
-    "effect": "The wet-deck angling log, and the only readable on this rig you can carry. READ it where it lies [E], press [F] while it is open to pocket it, then [F] with it selected to read it anywhere, or drop it (right-click the pack slot) to leave it by the rail you fish. It documents the live catch conditions in data/fish.json — hours, weather tier, worklights, water, depth ladder and bait. See scripts/components/handbook.gd."
-  },
-  "bottle_empty": {
-    "name": "Salvaged Bottle",
-    "use": "tool",
-    "vessel": true,
-    "vessel_kind": "bottle",
-    "fills_to": "bottle_water",
-    "fill_hours": 1.2,
-    "effect": "Stand it in a Rain Catcher's cradle and one good squall fills it (RainCatcherDock)."
-  },
-  "bottle_water": {
-    "name": "Bottle of Rainwater",
-    "use": "drink",
-    "thirst": 0.45,
-    "vessel": true,
-    "vessel_kind": "bottle",
-    "returns": "bottle_empty",
-    "line": "Rainwater — cold, flat, faintly of canvas. The bottle goes back in your pack.",
-    "effect": "Restores thirst through the normal drink path and hands the empty bottle back (ItemEffects `returns`), so the water farm is a loop instead of a tap."
-  },
-  "thermos_empty": {
-    "name": "Crew Thermos",
-    "use": "tool",
-    "vessel": true,
-    "vessel_kind": "flask",
-    "fills_to": "thermos_water",
-    "fill_hours": 2.0,
-    "effect": "Holds more than a bottle and takes roughly twice the weather to fill (RainCatcherDock)."
-  },
-  "thermos_water": {
-    "name": "Thermos of Rainwater",
-    "use": "drink",
-    "thirst": 0.7,
-    "vessel": true,
-    "vessel_kind": "flask",
-    "returns": "thermos_empty",
-    "line": "Half a litre straight off the sky. The flask goes back in your pack.",
-    "effect": "As the bottle, but a proper day's water in one slot (ItemEffects `returns`)."
-  },
-  "bandage": {
-    "name": "Field Dressing",
-    "use": "drink",
-    "thirst": 0.0,
-    "heal": 0.12,
-    "line": "Cleaned, packed, bound off. It'll hold.",
-    "effect": "Heals 0.12 of the 0..1 life bar (ItemEffects `heal`). Tagged use:drink with thirst 0 because use_hotbar only ever SPENDS an eat/drink item — a use:tool item is never consumed — and 'drink' keeps the inventory tooltip from calling a dressing edible."
-  },
-  "medkit": {
-    "name": "Medkit",
-    "use": "drink",
-    "thirst": 0.0,
-    "heal": 0.4,
-    "cures": "sickness",
-    "line": "Sutures, sulfa powder, clean water. You come out of it steadier than you went in.",
-    "effect": "Heals 0.4 of life and clears sickness (ItemEffects `heal` + `cures`). See bandage for why use:drink."
-  },
-  "bloom_tonic": {
-    "name": "Bloom Tonic",
-    "use": "drink",
-    "thirst": 0.1,
-    "cures": "sickness",
-    "line": "Low tide in a bottle, and it burns going down. The queasiness lets go all the same.",
-    "effect": "Clears sickness (ItemEffects `cures`) — the answer to raw fish, live snails and a bad glow worm."
-  },
-  "kelp_brew": {
-    "name": "Kelp Brew",
-    "use": "drink",
-    "thirst": 0.3,
-    "hunger": 0.08,
-    "warmth": 0.45,
-    "returns": "bottle_empty",
-    "line": "Hot, green, faintly luminous. The heat gets all the way out to your hands.",
-    "effect": "Restores warmth as well as thirst (ItemEffects `warmth`) and gives the bottle back."
-  },
-  "galley_stew": {
-    "name": "Fish Stew",
-    "use": "eat",
-    "hunger": 0.75,
-    "thirst": 0.25,
-    "warmth": 0.3,
-    "returns": "bottle_empty",
-    "line": "A whole fish, a fistful of kelp and a bottle of rain, boiled down to something you would call a meal.",
-    "effect": "The best food on the rig, and the only one that warms you (ItemEffects `warmth`). Hands the bottle back."
-  },
-  "fish_bilge_blenny": {
-    "name": "Bilge Blenny",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_tallow_pollock": {
-    "name": "Tallow Pollock",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_gannet_mackerel": {
-    "name": "Gannet Mackerel",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_rust_wrasse": {
-    "name": "Rust Wrasse",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_kelp_pipefish": {
-    "name": "Kelp Pipefish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_lantern_dogfish": {
-    "name": "Lantern Dogfish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_squall_garfish": {
-    "name": "Squall Garfish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_anchor_ray": {
-    "name": "Anchor Ray",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "fish_trench_hagfish": {
-    "name": "Trench Hagfish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_bilge_blenny": {
-    "name": "Cooked Bilge Blenny",
-    "use": "eat",
-    "hunger": 0.28,
-    "thirst": 0.05
-  },
-  "cooked_fish_tallow_pollock": {
-    "name": "Cooked Tallow Pollock",
-    "use": "eat",
-    "hunger": 0.58,
-    "thirst": 0.05
-  },
-  "cooked_fish_gannet_mackerel": {
-    "name": "Cooked Gannet Mackerel",
-    "use": "eat",
-    "hunger": 0.46,
-    "thirst": 0.05
-  },
-  "cooked_fish_rust_wrasse": {
-    "name": "Cooked Rust Wrasse",
-    "use": "eat",
-    "hunger": 0.4,
-    "thirst": 0.05
-  },
-  "cooked_fish_kelp_pipefish": {
-    "name": "Cooked Kelp Pipefish",
-    "use": "eat",
-    "hunger": 0.26,
-    "thirst": 0.05
-  },
-  "cooked_fish_lantern_dogfish": {
-    "name": "Cooked Lantern Dogfish",
-    "use": "eat",
-    "hunger": 0.55,
-    "thirst": 0.05
-  },
-  "cooked_fish_squall_garfish": {
-    "name": "Cooked Squall Garfish",
-    "use": "eat",
-    "hunger": 0.5,
-    "thirst": 0.05
-  },
-  "cooked_fish_anchor_ray": {
-    "name": "Cooked Anchor Ray",
-    "use": "eat",
-    "hunger": 0.62,
-    "thirst": 0.1
-  },
-  "fish_skipjack_tuna": {
-    "name": "Skipjack Tuna",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_skipjack_tuna": {
-    "name": "Skipjack Tuna Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_yellowfin_tuna": {
-    "name": "Yellowfin Tuna",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_yellowfin_tuna": {
-    "name": "Yellowfin Tuna Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_albacore_tuna": {
-    "name": "Albacore Tuna",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_albacore_tuna": {
-    "name": "Albacore Tuna Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_bigeye_tuna": {
-    "name": "Bigeye Tuna",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_bigeye_tuna": {
-    "name": "Bigeye Tuna Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_bluefin_tuna": {
-    "name": "Bluefin Tuna",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_bluefin_tuna": {
-    "name": "Bluefin Tuna Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_bluelined_grouper": {
-    "name": "Bluelined Grouper",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_bluelined_grouper": {
-    "name": "Bluelined Grouper Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_peacock_grouper": {
-    "name": "Peacock Grouper",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_peacock_grouper": {
-    "name": "Peacock Grouper Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_humpback_grouper": {
-    "name": "Humpback Grouper",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_humpback_grouper": {
-    "name": "Humpback Grouper Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_leopard_grouper": {
-    "name": "Leopard Coral Grouper",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_leopard_grouper": {
-    "name": "Leopard Coral Grouper Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_mahi_mahi": {
-    "name": "Mahi-Mahi",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_mahi_mahi": {
-    "name": "Mahi-Mahi Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  },
-  "fish_swallowtail": {
-    "name": "Swallowtail Angelfish",
-    "use": "eat",
-    "hunger": 0.08,
-    "side_effect": "sick"
-  },
-  "cooked_fish_swallowtail": {
-    "name": "Swallowtail Angelfish Fillet",
-    "use": "eat",
-    "hunger": 0.42,
-    "thirst": 0.05,
-    "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
-  }
+ "_schema": "item_id -> { name, use: eat|drink|tool|build, hunger/thirst: restore amounts, side_effect, melee_damage/melee_reach/swing_sec for weapons, and for worn gear: worn + the field naming its effect (pack_slots | light | cold_relief). The 'effect' string names the code that implements it — worn gear with no implementation is a lie. PlayerState.use_hotbar implements hunger/thirst/comfort/side_effect; scripts/components/item_effects.gd implements FOUR more on the same consume path: heal (adds to the 0..1 life bar), cures ('sickness'), warmth, returns (item id handed back when the consumable is spent — how a drunk bottle leaves you the bottle), plus an optional 'line' overriding the toast. NOTE: only an eat/drink item is ever SPENT by use_hotbar, so a consumable that is not food carries use:drink with thirst 0. Water vessels add vessel:true + vessel_kind (bottle|flask) + fills_to + fill_hours, read by scripts/components/rain_catcher.gd.",
+ "canned_food": {
+  "name": "Canned Food",
+  "use": "eat",
+  "hunger": 0.35
+ },
+ "canned_peaches": {
+  "name": "Canned Peaches",
+  "use": "eat",
+  "hunger": 0.25,
+  "thirst": 0.15
+ },
+ "water_ration": {
+  "name": "Water Ration",
+  "use": "drink",
+  "thirst": 0.5
+ },
+ "cable_spool": {
+  "name": "Cable Spool",
+  "use": "tool"
+ },
+ "prybar": {
+  "name": "Prybar",
+  "use": "tool"
+ },
+ "flare": {
+  "name": "Flare",
+  "use": "tool"
+ },
+ "life_ring": {
+  "name": "Life Ring",
+  "use": "tool"
+ },
+ "rope": {
+  "name": "Rope Coil",
+  "use": "tool"
+ },
+ "throwing_hook": {
+  "name": "Throwing Hook",
+  "use": "tool"
+ },
+ "driftwood": {
+  "name": "Driftwood Plank",
+  "use": "tool"
+ },
+ "scrap_metal": {
+  "name": "Scrap Metal",
+  "use": "tool"
+ },
+ "tarp": {
+  "name": "Canvas Tarp",
+  "use": "tool"
+ },
+ "sealed_tin": {
+  "name": "Sealed Tin",
+  "use": "eat",
+  "hunger": 0.3
+ },
+ "kelp_bundle": {
+  "name": "Kelp Bundle",
+  "use": "eat",
+  "hunger": 0.12
+ },
+ "bloom_lamp_kit": {
+  "name": "Bloom Lamp (kit)",
+  "use": "build"
+ },
+ "leanto_kit": {
+  "name": "Lean-To (kit)",
+  "use": "build"
+ },
+ "walkway_kit": {
+  "name": "Plank Walkway (kit)",
+  "use": "build"
+ },
+ "barricade_kit": {
+  "name": "Barricade (kit)",
+  "use": "build"
+ },
+ "glow_worm": {
+  "name": "Glow Worm",
+  "use": "eat",
+  "hunger": 0.15,
+  "side_effect": "sick"
+ },
+ "glow_worm_cooked": {
+  "name": "Seared Glow Worm",
+  "use": "eat",
+  "hunger": 0.5
+ },
+ "fishing_rod": {
+  "name": "Fishing Rod",
+  "use": "tool"
+ },
+ "drop_net_kit": {
+  "name": "Drop Net",
+  "use": "build"
+ },
+ "fish_herring": {
+  "name": "Lantern Herring",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_slate_cod": {
+  "name": "Slate Cod",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_mirrorjack": {
+  "name": "Mirrorjack",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_chimefish": {
+  "name": "Chimefish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_sable_hake": {
+  "name": "Sable Hake",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_barrel_grouper": {
+  "name": "Goliath Grouper",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_ribbon_eel": {
+  "name": "Ribbon Eel",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish": {
+  "name": "Seared Fish",
+  "use": "eat",
+  "hunger": 0.45,
+  "thirst": 0.05
+ },
+ "cooked_fish_prime": {
+  "name": "Prime Fillet",
+  "use": "eat",
+  "hunger": 0.7,
+  "thirst": 0.1
+ },
+ "fish_copper_sprat": {
+  "name": "Copper Sprat",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_silver_ladder": {
+  "name": "Silver Ladder",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_ember_snapper": {
+  "name": "Ember Snapper",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_ghost_sole": {
+  "name": "Ghost Sole",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_glasspike": {
+  "name": "Glasspike",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_lodestone_bream": {
+  "name": "Lodestone Bream",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_drum_croaker": {
+  "name": "Drum Croaker",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_inkwell_squid": {
+  "name": "Inkwell Squid",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_stone_crab": {
+  "name": "Stone Crab",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_gutter_prawn": {
+  "name": "Gutter Prawn",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_miller_flounder": {
+  "name": "Miller's Flounder",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_fathom_halibut": {
+  "name": "Fathom Halibut",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_gulper_eel": {
+  "name": "Gulper Eel",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_bloom_dragon": {
+  "name": "Bloom Dragonfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_fathom_sturgeon": {
+  "name": "Fathom Sturgeon",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_abyss_grenadier": {
+  "name": "Abyss Grenadier",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_coelacanth": {
+  "name": "Coelacanth",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_swordfish": {
+  "name": "Swordfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "dried_fish": {
+  "name": "Dried Fish",
+  "use": "eat",
+  "hunger": 0.45,
+  "thirst": 0.05
+ },
+ "fish_rotten": {
+  "name": "Rotten Fish",
+  "use": "eat",
+  "hunger": 0.05,
+  "side_effect": "sick"
+ },
+ "crude_knife": {
+  "name": "Crude Knife",
+  "use": "tool",
+  "melee_damage": 1.0,
+  "melee_reach": 1.9,
+  "swing_sec": 0.45
+ },
+ "crude_spear": {
+  "name": "Crude Spear",
+  "use": "tool",
+  "melee_damage": 1.7,
+  "melee_reach": 3.0,
+  "swing_sec": 0.7,
+  "spearfishing": true,
+  "spear_note": "underwater, a thrust takes the fish you are aiming at"
+ },
+ "glow_mucus": {
+  "name": "Glow Mucus",
+  "use": "tool"
+ },
+ "limpet_shell": {
+  "name": "Limpet Shell",
+  "use": "tool"
+ },
+ "mussels": {
+  "name": "Mussels",
+  "use": "eat",
+  "hunger": 0.05,
+  "side_effect": "sick"
+ },
+ "mussels_boiled": {
+  "name": "Boiled Mussels",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.06,
+  "comfort": 0.04
+ },
+ "snail_live": {
+  "name": "Live Snail",
+  "use": "eat",
+  "hunger": 0.06,
+  "side_effect": "sick"
+ },
+ "escargot": {
+  "name": "Escargot",
+  "use": "eat",
+  "hunger": 0.5,
+  "comfort": 0.05
+ },
+ "crab_leg": {
+  "name": "Crab Leg",
+  "use": "eat",
+  "hunger": 0.1,
+  "side_effect": "sick"
+ },
+ "crab_leg_seared": {
+  "name": "Seared Crab Leg",
+  "use": "eat",
+  "hunger": 0.45,
+  "thirst": 0.05
+ },
+ "cooked_fish_copper_sprat": {
+  "name": "Cooked Copper Sprat",
+  "use": "eat",
+  "hunger": 0.3,
+  "thirst": 0.05
+ },
+ "cooked_fish_herring": {
+  "name": "Cooked Lantern Herring",
+  "use": "eat",
+  "hunger": 0.45,
+  "thirst": 0.05
+ },
+ "cooked_fish_slate_cod": {
+  "name": "Cooked Slate Cod",
+  "use": "eat",
+  "hunger": 0.55,
+  "thirst": 0.05
+ },
+ "cooked_fish_mirrorjack": {
+  "name": "Cooked Mirrorjack",
+  "use": "eat",
+  "hunger": 0.48,
+  "thirst": 0.05
+ },
+ "cooked_fish_chimefish": {
+  "name": "Cooked Chimefish",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05
+ },
+ "cooked_fish_silver_ladder": {
+  "name": "Cooked Silver Ladder",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05
+ },
+ "cooked_fish_ember_snapper": {
+  "name": "Cooked Ember Snapper",
+  "use": "eat",
+  "hunger": 0.5,
+  "thirst": 0.05
+ },
+ "cooked_fish_sable_hake": {
+  "name": "Cooked Sable Hake",
+  "use": "eat",
+  "hunger": 0.46,
+  "thirst": 0.05
+ },
+ "cooked_fish_ghost_sole": {
+  "name": "Cooked Ghost Sole",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05
+ },
+ "cooked_fish_glasspike": {
+  "name": "Cooked Glasspike",
+  "use": "eat",
+  "hunger": 0.5,
+  "thirst": 0.05
+ },
+ "cooked_fish_lodestone_bream": {
+  "name": "Cooked Lodestone Bream",
+  "use": "eat",
+  "hunger": 0.5,
+  "thirst": 0.05
+ },
+ "cooked_fish_drum_croaker": {
+  "name": "Cooked Drum Croaker",
+  "use": "eat",
+  "hunger": 0.52,
+  "thirst": 0.05
+ },
+ "cooked_fish_inkwell_squid": {
+  "name": "Grilled Inkwell Squid",
+  "use": "eat",
+  "hunger": 0.48,
+  "thirst": 0.05
+ },
+ "cooked_fish_ribbon_eel": {
+  "name": "Cooked Ribbon Eel",
+  "use": "eat",
+  "hunger": 0.65,
+  "thirst": 0.1
+ },
+ "cooked_fish_barrel_grouper": {
+  "name": "Goliath Grouper Fillet",
+  "use": "eat",
+  "hunger": 0.45,
+  "thirst": 0.05,
+  "effect": "A PORTION, not the whole fish: one grouper breaks down into 6-12 of these on the stove (fish.json fillets), so the nourishment is per-fillet. It was 0.85 back when a grouper cooked one-for-one."
+ },
+ "cooked_fish_stone_crab": {
+  "name": "Boiled Stone Crab",
+  "use": "eat",
+  "hunger": 0.5,
+  "thirst": 0.05
+ },
+ "cooked_fish_gutter_prawn": {
+  "name": "Cooked Gutter Prawn",
+  "use": "eat",
+  "hunger": 0.32,
+  "thirst": 0.05
+ },
+ "cooked_fish_miller_flounder": {
+  "name": "Cooked Miller's Flounder",
+  "use": "eat",
+  "hunger": 0.46,
+  "thirst": 0.05
+ },
+ "cooked_fish_fathom_halibut": {
+  "name": "Fathom Halibut Fillet",
+  "use": "eat",
+  "hunger": 0.5,
+  "thirst": 0.05,
+  "effect": "A PORTION, not the whole fish: a door-sized halibut breaks down into 1-3 of these (fish.json fillets), so the nourishment is per-fillet."
+ },
+ "croissant": {
+  "name": "Stale Croissant",
+  "use": "eat",
+  "hunger": 0.15
+ },
+ "carrot_cake": {
+  "name": "Dry Carrot Cake",
+  "use": "eat",
+  "hunger": 0.22
+ },
+ "bananas": {
+  "name": "Spotted Bananas",
+  "use": "eat",
+  "hunger": 0.18,
+  "thirst": 0.03
+ },
+ "apple": {
+  "name": "Bruised Apple",
+  "use": "eat",
+  "hunger": 0.14,
+  "thirst": 0.06
+ },
+ "avocado": {
+  "name": "Soft Avocado",
+  "use": "eat",
+  "hunger": 0.16
+ },
+ "burger_buns": {
+  "name": "Stale Burger Buns",
+  "use": "eat",
+  "hunger": 0.16
+ },
+ "lemon": {
+  "name": "Lemon",
+  "use": "eat",
+  "hunger": 0.06,
+  "thirst": 0.06
+ },
+ "chocolate_cake": {
+  "name": "Someone's Birthday Cake",
+  "use": "eat",
+  "hunger": 0.28
+ },
+ "cheese_wedge": {
+  "name": "Wedge of Cheese",
+  "use": "eat",
+  "hunger": 0.24
+ },
+ "ration_tin": {
+  "name": "Ration Tin",
+  "use": "eat",
+  "hunger": 0.3
+ },
+ "long_life_ration": {
+  "name": "Long-Life Ration",
+  "use": "eat",
+  "hunger": 0.35
+ },
+ "wine_bottle": {
+  "name": "Bottle of Red",
+  "use": "drink",
+  "thirst": 0.35,
+  "hunger": 0.05
+ },
+ "water_jug": {
+  "name": "Gallon of Water",
+  "use": "drink",
+  "thirst": 0.4
+ },
+ "mini_anchor": {
+  "name": "Mini Anchor",
+  "use": "tool"
+ },
+ "wrench": {
+  "name": "Wrench",
+  "use": "tool"
+ },
+ "hammer_tool": {
+  "name": "Hammer",
+  "use": "tool"
+ },
+ "spanner": {
+  "name": "Spanner",
+  "use": "tool"
+ },
+ "screwdriver": {
+  "name": "Screwdriver",
+  "use": "tool"
+ },
+ "hand_file": {
+  "name": "Hand File",
+  "use": "tool"
+ },
+ "hacksaw": {
+  "name": "Hacksaw",
+  "use": "tool"
+ },
+ "raw_sea_bird": {
+  "name": "Raw Sea-Bird",
+  "use": "eat",
+  "hunger": 0.12,
+  "side_effect": "sick"
+ },
+ "cooked_sea_bird": {
+  "name": "Roast Sea-Bird",
+  "use": "eat",
+  "hunger": 0.55
+ },
+ "steel_plate": {
+  "name": "Steel Plate",
+  "use": "tool"
+ },
+ "pipe_length": {
+  "name": "Length of Pipe",
+  "use": "tool"
+ },
+ "wire_spool": {
+  "name": "Spool of Wire",
+  "use": "tool"
+ },
+ "bolt_handful": {
+  "name": "Handful of Bolts",
+  "use": "tool"
+ },
+ "glass_pane": {
+  "name": "Glass Pane",
+  "use": "tool"
+ },
+ "canvas_scrap": {
+  "name": "Canvas Scrap",
+  "use": "tool"
+ },
+ "foam_block": {
+  "name": "Foam Block",
+  "use": "tool"
+ },
+ "ceramic_shard": {
+  "name": "Ceramic Shard",
+  "use": "tool"
+ },
+ "copper_coil": {
+  "name": "Copper Coil",
+  "use": "tool"
+ },
+ "rubber_hose": {
+  "name": "Rubber Hose",
+  "use": "tool"
+ },
+ "kelp_fiber": {
+  "name": "Kelp Fiber",
+  "use": "tool"
+ },
+ "fish_bone": {
+  "name": "Fish Bone",
+  "use": "tool"
+ },
+ "shell_grit": {
+  "name": "Shell Grit",
+  "use": "tool"
+ },
+ "tar_lump": {
+  "name": "Tar Lump",
+  "use": "tool"
+ },
+ "float_buoy": {
+  "name": "Float Buoy",
+  "use": "tool"
+ },
+ "wood_slat": {
+  "name": "Wood Slats",
+  "use": "tool"
+ },
+ "raw_fillet": {
+  "name": "Raw Fillet",
+  "use": "eat",
+  "hunger": 0.14,
+  "side_effect": "sick"
+ },
+ "bedroll_kit": {
+  "name": "Bedroll (kit)",
+  "use": "build"
+ },
+ "locker_kit": {
+  "name": "Steel Locker (kit)",
+  "use": "build"
+ },
+ "rain_catcher_kit": {
+  "name": "Rain Catcher (kit)",
+  "use": "build"
+ },
+ "brazier_kit": {
+  "name": "Brazier (kit)",
+  "use": "build"
+ },
+ "chair_kit": {
+  "name": "Deck Chair (kit)",
+  "use": "build"
+ },
+ "workbench_kit": {
+  "name": "Workbench (kit)",
+  "use": "build"
+ },
+ "drying_rack_kit": {
+  "name": "Drying Rack (kit)",
+  "use": "build"
+ },
+ "planter_kit": {
+  "name": "Planter Box (kit)",
+  "use": "build"
+ },
+ "shelf_kit": {
+  "name": "Wall Shelf (kit)",
+  "use": "build"
+ },
+ "wall_panel_kit": {
+  "name": "Wall Panel (kit)",
+  "use": "build"
+ },
+ "lamp_post_kit": {
+  "name": "Lamp Post (kit)",
+  "use": "build"
+ },
+ "windbreak_kit": {
+  "name": "Windbreak (kit)",
+  "use": "build"
+ },
+ "rug_kit": {
+  "name": "Deck Rug (kit)",
+  "use": "build"
+ },
+ "honed_knife": {
+  "name": "Honed Knife",
+  "use": "tool",
+  "melee_damage": 1.6,
+  "melee_reach": 2.0,
+  "swing_sec": 0.38
+ },
+ "honed_spear": {
+  "name": "Honed Spear",
+  "use": "tool",
+  "melee_damage": 2.6,
+  "melee_reach": 3.3,
+  "swing_sec": 0.62,
+  "spearfishing": true,
+  "spear_note": "underwater, a thrust takes the fish you are aiming at"
+ },
+ "tool_belt": {
+  "name": "Tool Belt",
+  "use": "tool",
+  "worn": true,
+  "pack_slots": 4,
+  "effect": "Four more slots in the pack (PlayerState.backpack_capacity)."
+ },
+ "storm_lantern": {
+  "name": "Storm Lantern",
+  "use": "tool",
+  "worn": true,
+  "light": true,
+  "effect": "Carried light: a warm 9m omni on the player (PlayerController._update_lantern)."
+ },
+ "flashlight": {
+  "name": "Flashlight",
+  "use": "tool",
+  "worn": true,
+  "light": true,
+  "effect": "Hold it and press F to click a hard 22m beam on/off, aimed where you look (PlayerController._update_flashlight)."
+ },
+ "patched_boots": {
+  "name": "Patched Boots",
+  "use": "tool",
+  "worn": true,
+  "cold_relief": 0.35,
+  "effect": "Warmth is lost 35% slower while cold (PlayerState BOOTS_COLD_RELIEF); the spec's '35% wet protection' — no wetness stat exists, rain is a shelter-gate, so it lands as cold-loss relief."
+ },
+ "storage_bin_kit": {
+  "name": "Storage Bin (kit)",
+  "use": "build"
+ },
+ "door_kit": {
+  "name": "Wooden Door (kit)",
+  "use": "build"
+ },
+ "floor_panel_kit": {
+  "name": "Deck Panel (kit)",
+  "use": "build"
+ },
+ "window_panel_kit": {
+  "name": "Window Panel (kit)",
+  "use": "build"
+ },
+ "deep_rig_pole": {
+  "name": "Deep Rig Pole",
+  "use": "tool",
+  "effect": "The weighted hand-line, and its own game rather than a longer cast: BAIT IT FIRST (a live snail, or any cut bait) or it will not leave the drum, then heave the lead over the side from anywhere that overlooks water. It plumbs straight down and the readout counts the metres — every species in fish.json only takes a bait that has reached its own drop_m, so the deeper the lead the deeper and bigger the pool (grouper at 16 m, sturgeon at 44). LMB thumbs the drum to hold a depth, a second LMB reels in. See FishingRod._deep."
+ },
+ "fishermans_handbook": {
+  "name": "Fisherman's Handbook",
+  "use": "tool",
+  "effect": "The wet-deck angling log, and the only readable on this rig you can carry. READ it where it lies [E], press [F] while it is open to pocket it, then [F] with it selected to read it anywhere, or drop it (right-click the pack slot) to leave it by the rail you fish. It documents the live catch conditions in data/fish.json — hours, weather tier, worklights, water, depth ladder and bait. See scripts/components/handbook.gd."
+ },
+ "bottle_empty": {
+  "name": "Salvaged Bottle",
+  "use": "tool",
+  "vessel": true,
+  "vessel_kind": "bottle",
+  "fills_to": "bottle_water",
+  "fill_hours": 1.2,
+  "effect": "Stand it in a Rain Catcher's cradle and one good squall fills it (RainCatcherDock)."
+ },
+ "bottle_water": {
+  "name": "Bottle of Rainwater",
+  "use": "drink",
+  "thirst": 0.45,
+  "vessel": true,
+  "vessel_kind": "bottle",
+  "returns": "bottle_empty",
+  "line": "Rainwater — cold, flat, faintly of canvas. The bottle goes back in your pack.",
+  "effect": "Restores thirst through the normal drink path and hands the empty bottle back (ItemEffects `returns`), so the water farm is a loop instead of a tap."
+ },
+ "thermos_empty": {
+  "name": "Crew Thermos",
+  "use": "tool",
+  "vessel": true,
+  "vessel_kind": "flask",
+  "fills_to": "thermos_water",
+  "fill_hours": 2.0,
+  "effect": "Holds more than a bottle and takes roughly twice the weather to fill (RainCatcherDock)."
+ },
+ "thermos_water": {
+  "name": "Thermos of Rainwater",
+  "use": "drink",
+  "thirst": 0.7,
+  "vessel": true,
+  "vessel_kind": "flask",
+  "returns": "thermos_empty",
+  "line": "Half a litre straight off the sky. The flask goes back in your pack.",
+  "effect": "As the bottle, but a proper day's water in one slot (ItemEffects `returns`)."
+ },
+ "bandage": {
+  "name": "Field Dressing",
+  "use": "drink",
+  "thirst": 0.0,
+  "heal": 0.12,
+  "line": "Cleaned, packed, bound off. It'll hold.",
+  "effect": "Heals 0.12 of the 0..1 life bar (ItemEffects `heal`). Tagged use:drink with thirst 0 because use_hotbar only ever SPENDS an eat/drink item — a use:tool item is never consumed — and 'drink' keeps the inventory tooltip from calling a dressing edible."
+ },
+ "medkit": {
+  "name": "Medkit",
+  "use": "drink",
+  "thirst": 0.0,
+  "heal": 0.4,
+  "cures": "sickness",
+  "line": "Sutures, sulfa powder, clean water. You come out of it steadier than you went in.",
+  "effect": "Heals 0.4 of life and clears sickness (ItemEffects `heal` + `cures`). See bandage for why use:drink."
+ },
+ "bloom_tonic": {
+  "name": "Bloom Tonic",
+  "use": "drink",
+  "thirst": 0.1,
+  "cures": "sickness",
+  "line": "Low tide in a bottle, and it burns going down. The queasiness lets go all the same.",
+  "effect": "Clears sickness (ItemEffects `cures`) — the answer to raw fish, live snails and a bad glow worm."
+ },
+ "kelp_brew": {
+  "name": "Kelp Brew",
+  "use": "drink",
+  "thirst": 0.3,
+  "hunger": 0.08,
+  "warmth": 0.45,
+  "returns": "bottle_empty",
+  "line": "Hot, green, faintly luminous. The heat gets all the way out to your hands.",
+  "effect": "Restores warmth as well as thirst (ItemEffects `warmth`) and gives the bottle back."
+ },
+ "galley_stew": {
+  "name": "Fish Stew",
+  "use": "eat",
+  "hunger": 0.75,
+  "thirst": 0.25,
+  "warmth": 0.3,
+  "returns": "bottle_empty",
+  "line": "A whole fish, a fistful of kelp and a bottle of rain, boiled down to something you would call a meal.",
+  "effect": "The best food on the rig, and the only one that warms you (ItemEffects `warmth`). Hands the bottle back."
+ },
+ "fish_bilge_blenny": {
+  "name": "Bilge Blenny",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_tallow_pollock": {
+  "name": "Tallow Pollock",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_gannet_mackerel": {
+  "name": "Gannet Mackerel",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_rust_wrasse": {
+  "name": "Rust Wrasse",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_kelp_pipefish": {
+  "name": "Kelp Pipefish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_lantern_dogfish": {
+  "name": "Lantern Dogfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_squall_garfish": {
+  "name": "Squall Garfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_anchor_ray": {
+  "name": "Anchor Ray",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "fish_trench_hagfish": {
+  "name": "Trench Hagfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_bilge_blenny": {
+  "name": "Cooked Bilge Blenny",
+  "use": "eat",
+  "hunger": 0.28,
+  "thirst": 0.05
+ },
+ "cooked_fish_tallow_pollock": {
+  "name": "Cooked Tallow Pollock",
+  "use": "eat",
+  "hunger": 0.58,
+  "thirst": 0.05
+ },
+ "cooked_fish_gannet_mackerel": {
+  "name": "Cooked Gannet Mackerel",
+  "use": "eat",
+  "hunger": 0.46,
+  "thirst": 0.05
+ },
+ "cooked_fish_rust_wrasse": {
+  "name": "Cooked Rust Wrasse",
+  "use": "eat",
+  "hunger": 0.4,
+  "thirst": 0.05
+ },
+ "cooked_fish_kelp_pipefish": {
+  "name": "Cooked Kelp Pipefish",
+  "use": "eat",
+  "hunger": 0.26,
+  "thirst": 0.05
+ },
+ "cooked_fish_lantern_dogfish": {
+  "name": "Cooked Lantern Dogfish",
+  "use": "eat",
+  "hunger": 0.55,
+  "thirst": 0.05
+ },
+ "cooked_fish_squall_garfish": {
+  "name": "Cooked Squall Garfish",
+  "use": "eat",
+  "hunger": 0.5,
+  "thirst": 0.05
+ },
+ "cooked_fish_anchor_ray": {
+  "name": "Cooked Anchor Ray",
+  "use": "eat",
+  "hunger": 0.62,
+  "thirst": 0.1
+ },
+ "fish_skipjack_tuna": {
+  "name": "Skipjack Tuna",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_skipjack_tuna": {
+  "name": "Skipjack Tuna Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_yellowfin_tuna": {
+  "name": "Yellowfin Tuna",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_yellowfin_tuna": {
+  "name": "Yellowfin Tuna Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_albacore_tuna": {
+  "name": "Albacore Tuna",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_albacore_tuna": {
+  "name": "Albacore Tuna Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_bigeye_tuna": {
+  "name": "Bigeye Tuna",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_bigeye_tuna": {
+  "name": "Bigeye Tuna Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_bluefin_tuna": {
+  "name": "Bluefin Tuna",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_bluefin_tuna": {
+  "name": "Bluefin Tuna Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_bluelined_grouper": {
+  "name": "Bluelined Grouper",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_bluelined_grouper": {
+  "name": "Bluelined Grouper Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_peacock_grouper": {
+  "name": "Peacock Grouper",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_peacock_grouper": {
+  "name": "Peacock Grouper Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_humpback_grouper": {
+  "name": "Humpback Grouper",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_humpback_grouper": {
+  "name": "Humpback Grouper Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_leopard_grouper": {
+  "name": "Leopard Coral Grouper",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_leopard_grouper": {
+  "name": "Leopard Coral Grouper Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_mahi_mahi": {
+  "name": "Mahi-Mahi",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_mahi_mahi": {
+  "name": "Mahi-Mahi Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_swallowtail": {
+  "name": "Swallowtail Angelfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_swallowtail": {
+  "name": "Swallowtail Angelfish Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "gull_feather": {
+  "name": "Gull Feather",
+  "use": "tool"
+ }
 }

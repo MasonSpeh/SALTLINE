@@ -2889,6 +2889,11 @@ class DeckGull extends Node3D:
 		_target = home
 
 	func _ready() -> void:
+		# THE CAT HUNTS THESE. A group is how it finds them: ship_cat sweeps "deck_gull" for
+		# something to stalk, and the alternative — walking the whole tree looking for an inner
+		# class by type — is both slower and silently broken by any refactor. Grouping is the
+		# repo's own idiom (gull_nest, snail_lamp, player, ship_cat all do it).
+		add_to_group("deck_gull")
 		var gen: Dictionary = ANIM.attach(self, MODEL_PATH, SIZE_M, ANIM.Mode.FLAP,
 			0.012, 0.6, Color(0.30, 0.85, 0.80), randf() * TAU)
 		if gen.is_empty():
