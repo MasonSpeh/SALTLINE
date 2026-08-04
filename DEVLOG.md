@@ -1623,3 +1623,11 @@ ledge in the 0.66-1.20 m band rather than trusting a typed coordinate — it swe
 and honestly reported there is nothing in that band out there, which is true, because open deck
 is open. The manifest has barrels at 0.90 m and drawer cabinets at 0.90 around the bunkhouse;
 the sweep now covers those origins out to 14 m. Run `reels=jump` to settle it.
+
+### Flaw 10, closed with the loop the brief asked for
+
+`for i in $(seq 1 20); do godot --headless --path . res://tests/CatProbe.tscn; done` against the
+finished code: **20 runs started, 20 clean, zero FAIL lines.** Against a reported ~1-in-6
+baseline, twenty consecutive passes is roughly a 3-in-100 chance of being luck. Combined with a
+root cause that was found by trace rather than inferred from the symptom — and fixed at the
+cause rather than by widening a window — the sleep branch is settled.

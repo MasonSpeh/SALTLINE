@@ -22,6 +22,15 @@ landed and nobody updated the file.
 
 ## Open after s38 — the cat
 
+- **The cat's LEAP has still never been filmed.** `tests/CatFilm`'s `jump` reel is written
+  and PROBES for a ledge in the 0.66-1.20 m band (between CLIMB_UP and JUMP_UP) rather than
+  trusting a typed coordinate; on the open main deck it correctly reports that no such
+  surface exists there. The sweep now also covers the bunkhouse origins out to 14 m, where
+  the manifest puts barrels and drawer cabinets at 0.90 m and armchairs at 0.98. One command
+  settles it: `godot --path . --fixed-fps 60 tests/CatFilm.tscn -- /tmp/j fps=10 reels=jump`.
+  The arc itself is now gated and self-terminating (s38b) and asserted by CatHuntProbe, so
+  this is a missing OBSERVATION, not a suspected bug.
+
 - **`ship_cat._walk_skip()` does not actually skip other fauna.** The branch reads
   `bf.get("fauna_bodies")`, but `fauna_bodies` is a STATIC FUNCTION on bloom_fauna, not a
   property — `get()` returns null for a method name, so the loop has never added a single
