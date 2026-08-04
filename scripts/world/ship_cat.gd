@@ -501,6 +501,26 @@ func _fly_jump(delta: float) -> void:
 	var lift: float = maxf(_jump_to.y - _jump_from.y, 0.0) * 0.35 + 0.14
 	var before_fly: Vector3 = global_position
 	global_position = Vector3(flat.x, flat.y + sin(k * PI) * lift, flat.z)
+	# A LEAP TURNS THE SAFETY NET OFF, AND THAT IS WHY IT NEEDS ONE OF ITS OWN.
+	#
+	# `_unbury` runs unconditionally every frame precisely because no predictive gate can
+	# rescue an animal that is already inside something — but it runs BEFORE this, and this
+	# then overwrites the position it just corrected. So for the whole flight the one check
+	# that cannot be fooled is disabled, and `_arc_clear`'s four samples are all that stands
+	# between the cat and a bulkhead. Four samples are not a proof: the probe kept catching
+	# the animal ~750 mm inside the quarters at 90% of an arc whose endpoints tested clear.
+	#
+	# So the arc gives up the moment it stops being clear, rather than flying on and hoping.
+	# The cat drops where it last fitted, which is a slightly disappointing leap and never a
+	# cat in a wall.
+	if not _step_clear(global_position, (_jump_to - _jump_from).normalized()):
+		global_position = before_fly
+		_jump_t = 0.0
+		_jump_cd = JUMP_CD
+		_reseat()
+		if _pouncing:
+			_resolve_pounce()
+		return
 	_moved_frame += global_position.distance_to(before_fly)
 	_face(_jump_to, delta * 2.0)
 	_last_speed = RUN_SPEED
@@ -557,15 +577,33 @@ func _companion(delta: float, player: Node3D) -> void:
 		# across the deck for no reason at all.
 		if _rng.randf() < 0.45:
 			_zoom_cd = minf(_zoom_cd, 2.5)
-	# ...but not if you have already walked off. A cat that has to catch up does not stop to
-	# stretch first, and a companion that does reads as broken rather than as characterful.
-	if _stretch_t > 0.0 and d < RUN_M:
-		_stretch_t -= delta
-		_enter(State.STRETCH)
-		_last_speed = 0.0
-		_reseat()
-		return
-	_stretch_t = 0.0
+	# THE CHATTER. A cat that can see a bird it cannot possibly reach does not give up on it —
+	# it fixes on the thing and makes that ridiculous staccato rattle. It is one of the most
+	# recognisable things a cat does and it costs almost nothing here, so it rides ALONGSIDE
+	# whatever the animal is otherwise doing rather than owning a state: no `return`, no beat
+	# in the machine, just a head tremor and a look at a gull that is already in the air.
+	if _hunt == 0 and _carry == "" and _chatter_cd <= 0.0:
+		for g in get_tree().get_nodes_in_group("deck_gull"):
+			var n: Node3D = g as Node3D
+			if n == null or not is_instance_valid(n) or not _airborne(n):
+				continue
+			if global_position.distance_to(n.global_position) > HUNT_M:
+				continue
+			_watch(n.global_position, 1.0)
+			if _rig != null:
+				_rig.call("chatter", 1.0)
+			if _meow_cd <= 0.0:
+				AudioDirector.play_one_shot("cat_chirp", global_position, -26.0)
+				_meow_cd = 3.0
+			_chatter_cd = _rng.randf_range(0.0, 0.35)   # renewed while the bird is still up
+			break
+
+	# ...and a hunt is over the moment the player leaves. The gate below only STOPS the hunt
+	# branch running at range; without this the animal keeps its prey and its beat and picks
+	# the stalk back up mid-crouch whenever the player wanders back, which reads as the cat
+	# having been paused rather than having given up.
+	if _hunt > 0 and d >= RUN_M:
+		_end_hunt(false)
 
 	# IS THE PLAYER RESTING? Not a flag they set — a thing the cat works out by watching. A
 	# player who has not moved for SETTLE_SEC is resting whether they meant to or not, which
@@ -587,7 +625,19 @@ func _companion(delta: float, player: Node3D) -> void:
 		var k: float = sin((1.0 - _pet_t / PET_SEC) * PI)
 		_body.rotation.z = k * 0.22
 		_body.position.y = k * 0.04
+		_stretch_t = 0.0     # a hand on it ends the stretch; nothing outranks being petted
 		return
+
+	# THE STRETCH ON WAKING, below the hand but above everything else. Not if you have already
+	# walked off, though: a cat that has to catch up does not stop to stretch first, and a
+	# companion that does reads as broken rather than as characterful.
+	if _stretch_t > 0.0 and d < RUN_M:
+		_stretch_t -= delta
+		_enter(State.STRETCH)
+		_last_speed = 0.0
+		_reseat()
+		return
+	_stretch_t = 0.0
 
 	# THE FISH. It can smell one in your hands and it does not pretend otherwise: it closes
 	# right up, and it will not settle while you are holding it.
@@ -841,7 +891,11 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# answer to a follower that used to give up at every crate and coaming it could plainly
 	# get onto. Above JUMP_UP it still refuses: a cat does not scale a bulkhead.
 	if rise > CLIMB_UP:
-		if rise <= JUMP_UP and _jump_t <= 0.0 and _jump_cd <= 0.0:
+		if rise <= JUMP_UP and _jump_t <= 0.0 and _jump_cd <= 0.0 \
+				and _arc_clear(Vector3(want.x, ground, want.z), dir):
+			# ...and the ARC has to be clear, not just the ledge. Same hole the pounce had:
+			# `_fly_jump` drives the body along the path with no gates of its own, so a leap
+			# onto a legal ledge can still pass the animal through whatever is between.
 			_jump_t = JUMP_SEC
 			_jump_from = global_position
 			_jump_to = Vector3(want.x, ground, want.z)
@@ -915,7 +969,7 @@ func _body_r() -> float:
 ## Would the cat's BODY fit at `at`? A sphere query rather than a ray, so a step that leaves
 ## the origin outside a wall but the flank inside it is refused. Tested at the body centre
 ## and again at the nose, which is the one place a width-sized disc cannot see.
-func _step_clear(at: Vector3, dir: Vector3) -> bool:
+func _step_clear(at: Vector3, dir: Vector3, extra_skip: Array = []) -> bool:
 	var world: World3D = get_world_3d()
 	if world == null:
 		return true
@@ -926,7 +980,11 @@ func _step_clear(at: Vector3, dir: Vector3) -> bool:
 	q.shape = sphere
 	q.collision_mask = 1
 	q.collide_with_areas = false
-	q.exclude = _walk_skip()
+	var skip: Array[RID] = _walk_skip()
+	for e in extra_skip:
+		if e is RID:
+			skip.append(e as RID)
+	q.exclude = skip
 	# `_body_r` is a half-width; the nose reaches roughly a body length ahead of centre, so
 	# probe there too or the animal walks its head into a bulkhead and stops with the face
 	# buried while its centre is legally clear.
@@ -1035,6 +1093,12 @@ func _player_holding_fish(_player: Node3D) -> bool:
 
 # ------------------------------------------------------------------ the predatory sequence
 
+## Is this bird already in the air? A gull in flight is not prey, and `_flushing` is DeckGull's
+## own flag for it (< 0 grounded, >= 0 seconds airborne).
+func _airborne(n: Node3D) -> bool:
+	var f = n.get("_flushing")
+	return f != null and float(f) >= 0.0
+
 ## The nearest gull on this deck that is on the ground and worth stalking. Birds in the air
 ## are not prey, they are frustration — see the chatter.
 func _find_prey() -> Node3D:
@@ -1045,7 +1109,12 @@ func _find_prey() -> Node3D:
 		if n == null or not is_instance_valid(n):
 			continue
 		# A bird already in the air, or one on another deck, is not a stalk.
-		if float(n.get("_flushing")) >= 0.0:
+		#
+		# `get()` on a property a node does not have returns null, and `float(null)` is a hard
+		# runtime error — so this is asked defensively rather than assumed. Only DeckGull is in
+		# this group today; the group is the seam another species will be added at, and a crash
+		# in the cat because a new bird spelled its state differently is a bad way to find out.
+		if _airborne(n):
 			continue
 		if absf(n.global_position.y - global_position.y) > CLIMB_UP:
 			continue
@@ -1065,7 +1134,7 @@ func _hunt_step(delta: float) -> bool:
 		_freeze_t = 0.0
 	# The bird left, flew, or was freed. A cat that keeps stalking an empty patch of deck is
 	# the "drone" read this whole file exists to avoid.
-	if _prey == null or not is_instance_valid(_prey) or float(_prey.get("_flushing")) >= 0.0:
+	if _prey == null or not is_instance_valid(_prey) or _airborne(_prey):
 		_end_hunt(false)
 		return false
 	var target: Vector3 = _prey.global_position
@@ -1124,14 +1193,29 @@ func _launch_pounce(target: Vector3) -> void:
 		_end_hunt(false)
 		return
 	var dir: Vector3 = over.normalized()
+	# THE BIRD IS NOT AN OBSTACLE — the whole point is to land on it. DeckGull carries a grab
+	# collider on the solid layer, so the clearance test refused every single pounce and the
+	# hunt stalled at the tread for ever: the cat crouched, waggled, and never jumped, which is
+	# a far worse behaviour than not hunting at all. (The general fix — `_walk_skip` skipping
+	# all other fauna — is filed in KNOWN_ISSUES; the branch that claims to do it reads a
+	# STATIC FUNCTION as if it were a property and has been adding nothing for two sessions.)
+	var prey_skip: Array = []
+	if _prey != null and is_instance_valid(_prey):
+		for c in _prey.find_children("*", "CollisionObject3D", true, false):
+			prey_skip.append((c as CollisionObject3D).get_rid())
+		if _prey is CollisionObject3D:
+			prey_skip.append((_prey as CollisionObject3D).get_rid())
 	var land: Vector3 = global_position + over * _rng.randf_range(0.94, 1.12)
 	land.y = target.y
-	if not _step_clear(land, dir):
+	if not _arc_clear(land, dir, prey_skip):
 		# Try landing short before giving up — a cat crowded by furniture takes the shorter
 		# leap rather than not leaping.
 		land = global_position + over * 0.6
 		land.y = target.y
-		if not _step_clear(land, dir):
+		if not _arc_clear(land, dir, prey_skip):
+			# It wound up and could not go. That still has to READ, so it gets the same
+			# affronted wash a miss gets rather than silently forgetting the whole thing.
+			_after_t = WASH_SEC * 0.6
 			_end_hunt(false)
 			return
 	_hunt = 3
@@ -1144,6 +1228,24 @@ func _launch_pounce(target: Vector3) -> void:
 	# arrives dead centre every time.
 	_jump_to = land
 	AudioDirector.play_one_shot("cat_chirp", global_position, -22.0)
+
+## IS THE WHOLE LEAP CLEAR, not just where it ends?
+##
+## Checking only the landing point is the obvious thing and it is not enough: the probe caught
+## the cat 797 mm inside the quarters bulkhead at NINETY PER CENT of an arc whose destination
+## tested perfectly clear. A gull standing a body-length from a wall is a completely ordinary
+## thing for a gull to do, and the leap at it passes through the steel on the way in. `_fly_jump`
+## drives the body along the arc directly with no gates of its own, so every point of that arc
+## has to be proven here, before the animal commits to any of it.
+func _arc_clear(to: Vector3, dir: Vector3, extra_skip: Array = []) -> bool:
+	var from: Vector3 = global_position
+	var lift: float = maxf(to.y - from.y, 0.0) * 0.35 + 0.14
+	for k in [0.35, 0.6, 0.8, 1.0]:
+		var flat: Vector3 = from.lerp(to, k)
+		var at := Vector3(flat.x, flat.y + sin(k * PI) * lift, flat.z)
+		if not _step_clear(at, dir, extra_skip):
+			return false
+	return true
 
 ## Did it get there? Called on the frame the leap lands.
 func _resolve_pounce() -> void:
@@ -1286,6 +1388,35 @@ func _drive_rig(delta: float) -> void:
 			var rel: float = wrapf(want - rotation.y, -PI, PI)
 			var pitch: float = atan2(to.y - 0.25, Vector2(to.x, to.z).length())
 			_rig.look(rel, clampf(pitch, -0.5, 0.5), _focus_w)
+	# WHAT THE TAIL IS SAYING, per state. This is the body language the owner asked for and
+	# the only channel this mesh has: no facial rig, no ears, painted-on pupils. Carriage and
+	# sway do all of it, and every one of these is a real signal a cat owner reads without
+	# being taught — the vertical flag on approach, the slow wide arc of an unbothered animal,
+	# the flat hard flick of one that is hunting, the quiver of one that has just been fed.
+	#   tail(up, sway, rate): up +1 straight up / -1 clamped down, sway width, rate speed.
+	match _state:
+		State.STALK:
+			_rig.tail(-0.85, 0.30, 9.0)      # flat to the deck, tip going hard
+		State.POUNCE:
+			_rig.tail(-0.4, 0.05, 2.0)       # committed: everything points one way
+		State.RUN:
+			_rig.tail(0.15, 0.20, 3.0)       # streamed out behind for balance
+		State.GIFT:
+			_rig.tail(0.95, 0.14, 7.0)       # up and pleased with itself
+		State.PET, State.FISH:
+			_rig.tail(1.0, 0.10, 8.0)        # the greeting flag, quivering
+		State.SLEEP:
+			_rig.tail(-0.5, 0.02, 0.4)       # wrapped in and still
+		State.GROOM, State.SIT, State.PERCH:
+			_rig.tail(-0.2, 0.16, 0.9)       # settled, an idle sweep along the deck
+		State.PLAY:
+			_rig.tail(-0.3, 0.34, 6.0)
+		_:
+			# FOLLOW and the rest: a cat walking to someone it likes carries its tail UP, and
+			# it is the single most reliable "this animal is pleased to be here" there is.
+			_rig.tail(0.55 if _fed_wiggle > 0.0 else 0.35, 0.28, 1.6)
+	if _fed_wiggle > 0.0:
+		_rig.tail(1.0, 0.10, 11.0)           # the delight quiver, briefly, over everything
 	# HOW FAST THE BODY IS ACTUALLY TURNING, measured off the node rather than commanded. The
 	# rig needs it for the turn-in-place step cycle (flaw 4): asked to face a new bearing while
 	# standing still, `_face` used to swivel the whole animal with all four paws welded to the

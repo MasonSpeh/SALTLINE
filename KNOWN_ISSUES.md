@@ -20,6 +20,45 @@ landed and nobody updated the file.
 
 ## Watch items
 
+## Open after s38 — the cat
+
+- **`ship_cat._walk_skip()` does not actually skip other fauna.** The branch reads
+  `bf.get("fauna_bodies")`, but `fauna_bodies` is a STATIC FUNCTION on bloom_fauna, not a
+  property — `get()` returns null for a method name, so the loop has never added a single
+  RID and the comment above it ("every other animal's touch sphere") has been false since
+  s36. Consequence today: another animal's grab collider counts as a wall to the cat, which
+  is why the pounce needs an explicit prey exclusion. The fix is to walk the bloom_fauna
+  subtree for CollisionObject3D — with a cache, because that subtree is thousands of nodes
+  and `_walk_skip` is called several times a frame.
+
+- **The GALLOP keeps a residual hind-leg asymmetry: left/right reach ratio 0.67.**
+  The walk is symmetric to within 1% after the s38 IK work (hind lift ratio 1.00, fore
+  reach 0.99), and the same measurement at RUN_SPEED comes back 0.67 on the hind pair.
+  The cause is understood and is the rig, not the gait: `L_Thigh -> L_Calf` is 0.336 m
+  against `R_Thigh -> R_Calf` at 0.086 m, so the left hind is DEAD STRAIGHT in its bind
+  pose (hip-to-paw 0.214 m from bones of 0.144 + 0.070) and sits exactly on the edge of
+  its own reachable set. At a gallop the spine engine swings the sockets hard, that leg
+  runs out of reach first, and the solve gives ground the right hind keeps. Capping the
+  rise (`_solve_leg`) bounds it; removing it needs either a re-rig with symmetric bones
+  or a hip-height bob coupled to the stance phase. Measure with
+  `godot --headless --path . res://tests/CatYawDiag.tscn` — PART 4 prints both gaits.
+
+- **The head sits +0.91 deg off the travel line at a walk — a constant, not a wobble.**
+  Down from +3.43 mean / +6.40 worst before s38, and the oscillation that read as "looking
+  around" is gone entirely (rms 3.89 -> 0.91). The residue is a DC offset and does not
+  appear in the headless rig test (+/-0.08 deg), so it comes from something the live animal
+  has and the bare skeleton does not — most likely the second-order composition of the
+  equal-and-opposite spine bends through two different rest bases. 0.9 deg moves the nose
+  about 2 mm at game distance. Read the head-on reel before spending time on it:
+  `godot --path . --fixed-fps 60 tests/CatFilm.tscn -- /tmp/f fps=30 reels=headon`.
+
+- **The cat's tail is driven through `R_ThighTwist01`, which also owns the rump.** Not a bug
+  today, but the reason `cat_rig.TAIL_MAX` is 0.30 rad: the auto-rig fitted the right thigh
+  chain onto the tail, so that bone's 29363 vertices are tail AND hindquarter and a large
+  rotation bends both. Full tail articulation — a curl, a real tip flick, a bottle-brush —
+  needs an actual bone chain and a re-skin. Re-run `tests/CatTailDiag` after any re-rig: the
+  bone name is a measured constant, and a rename silently disables the layer.
+
 ## Open after s35 — unverified, not unknown
 
 - **The reef SWAY has never been seen moving.** `materials/reef_sway.gdshader` is new and

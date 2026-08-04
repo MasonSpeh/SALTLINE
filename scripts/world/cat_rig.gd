@@ -44,6 +44,34 @@ const DRAG: float = 0.035
 ## Metres the paw rises at the two ends of its stance sweep — see `_foot_path`.
 const STANCE_ARC: float = 0.012
 
+## THE TAIL, AND IT IS NOT WHERE ANY NAMING CONVENTION WOULD PUT IT.
+##
+## Three sessions have recorded "the tail has no bones — Tripo's template ends at the pelvis",
+## and that is true of the template and FALSE of this fit. tests/CatTailDiag assigns every
+## vertex to the bone with the largest weight on it and reports where those vertices sit:
+##
+##   R_ThighTwist01   29363 verts   centroid (-0.246, 0.251, -0.029)   0.237 m BEHIND the hip
+##
+## A quarter of the whole mesh, centred well behind the pelvis, elevated, spanning 0.434 m
+## along the body axis. That is the tail (with the rump). The auto-rig stretched the RIGHT
+## THIGH CHAIN backwards to cover it — which is also the long-standing mystery of why this
+## rig's right hind bones are a quarter the length of its left ones (`R_Thigh -> R_Calf` 0.086
+## against `L_Thigh -> L_Calf` 0.336): the "thigh" is largely the tail root.
+##
+## Two consequences, one bad and one good. The bad one is that the tail is a CHILD of R_Thigh,
+## so it has been dragged through the gait by the right hind leg for as long as the cat has
+## walked — a tail that twitches once per stride in lockstep with one foot. The good one is
+## that flaw 5 costs one layer here instead of a re-rig.
+##
+## Named rather than detected because detecting it means reading 115k vertices at load, and
+## cat_rig is handed a Skeleton3D and no mesh. If the cat is ever re-rolled or re-rigged, re-run
+## tests/CatTailDiag and change this line; a name that no longer exists disables the layer
+## rather than crashing.
+const TAIL_BONE := "R_ThighTwist01"
+## How far the tail may be driven. Deliberately small: the bone owns the rump as well as the
+## tail, so a big rotation bends the hindquarters with it. Verified by render, not by taste.
+const TAIL_MAX: float = 0.30
+
 ## Footfall phase offsets per limb, in cycles. The gait MODE is not a switch: the active
 ## offsets are themselves eased between these tables as speed crosses the bands, so a cat
 ## accelerating from amble to gallop re-times its legs continuously instead of stuttering
@@ -110,6 +138,7 @@ var _speed_s: float = 0.0          ## eased speed, for amplitude and mode mixing
 var _look_yaw: float = 0.0
 var _look_pitch: float = 0.0
 var _look_w: float = 0.0
+var _chat_w: float = 0.0
 ## bone index -> its limb's sagittal hinge, in that bone's OWN local frame. Derived from the
 ## skeleton's geometry in `_measure_gains`; replaces the hand-written local-X + sign map.
 var _hinge: Dictionary = {}
@@ -121,6 +150,17 @@ var _rest_gb: Dictionary = {}
 ## picks its feet up to turn instead of pivoting like a turntable.
 var _yaw_rate: float = 0.0
 var _turn_phase: float = 0.0
+## THE TAIL. `_tail_up` is carriage (+1 straight up in greeting, -1 clamped down), `_tail_sway`
+## is how much it moves and `_tail_rate` how fast — a slow arc while walking, a hard fast flick
+## while hunting or annoyed. All three are eased, because a tail that snaps between carriages
+## is the one part of a cat that must never look digital.
+var _tail_up: float = 0.0
+var _tail_sway: float = 0.35
+var _tail_rate: float = 1.0
+var _tail_up_t: float = 0.0
+var _tail_sway_t: float = 0.35
+var _tail_rate_t: float = 1.0
+var _tail: int = -1
 
 func _init(skel: Skeleton3D, pose_json_path: String = "") -> void:
 	_sk = skel
@@ -154,6 +194,7 @@ func _init(skel: Skeleton3D, pose_json_path: String = "") -> void:
 	_neck = _b("NeckTwist01")
 	_head = _b("Head")
 	_hip = _b("Hip")
+	_tail = _b(TAIL_BONE)
 	_cur_hip = _rest_t.get(_hip, Vector3.ZERO)
 	# `stand` is the base skeleton's own rest — present even with no library on disk.
 	var stand := {"q": {}, "hip_t": _rest_t.get(_hip, Vector3.ZERO)}
@@ -167,8 +208,10 @@ func _init(skel: Skeleton3D, pose_json_path: String = "") -> void:
 	# groom reared the cat vertical. Rotations are only meaningful on the skeleton they
 	# were measured on, so every pose here is FK offsets from THIS skeleton's rest — the
 	# same method the gait and the s35 wash already proved on these bones.
-	_build_poses()
+	# THE REST BASES ARE CACHED FIRST, because `_build_poses` now needs them: a pose may state
+	# an offset in BODY axes (see `_pose_from`), and converting one takes the bone's rest basis.
 	_cache_rest_bases()
+	_build_poses()
 	_measure_gains()
 	_prep_ik()
 
@@ -561,6 +604,22 @@ func set_pose(nm: String, rate: float = 7.0) -> void:
 func target() -> String:
 	return _target
 
+## SAY WHAT THE TAIL IS DOING. `up` is carriage: +1 is the vertical greeting flag a cat raises
+## when it comes to meet someone, 0 is level, -1 is clamped down over the hocks. `sway` is how
+## wide it moves and `rate` how fast — the two together are the whole vocabulary, because a
+## slow wide arc means content and a hard fast flick means the opposite, and everyone reads
+## both without being taught. Eased in `tick`, never snapped.
+func tail(up: float, sway: float, rate: float) -> void:
+	_tail_up_t = clampf(up, -1.0, 1.0)
+	_tail_sway_t = clampf(sway, 0.0, 1.5)
+	_tail_rate_t = clampf(rate, 0.0, 14.0)
+
+## THE CHATTER — the staccato jaw rattle a cat makes at a bird it cannot reach. There is no jaw
+## bone on this rig, so it is carried as a fast, tiny head tremor, which is what actually reads
+## at game distance anyway. Decays like the look, so it stops unless renewed.
+func chatter(w: float) -> void:
+	_chat_w = maxf(_chat_w, clampf(w, 0.0, 1.0))
+
 ## Point the head. Weight decays in tick, so a glance fades unless renewed.
 func look(yaw: float, pitch: float, weight: float) -> void:
 	_look_yaw = clampf(yaw, -1.05, 1.05)
@@ -679,6 +738,13 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			var sol: Array = _solve_leg(limb_key, target)
 			# Eased in by the gait weight so a cat coming to a stop hands its legs back to the
 			# blended pose instead of dropping them.
+			# THE TAIL IS PARENTED TO THE RIGHT HIND LEG, so whatever the gait does to that
+			# thigh is done to the tail as well — a tail that jerks once per stride in lockstep
+			# with one foot, which is not a thing any cat does. Cancel it about the same body
+			# axis the swing was applied on, so the tail is free to be driven on its own below.
+			if limb_key == "rh" and _tail >= 0:
+				_mul_body(_tail, (_ik.get("rh", {}).get("n", BODY_SIDE) as Vector3),
+					-float(sol[0]) * step_w)
 			_mul(L["prox"], Quaternion(_hinge_of(L["prox"]), float(sol[0]) * step_w))
 			_mul(L["dist"], Quaternion(_hinge_of(L["dist"]), float(sol[1]) * step_w))
 			_mul(L["paw"], Quaternion(_hinge_of(L["paw"]), paw))
@@ -742,6 +808,19 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 	_mul_body(_spine, BODY_SIDE, breath)
 	_mul_body(_spine2, BODY_SIDE, breath * 0.55)
 	_mul_body(_neck, BODY_SIDE, -breath * 1.35)
+	# 5b. THE TAIL — the loudest thing a cat says and the only channel this body has for it.
+	# There is no facial rig, the ears do not move and the pupils are painted on, so carriage
+	# and sway carry the entire signal: up and quivering to greet you, out and arcing slowly
+	# while it walks, flat and flicking while it hunts, still while it sleeps. Eased hard,
+	# because a tail that snaps between carriages is the one part of a cat that must never
+	# look digital.
+	if _tail >= 0:
+		var te: float = 1.0 - exp(-3.5 * dt)
+		_tail_up = lerpf(_tail_up, _tail_up_t, te)
+		_tail_sway = lerpf(_tail_sway, _tail_sway_t, te)
+		_tail_rate = lerpf(_tail_rate, _tail_rate_t, te)
+		_mul_body(_tail, BODY_SIDE, -_tail_up * TAIL_MAX)
+		_mul_body(_tail, BODY_UP, sin(t * _tail_rate) * _tail_sway * TAIL_MAX)
 	if _target == "groom":
 		# The wash stroke rides the blended groom pose rather than replacing it.
 		var stroke: float = sin(t * 4.2)
@@ -749,6 +828,11 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		_mul(_head, Quaternion(SWING, -stroke * 0.16))
 		var L2: Dictionary = _limb["lf"]
 		_mul(L2["dist"], Quaternion(SWING, stroke * 0.10))
+	# 5c. The chatter, if a bird is being watched and cannot be had.
+	_chat_w = maxf(0.0, _chat_w - dt * 1.2)
+	if _chat_w > 0.01:
+		_mul_body(_head, BODY_SIDE, sin(t * 34.0) * 0.042 * _chat_w)
+		_mul_body(_head, BODY_UP, sin(t * 29.0) * 0.016 * _chat_w)
 	# 6. The look, LAST, so attention wins over everything.
 	_look_w = maxf(0.0, _look_w - dt * 1.5)
 	if _look_w > 0.01 and _target != "sleep":
@@ -877,10 +961,23 @@ func settle() -> float:
 ## ---------------------------------------------------------------- authored poses
 ##
 ## Every pose is a set of [axis, radians] offsets from the STAND rest, plus a hip drop.
-## Axis codes: 0 = SWING (local X, fore-aft), 1 = local Y (turn), 2 = local Z (lean).
-## Values were tuned through tests/CatBlendShot renders — each pose was looked at, adjusted
-## and re-rendered until it read; none of these numbers is a guess left unverified.
+## Axis codes 0/1/2 are the bone's own local X/Y/Z. Codes 3/4/5 are the BODY's pitch / yaw /
+## roll, converted through that bone's rest basis — and on any bone whose local frame is not
+## aligned with the body, those are the only ones that mean what they say.
+##
+## THE HIP IS SUCH A BONE, AND IT COST THE SIT POSE. `sit` asked for 0.58 rad about the Hip's
+## local X, meaning "pitch the body up about the pelvis". tests/CatYawDiag measures what Hip
+## local X actually does, per 0.2 rad: roll +8.03, pitch +5.18, yaw -5.92. It is not a pitch
+## axis at all — it is mostly ROLL. At 0.58 rad that is roughly 23 degrees of roll and 17 of
+## yaw, and the rear-view reel shows the result exactly: a cat that appears to have fallen
+## over on its side with its head twisted up, which is the owner's "the hind legs trail
+## instead of tucking" seen from the one angle that reveals it. Compare Spine01, where local X
+## IS a clean pitch (+11.43, with 0.3 of yaw) — which is why the same idiom worked everywhere
+## else and hid this.
+##
+## Same root cause as the breath layer turning the head: a bone axis is not an intention.
 const _AXES := [Vector3(1, 0, 0), Vector3(0, 1, 0), Vector3(0, 0, 1)]
+const _BODY_AXES := [Vector3(0, 0, 1), Vector3(0, 1, 0), Vector3(1, 0, 0)]  ## pitch, yaw, roll
 
 func _pose_from(offsets: Dictionary, hip_drop: float) -> Dictionary:
 	var e := {"q": {}, "hip_t": _rest_t.get(_hip, Vector3.ZERO) + Vector3(0, -hip_drop, 0)}
@@ -892,7 +989,14 @@ func _pose_from(offsets: Dictionary, hip_drop: float) -> Dictionary:
 			continue
 		var q: Quaternion = _rest[i]
 		for pair in offsets[bone_name]:
-			q = q * Quaternion(_AXES[pair[0]], pair[1])
+			var code: int = int(pair[0])
+			var ax: Vector3
+			if code < 3:
+				ax = _AXES[code]
+			else:
+				ax = ((_rest_gb.get(i, Basis.IDENTITY) as Basis).inverse()
+					* _BODY_AXES[code - 3]).normalized()
+			q = q * Quaternion(ax, pair[1])
 		e["q"][i] = q
 	return e
 
@@ -987,14 +1091,14 @@ func _build_poses() -> void:
 	# -0.28) buried the head inside the body silhouette and the sit read as a sprawl from
 	# behind — a sitting cat's head must stand clearly ABOVE its shoulders.
 	_poses["sit"] = _bake({
-		"Hip": [[0, 0.58]],
+		"Hip": [[3, 0.58]],
 		"NeckTwist01": [[0, -0.06]], "Head": [[0, 0.04]],
 	}, 0.118, {"lf": Vector3(-0.06, 0, 0), "rf": Vector3(-0.06, 0, 0),
 		"lh": Vector3(0.13, 0, 0), "rh": Vector3(0.13, 0, 0)}, 0.7)
 	# GROOM: the sit, then the left forepaw raised to the lowered muzzle — the arm override
 	# happens AFTER the bake, which is what a raised paw is.
 	var g: Dictionary = _bake({
-		"Hip": [[0, 0.58]],
+		"Hip": [[3, 0.58]],
 		"Spine02": [[1, 0.15]],
 		"NeckTwist01": [[0, -0.55]], "Head": [[0, -0.28]],
 	}, 0.118, {}, 0.7)
@@ -1014,7 +1118,7 @@ func _build_poses() -> void:
 	}, 1.0)
 	# STRETCH: chest to the floor, rear high, forepaws reaching far forward on the deck.
 	_poses["stretch"] = _bake({
-		"Hip": [[0, -0.26]],
+		"Hip": [[3, -0.26]],
 		"NeckTwist01": [[0, 0.42]], "Head": [[0, 0.20]],
 	}, 0.035, {
 		"lf": Vector3(0.16, 0, 0), "rf": Vector3(0.16, 0, 0),
@@ -1035,7 +1139,7 @@ func _build_poses() -> void:
 	}, 0.0)
 	# JUMP: airborne, so no planting — authored stretch-out, fore reaching, hind driving.
 	_poses["jump"] = _pose_from({
-		"Hip": [[0, 0.14]],
+		"Hip": [[3, 0.14]],
 		"L_Upperarm": [[0, -1.05]], "R_Upperarm": [[0, -1.05]],
 		"L_Forearm": [[0, 0.30]], "R_Forearm": [[0, 0.30]],
 		"L_Thigh": [[0, -0.70]], "R_Thigh": [[0, -0.70]],

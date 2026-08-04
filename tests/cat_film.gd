@@ -347,6 +347,9 @@ func _ready() -> void:
 			"headrun": await _reel_line("headrun", Vector3(1, 0, 0), 12.0, 3.0, sim_per_frame, true)
 			"turn": await _reel_turn(sim_per_frame)
 			"above": await _reel_above(sim_per_frame)
+			"rear": await _reel_rear(sim_per_frame)
+			"jump": await _reel_jump(sim_per_frame)
+			"hunt": await _reel_hunt(sim_per_frame)
 			"behaviour": await _reel_behaviour(sim_per_frame)
 			"showcase": await _reel_showcase(sim_per_frame)
 			_: print("[film] unknown reel %s" % String(reel))
@@ -392,6 +395,14 @@ func _reel_line(reel: String, dir: Vector3, lead: float, seconds: float,
 	var last: Vector3 = _cat.global_position
 	for f in range(frames):
 		var place := func() -> void:
+			# HOLD THE HUNT OFF. This reel exists to measure a cat walking in a straight line,
+			# and the cat now stalks deck gulls on its own — the first run of this after the
+			# hunt shipped came back with the headon strip 82 degrees off its travel bearing
+			# and `pose=stalk`, which is the behaviour working correctly and the instrument
+			# measuring nothing. The hunt reel is where that gets filmed.
+			_cat.set("_hunt_cd", 999.0)
+			_cat.set("_zoom_cd", 999.0)
+			_cat.set("_play_cd", 999.0)
 			_player.global_position = _cat.global_position + dir * lead
 			if head_on:
 				_cam.global_position = _cat.global_position + dir * 1.35 + Vector3(0, 0.20, 0)
@@ -454,6 +465,117 @@ func _reel_above(sim_per_frame: int) -> void:
 				_cam.look_at(_cat.global_position + Vector3(0, 0.15, 0), Vector3(0, 0, -1))
 			await _shoot("above", String(pose_beat[0]), 0.0, sim_per_frame, place)
 	_cat.set_process(true)
+
+## FROM DIRECTLY BEHIND — flaw 2, "the hind legs trail instead of tucking", which is a
+## complaint no side-on or three-quarter reel can settle: a hind leg left out behind the body
+## is hidden by the body from every angle except this one. Low and dead astern, at hock height,
+## so the two hind paws are silhouetted against the deck.
+func _reel_rear(sim_per_frame: int) -> void:
+	var stage := Vector3(3.0, 18.0, -3.0)
+	_cat.global_position = stage
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	_player.global_position = stage + Vector3(1.2, 0.1, 0.0)
+	for i in range(30):
+		await get_tree().physics_frame
+	var rig = _cat.get("_rig")
+	_cat.set_process(false)
+	# The cat faces its own -Z after CreatureAnim's normalisation, so dead astern is +Z of the
+	# node — taken from the node rather than typed, because the whole point of the reel is
+	# that the camera is behind the ANIMAL.
+	for pose_beat in [["sit", 2.2], ["stalk", 1.8], ["groom", 1.8], ["sleep", 1.8]]:
+		rig.set_pose(String(pose_beat[0]), 5.0)
+		for f in range(int(float(pose_beat[1]) * _fps)):
+			var place := func() -> void:
+				rig.tick(1.0 / _sim_fps, 0.0, 0.0)
+				var back: Vector3 = _cat.global_transform.basis.z.normalized()
+				_cam.global_position = _cat.global_position + back * 1.05 + Vector3(0, 0.20, 0)
+				_cam.look_at(_cat.global_position + Vector3(0, 0.16, 0), Vector3.UP)
+			await _shoot("rear", String(pose_beat[0]), 0.0, sim_per_frame, place)
+	_cat.set_process(true)
+
+## THE LEAP — flaw 7, which had never been filmed. ship_cat jumps a rise between CLIMB_UP
+## (0.62 m) and JUMP_UP (1.25 m) rather than refusing it, so the reel has to find a ledge in
+## that band and stand the player on top of it. The ledge is PROBED, never typed: a sweep of
+## the deck around the stage, raycast down at each candidate, keep the first whose surface is
+## in the band and whose top the cat's own body-volume test says it would fit on.
+func _reel_jump(sim_per_frame: int) -> void:
+	var stage := Vector3(3.0, 18.0, -3.0)
+	_cat.global_position = stage
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	for i in range(20):
+		await get_tree().physics_frame
+	var deck: float = _cat.global_position.y
+	var ledge := Vector3.INF
+	for r in [1.6, 2.4, 3.2, 4.2, 5.4, 7.0]:
+		for i in range(16):
+			var a: float = TAU * float(i) / 16.0
+			var at: Vector3 = stage + Vector3(cos(a) * r, 0.0, sin(a) * r)
+			var from: Vector3 = at + Vector3(0, 3.0, 0)
+			var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 4.0, 0))
+			q.collision_mask = 1
+			var hit: Dictionary = world_ds(_cat).intersect_ray(q)
+			if hit.is_empty():
+				continue
+			var rise: float = (hit["position"] as Vector3).y - deck
+			if rise < 0.66 or rise > 1.20:
+				continue
+			ledge = hit["position"]
+			break
+		if ledge != Vector3.INF:
+			break
+	if ledge == Vector3.INF:
+		print("[film] jump: no ledge in the 0.66-1.20 m band within 7 m of the stage — "
+			+ "nothing to film. Move the stage or build a crate.")
+		return
+	print("[film] jump: ledge probed at %s, rise %.2f m" % [str(ledge.snappedf(0.01)), ledge.y - deck])
+	# Stand the cat at the foot of it and the player on top, so the follow logic walks the
+	# animal into the rise and the jump gate fires on its own.
+	var approach: Vector3 = ledge + (stage - ledge).normalized() * 1.1
+	approach.y = deck
+	_cat.global_position = approach
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	var travel: float = _bearing(ledge - approach)
+	var side: Vector3 = (ledge - approach).normalized().rotated(Vector3.UP, PI * 0.5)
+	for f in range(int(4.5 * _fps)):
+		var place := func() -> void:
+			_player.global_position = ledge + Vector3(0, 0.2, 0)
+			_cam.global_position = _cat.global_position + side * 2.4 + Vector3(0, 0.7, 0)
+			_cam.look_at(_cat.global_position + Vector3(0, 0.3, 0), Vector3.UP)
+		await _shoot("jump", "jump", travel, sim_per_frame, place)
+
+## THE HUNT — the predatory sequence, filmed. Staged next to a real deck gull rather than a
+## marker, because the whole sequence is driven off `_find_prey` and a faked target would
+## prove nothing about the behaviour that ships.
+func _reel_hunt(sim_per_frame: int) -> void:
+	var gull: Node3D = null
+	for g in get_tree().get_nodes_in_group("deck_gull"):
+		var n: Node3D = g as Node3D
+		if n != null and n.global_position.y > 17.0:
+			gull = n
+			break
+	if gull == null:
+		print("[film] hunt: no deck gull up on the topside to stalk")
+		return
+	print("[film] hunt: gull at %s" % str(gull.global_position.snappedf(0.1)))
+	var away: Vector3 = Vector3(1, 0, 0.4).normalized()
+	_cat.global_position = gull.global_position + away * 6.0
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	_player.global_position = _cat.global_position + away * 1.5
+	for i in range(20):
+		await get_tree().physics_frame
+	var travel: float = _bearing(gull.global_position - _cat.global_position)
+	# Wide and low, so the crouch, the freezes and the tread all read against the deck.
+	for f in range(int(14.0 * _fps)):
+		var place := func() -> void:
+			var mid: Vector3 = _cat.global_position.lerp(gull.global_position, 0.4)
+			var eye: Vector3 = (_cat.global_position - gull.global_position).normalized()
+			_cam.global_position = mid + eye.rotated(Vector3.UP, PI * 0.5) * 3.1 + Vector3(0, 0.65, 0)
+			_cam.look_at(mid + Vector3(0, 0.2, 0), Vector3.UP)
+		await _shoot("hunt", str(_cat.get("_pose")), travel, sim_per_frame, place)
 
 ## THE BEHAVIOUR REEL — the cat's own state machine, filmed from world-fixed bearings.
 ## The beat list is DATA (flaw 9): [player_x, player_z, seconds, label]. Overridable from the

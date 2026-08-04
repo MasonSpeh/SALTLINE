@@ -1109,3 +1109,96 @@ completion sentinel caught it — but the aborted run had already repositioned t
 poked the cat's state machine, so the NEXT assertions in partial reruns failed in ways that
 looked like animal bugs (a cat "stuck in walk" that was nothing of the kind). When a probe
 dies mid-run, fix the probe before believing anything it printed after the corpse.
+
+## Found polishing the cat (s38)
+
+**A CAPTURE HARNESS THAT SAVES A PNG PER FRAME IS PART OF WHAT IT MEASURES.**
+`get_viewport().get_texture().get_image()` is a GPU readback that stalls the main thread for
+tens to hundreds of milliseconds, and Godot hands `_process` the time since the LAST frame —
+so the frame AFTER every capture arrives carrying the shutter's own cost as its delta.
+`AiBudget.MAX_STEP` caps that at 0.15 s, which is 0.23 m of cat in a single frame. The s37
+film was photographing a lurch it had caused, three sessions of gait tuning chased it, and
+capturing MORE often makes it worse. The fix is `--fixed-fps`, which makes `delta` exactly
+1/N regardless of how long the frame really took. Any harness that renders and measures
+motion in the same loop has this bug until proven otherwise; `tests/cat_film.gd` now warns
+on every run whose delta wanders.
+
+**"WHICH LOCAL AXIS IS YAW" IS A DIFFERENT QUESTION ON EVERY BONE, AND THE ANSWER IS NEVER
+THE ONE IN THE COMMENT.** On the cat's spine, +0.2 rad about local X pitches the head +11.4
+deg; about local Y it rolls +10.0 AND yaws +5.5; about local Z it YAWS +10.0 and rolls -5.6.
+The breath layer was written as a chest motion about local Z, so for as long as the cat has
+existed it has been turning the animal's head +/-2.6 deg off its line of travel, in every
+pose — the owner's "it looks to the side when walking", which three sessions read as a gait
+fault. Do not express torso motion in bone axes at all: say "roll the chest" in the BODY's
+frame and convert (`cat_rig._mul_body`). A layer that asks for roll then cannot leak yaw, on
+this rig or the next species'.
+
+**EASING EVERY SEGMENT OF A KEYFRAME TABLE DOES NOT SMOOTH IT, IT PUNCTUATES IT.**
+`0.5 - 0.5*cos(k*PI)` has ZERO derivative at BOTH ends, so applying it per segment forces the
+value's velocity to zero at every key. On a six-key limb cycle that stops the paw dead five
+times a stride — measured at 4.5 near-stops per gait cycle, with peak paw speeds of 3.7 m/s
+on a cat walking at 1.55. It is an interpolation artefact and no amount of re-keying can
+reach it. Use a cyclic Catmull-Rom (or any C1 spline) through the same authored keys.
+
+**MEASURE WHAT A JOINT ACTUALLY DOES TO THE THING YOU CARE ABOUT, NOT WHAT ITS NAME SUGGESTS.**
+The gait swung all four limbs about local X with a hand-written "the upperarms are MIRRORED"
+sign map. Measuring metres of paw travel per radian gave lf 0.198, rf 0.005, lh 0.200,
+rh 0.189 — a mirror would read -0.198, not +0.005. That limb had been driven about an axis
+that barely moves it, for every session the gait has existed, and every downstream tuning
+value was compensating for it. One perturbation per joint at load would have caught it.
+Better still, DERIVE the axis: a limb is a planar linkage, so `n = normalise(r x BODY_FWD)`
+gives the hinge, the sign and the gain from the geometry and needs no map at all.
+
+**A STRIDE LENGTH IS NOT A FREE PARAMETER — THE LEGS HAVE TO REACH.** `stride` was
+`0.52 + speed/4.4*0.35`, two chosen numbers, asking 0.64 m per cycle from a cat whose hind
+leg is 0.19 m from hip to paw. A leg that long can sweep about 0.22 m of deck however it is
+driven, so the other 0.42 m came out as the paws SLIDING at 1.4-1.6 m/s under a body moving
+at 1.55 — i.e. there was no stance at all. Derive the stride from the rig
+(`_sweep_cap / duty`) and foot-lock stops being a feature and becomes a consequence.
+
+**WHEN AN IK TARGET IS OUT OF REACH, HOW YOU CLAMP IT DECIDES WHETHER THE ANIMAL LIMPS.**
+Scaling the target back along its own ray is the obvious clamp and it shortens the stride —
+by a DIFFERENT amount on each leg, because no two chains on an auto-rigged animal are the
+same length. That kept a 0.67 hind reach ratio alive at a gallop on a walk that had already
+been made symmetric. Raise the target instead (a real leg at full stretch lifts its paw, it
+does not shorten its step), preserving the fore-aft component exactly — and take the NEAR
+root of the resulting quadratic. The far root also lands on the reach sphere, over the top
+of the socket and out the other side: it measured as a 636 mm paw lift on a 0.66 m cat.
+
+**HYSTERESIS THAT CURES AN OSCILLATION CAN CREATE A DEADLOCK.** s37 fixed "the cat paces
+beside the bed all night" by choosing the sleep spot ONCE and holding it. The held spot is
+only ever proven reachable by a thin ray at +0.22 m, `_walk_toward` refuses a blocked step
+silently, and nothing ever re-decided — so the cat closed to whatever the furniture allowed
+and pressed into it for the rest of the night. Same symptom, opposite cause, and it presented
+as CatProbe failing about one run in six because it depended entirely on where the animal
+happened to be standing when the player lay down. Any "choose once and hold" needs a
+progress check: if the goal is not getting closer, it is not a goal.
+
+**A NEW IDLE BEHAVIOUR WILL STARVE AN OLD IMPORTANT ONE UNLESS IT IS RANKED.** Adding zoomies
+and object play put two `_still`-gated branches above the sleep branch, and the cat spent the
+night doing laps three metres from the bed. The state machine's ORDER is its priority list and
+it is not documented anywhere but the order itself — put the thing the player would notice
+missing (settling when they turn in) above every game the animal knows.
+
+**A LEAP BYPASSES EVERY MOVEMENT GATE, SO IT HAS TO BE CHECKED BEFORE IT STARTS.**
+`_fly_jump` drives the body along its arc directly — no deck probe, no volume check — because
+the leap deliberately owns the animal until it lands. Adding pounces to the cat therefore put
+it 229 mm inside the bunkhouse geometry twice in one probe run. The only place a leap can be
+made safe is at the launch: test the landing with the same volume query the walk uses, and
+take a shorter leap or none.
+
+**A PROBE THAT MEASURES A CONSTANT WILL REPORT IT FOREVER.** The s37 film computed roll as
+`skel.global_transform.basis * UP` and printed up_y = 1.00 on every frame of every run — but
+that is the NODE the skeleton hangs on, which the animation never touches, so the column could
+not have printed anything else. "There was never any roll" was an artefact of measuring
+something that cannot change. Measure the drawn bone.
+
+**A FILM'S COST IS ITS SIM DURATION, NOT ITS FRAME RATE — and check who else is running Godot.**
+Under `--fixed-fps` the engine runs every sim frame regardless of how long it really takes, and
+this rig renders at roughly ONE frame a second windowed. So a reel set totalling 55 s of sim
+time costs ~50 minutes of wall clock whether it is captured at 8 fps or 30. Lowering the
+capture rate saves almost nothing; SHORTENING THE REELS is the only lever. (Telemetry is
+logged per sim frame either way, so a low shutter costs nothing analytically.) And before
+concluding a harness is slow or hung, run `ps -eo pid,%cpu,etime,args | grep -i godot`: an
+owner's open editor plus a play session, or a `--check-only --script` run left spinning by a
+`| head -N` that closed its pipe early, will happily eat two cores and halve your throughput.

@@ -1417,3 +1417,159 @@ Also fixed on the way, each found by the film failing to show a cat at all:
 Owner verdict on the latest film: the walk is BETTER, still choppy — remaining
 polish is scoped in docs/SESSION_BRIEF_s38.md as its own focused session, with
 the flaw list, the instruments, and the facts that must not be re-learned.
+
+
+---
+
+## s38 — the head was the breath, and the legs had never landed
+
+The brief for this session (docs/SESSION_BRIEF_s38.md) put the instrument first, and it was
+right to: the film was part of what it was measuring.
+
+### The shutter was in the simulation
+
+`get_image()` is a GPU readback that stalls the main thread, and Godot hands `_process` the
+time since the LAST frame — so the frame after every capture arrived carrying the capture's
+own cost as its delta, up to `AiBudget.MAX_STEP`'s 0.15 s. That is 0.23 m of cat in a single
+frame. The film was photographing a lurch it had caused, and capturing MORE often makes it
+worse rather than better. `--fixed-fps` cures it completely (dt pinned at 0.01667); the
+harness now checks and prints a warning on any run whose delta wanders, because frames from
+an unpinned run are not evidence about smoothness.
+
+That did NOT explain the choppiness away. With the shutter removed the body's own travel
+measured 25.8 mm/frame with 0% spread — perfectly smooth — and every remaining problem was
+in the legs and the neck.
+
+### "It looks to the side when walking" was the BREATHING
+
+Three sessions read this as a gait fault. It was the idle breath layer, applied about the
+spine's local Z at 0.032 rad. tests/CatYawDiag (new) measures what each spine axis actually
+does to the head: local X is 11.4 deg of pitch, local Y is 10.0 of roll plus 5.5 of yaw, and
+local Z is **10.0 degrees of YAW** and half a degree of pitch. So the layer written as a
+chest motion had been turning the animal's face +/-2.6 deg off its line of travel, in every
+pose, for as long as the cat has existed.
+
+Measured on the live walk before: **+3.43 deg mean, +6.40 worst, 3.89 rms** — and never once
+crossing to the other side, which is why it read as a permanent squint rather than a wobble.
+
+Fixed at the class rather than the instance. Torso layers are no longer expressed in bone
+axes at all: `_mul_body(bone, BODY_UP, ang)` says what is wanted in the BODY's frame and
+converts through the bone's cached rest basis, so a layer that asks for roll cannot leak yaw
+on this rig or the next species'. The breath became a chest pitch cancelled at the neck. The
+walk's lateral bend is applied equal and opposite at Spine01/Spine02, so the trunk visibly
+snakes and the sum at the neck is exactly zero — which is also what cats do, being among the
+best head-stabilisers there are.
+
+**After: +0.91 deg mean, +0.99 worst, 0.91 rms.** Read back from head-on frames as well as
+from the telemetry; the earlier film shows a visibly cocked head in the same frame where the
+new one is symmetrical.
+
+### "Still choppy" was three things, and none of them was a number in the tables
+
+**1. The interpolator was stopping the paw at every key.** `_cyc_eval` eased every segment
+with `0.5 - 0.5*cos(k*PI)` — a smoothstep, zero derivative at BOTH ends. On a six-key limb
+cycle that forces the paw's velocity to zero five times a stride. Measured 4.5 near-stops per
+gait cycle per paw, with peak paw speeds of 3.7 m/s on a cat walking at 1.55. Replaced with a
+cyclic Catmull-Rom through the same authored keys, wrapping across the t=1 seam.
+
+**2. The right foreleg was driven about an axis that barely moves it.** The gait swung all
+four limbs about local X behind a hand-written "the upperarms are MIRRORED" sign map.
+Measuring metres of paw travel per radian: lf 0.198, rf **0.005**, lh 0.200, rh 0.189. A
+mirror reads -0.198, not +0.005. Every hinge is now derived from its own limb's sagittal
+plane — `n = normalise(r x BODY_FWD)` gives the axis, the sign AND the gain from the
+geometry — and the sign map is deleted. After: 0.306 / 0.342 / 0.214 / 0.189.
+
+**3. The paws never landed.** Stance paws slid at 1.4-1.6 m/s under a body moving at 1.55:
+there was no stance. The stride was `0.52 + speed/4.4*0.35`, two chosen numbers, asking 0.64 m
+per cycle from a cat whose hind leg is 0.19 m hip-to-paw. A leg that long sweeps about 0.22 m
+of deck however it is driven; the missing 0.42 m came out as skating.
+
+The legs now follow **a path in body space solved by analytic two-bone IK**. Stance is a
+straight line backwards at exactly body speed (that IS foot-lock), swing is a lifted arc, and
+the stride is derived from the rig — `_sweep_cap / duty`, where the sweep is the shortest
+leg's envelope shared by all four, because on a rigid body every paw must cover the same
+ground. Analytic, not CCD: a two-bone chain on one hinge is closed-form, ~20 flops a leg, no
+skeleton round-trips. The bake-time `_ik_leg` CCD stays where it belongs.
+
+  | measured at a walk        | before | after |
+  |---------------------------|--------|-------|
+  | stance slide, mm/frame    | 24-30  | 8.7-11.7 |
+  | hind lift L/R ratio       | 6.44x  | 1.00x |
+  | fore reach L/R ratio      | 1.85x  | 0.99x |
+  | head off travel, rms deg  | 3.89   | 0.91  |
+  | jerk index                | 29-37  | 15-23 |
+  | CatProbe worst paw step   | 84 mm  | 4.5 mm |
+
+Also, all found while in there: the scapula and toe joints are driven for the first time
+(this rig has had `L_Clavicle`/`L_ToeBase` all along — a cat's shoulder blade travels further
+than almost any mammal's and it is why a walking cat's front end flows); overlapping action
+on the distal joints; and turn-in-place is a diagonal-pair step cycle driven by the measured
+yaw rate instead of a turntable (flaw 4).
+
+### The cat hunts now
+
+The predatory sequence on the deck gulls, in the five beats it actually has: notice, stalk
+low with real freezes, the tread-and-waggle, the leap — and it **misses about two thirds of
+the time**, because the miss is the better animation. On a miss it sits down exactly where it
+failed and washes furiously, which is a real displacement behaviour and has more character
+than any success. On a catch it carries a feather back with its head held clear of its own
+paws and puts it down in front of you. Plus the zoomies (fire on waking and on a long
+cooldown, orbiting the player so the animal never wanders off), object play, and a stretch on
+waking from sleep (flaw 6). New poses: `stalk`, `carry`. New states appended after JUMP, never
+inserted, because the probes assert on the integers.
+
+### CatProbe's intermittent failure was real, and it was the sleep branch
+
+Exactly as the brief warned. s37 cured "the cat paces beside the bed all night" by choosing
+the sleep spot ONCE and holding it — and the held spot is only ever proven reachable by a thin
+ray at +0.22 m, while `_walk_toward` refuses a blocked step silently and nothing ever
+re-decided. So the cat closed to whatever the furniture allowed and pressed into it for the
+rest of the night. Same symptom, opposite cause, and whether it fired depended purely on where
+the animal was standing when the player lay down — the shape of a "1 run in 6".
+
+A cat that cannot reach the good spot now lies down where it is, after a measured 2.5 s of
+making no progress. Found with a new state-trace harness (tests/CatBehDiag) that narrates what
+the animal is doing once a second, rather than by widening a tolerance.
+
+Two bugs in the new behaviour were caught by the probe before they shipped: zoomies and play
+were starving the settle-to-bed branch (the player turning in now outranks every game the cat
+knows), and a pounce drove the body along its arc with no volume check, burying the cat 229 mm
+in the bunkhouse twice in one run — a leap bypasses every movement gate, so it has to be
+checked at the launch.
+
+### Still open, honestly
+
+* The GALLOP keeps a hind reach ratio of 0.67. The cause is understood and filed: the left
+  hind is dead straight in its bind pose, so it runs out of reach first when the spine engine
+  swings the sockets. The walk is symmetric to within 1%.
+* The head's remaining +0.91 deg is a constant, not a wobble, and does not appear in the
+  headless rig test — so it is something the live animal has that the bare skeleton does not.
+* The gallop's hind asymmetry above is the only gait number still out of family; the walk,
+  which is what the owner asked about, is symmetric to within 1%.
+
+### The tail had bones all along, under another name
+
+Three sessions have recorded "the tail has no bones — Tripo's template ends at the pelvis".
+That is true of the TEMPLATE and false of this FIT. tests/CatTailDiag (new) assigns every
+vertex to the bone with the largest weight on it and reports where those vertices actually
+sit:
+
+    R_ThighTwist01   29363 verts   centroid (-0.246, 0.251, -0.029)   0.237 m BEHIND the hip
+
+A quarter of the whole mesh, centred well behind the pelvis, elevated, spanning 0.434 m along
+the body axis. That is the tail. The auto-rig stretched the RIGHT THIGH CHAIN backwards to
+cover it — which finally explains the standing mystery of why this rig's right hind bones are
+a quarter the length of its left ones (`R_Thigh -> R_Calf` 0.086 against 0.336): the "thigh"
+is largely the tail root.
+
+It also means the tail has been a CHILD of the right hind leg for as long as the cat has
+walked, twitching once per stride in lockstep with one foot. That is now cancelled about the
+same body axis the swing is applied on, and the tail is driven on its own: carriage plus sway
+plus rate, set per state. Up and quivering to greet you or when you feed it, out and arcing
+slowly on the walk, flat to the deck and flicking hard through a stalk, streamed out behind at
+a run, still while asleep. It is the only body-language channel this mesh has — no facial rig,
+no ears, painted-on pupils — so it carries the whole signal, and every one of those is a
+reading a cat owner does without being taught.
+
+Held to 0.30 rad: the bone owns the rump as well as the tail, so a large rotation bends the
+hindquarters with it. The limit was set by rendering, not by taste.
