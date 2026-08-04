@@ -1631,3 +1631,90 @@ finished code: **20 runs started, 20 clean, zero FAIL lines.** Against a reporte
 baseline, twenty consecutive passes is roughly a 3-in-100 chance of being luck. Combined with a
 root cause that was found by trace rather than inferred from the symptom — and fixed at the
 cause rather than by widening a window — the sleep branch is settled.
+
+
+---
+
+## s39 — a mood for the cat, a plainer journal, and a stair bug I could not find
+
+### The stairs: not reproduced, and one fix reverted
+
+The owner's report is "have to jump over an invisible bump each landing, your fix made it
+worse". Three stair probes already existed and all three passed, so the first job was to work
+out what each of them is actually measuring:
+
+* `StairJunctionProbe` ray-profiles the geometry and reports 0.0000 m at all ten junctions.
+  True, and blind to this: a ray finds surface height, and what stops a body is a CONTACT
+  NORMAL.
+* `StairWalkProbe` drives a stand-in CharacterBody3D at Godot's DEFAULT solver settings —
+  while the documented stair mechanism lives entirely in the `safe_margin` / `floor_max_angle`
+  / `floor_block_on_wall` that PlayerController sets explicitly. It cannot reproduce the bug,
+  which is why it has always passed.
+
+So two new ones. `StairBumpProbe` sweeps the player's own capsule instead of a ray — and its
+first cut reported a 12.5 mm hump at all ten junctions, identical to the millimetre and
+unmoved by a real geometry change, because 3.2 m / 256 is 12.5 mm and it was printing
+`cast_motion`'s own bisection quantum. With a refining second cast (0.16 mm) the junctions
+read 0.2-0.8 mm. `StairHitchProbe` takes the SHIPPING player out of Main.tscn and holds
+forward with synthesised input.
+
+Result: ascending and descending three flights, **zero stalls at any junction**. Every stall
+recorded began 2.3 to 18.4 m past the lip, i.e. walking into the far bulkhead nine seconds
+later.
+
+I did find a real defect and then reverted it. The ramp collider is `slope_len + 0.1` long and
+centred, so 50 mm overhangs the TOP end and stands 31 mm proud of the landing on a
+38.66-degree flight. Shortening it measurably improved the capsule profile (hump 0.8-3.9 mm
+-> 0.2-0.8, proud surface 6.6 mm -> 0.2) and `StairJunctionProbe` immediately caught it
+opening a **56 mm hole** at every flight head. That overhang is load-bearing: it bridges the
+ramp to the landing slab. Trading a 3 mm bump for a 56 mm hole is not a fix, so it is out.
+
+Still open, and filed: the SWITCHBACK is untested, and `floor_block_on_wall` has never been
+set.
+
+### The journal stopped sounding like a machine wrote it
+
+All 114 entries rewritten. The tells were systematic rather than occasional, which is exactly
+why it read the way it did: an em-dash mid-sentence restating the clause before it, in most
+entries; a short aphoristic closer on nearly every one; rule-of-three lists; "not X, it was Y"
+reveals; and "someday" tacked onto five fish notes off one template. Now a working log —
+plainer sentences, concrete detail, entries allowed to end without a lesson. Every gameplay
+hint the fish entries carry is preserved. The corvid-gull entry is gone and its three
+`Journal.discover` call sites re-pointed, because a discovery naming a missing entry is a
+blank page.
+
+Coelacanth is now the rarest thing in the deep pool (1/0/1/2 against a pool running 7-19, and
+never in daylight). Its own note already called it a rare catch; at 1/1/2/6 it was middling.
+
+### The cat got a mood
+
+She had the right behaviours and fired all of them off bare cooldowns, which is what made her
+read as a machine with good animation. Now ENERGY (0..1) drives everything self-directed:
+spent by running, hunting and playing, recovered by sitting and sleeping, and pulled hard
+toward full at dawn and dusk because cats are crepuscular. Play needs 0.34, the zoomies 0.62,
+the hunt 0.30. Traced: 1.00 -> 0.09 across a burst of pounce/play/run, then back to 0.57
+sitting, with each behaviour dropping out on the way down and returning on the way up.
+
+Looking around: she picks something — you, the nearest gull, or nothing in particular off to
+one side — HOLDS it for 0.7-2.6 s, then picks again. Not a head-jitter: a glance that lands
+and stays reads as attention. It is suppressed entirely while she is walking, because the
+owner's standing requirement is that the face points dead straight at default gait and an
+idle glance layer can turn the head a full radian.
+
+Washing is a repertoire rather than a loop — paw-lick, flank, chest — in bouts of 2-10 s with
+a 14-48 s break, and a bird interrupts one mid-stroke. The ear scratch was written, filmed,
+and cut: from the sit the groom pose is built on, the hind leg is folded under a dropped hip
+and it read as a twitch. Filed. Also a full-body shake (phase-offset down the spine, since in
+phase it is a wobble), and the walk's speed now wanders +/-14%.
+
+The washes also exposed that the raised forepaw was baked into the one `groom` pose, so the
+flank wash filmed as a cat washing its shoulder while holding a paw in the air. There is a
+`groom_flat` now, and `groom_style` picks the body that goes with the style.
+
+### One queued bug cleared
+
+`_walk_skip()` has never skipped other fauna. It reads `fauna_bodies` — a STATIC FUNCTION on
+bloom_fauna — through `Object.get()`, which returns null for a method name, so the loop has
+added nothing since s36 while the comment above it described the intention. Another animal's
+grab collider counted as a wall to the cat, which is why the pounce needed an explicit prey
+exclusion to land on a bird at all. Now walked and cached at 500 ms.

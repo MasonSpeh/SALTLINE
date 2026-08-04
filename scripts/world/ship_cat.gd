@@ -285,10 +285,6 @@ var _shake_cd: float = 25.0
 ## Small per-frame speed variation, so the walk is not metronomic.
 var _pace: float = 1.0
 var _pace_cd: float = 0.0
-## Other animals' colliders, so the cat does not read a gull as a bulkhead. Cached — see
-## `_walk_skip`, which is called several times a frame against a subtree of thousands.
-var _fauna_rids: Array[RID] = []
-var _fauna_at: int = -100000
 ## The held sleeping spot — picked once when the player turns in, cleared when they rise.
 var _sleep_target: Vector3 = Vector3.ZERO
 ## How long it has been walking at the chosen spot without getting any closer, and the best it
@@ -1124,27 +1120,23 @@ func _walk_skip() -> Array[RID]:
 			skip.append((player as CollisionObject3D).get_rid())
 		for c in player.find_children("*", "CollisionObject3D", true, false):
 			skip.append((c as CollisionObject3D).get_rid())
-	# THE FAUNA BRANCH HAS NEVER ADDED A SINGLE RID, and the comment above has been describing
-	# an intention rather than the code since s36. `fauna_bodies` is a STATIC FUNCTION on
-	# bloom_fauna, not a property, and `Object.get()` returns null for a method name — so this
-	# whole block has been quietly skipped every call. The visible consequence was that
-	# another animal's grab collider counted as a WALL to the cat: it is why the pounce needs
-	# an explicit prey exclusion to be able to land on the bird at all, and why a gull standing
-	# in a doorway is an obstruction the cat will slide around rather than walk through.
+	# THERE IS NO BLANKET FAUNA EXCLUSION HERE, AND THAT IS DELIBERATE.
 	#
-	# Collected by walking the fauna subtree, and CACHED — that subtree is thousands of nodes
-	# and `_walk_skip` is called several times a frame by `_step_clear`. Half a second of
-	# staleness cannot matter here: a freed RID is simply an exclusion that no longer matches
-	# anything, and a newly spawned animal is skipped for at most one refresh.
-	var now_ms: int = Time.get_ticks_msec()
-	if now_ms - _fauna_at > 500:
-		_fauna_at = now_ms
-		_fauna_rids.clear()
-		var bfn: Node = get_tree().get_first_node_in_group("bloom_fauna")
-		if bfn != null:
-			for c in bfn.find_children("*", "CollisionObject3D", true, false):
-				_fauna_rids.append((c as CollisionObject3D).get_rid())
-	skip.append_array(_fauna_rids)
+	# The branch that used to sit here read `fauna_bodies` — a STATIC FUNCTION on bloom_fauna —
+	# through `Object.get()`, which returns null for a method name. It has therefore added
+	# nothing since s36 while the comment above it described the intention. The visible
+	# consequence is small and real: another animal's grab collider counts as a wall, which is
+	# why `_launch_pounce` has to exclude the prey explicitly to land on a bird at all.
+	#
+	# The obvious repair — walk the bloom_fauna subtree and skip every CollisionObject3D in it
+	# — was written, measured, and removed. That subtree is not only animals: the Bloom GROWTH
+	# lives there too (creeper-wrapped pipes, kelp stands, anemone clumps), and those are world
+	# geometry. Excluding them let the cat walk into them, and CatHuntProbe's burial sweep went
+	# from 2 mm to 65 mm on the first run with it in. A/B'd both ways to be sure.
+	#
+	# So it stays targeted at the call site until creature colliders can be told apart from
+	# scenery colliders — a group tag on the animals would do it, and that is a change to
+	# bloom_fauna rather than to the cat.
 	return skip
 
 func _face(target: Vector3, delta: float) -> void:
@@ -1204,6 +1196,17 @@ func _idle_attention(delta: float, ppos: Vector3, d: float) -> void:
 	# The hunt, the gift and being petted all aim the head themselves and outrank this.
 	if _hunt > 0 or _carry != "" or _pet_t > 0.0 or _state == State.SLEEP:
 		return
+	# AND NOT WHILE SHE IS WALKING, which is a standing instruction rather than a preference.
+	# The owner's requirement is that from head on, at default gait, the face points dead
+	# straight — that is what the s38 work on the breath layer was for, measured down from
+	# +3.43 deg off the travel line to +0.91. An idle glance layer is free to turn the head up
+	# to a radian, so letting it run during FOLLOW would hand all of that straight back for
+	# the sake of an idle flourish. A settled cat looks around; a walking one looks where she
+	# is going.
+	if _last_speed > 0.2 or _state in [State.FOLLOW, State.RUN, State.STALK, State.POUNCE,
+			State.PLAY, State.GIFT, State.JUMP]:
+		_glance_hold = 0.0
+		return
 	if _glance_hold > 0.0:
 		_glance_hold -= delta
 		_watch(_glance_at, 0.85)
@@ -1262,9 +1265,9 @@ func _self_groom(delta: float) -> bool:
 func _maybe_wash() -> void:
 	if _wash_cd > 0.0 or _wash_t > 0.0:
 		return
-	_wash_style = [0, 0, 1, 1, 2, 3][_rng.randi_range(0, 5)]
+	_wash_style = [0, 0, 0, 1, 1, 2][_rng.randi_range(0, 5)]
 	# The ear scratch is short and furious; a flank wash is long and unhurried.
-	_wash_t = {0: 4.5, 1: 7.0, 2: 5.0, 3: 2.2}.get(_wash_style, 4.0) * _rng.randf_range(0.7, 1.4)
+	_wash_t = {0: 4.5, 1: 7.0, 2: 5.0}.get(_wash_style, 4.0) * _rng.randf_range(0.7, 1.4)
 
 # ------------------------------------------------------------------ the predatory sequence
 

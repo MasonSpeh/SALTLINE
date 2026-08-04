@@ -22,6 +22,36 @@ landed and nobody updated the file.
 
 ## Open after s38 — the cat
 
+- **`ship_cat._walk_skip()` still does not skip other fauna, and the obvious fix is wrong.**
+  The branch reads `fauna_bodies`, a STATIC FUNCTION on bloom_fauna, through `Object.get()`,
+  which returns null for a method name — so it has added nothing since s36. Consequence:
+  another animal's grab collider counts as a wall to the cat (why the pounce needs an explicit
+  prey exclusion). Walking the bloom_fauna subtree and skipping every CollisionObject3D in it
+  was tried and REMOVED: that subtree carries the Bloom GROWTH as well as the animals —
+  creeper pipes, kelp, anemone clumps — and those are world geometry. With it in, CatHuntProbe's
+  burial sweep went 2 mm -> 65 mm. A/B'd both ways. The real fix is a group tag on creature
+  colliders so animals can be told from scenery, which is a bloom_fauna change, not a cat one.
+
+- **The stair bump is NOT reproduced, and the geometry change I tried was reverted.** Owner:
+  "have to jump over an invisible bump each landing." Two new instruments say the junctions
+  are clean — `StairBumpProbe` sweeps the player's own capsule (0.2-0.8 mm of hump, at a
+  0.16 mm resolution) and `StairHitchProbe` drives the SHIPPING player with synthesised input
+  up and down three flights with zero stalls at any junction; every stall it records begins
+  2.3-18.4 m past the lip, which is the far bulkhead. What has NOT been tested is the
+  SWITCHBACK — arrive on a mid-landing, turn 180, take the next flight — which is what "each
+  landing" most likely means on a nine-flight tower. The probe has a diagnostic pass for it
+  whose legs are frame-timed rather than waypoint-driven, so it does not vote; make them
+  waypoint-driven first. Also worth trying: `floor_block_on_wall` is discussed in three
+  comments in player_controller.gd and never actually set, so it is at Godot's default
+  `true`, and a contact classed as a wall while grounded has its whole frame of motion
+  discarded — the only way past which is to leave the ground.
+
+- **The cat's ear-scratch grooming style was written and cut.** It is the most recognisable
+  grooming action a cat has and it wants a hind foot up behind the ear; driven from the sit
+  the `groom` pose is built on, the hind leg is already folded under a dropped hip and it
+  filmed as a twitch. It needs its own authored pose with the hind leg free. The other three
+  washes (paw, flank, chest) ship.
+
 - **The cat's LEAP has still never been filmed, and there is a reason it may be close to
   unreachable.** `tests/CatFilm`'s `jump` reel now probes for a ledge in the 0.66-1.20 m band
   and stages the cat at a PROBED foot with a run-up (it found real 0.76 m and 1.10 m ledges).
@@ -41,15 +71,6 @@ landed and nobody updated the file.
   warns about ("an animal that leaps onto things the level design assumed were out of reach").
   Whatever the real fix is, it needs a reachability rule, not just a longer ray. The attempt is
   in the s38 session history if it helps.
-
-- **`ship_cat._walk_skip()` does not actually skip other fauna.** The branch reads
-  `bf.get("fauna_bodies")`, but `fauna_bodies` is a STATIC FUNCTION on bloom_fauna, not a
-  property — `get()` returns null for a method name, so the loop has never added a single
-  RID and the comment above it ("every other animal's touch sphere") has been false since
-  s36. Consequence today: another animal's grab collider counts as a wall to the cat, which
-  is why the pounce needs an explicit prey exclusion. The fix is to walk the bloom_fauna
-  subtree for CollisionObject3D — with a cache, because that subtree is thousands of nodes
-  and `_walk_skip` is called several times a frame.
 
 - **The GALLOP keeps a residual hind-leg asymmetry: left/right reach ratio 0.67.**
   The walk is symmetric to within 1% after the s38 IK work (hind lift ratio 1.00, fore

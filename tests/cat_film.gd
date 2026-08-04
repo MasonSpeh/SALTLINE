@@ -348,6 +348,7 @@ func _ready() -> void:
 			"turn": await _reel_turn(sim_per_frame)
 			"above": await _reel_above(sim_per_frame)
 			"rear": await _reel_rear(sim_per_frame)
+			"wash": await _reel_wash(sim_per_frame)
 			"jump": await _reel_jump(sim_per_frame)
 			"hunt": await _reel_hunt(sim_per_frame)
 			"behaviour": await _reel_behaviour(sim_per_frame)
@@ -492,6 +493,48 @@ func _reel_rear(sim_per_frame: int) -> void:
 				_cam.global_position = _cat.global_position + back * 1.05 + Vector3(0, 0.20, 0)
 				_cam.look_at(_cat.global_position + Vector3(0, 0.16, 0), Vector3.UP)
 			await _shoot("rear", String(pose_beat[0]), 0.0, sim_per_frame, place)
+	_cat.set_process(true)
+
+## THE FOUR WASHES AND THE SHAKE. Each grooming style drives a different part of the body, so
+## each needs looking at: the paw-lick is a forepaw and a lowered muzzle, the flank sends the
+## head right round to the shoulder, the chest puts it down between the forelegs, and the ear
+## scratch brings a HIND foot up behind the ear. A style that reads as a spasm rather than as
+## grooming does so obviously and immediately, and only from the front.
+func _reel_wash(sim_per_frame: int) -> void:
+	var stage := Vector3(3.0, 18.0, -3.0)
+	_cat.global_position = stage
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	_player.global_position = stage + Vector3(1.4, 0.1, 0.0)
+	for i in range(30):
+		await get_tree().physics_frame
+	var rig = _cat.get("_rig")
+	_cat.set_process(false)
+	rig.set_pose("groom", 5.0)
+	for beat in [[0, "paw"], [1, "flank"], [2, "chest"], [3, "scratch"]]:
+		rig.call("groom_style", int(beat[0]))
+		for f in range(int(2.4 * _fps)):
+			var place := func() -> void:
+				rig.tick(1.0 / _sim_fps, 0.0, 0.0)
+				# Three-quarter front and low — grooming is a head-and-forelimb action and it
+				# has to read from where a player would actually be standing.
+				var fwd: Vector3 = -_cat.global_transform.basis.z
+				var eye: Vector3 = fwd.rotated(Vector3.UP, 0.7) * 1.15
+				_cam.global_position = _cat.global_position + eye + Vector3(0, 0.30, 0)
+				_cam.look_at(_cat.global_position + Vector3(0, 0.20, 0), Vector3.UP)
+			await _shoot("wash", String(beat[1]), 0.0, sim_per_frame, place)
+	# ...and the shake, which is a whole-body event and wants the same camera.
+	rig.set_pose("stand", 6.0)
+	for f in range(int(2.0 * _fps)):
+		var place2 := func() -> void:
+			if f % int(maxf(_fps, 1.0)) == 0:
+				rig.call("shake", 1.0)
+			rig.tick(1.0 / _sim_fps, 0.0, 0.0)
+			var fwd2: Vector3 = -_cat.global_transform.basis.z
+			_cam.global_position = _cat.global_position + fwd2.rotated(Vector3.UP, 0.7) * 1.25 \
+				+ Vector3(0, 0.32, 0)
+			_cam.look_at(_cat.global_position + Vector3(0, 0.20, 0), Vector3.UP)
+		await _shoot("wash", "shake", 0.0, sim_per_frame, place2)
 	_cat.set_process(true)
 
 ## THE LEAP — flaw 7, which had never been filmed. ship_cat jumps a rise between CLIMB_UP

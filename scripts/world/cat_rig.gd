@@ -623,10 +623,20 @@ func tail(up: float, sway: float, rate: float) -> void:
 ##   0 PAW    — the classic. Forepaw up to the lowered muzzle, short quick strokes.
 ##   1 FLANK  — head right round to the shoulder and side, long slow strokes, body curled in.
 ##   2 CHEST  — head down between the forelegs, small strokes, the most hunched of the three.
-##   3 SCRATCH— the hind foot comes up behind the ear and goes at speed. The one everybody
-##              recognises, and the only one where a HIND leg does the work.
+##
+## THE EAR SCRATCH IS NOT HERE, and it was written and then cut. It is the most recognisable
+## grooming action a cat has, and it needs a HIND foot up behind the ear — from a pose whose
+## hip is dropped and whose hind legs are already folded underneath, which is what a sit is.
+## Driven from there the leg has nowhere to go and it filmed as a twitch rather than a scratch.
+## It wants its own authored pose with the hind leg free, which is real pose work; shipping a
+## spasm in the meantime is worse than shipping three washes that read.
 func groom_style(i: int) -> void:
-	_groom_style = clampi(i, 0, 3)
+	_groom_style = clampi(i, 0, 2)
+	# The paw-lick needs the pose that holds a forepaw up; the others need the one that does
+	# not. Retargeting here rather than at the call site means a caller cannot pick a style
+	# and forget the body that goes with it.
+	if _target == "groom" or _target == "groom_flat":
+		set_pose("groom" if _groom_style == 0 else "groom_flat", _blend_rate)
 
 ## A FULL-BODY SHAKE — the wet-dog ripple, which cats do on waking, after rain, and after any
 ## indignity. Decays like the look, so one call is one shake.
@@ -840,7 +850,7 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		_tail_rate = lerpf(_tail_rate, _tail_rate_t, te)
 		_mul_body(_tail, BODY_SIDE, -_tail_up * TAIL_MAX)
 		_mul_body(_tail, BODY_UP, sin(t * _tail_rate) * _tail_sway * TAIL_MAX)
-	if _target == "groom":
+	if _target == "groom" or _target == "groom_flat":
 		# THE WASH, and there is more than one of them. All four ride the blended groom pose
 		# rather than replacing it, and all four are expressed in body axes at the torso so
 		# none of them can leak a yaw into the head the way the breath layer used to.
@@ -860,17 +870,6 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 				_mul_body(_neck, BODY_SIDE, -0.42 + s2 * 0.10)
 				_mul_body(_head, BODY_SIDE, -0.26 + s2 * 0.12)
 				_mul_body(_spine2, BODY_SIDE, -0.12)
-			3:
-				# EAR SCRATCH. The hind foot comes up behind the ear and goes at speed — the
-				# one grooming action everybody recognises instantly, and the only one driven
-				# by a HIND leg. The head tips toward the foot to meet it, which is what makes
-				# it read rather than look like a leg spasm.
-				var s3: float = sin(t * 13.0)
-				var Lh: Dictionary = _limb["lh"]
-				_mul(Lh["prox"], Quaternion(_hinge_of(Lh["prox"]), 0.95 + s3 * 0.16))
-				_mul(Lh["dist"], Quaternion(_hinge_of(Lh["dist"]), -1.15))
-				_mul_body(_neck, BODY_UP, -0.20)
-				_mul_body(_head, BODY_FWD, -0.34 + s3 * 0.10)
 			_:
 				# PAW. The classic: forepaw up to the lowered muzzle, short quick strokes.
 				var stroke: float = sin(t * 4.2)
@@ -1168,6 +1167,16 @@ func _build_poses() -> void:
 	g["q"][gl["dist"]] = _rest[gl["dist"]] * Quaternion(Vector3(1, 0, 0), 0.55)
 	g["q"][gl["paw"]] = _rest[gl["paw"]] * Quaternion(Vector3(1, 0, 0), -0.35)
 	_poses["groom"] = g
+	# ...AND THE SAME SIT WITHOUT THE RAISED PAW. The forepaw held up to the muzzle belongs to
+	# the paw-lick and to nothing else, but it was baked into the one groom pose, so every
+	# other wash style inherited it: the flank wash filmed as a cat washing its shoulder while
+	# holding a paw in the air for no reason. Styles that work with the head alone get this
+	# one instead (see `groom_style`).
+	_poses["groom_flat"] = _bake({
+		"Hip": [[3, 0.58]],
+		"Spine02": [[1, 0.15]],
+		"NeckTwist01": [[0, -0.55]], "Head": [[0, -0.28]],
+	}, 0.118, {}, 0.7)
 	# SLEEP: the loaf — belly nearly on the deck, all four paws tucked in under the body,
 	# head sunk and turned. The tuck is the paw targets pulled inward and up a whisker.
 	_poses["sleep"] = _bake({
