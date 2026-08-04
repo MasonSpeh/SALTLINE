@@ -22,6 +22,19 @@ var _main: Node3D
 func world_ds(n: Node3D) -> PhysicsDirectSpaceState3D:
 	return n.get_world_3d().direct_space_state
 
+## The probed film eye: world-fixed preferred bearings, first one whose ray from the cat
+## is clear. Used by BOTH loops — the showcase's first cut used a fixed offset and filmed
+## the inside of a wall from the cat's final resting spot.
+func film_eye(cat: Node3D, bearings: Array) -> Vector3:
+	var base: Vector3 = cat.global_position + Vector3(0, 0.35, 0)
+	for b in bearings:
+		var cand: Vector3 = base + (b as Vector3) * 2.1 + Vector3(0, 0.55, 0)
+		var rq := PhysicsRayQueryParameters3D.create(base, cand)
+		rq.collision_mask = 1
+		if world_ds(cat).intersect_ray(rq).is_empty():
+			return cand
+	return base + Vector3(0, 0.55, 2.1)
+
 func _process(_d: float) -> void:
 	if get_tree().paused:
 		get_tree().paused = false
@@ -93,20 +106,11 @@ func _ready() -> void:
 	var frame_i: int = 0
 	for beat in script_beats:
 		player.global_position = beat[0]
-		var frames: int = int(float(beat[1]) * 12.0)  # 12 fps film
+		var frames: int = int(float(beat[1]) * 8.0)   # 8 fps film
 		for f in range(frames):
 			for w in range(5):                         # 5 sim frames per film frame
-				var base: Vector3 = cat.global_position + Vector3(0, 0.35, 0)
-				var eye: Vector3 = base + Vector3(0, 0.55, 2.1)
-				for b in bearings:
-					var cand: Vector3 = base + (b as Vector3) * 2.1 + Vector3(0, 0.55, 0)
-					var rq := PhysicsRayQueryParameters3D.create(base, cand)
-					rq.collision_mask = 1
-					if world_ds(cat).intersect_ray(rq).is_empty():
-						eye = cand
-						break
-				cam.global_position = eye
-				cam.look_at(base, Vector3.UP)
+				cam.global_position = film_eye(cat, bearings)
+				cam.look_at(cat.global_position + Vector3(0, 0.35, 0), Vector3.UP)
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			var img: Image = get_viewport().get_texture().get_image()
@@ -146,21 +150,19 @@ func _ready() -> void:
 	# blender itself, on open deck, every transition live on film.
 	var rig = cat.get("_rig")
 	var showcase: Array = [
-		["sit", 3.0], ["groom", 4.0], ["sit", 2.0], ["stretch", 3.0],
-		["walk", 2.0], ["sleep", 4.0], ["stretch", 2.5], ["stand", 2.0],
+		["sit", 2.5], ["groom", 3.0], ["stretch", 2.5],
+		["sleep", 3.0], ["stretch", 2.0], ["stand", 1.5],
 	]
 	cat.set_process(false)   # the state machine would fight the directed poses
 	for pose_beat in showcase:
 		rig.set_pose(String(pose_beat[0]), 5.0)
-		var pframes: int = int(float(pose_beat[1]) * 12.0)
+		var pframes: int = int(float(pose_beat[1]) * 8.0)
 		for f in range(pframes):
 			for w in range(5):
 				# ticked by hand while the state machine is off
 				rig.tick(1.0 / 60.0, 0.0, 0.0)
-				var base2: Vector3 = cat.global_position + Vector3(0, 0.32, 0)
-				var eye2: Vector3 = base2 + Vector3(1.5, 0.6, 1.5)
-				cam.global_position = eye2
-				cam.look_at(base2, Vector3.UP)
+				cam.global_position = film_eye(cat, bearings)
+				cam.look_at(cat.global_position + Vector3(0, 0.32, 0), Vector3.UP)
 				await get_tree().process_frame
 			await RenderingServer.frame_post_draw
 			var img2: Image = get_viewport().get_texture().get_image()
