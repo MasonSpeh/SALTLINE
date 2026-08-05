@@ -206,6 +206,10 @@ func _run() -> void:
 	# Every save/load check below writes real files under user://. Redirect the slot stem
 	# to a throwaway so the suite can never overwrite the player's actual save slots.
 	SaveManager.slot_file_prefix = "saltline_test_"
+	# ...and CLAIM A SESSION on the throwaway stem. active_slot now defaults to 0 — no
+	# session, no writes — which is the fix for harnesses wiping real saves. This suite is
+	# the one harness that legitimately WANTS save/load to run, and it says so explicitly.
+	SaveManager.begin_new_game(1)
 	var main: Node3D = load("res://scenes/Main.tscn").instantiate()
 	add_child(main)
 	await get_tree().process_frame
@@ -1253,6 +1257,7 @@ func _run() -> void:
 	for s in range(1, SaveManager.SLOT_COUNT + 1):
 		SaveManager.erase_slot(s)
 	SaveManager.slot_file_prefix = "saltline_slot_"
+	SaveManager.active_slot = 0   # the suite's session ends with its stem
 	SaveManager.active_slot = 1
 
 	_check_wave_math()

@@ -24,9 +24,22 @@ const FAUNA := preload("res://scripts/world/bloom_fauna.gd")
 ## Surface lookup, so a rebuilt camp lands on the deck instead of inheriting a bad saved Y.
 const SUPPORT := preload("res://scripts/world/support_index.gd")
 
-## Which slot (1..SLOT_COUNT) autosaves and loads. Set by the start screen; defaults to
-## 1 so a direct Main boot (tests, editor Play) still has a valid target.
-var active_slot: int = 1
+## Which slot (1..SLOT_COUNT) autosaves and loads. Set by the start screen — and until
+## something chooses one, 0: NO SESSION, NO WRITES.
+##
+## The old default of 1 ("so a direct Main boot still has a valid target") was the wipe
+## the owner reported as "player loses all items when game loads from save". Every probe
+## and screenshot harness in tests/ instantiates Main with a fresh, EMPTY PlayerState, and
+## several sweep the clock phases — force_phase(DUSK) EMITS dusk, dusk is wired to
+## save_game(), and with active_slot defaulting to a real slot each of those runs quietly
+## overwrote saltline_slot_1.json with an empty world at "dusk, day 0". The owner's
+## clobbered save on disk read exactly that. The probes never chose a session; the default
+## chose one for them.
+##
+## Editor Play on Main.tscn still autosaves: main.gd claims a direct session at boot, but
+## ONLY when Main is the scene ROOT — a probe's Main is a child of the probe, so a harness
+## can never claim a slot by accident again.
+var active_slot: int = 0
 ## Filename stem for slots. Tests point this at a throwaway stem so the suite's save/load
 ## checks never clobber the player's real saltline_slot_*.json files.
 var slot_file_prefix: String = "saltline_slot_"
@@ -114,6 +127,13 @@ func slot_info(slot: int) -> Dictionary:
 
 ## Start a fresh run in a slot: make it active, wipe any old save there so nothing
 ## bleeds through, and DON'T flag a load (Main builds the world clean).
+## Editor Play / a direct Main boot, claimed EXPLICITLY by main.gd when Main is the scene
+## root. Keeps the owner's from-the-editor workflow autosaving to slot 1 without handing
+## every test harness a loaded gun.
+func begin_direct_session() -> void:
+	if active_slot < 1:
+		active_slot = 1
+
 func begin_new_game(slot: int) -> void:
 	active_slot = clampi(slot, 1, SLOT_COUNT)
 	_pending_load = false
@@ -142,6 +162,12 @@ func save_game() -> bool:
 	# Re-entered from GameClock.force_phase() inside load_game(). Writing here would
 	# persist a half-restored world over a good save — see _loading.
 	if _loading:
+		return false
+	# NO SESSION, NO WRITE — the belt to active_slot's braces. Nothing may reach disk
+	# unless the start screen or a deliberate direct-session claim picked a slot; the
+	# dawn/dusk signals stay connected in every context, so this return is what makes a
+	# phase-sweeping test harness harmless to real saves.
+	if active_slot < 1:
 		return false
 	var data: Dictionary = {
 		"version": SAVE_VERSION,
@@ -194,6 +220,8 @@ func save_game() -> bool:
 	return true
 
 func load_game() -> bool:
+	if active_slot < 1:
+		return false
 	var path: String = slot_path(active_slot)
 	if not FileAccess.file_exists(path):
 		return false

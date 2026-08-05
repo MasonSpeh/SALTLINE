@@ -73,6 +73,12 @@ func _ready() -> void:
 	# rebuild after the scene has fully entered the tree.
 	if SaveManager.consume_pending_load():
 		call_deferred("_resume_saved_game")
+	elif get_tree().current_scene == self:
+		# EDITOR PLAY / a direct Main boot: nobody chose a slot, and Main is the actual
+		# scene root — a human is playing, so autosaves should have somewhere to go. A
+		# probe's Main is a CHILD of the probe scene and never passes this check, which is
+		# the whole fix for harnesses wiping real saves (see SaveManager.active_slot).
+		SaveManager.begin_direct_session()
 
 ## Load the active slot and settle the player into the resumed run (not the cold open).
 func _resume_saved_game() -> void:
