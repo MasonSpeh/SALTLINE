@@ -351,6 +351,10 @@ func _ready() -> void:
 			"wash": await _reel_wash(sim_per_frame)
 			"jump": await _reel_jump(sim_per_frame)
 			"hunt": await _reel_hunt(sim_per_frame)
+			"gift": await _reel_gift(sim_per_frame)
+			"lookwalk": await _reel_lookwalk(sim_per_frame)
+			"idle": await _reel_idle(sim_per_frame)
+			"tail": await _reel_tail(sim_per_frame)
 			"behaviour": await _reel_behaviour(sim_per_frame)
 			"showcase": await _reel_showcase(sim_per_frame)
 			_: print("[film] unknown reel %s" % String(reel))
@@ -649,6 +653,125 @@ func _reel_hunt(sim_per_frame: int) -> void:
 			_cam.global_position = mid + eye.rotated(Vector3.UP, PI * 0.5) * 3.1 + Vector3(0, 0.65, 0)
 			_cam.look_at(mid + Vector3(0, 0.2, 0), Vector3.UP)
 		await _shoot("hunt", str(_cat.get("_pose")), travel, sim_per_frame, place)
+
+## THE GIFT CARRY — the proudest walk the cat has, and one of the two states (with the
+## stalk) that no reel ever filmed moving. The carry is installed directly (`_carry`) so the
+## reel does not depend on winning a dice-roll hunt first; the approach itself — head up,
+## tail up, legs actually stepping — is the whole subject. The player retreats to hold the
+## approach open, then stands to take the delivery.
+func _reel_gift(sim_per_frame: int) -> void:
+	var stage := Vector3(3.0, 18.0, -3.0)
+	var dir := Vector3(1, 0, 0)
+	_cat.global_position = stage - dir * 6.0
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	_cat.rotation.y = deg_to_rad(_bearing(dir)) + PI
+	for i in range(20):
+		await get_tree().physics_frame
+	_cat.set("_carry", "gull_feather")
+	var travel: float = _bearing(dir)
+	var side: Vector3 = dir.rotated(Vector3.UP, PI * 0.5)
+	for f in range(int(5.5 * _fps)):
+		var place := func() -> void:
+			_cat.set("_hunt_cd", 999.0)
+			_cat.set("_zoom_cd", 999.0)
+			_cat.set("_play_cd", 999.0)
+			# Retreat for the first two thirds, then stand for the drop.
+			if f < int(3.6 * _fps):
+				_player.global_position = _cat.global_position + dir * 5.0 + Vector3(0, 0.1, 0)
+			_cam.global_position = _cat.global_position + side * 1.9 + dir * 0.7 \
+				+ Vector3(0, 0.5, 0)
+			_cam.look_at(_cat.global_position + Vector3(0, 0.25, 0), Vector3.UP)
+		await _shoot("gift", "carry" if String(_cat.get("_pose")) == "carry" else "deliver",
+			travel, sim_per_frame, place)
+	_cat.set("_carry", "")
+
+## LOOK WHILE WALKING — the owner's creepiest complaint, isolated: the cat walks a dead
+## straight line while its ATTENTION is held on a world-fixed mark 40 degrees off the
+## travel, above head height. Correct = the head turns and the face stays LEVEL (no roll,
+## no tilt) while the body walks on straight. The camera sits ahead and off to the mark's
+## side, where a tilted head is unmissable.
+func _reel_lookwalk(sim_per_frame: int) -> void:
+	var stage := Vector3(3.0, 18.0, -3.0)
+	var dir := Vector3(1, 0, 0)
+	_cat.global_position = stage - dir * 7.0
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	_cat.rotation.y = deg_to_rad(_bearing(dir)) + PI
+	_player.global_position = _cat.global_position + dir * 5.0
+	for i in range(20):
+		_player.global_position = _cat.global_position + dir * 5.0
+		await get_tree().physics_frame
+	var travel: float = _bearing(dir)
+	var mark_dir: Vector3 = dir.rotated(Vector3.UP, 0.7)
+	for f in range(int(4.5 * _fps)):
+		var place := func() -> void:
+			_cat.set("_hunt_cd", 999.0)
+			_cat.set("_zoom_cd", 999.0)
+			_cat.set("_play_cd", 999.0)
+			_player.global_position = _cat.global_position + dir * 5.0
+			_cat.call("_watch", _cat.global_position + mark_dir * 4.0 + Vector3(0, 1.0, 0), 1.0)
+			_cam.global_position = _cat.global_position + dir * 1.6 + mark_dir * 0.8 \
+				+ Vector3(0, 0.35, 0)
+			_cam.look_at(_cat.global_position + Vector3(0, 0.22, 0), Vector3.UP)
+		await _shoot("lookwalk", "lookwalk", travel, sim_per_frame, place)
+
+## THE RESTING CAT — breath, tail idle, glances, weight-shifts, and honestly nothing else:
+## this mesh has no ears to flick and no eyelids to blink (see docs/CAT_RIG_CEILING.md).
+## Twelve seconds, one three-quarter camera, the player settled nearby. The thing to judge
+## is whether the loop ever reads as a loop.
+func _reel_idle(sim_per_frame: int) -> void:
+	var stage := Vector3(3.0, 18.0, -3.0)
+	_cat.global_position = stage
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	_player.global_position = stage + Vector3(1.7, 0.1, 0.4)
+	for i in range(40):
+		await get_tree().physics_frame
+	for f in range(int(12.0 * _fps)):
+		var place := func() -> void:
+			_cat.set("_hunt_cd", 999.0)
+			_cat.set("_zoom_cd", 999.0)
+			_cat.set("_play_cd", 999.0)
+			var fwd: Vector3 = -_cat.global_transform.basis.z
+			_cam.global_position = _cat.global_position + fwd.rotated(Vector3.UP, 0.8) * 1.5 \
+				+ Vector3(0, 0.42, 0)
+			_cam.look_at(_cat.global_position + Vector3(0, 0.18, 0), Vector3.UP)
+		await _shoot("idle", str(_cat.get("_pose")), 0.0, sim_per_frame, place)
+
+## THE TAIL, CLOSE — a low three-quarter-rear orbit during a walk, then a hard stop. The
+## two things to judge: the tail moves as its own limb (wave, lag, counter-sway) rather
+## than twitching with the right hind leg once per stride; and on the stop it OVERSHOOTS
+## and settles rather than freezing with the body.
+func _reel_tail(sim_per_frame: int) -> void:
+	var stage := Vector3(3.0, 18.0, -3.0)
+	var dir := Vector3(1, 0, 0)
+	_cat.global_position = stage - dir * 6.0
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	_cat.rotation.y = deg_to_rad(_bearing(dir)) + PI
+	for i in range(20):
+		_player.global_position = _cat.global_position + dir * 5.0
+		await get_tree().physics_frame
+	var travel: float = _bearing(dir)
+	var walk_frames: int = int(3.5 * _fps)
+	var stop_frames: int = int(2.5 * _fps)
+	for f in range(walk_frames + stop_frames):
+		var place := func() -> void:
+			_cat.set("_hunt_cd", 999.0)
+			_cat.set("_zoom_cd", 999.0)
+			_cat.set("_play_cd", 999.0)
+			if f < walk_frames:
+				_player.global_position = _cat.global_position + dir * 5.0
+			else:
+				# The stop: the player halts inside FOLLOW_NEAR, so the cat stops too —
+				# and the tail's settle is the frame that matters.
+				_player.global_position = _cat.global_position + dir * 1.5 + Vector3(0, 0.1, 0)
+			var back: Vector3 = _cat.global_transform.basis.z.normalized()
+			var eye: Vector3 = back.rotated(Vector3.UP, 0.55) * 0.95
+			_cam.global_position = _cat.global_position + eye + Vector3(0, 0.35, 0)
+			_cam.look_at(_cat.global_position + back * 0.25 + Vector3(0, 0.18, 0), Vector3.UP)
+		await _shoot("tail", "walk" if f < walk_frames else "stop", travel, sim_per_frame, place)
 
 ## THE BEHAVIOUR REEL — the cat's own state machine, filmed from world-fixed bearings.
 ## The beat list is DATA (flaw 9): [player_x, player_z, seconds, label]. Overridable from the

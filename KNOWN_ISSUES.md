@@ -72,17 +72,16 @@ landed and nobody updated the file.
   Whatever the real fix is, it needs a reachability rule, not just a longer ray. The attempt is
   in the s38 session history if it helps.
 
-- **The GALLOP keeps a residual hind-leg asymmetry: left/right reach ratio 0.67.**
-  The walk is symmetric to within 1% after the s38 IK work (hind lift ratio 1.00, fore
-  reach 0.99), and the same measurement at RUN_SPEED comes back 0.67 on the hind pair.
-  The cause is understood and is the rig, not the gait: `L_Thigh -> L_Calf` is 0.336 m
-  against `R_Thigh -> R_Calf` at 0.086 m, so the left hind is DEAD STRAIGHT in its bind
-  pose (hip-to-paw 0.214 m from bones of 0.144 + 0.070) and sits exactly on the edge of
-  its own reachable set. At a gallop the spine engine swings the sockets hard, that leg
-  runs out of reach first, and the solve gives ground the right hind keeps. Capping the
-  rise (`_solve_leg`) bounds it; removing it needs either a re-rig with symmetric bones
-  or a hip-height bob coupled to the stance phase. Measure with
-  `godot --headless --path . res://tests/CatYawDiag.tscn` — PART 4 prints both gaits.
+- **The hind pair keeps a bone-driven asymmetry, now in LIFT rather than reach.** s40's
+  phase-locked pelvis bob (exactly the "hip-height bob coupled to the stance phase" the
+  old entry predicted) plus the hip-frame fix took the gallop hind reach ratio from 0.67
+  to 0.89 — but the left hind, DEAD STRAIGHT in its bind pose (`L_Thigh -> L_Calf`
+  0.336 m against R at 0.086), now shows its limit as extra paw LIFT instead (ratio ~1.4
+  at a walk, ~1.36 at a run): at full stretch the solve raises the paw rather than
+  shortening the stride, and only that leg needs to. This is the rig's true shape — the
+  s38 "symmetric to 1%" numbers were measured while a fore-aft hip-translation bug
+  (see s40 DEVLOG) blurred all four legs. Judge visibility on film; removal needs the
+  re-rig (docs/CAT_RIG_CEILING.md §3). CatYawDiag PART 4 prints both gaits.
 
 - **The head sits +0.91 deg off the travel line at a walk — a constant, not a wobble.**
   Down from +3.43 mean / +6.40 worst before s38, and the oscillation that read as "looking
@@ -93,12 +92,14 @@ landed and nobody updated the file.
   about 2 mm at game distance. Read the head-on reel before spending time on it:
   `godot --path . --fixed-fps 60 tests/CatFilm.tscn -- /tmp/f fps=30 reels=headon`.
 
-- **The cat's tail is driven through `R_ThighTwist01`, which also owns the rump.** Not a bug
-  today, but the reason `cat_rig.TAIL_MAX` is 0.30 rad: the auto-rig fitted the right thigh
-  chain onto the tail, so that bone's 29363 vertices are tail AND hindquarter and a large
-  rotation bends both. Full tail articulation — a curl, a real tip flick, a bottle-brush —
-  needs an actual bone chain and a re-skin. Re-run `tests/CatTailDiag` after any re-rig: the
-  bone name is a measured constant, and a rename silently disables the layer.
+- **The cat's tail is driven through `R_ThighTwist01`, which also owns the rump.** Still
+  the reason `cat_rig.TAIL_MAX` is 0.30 rad. s40 upgraded the drive — an underdamped
+  spring (lag, ~15% overshoot on stops, turn counter-swing, walk-coupled sway) posed
+  absolutely against the live parent chain, which removes the once-per-stride hind-leg
+  twitch exactly — but one bone is one bone: a curl, a travelling wave, a real tip flick
+  need a caudal chain and a re-skin (docs/CAT_RIG_CEILING.md §1). Re-run
+  `tests/CatTailDiag` after any re-rig: the bone name is a measured constant, and a
+  rename silently disables the layer.
 
 ## Open after s35 — unverified, not unknown
 

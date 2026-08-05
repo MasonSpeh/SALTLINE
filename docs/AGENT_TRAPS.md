@@ -1202,3 +1202,55 @@ logged per sim frame either way, so a low shutter costs nothing analytically.) A
 concluding a harness is slow or hung, run `ps -eo pid,%cpu,etime,args | grep -i godot`: an
 owner's open editor plus a play session, or a `--check-only --script` run left spinning by a
 `| head -N` that closed its pipe early, will happily eat two cores and halve your throughput.
+
+## Found rebuilding the cat's animation against numeric gates (s40)
+
+**FOUR GREEN SESSIONS SHIPPED A MOONWALK, BECAUSE NO GATE EVER SAID "IT MOVED, SO IT MUST
+STEP".** cat_rig gated its gait weight on a NAME LIST (walk/run/stand) while ship_cat
+translated the body through two poses not on it — the stalk and the carry, the two
+most-watched states. Measured: stalk covered 2.68 m at gait weight 0.000 with paws drifting
+10.5 mm/frame, which is exactly body speed. The gate that catches the whole class is
+`body moved > 5 cm => gait weight > 0`, per state, in tests/CatReviewProbe — and the fix that
+prevents recurrence is a `loco` FLAG on the pose itself, so a new moving pose cannot be
+forgotten by a list it never knew about.
+
+**A BODY-AXIS MAP CACHED AT REST IS ONLY RIGHT NEAR REST.** `_mul_body` converts "yaw the
+head" through each bone's REST global basis. Fine for the breath (small angles, near-rest
+torso); chaos for the look on a SITTING cat, whose hip is pitched ~33 deg from rest: a
+commanded 34-degree pure yaw measured as +4.8 yaw with 22 of ROLL, and a pitch-up came out
+pitched DOWN. The raw-local-axis version it replaced was worse still (44 deg of roll). Large
+rotations on a posed torso need the FRAME'S OWN bases — compose them from the tick's own
+output buffer (`_live_basis`), never from the Skeleton3D, which still holds last frame's
+pose at any point inside tick.
+
+**THE THIRD `+=`-AGAINST-AN-EASE IN THIS ANIMAL, AND THE WORST: -94.5 DEGREES OF BODY
+PITCH.** The slope lean was `_body.rotation.x += -_slope * 0.55` right after an
+ease-toward-zero — the per-tick += without a delta term this file already documents twice.
+Equilibrium is rate_ratio * amplitude: at ease `delta*6` that is 5.5x the intended lean,
+measured at -94.5 deg on a held 0.30 slope. It read as "leans a bit on stairs" only because
+stair slopes spike briefly and decay while walking. Grep any `+=` that runs every frame: if
+no delta term multiplies it, it is a rate ratio, not an offset.
+
+**TWO WATCHERS CALLING `_watch` EVERY FRAME SAW THE HEAD AT FRAME RATE.** The glance holds a
+mark; the chatter re-aims at a gull; `_watch` took the LATEST target, so `_focus` alternated
+A/B/A/B and the neck stepped ~0.8 rad per frame — the single largest discontinuity the
+review probe found anywhere in the walk. Attention needs an arbiter (strongest claim wins,
+latest does not) AND a rate limit at the point of application (the look eases toward its
+target now; a saccade is fast, a teleport is not).
+
+**A STANCE WINDOW WIDER THAN THE STANCE MEASURES THE SWING, AND FROZEN LEGS MEASURE
+NOTHING.** A 10 mm "paw is low" band on a 34 mm lift includes the last swing frame before
+the plant, where a healthy paw legitimately covers ~44 mm — a phantom skate on a genuinely
+planted gait. The opposite failure is quieter: a moonwalking paw never lifts, so the whole
+window is "stance" or none of it is, and a slide gate can pass VACUOUSLY with zero measured
+pairs (it did — 0.0000 mm printed over a state whose legs were frozen). Erode the window's
+edges, and LOG THE PAIR COUNT next to the verdict: a slide of 0.0 over 0 pairs is not a
+pass.
+
+**`Time.get_ticks_msec()` IS NOT AN ANIMATION CLOCK.** Every secondary sine in the cat
+(breath, tail, strokes, shake, chatter) ran on the wall clock while the gait ran on
+distance-integrated sim time. Under AiBudget summing, the wall clock advances most between
+the frames the animal thinks least — so the idle layers twitched exactly when the body
+froze, and any harness running faster or slower than real time measured different animation
+than the game plays. One accumulated `_anim_t += dt` in the rig serves every layer; the
+wall clock serves none.

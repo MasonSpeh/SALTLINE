@@ -1750,3 +1750,88 @@ Hole edge now ends at the head; all 18 junctions profile 0.0000 m.
 **The keys.** Sprint back on Shift; Control, Option and Command ALL crouch.
 Four copies of the binding moved together (map, runtime fallback, controls
 panel, duck hint, fly toast).
+
+---
+
+## s40 — the cat moves like a cat, measured: gates first, then the fixes they demanded
+
+The brief was blunt: four sessions declared the cat "done / all green" while the animal
+was visibly janky, and the gap between those facts was the assignment. So the session
+began with the instrument that should have existed — tests/CatReviewProbe drives the
+SHIPPED ship_cat through its real behaviour states over world-fixed ground, at fixed dt
+AND at AiBudget's summed 0.15 s worst case, and gates on raw numbers: in-stance paw
+drift, "it moved so it must step", drawn-head roll, pelvis phase lock, slope retention,
+per-bone continuity, dt-equivalence, bone-length constancy. Baseline: 26 of 48 gates
+FAILED on a suite that was otherwise entirely green (the log ships in
+tests/out/cat_review/metrics_baseline.log).
+
+### What the gates caught, and what fixed each
+
+* THE MOONWALK. Gait weight was gated on a name list (walk/run/stand) while ship_cat
+  translated the body through `stalk` and `carry` — the predatory creep and the gift
+  walk, the two most-watched beats, slid on frozen legs: stalk moved 2.68 m at gait
+  weight 0.000, paws drifting 10.5 mm/frame (exactly body speed). Now a `loco` FLAG on
+  the pose itself; the stalk folds the walk into a creep (duty 0.78, short low steps).
+* THE LOOK. Raw local axes: a commanded 34-deg pure yaw drew +4.8 yaw and 44.5 deg of
+  ROLL; a commanded pitch-up pitched DOWN. Re-expressed in body axes through the frame's
+  LIVE bases — the rest-basis map is itself ~33 deg wrong on a sitting cat — with pitch
+  about the YAWED transverse (elevation in the gaze plane; body-transverse pitch banks a
+  turned head by sin(yaw)*pitch). After: yaw 33.3/roll 0.0-ish, pitch 19.6/roll 0.02.
+* THE HEAD SAW. look() applied new targets unsmoothed and two watchers alternated the
+  focus A/B/A/B at frame rate — 0.8 rad single-frame neck steps, the biggest
+  discontinuity in the walk. Now: strongest-claim arbitration in _watch plus a
+  saccade-rate ease in the rig.
+* THE SIDEWAYS HIP — the discovery that explains three sessions of "floaty". A bone's
+  pose POSITION lives in its parent's frame, and this rig's Root maps local Y along the
+  BODY axis (measured, tests/hip_bob_scratch: +0.2 Y in, (-0.2, 0, 0) out). Every
+  skeleton-space hip write since s37 — the sit/sleep crouches, the body bob — slid the
+  pelvis FORE-AFT instead of down; the IK bake re-planted paws from wherever it went,
+  which is why sits still read. Fixed with one conversion (_hip_pose_pos) at both write
+  sites; the leg solve also now reads its parent from the frame's own composed pose
+  (_live_xform) — the Skeleton3D mid-tick holds LAST frame, and a stale socket under a
+  moving pelvis slid every stance paw by the pelvis's per-frame motion. The torso pass
+  now runs BEFORE the legs so the sockets the solve reads are this frame's.
+* THE SLOPE. `+=` against an ease reaches rate-ratio equilibrium (the third instance of
+  that trap in this one animal): -94.5 deg of body pitch at a held 0.30 slope, worn
+  forever once the cat stopped walking. Assigned now, decayed when stationary: 0.001 deg.
+* THREE CLOCKS. The node lilt ran on its own accumulator (STRIDE_M 0.62) against legs
+  planted off a bone-derived 0.356 m stride; every secondary sine ran on the wall clock;
+  clampf(k*delta) eases snapped under summed thinks (19.7 deg divergence between dt
+  paths on the same half-second). Now: ONE phase (pelvis vertical rides the same
+  variable the paws plant from — lock std 1.0 -> 0.011 cycles), ONE clock (_anim_t),
+  1-exp everywhere (dt paths agree to 0.0 deg).
+* THE TAIL. Underdamped spring per axis (lag, ~15% overshoot on stops, counter-swing
+  against turns, walk-coupled sway) posed ABSOLUTELY against the live parent chain —
+  the once-per-stride hind-leg twitch is cancelled exactly, not approximately.
+* TRANSITION GRAMMAR in set_pose: stand->sit rocks weight back, sinks past the target,
+  settles; sit->moving rises REAR first; stand->walk takes a 0.1 s lean; the jump is a
+  timeline (crouch HELD 0.34 s on the deck via _jump_wind -> flight on MEASURED hinges,
+  not the raw local X that was ~90 deg off on R_Upperarm -> fore-paws-first land ->
+  settle); and the blend itself leads with the pelvis and trails the head per bone.
+* WEIGHT. One contact-phased vertical (minima 0.125 after each hind plant, walk ±5 mm ->
+  gallop ±22 mm, a trot-band bounce), which turned out to be the fix KNOWN_ISSUES
+  predicted for the gallop's 0.67 hind reach ratio: it reads 0.89-0.94 now.
+* IDLE. The seated weight-shift is an occasional event (9-22 s apart, eased) instead of
+  a metronome sine; glances and breath carry the rest.
+
+### Verified
+
+CatReviewProbe 38/48 gates pass (metrics.json/md, raw numbers); TestRunner, CatProbe and
+CatHuntProbe all FAILURES: 0. The ten residual gate rows each carry a mechanism in
+tests/out/cat_review/REVIEW.md — the loudest is a once-per-few-seconds ~75 mm paw
+excursion from the two leg chains that REST on the two-bone solve's singular boundary
+(rf at 99.7% of clamped reach, rh beyond it — the [cat_rig] triangle report prints them
+at every load). That residue is the rig's geometry, mitigated by a slew limiter, removed
+only by a re-rig. docs/CAT_RIG_CEILING.md ranks the re-rig items by payoff (caudal tail
+chain, ears/eyelids, symmetric limbs). Thresholds were never loosened; the knife-edge
+rows are documented instead.
+
+### Honestly changed measurements
+
+The hind pair's "symmetry to 1%" recorded in s38 was measured while the fore-aft hip bug
+blurred all four legs. With the frame fixed, the true shape shows: the straight-bound
+hind lifts ~1.4x its partner at a walk (it lifts where the folded one need not). Filed in
+KNOWN_ISSUES with the re-rig pointer; the film judges visibility.
+
+Capture set: tests/CatFilm gained gift / lookwalk / idle / tail reels; the review pack
+(REVIEW.md, per-clip "what correct looks like") ships in tests/out/cat_review/.

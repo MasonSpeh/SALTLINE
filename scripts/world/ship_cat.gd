@@ -176,9 +176,6 @@ const JUMP_UP: float = 1.25
 const JUMP_SEC: float = 0.52
 ## Stops a cat that lands just under another lip from jumping every frame forever.
 const JUMP_CD: float = 0.9
-## Metres of ground covered per stride cycle. The gait's cycle rate is speed / this, which
-## is what keeps the paws from skating at one speed and mincing at another.
-const STRIDE_M: float = 0.62
 ## The stand mesh's longest-axis target, hull-volume-equalised against walk@0.66 (s36's
 ## sizing method, one entry now that there is one mesh). Recomputed if the base mesh is
 ## ever re-rolled: tools/extract_cat_poses.py prints the reminder.
@@ -218,12 +215,6 @@ var _seated_y: float = 0.0
 ## pose key -> CatRig, for the poses whose GLB carried a skin. Empty for any that fell back
 ## to the static mesh, and every call site tolerates a missing entry.
 var _rig = null   ## the cat_rig.gd blender driving _host's skeleton
-## The gait's own phase, in cycles, INTEGRATED rather than derived from `_t * speed`.
-## docs/AGENT_TRAPS.md is explicit about why: a tuning value multiplied by an accumulating
-## clock inside a sine cannot be animated at all — changing speed at second T teleports the
-## wave phase, which is what made a shoal detonate at the first touch of alarm. Integrating
-## the paced time makes a speed change continuous by construction.
-var _gait: float = 0.0
 ## What the cat is currently paying attention to, in world space, and how strongly. This is
 ## the "every state should have a focus" the owner asked for: the head tracks it even when
 ## the body does not turn.
@@ -285,6 +276,12 @@ var _shake_cd: float = 25.0
 ## Small per-frame speed variation, so the walk is not metronomic.
 var _pace: float = 1.0
 var _pace_cd: float = 0.0
+## The occasional seated weight-shift: a settled cat re-plants its weight every ten or
+## twenty seconds, irregularly — the difference between an animal at rest and a loop.
+var _shift_cd: float = 8.0
+var _shift_t: float = 0.0
+var _shift_dur: float = 1.0
+var _shift_amp: float = 0.0
 ## The held sleeping spot — picked once when the player turns in, cleared when they rise.
 var _sleep_target: Vector3 = Vector3.ZERO
 ## How long it has been walking at the chosen spot without getting any closer, and the best it
@@ -295,6 +292,10 @@ var _bed_best: float = 1e9
 ## the state machine hands the animal over to _fly_jump and nothing else moves it.
 var _jump_t: float = 0.0
 var _jump_cd: float = 0.0
+## The anticipation: a jump is armed, the crouch is held, and the body has NOT left the
+## deck yet. §-minimum 8 frames — the loaded spring is the beat that sells the leap, and
+## the old jump skipped it entirely (airborne on the frame it decided).
+var _jump_wind: float = 0.0
 var _body_r_cache: Dictionary = {}
 var _jump_from: Vector3 = Vector3.ZERO
 var _jump_to: Vector3 = Vector3.ZERO
@@ -481,13 +482,27 @@ func _process(delta: float) -> void:
 	# degrees of permanent pitch the moment you met it, and a yaw skew off its direction of
 	# travel every time it sat down, and carried both for the rest of the session. Each
 	# state now writes the offsets it wants onto a body that is already neutral.
-	_body.rotation.x = lerpf(_body.rotation.x, 0.0, clampf(delta * 6.0, 0.0, 1.0))
-	_body.rotation.y = lerpf(_body.rotation.y, 0.0, clampf(delta * 6.0, 0.0, 1.0))
+	# Every ease in this file is `1 - exp(-rate * dt)`: this animal runs under AiBudget and
+	# is handed SUMMED deltas up to 0.15 s, where `delta * k` overshoots — measured as the
+	# whole cat snapping to its turn/lean targets in one think (tests/CatReviewProbe bigdt:
+	# the two dt paths disagreed by 19.7 deg on the same half-second of slope ease).
+	_body.rotation.y = lerpf(_body.rotation.y, 0.0, 1.0 - exp(-6.0 * delta))
+	_body.position.y = lerpf(_body.position.y, 0.0, 1.0 - exp(-6.0 * delta))
 	if _fed_wiggle > 0.0:
 		_fed_wiggle -= delta * 0.7
 		_body.rotation.y = sin(_t * 17.0) * 0.13 * clampf(_fed_wiggle, 0.0, 1.0)
-	# The lean into a slope, eased so a step onto a stair tread is not a snap.
-	_body.rotation.x += -_slope * 0.55
+	# A SLOPE ONLY EXISTS UNDER A WALKING CAT. _walk_toward is the only writer, so an animal
+	# that stopped on a ramp wore the ramp's pitch for ever — sitting, sleeping, being petted
+	# — because nothing ever decayed it. Ease it home whenever the body is not travelling.
+	if _last_speed < 0.05:
+		_slope = lerpf(_slope, 0.0, 1.0 - exp(-4.0 * delta))
+	# THE LEAN IS ASSIGNED, NEVER ACCUMULATED. It was `+=` against the ease above, and a
+	# per-tick += without a delta term reaches rate-ratio equilibrium, not its target —
+	# the exact trap _pose_sit's comment documents, one screen up from a live instance.
+	# Measured: at a held _slope of 0.30 the body pitch settled at -94.5 DEGREES (5.5x the
+	# intended -9.5), i.e. a cat folded face-down into the deck on any sustained grade.
+	# States that want a transient pitch (the groom sway) ASSIGN after this line.
+	_body.rotation.x = -_slope * 0.55
 	_focus_w = maxf(0.0, _focus_w - delta * 1.5)
 	# BEFORE ANYTHING ELSE DECIDES WHERE TO GO, GET OUT OF WHATEVER WE ARE IN. Unconditional
 	# and state-independent on purpose: a predictive gate cannot rescue an animal that is
@@ -495,6 +510,17 @@ func _process(delta: float) -> void:
 	_unbury()
 	if _jump_cd > 0.0:
 		_jump_cd -= delta
+	# THE WIND-UP: crouched, loaded, still on the deck. Owns the animal like the flight
+	# does, so nothing walks it off its own launch spot mid-anticipation.
+	if _jump_wind > 0.0:
+		_jump_wind -= delta
+		_last_speed = 0.0
+		if _jump_wind <= 0.0:
+			_jump_t = JUMP_SEC
+			_enter(State.JUMP)
+			AudioDirector.play_one_shot("cat_chirp", global_position, -24.0)
+		_drive_rig(delta)
+		return
 	# A LEAP OWNS THE ANIMAL UNTIL IT LANDS. Taken before the state machine, so nothing
 	# downstream can re-seat the cat onto the deck it just left — which is what would
 	# otherwise cancel the jump on its first airborne frame.
@@ -551,6 +577,10 @@ func _fly_jump(delta: float) -> void:
 		global_position = _jump_to
 		_jump_cd = JUMP_CD
 		_reseat()
+		# LAND -> SETTLE: fore-paws-first absorption held a beat, then the state's own pose.
+		if _rig != null:
+			_rig.call("play_seq", [["jump_land", 0.16, 14.0]],
+				String(STATE_POSE.get(_state, "stand")), 8.0)
 		# A POUNCE RESOLVES WHERE IT LANDS, not where it was aimed. Done here rather than in
 		# the state machine because the leap deliberately owns the animal until touchdown, so
 		# this is the only frame that knows whether the cat is standing on the bird.
@@ -834,16 +864,16 @@ func _settle(delta: float) -> void:
 		# The curled mesh does the shape; this is only the breathing slowing down. The old
 		# code rolled the body 0.55 rad to fake "lying down" with a standing mesh, which is
 		# exactly what having a sleep pose removes the need for.
-		_body.rotation.z = lerpf(_body.rotation.z, 0.0, delta * 2.0)
-		_body.position.y = lerpf(_body.position.y, 0.0, delta * 2.0)
+		_body.rotation.z = lerpf(_body.rotation.z, 0.0, 1.0 - exp(-2.0 * delta))
+		_body.position.y = lerpf(_body.position.y, 0.0, 1.0 - exp(-2.0 * delta))
 		ANIM.drive(_gen_mats, 0.5, 0.0)
 	else:
 		_enter(State.SIT)
 		_pose_sit(delta)
 
 func _pose_sit(delta: float) -> void:
-	_body.rotation.z = lerpf(_body.rotation.z, 0.0, delta * 3.0)
-	_body.position.y = lerpf(_body.position.y, 0.0, delta * 3.0)
+	_body.rotation.z = lerpf(_body.rotation.z, 0.0, 1.0 - exp(-3.0 * delta))
+	_body.position.y = lerpf(_body.position.y, 0.0, 1.0 - exp(-3.0 * delta))
 	ANIM.drive(_gen_mats, 1.1, 0.0)
 	_last_speed = 0.0
 	# A sitting cat is on the deck it sat down on — and the seat ray is the only thing that
@@ -854,7 +884,20 @@ func _pose_sit(delta: float) -> void:
 	# at rate_ratio * amplitude — measured at 75 DEGREES of body yaw on the live game,
 	# which drew the cat walking sideways off its own node. The s36 comment on this line
 	# argued += was safer than assignment; the opposite was true.
-	_body.rotation.y = sin(_t * 0.9) * 0.06
+	#
+	# ...and OCCASIONAL, not continuous: the old `sin(_t * 0.9)` swayed the seated animal on
+	# a metronome, which is the signature of an idle loop. A real cat re-plants its weight
+	# every ten or twenty seconds, irregularly, and is otherwise still (the breath layer
+	# carries the rest of "alive").
+	_shift_cd -= delta
+	if _shift_cd <= 0.0 and _shift_t <= 0.0:
+		_shift_dur = _rng.randf_range(0.8, 1.4)
+		_shift_t = _shift_dur
+		_shift_amp = _rng.randf_range(0.04, 0.08) * (1.0 if _rng.randf() < 0.5 else -1.0)
+		_shift_cd = _rng.randf_range(9.0, 22.0)
+	if _shift_t > 0.0:
+		_shift_t -= delta
+		_body.rotation.y = _shift_amp * sin(clampf(1.0 - _shift_t / _shift_dur, 0.0, 1.0) * PI)
 
 ## Walk the deck toward a point, stopping `stop_at` short. Kinematic and deliberately simple:
 ## it steps up a coaming, refuses anything taller, and re-seats on whatever it is standing on
@@ -944,36 +987,39 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# answer to a follower that used to give up at every crate and coaming it could plainly
 	# get onto. Above JUMP_UP it still refuses: a cat does not scale a bulkhead.
 	if rise > CLIMB_UP:
-		if rise <= JUMP_UP and _jump_t <= 0.0 and _jump_cd <= 0.0 \
+		if rise <= JUMP_UP and _jump_t <= 0.0 and _jump_wind <= 0.0 and _jump_cd <= 0.0 \
 				and _arc_clear(Vector3(want.x, ground, want.z), dir):
 			# ...and the ARC has to be clear, not just the ledge. Same hole the pounce had:
 			# `_fly_jump` drives the body along the path with no gates of its own, so a leap
 			# onto a legal ledge can still pass the animal through whatever is between.
-			_jump_t = JUMP_SEC
+			#
+			# ARM the leap rather than taking it: the crouch is held on the deck for the
+			# anticipation beat (crouch -> launch -> flight -> land -> settle, a timeline,
+			# not a pose), and _process fires the flight when the wind-up elapses.
+			_jump_wind = 0.34
 			_jump_from = global_position
 			_jump_to = Vector3(want.x, ground, want.z)
-			_enter(State.JUMP)
-			AudioDirector.play_one_shot("cat_chirp", global_position, -24.0)
+			if _rig != null:
+				_rig.call("play_seq", [["jump_crouch", 0.34, 14.0]], "jump", 10.0)
 		return
 	# The slope it is standing on, for the body pitch. Taken from the rise over the step
 	# actually taken rather than from a second probe, so it cannot disagree with the move.
 	var run: float = maxf(step.length(), 0.0001)
-	_slope = lerpf(_slope, clampf(atan2(rise, run), -0.7, 0.7), clampf(delta * 5.0, 0.0, 1.0))
+	_slope = lerpf(_slope, clampf(atan2(rise, run), -0.7, 0.7), 1.0 - exp(-5.0 * delta))
 	var before_step: Vector3 = global_position
 	global_position = Vector3(want.x, ground, want.z)
 	_last_speed = speed
 	# The blender's phase runs off DISTANCE ACTUALLY MOVED (see cat_rig.tick) — recorded
 	# here, where the movement really happens, so a refused or slid step is felt by the
 	# legs instead of them cycling against a wall.
+	#
+	# THE NODE-LEVEL BOB THAT LIVED HERE IS GONE, AND IT MUST NOT COME BACK. It ran on its
+	# own `_gait` accumulator against a constant STRIDE_M (0.62) while the legs plant off
+	# cat_rig's `_phase` against a stride derived from the animal's own bones (0.356 m at a
+	# walk) — two clocks at nearly 2:1, so the body rose while a foot was mid-swing instead
+	# of arcing over the planted one: the floating pelvis. The whole-body vertical now lives
+	# in cat_rig.tick on the SAME phase the paws plant from, where drift is impossible.
 	_moved_frame += global_position.distance_to(before_step)
-	_gait = fposmod(_gait + global_position.distance_to(before_step) / STRIDE_M, 1.0)
-	# A small vertical lilt — the whole-body rise and fall the legs alone do not carry,
-	# since the rig has no root motion. Phase-locked to the same distance the legs use.
-	_body.position.y = absf(sin(_gait * TAU)) * 0.030
-	# HALVED because the weight shift now lives in the skeleton. cat_rig rolls the pelvis and
-	# counter-rolls the neck off the same phase, which is the anatomically right place for it;
-	# leaving this at its old 0.045 on top rolled the whole animal twice per stride.
-	_body.rotation.z = sin(_gait * TAU * 0.5) * 0.018
 
 ## `+ PI` IS THE WHOLE OF "THE CAT WALKS BACKWARDS", and it was the only call site in the
 ## repo missing it.
@@ -1145,7 +1191,10 @@ func _face(target: Vector3, delta: float) -> void:
 	if to.length_squared() < 0.0004:
 		return
 	var want: float = atan2(to.x, to.z) + PI
-	rotation.y = lerp_angle(rotation.y, want, clampf(TURN_RATE * delta, 0.0, 1.0))
+	# `1 - exp` rather than `clampf(k * delta)`: under an AiBudget-summed 0.15 s think the
+	# clamped form covered 90% of a commanded half-turn in ONE frame (measured: the summed
+	# path snapped the full 90 deg while the fixed path read 80.6 over the same sim time).
+	rotation.y = lerp_angle(rotation.y, want, 1.0 - exp(-TURN_RATE * delta))
 
 ## Is there a fish in the player's hand right now? Reads the hotbar the same way the spear
 ## prompt does, so "holding a fish" means exactly what it means everywhere else.
@@ -1399,6 +1448,10 @@ func _launch_pounce(target: Vector3) -> void:
 	_hunt = 3
 	_pouncing = true
 	_enter(State.POUNCE)
+	# The tread was the long anticipation; the launch still GATHERS for a tenth of a second
+	# — the spring compressing — before the flight stretch.
+	if _rig != null:
+		_rig.call("play_seq", [["jump_crouch", 0.10, 16.0]], "jump", 10.0)
 	_jump_t = POUNCE_SEC
 	_jump_from = global_position
 	# Land ON the bird's patch of deck, not on the bird — the seat ray sorts the height out,
@@ -1608,8 +1661,15 @@ func _drive_rig(delta: float) -> void:
 ## Point the cat's ATTENTION at something without turning it. Weight decays, so a glance
 ## fades unless whatever caused it keeps calling.
 func _watch(at: Vector3, weight: float = 1.0) -> void:
-	_focus = at
-	_focus_w = maxf(_focus_w, clampf(weight, 0.0, 1.0))
+	var w: float = clampf(weight, 0.0, 1.0)
+	# THE TARGET FOLLOWS THE STRONGEST CLAIM, NOT THE LATEST. Two watchers calling every
+	# frame — a held glance and the chatter, say — used to alternate `_focus` A/B/A/B at
+	# frame rate, and the drawn head SAWED between them: the single largest discontinuity
+	# the review probe found anywhere in the walk (~0.8 rad/frame at the neck). A new
+	# target must now outrank the current claim, renew it, or wait out its decay.
+	if w > _focus_w + 0.001 or _focus_w <= 0.01 or at.distance_to(_focus) < 0.4:
+		_focus = at
+	_focus_w = maxf(_focus_w, w)
 
 # ------------------------------------------------------------------ poses
 
