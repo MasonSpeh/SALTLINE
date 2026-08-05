@@ -43,6 +43,10 @@ func _ready() -> void:
 	# stem at a throwaway, exactly as test_runner.gd and save_probe.gd already do.
 	_slot_prefix = SaveManager.slot_file_prefix
 	SaveManager.slot_file_prefix = "e2e_probe_slot_"
+	# ...and claim a session on the throwaway stem. active_slot defaults to 0 since the
+	# s38 save-wipe fix (no session, no writes), so a harness that WANTS save/load must
+	# say so — this is the saying so.
+	SaveManager.begin_new_game(1)
 	_main = load("res://scenes/Main.tscn").instantiate()
 	add_child(_main)
 	# Let the world stream in, dress itself, and settle its physics.
@@ -59,6 +63,7 @@ func _ready() -> void:
 	# Clear the throwaway slot and hand the real stem back.
 	SaveManager.erase_slot(SaveManager.active_slot)
 	SaveManager.slot_file_prefix = _slot_prefix
+	SaveManager.active_slot = 0   # the probe's session ends with its stem
 
 	print("E2E-FAILURES: ", _fails.size())
 	get_tree().quit()
