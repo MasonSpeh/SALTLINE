@@ -512,20 +512,20 @@ func _configure_body() -> void:
 	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
 
 ## Guarantee the posture actions exist even if project.godot lacks them. `crouch` is
-## defined in the project map (SHIFT since the owner's swap — sprint took Ctrl in exchange);
-## `prone` is registered here at runtime (Z) so we never have to touch project.godot. Safe to
-## call once — skips actions already present.
+## defined in the project map — CTRL, OPTION and COMMAND all crouch (owner's s38 call:
+## sprint went back to Shift, and every macOS modifier on that side of the keyboard does
+## the same crouch so there is no wrong key to hold). `prone` is registered here at
+## runtime (Z) so we never have to touch project.godot. Safe to call once.
 ##
-## This fallback has to be kept in step with the map by hand, and it is exactly the kind of
-## second copy that goes stale: it sat on KEY_CTRL and would have re-bound crouch to the old
-## key on any run where project.godot lost its `[input]` section — which is a thing that
-## happens here (see AGENT_TRAPS on the project manager stripping this file).
+## This fallback has to be kept in step with the map by hand, and it is exactly the kind
+## of second copy that goes stale — it has now carried three generations of this binding.
 func _ensure_posture_bindings() -> void:
 	if not InputMap.has_action("crouch"):
 		InputMap.add_action("crouch")
-		var ev_shift := InputEventKey.new()
-		ev_shift.physical_keycode = KEY_SHIFT
-		InputMap.action_add_event("crouch", ev_shift)
+		for code in [KEY_CTRL, KEY_ALT, KEY_META]:
+			var ev := InputEventKey.new()
+			ev.physical_keycode = code
+			InputMap.action_add_event("crouch", ev)
 	if not InputMap.has_action("prone"):
 		InputMap.add_action("prone")
 		var ev_z := InputEventKey.new()
@@ -762,7 +762,7 @@ func _toggle_fly() -> void:
 	set_collision_mask_value(1, not _fly)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
-		hud.toast("FLY MODE %s  ·  Space up / Shift down / Ctrl boost" % ("ON" if _fly else "OFF"))
+		hud.toast("FLY MODE %s  ·  Space up / Ctrl down / Shift boost" % ("ON" if _fly else "OFF"))
 
 ## Free 6-axis noclip flight for testing. Look direction drives horizontal thrust
 ## (pitch-aware), Space/Shift handle vertical, Ctrl boosts (it reads `jump`/`crouch`/`sprint`,

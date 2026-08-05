@@ -3738,7 +3738,7 @@ func _loot_door_duck() -> void:
 ## It is a file this pass does not own, so the number is named where it is used and the
 ## derivation above shows its work.
 const PC_STAND_H: float = 1.8
-const DUCK_HINT: String = "The pipe bank crosses this doorway at chest height. Hold Shift and duck under it."
+const DUCK_HINT: String = "The pipe bank crosses this doorway at chest height. Hold Ctrl and duck under it."
 ## How many player bodies are standing in the doorway volume. A counter rather than a bool
 ## because `body_entered` fires per body and the zone sees every collider on layer 1 — the
 ## pipe barrier and the frame among them — so "did the LAST thing to leave happen to be the
