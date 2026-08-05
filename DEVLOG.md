@@ -1718,3 +1718,35 @@ bloom_fauna — through `Object.get()`, which returns null for a method name, so
 added nothing since s36 while the comment above it described the intention. Another animal's
 grab collider counted as a wall to the cat, which is why the pounce needed an explicit prey
 exclusion to land on a bird at all. Now walked and cached at 500 ms.
+
+---
+
+## s38a — the save wipe was ours, the stairs were unmeasured, the keys reverted
+
+Three owner reports, three closed, one of them embarrassing and said plainly.
+
+**The save wipe.** "Player loses all items when game loads from save." The
+clean save/load flow passed every test — because the wiper wasn't in the flow.
+`active_slot` defaulted to 1 "so a direct Main boot (tests, editor Play) still
+has a valid target", and every probe/harness instantiates Main with a fresh
+EMPTY PlayerState; the phase-sweeping ones force DUSK, dusk is wired to
+save_game(), and each such run silently overwrote the real slot 1 with an empty
+world stamped "dusk, day 0" — field-for-field what the owner's clobbered save
+contained. OUR probe runs wiped the owner's save. Fix at the root: no session,
+no writes (active_slot defaults 0; save/load refuse below 1; the start screen
+claims slots as before; editor Play claims one explicitly ONLY when Main is the
+scene root — a probe's Main is a child and can never claim again). Proven with
+a two-OS-process probe: save with items → re-enact the wipe (forced DUSK in a
+slotless harness — file unchanged BY A BYTE) → relaunch → Continue → all items.
+The owner's already-overwritten save was not recoverable.
+
+**The stairs.** "Still exists, do you need me to micro manage you?" — fair.
+StairJunctionProbe measured flights 1-3 and was green while the owner climbed
+all nine. Generated all 18 tower junctions from the stair constants: exactly one
+catch existed — F9's head at y38, where the ops-floor hole ran 0.2 m past the
+flight's top and the last stride of the whole climb caught a 75.8 mm slab lip.
+Hole edge now ends at the head; all 18 junctions profile 0.0000 m.
+
+**The keys.** Sprint back on Shift; Control, Option and Command ALL crouch.
+Four copies of the binding moved together (map, runtime fallback, controls
+panel, duck hint, fly toast).

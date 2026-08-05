@@ -52,6 +52,27 @@ const REAL := [
 	["boarding foot (topside)", Vector3(15.8, 18.0, 3.4), Vector3(-1, 0, 0)],
 ]
 
+## THE TOWER, PARAMETRICALLY — flights 4..9 were never in REAL, and F4's head at y18 is
+## the topside-deck arrival, the single most-walked junction in the game. The owner kept
+## reporting "the stair issue still exists" against a probe that was green because the
+## junctions they walk were not measured. Generated from the same constants rig_builder
+## builds from (STAIR_RISE 4, XW 23.5, XE 28.5, ZS -2.9, ZN -1.1; odd flights climb W->E
+## on the south lane, even flights E->W on the north lane), so a re-tuned tower re-tunes
+## the probe with it.
+static func _tower_junctions() -> Array:
+	var out: Array = []
+	for f in range(1, 10):                      # F1..F9, feet at y = 2 + (f-1)*4
+		var foot_y: float = 2.0 + float(f - 1) * 4.0
+		var head_y: float = foot_y + 4.0
+		var odd: bool = (f % 2) == 1
+		var z: float = -2.9 if odd else -1.1
+		var dir := Vector3(1, 0, 0) if odd else Vector3(-1, 0, 0)
+		var head_x: float = 28.5 if odd else 23.5
+		var foot_x: float = 23.5 if odd else 28.5
+		out.append(["tower F%d head (y%d)" % [f, int(head_y)], Vector3(head_x, head_y, z), dir])
+		out.append(["tower F%d foot (y%d)" % [f, int(foot_y)], Vector3(foot_x, foot_y, z), dir])
+	return out
+
 var failures: int = 0
 var _lines: PackedStringArray = PackedStringArray()
 
@@ -118,7 +139,19 @@ func _live() -> void:
 	_say("STAIR JUNCTION — live rig, walking surface profiled at %d mm across %d cm of each junction"
 		% [int(SAMPLE * 1000.0), int(SPAN * 200.0)])
 	_say("%-34s %10s %10s %s" % ["junction", "worst step", "at", "surface y range"])
-	for j in REAL:
+	var all_junctions: Array = REAL.duplicate()
+	for j in _tower_junctions():
+		# The hand-named list already carries F1-F3 heads and two feet; the generator
+		# re-derives them identically, so duplicates are harmless but noisy — skip exact
+		# position repeats.
+		var dup: bool = false
+		for r in REAL:
+			if (r[1] as Vector3).distance_to(j[1] as Vector3) < 0.05:
+				dup = true
+				break
+		if not dup:
+			all_junctions.append(j)
+	for j in all_junctions:
 		var head: Vector3 = j[1]
 		var dir: Vector3 = (j[2] as Vector3).normalized()
 		var ys: PackedFloat32Array = PackedFloat32Array()

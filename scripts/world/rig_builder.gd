@@ -1277,10 +1277,15 @@ func _build_ops_room(fy: float) -> void:
 	fcomb.add_child(slab)
 	slab.position = Vector3(cx, fy - 0.15, cz)
 	var hole := CSGBox3D.new()
-	hole.size = Vector3(6.0, 1.2, 2.6)
+	# EAST EDGE ENDS AT THE FLIGHT'S HEAD (x 28.5), not past it. The old span reached
+	# x 28.7 — 0.2 m beyond where F9's ramp tops out — so the last stride of the whole
+	# nine-flight climb crossed a gap and caught a 75.8 mm lip on the slab edge, at the
+	# one junction the probe never measured until s38 generated all nine flights from the
+	# stair constants. The step now measures 0.0000 m like every other junction.
+	hole.size = Vector3(5.8, 1.2, 2.6)
 	hole.operation = CSGShape3D.OPERATION_SUBTRACTION
 	fcomb.add_child(hole)
-	hole.position = Vector3(25.7, fy - 0.15, -2.9)
+	hole.position = Vector3(25.6, fy - 0.15, -2.9)
 	# A guard rail around the open sides of the stairwell hole (leaves the east step-off
 	# clear). Visual bars plus one smooth full-height slab each — these fence a 36m drop
 	# and until now they had no collision at all, so you could walk straight off the lip
