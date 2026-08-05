@@ -271,6 +271,9 @@ func _ready() -> void:
 			_sim_fps = maxf(1.0, float(a.substr(7)))
 		elif a.begins_with("reels="):
 			_reels = a.substr(6).split(",", false)
+		elif a.begins_with("beats="):
+			pass    # consumed by _reel_behaviour — without this arm it became the OUTPUT
+					# DIRECTORY and a whole run filmed into a folder named after its beats
 		elif not a.begins_with("--"):
 			_dir = a
 	DirAccess.make_dir_recursive_absolute(_dir)
@@ -642,6 +645,12 @@ func _reel_hunt(sim_per_frame: int) -> void:
 	if _cat.has_method("_reseat"):
 		_cat.call("_reseat")
 	_player.global_position = _cat.global_position + away * 1.5
+	# ARM THE HUNT. Every other reel pins _hunt_cd at 999 every frame to keep its own
+	# subject clean, and that pin is STICKY — the first combined-reel run filmed fourteen
+	# seconds of a cat sitting politely beside a gull it had been forbidden to notice.
+	_cat.set("_hunt_cd", 0.0)
+	_cat.set("_energy", 1.0)
+	_cat.set("_wash_t", 0.0)
 	for i in range(20):
 		await get_tree().physics_frame
 	var travel: float = _bearing(gull.global_position - _cat.global_position)

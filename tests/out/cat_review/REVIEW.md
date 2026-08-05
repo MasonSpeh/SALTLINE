@@ -6,9 +6,16 @@ what changed, what the numbers say, what to watch in each clip, and what was def
 ## How to read this directory
 
 - `metrics_baseline.log` — the PRE-fix run of tests/CatReviewProbe: the shipped cat
-  failing 18 numeric gates. This is the "all green" gap, measured.
+  failing 26 of 48 numeric gates. This is the "all green" gap, measured.
 - `metrics.json` / `metrics.md` — the POST-fix run, same gates, raw numbers.
-- `*.png` — the capture reels (world-fixed cameras, `--fixed-fps`, sim-pinned deltas).
+- `*.gif` — one flipbook per reel, 12 fps, world-fixed cameras, `--fixed-fps`-pinned
+  deltas (an unpinned delta makes the frames non-evidence; the run log confirms
+  0.01667..0.01667).
+- `frames/` — curated full-resolution stills (committed).
+- `full/` — the complete 1,199-frame PNG sequences, LOCAL ONLY (git-ignored for size).
+- `telemetry_main.csv.gz` / `telemetry_hunt.csv.gz` — per-sim-frame telemetry: drawn
+  face/neck/spine bearing vs authored travel, paw tracks in both skeleton and world
+  space, phase, gait weight, pose.
 
 ## What was wrong (all measured pre-fix; see metrics_baseline.log)
 
@@ -109,9 +116,16 @@ with its mechanism — thresholds are NOT loosened per the brief's anti-gaming r
   weight rock and a small overshoot; standing rises rear-first; no state melts into
   another as one rigid unit.
 - `wash_*.png`: strokes ride the sitting pose on body axes — the muzzle nods, the head
-  does not tilt sideways; three distinguishable styles.
-- `jump_*.png` (if a ledge was found; else the pounce in `hunt_*`): crouch held on the
-  deck, flight stretch with symmetric limbs, fore-paws-first landing, settle.
+  does not tilt sideways; three distinguishable styles. **FLAG for the reviewer:** the
+  hip-frame fix made every baked pose's pelvis drop REAL, and the groom family changed
+  shape the most — read frames `wash_643` / `wash_683`: the fore reads stiff and far
+  planted to my eye. If you agree, the groom/groom_flat bakes want a re-tune session
+  against renders (their numbers were tuned under the old fore-aft-sliding pelvis).
+- `jump_*.png`: the reel probed a real 1.10 m ledge and the frames show the WALK-JUMP
+  DID NOT FIRE — the cat walks to the foot and stands, exactly the deck-probe blind band
+  KNOWN_ISSUES documents (rises 0.75–1.25 m are invisible to the probe the jump gate
+  reads). The jump TIMELINE's film evidence is the pounce in `hunt_*`. Deferred, not
+  hidden: fixing it needs the reachability rule that entry calls for.
 - `idle_*.png`: breath plus occasional glances and a rare seated weight-shift; the loop
   should not read as a loop. (No ear flicks or blinks — mesh has neither; see ceiling.)
 - `tail_*.png`: the tail moves as its own limb — lagged, counter-swinging, overshooting

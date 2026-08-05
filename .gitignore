@@ -23,3 +23,6 @@ main_rig.glb
 .sonar-rig/
 .sonar-scan/
 rig_capture_*.png
+
+# s40 cat review: full PNG reel sequences stay local (GIFs + curated stills are committed)
+tests/out/cat_review/full/
