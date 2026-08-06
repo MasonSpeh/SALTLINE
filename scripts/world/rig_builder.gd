@@ -910,7 +910,12 @@ const TOWER_X0: float = 21.0      # was 22.0
 const TOWER_X1: float = 31.0      # was 30.0
 
 func _build_stair_tower() -> void:
-	var mat: Material = MatLib.concrete()
+	# The tower shell gets the LARGER-SCALE, anti-tiled concrete (MatLib.concrete_tower):
+	# these are the biggest continuous walls a player stands right next to, so they are
+	# where a 2.2 m tile repeating up a 30 m face is most obvious. Every other concrete
+	# surface in the game still uses MatLib.concrete(); see the note on concrete_tower for
+	# why this is a separate key rather than a change to the shared one.
+	var mat: Material = MatLib.concrete_tower()
 	var deck_mat: Material = MatLib.deck_plate()
 	# --- Parametric switchback climbing the full shaft to the OPERATIONS LOOKOUT. ---
 	# THE JOIN FIX: every flight tops out flush at the EDGE of its turn platform. Each

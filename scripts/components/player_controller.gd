@@ -333,6 +333,24 @@ const PLAYER_RADIUS: float = 0.37       ## see _ready(): 0.40 minus a corner-for
 const STEP_MAX_HEIGHT: float = 0.34     ## lips up to this are stepped over, not walled off
 const STEP_PROBE_FWD: float = 0.30      ## how far past the lip we must land to call it a step
 const STEP_MIN_BLOCKED: float = 0.35    ## step only if we kept under this fraction of intended travel
+## THE MICRO TIER — the owner's "tiny step friendly mini steps that allow player to walk
+## over even if there was an imaginary bump".
+##
+## The tier above is deliberately hard to trigger: it will lift the body a third of a metre,
+## so it may only fire when a frame was almost completely stopped (STEP_MIN_BLOCKED 0.35).
+## That leaves a whole class of complaint untouched — a lip that does not STOP you but
+## costs you half a stride, every stride, which is felt as a snag or a bump rather than as
+## a wall, and which no amount of "the junction profiles 0.0000 m" ever addresses.
+##
+## So: a second tier with the opposite trade. It fires on ANY measurable loss of travel,
+## and in exchange it may only lift the body a few centimetres — small enough that a
+## spurious firing is imperceptible (it is under a third of the 0.107 m a normal walk frame
+## covers), while being more than the ~0.117 m a 0.37 m capsule can roll over unaided and
+## far more than any join tolerance on this rig. Both tiers run the SAME four proofs below
+## (headroom, no wall above, something solid to land on, destination not occupied), so this
+## cannot walk the player into or onto anything the conservative tier would refuse.
+const MICRO_STEP_HEIGHT: float = 0.13   ## the tallest "bump" the generous tier will climb
+const MICRO_MIN_BLOCKED: float = 0.92   ## ...and it fires on losing even 8% of a frame's travel
 const STUCK_SPEED: float = 0.22         ## m/s of real travel under which a moving player counts as stuck
 const STUCK_FRAMES: float = 0.30        ## seconds of that before we push the body out
 const STUCK_NUDGE: float = 0.10         ## how hard the push is (a shove, not a teleport)
@@ -510,6 +528,23 @@ func _configure_body() -> void:
 	wall_min_slide_angle = deg_to_rad(12.0)
 	max_slides = 6
 	motion_mode = CharacterBody3D.MOTION_MODE_GROUNDED
+	# THE PROPERTY THIS FILE DIAGNOSED THREE TIMES AND NEVER SET.
+	#
+	# The comment on `safe_margin` above works the failure out in full — a convex landing
+	# edge generates a 55-61 deg contact normal against a floor_max_angle of 46, Godot
+	# classes it a WALL, and "`floor_block_on_wall` (default true) answers a grounded body
+	# walking into a wall by setting `velocity` to exactly zero and discarding the frame's
+	# whole motion". Three comments in this file describe that mechanism. None of them ever
+	# assigned the property, so it has been at Godot's default `true` for the entire life
+	# of the project and every one of those frames was still being thrown away. KNOWN_ISSUES
+	# flagged the omission after s39 and it stayed open.
+	#
+	# False lets a grounded body ride over a contact the solver has mislabelled instead of
+	# being stopped dead by it. It does NOT let the player walk up real walls: a vertical
+	# face has a horizontal normal, so motion into it resolves to zero vertical lift — what
+	# changes is only the treatment of shallow, transient, convex edges like the top of
+	# every flight on this rig.
+	floor_block_on_wall = false
 
 ## Guarantee the posture actions exist even if project.godot lacks them. `crouch` is
 ## defined in the project map — CTRL, OPTION and COMMAND all crouch (owner's s38 call:
@@ -1130,9 +1165,16 @@ func _try_step_up(wish: Vector3, before: Vector3, wanted: float) -> bool:
 	# exactly the frames where the body had just been hard-stopped by a lip.
 	var moved: Vector3 = global_position - before
 	var got: float = Vector2(moved.x, moved.z).length()
-	if wanted < 0.001 or got > wanted * STEP_MIN_BLOCKED:
+	if wanted < 0.001 or got > wanted * MICRO_MIN_BLOCKED:
 		return false
-	var up := Vector3(0.0, STEP_MAX_HEIGHT, 0.0)
+	# TWO TIERS, ONE SET OF PROOFS. A frame that was almost completely stopped may be
+	# rescued with a full step; a frame that merely lost a slice of its travel gets the
+	# micro lift only. Everything below is shared, so the generous trigger buys no extra
+	# licence — it just means a small bump no longer has to STOP the player before the
+	# assist is allowed to notice it.
+	var max_h: float = STEP_MAX_HEIGHT if got <= wanted * STEP_MIN_BLOCKED \
+		else MICRO_STEP_HEIGHT
+	var up := Vector3(0.0, max_h, 0.0)
 	var base: Transform3D = global_transform
 	if test_move(base, up, null, safe_margin):
 		return false                                   # 1. no headroom to rise
@@ -1141,13 +1183,13 @@ func _try_step_up(wish: Vector3, before: Vector3, wanted: float) -> bool:
 		return false                                   # 2. still a wall up there
 	var ahead := Transform3D(base.basis, raised.origin + dir * STEP_PROBE_FWD)
 	var land := KinematicCollision3D.new()
-	var fall: Vector3 = Vector3(0.0, -(STEP_MAX_HEIGHT + 0.02), 0.0)
+	var fall: Vector3 = Vector3(0.0, -(max_h + 0.02), 0.0)
 	if not test_move(ahead, fall, land, safe_margin):
 		return false                                   # 3. nothing to stand on — a hole, not a step
 	if land.get_normal().angle_to(Vector3.UP) > floor_max_angle:
 		return false                                   # landed on a slope too steep to be a step
 	var drop: float = land.get_travel().length()
-	if drop >= STEP_MAX_HEIGHT + 0.015:
+	if drop >= max_h + 0.015:
 		return false                                   # fell the whole way back: nothing was there
 	var top: Vector3 = ahead.origin + Vector3(0.0, -drop, 0.0)
 	if top.y - base.origin.y < 0.01:

@@ -1626,7 +1626,15 @@ func _crate_move(item_id: String, from_crate: bool, whole: bool) -> void:
 	# The bench's own lay-a-part cue, at the crate rather than the bench: a soft knock, not a
 	# UI blip. Fired once for the gesture, not once per item, or a 16-deep stack machine-guns.
 	if have_crate:
-		AudioDirector.play_one_shot("step", _crate.global_position, -18.0)
+		# A SOFT UI CUE, NOT A BOOT. This was `play_one_shot("step", ...)` — the "step"
+		# sample is 120 ms of lowpassed noise plus an 85 Hz sine thump (tools/gen_audio.py),
+		# i.e. a muffled footfall, and it carries no SHOT_TRIM entry so it played at full
+		# level. Player footsteps stopped using it long ago (Ambience plays the
+		# surface-correct sample instead), so its only remaining job was as a UI blip on
+		# pack transfers, where a boomy boot thud is exactly the "weird noise" the owner
+		# reports around the inventory. "hiss" at -24 dB on the UI bus is the project's
+		# established soft, non-positional cue.
+		AudioDirector.play_one_shot("hiss", Vector3.ZERO, -24.0)
 
 ## [ [id, count], ... ] in first-seen order — collapses duplicate ids into one row.
 func _group_counts(list: Array) -> Array:
@@ -1768,7 +1776,7 @@ func _crate_take_all() -> void:
 			toast("Pack is full.")
 			break
 		_crate.items.remove_at(0)
-	AudioDirector.play_one_shot("step", _crate.global_position, -18.0)
+	AudioDirector.play_one_shot("hiss", Vector3.ZERO, -24.0)
 	_refresh_crate_panel()
 
 ## Empty the pack into the crate — the mirror of TAKE ALL. Snapshot the totals first
@@ -1781,7 +1789,7 @@ func _crate_stow_all() -> void:
 		for _k in range(int(g[1])):
 			if PlayerState.remove_item(g[0]):
 				_crate.items.append(g[0])
-	AudioDirector.play_one_shot("step", _crate.global_position, -18.0)
+	AudioDirector.play_one_shot("hiss", Vector3.ZERO, -24.0)
 	_refresh_crate_panel()
 
 # ============================ stat bar widget =================================

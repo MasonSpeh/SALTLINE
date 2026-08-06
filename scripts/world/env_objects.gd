@@ -105,43 +105,180 @@ static func life_ring(parent: Node3D, pos: Vector3, face_yaw: float = 0.0, takea
 
 ## 3. Fire barrel — early warmth before the power puzzle; flickering light + heat zone.
 class FireBarrel extends Node3D:
+	## AN ACTUAL BURN BARREL. Owner: "make the fire barrel more realistic / an actual fire
+	## barrel, player cant stand in it."
+	##
+	## What it was: one smooth closed cylinder with a flat glowing DISC LAID ON THE LID.
+	## The fire was therefore on top of a sealed drum rather than inside an open one, and
+	## because the cap is a flat surface 1.0 m up — inside the player's mantle band of
+	## 0.4-1.3 m (player_controller MANTLE_MIN_H / MANTLE_MAX_H) — you could climb it and
+	## stand with your boots in the embers.
+	##
+	## What it is now: a real 55-gallon drum, open-topped, burning inside.
+	##   * 0.29 m radius, 0.88 m tall — the actual dimensions of a 208 L steel drum;
+	##   * OPEN: the shell is a tube (a cylinder with no caps) with a separate darker
+	##     interior wall and a charred floor disc set down inside it, so looking in from
+	##     above you see into the barrel rather than at a lid;
+	##   * two rolling hoops, the ribs a real drum is pressed with, which are most of what
+	##     makes a bare cylinder read as a barrel at a glance;
+	##   * six punched draught holes round the base — the thing that makes a burn barrel a
+	##     burn barrel, and the reason it drags air and glows at the bottom;
+	##   * a heat-scorched band up the top third: bare steel discolours before it rusts,
+	##     and the gradient from rusty base to blued rim is the strongest realism cue here;
+	##   * the fire DOWN INSIDE at a third height, with soft-edged flame billboards licking
+	##     up past the rim rather than a hard-edged disc sitting on it.
+	##
+	## AND YOU CANNOT STAND IN IT. The collider is the drum to its rim, plus an invisible
+	## CONE above the opening whose flank is 64 degrees off horizontal — comfortably past
+	## the controller's floor_max_angle of 46, so the surface is never classified as floor
+	## and a player who tries to mantle in simply slides back off. The cone tops out at
+	## 1.62 m, above MANTLE_MAX_H, so the rim cannot be mantled either. It is collision-only
+	## and invisible, and it occupies exactly the space the flames do.
+	const R: float = 0.29           ## a 208 L drum is 572 mm across
+	const H: float = 0.88           ## ...and 880 mm tall
+	const FIRE_Y: float = 0.34      ## the burning heap sits low inside, as it would
+
 	var _light: OmniLight3D
 	var _coals: StandardMaterial3D
+	var _flames: Array[MeshInstance3D] = []
+	var _flame_mat: StandardMaterial3D
 	var _t: float = 0.0
 
 	func _ready() -> void:
-		var body := MeshInstance3D.new()
+		var steel: Material = MatLib.dark_metal()
+		# THE SHELL, as a tube: an open cylinder has no cap to stand on and lets the eye
+		# into the barrel. CylinderMesh's cap flags are exactly the right tool.
+		var shell := MeshInstance3D.new()
 		var cm := CylinderMesh.new()
-		cm.top_radius = 0.36
-		cm.bottom_radius = 0.36
-		cm.height = 1.0
-		cm.material = MatLib.dark_metal()
-		body.mesh = cm
-		add_child(body)
-		body.position.y = 0.5
-		var col := CollisionShape3D.new()   # parented to a StaticBody so you can't walk through it
-		var sb := StaticBody3D.new()
-		var shape := CylinderShape3D.new()
-		shape.radius = 0.38
-		shape.height = 1.0
-		col.shape = shape
-		sb.add_child(col)
-		add_child(sb)
-		col.position.y = 0.5
+		cm.top_radius = R
+		cm.bottom_radius = R
+		cm.height = H
+		cm.cap_top = false
+		cm.material = steel
+		shell.mesh = cm
+		add_child(shell)
+		shell.position.y = H * 0.5
+		# The inside wall, a hair narrower and much darker — soot, and it stops the shell
+		# looking like paper when you see its back face through the opening.
+		var sooted := StandardMaterial3D.new()
+		sooted.albedo_color = Color(0.07, 0.06, 0.055)
+		sooted.roughness = 1.0
+		sooted.cull_mode = BaseMaterial3D.CULL_FRONT   # we are looking at its INSIDE
+		var liner := MeshInstance3D.new()
+		var lm := CylinderMesh.new()
+		lm.top_radius = R - 0.012
+		lm.bottom_radius = R - 0.012
+		lm.height = H - 0.02
+		lm.cap_top = false
+		lm.material = sooted
+		liner.mesh = lm
+		add_child(liner)
+		liner.position.y = H * 0.5
+		# The charred floor of the barrel, set down inside where ash would collect.
+		var floor_disc := MeshInstance3D.new()
+		var fm := CylinderMesh.new()
+		fm.top_radius = R - 0.02
+		fm.bottom_radius = R - 0.02
+		fm.height = 0.03
+		fm.material = sooted
+		floor_disc.mesh = fm
+		add_child(floor_disc)
+		floor_disc.position.y = 0.10
+		# HEAT SCORCH. Bare steel blues and greys where it has been hot, and on a burn
+		# barrel that is the top third. A slightly proud band reads as discolouration
+		# rather than as a separate object.
+		var scorch := StandardMaterial3D.new()
+		scorch.albedo_color = Color(0.16, 0.15, 0.16)
+		scorch.roughness = 0.85
+		scorch.metallic = 0.35
+		var band := MeshInstance3D.new()
+		var bm := CylinderMesh.new()
+		bm.top_radius = R + 0.004
+		bm.bottom_radius = R + 0.004
+		bm.height = H * 0.34
+		bm.cap_top = false
+		bm.cap_bottom = false
+		bm.material = scorch
+		band.mesh = bm
+		add_child(band)
+		band.position.y = H - H * 0.17
+		# THE ROLLING HOOPS. Two pressed ribs are what say "drum" rather than "pipe".
+		for hy in [H * 0.34, H * 0.66]:
+			var hoop := MeshInstance3D.new()
+			var hm := TorusMesh.new()
+			hm.inner_radius = R - 0.008
+			hm.outer_radius = R + 0.022
+			hm.material = steel
+			hoop.mesh = hm
+			add_child(hoop)
+			hoop.position.y = hy
+		# THE DRAUGHT HOLES, punched round the base. Dark, slightly proud of the shell so
+		# they read as holes rather than as decals, and lit from within by the coals.
+		var hole_mat := StandardMaterial3D.new()
+		hole_mat.albedo_color = Color(0.9, 0.32, 0.06)
+		hole_mat.emission_enabled = true
+		hole_mat.emission = Color(1.0, 0.42, 0.08)
+		hole_mat.emission_energy_multiplier = 1.4
+		for i in range(6):
+			var a: float = TAU * float(i) / 6.0
+			var hole := MeshInstance3D.new()
+			var hbm := BoxMesh.new()
+			hbm.size = Vector3(0.055, 0.075, 0.02)
+			hbm.material = hole_mat
+			hole.mesh = hbm
+			add_child(hole)
+			hole.position = Vector3(cos(a) * (R + 0.002), 0.15, sin(a) * (R + 0.002))
+			hole.rotation.y = -a + PI * 0.5
+		# THE COALS, down inside on the ash floor.
 		_coals = StandardMaterial3D.new()
-		_coals.albedo_color = Color(1.0, 0.45, 0.1)
+		_coals.albedo_color = Color(1.0, 0.42, 0.09)
 		_coals.emission_enabled = true
-		_coals.emission = Color(1.0, 0.5, 0.12)
+		_coals.emission = Color(1.0, 0.46, 0.10)
 		_coals.emission_energy_multiplier = 2.0
 		var glow := MeshInstance3D.new()
 		var gm := CylinderMesh.new()
-		gm.top_radius = 0.3
-		gm.bottom_radius = 0.3
-		gm.height = 0.08
+		gm.top_radius = R - 0.05
+		gm.bottom_radius = R - 0.05
+		gm.height = 0.07
 		gm.material = _coals
 		glow.mesh = gm
 		add_child(glow)
-		glow.position.y = 1.0
+		glow.position.y = FIRE_Y * 0.55
+		# THE FLAME. Soft-edged billboards, not cones: docs/AGENT_TRAPS records that an
+		# unshaded double-sided cone photographs as a flat blade with no volume, and that
+		# an untextured billboard is a hard white rectangle — the fix that worked for the
+		# stove's steam was a radial GradientTexture2D whose alpha falls to zero at the
+		# rim, built in code with no asset. Same recipe, warm ramp.
+		var grad := Gradient.new()
+		grad.set_color(0, Color(1.0, 0.85, 0.35, 0.95))
+		grad.set_color(1, Color(0.9, 0.22, 0.03, 0.0))
+		grad.add_point(0.45, Color(1.0, 0.48, 0.08, 0.6))
+		var gtex := GradientTexture2D.new()
+		gtex.gradient = grad
+		gtex.fill = GradientTexture2D.FILL_RADIAL
+		gtex.fill_from = Vector2(0.5, 0.5)
+		gtex.fill_to = Vector2(1.0, 0.5)
+		gtex.width = 64
+		gtex.height = 64
+		_flame_mat = StandardMaterial3D.new()
+		_flame_mat.albedo_texture = gtex
+		_flame_mat.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+		_flame_mat.blend_mode = BaseMaterial3D.BLEND_MODE_ADD
+		_flame_mat.shading_mode = BaseMaterial3D.SHADING_MODE_UNSHADED
+		_flame_mat.billboard_mode = BaseMaterial3D.BILLBOARD_ENABLED
+		_flame_mat.billboard_keep_scale = true
+		_flame_mat.disable_receive_shadows = true
+		for i in range(3):
+			var fl := MeshInstance3D.new()
+			var qm := QuadMesh.new()
+			qm.size = Vector2(0.42 - 0.07 * float(i), 0.62 - 0.11 * float(i))
+			qm.material = _flame_mat
+			fl.mesh = qm
+			add_child(fl)
+			fl.position = Vector3(0.0, FIRE_Y + 0.20 + 0.10 * float(i), 0.0)
+			fl.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			_flames.append(fl)
+		_build_collision()
 		_light = OmniLight3D.new()
 		_light.light_color = Color(1.0, 0.6, 0.25)
 		_light.omni_range = 9.0
@@ -149,12 +286,42 @@ class FireBarrel extends Node3D:
 		_light.light_volumetric_fog_energy = 1.6
 		_light.shadow_enabled = true
 		add_child(_light)
-		_light.position.y = 1.5
+		# Just above the rim: a light down inside a now-genuinely-open drum lights the
+		# inside of the barrel and nothing else.
+		_light.position.y = H + 0.12
 		var heat := WarmthZone.new()
 		heat.mode = 1
 		heat.setup(Vector3(5, 3, 5))
 		add_child(heat)
 		heat.position.y = 1.2
+
+	## The drum, plus the cone that makes the opening unstandable.
+	func _build_collision() -> void:
+		var sb := StaticBody3D.new()
+		add_child(sb)
+		var body_col := CollisionShape3D.new()
+		var cyl := CylinderShape3D.new()
+		cyl.radius = R + 0.02
+		cyl.height = H
+		body_col.shape = cyl
+		sb.add_child(body_col)
+		body_col.position.y = H * 0.5
+		# THE NO-STAND CONE. Godot has no cone primitive shape, so this is a convex hull:
+		# a ring at the rim and a single apex above it. The flank rises 0.74 m over a
+		# 0.31 m radius, i.e. 64 degrees from horizontal, against the player controller's
+		# floor_max_angle of 46 — so it can never be classified as floor, and anything
+		# that lands on it slides off. Its apex at 1.62 m also puts the whole assembly
+		# above MANTLE_MAX_H (1.3 m), so the rim cannot be mantled onto in the first place.
+		var pts := PackedVector3Array()
+		for i in range(12):
+			var a: float = TAU * float(i) / 12.0
+			pts.append(Vector3(cos(a) * (R + 0.02), H, sin(a) * (R + 0.02)))
+		pts.append(Vector3(0.0, H + 0.74, 0.0))
+		var cone := ConvexPolygonShape3D.new()
+		cone.points = pts
+		var cone_col := CollisionShape3D.new()
+		cone_col.shape = cone
+		sb.add_child(cone_col)
 
 	func _process(delta: float) -> void:
 		_t += delta
@@ -162,6 +329,15 @@ class FireBarrel extends Node3D:
 		var flicker: float = 2.2 + sin(_t * 9.0) * 0.35 + sin(_t * 23.0) * 0.2
 		_light.light_energy = flicker
 		_coals.emission_energy_multiplier = flicker * 0.9
+		# The flames breathe out of phase with each other — in phase they pulse as one
+		# blob, which is the same lesson the cat's body shake learned about segments.
+		for i in range(_flames.size()):
+			var f: MeshInstance3D = _flames[i]
+			var ph: float = _t * (6.0 + 1.7 * float(i)) + float(i) * 2.1
+			var s: float = 0.86 + 0.20 * sin(ph) + 0.07 * sin(ph * 2.7)
+			f.scale = Vector3(0.94 + 0.10 * sin(ph * 1.3), s, 1.0)
+			f.position.x = sin(ph * 0.7) * 0.022
+			f.position.z = cos(ph * 0.9) * 0.022
 
 ## 4. Crane — mast, jib out over the deck, and a hook block that swings in the wind.
 ## The mast/jib used to be plain boxes and the "hook" a single 0.5x0.7x0.3 block on a

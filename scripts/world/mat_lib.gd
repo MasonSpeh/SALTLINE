@@ -263,6 +263,57 @@ static func concrete() -> StandardMaterial3D:
 	return _pbr("concrete", "Concrete012", Color(1.477, 1.577, 1.607), 0.45, 1.0, 0.0,
 		Color(0.66, 0.65, 0.62))
 
+## THE TOWER'S CONCRETE — bigger aggregate, and it stops repeating.
+##
+## Owner: "try a different, larger scale texture (any way to have pattern not visually
+## repeat every 20 m?) for the main concrete in the tower. This one isnt my favorite, im
+## curious if we have any other options."
+##
+## THE HONEST ANSWER ON "OTHER OPTIONS": there are exactly two concrete sets in the repo
+## and the other one is worse. Concrete046 was measured and abandoned (see the note above
+## `concrete()`): albedo RMS 0.0408 and a normal map whose mean slope is 0.9 degrees — it
+## is a photograph of a painted panel, not cast concrete, and at tower scale it reads as
+## flat grey card. A genuinely different look needs a new texture import, which is an
+## asset decision rather than a code one. So this does the two things that ARE available
+## and that between them change the character more than a swap would:
+##
+##  1. SCALE. uv_scale is repeats per world metre, so SMALLER means BIGGER features:
+##     0.45 (a tile every 2.22 m) -> 0.22 (every 4.55 m). The aggregate and form-board
+##     marks roughly double in size, which is what "larger scale" asks for and also what
+##     a 30 m tower shell wants — at 2.2 m the pattern was reading as noise.
+##
+##  2. THE REPEAT. Doubling the tile would ordinarily make tiling MORE obvious, so a
+##     second, very low frequency layer is multiplied over it: a fractal-noise detail map
+##     on the uv2 triplanar set at 0.055 repeats/m — one cycle every ~18 m, close to the
+##     20 m beat the owner is seeing, and mutually irrational with the 4.55 m base tile so
+##     the two never come back into step. It only modulates brightness (BLEND_MODE_MUL,
+##     floor 0.86, so at most a 14% darkening), which is enough to break the eye's lock on
+##     a repeating rectangle without looking like stains.
+##
+## This is the idiom `_surface`/`_fine` already use for the procedural materials, applied
+## to a photo base — and it stays a StandardMaterial3D, which matters: both batchers
+## reject anything else outright (mesh_batcher "shader material" -> _no), so a
+## ShaderMaterial here would drop the tower shell and the caisson legs out of batching.
+##
+## Registered under its OWN cache key, so `concrete()` — which is also the four 109 m
+## legs, the ops room and a dozen other surfaces — is untouched and this can be judged on
+## the tower alone before spreading.
+static func concrete_tower() -> StandardMaterial3D:
+	if _cache.has("concrete_tower"):
+		return _cache["concrete_tower"]
+	# Built through _pbr under a throwaway key so it inherits every map and the world
+	# triplanar setup, then re-scaled and given the anti-tiling layer, then re-keyed.
+	var m: StandardMaterial3D = _pbr("concrete_tower_base", "Concrete012",
+		Color(1.477, 1.577, 1.607), 0.22, 1.0, 0.0, Color(0.66, 0.65, 0.62)).duplicate()
+	m.detail_enabled = true
+	m.detail_blend_mode = BaseMaterial3D.BLEND_MODE_MUL
+	m.detail_albedo = _noise_tex(20404, 0.9, 0.86, 3)
+	m.uv2_triplanar = true
+	m.uv2_world_triplanar = true
+	m.uv2_scale = Vector3(0.055, 0.055, 0.055)
+	_cache["concrete_tower"] = m
+	return m
+
 static func concrete_floor() -> StandardMaterial3D:
 	return _pbr("concrete_floor", "Concrete012", Color.WHITE, 0.3, 1.0, 0.0, Color(0.52, 0.52, 0.5))
 

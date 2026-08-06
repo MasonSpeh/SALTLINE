@@ -105,6 +105,17 @@ physics/jolt_physics_3d/simulation/use_enhanced_internal_edge_removal=true
 renderer/rendering_method="gl_compatibility"
 renderer/rendering_method.mobile="gl_compatibility"
 textures/vram_compression/import_etc2_astc=true
+; ANISOTROPY. Never set, so it ran at the engine default of 2x while mat_lib asks every
+; material for TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC — i.e. the filter was
+; requested and then starved. Concrete is the surface that pays for it: uv_scale 0.45 is
+; ~461 texels/m over the largest flat walls in the game, carrying the library's highest
+; normal relief (11.5 deg mean slope) under an albedo tint above 1.0. Viewed along a wall
+; the world-triplanar axis running away from you compresses while the vertical one does
+; not, and 2x anisotropy cannot resolve that ratio — the aliasing bands then run UP the
+; wall and crawl as you walk, which is the owner's "moving vertical lines on the concrete".
+; 4 = 16x. There is no AA of any kind on gl_compatibility here (no MSAA key, no TAA), so
+; filtering is the only lever that touches this class of shimmer.
+textures/default_filters/anisotropic_filtering_level=4
 lights_and_shadows/directional_shadow/size=8192
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
 lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3

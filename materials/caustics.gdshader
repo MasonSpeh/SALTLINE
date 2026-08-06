@@ -78,14 +78,19 @@ void vertex() {
 }
 
 void fragment() {
-	// `top_y` IS THE SEA HEIGHT AT THE PLAYER'S XZ, NOT AT THIS LEG. underwater_fx.gd:342
-	// writes `Gyre.swim_line(player.xz, ...)` into the one shared material all 16 quads use,
-	// so the whole caustic band on all four caissons rides the player's own Gerstner phase:
-	// swim 10 m and it slides up and down every pillar in the rig, including ones 40 m away.
-	// That is a pattern on a wall that moves because the PLAYER moved, which is the owner's
-	// original report, and it is not what s31 fixed. The still-water line (`Gyre.tide()`) is
-	// the correct reference — same call this repo already made for the topside cull in s21 —
-	// but it is set from underwater_fx.gd, so it is not fixable here.
+	// `top_y` IS THE STILL-WATER LINE, AND THIS COMMENT USED TO SAY THE OPPOSITE.
+	//
+	// It described a real shipped bug — underwater_fx wrote `Gyre.swim_line(player.xz)`
+	// into the one shared material all 16 quads use, so the caustic band on every caisson
+	// rode the player's own Gerstner phase and slid up and down pillars 40 m away as they
+	// swam. That was fixed in s35: the write is now `Gyre.tide()` (underwater_fx.gd, in
+	// the per-frame caustic loop), which is observer-independent.
+	//
+	// The comment was left describing the broken version, and it has since sent two
+	// separate investigations of "moving lines on the concrete" down this dead end. If you
+	// are here chasing that symptom: caustics are gated to underwater only (the caustic
+	// root is hidden above `surf + 1.5`) and exist on the four caisson legs alone, so they
+	// cannot be responsible for anything seen topside or on the tower.
 	float d = top_y - v_world.y;
 	float belowness = clamp(d, 0.0, reach) / reach;
 	float fall = (1.0 - belowness);

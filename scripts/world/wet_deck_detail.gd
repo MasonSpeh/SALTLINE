@@ -587,10 +587,20 @@ func _stair_entry() -> void:
 	# It was at (15.4, -9.6), which cleared the pump and the door and still sat IN THE
 	# ARCHWAY LANE — a takeable on the floor of the one crossing the room had. It moved into
 	# the SE corner bay, which rig_builder._pump_room_plant keeps clear of the walk. s36
-	# walled that archway up and there is only the south door now, so the spool is no longer
-	# the first lit thing seen from the arch — it is 1.14 m east of the door lane's edge, on
-	# the plating just inside the threshold, which is the same job done from one opening.
-	_takeable("cable_spool", "Cable Spool", Vector3(16.0, y + 0.05, -13.1))
+	# walled that archway up and there is only the south door now — and that is exactly what
+	# made it hard to see. The only way in is the SOUTH door at x 14, so a player walks in
+	# facing NORTH, and the spool sat at z -13.1: on the south wall, a metre to the side of
+	# the threshold they just came through, i.e. behind their shoulder. Owner: "move the
+	# cable spool against the other wall to be more visible in the pump room."
+	#
+	# So: the north wall, in the eyeline from the door. The gap is real but narrow, and
+	# every neighbour is accounted for — LANE A (the door's walking lane) must stay clear
+	# at every z and ends at x 14.61; the works stool is at x 15.9. Centre 15.05 puts the
+	# 0.52 m spool at 14.79..15.31, which is 0.18 m clear of the lane and 0.35 m clear of
+	# the stool. z -6.45 stands it off the north wall's interior face (z -6.125) by its own
+	# half-depth plus a 6 cm gap, so it reads as leaning against the bulkhead rather than
+	# clipping it. The overhead pipe lamp on this wall is at y+2.15 and passes well above.
+	_takeable("cable_spool", "Cable Spool", Vector3(15.05, y + 0.05, -6.45))
 
 # ---------------------------------------------------------------- tide bands
 
