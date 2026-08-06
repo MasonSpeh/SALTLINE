@@ -3577,9 +3577,19 @@ func _surface_grime() -> void:
 	DECAL.sticker(self, rust2, Vector3(10.4, WET_Y + 1.8, -16.14), Vector3(0, 0, 1), Vector2(0.3, 1.5))
 	# Caisson legs: rust bleeds off the deck connection down the inboard faces (very
 	# visible from the wet deck and the sea).
+	#
+	# ON THE FACE, DERIVED FROM THE FACE. The half-width here was hand-typed as 3.14
+	# against LEG_SIZE's real 3.0, which hung every weep streak 0.14 m (plus the sticker's
+	# own 0.015 z-fight offset) PROUD of the concrete — and a thin vertical quad floating
+	# 15 cm in front of a textured wall slides across it with every step the viewer takes.
+	# That parallax is the owner's twice-reported "moving vertical lines on the main
+	# support": it stood still when they stood still, which is also why it kept reading as
+	# "fixed" and then "back again". The oldest trap in the book (never hand-type a
+	# coordinate), on the most-looked-at surface on the rig. DetailDecal's own offset
+	# supplies the anti-z-fight standoff; nothing else should.
 	for leg in [Vector3(-22, 0, -12), Vector3(22, 0, -12), Vector3(-22, 0, 12), Vector3(22, 0, 12)]:
-		var nx: float = -sign(leg.x)                 # inboard normal (toward centre)
-		var fx: float = leg.x + sign(leg.x) * -3.14  # inboard face
+		var nx: float = -sign(leg.x)                     # inboard normal (toward centre)
+		var fx: float = leg.x - sign(leg.x) * LEG_SIZE.x * 0.5  # inboard face, exactly
 		DECAL.sticker(self, rust, Vector3(fx, DECK_Y - 4.0, leg.z - 1.4), Vector3(nx, 0, 0), Vector2(0.4, 4.5))
 		DECAL.sticker(self, rust2, Vector3(fx, DECK_Y - 5.5, leg.z + 1.5), Vector3(nx, 0, 0), Vector2(0.3, 3.5))
 		DECAL.sticker(self, wash, Vector3(fx, 3.5, leg.z), Vector3(nx, 0, 0), Vector2(2.4, 2.6))

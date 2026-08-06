@@ -1901,3 +1901,31 @@ The rest of the cat pass, all film- or probe-verified:
     s43 shader beat was invisible on a mesh authored wings-folded. Film pending.
 
 TestRunner 0, CatProbe 0, CatHuntProbe 0, CatJointProbe 0 (all gates, two runs).
+
+## s44b — the pounce on film, the pole lines to ground, and concrete with no period
+
+The hunt exists on film end to end at last: stalk (202 frames of belly-down creep),
+pounce (the gull bursting upward on the LAUNCH flush, overlay wings spread), the miss,
+and the displacement wash under a bird climbing away overhead
+(tests/out/cat_review/hunt/). It took three takes and the honest lesson is recorded in
+the reel: two un-directed takes rolled the bird's fear dice both ways (flushed early /
+never arrived), so the reel now directs — the gull holds its mark until the cat commits,
+then wakes for a live escape. The stalk's honesty stands on the un-directed takes.
+
+The owner's "moving vertical lines on the main support", closed with numbers: the
+caisson rust-weep decals were placed by a hand-typed half-width (3.14 vs LEG_SIZE's 3.0)
+and hovered 0.155 m proud — thin vertical quads sliding against the wall with every step
+the VIEWER took, still when they stood still, which is why the report kept flipping
+between fixed and back. Derived from LEG_SIZE now. tests/PoleShot.tscn (new) proves the
+pole: hold segments (viewer still, sun pinned, 5 s) measure 0.000-0.170% pixels changed
+across three faces and two sun angles; the x40-clock control shows 78.9%, so the
+instrument can see motion — there is none to see. Caustics excluded by three printed
+gates.
+
+The tower concrete stops repeating instead of repeating differently:
+materials/concrete_antitile.gdshader — world triplanar, per-4.55 m-cell hashed
+90-degree isometries with border blending, and a 1/8-frequency macro layer — at 6 taps
+against the replaced StandardMaterial3D's 12. A/B switch: MatLib.TOWER_ANTITILE.
+Filmed clean at grazing and wide (tests/out/cat_review/s44_tower_antitile.png).
+
+TestRunner 0 after all of it.

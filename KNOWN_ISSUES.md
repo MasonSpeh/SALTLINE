@@ -20,23 +20,26 @@ landed and nobody updated the file.
 
 ## Watch items
 
-- **The static vertical micro-banding on concrete at grazing view — characterised, not
-  yet killed.** s42's 16x anisotropy stopped the lines MOVING (owner-confirmed); a residue
-  of fine static vertical banding remains on Concrete012-family surfaces viewed along the
-  wall. tests/WallShot.tscn now exists to measure it (stripe RMS ~4.4/255 at a brutal
-  grazing angle, ~2.1 near-field). Eliminated by A/B, each measured: NOT shadow acne
-  (identical at low sun and noon), NOT the normal map (normal_enabled off = wall-region
-  diff exactly 0.000), NOT VRAM block compression (lossless reimport: RMS 4.43 -> 4.41),
-  NOT albedo high-frequency content (1.1 px pre-blurred maps: 4.43 -> 4.35), NOT the
-  capture pipeline (native-resolution frames band identically). FFT puts the dominant
-  period at ~13 px ~= one texel of mip 4-5 at that distance — i.e. the texture's own
-  low-mip structure under gl_compatibility's grazing sampling. Next levers, in order:
-  (a) verify whether the project aniso level actually lands on this backend (read it back
-  live, not from the file — the silent-property trap); (b) regenerate the concrete's mip
-  chain with per-level blur (needs a tool step; a full-res blur cannot reach mip 5);
-  (c) the new-asset route already flagged for the tower. The instrument and the
-  elimination table are the session's product; whoever picks this up starts at (a), not
-  at zero.
+- **Concrete micro-banding at grazing view — the MOVING report is closed; a small static
+  residue stays on watch.** The owner's twice-reported "moving vertical lines on the main
+  support" had a second cause beyond s42's aniso fix: the caisson rust-weep DECALS were
+  placed by a hand-typed half-width (3.14 vs LEG_SIZE's 3.0) and hung 0.155 m proud of the
+  concrete — thin 4.5 m vertical quads that slid against the wall with every step the
+  viewer took, stood still when they stood still, and so read as "fixed" or "back again"
+  depending on whether the owner was walking. Fixed in s44 (derived from LEG_SIZE;
+  rig_builder.gd) and proven by instrument: tests/PoleShot.tscn films the pole at 0.8 m
+  with hold / clock / strafe discriminator segments — hold (viewer still, sun pinned,
+  5.0 s) measures 0.000-0.170% pixels changed across three faces and two sun angles, i.e.
+  NOTHING on the pole moves by itself, while the x40-clock control proves the instrument
+  sees real motion (78.9%). Caustics excluded by three gates (printed live per segment).
+  What remains open is only s43b's fine STATIC banding at brutal grazing (stripe RMS
+  ~4.4/255, FFT-pinned to mip 4-5 texel structure); its lever list stands: (a) read the
+  aniso level back off the live backend, (b) per-mip-level blur regeneration, (c) the
+  new-asset route. The tower now runs materials/concrete_antitile.gdshader (per-cell
+  hashed isometries + 1/8-frequency macro layer, 6 taps vs the old 12; A/B switch
+  `MatLib.TOWER_ANTITILE`), which also changes its mip statistics — re-measure (a)/(b)
+  against the CAISSON's `concrete()`, which still ships the pre-s42 recipe at 2x the
+  tower's texel density.
 
 ## Open after s38 — the cat
 

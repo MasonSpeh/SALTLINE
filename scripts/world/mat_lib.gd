@@ -298,10 +298,45 @@ static func concrete() -> StandardMaterial3D:
 ## Registered under its OWN cache key, so `concrete()` — which is also the four 109 m
 ## legs, the ops room and a dozen other surfaces — is untouched and this can be judged on
 ## the tower alone before spreading.
-static func concrete_tower() -> StandardMaterial3D:
+##
+## THE STRUCTURAL ROUTE (owner rejected both texture options — the complaint is the
+## repeat itself): materials/concrete_antitile.gdshader keeps this key's maps, tint and
+## 0.22 base tile but hashes the world-space tile lattice — every 4.55 m cell gets a
+## quarter-turn + fractional slide of its own, blended across cell borders, plus the same
+## albedo multiplied back in at 1/8 frequency (one macro cycle per ~36 m, strength 0.18).
+## Two cells can now only match by colliding in both turn and offset. Costs 6 texture
+## taps/fragment on a flat face against the StandardMaterial3D build's unconditional 12
+## (BaseMaterial3D samples all three triplanar planes for every map); the tap arithmetic
+## is in the shader header.
+##
+## The batching warning above is measured to be moot FOR THIS KEY: every consumer is
+## rig_builder._build_stair_tower (rig_builder.gd:918) and every piece it builds is
+## COLLIDING CSG — which rig_batcher already refuses ("keep colliding structure as-is",
+## rig_batcher.gd:230) and mesh_batcher never visits (it walks MeshInstance3D only). The
+## shell was never batched, so the ShaderMaterial costs zero draws. The warning stands
+## for anyone who hangs this material on a non-colliding dressing mesh — that WOULD fall
+## out of the weld.
+const TOWER_ANTITILE: bool = true  ## false = the s42 StandardMaterial3D build, for A/B on film
+
+static func concrete_tower() -> Material:
 	if _cache.has("concrete_tower"):
 		return _cache["concrete_tower"]
-	# Built through _pbr under a throwaway key so it inherits every map and the world
+	var albedo := _tex("Concrete012", "Color")
+	if TOWER_ANTITILE and albedo != null:
+		var sm := ShaderMaterial.new()
+		sm.shader = load("res://materials/concrete_antitile.gdshader")
+		sm.set_shader_parameter("albedo_tex", albedo)
+		sm.set_shader_parameter("normal_tex", _tex("Concrete012", "NormalGL"))
+		sm.set_shader_parameter("rough_tex", _tex("Concrete012", "Roughness"))
+		# Same tint solve and base tile as the s42 build — the A/B compares variation,
+		# not tone or scale. macro_mean is the map's own measured linear mean (it centres
+		# the macro multiply on 1.0; derivation in the shader).
+		sm.set_shader_parameter("tint", Color(1.477, 1.577, 1.607))
+		sm.set_shader_parameter("uv_scale", 0.22)
+		sm.set_shader_parameter("macro_mean", Vector3(0.249, 0.216, 0.164))
+		_cache["concrete_tower"] = sm
+		return sm
+	# The s42 build: _pbr under a throwaway key so it inherits every map and the world
 	# triplanar setup, then re-scaled and given the anti-tiling layer, then re-keyed.
 	var m: StandardMaterial3D = _pbr("concrete_tower_base", "Concrete012",
 		Color(1.477, 1.577, 1.607), 0.22, 1.0, 0.0, Color(0.66, 0.65, 0.62)).duplicate()

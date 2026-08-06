@@ -729,10 +729,28 @@ func _reel_hunt(sim_per_frame: int) -> void:
 		return
 	print("[film] hunt: gull at %s" % str(gull.global_position.snappedf(0.1)))
 	var away: Vector3 = Vector3(1, 0, 0.4).normalized()
-	_cat.global_position = gull.global_position + away * 6.0
+	# STAGE OUTSIDE THE BIRD'S OWN FEAR, or there is no hunt to film. DeckGull rolls a
+	# flush against the PLAYER inside 10 m (and hard-flushes under 1.5), and the previous
+	# staging put the player 4.5 m from the bird — it was airborne before the first
+	# capture and `_find_prey` correctly returned null for fourteen seconds of a cat
+	# sitting politely beside its handler. So: the cat starts at real stalking range
+	# (9.5 m, inside HUNT_M 11), the player CROUCHES (the roll's own "flatly undetectable"
+	# clause — the same mechanic a player filming a cat hunt would use) and trails the cat
+	# from behind so the companion gate (d < RUN_M) holds all the way in.
+	# THE BIRD HOLDS ITS MARK. Two honest takes rolled the dice both ways — take one the
+	# bird flushed off the trailing player eight seconds in (stalk, no payoff), take two it
+	# never flushed and the cat crept for twenty-six seconds without arriving (stalk, no
+	# payoff). The reel's subject is the POUNCE, so the reel directs: the gull's process is
+	# frozen for the approach (it stands its mark — no wander, no fear roll) and wakes the
+	# frame the cat commits (_hunt >= 3), so the launch-flush and the escape flight it
+	# triggers are the real shipping behaviour, filmed up close. The stalk's own honesty
+	# was already established by the un-directed takes.
+	gull.set_process(false)
+	_cat.global_position = gull.global_position + away * 8.0
 	if _cat.has_method("_reseat"):
 		_cat.call("_reseat")
-	_player.global_position = _cat.global_position + away * 1.5
+	_player.global_position = _cat.global_position + away * 6.0
+	_player.set("crouching", true)
 	# ARM THE HUNT. Every other reel pins _hunt_cd at 999 every frame to keep its own
 	# subject clean, and that pin is STICKY — the first combined-reel run filmed fourteen
 	# seconds of a cat sitting politely beside a gull it had been forbidden to notice.
@@ -743,13 +761,24 @@ func _reel_hunt(sim_per_frame: int) -> void:
 		await get_tree().physics_frame
 	var travel: float = _bearing(gull.global_position - _cat.global_position)
 	# Wide and low, so the crouch, the freezes and the tread all read against the deck.
-	for f in range(int(14.0 * _fps)):
+	# 26 s: a 7.8 m creep at STALK_SPEED with freezes genuinely takes ~20, and the pounce,
+	# the flush and the aftermath wash are the payoff frames.
+	for f in range(int(26.0 * _fps)):
 		var place := func() -> void:
+			_player.set("crouching", true)
+			_player.global_position = _cat.global_position + away * 6.0
+			# Wake the bird the frame the leap commits, so the flush and the escape
+			# climb — wings up, then the burst — are its own live behaviour.
+			if int(_cat.get("_hunt")) >= 3 and is_instance_valid(gull):
+				gull.set_process(true)
 			var mid: Vector3 = _cat.global_position.lerp(gull.global_position, 0.4)
 			var eye: Vector3 = (_cat.global_position - gull.global_position).normalized()
 			_cam.global_position = mid + eye.rotated(Vector3.UP, PI * 0.5) * 3.1 + Vector3(0, 0.65, 0)
 			_cam.look_at(mid + Vector3(0, 0.2, 0), Vector3.UP)
 		await _shoot("hunt", str(_cat.get("_pose")), travel, sim_per_frame, place)
+	_player.set("crouching", false)
+	if is_instance_valid(gull):
+		gull.set_process(true)
 
 ## THE GIFT CARRY — the proudest walk the cat has, and one of the two states (with the
 ## stalk) that no reel ever filmed moving. The carry is installed directly (`_carry`) so the
