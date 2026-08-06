@@ -350,6 +350,7 @@ func _ready() -> void:
 			"headrun": await _reel_line("headrun", Vector3(1, 0, 0), 12.0, 3.0, sim_per_frame, true)
 			"turn": await _reel_turn(sim_per_frame)
 			"above": await _reel_above(sim_per_frame)
+			"topdown": await _reel_topdown(sim_per_frame)
 			"rear": await _reel_rear(sim_per_frame)
 			"wash": await _reel_wash(sim_per_frame)
 			"jump": await _reel_jump(sim_per_frame)
@@ -432,6 +433,52 @@ func _reel_line(reel: String, dir: Vector3, lead: float, seconds: float,
 		else:
 			stalled = 0
 		last = _cat.global_position
+
+## STRAIGHT DOWN, WORLD-FIXED — the instrument for "does the head point straight", built to
+## have NO interpretation left in it. A head-on reel still asks the viewer to judge
+## perspective; this one does not. The camera sits high above a cat walking a known world
+## direction, looking straight down (-Y), with the camera's UP axis locked to the TRAVEL
+## direction — so on screen, "toward the top of the frame" IS "the way the cat is going",
+## by construction, every frame. A head/nose that reads straight up is straight. A head
+## rotated left or right of vertical in the image is off by exactly that many degrees, no
+## trig required to read it.
+##
+## Exists because two prior fixes for the head-default-orientation complaint each shipped
+## on a NUMERIC gate that shared its own correction constant with the fix being graded —
+## the s34 seal tautology's shape, repeated. A tautology cannot survive being looked at:
+## this reel has no constant in it that could be wrong in a way that also hides itself.
+func _reel_topdown(sim_per_frame: int) -> void:
+	var dir := Vector3(1, 0, 0)          # world +X — arbitrary, just has to be KNOWN
+	var stage := Vector3(3.0, 18.0, -3.0)
+	var start: Vector3 = stage - dir * 6.0
+	_cat.global_position = start
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	_cat.rotation.y = deg_to_rad(_bearing(dir)) + PI
+	_player.global_position = _cat.global_position + dir * 5.0
+	for i in range(20):
+		_player.global_position = _cat.global_position + dir * 5.0
+		await get_tree().physics_frame
+	var travel: float = _bearing(dir)
+	print("[film] topdown: rolling from %s" % str(_cat.global_position.snappedf(0.1)))
+	for f in range(int(3.0 * _fps)):
+		var place := func() -> void:
+			_cat.set("_hunt_cd", 999.0)
+			_cat.set("_zoom_cd", 999.0)
+			_cat.set("_play_cd", 999.0)
+			_player.global_position = _cat.global_position + dir * 5.0
+			# Directly overhead, looking straight down. The THIRD argument to look_at is
+			# the reference "up" — feeding it the travel direction is what locks screen-up
+			# to world-+X instead of Godot's default screen-up-is-world-up (which is
+			# undefined for a straight-down look_at and would spin per-frame otherwise).
+			_cam.global_position = _cat.global_position + Vector3(0, 3.2, 0)
+			_cam.look_at(_cat.global_position, dir)
+		await _shoot("topdown", "topdown", travel, sim_per_frame, place)
+		# A heartbeat every second of film. The first run of this reel sat 39 minutes at
+		# full CPU with zero frames and an empty (buffered) CSV — completely silent. A
+		# stalled reel must say WHERE it is stalled or the only diagnostic is `kill`.
+		if f % int(_fps) == 0:
+			print("[film] topdown frame %d at %s" % [f, str(_cat.global_position.snappedf(0.1))])
 
 ## TURN IN PLACE — flaw 4. The player is swung around the cat at a fixed radius just inside
 ## FOLLOW_NEAR, so the cat wants to face a moving bearing without having anywhere to walk.

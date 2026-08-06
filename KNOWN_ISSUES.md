@@ -20,6 +20,24 @@ landed and nobody updated the file.
 
 ## Watch items
 
+- **The static vertical micro-banding on concrete at grazing view — characterised, not
+  yet killed.** s42's 16x anisotropy stopped the lines MOVING (owner-confirmed); a residue
+  of fine static vertical banding remains on Concrete012-family surfaces viewed along the
+  wall. tests/WallShot.tscn now exists to measure it (stripe RMS ~4.4/255 at a brutal
+  grazing angle, ~2.1 near-field). Eliminated by A/B, each measured: NOT shadow acne
+  (identical at low sun and noon), NOT the normal map (normal_enabled off = wall-region
+  diff exactly 0.000), NOT VRAM block compression (lossless reimport: RMS 4.43 -> 4.41),
+  NOT albedo high-frequency content (1.1 px pre-blurred maps: 4.43 -> 4.35), NOT the
+  capture pipeline (native-resolution frames band identically). FFT puts the dominant
+  period at ~13 px ~= one texel of mip 4-5 at that distance — i.e. the texture's own
+  low-mip structure under gl_compatibility's grazing sampling. Next levers, in order:
+  (a) verify whether the project aniso level actually lands on this backend (read it back
+  live, not from the file — the silent-property trap); (b) regenerate the concrete's mip
+  chain with per-level blur (needs a tool step; a full-res blur cannot reach mip 5);
+  (c) the new-asset route already flagged for the tower. The instrument and the
+  elimination table are the session's product; whoever picks this up starts at (a), not
+  at zero.
+
 ## Open after s38 — the cat
 
 - **`ship_cat._walk_skip()` still does not skip other fauna, and the obvious fix is wrong.**

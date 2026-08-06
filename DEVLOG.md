@@ -1835,3 +1835,30 @@ KNOWN_ISSUES with the re-rig pointer; the film judges visibility.
 
 Capture set: tests/CatFilm gained gift / lookwalk / idle / tail reels; the review pack
 (REVIEW.md, per-clip "what correct looks like") ships in tests/out/cat_review/.
+
+---
+
+## s43 — birds that beat their wings, a reef that circles, the cat's head finally straight
+
+GULLS AND FISH are in the s43 commit before this one (wing flap with flap/glide phrasing,
+wall-tested flight paths for flush/flee/heist-swoop, pillar orbits recentred on the legs
+and widened 5.0-6.8 m with integrated phase and even ring spacing, station-mate separation
+plus the butterfly pair's tether).
+
+THE CAT'S HEAD is the story. The owner repeated, in capitals, that the head still defaults
+to pointing right while walking — after two sessions of numeric gates said it was fixed.
+Both gates were tautologies of the same shape: a derived correction constant graded by an
+instrument carrying a derived proxy constant, the two cancelling. The new instrument has no
+constant to be wrong: CatFilm's `topdown` reel films from straight above with the camera's
+UP locked to the travel direction, so "nose reads vertical in the strip" IS "head points
+where the cat walks", by construction. On that reel the film-true correction is
+HEAD_MESH_YAW = 1.30 rad — the derived 0.597 was projecting through the head's skewed rest
+frame at ~0.62 gain, which is why paper said fixed and eyes said no. The joint probe's
+NOSE_OFF_Y is now calibrated FROM the film (reads 0.004 deg at the film-true setting) and
+exists only to catch future drift. CatProbe green throughout.
+
+THE VERTICAL LINES got a measurement campaign instead of a fix, and that is the honest
+outcome: five instrumented A/Bs eliminated shadow acne, the normal map, VRAM compression,
+albedo content and the capture pipeline itself; FFT characterises the residue as low-mip
+texel structure under grazing sampling. Full table + next levers in KNOWN_ISSUES;
+tests/WallShot.tscn is the reusable instrument.

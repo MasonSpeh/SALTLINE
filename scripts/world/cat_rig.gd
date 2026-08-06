@@ -77,9 +77,15 @@ const TAIL_MAX: float = 0.30
 ## angle between the head's own mirror-symmetry plane and the torso's, measured off the
 ## GLB's vertices rather than off its joint frames — which is the only way to see it,
 ## because every joint-frame instrument in this repo calibrates the rest pose to zero.
-## SIGN VERIFIED BY RENDER, not by algebra: the head-on reel must show the face square to
-## the camera. If a future re-roll of the asset comes back straight, set this to 0.0.
-const HEAD_MESH_YAW: float = 0.597
+## TUNED ON FILM, not derived — and the derivation's failure is the lesson. The measured
+## mesh bias (34.2 deg by symmetry planes, 38.9 by the joint-to-nose ray) was applied as
+## 0.597 and the tautology-proof top-down reel (screen-up locked to the travel direction)
+## STILL showed the head ~25 deg left of the body line: the applied rotation projects
+## through the head's skewed rest frame at well under unit gain, so a derived angle
+## under-corrects and no instrument that shares the constant can see it. The number below
+## is closed-loop: bumped and re-filmed until the nose reads straight up in the top-down
+## strip. If the asset is ever re-rolled, re-tune on that reel, not on paper.
+const HEAD_MESH_YAW: float = 1.30
 
 ## Footfall phase offsets per limb, in cycles. The gait MODE is not a switch: the active
 ## offsets are themselves eased between these tables as speed crosses the bands, so a cat

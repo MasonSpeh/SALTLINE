@@ -284,15 +284,17 @@ func _scn_head_bias() -> void:
 	var rest_bias: float = rad_to_deg(angle_difference(
 		atan2(node_fwd.x, node_fwd.z), atan2(rest_fwd.x, rest_fwd.z)))
 	_cat.set_process(true)
-	# THE NOSE IS NOT THE HEAD BONE'S +Y. Every joint-frame instrument in this repo has
-	# quietly assumed it is, and that is how a head baked 34 degrees off the body axis was
-	# reported as "+0.91 deg residual" for three sessions. Measured off the GLB's actual
-	# vertices (the head's mirror-symmetry plane against the torso's, residuals 2.2 mm and
-	# 4.6 mm), the nose sits NOSE_OFF_Y radians from the +Y proxy about the body's up axis.
-	# Applying that here makes this gate a statement about the drawn face rather than about
-	# a convenient axis — and it is independent of cat_rig's correction, so it cannot
-	# become a tautology the way _calibrate_face did.
-	const NOSE_OFF_Y: float = -0.600
+	# THE NOSE IS NOT THE HEAD BONE'S +Y, AND THIS CONSTANT IS CALIBRATED ON FILM — the
+	# only definition that has survived contact with the owner. The first value here
+	# (-0.600, derived from the mesh's symmetry planes) certified a head as straight that
+	# the top-down reel showed cocked ~25 degrees: a derived proxy constant and a derived
+	# fix constant were cancelling — the s34 tautology shape in yet another hat. The loop
+	# is now closed the honest way round: cat_rig.HEAD_MESH_YAW was tuned until CatFilm's
+	# `topdown` reel (camera straight down, screen-up locked to the travel direction — no
+	# constant of its own to be wrong) shows the nose dead on the body line, and THEN this
+	# offset was set so the probe reads that film-verified state as zero. The film defines
+	# straight; this gate exists only to catch future drift away from it.
+	const NOSE_OFF_Y: float = -1.222
 	var yaws: Array[float] = []
 	var pos_prev: Vector3 = _cat.global_position
 	for f in range(int(5.0 / DT)):
