@@ -580,6 +580,27 @@ func _fly_jump(delta: float) -> void:
 	_moved_frame += global_position.distance_to(before_fly)
 	_face(_jump_to, delta * 2.0)
 	_last_speed = RUN_SPEED
+	# THE FLIGHT IS PHASED, NOT A FREEZE-FRAME — the owner's leap, beat for beat: push off
+	# the hinds, sprawl through the top, then front feet reaching first into the landing.
+	# One static mid-air stretch across the whole arc read as an animal hung from a wire.
+	# `play_seq([], pose, rate)` is the grammar-free pose set (the family grammar would
+	# route jump -> jump_descend through the sit machinery).
+	if _rig != null:
+		if k < 0.24:
+			_rig.call("play_seq", [], "jump_launch", 16.0)
+		elif k < 0.60:
+			_rig.call("play_seq", [], "jump", 14.0)
+		else:
+			_rig.call("play_seq", [], "jump_descend", 14.0)
+		# ...AND THE BODY ROTATES THROUGH THE ARCH. The trunk pitch follows the arc's own
+		# tangent — nose-up on the way up, level over the top, nose-down into the descent —
+		# through the same skeletal slope channel the ramps use, so it is chest-and-pelvis
+		# rotation, never the node. The stabiliser keeps the HEAD level on top of it, which
+		# is exactly the flat-eyed arc every slow-motion cat jump shows.
+		var horiz: float = maxf(Vector2(_jump_to.x - _jump_from.x,
+			_jump_to.z - _jump_from.z).length(), 0.2)
+		var lift2: float = maxf(_jump_to.y - _jump_from.y, 0.0) * 0.35 + 0.14
+		_rig.call("slope", atan2(PI * cos(k * PI) * lift2, horiz) * 0.85)
 	if _jump_t <= 0.0:
 		global_position = _jump_to
 		_jump_cd = JUMP_CD
@@ -655,7 +676,15 @@ func _companion(delta: float, player: Node3D) -> void:
 				continue
 			if global_position.distance_to(n.global_position) > HUNT_M:
 				continue
-			_watch(n.global_position, 1.0)
+			# A WALKING CAT GLANCES; A SITTING CAT STARES. This watch ran at full weight in
+			# every state, and it is not gated by `_hunt_cd` — so with any gull in the air
+			# within eleven metres (i.e., most of the time on this deck), the companion
+			# walked with its head hauled a full look-clamp toward the bird. That is the
+			# owner's eight-times-reported "head defaults to pointing sideways while it
+			# walks": not a rig constant, an attention weight no walking animal would hold.
+			# Stationary keeps the locked-on stare the chatter deserves; on the move it is
+			# a flick of the ears and eyes, and the head stays on the line of travel.
+			_watch(n.global_position, 0.22 if _last_speed > 0.2 else 1.0)
 			if _rig != null:
 				_rig.call("chatter", 1.0)
 				# A bird it cannot have is the single most reliable tail-lash there is.
@@ -1350,8 +1379,17 @@ func _maybe_wash() -> void:
 ## Is this bird already in the air? A gull in flight is not prey, and `_flushing` is DeckGull's
 ## own flag for it (< 0 grounded, >= 0 seconds airborne).
 func _airborne(n: Node3D) -> bool:
+	# THE FLAG, AND THEN THE GEOMETRY. `_flushing` is one species' one state variable, and
+	# trusting it alone let the cat stalk — and once, pounce at — a bird that was plainly
+	# in the air but not in that state (circling, or another species spelling its state
+	# differently). Altitude cannot be argued with: anything holding itself more than a
+	# body-height above the cat's own deck is not stalkable prey, whatever its flags say.
+	# (A bird perched on a crate trips this too, which is correct twice over — the cat
+	# cannot reach it, and chattering at it instead is exactly what a cat would do.)
 	var f = n.get("_flushing")
-	return f != null and float(f) >= 0.0
+	if f != null and float(f) >= 0.0:
+		return true
+	return n.global_position.y - global_position.y > 0.35
 
 ## The nearest gull on this deck that is on the ground and worth stalking. Birds in the air
 ## are not prey, they are frustration — see the chatter.
@@ -1492,6 +1530,16 @@ func _launch_pounce(target: Vector3) -> void:
 	# and a pounce that overshoots by a body length looks more like a cat than one that
 	# arrives dead centre every time.
 	_jump_to = land
+	# THE BIRD REACTS TO THE LEAP, NOT TO BEING LANDED ON. Flushing only at touchdown left
+	# the gull standing oblivious through the whole 0.4 s flight and then teleporting into
+	# panic on the exact frame the cat arrived — the owner's "no physics/interaction, not
+	# realistic". A real bird explodes upward the instant the cat leaves the deck, so the
+	# flush fires HERE, and the catch (in _resolve_pounce) is now a race the cat usually
+	# loses: it connects only if the bird is still inside the first wingbeats when the paws
+	# arrive. Most pounces become a burst of gull with the cat landing in its wake — which
+	# is what nine out of ten real pounces on birds look like.
+	if _prey != null and is_instance_valid(_prey) and _prey.has_method("_flush"):
+		_prey.call("_flush", self)
 	AudioDirector.play_one_shot("cat_chirp", global_position, -22.0)
 
 ## IS THE WHOLE LEAP CLEAR, not just where it ends?
@@ -1518,11 +1566,17 @@ func _resolve_pounce() -> void:
 	var caught: bool = false
 	if _prey != null and is_instance_valid(_prey):
 		var pd: float = global_position.distance_to(_prey.global_position)
-		caught = pd < 1.0 and _rng.randf() < CATCH_CHANCE
-		# The bird goes either way — it is not eaten and it is not deleted. Flushing it is
-		# both what really happens and the only honest thing to do to another system's animal:
-		# DeckGull owns its own lifecycle, including coming back, and reaching into that from
-		# here is how one species' bug becomes two.
+		# THE CATCH IS GATED BY GEOMETRY, NOT BY A FLAG. The bird was flushed at launch, so
+		# by touchdown its `_flushing` flag is always set — the question is whether it is
+		# still LOW: inside the first wingbeats, under half a metre off the deck, within a
+		# paw's reach. A bird that is properly airborne cannot be caught, full stop — which
+		# also closes the owner's "jumped on a bird that was just flying around": however
+		# the flags read, altitude says no.
+		var prey_alt: float = _prey.global_position.y - global_position.y
+		caught = pd < 1.15 and prey_alt < 0.45 and _rng.randf() < CATCH_CHANCE
+		# The bird goes either way — it is not eaten and it is not deleted. The flush at
+		# launch already sent it; this repeat is harmless insurance for the paths that
+		# reach here without one (an aborted arc mid-flight).
 		if _prey.has_method("_flush"):
 			_prey.call("_flush", self)
 	if caught:

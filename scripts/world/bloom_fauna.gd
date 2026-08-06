@@ -2850,6 +2850,132 @@ class FaunaTouch extends Interactable:
 		act_fn.call(verb, player)
 		interacted.emit(verb)
 
+# -------------------------------------------------------------- GullWings
+class GullWings extends RefCounted:
+	## Overlay flight wings for the herring-gull species (DeckGull, CorvidGull).
+	##
+	## s43 played the flight wingbeat through creature_swim's vertex sine and the owner's
+	## verdict was that nothing visibly changed. The ceiling is the asset: the herring gull
+	## is ONE unrigged surface authored with the wings FOLDED, so a vertex sine on it peaks
+	## at a ~3 cm shimmer — invisible at gameplay distance. Visible flapping needs geometry
+	## that moves, so: two tapered PrismMesh panels (the seal-flipper idiom) on shoulder
+	## pivots, rotating about the body's fore-aft axis — a dihedral beat.
+	##
+	## HIDDEN ON THE GROUND. The folded wings are already painted into the authored mesh,
+	## so a grounded bird wearing this pair has four wings; the panels show only while the
+	## species' own airborne state says so — every write to that state flips them, never a
+	## parallel flag that can drift. Solid prisms rather than quads because a flying bird
+	## is mostly seen from BELOW, where a single-sided face would cull away.
+	const RAISE := 1.0        ## rad — both wings thrown straight up at flush
+	const HOLD_S := 0.12      ## s the raise is held before the first downstroke
+	const GLIDE := 0.15       ## rad — glide dihedral; gulls glide wings-up, never flat
+	const FLAP_BASE := 0.18   ## rad — centreline the stroke swings about
+	var l: Node3D
+	var r: Node3D
+	var phase: float = 0.0    ## integrated sim dt * rate — see drive()
+	var base: float = GLIDE   ## smoothed dihedral centreline, rad
+	var amp: float = 0.0      ## smoothed stroke amplitude, rad
+
+	## Build both panels under the post-attach model. Every dimension is derived from the
+	## model's own merged local-frame bounds, never hand-typed (the trap file's rule), so
+	## a SIZE_M change or a re-rolled asset re-fits the wings for free. Frame facts from
+	## the herring_gull FACING_OVERRIDES entry: no yaw, head at MIN local Z — so local -Z
+	## is the bird's forward, and the shoulder line sits 0.30 of the body length behind
+	## the min-z end at mid-height. Roots tuck to 35% of the half-width so the stroke
+	## never opens a gap along the flank: the root chord IS the rotation axis.
+	func build(model: Node3D, tint: Color) -> void:
+		var acc := AABB()
+		var first := true
+		var inv: Transform3D = model.global_transform.affine_inverse()
+		for n in model.find_children("*", "MeshInstance3D", true, false):
+			var src := n as MeshInstance3D
+			if src.mesh == null:
+				continue
+			var box: AABB = (inv * src.global_transform) * src.get_aabb()
+			acc = box if first else acc.merge(box)
+			first = false
+		if first:
+			return
+		var body_l: float = acc.size.z
+		var shoulder := Vector3(acc.position.x + acc.size.x * 0.5,
+			acc.position.y + acc.size.y * 0.5, acc.position.z + body_l * 0.30)
+		# One flat plumage tone for both panels, at the corvid slate's 0.02 emission —
+		# enough self-light to read against a dusk sky, nowhere near main.gd's 0.8 glow
+		# threshold.
+		var mat: StandardMaterial3D = BloomFauna.glow_mat(tint, 0.02)
+		for side in [-1.0, 1.0]:
+			var pivot := Node3D.new()
+			model.add_child(pivot)
+			pivot.position = shoulder + Vector3(side * acc.size.x * 0.5 * 0.35, 0.0, 0.0)
+			pivot.visible = false
+			var mi := MeshInstance3D.new()
+			var pm := PrismMesh.new()
+			# The prism's XY triangle, laid flat by the rotation below, IS the planform:
+			# root chord (prism x) 0.35 of the body along the flank, span (prism y) 0.50
+			# of the body out to a point, extrusion the panel's thickness. left_to_right
+			# displaces the apex along prism x — mapped fore-aft here — sweeping the tip
+			# 20% of the chord tailward, mirrored by the sign of `side`.
+			pm.size = Vector3(body_l * 0.35, body_l * 0.50, body_l * 0.02)
+			pm.left_to_right = 0.5 - side * 0.2
+			pm.material = mat
+			mi.mesh = pm
+			# YXZ euler: prism +Y (apex) lands on the outboard ±X, prism +X on the body
+			# axis, extrusion vertical. The mesh is centred, so the half-span shift puts
+			# the root chord exactly on the pivot.
+			mi.rotation = Vector3(PI * 0.5, side * PI * 0.5, 0.0)
+			mi.position = Vector3(side * body_l * 0.25, 0.0, 0.0)
+			pivot.add_child(mi)
+			if side < 0.0:
+				l = pivot
+			else:
+				r = pivot
+
+	## The flush-instant silhouette the owner asked for: both wings snapped straight up
+	## and held. Phase starts at the stroke TOP, so the first beat after the hold falls
+	## out of the raise as a downstroke instead of teleporting to mid-cycle.
+	func takeoff() -> void:
+		phase = PI * 0.5
+		base = RAISE
+		amp = 0.0
+		shown(true)
+
+	## One thinking frame of beat. `delta` is the species' ACCUMULATED decimated dt (the
+	## AiBudget prologue's delta), so d(phase)/d(wall clock) rides through any stride —
+	## and the phase is INTEGRATED (`phase += rate * dt`), never `t * rate`: the rate
+	## slides between launch/cruise/glide, and `t * rate` rewinds the stroke every time
+	## the rate drops (the trap file's mutable-rate trap). `airtime` is the species' own
+	## airborne clock (_flushing / _fleeing); `gliding` is the s43 flap/glide phrasing
+	## bit, shared with the shader ripple so skin and geometry beat as one wing. base/amp
+	## chase their targets through 1-exp smoothing — stable at AiBudget.MAX_STEP, where
+	## delta*k lerps are not — so a glide folds the stroke out instead of freezing it
+	## mid-swing, and the next burst grows back from wherever the phase stopped.
+	func drive(delta: float, airtime: float, gliding: bool) -> void:
+		if not (is_instance_valid(l) and is_instance_valid(r)):
+			return
+		var k: float = 1.0 - exp(-10.0 * delta)
+		if airtime < HOLD_S:
+			base = RAISE
+			amp = 0.0
+		elif gliding:
+			base = lerpf(base, GLIDE, k)
+			amp = lerpf(amp, 0.0, k)
+		else:
+			# Launch climbs on deep fast strokes (~0.9 rad at 6.6 Hz), settling into the
+			# cruise burst — the same 4.8 + launch * 1.8 curve the shader ripple runs.
+			var launch: float = clampf(1.0 - airtime / 0.8, 0.0, 1.0)
+			phase += TAU * (4.8 + launch * 1.8) * delta
+			base = lerpf(base, FLAP_BASE, k)
+			amp = lerpf(amp, 0.55 + launch * 0.35, k)
+		var ang: float = base + sin(phase) * amp
+		r.rotation.z = ang     # +z rolls the +X tip up...
+		l.rotation.z = -ang    # ...and the -X tip needs the mirror to rise with it
+
+	func shown(on: bool) -> void:
+		if is_instance_valid(l):
+			l.visible = on
+		if is_instance_valid(r):
+			r.visible = on
+
 # -------------------------------------------------------------- DeckGull
 class DeckGull extends Node3D:
 	## A gull DOWN ON THE DECK, strutting between pecks — the ordinary life the rig
@@ -2873,6 +2999,7 @@ class DeckGull extends Node3D:
 	var _regen: float = 0.0       ## respawn countdown after flying off
 	var _gen_mats: Array = []
 	var _model: Node3D
+	var _wings: GullWings = null  ## overlay flight wings — GullWings explains why they exist
 	var _closest: float = 1e9     ## closest the player has crept this landing (threat roll)
 	var _look_cd: float = 0.0     ## idle head-turn clock
 	var _look_yaw: float = 0.0
@@ -2911,6 +3038,11 @@ class DeckGull extends Node3D:
 		# its knees in the plating. Lift it by its own measured half-height instead.
 		_lift = ANIM.ground(self, _model)
 		ANIM.drive(_gen_mats, 0.6, 0.15)
+		# Flight wings, hidden until a flush. Pale gull-grey, splitting the mantle/white
+		# difference in one flat tone — the panels are seen from above and below in the
+		# same three-second flight.
+		_wings = GullWings.new()
+		_wings.build(_model, Color(0.78, 0.82, 0.84))
 		global_position = _home
 		_peck = randf_range(2.0, 5.0)
 		# Grab it if you can reach it before it flushes — crouch-sneak to close the gap.
@@ -2937,6 +3069,8 @@ class DeckGull extends Node3D:
 				# Lands again a few metres from home, grounded state reset.
 				global_position = _home + Vector3(randf_range(-2, 2), 0, randf_range(-2, 2))
 				_flushing = -1.0
+				if _wings:
+					_wings.shown(false)   # grounded: the authored folded wings take over
 				_snapped = false   # new spot, new deck height — re-probe before it struts
 				visible = true
 				_closest = 1e9   # a fresh bird lets the player re-earn the flush
@@ -2955,21 +3089,22 @@ class DeckGull extends Node3D:
 			if not _bound:
 				_skip = BloomFauna.fauna_bodies(self)
 				_bound = true
-			# 1. THE WINGS BEAT, DRIVEN EVERY THINKING FRAME. The old flush pushed one
-			# rate/amp pair at the instant of takeoff and never spoke to the shader again,
-			# so the whole flight wore a 3 cm ripple — a bird held stiff. A real gull
-			# CLIMBS on deep fast strokes and then alternates flap bursts with glides.
-			# The launch second gets the deepest, fastest beat (the "wings up and working"
-			# read of a flush, which is as close as this asset can come — the mesh is one
-			# unrigged surface authored wings-FOLDED, so a true raised-wing silhouette
-			# needs a rigged or multi-pose asset; filed in KNOWN_ISSUES); after that the
-			# beat drops out entirely for 0.8 s of every 2.4 — the glide — which is the
-			# single most bird-reading thing a flight cycle does.
+			# 1. THE WINGS BEAT, DRIVEN EVERY THINKING FRAME. A real gull CLIMBS on deep
+			# fast strokes and then alternates flap bursts with glides — the beat drops
+			# out entirely for 0.8 s of every 2.4, which is the single most bird-reading
+			# thing a flight cycle does. s43 played this phrasing through the vertex sine
+			# alone and the owner could not see it: the mesh is one unrigged surface
+			# authored wings-FOLDED, so the ripple peaks ~3 cm — a bird held stiff. The
+			# ripple stays (feather shimmer over the body), but the visible stroke is now
+			# GEOMETRY — the overlay panels, beating the same phrasing off the same two
+			# locals, so skin and silhouette cannot drift apart.
 			var launch: float = clampf(1.0 - _flushing / 0.8, 0.0, 1.0)
 			var gliding: bool = _flushing > 1.6 and fposmod(_flushing, 2.4) > 1.6
 			var beat_rate: float = (1.1 if gliding else 4.8) + launch * 1.8
 			var beat_amp: float = (0.05 if gliding else 0.15) + launch * 0.09
 			ANIM.drive(_gen_mats, beat_rate, 0.25, beat_amp)
+			if _wings:
+				_wings.drive(delta, _flushing, gliding)
 			# 2. THE PATH IS WALL-TESTED. This line used to be a bare
 			# `global_position += dir * 6.5 * delta` — a straight uncollided run of up to
 			# 20 m that passed through bulkheads, containers and the bunkhouse whole.
@@ -3102,6 +3237,8 @@ class DeckGull extends Node3D:
 		# airborne branch re-drives this every thinking frame from here on (flap bursts
 		# alternating with glides), so this line only has to sell frame one.
 		ANIM.drive(_gen_mats, 6.4, 0.25, 0.24)
+		if _wings:
+			_wings.takeoff()   # wings thrown up and held ~0.12 s — the flush silhouette
 		AudioDirector.play_one_shot("wingbeat", global_position, -8.0)   # wings, not voice
 		Journal.discover("creature_gull")
 
@@ -3126,6 +3263,8 @@ class DeckGull extends Node3D:
 		AudioDirector.play_one_shot("wingbeat", global_position, -6.0)   # it thrashes, it doesn't sing
 		visible = false
 		_flushing = -1.0
+		if _wings:
+			_wings.shown(false)   # flag and wings move together, at every write
 		_regen = randf_range(60.0, 120.0)   # another gull drops onto the deck later
 		if hud and hud.has_method("toast"):
 			hud.toast("You get both hands round it before it can bolt. A sea-bird for the pot.")
@@ -4406,6 +4545,7 @@ class CorvidGull extends Node3D:
 	const SIZE_M := 0.42
 	const GLOW := Color(0.30, 0.85, 0.80)
 	var _gen_mats: Array = []
+	var _wings: GullWings = null   ## overlay flight wings — GullWings explains why
 	## A Bloom-intelligent gull (Codex §26) perched on a high point of the rig, watching.
 	## Tilts its head to track the player — and one of them STEALS: loose takeables on the
 	## topside deck get carried, visibly, to the nest on the bunkhouse roof.
@@ -4495,6 +4635,11 @@ class CorvidGull extends Node3D:
 			# the mesh is centred on its bounds and would otherwise hang half through it.
 			ANIM.ground(self, gen["model"])
 			ANIM.drive(_gen_mats, 1.0, 0.2)   # steady — no per-frame cost
+			# Built AFTER replace() on purpose — replace hides every mesh that precedes
+			# it (docs/AGENT_TRAPS.md), and these must draw. Slate rather than the deck
+			# birds' pale grey: this bird's own body colour.
+			_wings = GullWings.new()
+			_wings.build(gen["model"], Color(0.28, 0.3, 0.34))
 
 	## AI decimation state — see scripts/world/ai_budget.gd.
 	var _ai_acc: float = 0.0
@@ -4523,6 +4668,8 @@ class CorvidGull extends Node3D:
 			if _flee_regen <= 0.0:
 				global_position = _perch   # settles back on its rail
 				_fleeing = -1.0
+				if _wings:
+					_wings.shown(false)   # perched: the authored folded wings take over
 				_closest = 1e9
 			else:
 				return
@@ -4536,6 +4683,8 @@ class CorvidGull extends Node3D:
 			var gliding: bool = _fleeing > 1.6 and fposmod(_fleeing, 2.4) > 1.6
 			ANIM.drive(_gen_mats, (1.1 if gliding else 4.8) + launch * 1.8, 0.2,
 				(0.05 if gliding else 0.15) + launch * 0.09)
+			if _wings:
+				_wings.drive(delta, _fleeing, gliding)
 			var want: Vector3 = global_position + _flee_dir * delta * 6.5 \
 				+ Vector3(0, delta * (3.4 + launch * 1.4), 0)
 			var res: Dictionary = FaunaMove.swim_clear(self, global_position, want, 0.30,
@@ -4562,6 +4711,14 @@ class CorvidGull extends Node3D:
 		# Perched it only ruffles; mid-theft it is airborne and beating properly.
 		var airborne: bool = _steal_phase != 0
 		ANIM.drive(_gen_mats, 2.4 if airborne else 0.5, 0.2, 0.06 if airborne else 0.012)
+		if _wings:
+			# Keyed to the SAME `airborne` the shader line reads, so the panels can never
+			# disagree with the heist state machine. No takeoff hold here: a heist leaves
+			# from a hop into _fly_to's arc, not a standing flush, so the beat opens
+			# straight into the cruise burst (airtime past every launch window).
+			_wings.shown(airborne)
+			if airborne:
+				_wings.drive(delta, 1e9, false)
 		if thief and day:
 			_theft(delta)
 			if _steal_phase != 0:
@@ -4637,6 +4794,8 @@ class CorvidGull extends Node3D:
 			_carry.queue_free()
 			_carry = null
 		ANIM.drive(_gen_mats, 3.0, 0.2, 0.07)
+		if _wings:
+			_wings.takeoff()   # same thrown-up flush silhouette as the deck birds
 		AudioDirector.play_one_shot("wingbeat", global_position, -8.0)   # wings, not voice
 		Journal.discover("creature_gull")
 

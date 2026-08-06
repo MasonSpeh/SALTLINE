@@ -102,7 +102,16 @@ func _ready() -> void:
 		var p: Vector3 = _skel.get_bone_global_pose(_skel.find_bone(PAWS[k])).origin
 		_rest_paw_axis[k] = _axis_dist(p)
 		_rest_paw_side[k] = p.z          # BODY_SIDE is skeleton Z on this rig (BoneDump)
-	_cat.set_process(true)
+	# THE CAT STAYS OFF THE ENGINE'S CLOCK FOR THE WHOLE RUN. This line used to be
+	# `set_process(true)`, which meant every scenario DOUBLE-TICKED the animal: the
+	# engine's own _process (with a headless world's 30-80 ms frame deltas) ran on top of
+	# _step()'s hand-fed 1/60 — so between two consecutive samples the rig could
+	# legitimately advance by a 60 Hz step PLUS an 80 ms step, and a rate divided by DT
+	# read up to ~4x reality. Every head-speed p99 this probe printed before s44 carries
+	# that inflation; the bare-rig harness (tests/head_rate_scratch.gd) is the number the
+	# cap actually holds: worst 188 deg/s against the 189 ceiling, 0 frames over. A probe
+	# that owns the clock (CLAUDE.md: the probe owns the clock) must own it EXCLUSIVELY.
+	_cat.set_process(false)
 
 	await _scn("stand_walk", 5.0, func(f): _player.global_position = _cat.global_position \
 		+ Vector3(5.0, 0.1, 0.0))
@@ -283,7 +292,8 @@ func _scn_head_bias() -> void:
 	var node_fwd: Vector3 = -_cat.global_transform.basis.z
 	var rest_bias: float = rad_to_deg(angle_difference(
 		atan2(node_fwd.x, node_fwd.z), atan2(rest_fwd.x, rest_fwd.z)))
-	_cat.set_process(true)
+	# (stays off the engine clock — see the calibration note: re-enabling here is the
+	# double-ticking bug wearing a second hat; _step() is the only driver.)
 	# THE NOSE IS NOT THE HEAD BONE'S +Y, AND THIS CONSTANT IS CALIBRATED ON FILM — the
 	# only definition that has survived contact with the owner. The first value here
 	# (-0.600, derived from the mesh's symmetry planes) certified a head as straight that
@@ -294,7 +304,12 @@ func _scn_head_bias() -> void:
 	# constant of its own to be wrong) shows the nose dead on the body line, and THEN this
 	# offset was set so the probe reads that film-verified state as zero. The film defines
 	# straight; this gate exists only to catch future drift away from it.
-	const NOSE_OFF_Y: float = -1.222
+	# RE-ANCHORED WITH HEAD_MESH_YAW, AND THE TWO MOVE TOGETHER OR THIS GATE LIES: the
+	# proxy is calibrated to the film-verified drawn head, so any change of Δ to cat_rig's
+	# rest bake shifts this by exactly -Δ (s44: bake 1.30 -> 0.597, proxy -1.222 ->
+	# -0.519; the stale value read a film-straight head as 40.28 deg — precisely the
+	# 0.703 rad delta, which is also the proof the relation holds).
+	const NOSE_OFF_Y: float = -0.519
 	var yaws: Array[float] = []
 	var pos_prev: Vector3 = _cat.global_position
 	for f in range(int(5.0 / DT)):

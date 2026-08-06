@@ -77,15 +77,24 @@ const TAIL_MAX: float = 0.30
 ## angle between the head's own mirror-symmetry plane and the torso's, measured off the
 ## GLB's vertices rather than off its joint frames — which is the only way to see it,
 ## because every joint-frame instrument in this repo calibrates the rest pose to zero.
-## TUNED ON FILM, not derived — and the derivation's failure is the lesson. The measured
-## mesh bias (34.2 deg by symmetry planes, 38.9 by the joint-to-nose ray) was applied as
-## 0.597 and the tautology-proof top-down reel (screen-up locked to the travel direction)
-## STILL showed the head ~25 deg left of the body line: the applied rotation projects
-## through the head's skewed rest frame at well under unit gain, so a derived angle
-## under-corrects and no instrument that shares the constant can see it. The number below
-## is closed-loop: bumped and re-filmed until the nose reads straight up in the top-down
-## strip. If the asset is ever re-rolled, re-tune on that reel, not on paper.
-const HEAD_MESH_YAW: float = 1.30
+## THE GEOMETRIC VALUE, RESTORED — and the story of how it got doubled is the trap worth
+## keeping. The bake below composes `Q(head_local(BODY_UP), θ)` against the rest pose,
+## which is ALGEBRAICALLY a rotation about world-up at exactly unit gain: on paper, 0.597
+## puts the measured 34.2-degree mesh bias to zero, full stop. The s43b top-down reel
+## nevertheless showed ~25 degrees of lean at 0.597, the constant was closed-loop "tuned"
+## to 1.30 against that reel — and the owner immediately saw the head bent again in play,
+## for the eighth time.
+##
+## The reel was honest; the SCENE was not controlled. The chatter — ungated by `_hunt_cd`,
+## the one hold every reel applies — had the cat `_watch()`ing any airborne gull within
+## 11 m at FULL weight while walking, dragging the head tens of degrees off the line
+## whenever a bird happened to be up. Every film therefore measured the SUM of the rest
+## constant and a bird-dependent stare, and tuning the constant against that sum
+## overcorrected it by the stare's worth: two confounded causes, one knob, eight failed
+## fixes. The stare is now weight-gated while walking (ship_cat's chatter block), the
+## constant is the geometry again, and the topdown reel films a chatter-muzzled beat AND
+## a chatter-live control so the two can never be confounded again.
+const HEAD_MESH_YAW: float = 0.597
 
 ## Footfall phase offsets per limb, in cycles. The gait MODE is not a switch: the active
 ## offsets are themselves eased between these tables as speed crosses the bands, so a cat
@@ -166,6 +175,8 @@ var _look_w_s: float = 0.0
 ## The head stabiliser's lagged view of what the trunk is doing (see section 5e).
 var _stab_pitch: float = 0.0
 var _stab_roll: float = 0.0
+## Last frame's DRAWN head orientation in skeleton space, for the total-rate ceiling.
+var _head_prev_g: Quaternion = Quaternion.IDENTITY
 ## The reactions that used to be whole-body node rotations (see section 5f). Decaying
 ## weights for the momentary ones; eased targets for the two that are states rather than
 ## events.
@@ -573,6 +584,15 @@ const ROM_BLADE := 0.38       ## scapula travel
 ## so this IS the drawn head's yaw rate. 2.8 rad/s puts a 90 degree glance at a third of a
 ## second: brisk, and nothing like the 600-1200 deg/s the owner was watching.
 const LOOK_MAX_RATE: float = 2.8
+## ...and the ceiling on the head's TOTAL drawn angular rate, enforced at the skeleton
+## write on the composed result. Every head layer is individually calm — the look is
+## rate-limited, the stabiliser residual is small, the chatter tremor is a few degrees —
+## but the owner's eye sees their SUM, and CatJointProbe measured p99 sums of 214 deg/s
+## (sit, stare re-targeting across a crossing gull) and 264 (run, tremor riding the
+## stabiliser residual): each layer green, the head still too quick. Capping any one
+## layer cannot bound a sum; the choke point can — the same shape as the ROM clamp, for
+## the same reason. 3.3 rad/s is ~189 deg/s, under the probe's 200 gate with margin.
+const HEAD_MAX_RATE: float = 3.3
 ## How much of the trunk's own pitch and roll the neck cancels. Cats are among the best
 ## head-stabilisers in the animal kingdom — the eyes hold a near-constant horizon while
 ## the body does whatever the gait demands — and the gait's spine engine pitches the chest
@@ -1279,6 +1299,27 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# it from the right hind leg exactly rather than approximately.)
 			_mul(L["prox"], Quaternion(_hinge_of(L["prox"]), float(sol[0]) * step_w))
 			_mul(L["dist"], Quaternion(_hinge_of(L["dist"]), float(sol[1]) * step_w))
+			# THE SWING FOLD — the authored knee, and the actual cure for "legs move like
+			# peg legs". The IK only folds a joint as much as reaching the path REQUIRES,
+			# and on chains whose rest reach is ~97-100% of the bones' total length (this
+			# rig's, by the load report) a 58 mm lift needs only a shallow flex — smooth,
+			# planted, and dead straight to the eye. A real cat's stifle cycles ~37 deg and
+			# its elbow folds hard as the paw comes through; that fold is a STYLE, not a
+			# necessity, so it has to be authored, not hoped for from the solver.
+			#
+			# Windowed strictly to the SWING (sin over swing progress, zero at toe-off and
+			# again at the plant), so during stance the joint carries exactly the solved
+			# angle and foot-lock stays exact to the millimetre. Mid-swing the paw is
+			# airborne — pulling it up under the body with a folded knee is precisely what
+			# the reference footage shows. Direction is each chain's own measured fold
+			# sign; magnitude eases off toward the gallop, whose 125 mm lift already folds
+			# the legs for real.
+			if ph > duty:
+				var s_sw: float = (ph - duty) / maxf(1.0 - duty, 1e-4)
+				var fold_amp: float = (0.42 if fore else 0.36) * lerpf(1.0, 0.45, mix)
+				var kn: float = float(_ik.get(limb_key, {}).get("knee", 1.0))
+				_mul(L["dist"], Quaternion(_hinge_of(L["dist"]),
+					kn * sin(PI * s_sw) * fold_amp * step_w))
 			_mul(L["paw"], Quaternion(_hinge_of(L["paw"]), paw))
 			# THE TOE. A paw that never rolls through the plant is the other half of the toy
 			# horse: contact is heel-ish down, roll forward, push off the toes.
@@ -1555,6 +1596,27 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		var q_out: Quaternion = _out.get(i, _cur_q[i])
 		if _rom.has(i):
 			q_out = _clamp_joint(i, q_out)
+		# THE HEAD RATE CEILING — the sum-of-layers cap (see HEAD_MAX_RATE), applied to the
+		# head's SKELETON-SPACE orientation, parent chain included. A local-bone cap was
+		# tried first and bounded nothing: the fast paths live upstream (the look's
+		# neck-share, the stabiliser, the strokes — all NECK writers), and the fastest of
+		# all is the look-weight RAMP — a glance re-acquired at invisible weight snaps its
+		# yaw silently (correct) and then the weight eases 0 -> 0.85 in ~150 ms, sweeping
+		# the drawn head through weight x target at 400-800 deg/s. No yaw-rate limit can
+		# see that product term; a ceiling on the drawn orientation bounds it and every
+		# future layer besides, exactly as the ROM clamp does for the limbs. The node's
+		# steering yaw is outside skeleton space, so a fast body turn is never fought.
+		if i == _head:
+			var par_h: int = _sk.get_bone_parent(_head)
+			var gp: Basis = _live_basis(par_h) if par_h >= 0 else Basis.IDENTITY
+			var g_want: Quaternion = (gp * Basis(q_out)).get_rotation_quaternion().normalized()
+			if _head_prev_g != Quaternion.IDENTITY:
+				var step_g: float = _head_prev_g.angle_to(g_want)
+				var allow: float = HEAD_MAX_RATE * dt
+				if step_g > allow and step_g > 1e-4:
+					g_want = _head_prev_g.slerp(g_want, allow / step_g).normalized()
+					q_out = (gp.get_rotation_quaternion().inverse() * g_want).normalized()
+			_head_prev_g = g_want
 		_sk.set_bone_pose_rotation(i, q_out)
 	if _hip >= 0:
 		# Through the parent-frame conversion — see _hip_pose_pos for why raw was fore-aft.
@@ -1974,3 +2036,26 @@ func _build_poses() -> void:
 		"Hip": [[3, -0.18]],
 		"NeckTwist01": [[0, -0.25]],
 	}, 0.06, {"lf": Vector3(0.05, 0, 0), "rf": Vector3(0.05, 0, 0)}, 0.5)
+	# JUMP_LAUNCH: the push-off — hinds driven to full extension behind, fores tucked to the
+	# chest. The first quarter of every flight wears this, so the leap visibly COMES FROM
+	# the hind legs (the owner's "pushes off hind legs") instead of teleporting into the
+	# full mid-air sprawl on frame one. Airborne, so authored (no planting bake), on
+	# measured hinges like the flight stretch.
+	_poses["jump_launch"] = _pose_from({
+		"Hip": [[3, 0.22]],
+		"L_Upperarm": [[6, 0.30]], "R_Upperarm": [[6, 0.30]],
+		"L_Forearm": [[6, 0.80]], "R_Forearm": [[6, 0.80]],
+		"L_Thigh": [[6, -1.05]], "R_Thigh": [[6, -1.05]],
+		"L_Calf": [[6, -0.20]], "R_Calf": [[6, -0.20]],
+	}, -0.03)
+	# JUMP_DESCEND: front feet first — fores reaching long and DOWN for the landing spot,
+	# hinds trailing folded, nose over the paws. The last third of the flight wears this so
+	# the animal arrives the way a cat arrives, forehand first, before jump_land absorbs.
+	_poses["jump_descend"] = _pose_from({
+		"Hip": [[3, -0.20]],
+		"NeckTwist01": [[0, -0.15]],
+		"L_Upperarm": [[6, 1.00]], "R_Upperarm": [[6, 1.00]],
+		"L_Forearm": [[6, 0.15]], "R_Forearm": [[6, 0.15]],
+		"L_Thigh": [[6, 0.55]], "R_Thigh": [[6, 0.55]],
+		"L_Calf": [[6, 0.45]], "R_Calf": [[6, 0.45]],
+	}, 0.0)

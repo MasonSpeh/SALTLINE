@@ -460,25 +460,65 @@ func _reel_topdown(sim_per_frame: int) -> void:
 		_player.global_position = _cat.global_position + dir * 5.0
 		await get_tree().physics_frame
 	var travel: float = _bearing(dir)
-	print("[film] topdown: rolling from %s" % str(_cat.global_position.snappedf(0.1)))
-	for f in range(int(3.0 * _fps)):
-		var place := func() -> void:
-			_cat.set("_hunt_cd", 999.0)
-			_cat.set("_zoom_cd", 999.0)
-			_cat.set("_play_cd", 999.0)
-			_player.global_position = _cat.global_position + dir * 5.0
-			# Directly overhead, looking straight down. The THIRD argument to look_at is
-			# the reference "up" — feeding it the travel direction is what locks screen-up
-			# to world-+X instead of Godot's default screen-up-is-world-up (which is
-			# undefined for a straight-down look_at and would spin per-frame otherwise).
-			_cam.global_position = _cat.global_position + Vector3(0, 3.2, 0)
-			_cam.look_at(_cat.global_position, dir)
-		await _shoot("topdown", "topdown", travel, sim_per_frame, place)
-		# A heartbeat every second of film. The first run of this reel sat 39 minutes at
-		# full CPU with zero frames and an empty (buffered) CSV — completely silent. A
-		# stalled reel must say WHERE it is stalled or the only diagnostic is `kill`.
-		if f % int(_fps) == 0:
-			print("[film] topdown frame %d at %s" % [f, str(_cat.global_position.snappedf(0.1))])
+	# EVERY LOCOMOTION STATE, NOT ONE. The s43b tune read this reel at a single 5 m lead —
+	# the WALK pose — declared the head straight, and the owner immediately saw it bent
+	# again in play, because the game shows the animal mostly at trot and run leads
+	# wearing DIFFERENT poses with different gait amplitudes on top. A constant tuned at
+	# one operating point of a state-dependent error is straight exactly there and
+	# nowhere else. Each beat holds one lead/state long enough to read, in one run, so
+	# "straight" has to be earned everywhere at once. The carry beat forces the gift
+	# state the way the metrics probe does; its lead retreats so delivery never fires.
+	# walk_chat is the CONTROL: identical to walk except the chatter — the one look-layer
+	# writer no reel ever suppressed (it is gated on its own `_chatter_cd`, not `_hunt_cd`)
+	# — is left live. A gull in the air anywhere within HUNT_M has the cat _watch()ing it
+	# at full weight WHILE WALKING, which turns the head 20-odd degrees off the travel
+	# line for as long as the bird stays up. If quiet-walk films straight and chat-walk
+	# films bent, the eight-ask "head defaults sideways" was never a skeleton constant at
+	# all — it was the animal literally watching birds, at a stare weight no walking cat
+	# would hold.
+	var beats: Array = [
+		["walk", 5.0, 3.0, false],
+		["walk_chat", 5.0, 3.0, false],
+		["trot", 10.0, 3.0, false],
+		["run", 13.0, 3.0, false],
+		["carry", 6.0, 3.0, true],
+	]
+	for beat in beats:
+		var label: String = String(beat[0])
+		var lead: float = float(beat[1])
+		_cat.global_position = stage - dir * 6.0
+		if _cat.has_method("_reseat"):
+			_cat.call("_reseat")
+		_cat.rotation.y = deg_to_rad(travel) + PI
+		_cat.set("_carry", "gull_feather" if bool(beat[3]) else "")
+		for i in range(15):
+			_player.global_position = _cat.global_position + dir * lead
+			await get_tree().physics_frame
+		print("[film] topdown/%s: rolling from %s" % [label, str(_cat.global_position.snappedf(0.1))])
+		for f in range(int(float(beat[2]) * _fps)):
+			var place := func() -> void:
+				_cat.set("_hunt_cd", 999.0)
+				_cat.set("_zoom_cd", 999.0)
+				_cat.set("_play_cd", 999.0)
+				_cat.set("_wash_cd", 999.0)
+				if label != "walk_chat":
+					_cat.set("_chatter_cd", 999.0)
+				_player.global_position = _cat.global_position + dir * lead
+				# Directly overhead, looking straight down, CLOSE — 1.7 m up frames the
+				# animal at ~450 px so the nose line is readable; the 3.2 m first cut left
+				# a 110 px blob a reviewer could see anything they liked in. look_at's
+				# third argument locks screen-up to the travel direction, so "nose points
+				# at the top of the frame" IS "straight", by construction.
+				_cam.global_position = _cat.global_position + Vector3(0, 1.7, 0)
+				_cam.look_at(_cat.global_position, dir)
+			await _shoot("topdown", label, travel, sim_per_frame, place)
+			# A heartbeat every second of film. The first run of this reel sat 39 minutes
+			# at full CPU with zero frames and an empty (buffered) CSV — silent. A stalled
+			# reel must say WHERE it is stalled or the only diagnostic is `kill`.
+			if f % int(_fps) == 0:
+				print("[film] topdown/%s frame %d at %s"
+					% [label, f, str(_cat.global_position.snappedf(0.1))])
+	_cat.set("_carry", "")
 
 ## TURN IN PLACE — flaw 4. The player is swung around the cat at a fixed radius just inside
 ## FOLLOW_NEAR, so the cat wants to face a moving bearing without having anywhere to walk.

@@ -1862,3 +1862,42 @@ outcome: five instrumented A/Bs eliminated shadow acne, the normal map, VRAM com
 albedo content and the capture pipeline itself; FFT characterises the residue as low-mip
 texel structure under grazing sampling. Full table + next levers in KNOWN_ISSUES;
 tests/WallShot.tscn is the reusable instrument.
+
+## s44 — the eighth ask, answered with a controlled experiment
+
+The owner asked for the eighth time why the cat's head does not point where it walks.
+The answer is that it was never one defect: the rest-bake constant had been closed-loop
+"tuned" to 1.30 rad against films whose scenes were not controlled, because the CHATTER —
+ungated by `_hunt_cd`, the one hold every reel applies — had the cat `_watch()`ing any
+airborne gull within 11 m at FULL weight while walking. Every film measured the SUM of
+the constant and a bird-dependent stare; every tune of the constant against that sum was
+wrong somewhere else. s44 separated them: HEAD_MESH_YAW back to the measured geometry
+(0.597, the bake is exact unit-gain about world-up), the walking stare gated to a glance
+(0.22), and the topdown reel now films a chatter-muzzled beat AND a chatter-live control
+in five locomotion states so the two can never be confounded again. All five film
+straight (tests/out/cat_review/topdown/).
+
+The rest of the cat pass, all film- or probe-verified:
+  * PEG LEGS: an authored swing-phase fold on elbow/stifle (sin-windowed over swing, zero
+    at the plant — foot-lock untouched). The IK only folds what reaching requires, and on
+    chains resting at 97-100% of their own length that is nearly nothing; the fold is a
+    style and is now authored. Walk side reel shows the carpus curl-through.
+  * JUMP: phased flight (crouch held on deck -> jump_launch push-off -> sprawl ->
+    jump_descend front-paws-first) with the trunk pitched along the arc's own tangent via
+    the skeletal slope channel. Film pending on the hunt reel.
+  * POUNCE: the gull flushes at LAUNCH, not at touchdown, and a catch is gated by
+    geometry (prey under 0.45 m) — most pounces are now a burst of gull and a cat landing
+    in its wake, which is what real pounces are. `_airborne` gained an altitude backstop.
+  * HEAD RATE: a skeleton-space ceiling on the drawn head at the choke point
+    (HEAD_MAX_RATE 3.3 rad/s), because the whip was the look-weight RAMP — a product term
+    no per-layer rate limit can see. Bare-rig proof: worst 188 deg/s vs 189 ceiling over
+    1194 hostile-glance frames (tests/head_rate_scratch.gd).
+  * THE PROBE LIED FOR THREE SESSIONS: CatJointProbe re-enabled the cat's engine _process
+    after calibration, double-ticking every scenario (hand-fed 1/60 PLUS 30-80 ms
+    headless engine deltas), inflating every head-speed p99 up to ~4x. It owns the clock
+    exclusively now; the honest numbers are 19-142 deg/s and all gates are green.
+  * GULLS: geometry overlay wings on both gull species (deck + corvid) — spread, beat and
+    wings-up takeoff keyed to the same airborne variables the species already own; the
+    s43 shader beat was invisible on a mesh authored wings-folded. Film pending.
+
+TestRunner 0, CatProbe 0, CatHuntProbe 0, CatJointProbe 0 (all gates, two runs).
