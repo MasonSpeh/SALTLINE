@@ -149,7 +149,8 @@ const WALK_SPEED: float = 1.55
 const TROT_SPEED: float = 2.6        ## when it has fallen behind, or there is fish
 const FOLLOW_NEAR: float = 2.2       ## closer than this and it stops walking
 const FOLLOW_FAR: float = 14.0       ## further than this and it trots
-const LOST_M: float = 26.0           ## past this it gives up and settles where it is
+## (LOST_M is gone: no distance gives up the follow — see the note above the follow
+## branch. Parking the cat is the STAY verb's job now, a decision instead of a distance.)
 const GREET_M: float = 2.4           ## how close you must come to say hello
 const FISH_M: float = 9.0            ## it can smell a fish in your hands from here
 const TURN_RATE: float = 6.0
@@ -231,6 +232,17 @@ var _last_speed: float = 0.0
 var _moved_frame: float = 0.0
 ## Last frame's node yaw, so the rig can be told how fast the body is really turning.
 var _yaw_prev: float = 0.0
+## Detour commitment (see _walk_toward's fan): which side it last went around an obstacle,
+## and how long that preference lasts. Order-bias only — never a hard constraint.
+var _detour_side: float = 0.0
+var _detour_t: float = 0.0
+## Seconds of fully-refused frames — past 0.35 the animal backs out of the pocket.
+var _detour_stall: float = 0.0
+## STAY/COME — the owner's follow toggle. While true the cat holds its own patch (the spot
+## it was told to stay at) and lives its own life there; a COME (or any re-greeting after
+## time away) releases it.
+var _stayed: bool = false
+var _stay_spot: Vector3 = Vector3.ZERO
 ## THE HUNT. `_hunt` is the beat of the predatory sequence, not a boolean: 0 idle, 1 stalking,
 ## 2 treading (the wiggle), 3 in the air, 4 the aftermath.
 var _prey: Node3D = null
@@ -296,7 +308,6 @@ var _jump_cd: float = 0.0
 ## deck yet. §-minimum 8 frames — the loaded spring is the beat that sells the leap, and
 ## the old jump skipped it entirely (airborne on the frame it decided).
 var _jump_wind: float = 0.0
-var _body_r_cache: Dictionary = {}
 var _jump_from: Vector3 = Vector3.ZERO
 var _jump_to: Vector3 = Vector3.ZERO
 
@@ -415,24 +426,60 @@ func _reseat() -> void:
 	_seated_y = global_position.y
 
 ## Kept for probes and for anything that asks the CAT rather than its handle; the handle's own
-## `verbs` is what the interaction ray reads, and both are set together in _on_touched.
+## `verbs` is what the interaction ray reads, and both are set together in _sync_verbs.
 func available_verbs() -> Array:
-	return ["PET"] if friend else ["SAY HELLO"]
+	if not friend:
+		return ["SAY HELLO"]
+	return ["PET", "COME"] if _stayed else ["PET", "STAY"]
+
+func _sync_verbs() -> void:
+	var v: Array[String] = []
+	for s in available_verbs():
+		v.append(String(s))
+	_touch.verbs = v
 
 ## `Interactable.interacted` carries ONE argument — the verb. It does not pass the player, so
 ## the player is looked up here; connecting a two-argument handler silently fails to fire at
 ## all, which is exactly what made the first version of this cat unbefriendable.
-func _on_touched(_verb: String) -> void:
+func _on_touched(verb: String) -> void:
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if not friend:
 		friend = true
 		_enter(State.FOLLOW)
-		_touch.verbs = ["PET"] as Array[String]
+		_sync_verbs()
 		Journal.discover("creature_ship_cat")
 		AudioDirector.play_one_shot("cat_chirp", global_position, -18.0)
 		if hud and hud.has_method("toast"):
 			hud.toast("The cat looks up, decides about you, and comes along.")
+		return
+	# THE FOLLOW TOGGLE — the owner's ask, verbatim: the player can tell it to stop
+	# following; it then does its own thing; coming back and interacting perks it up and
+	# it follows again. STAY anchors it to the spot it was told at (see _stay_behaviour);
+	# COME — or, for the player who forgot which verb they left it on, any fresh greeting
+	# — releases it with the little perk-up a cat gives someone it decided to keep.
+	if verb == "STAY":
+		_stayed = true
+		_stay_spot = global_position
+		_sync_verbs()
+		_enter(State.SIT)
+		AudioDirector.play_one_shot("cat_chirp", global_position, -22.0)
+		if hud and hud.has_method("toast"):
+			hud.toast("The cat blinks slowly, and settles in to keep its own counsel.")
+		_meow_cd = 4.0
+		return
+	if verb == "COME":
+		_stayed = false
+		_sync_verbs()
+		_enter(State.FOLLOW)
+		_stretch_t = 0.0
+		if _rig != null:
+			_rig.call("delight", 0.7)      # the perk-up: ears would go up if it had them
+			_rig.call("tail_flick", 0.8)
+		AudioDirector.play_one_shot("cat_chirp", global_position, -16.0)
+		if hud and hud.has_method("toast"):
+			hud.toast("The cat perks up and falls in beside you.")
+		_meow_cd = 4.0
 		return
 	# PETTING IS REPEATABLE, which is the whole point of it — the s32 cat offered PET and
 	# then did nothing observable, so there was no reason to press it twice.
@@ -700,7 +747,9 @@ func _companion(delta: float, player: Node3D) -> void:
 	# branch running at range; without this the animal keeps its prey and its beat and picks
 	# the stalk back up mid-crouch whenever the player wanders back, which reads as the cat
 	# having been paused rather than having given up.
-	if _hunt > 0 and d >= RUN_M:
+	# (A STAYED cat's hunt is its own business — the companion leash below only applies
+	# while it is actually a companion.)
+	if not _stayed and _hunt > 0 and d >= RUN_M:
 		_end_hunt(false)
 
 	# IS THE PLAYER RESTING? Not a flag they set — a thing the cat works out by watching. A
@@ -709,7 +758,9 @@ func _companion(delta: float, player: Node3D) -> void:
 	# fish or read rather than only in a bed.
 	var moved: float = ppos.distance_to(_last_player_pos)
 	_last_player_pos = ppos
-	var resting: bool = moved < 0.05 * maxf(delta, 0.001) * 60.0
+	# A STAYED cat does not care whether YOU are moving: its calm is its own, so `_still`
+	# accumulates unconditionally and the sit -> doze -> sleep ladder runs on its clock.
+	var resting: bool = _stayed or moved < 0.05 * maxf(delta, 0.001) * 60.0
 	if bool(player.get("_lying")) or bool(player.get("crouching")):
 		resting = true
 	_still = (_still + delta) if resting else 0.0
@@ -739,6 +790,13 @@ func _companion(delta: float, player: Node3D) -> void:
 		_reseat()
 		return
 	_stretch_t = 0.0
+
+	# STAYED: it was told to keep its own counsel, and it does — on its own patch, on its
+	# own clock, with its own hunts. Below the pet and the wake-stretch (a hand on a
+	# stayed cat still works) and above everything that follows the player around.
+	if _stayed:
+		_stay_behaviour(delta, ppos, d)
+		return
 
 	# THE FISH. It can smell one in your hands and it does not pretend otherwise: it closes
 	# right up, and it will not settle while you are holding it.
@@ -806,11 +864,14 @@ func _companion(delta: float, player: Node3D) -> void:
 		if _play(delta):
 			return
 
-	if d > LOST_M:
-		# Too far to bother. It stops where it is and waits to be come back for, rather than
-		# sprinting across the rig — which would read as a drone, not an animal.
-		_settle(delta)
-		return
+	# NO DISTANCE GIVES UP THE FOLLOW ANY MORE. LOST_M (26 m) used to park the animal the
+	# moment the player crossed the rig — the owner's ask is the opposite: it knows where
+	# you are from anywhere, and if it is following you it WORKS the problem. The detour
+	# fan gives it the means (it rounds corners and takes the stairs a tread at a time),
+	# and where the rig genuinely cannot be walked — a dive, the boat — it closes to the
+	# nearest reachable spot and waits there, which is what a real cat does at the top of
+	# a companionway. The player who wants it parked has the STAY verb now, which is a
+	# decision, not a distance.
 	if d > FOLLOW_NEAR:
 		# ...and it BREAKS INTO A RUN when it has been left behind, which is the one moment a
 		# follower reads as an animal rather than a marker: same walk otherwise.
@@ -841,6 +902,63 @@ func _companion(delta: float, player: Node3D) -> void:
 		_maybe_wash()
 		# The shake: on waking, and otherwise rarely and at random. It is a whole-body event
 		# that costs one line and reads from right across the deck.
+		if _shake_cd <= 0.0 and _rng.randf() < delta * 0.25:
+			if _rig != null:
+				_rig.call("shake", 1.0)
+			_shake_cd = _rng.randf_range(40.0, 140.0)
+
+## A STAYED CAT'S OWN LIFE. Everything here already existed as companion behaviour — the
+## hunt, the zoomies, the play pounce, the washes, the sit -> doze -> sleep ladder — the
+## only new idea is the ANCHOR: games orbit the spot it was told to stay at instead of the
+## player, the hunt ignores the companion leash entirely, and anything that carried it off
+## its patch (a stalk, a zoomie) strolls back afterwards. A caught feather is still
+## brought over — but only when you come near; it does not break a STAY to deliver.
+func _stay_behaviour(delta: float, ppos: Vector3, d: float) -> void:
+	if _carry != "":
+		if d < 6.0:
+			_enter(State.GIFT)
+			_watch(ppos + Vector3(0, 1.2, 0), 0.8)
+			if d > 1.3:
+				_walk_toward(ppos, TROT_SPEED, delta, 1.1)
+			else:
+				var player: Node3D = get_tree().get_first_node_in_group("player")
+				if player != null:
+					_deliver(player)
+		else:
+			_enter(State.SIT)
+			_pose_sit(delta)
+			_watch(ppos + Vector3(0, 1.2, 0), 0.4)
+		return
+	if _after_t > 0.0:
+		_after_t -= delta
+		_enter(State.GROOM)
+		_last_speed = 0.0
+		_reseat()
+		return
+	if _hunt > 0 or (_hunt_cd <= 0.0 and _energy > 0.30):
+		if _hunt_step(delta):
+			_wash_t = 0.0
+			return
+	if _zoom_t > 0.0 or (_zoom_cd <= 0.0 and _still > 5.0 and _energy > 0.62):
+		if _zoomies(delta, _stay_spot):
+			return
+	if _play_t > 0.0 or (_play_cd <= 0.0 and _still > SETTLE_SEC * 0.5 and _energy > 0.34):
+		if _play(delta):
+			return
+	# Wandered off the patch? Stroll home. 4 m of slack, because a cat told to stay in a
+	# spot understands the spot to be roughly the size of a room.
+	if global_position.distance_to(_stay_spot) > 4.0:
+		_enter(State.FOLLOW)
+		_walk_toward(_stay_spot, WALK_SPEED, delta, 1.0)
+		return
+	if _self_groom(delta):
+		return
+	if _still > SETTLE_SEC:
+		_settle(delta)
+	else:
+		_enter(State.SIT)
+		_pose_sit(delta)
+		_maybe_wash()
 		if _shake_cd <= 0.0 and _rng.randf() < delta * 0.25:
 			if _rig != null:
 				_rig.call("shake", 1.0)
@@ -959,6 +1077,7 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# running at GALLOP paw lift and gallop duty, i.e. 80% of the cycle airborne, on an
 	# animal going nowhere. Four legs paddling in the air is precisely "floppy".
 	_last_speed = 0.0
+	_detour_t = maxf(0.0, _detour_t - delta)
 	var to: Vector3 = target - global_position
 	to.y = 0.0
 	var dist: float = to.length()
@@ -1003,35 +1122,88 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# then the two tangents, taking whichever still carries it toward the target.
 	var moved_dir: Vector3 = dir
 	if not _step_clear(Vector3(want.x, ground, want.z), dir):
+		# THE DETOUR FAN — navigation for an animal with no navmesh, and the cure for the
+		# corner the owner watched it wedge in.
+		#
+		# The old slide tried exactly the two perpendiculars and remembered nothing: a
+		# doorway 30 degrees off the line was invisible (both tangents parallel the wall),
+		# and at a concave corner the choice was re-rolled from scratch every frame, so
+		# the animal flipped +90/-90/+90 against the pocket for ever — "caught in a
+		# corner". Two changes, both cheap:
+		#
+		#   * A FAN, nearest-the-goal first: ±29, ±52, ±83, ±115 degrees. The first clear
+		#     candidate wins, so the cat deviates as little as the geometry allows and can
+		#     still take a heading past perpendicular — rounding a corner's far edge needs
+		#     one — while anything beyond ±115 stays forbidden (a detour that points back
+		#     the way it came is how an animal orbits a pillar).
+		#   * COMMITMENT: taking a detour remembers its SIDE for 0.8 s, and the fan tries
+		#     that side first at every magnitude while the memory lasts. Deciding is
+		#     cheap; re-deciding every frame is what oscillates. The memory only biases
+		#     the ORDER — if the committed side closes, the other side still gets tried
+		#     the same frame.
+		#
+		# Cost: only on BLOCKED frames, worst case 8 candidate probes; an unobstructed
+		# walk pays nothing.
 		var slid := false
-		for side in [1.0, -1.0]:
-			var alt: Vector3 = dir.rotated(Vector3.UP, side * PI * 0.5)
-			# Only a slide that still makes progress — a tangent pointing back the way we
-			# came is how an animal ends up orbiting a pillar for ever.
-			if alt.dot(dir) < -0.1:
-				continue
-			var awant: Vector3 = global_position + alt * speed * delta
-			var aq := PhysicsRayQueryParameters3D.create(
-				awant + Vector3(0, STEP_UP + 0.3, 0),
-				awant + Vector3(0, STEP_UP + 0.3, 0) - Vector3(0, STEP_UP + 1.4, 0))
-			aq.collision_mask = 1
-			aq.collide_with_areas = false
-			aq.exclude = _walk_skip()
-			var ahit: Dictionary = world.direct_space_state.intersect_ray(aq)
-			if ahit.is_empty():
-				continue
-			var aground: float = (ahit["position"] as Vector3).y
-			if absf(aground - global_position.y) > CLIMB_UP:
-				continue
-			if not _step_clear(Vector3(awant.x, aground, awant.z), alt):
-				continue
-			want = awant
-			ground = aground
-			rise = aground - global_position.y
-			moved_dir = alt
-			slid = true
-			break
+		var first: float = _detour_side if (_detour_t > 0.0 and absf(_detour_side) > 0.5) else 1.0
+		for mag in [0.5, 0.9, 1.45, 2.0]:
+			if slid:
+				break
+			for side_k in [first, -first]:
+				var alt: Vector3 = dir.rotated(Vector3.UP, side_k * float(mag))
+				var awant: Vector3 = global_position + alt * speed * delta
+				var aq := PhysicsRayQueryParameters3D.create(
+					awant + Vector3(0, STEP_UP + 0.3, 0),
+					awant + Vector3(0, STEP_UP + 0.3, 0) - Vector3(0, STEP_UP + 1.4, 0))
+				aq.collision_mask = 1
+				aq.collide_with_areas = false
+				aq.exclude = _walk_skip()
+				var ahit: Dictionary = world.direct_space_state.intersect_ray(aq)
+				if ahit.is_empty():
+					continue
+				var aground: float = (ahit["position"] as Vector3).y
+				if absf(aground - global_position.y) > CLIMB_UP:
+					continue
+				if not _step_clear(Vector3(awant.x, aground, awant.z), alt):
+					continue
+				want = awant
+				ground = aground
+				rise = aground - global_position.y
+				moved_dir = alt
+				_detour_side = signf(side_k)
+				_detour_t = 0.8
+				slid = true
+				break
 		if not slid:
+			# A DEAD POCKET — the whole fan refused. Greedy steering can walk into a U it
+			# cannot steer out of (everything inside ±115° is blocked and the exit is
+			# dead astern), which is exactly where the probe's COME test wedged: 0.8 m of
+			# progress into a bunk niche and then zero for eight seconds, deterministic.
+			# A real animal BACKS OUT. After 0.35 s of fully-refused frames, take the
+			# reverse step if it is clear, and flip the committed side — so the next
+			# approach rounds the obstacle the other way instead of re-entering the same
+			# pocket for ever.
+			_detour_stall += delta
+			if _detour_stall > 0.35:
+				var back: Vector3 = -dir
+				var bwant: Vector3 = global_position + back * minf(speed, WALK_SPEED) * delta
+				var bq := PhysicsRayQueryParameters3D.create(
+					bwant + Vector3(0, STEP_UP + 0.3, 0),
+					bwant + Vector3(0, STEP_UP + 0.3, 0) - Vector3(0, STEP_UP + 1.4, 0))
+				bq.collision_mask = 1
+				bq.collide_with_areas = false
+				bq.exclude = _walk_skip()
+				var bhit: Dictionary = world.direct_space_state.intersect_ray(bq)
+				if not bhit.is_empty():
+					var bground: float = (bhit["position"] as Vector3).y
+					if absf(bground - global_position.y) <= CLIMB_UP \
+							and _step_clear(Vector3(bwant.x, bground, bwant.z), back):
+						var before_back: Vector3 = global_position
+						global_position = Vector3(bwant.x, bground, bwant.z)
+						_moved_frame += global_position.distance_to(before_back)
+						_last_speed = minf(speed, WALK_SPEED) * 0.6
+						_detour_side = -_detour_side if absf(_detour_side) > 0.5 else 1.0
+						_detour_t = 1.2
 			return
 	# STAIRS. The old rule was "coamings yes, stairs no" (STEP_UP 0.45) and the cat simply
 	# refused anything taller — which is why it could not follow you off the deck it met you
@@ -1058,6 +1230,8 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 			if _rig != null:
 				_rig.call("play_seq", [["jump_crouch", 0.34, 14.0]], "jump", 10.0)
 		return
+	# A step was taken — whatever pocket the stall counter was accumulating toward is open.
+	_detour_stall = 0.0
 	# The slope it is standing on, for the body pitch. Taken from the rise over the step
 	# actually taken rather than from a second probe, so it cannot disagree with the move.
 	var run: float = maxf(step.length(), 0.0001)
@@ -1103,23 +1277,24 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 ## pose actually being drawn rather than typed: a cat is not a sphere, and a disc the size
 ## of its length could not fit through a doorway it walks through nose-first every day.
 ## The nose is covered separately by testing the far end of the body too (see _step_clear).
+## ONE FOOTPRINT, CONSTANT, DERIVED — never again measured off the drawn meshes.
+##
+## The per-pose AABB version wedged the animal by construction, and the s45 COME probe
+## caught it red-handed: the collision radius CHANGED WITH THE ANIMATION POSE (groom
+## cached 0.100, run fatter), so a spot the cat legally walked into under one pose became
+## illegal the moment its state changed — at (-21.9, 18, 12) the detour fan's +0.9
+## candidate measured CLEAR at groom's radius and BLOCKED at run's, and the animal stood
+## pinned for eight seconds in an open aisle it could plainly leave. Worse, the numbers
+## were never the body at all: attach_rigged GROWS every MeshInstance's custom_aabb by
+## half a metre for cull safety (a hand-driven skeleton corrupts the automatic bounds),
+## and get_aabb() returns that grown box — the "measurement" was debug-box arithmetic
+## saturating the clamp. A footprint that breathes cannot navigate; every character
+## controller fixes the capsule and animates inside it. Derived from the recorded stand
+## mesh proportions (AABB 1.0 x 0.566 x 0.265, tests/BoneDump; nose-to-tail scaled to
+## STAND_SIZE_M), plus 30 mm of whisker.
+const BODY_ACROSS_RATIO: float = 0.265
 func _body_r() -> float:
-	if _host == null:
-		return 0.18
-	if _body_r_cache.has(_pose):
-		return _body_r_cache[_pose]
-	var host: Node3D = _host
-	var acc := AABB()
-	var first := true
-	for n in host.find_children("*", "MeshInstance3D", true, false):
-		var mi: MeshInstance3D = n
-		var b: AABB = mi.global_transform * mi.get_aabb()
-		acc = b if first else acc.merge(b)
-		first = false
-	# The SMALLER horizontal extent is the body's width whatever way the animal is facing.
-	var r: float = 0.18 if first else clampf(minf(acc.size.x, acc.size.z) * 0.5, 0.10, 0.26)
-	_body_r_cache[_pose] = r
-	return r
+	return STAND_SIZE_M * BODY_ACROSS_RATIO * 0.5 + 0.03
 
 ## Would the cat's BODY fit at `at`? A sphere query rather than a ray, so a step that leaves
 ## the origin outside a wall but the flank inside it is refused. Tested at the body centre
@@ -1151,18 +1326,11 @@ func _step_clear(at: Vector3, dir: Vector3, extra_skip: Array = []) -> bool:
 			return false
 	return true
 
+## Fixed for the same reason as _body_r: the live-AABB version read the grown cull boxes
+## and swung with the pose. The animal is STAND_SIZE_M long; that is what the nose probe
+## should reach for, in every pose, for ever.
 func _body_len() -> float:
-	if _host == null:
-		return 0.6
-	var host: Node3D = _host
-	var acc := AABB()
-	var first := true
-	for n in host.find_children("*", "MeshInstance3D", true, false):
-		var mi: MeshInstance3D = n
-		var b: AABB = mi.global_transform * mi.get_aabb()
-		acc = b if first else acc.merge(b)
-		first = false
-	return 0.6 if first else maxf(acc.size.x, acc.size.z)
+	return STAND_SIZE_M
 
 ## THE SAFETY NET, and the reason this can be called "no glitches" rather than "fewer".
 ##

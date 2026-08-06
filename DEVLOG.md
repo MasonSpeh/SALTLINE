@@ -1929,3 +1929,32 @@ against the replaced StandardMaterial3D's 12. A/B switch: MatLib.TOWER_ANTITILE.
 Filmed clean at grazing and wide (tests/out/cat_review/s44_tower_antitile.png).
 
 TestRunner 0 after all of it.
+
+## s45 — the follow toggle, the detour fan, and the footprint that breathed
+
+The owner's parked asks from two sessions back, done and probed:
+  * STAY / COME on the crosshair. Stayed, the cat anchors to the spot it was told at and
+    lives its own life there — its hunts ungated by the companion leash, zoomies and play
+    orbiting ITS patch, the sit -> doze -> sleep ladder on its own clock, a caught
+    feather delivered only when you come near. COME (with a chirp, a tail flick and the
+    delight shimmy) falls it back in beside you. Petting works throughout.
+  * NO DISTANCE GIVES UP THE FOLLOW. LOST_M is gone: parking the cat is a decision (the
+    verb) instead of a distance. The means is the DETOUR FAN in _walk_toward — eight
+    candidates nearest-the-goal first (±29/±52/±83/±115 deg), 0.8 s side-commitment so
+    corners get ROUNDED instead of re-rolled every frame, and a back-out after 0.35 s of
+    dead pocket that flips the committed side for the retry.
+  * THE WEDGE HAD A REAL CAUSE, and the new COME probe caught it: the collision footprint
+    CHANGED WITH THE ANIMATION POSE. _body_r() measured the drawn meshes — whose AABBs
+    attach_rigged deliberately GROWS half a metre for cull safety — so the "radius" was
+    debug-box arithmetic that differed per pose (groom 0.100, run fatter), and a spot the
+    cat walked into legally became illegal when its state changed: pinned eight seconds
+    in an open aisle, deterministic. The footprint is now ONE derived constant (stand
+    mesh proportions x STAND_SIZE_M + 30 mm whisker) — a capsule the animation lives
+    inside, like every character controller ever shipped.
+
+Not persisted: _stayed across save/load (the cat has no save section at all — filed
+mentally with the rest of its state). CatProbe gained the STAY/COME gates; the follows-
+again window is isolated from the cat's own stay-time hunts, which can legitimately leave
+a 2.7 s affronted wash running when COME arrives.
+
+CatProbe 0 (incl. new gates), CatHuntProbe 0, CatJointProbe 0, TestRunner 0.

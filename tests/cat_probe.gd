@@ -239,6 +239,56 @@ func _run() -> void:
 	_ok(cat.global_position.distance_to(before_still) < 2.5,
 		"it settles rather than circling when the player rests")
 
+	# 5b. STAY MEANS STAY, COME MEANS COME — the owner's follow toggle (s45). Told to
+	# stay, it must hold its patch while the player crosses the room; told to come, it
+	# must fall back in. Verbs are asserted on the HANDLE (what the crosshair actually
+	# reads), and the leash test moves the player well past the old LOST_M distance so
+	# "holds its patch" is proven against the strongest pull the follow now has.
+	var touch_s: Interactable = null
+	for c in cat.get_children():
+		if c is Interactable:
+			touch_s = c
+			break
+	touch_s.emit_signal("interacted", "STAY")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_ok(bool(cat.get("_stayed")), "STAY sets the flag")
+	_ok("COME" in (cat.call("available_verbs") as Array), "...and the crosshair now offers COME")
+	var stay_spot: Vector3 = cat.global_position
+	player.global_position = Vector3(-9.5, 18.1, 5.5)
+	for i in range(420):
+		await get_tree().physics_frame
+	_ok(cat.global_position.distance_to(stay_spot) < 5.0,
+		"stayed, it holds its patch while the player walks off (%.1f m from the spot)"
+			% cat.global_position.distance_to(stay_spot))
+	player.global_position = Vector3(-22.0, 18.1, 12.0)
+	for i in range(30):
+		await get_tree().physics_frame
+	touch_s.emit_signal("interacted", "COME")
+	await get_tree().physics_frame
+	await get_tree().physics_frame
+	_ok(not bool(cat.get("_stayed")), "COME clears the flag")
+	# The toggle is the subject, not the hunt scheduler: an unleashed stay-time hunt can
+	# leave `_after_t` (the affronted post-miss wash, ~2.7 s) running when COME arrives,
+	# and the wash legitimately outranks walking. Clear the residues so the window below
+	# measures the FOLLOW, the same isolation every reel applies.
+	cat.set("_hunt_cd", 999.0)
+	cat.set("_after_t", 0.0)
+	cat.set("_wash_t", 0.0)
+	cat.set("_zoom_cd", 999.0)
+	cat.set("_play_cd", 999.0)
+	var come_start: Vector3 = cat.global_position
+	player.global_position = Vector3(-12.0, 18.1, 10.0)
+	for i in range(480):
+		await get_tree().physics_frame
+	_ok(cat.global_position.distance_to(come_start) > 1.0
+			and cat.global_position.distance_to(player.global_position) < 9.0,
+		"...and it follows again (moved %.1f m, now %.1f m from the player; cat %s state %d pose %s stall %.2f)"
+			% [cat.global_position.distance_to(come_start),
+				cat.global_position.distance_to(player.global_position),
+				str(cat.global_position.snappedf(0.1)), int(cat.get("_state")),
+				str(cat.get("_pose")), float(cat.get("_detour_stall"))])
+
 	# 6. IT WANTS THE FISH. A fish in hand pulls it in closer than its normal follow distance.
 	PlayerState.add_item("fish_herring")
 	for i in range(PlayerState.hotbar.size()):
