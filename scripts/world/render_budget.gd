@@ -24,6 +24,22 @@ extends Node
 
 ## Largest dimension under which a mesh stops casting directional shadows.
 const SHADOW_MIN: float = 0.80
+## Groups whose meshes keep their shadow whatever their size — see the `hero` note in the
+## shadow audit below. A companion animal the player crouches down to look at is not
+## dressing, and the size rule cannot tell the difference on its own.
+const HERO_GROUPS: Array[StringName] = [&"ship_cat"]
+
+## Is this mesh part of a hero object? Walks up to the nearest group-bearing ancestor,
+## because the MeshInstance3D itself is buried under CreatureAnim's host/model nodes and
+## is never the node carrying the group.
+static func _is_hero(mi: Node) -> bool:
+	var n: Node = mi
+	while n != null:
+		for g in HERO_GROUPS:
+			if n.is_in_group(g):
+				return true
+		n = n.get_parent()
+	return false
 ## A "plate": thinner than this and no wider than THIN_PLATE_MAX_SPAN casts no useful shadow.
 ## Above the span limit an object this thin is structure (bulkhead, deck plate) and still casts.
 const THIN_PLATE_MAX_THICK: float = 0.09
@@ -174,8 +190,16 @@ func _sweep(root: Node) -> void:
 		# Anything genuinely structural stays: a 3 mm-thin object 3 m across is a bulkhead or
 		# a deck plate, and those must still cast, so the thin rule only applies below
 		# THIN_PLATE_MAX_SPAN.
-		var negligible: bool = size < SHADOW_MIN \
-			or (thin <= THIN_PLATE_MAX_THICK and size <= THIN_PLATE_MAX_SPAN)
+		#
+		#  3. ...UNLESS IT IS A HERO. The size rule is written for dressing, and it was
+		#     quietly stripping the shadow off the one thing on this rig a player looks
+		#     AT: the ship's cat is 0.66 m nose to tail, under SHADOW_MIN, so the hero
+		#     animal was the only object on deck throwing nothing — which reads as a
+		#     cut-out pasted onto the plating however good the model is, and is a real
+		#     part of "sharpen the detail of the cat". It costs one draw call: the whole
+		#     animal is a single surface with one material.
+		var negligible: bool = not _is_hero(mi) and (size < SHADOW_MIN \
+			or (thin <= THIN_PLATE_MAX_THICK and size <= THIN_PLATE_MAX_SPAN))
 		if negligible and mi.cast_shadow != GeometryInstance3D.SHADOW_CASTING_SETTING_OFF:
 			mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 			_shadow_off += 1

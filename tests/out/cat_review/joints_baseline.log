@@ -1,0 +1,136 @@
+Godot Engine v4.7.stable.official.5b4e0cb0f - https://godotengine.org
+
+[cat_rig] limb levers m/rad: reach { "lf": 0.306, "rf": 0.342, "lh": 0.214, "rh": 0.189 }  knee { "lf": 0.141, "rf": 0.117, "lh": 0.07, "rh": 0.109 }
+[cat_rig] foot-lock sweep 0.221 m -> stride 0.356 m walking, 0.581 m at a gallop
+[cat_rig]   lf  a 0.178  b 0.145  c0 0.318  fold-floor 0.035  reach-cap 0.319
+[cat_rig]   rf  a 0.228  b 0.131  c0 0.345  fold-floor 0.102  reach-cap 0.354
+[cat_rig]   lh  a 0.336  b 0.111  c0 0.402  fold-floor 0.236  reach-cap 0.440
+[cat_rig]   rh  a 0.086  b 0.106  c0 0.192  fold-floor 0.021  reach-cap 0.189
+[ray] floor -36.0 + lift 0.34 -> band -35.66  (span 6.4, stratum 0.00..1.52, wander top -32.66, wingtip top -29.46, headroom 5.80)
+[ray] floor -33.5 + lift 2.99 -> band -30.51  (span 5.5, stratum 1.52..3.05, wander top -27.51, wingtip top -24.76, headroom 3.75)
+[ray] floor -32.0 + lift 2.60 -> band -29.40  (span 4.8, stratum 3.05..4.57, wander top -26.40, wingtip top -24.00, headroom 2.60)
+[reef_detail] coral shelves (world coords):
+  (8.4, -82.3, -29.0)  reef ridge crown: broad flat, high current
+  (13.0, -86.9, -27.0)  reef ridge SW flank: current-swept face
+  (-3.0, -90.1, -50.0)  capsized workboat bilge: broad flat steel, encrusted
+  (13.0, -90.3, -48.0)  crushed container roof: flat shelf near the gyre eye
+  (40.0, -86.7, 4.0)  east outcrop crown: flat rock, off the mooring lines
+  (-8.0, -93.5, -44.0)  low reef slab (deep band ~ -22): flat top, silted margins
+  (6.0, -92.9, -60.0)  low reef slab (deep band ~ -22): flat top, silted margins
+  (-16.0, -92.8, -50.0)  low reef slab (deep band ~ -22): flat top, silted margins
+[leg_reef] kelp stand: 44 strands, floor y -12.08
+[leg_reef] band y -12.68 .. -40.00 (scale 2.29x) · 2600 instances · 82 MultiMesh draws · 12057796 tris
+[leg_reef]   wall plants 262 (162 above the 13 m dive limit, 62%)
+[leg_reef]   kelp/seaweed 82 (52 above the dive limit, 63%) · 16 big structures
+[leg_reef]   base contact: 344 rooted plants · cut edge 12.1..220.0 mm INSIDE the concrete · base plate off the wall plane by at most 0.0019 mm · min det +0.00444 · 0 failed
+[leg_reef]   sway anchor: the concrete cuts a rooted plant at most 11.8% up its own stem, where the shader moves it 10.49 mm
+[leg_reef]   shallow stalk clamp: 6 structure members unstretched above y -13.0, 1 dropped to the scatter
+[leg_reef]   reefmass_a         55 x  7000 tris =   385000
+[leg_reef]   reefmass_b         43 x  6999 tris =   300957
+[leg_reef]   coral_branch_a    180 x  5000 tris =   900000
+[leg_reef]   coral_fan_a       191 x  6000 tris =  1146000
+[leg_reef]   coral_plate       217 x  5000 tris =  1085000
+[leg_reef]   coral_brain       212 x  5000 tris =  1060000
+[leg_reef]   coral_bubble      108 x  3999 tris =   431892
+[leg_reef]   coral_branch_b    258 x  4000 tris =  1032000
+[leg_reef]   sponge_tube_cluster  131 x  3600 tris =   471600
+[leg_reef]   sponge_barrel     108 x  2999 tris =   323892
+[leg_reef]   barnacle_giant    277 x  1400 tris =   387800
+[leg_reef]   barnacle_cluster_a   62 x  4000 tris =   248000
+[leg_reef]   bloom_anemone      72 x  8000 tris =   576000
+[leg_reef]   bloom_sea_grass   100 x  7999 tris =   799900
+[leg_reef]   glow_creeper       90 x  8000 tris =   720000
+[leg_reef]   kelp_whip          37 x  8000 tris =   296000
+[leg_reef]   kelp_blade         45 x  7999 tris =   359955
+[leg_reef]   star_big_red       59 x  3000 tris =   177000
+[leg_reef]   star_big_spiny     31 x  3400 tris =   105400
+[leg_reef]   sponge_rope        75 x  3600 tris =   270000
+[leg_reef]   reefmass_c         42 x  7000 tris =   294000
+[leg_reef]   reefmass_d         46 x  7000 tris =   322000
+[leg_reef]   star_big_sunflower   26 x  3600 tris =    93600
+[leg_reef]   star_mid           38 x  2000 tris =    76000
+[leg_reef]   star_small         94 x  2000 tris =   188000
+[leg_reef]   star_huge           3 x  2600 tris =     7800
+[leg_reef]   group Leg_-22_-12       2915084 tris (its own MultiMesh AABB, culled as one)
+[leg_reef]   group Leg_22_-12        2954693 tris (its own MultiMesh AABB, culled as one)
+[leg_reef]   group Leg_-22_12        2995308 tris (its own MultiMesh AABB, culled as one)
+[leg_reef]   group Leg_22_12         2840711 tris (its own MultiMesh AABB, culled as one)
+[leg_reef]   group Foundation         352000 tris (its own MultiMesh AABB, culled as one)
+[leg_reef] snails: 13 climbing the caissons, seated y -34.88 .. -19.50 (0 refused — no collider)
+[leg_reef] seating rays 5741, of which 0 fell back to the sonar-measured face
+[reef_fish] 189 fish · 51 stations · 10 species · 269788 tris · 108 ShaderMaterials
+[reef_fish]   trop_clown         12 fish in 4 stations, y -5.1..-5.3 — host-bound: three fish that never leave one coral head, bobbing in place
+[reef_fish]   trop_yellow_tang   20 fish in 5 stations, y -6.4..-13.1 — grazers: small groups working the wall, slow, not easily bothered
+[reef_fish]   trop_damsel        35 fish in 5 stations, y -8.1..-8.5 — a tight shoal glued to one head — the most skittish thing on the reef
+[reef_fish]   trop_wrasse         8 fish in 8 stations, y -9.8..-14.6 — a solitary cleaner working its station: quick, jittery, and unafraid
+[reef_fish]   trop_butterfly     12 fish in 6 stations, y -7.5..-15.4 — bonded PAIRS that stay within a body length of each other all game
+[reef_fish]   trop_blue_tang     28 fish in 4 stations, y -13.3..-13.9 — a loose roving shoal that drifts across the whole colony rather than over it
+[reef_fish]   trop_anthias       55 fish in 5 stations, y -8.2..-15.3 — the cloud: a big loose swarm feeding out in the flow, that pours back into the coral all at once
+[reef_fish]   trop_triggerfish    4 fish in 4 stations, y -15.9..-16.2 — territorial: the ONE species that closes on you instead of hiding
+[reef_fish]   trop_angel          5 fish in 5 stations, y -17.3..-17.7 — solitary and slow: a wide unhurried circuit of its own patch
+[reef_fish]   trop_parrot        10 fish in 5 stations, y -18.6..-19.2 — big grazers nosing along the concrete, head down, barely reacting to you
+[reef_fish] shallow seating rays 96, of which 0 fell back to the sonar face
+WARNING: [mussels] derived dive floor y -27.80 is outside [-24.0, -8.0] — clamping
+     at: push_warning (core/variant/variant_utility.cpp:1033)
+     GDScript backtrace (most recent call first):
+         [0] _dive_floor (res://scripts/world/mussel_beds.gd:199)
+         [1] _ready (res://scripts/world/mussel_beds.gd:168)
+[mussels] 24 beds (171/366 colony seats above the derived dive floor y -24.00) · 7 refused (0 no collider, 7 spacing, 0 keep-out)
+[mussels] 96 meshes, 244800 tris, seated y -23.58 .. -13.42 (band -12.68 .. -40.00, dive floor -24.00)
+[mussels] regrow 5 game days = 120 game hours = 18000 real seconds at time_scale 1.0
+[settle] surfaces=8237  candidates=393  corrected=388
+[settle] surfaces=8237  candidates=393  corrected=3
+[batcher] merged 3651 dressing primitives into 307 material meshes
+[batcher] shadow audit: dropped 350 structural-CSG shadow casters
+PASS  [stand_walk] paw_axis_ratio_min = 0.650 x rest (gate > 0.450)
+PASS  [stand_walk] paw_splay_max_m = 0.024 m (gate < 0.100)
+FAIL  [stand_walk] body_node_rot_max_deg = 4.670 deg (gate < 1.000)
+PASS  [stand_walk] body_node_pos_max_mm = 0.000 mm (gate < 5.000)
+PASS  [stand_walk] head_speed_p99_deg_s = 42.052 deg/s (gate < 200.000)
+[world_storage] adopted 15 found containers
+[budget] meshes budgeted: 9712   shadow casters dropped: 5349   shadow lights rationed: 5
+PASS  [sit] paw_axis_ratio_min = 0.573 x rest (gate > 0.450)
+PASS  [sit] paw_splay_max_m = 0.057 m (gate < 0.100)
+FAIL  [sit] body_node_rot_max_deg = 4.670 deg (gate < 1.000)
+PASS  [sit] body_node_pos_max_mm = 0.000 mm (gate < 5.000)
+FAIL  [sit] head_speed_p99_deg_s = 630.898 deg/s (gate < 200.000)
+PASS  [groom] paw_axis_ratio_min = 0.997 x rest (gate > 0.450)
+PASS  [groom] paw_splay_max_m = 0.000 m (gate < 0.100)
+FAIL  [groom] body_node_rot_max_deg = 4.670 deg (gate < 1.000)
+PASS  [groom] body_node_pos_max_mm = 0.000 mm (gate < 5.000)
+PASS  [groom] head_speed_p99_deg_s = 1.235 deg/s (gate < 200.000)
+FAIL  [run] paw_axis_ratio_min = 0.420 x rest (gate > 0.450)
+PASS  [run] paw_splay_max_m = 0.057 m (gate < 0.100)
+FAIL  [run] body_node_rot_max_deg = 4.670 deg (gate < 1.000)
+PASS  [run] body_node_pos_max_mm = 0.000 mm (gate < 5.000)
+FAIL  [run] head_speed_p99_deg_s = 672.776 deg/s (gate < 200.000)
+      [head_bias] mesh_rest_bias_deg = -1.87
+      [head_bias] samples = 239
+      [head_bias] yaw_min_deg = -2.29
+      [head_bias] yaw_max_deg = -1.41
+PASS  [head_bias] head_yaw_mean_vs_travel_deg = 1.865 deg (gate < 5.000)
+
+  joint             min deg    max deg      range   off-hinge deg
+  L_Clavicle          -10.7       11.2       21.9   0.0 (sit)
+  L_Upperarm          -33.0       15.6       48.6   0.5 (stand_walk)
+  L_Forearm            -1.8       74.5       76.3   0.7 (stand_walk)
+  L_Hand               -8.6       26.0       34.6   0.1 (stand_walk)
+  R_Clavicle          -10.7       11.2       21.9   0.0 (sit)
+  R_Upperarm          -36.9       13.3       50.2   0.2 (stand_walk)
+  R_Forearm           -13.3       70.7       84.0   0.8 (stand_walk)
+  R_Hand               -8.6       26.0       34.6   0.0 (run)
+  L_Thigh             -22.9       13.8       36.7   0.2 (stand_walk)
+  L_Calf              -38.0       52.7       90.7   0.1 (stand_walk)
+  L_Foot               -0.6       20.1       20.6   0.0 (run)
+  L_ToeBase            -0.3       10.0       10.3   0.0 (run)
+  R_Thigh             -78.9       24.4      103.3   0.0 (stand_walk)
+  R_Calf                0.0      126.9      126.9   0.1 (stand_walk)
+  R_Foot               -0.6       20.1       20.7   0.0 (stand_walk)
+  R_ToeBase            -0.3       10.0       10.3   0.0 (run)
+      [joints] worst_off_hinge_bone = R_Forearm
+      [joints] weakest_fold_bone = L_Forearm
+PASS  [joints] off_hinge_max_deg = 0.798 deg (gate < 15.000)
+PASS  [joints] weakest_knee_range_deg = 76.302 deg (gate > 20.000)
+[cat_joints] -> res://tests/out/cat_review/joints.json
+---
+FAILURES: 7

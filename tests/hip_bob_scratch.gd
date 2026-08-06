@@ -1,6 +1,8 @@
 extends Node
-## SCRATCH 3 — per-frame joint continuity of the BARE rig at a constant walk and run.
-## If the spikes live here they are solve-internal; if not, the live world feeds them.
+## SCRATCH — sweep the head stabiliser's strength/sign and report how much the head moves
+## RELATIVE TO THE BODY at each setting. The right value is the one that makes a walking
+## and galloping cat's head quietest; the wrong SIGN doubles the trunk's motion instead of
+## cancelling it, which is indistinguishable from "it does nothing" if you only read code.
 
 const RIG := preload("res://scripts/world/cat_rig.gd")
 const GLB := "res://assets/models/fauna/_rigged/cat_stand_idle.glb"
@@ -12,29 +14,27 @@ func _ready() -> void:
 	for n in root.find_children("*", "Skeleton3D", true, false):
 		sk = n
 		break
-	for speed_pose in [[1.55, "walk"], [4.4, "run"], [0.62, "stalk"]]:
-		var rig = RIG.new(sk, "")
-		var speed: float = float(speed_pose[0])
-		rig.set_pose(String(speed_pose[1]), 10.0)
-		var prev := {}
-		var worst: float = 0.0
-		var worst_bone: String = ""
-		var worst_i: int = -1
-		var worst_ph: float = 0.0
-		for i in range(900):
-			rig.tick(1.0 / 60.0, speed, speed / 60.0)
-			for b in range(sk.get_bone_count()):
-				var q: Quaternion = sk.get_bone_pose_rotation(b)
-				if prev.has(b) and i > 120:
-					var st: float = (prev[b] as Quaternion).angle_to(q)
-					if st > worst:
-						worst = st
-						worst_bone = sk.get_bone_name(b)
-						worst_i = i
-						worst_ph = float(rig.get("_phase"))
-				prev[b] = q
-		print("[s3] %-5s worst step %.4f rad/frame at %s (frame %d, phase %.3f)"
-			% [String(speed_pose[1]), worst, worst_bone, worst_i, worst_ph])
+	var hi: int = sk.find_bone("Head")
+	print("[stab] %-7s %14s %14s" % ["HEAD_STAB", "walk deg/s p99", "run deg/s p99"])
+	for stab in [0.0, 0.35, 0.72, 1.0, -0.72]:
+		RIG.HEAD_STAB = stab
+		var out: Array[float] = []
+		for speed_pose in [[1.55, "walk"], [4.4, "run"]]:
+			var rig = RIG.new(sk, "")
+			var speed: float = float(speed_pose[0])
+			rig.set_pose(String(speed_pose[1]), 10.0)
+			var spd: Array[float] = []
+			var prev := Vector3.ZERO
+			for i in range(900):
+				rig.tick(1.0 / 60.0, speed, speed / 60.0)
+				sk.force_update_all_bone_transforms()
+				# Head forward in the SKELETON's own frame — the skeleton node never
+				# rotates here, so this is head-relative-to-body by construction.
+				var f: Vector3 = (sk.get_bone_global_pose(hi).basis * Vector3(0, 1, 0)).normalized()
+				if i > 150 and prev != Vector3.ZERO:
+					spd.append(rad_to_deg(f.angle_to(prev)) * 60.0)
+				prev = f
+			spd.sort()
+			out.append(spd[int(float(spd.size()) * 0.99)])
+		print("[stab] %-7.2f %14.1f %14.1f" % [stab, out[0], out[1]])
 	get_tree().quit()
-
-## Quick geometry dump — run by editing _ready to call this if needed.

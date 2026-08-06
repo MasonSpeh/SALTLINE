@@ -354,6 +354,7 @@ func _ready() -> void:
 			"wash": await _reel_wash(sim_per_frame)
 			"jump": await _reel_jump(sim_per_frame)
 			"hunt": await _reel_hunt(sim_per_frame)
+			"routine": await _reel_routine(sim_per_frame)
 			"gift": await _reel_gift(sim_per_frame)
 			"lookwalk": await _reel_lookwalk(sim_per_frame)
 			"idle": await _reel_idle(sim_per_frame)
@@ -781,6 +782,84 @@ func _reel_tail(sim_per_frame: int) -> void:
 			_cam.global_position = _cat.global_position + eye + Vector3(0, 0.35, 0)
 			_cam.look_at(_cat.global_position + back * 0.25 + Vector3(0, 0.18, 0), Vector3.UP)
 		await _shoot("tail", "walk" if f < walk_frames else "stop", travel, sim_per_frame, place)
+
+## THE ROUTINE — the owner's own list, in ONE continuous close take: found and washing,
+## greeted, standing up, following, sitting, petted, grooming, and the wake stretch.
+##
+## CLOSE, AND THAT IS THE POINT. Every reel before this one framed the cat at two to three
+## metres, where the animal is 80-120 pixels tall and a hyperextended elbow, a splayed
+## forepaw or a knee that never bends are all sub-pixel events. The s40 review pack was
+## signed off from frames like that and the owner found every one of those defects in
+## seconds. A joint the reviewer cannot SEE has not been reviewed. This camera sits ~1.2 m
+## out at chest height and orbits slowly, so a limb is a hand's width on screen and the
+## joints are legible from several sides within one beat.
+func _reel_routine(sim_per_frame: int) -> void:
+	var stage := Vector3(3.0, 18.0, -3.0)
+	_cat.global_position = stage
+	if _cat.has_method("_reseat"):
+		_cat.call("_reseat")
+	# BACK TO A STRANGER, so the greeting is the real one-time transition rather than a
+	# re-pet: _ready befriends the cat so the other reels can film companion behaviour.
+	_cat.set("friend", false)
+	for c in _cat.get_children():
+		if c is Interactable:
+			(c as Interactable).verbs = ["SAY HELLO"] as Array[String]
+	_player.global_position = stage + Vector3(4.5, 0.1, 1.5)
+	for i in range(30):
+		await get_tree().physics_frame
+	# [player_offset, seconds, label, lying]
+	var beats: Array = [
+		[Vector3(4.5, 0.1, 1.5), 4.0, "found_washing", false],
+		[Vector3(1.5, 0.1, 0.6), 4.0, "greeting", false],
+		[Vector3(-5.0, 0.1, -1.0), 6.0, "stand_and_follow", false],
+		[Vector3(-5.0, 0.1, -1.0), 6.0, "sit_down", false],
+		[Vector3(-5.0, 0.1, -1.0), 4.0, "petted", false],
+		[Vector3(-5.0, 0.1, -1.0), 6.0, "grooming", false],
+		[Vector3(-5.0, 0.1, -1.0), 5.0, "sleeping", true],
+		[Vector3(-5.0, 0.1, -1.0), 5.0, "waking_stretch", false],
+	]
+	# A GDScript LAMBDA CAPTURES LOCALS BY VALUE. The first cut of this reel incremented an
+	# orbit angle and set a `greeted` flag INSIDE the per-frame closure, so both wrote to a
+	# copy that died with the call: 480 frames came back from one fixed rear bearing, and
+	# the greeting re-fired every frame. Anything a closure must remember has to be a
+	# MEMBER (`_frame_i` here) or live in the loop body.
+	var greeted := false
+	for beat in beats:
+		var label: String = String(beat[2])
+		var lying: bool = bool(beat[3])
+		_player.set("_lying", lying)
+		_player.set("_lying_sleeping", lying)
+		for f in range(int(float(beat[1]) * _fps)):
+			# One-shot world events belong out here, where their flags survive.
+			if label == "greeting" and not greeted and f > int(_fps * 1.2):
+				for c2 in _cat.get_children():
+					if c2 is Interactable:
+						(c2 as Interactable).emit_signal("interacted", "SAY HELLO")
+				greeted = true
+			if label == "petted" and f % int(maxf(_fps * 1.6, 1.0)) == 0:
+				for c3 in _cat.get_children():
+					if c3 is Interactable:
+						(c3 as Interactable).emit_signal("interacted", "PET")
+			var place := func() -> void:
+				# Hold the self-directed games off — this reel is the OWNER'S list, and a
+				# zoomie in the middle of it films something nobody asked about.
+				_cat.set("_hunt_cd", 999.0)
+				_cat.set("_zoom_cd", 999.0)
+				_cat.set("_play_cd", 999.0)
+				_player.global_position = stage + (beat[0] as Vector3)
+				if label == "grooming":
+					_cat.set("_wash_cd", 0.0)
+				# A SLOW ORBIT at a hand's distance, driven off the MEMBER frame counter so
+				# it actually advances. The eye height is the cat's own chest, not a
+				# standing player's, because a top-down three-quarter hides exactly the
+				# elbow and hock geometry this reel exists to show.
+				var a: float = float(_frame_i) * 0.055
+				var eye := Vector3(cos(a), 0.0, sin(a)) * 1.22
+				_cam.global_position = _cat.global_position + eye + Vector3(0, 0.30, 0)
+				_cam.look_at(_cat.global_position + Vector3(0, 0.16, 0), Vector3.UP)
+			await _shoot("routine", label, 0.0, sim_per_frame, place)
+	_player.set("_lying", false)
+	_player.set("_lying_sleeping", false)
 
 ## THE BEHAVIOUR REEL — the cat's own state machine, filmed from world-fixed bearings.
 ## The beat list is DATA (flaw 9): [player_x, player_z, seconds, label]. Overridable from the

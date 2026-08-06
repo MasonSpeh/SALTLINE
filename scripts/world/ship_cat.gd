@@ -486,23 +486,30 @@ func _process(delta: float) -> void:
 	# is handed SUMMED deltas up to 0.15 s, where `delta * k` overshoots — measured as the
 	# whole cat snapping to its turn/lean targets in one think (tests/CatReviewProbe bigdt:
 	# the two dt paths disagreed by 19.7 deg on the same half-second of slope ease).
-	_body.rotation.y = lerpf(_body.rotation.y, 0.0, 1.0 - exp(-6.0 * delta))
-	_body.position.y = lerpf(_body.position.y, 0.0, 1.0 - exp(-6.0 * delta))
+	# THE BODY NODE IS NOT AN ANIMATION CHANNEL — held at rest, permanently, and asserted
+	# by tests/CatJointProbe (body_node_rot_max_deg < 1). Thirteen lines in this file used
+	# to rotate and lift the whole animal about its own origin to express things a cat
+	# expresses with its spine: the owner's "the game rotates the entire cat instead of
+	# moving a limb". Every one of them now calls the rig instead (cat_rig section 5f).
+	# The ONLY whole-animal transforms left in this file are the ones that are genuinely
+	# whole-animal: the steering yaw in `_face`, and the jump arc's translation.
+	_body.rotation = Vector3.ZERO
+	_body.position = Vector3.ZERO
 	if _fed_wiggle > 0.0:
 		_fed_wiggle -= delta * 0.7
-		_body.rotation.y = sin(_t * 17.0) * 0.13 * clampf(_fed_wiggle, 0.0, 1.0)
+		if _rig != null:
+			_rig.call("delight", clampf(_fed_wiggle, 0.0, 1.0))
 	# A SLOPE ONLY EXISTS UNDER A WALKING CAT. _walk_toward is the only writer, so an animal
 	# that stopped on a ramp wore the ramp's pitch for ever — sitting, sleeping, being petted
 	# — because nothing ever decayed it. Ease it home whenever the body is not travelling.
 	if _last_speed < 0.05:
 		_slope = lerpf(_slope, 0.0, 1.0 - exp(-4.0 * delta))
-	# THE LEAN IS ASSIGNED, NEVER ACCUMULATED. It was `+=` against the ease above, and a
-	# per-tick += without a delta term reaches rate-ratio equilibrium, not its target —
-	# the exact trap _pose_sit's comment documents, one screen up from a live instance.
-	# Measured: at a held _slope of 0.30 the body pitch settled at -94.5 DEGREES (5.5x the
-	# intended -9.5), i.e. a cat folded face-down into the deck on any sustained grade.
-	# States that want a transient pitch (the groom sway) ASSIGN after this line.
-	_body.rotation.x = -_slope * 0.55
+	# The lean into a grade is a TRUNK pitch now (cat_rig.slope): the node version tipped
+	# the animal as a plank and left its paws intersecting the ramp, because nothing under
+	# it re-solved. Pitching the chest lets the four legs solve to the ground they are
+	# actually on.
+	if _rig != null:
+		_rig.call("slope", _slope)
 	_focus_w = maxf(0.0, _focus_w - delta * 1.5)
 	# BEFORE ANYTHING ELSE DECIDES WHERE TO GO, GET OUT OF WHATEVER WE ARE IN. Unconditional
 	# and state-independent on purpose: a predictive gate cannot rescue an animal that is
@@ -581,6 +588,7 @@ func _fly_jump(delta: float) -> void:
 		if _rig != null:
 			_rig.call("play_seq", [["jump_land", 0.16, 14.0]],
 				String(STATE_POSE.get(_state, "stand")), 8.0)
+			_rig.call("tail_flick", 0.8)   # the counterweight swinging through touchdown
 		# A POUNCE RESOLVES WHERE IT LANDS, not where it was aimed. Done here rather than in
 		# the state machine because the leap deliberately owns the animal until touchdown, so
 		# this is the only frame that knows whether the cat is standing on the bird.
@@ -603,10 +611,9 @@ func _groom(delta: float, player: Node3D) -> void:
 		# Further off it does not turn, but it does LOOK — a cat clocks you from across a
 		# room without getting up, and this is the cheapest thing that says it is alive.
 		_watch(player.global_position + Vector3(0, 1.2, 0), 0.55)
-	# The wash: a slow lean and a nod on top of the skeletal groom, so the body moves with
-	# the head rather than the head alone.
-	_body.rotation.z = sin(_t * 1.7) * 0.10
-	_body.rotation.x = sin(_t * 2.3) * 0.07 - _slope * 0.55
+	# The wash itself is entirely skeletal (cat_rig's groom layer drives the neck, head and
+	# forepaw); the node sway that used to ride on top of it was the whole animal rocking
+	# on its own origin with four paws welded flat, which is what made grooming read oddly.
 
 ## After: it comes with you, at its own pace, and settles when you do.
 func _companion(delta: float, player: Node3D) -> void:
@@ -651,6 +658,9 @@ func _companion(delta: float, player: Node3D) -> void:
 			_watch(n.global_position, 1.0)
 			if _rig != null:
 				_rig.call("chatter", 1.0)
+				# A bird it cannot have is the single most reliable tail-lash there is.
+				if _rng.randf() < delta * 2.2:
+					_rig.call("tail_flick", 0.9)
 			if _meow_cd <= 0.0:
 				AudioDirector.play_one_shot("cat_chirp", global_position, -26.0)
 				_meow_cd = 3.0
@@ -680,10 +690,13 @@ func _companion(delta: float, player: Node3D) -> void:
 	if _pet_t > 0.0:
 		_enter(State.PET)
 		_face(ppos, delta)
-		# The lean into the hand, and back out of it.
-		var k: float = sin((1.0 - _pet_t / PET_SEC) * PI)
-		_body.rotation.z = k * 0.22
-		_body.position.y = k * 0.04
+		# THE PET REACTION, IN THE ANIMAL. This was `_body.rotation.z = k * 0.22` — the
+		# entire cat rolled 12.6 degrees onto its side, paws still flat on the deck, which
+		# is the owner's "the whole model tilts to the side instead of the cat reacting
+		# happy". A real cat arches its back up into the hand and presses its head into
+		# it; cat_rig.pet does both, and the tail flag below finishes the reading.
+		if _rig != null:
+			_rig.call("pet", sin((1.0 - _pet_t / PET_SEC) * PI))
 		_stretch_t = 0.0     # a hand on it ends the stretch; nothing outranks being petted
 		return
 
@@ -730,7 +743,6 @@ func _companion(delta: float, player: Node3D) -> void:
 		_enter(State.GROOM)
 		_last_speed = 0.0
 		_reseat()
-		_body.rotation.z = sin(_t * 1.7) * 0.08
 		return
 
 	# ...AND THE PRIZE. A cat brings what it catches to the people it lives with. It is not a
@@ -864,16 +876,12 @@ func _settle(delta: float) -> void:
 		# The curled mesh does the shape; this is only the breathing slowing down. The old
 		# code rolled the body 0.55 rad to fake "lying down" with a standing mesh, which is
 		# exactly what having a sleep pose removes the need for.
-		_body.rotation.z = lerpf(_body.rotation.z, 0.0, 1.0 - exp(-2.0 * delta))
-		_body.position.y = lerpf(_body.position.y, 0.0, 1.0 - exp(-2.0 * delta))
 		ANIM.drive(_gen_mats, 0.5, 0.0)
 	else:
 		_enter(State.SIT)
 		_pose_sit(delta)
 
 func _pose_sit(delta: float) -> void:
-	_body.rotation.z = lerpf(_body.rotation.z, 0.0, 1.0 - exp(-3.0 * delta))
-	_body.position.y = lerpf(_body.position.y, 0.0, 1.0 - exp(-3.0 * delta))
 	ANIM.drive(_gen_mats, 1.1, 0.0)
 	_last_speed = 0.0
 	# A sitting cat is on the deck it sat down on — and the seat ray is the only thing that
@@ -897,12 +905,31 @@ func _pose_sit(delta: float) -> void:
 		_shift_cd = _rng.randf_range(9.0, 22.0)
 	if _shift_t > 0.0:
 		_shift_t -= delta
-		_body.rotation.y = _shift_amp * sin(clampf(1.0 - _shift_t / _shift_dur, 0.0, 1.0) * PI)
+		# A PELVIS ROLL, not a node yaw. The node version was measured at a constant
+		# 4.67 degrees of whole-body tilt in every state the joint probe sampled — the
+		# single most persistent piece of "the game rotates the entire cat".
+		if _rig != null:
+			_rig.call("weight_shift", (_shift_amp / 0.08)
+				* sin(clampf(1.0 - _shift_t / _shift_dur, 0.0, 1.0) * PI))
+	elif _rig != null:
+		_rig.call("weight_shift", 0.0)
 
 ## Walk the deck toward a point, stopping `stop_at` short. Kinematic and deliberately simple:
 ## it steps up a coaming, refuses anything taller, and re-seats on whatever it is standing on
 ## so it can never walk off into the air.
 func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -> void:
+	# A REFUSED STEP MUST REPORT ZERO SPEED, and this is the owner's "the legs went floppy
+	# for a bit after the cat got caught in a corner".
+	#
+	# `_last_speed = speed` is assigned at the BOTTOM of this function, below every early
+	# `return`. So a cat whose every candidate step is refused kept its last COMMANDED
+	# speed for ever while actually covering no ground — and cat_rig reads the pair: zero
+	# distance unloads `_gait_w`, but the stale speed keeps `_speed_s` (and therefore the
+	# gait mix) pinned wherever it was. A cat that wedges while running therefore drops
+	# into the turn-in-place shuffle — which `_gait_w` falling is exactly what opens —
+	# running at GALLOP paw lift and gallop duty, i.e. 80% of the cycle airborne, on an
+	# animal going nowhere. Four legs paddling in the air is precisely "floppy".
+	_last_speed = 0.0
 	var to: Vector3 = target - global_position
 	to.y = 0.0
 	var dist: float = to.length()
@@ -1302,8 +1329,6 @@ func _self_groom(delta: float) -> bool:
 		_rig.call("groom_style", _wash_style)
 	_last_speed = 0.0
 	_reseat()
-	# The small settling shift of an animal concentrating on one spot.
-	_body.rotation.z = sin(_t * 1.4) * 0.06
 	if _wash_t <= 0.0:
 		# Longer bouts earn a longer break, so it never reads as a rota.
 		_wash_cd = _rng.randf_range(14.0, 48.0)
@@ -1314,6 +1339,8 @@ func _self_groom(delta: float) -> bool:
 func _maybe_wash() -> void:
 	if _wash_cd > 0.0 or _wash_t > 0.0:
 		return
+	if _rig != null:
+		_rig.call("tail_flick", 0.45)   # the small settling flick as it starts a wash
 	_wash_style = [0, 0, 0, 1, 1, 2][_rng.randi_range(0, 5)]
 	# The ear scratch is short and furious; a flank wash is long and unhurried.
 	_wash_t = {0: 4.5, 1: 7.0, 2: 5.0}.get(_wash_style, 4.0) * _rng.randf_range(0.7, 1.4)
@@ -1387,6 +1414,10 @@ func _hunt_step(delta: float) -> bool:
 				_walk_toward(target, STALK_SPEED, delta, POUNCE_M * 0.85)
 				if _rng.randf() < delta * 0.85:
 					_freeze_t = _rng.randf_range(0.3, 1.1)
+					# The tip lashes hardest at the freezes — a stalking cat holds its
+					# body dead still and its tail does not get the message.
+					if _rig != null:
+						_rig.call("tail_flick", 1.0)
 			if pd <= POUNCE_M:
 				_hunt = 2
 				_wiggle_t = WIGGLE_SEC
@@ -1400,8 +1431,11 @@ func _hunt_step(delta: float) -> bool:
 			_reseat()
 			_wiggle_t -= delta
 			var k: float = clampf(_wiggle_t / WIGGLE_SEC, 0.0, 1.0)
-			_body.rotation.y = sin(_t * 21.0) * 0.115 * (1.0 - k * 0.35)
-			_body.position.y = absf(sin(_t * 21.0)) * 0.012
+			# The waggle is the PELVIS. Swinging the node took the shoulders and the head
+			# with it, which is the wrong end of the animal: the tread is hind feet
+			# paddling under a still, locked-on front.
+			if _rig != null:
+				_rig.call("wiggle", 1.0 - k * 0.35)
 			if _wiggle_t <= 0.0:
 				_launch_pounce(target)
 		_:
@@ -1583,7 +1617,8 @@ func _play(delta: float) -> bool:
 		_wiggle_t -= delta
 		_face(_play_spot, delta * 3.0)
 		_last_speed = 0.0
-		_body.rotation.y = sin(_t * 21.0) * 0.10
+		if _rig != null:
+			_rig.call("wiggle", 0.85)
 		if _wiggle_t <= 0.0 and _jump_t <= 0.0 and _jump_cd <= 0.0 \
 				and _step_clear(_play_spot, (_play_spot - global_position).normalized()):
 			_jump_t = POUNCE_SEC
