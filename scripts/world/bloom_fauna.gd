@@ -473,8 +473,14 @@ func _ready() -> void:
 		add_child(DeckGull.new(home))
 	# Reef fish: mutated colour-shoals at diving depth off two legs — the reason to
 	# put your head under.
-	add_child(ReefFish.new(Vector3(19.0, 0.0, -12.0)))
-	add_child(ReefFish.new(Vector3(22.0, 0.0, 9.0)))
+	# ORBIT CENTRES ARE THE LEG CENTRES, not points on their faces. (19, -12) was the SE
+	# caisson's west FACE and (22, 9) the NE leg's south face — so the old 1.2-3.2 m orbits
+	# swept through the concrete on every lap and swim_clear snapped the shoal at the steel
+	# twice a circuit. Centred on the legs themselves (SE 22,-12; NE 22,12) the widened
+	# 5.0-6.8 m rings circle the WHOLE pillar with water on every side, which is the
+	# "natural, wider, even circle around" the owner asked for.
+	add_child(ReefFish.new(Vector3(22.0, 0.0, -12.0)))
+	add_child(ReefFish.new(Vector3(22.0, 0.0, 12.0)))
 	# The Bloom growing ON the rig: creeper-wrapped pipes in the splash zone, kelp
 	# stands below the waterline, anemone clumps under the barnacle faces. Each patch
 	# frees itself if its mesh hasn't been generated yet.
@@ -2943,15 +2949,59 @@ class DeckGull extends Node3D:
 			return
 		var player: Node3D = get_tree().get_first_node_in_group("player")
 		if _flushing >= 0.0:
-			# Airborne: climb away hard, wings at full beat, then gone until respawn.
+			# AIRBORNE — and three things changed here on the owner's call ("their wings
+			# should flap, wings up when they fly away, and they cant fly through walls").
 			_flushing += delta
-			global_position += _flush_dir * delta * 6.5 + Vector3(0, delta * 3.2, 0)
-			rotation.y = atan2(_flush_dir.x, _flush_dir.z) + PI
-			# Nose-up as it claws for height, and the waddle roll flattens out — the
-			# posture change is what sells the leap now that there are no legs to tuck.
+			if not _bound:
+				_skip = BloomFauna.fauna_bodies(self)
+				_bound = true
+			# 1. THE WINGS BEAT, DRIVEN EVERY THINKING FRAME. The old flush pushed one
+			# rate/amp pair at the instant of takeoff and never spoke to the shader again,
+			# so the whole flight wore a 3 cm ripple — a bird held stiff. A real gull
+			# CLIMBS on deep fast strokes and then alternates flap bursts with glides.
+			# The launch second gets the deepest, fastest beat (the "wings up and working"
+			# read of a flush, which is as close as this asset can come — the mesh is one
+			# unrigged surface authored wings-FOLDED, so a true raised-wing silhouette
+			# needs a rigged or multi-pose asset; filed in KNOWN_ISSUES); after that the
+			# beat drops out entirely for 0.8 s of every 2.4 — the glide — which is the
+			# single most bird-reading thing a flight cycle does.
+			var launch: float = clampf(1.0 - _flushing / 0.8, 0.0, 1.0)
+			var gliding: bool = _flushing > 1.6 and fposmod(_flushing, 2.4) > 1.6
+			var beat_rate: float = (1.1 if gliding else 4.8) + launch * 1.8
+			var beat_amp: float = (0.05 if gliding else 0.15) + launch * 0.09
+			ANIM.drive(_gen_mats, beat_rate, 0.25, beat_amp)
+			# 2. THE PATH IS WALL-TESTED. This line used to be a bare
+			# `global_position += dir * 6.5 * delta` — a straight uncollided run of up to
+			# 20 m that passed through bulkheads, containers and the bunkhouse whole.
+			# FaunaMove.swim_clear is the exact probe the fish and the shark already fly
+			# their 3D moves through (its own doc names flyers), stopping short of any
+			# surface; on a block the bird banks away along whichever tangent is open and
+			# trades the lost ground for climb, which is also what a real gull does when a
+			# wall fills its windscreen.
+			var climb: float = 3.2 + launch * 1.6
+			var want: Vector3 = global_position + _flush_dir * delta * 6.5 \
+				+ Vector3(0, delta * climb, 0)
+			var res: Dictionary = MOVE.swim_clear(self, global_position, want, 0.30, _skip)
+			if bool(res["blocked"]):
+				for side in [1.0, -1.0]:
+					var alt: Vector3 = _flush_dir.rotated(Vector3.UP, side * 0.9)
+					var probe: Dictionary = MOVE.swim_clear(self, global_position,
+						global_position + alt * 1.2 + Vector3(0, 0.6, 0), 0.30, _skip)
+					if not bool(probe["blocked"]):
+						_flush_dir = alt
+						break
+			global_position = res["pos"]
+			rotation.y = lerp_angle(rotation.y,
+				atan2(_flush_dir.x, _flush_dir.z) + PI, 1.0 - exp(-6.0 * delta))
+			# 3. THE TAKEOFF POSE IS ITS OWN BEAT. Launch: nose hauled up hard and fast
+			# (0.45 rad at rate 12) — the claw for height. Cruise: it settles to a shallow
+			# 0.16 and picks up a small glide-phase pitch trim, nose dipping as the beat
+			# stops, exactly the see-saw of flap-climb / glide-sink.
 			if _model:
-				_model.rotation.x = lerpf(_model.rotation.x, 0.30, delta * 5.0)
-				_model.rotation.z = lerpf(_model.rotation.z, 0.0, delta * 5.0)
+				var pitch: float = 0.45 if launch > 0.0 else (0.06 if gliding else 0.16)
+				_model.rotation.x = lerpf(_model.rotation.x, pitch,
+					1.0 - exp(-(12.0 if launch > 0.0 else 4.0) * delta))
+				_model.rotation.z = lerpf(_model.rotation.z, 0.0, 1.0 - exp(-5.0 * delta))
 			if _flushing > 3.0:
 				visible = false
 				_regen = randf_range(45.0, 90.0)
@@ -3048,7 +3098,10 @@ class DeckGull extends Node3D:
 		var away: Vector3 = (global_position - player.global_position) if player else Vector3(1, 0, 0)
 		away.y = 0.0
 		_flush_dir = away.normalized() if away.length() > 0.1 else Vector3(1, 0, 0)
-		ANIM.drive(_gen_mats, 3.2, 0.25, 0.07)   # wings open, full beat
+		# The launch-instant burst — deepest and fastest stroke of the whole flight. The
+		# airborne branch re-drives this every thinking frame from here on (flap bursts
+		# alternating with glides), so this line only has to sell frame one.
+		ANIM.drive(_gen_mats, 6.4, 0.25, 0.24)
 		AudioDirector.play_one_shot("wingbeat", global_position, -8.0)   # wings, not voice
 		Journal.discover("creature_gull")
 
@@ -3108,9 +3161,26 @@ class ReefFish extends Node3D:
 			for m in gen["mats"]:
 				(m as ShaderMaterial).set_shader_parameter("tint", VARIANTS[i % 3][0])
 			ANIM.drive(gen["mats"], 2.4, 0.5)
-			_fish.append({"node": f, "r": randf_range(1.2, 3.2), "h": randf_range(-4.2, -1.6),
-				"spd": randf_range(0.25, 0.55) * (1.0 if i % 2 == 0 else -1.0),
-				"ph": randf_range(0.0, TAU), "gone": 0.0})
+			# THE ORBIT GOES ROUND THE PILLAR, NOT INTO IT — the owner's "they go too close
+			# and snap around". The old seed drew radii of 1.2-3.2 m around a centre sitting
+			# ON a caisson FACE, so a large arc of every orbit was geometrically inside the
+			# concrete; swim_clear hard-stopped the fish at the steel and the next frame's
+			# wall-clock recompute snapped it back onto the ideal circle. The radius now
+			# clears the leg's own half-diagonal (a 6 x 6 leg reaches 4.24 m from centre —
+			# the CENTRES are moved onto leg centres at the spawn sites) plus real water,
+			# so the circle never intersects at all: 5.0-6.8 m, wide and even.
+			#
+			# PHASE IS EVENLY DEALT, i * TAU/9 plus a small personal wander — the pelagic
+			# pods' own spacing idiom — so nine fish spread round the whole ring instead of
+			# clumping wherever randf landed them. `_a` is the fish's OWN integrated angle:
+			# the old code recomputed position from Time.get_ticks_msec every frame, which
+			# is the wall-clock-inside-a-sine trap AGENT_TRAPS documents, and it is also
+			# WHY it snapped — an absolute clock cannot remember where the fish actually
+			# was after a collision stop.
+			_fish.append({"node": f, "r": randf_range(5.0, 6.8), "h": randf_range(-4.2, -1.6),
+				"spd": randf_range(0.16, 0.30) * (1.0 if i % 2 == 0 else -1.0),
+				"ph": randf_range(0.0, 0.5), "gone": 0.0,
+				"a": float(i) * TAU / 9.0})
 			# A swimming player can grab an individual fish out of the shoal.
 			var idx := _fish.size() - 1
 			var touch := FaunaTouch.new("Reef Fish", 0.45,
@@ -3169,16 +3239,33 @@ class ReefFish extends Node3D:
 				f["gone"] -= delta
 				if f["gone"] <= 0.0:
 					(f["node"] as Node3D).visible = true
-			var a: float = Time.get_ticks_msec() * 0.001 * f["spd"] + f["ph"]
-			var pos: Vector3 = _centre + Vector3(cos(a) * f["r"], f["h"] + sin(a * 2.3) * 0.3, sin(a) * f["r"])
+			# The angle is INTEGRATED (a += spd*dt), not derived from the wall clock, so a
+			# collision stop, a decimated frame, or a pause leaves the fish where it truly
+			# is instead of teleporting it back onto an absolute schedule. The breathing
+			# radius and slow height sway ride the same personal angle.
+			f["a"] = fposmod(float(f["a"]) + float(f["spd"]) * delta, TAU)
+			var a: float = float(f["a"])
+			var r: float = float(f["r"]) + sin(a * 1.7 + float(f["ph"]) * TAU) * 0.45
+			var pos: Vector3 = _centre + Vector3(cos(a) * r,
+				float(f["h"]) + sin(a * 2.3) * 0.3, sin(a) * r)
 			var node: Node3D = f["node"]
-			# These orbit a rig leg — don't let one clip through the caisson. Stop it at the
-			# steel; its orbit carries it back out next frame.
+			# The safety ray stays (another session can always bolt something new to the
+			# leg), but with the orbit clear of the concrete it should never fire.
 			pos = FaunaMove.swim_clear(node, node.global_position, pos, 0.25)["pos"]
-			var vel: Vector3 = pos - node.global_position
-			node.global_position = pos
-			if vel.length_squared() > 0.00001:
-				node.look_at(pos + vel, Vector3.UP)
+			# EASED toward the target, and the heading is REMEMBERED — the two fixes every
+			# other motion system in this file already carries (reef_fish.gd: "the heading
+			# is remembered, not re-derived"): a per-frame look_at down the raw displacement
+			# is what whipped the facing around on every correction.
+			var cur: Vector3 = node.global_position
+			var nxt: Vector3 = cur.lerp(pos, 1.0 - exp(-3.0 * delta))
+			var vel: Vector3 = nxt - cur
+			node.global_position = nxt
+			if vel.length() > 0.0005:
+				var want_fwd: Vector3 = vel.normalized()
+				var cur_fwd: Vector3 = -node.global_transform.basis.z
+				var blend: Vector3 = cur_fwd.slerp(want_fwd, 1.0 - exp(-4.0 * delta))
+				if blend.length_squared() > 0.0001:
+					node.look_at(nxt + blend, Vector3.UP)
 		var player: Node3D = get_tree().get_first_node_in_group("player")
 		if player and player.get("swimming") and player.swimming 				and player.global_position.distance_to(_centre) < 8.0:
 			Journal.discover("creature_fiddler_shoal")
@@ -4440,10 +4527,31 @@ class CorvidGull extends Node3D:
 			else:
 				return
 		if _fleeing >= 0.0:
+			# Same species, same flight, same three fixes as DeckGull's flush: per-frame
+			# wingbeat with flap/glide phrasing, a wall-tested path (this line was a bare
+			# uncollided += that carried the thief through the bunkhouse), and a launch
+			# posture distinct from cruise.
 			_fleeing += delta
-			global_position += _flee_dir * delta * 6.5 + Vector3(0, delta * 3.4, 0)
-			rotation.y = atan2(_flee_dir.x, _flee_dir.z) + PI
-			ANIM.drive(_gen_mats, 3.0, 0.2, 0.07)
+			var launch: float = clampf(1.0 - _fleeing / 0.8, 0.0, 1.0)
+			var gliding: bool = _fleeing > 1.6 and fposmod(_fleeing, 2.4) > 1.6
+			ANIM.drive(_gen_mats, (1.1 if gliding else 4.8) + launch * 1.8, 0.2,
+				(0.05 if gliding else 0.15) + launch * 0.09)
+			var want: Vector3 = global_position + _flee_dir * delta * 6.5 \
+				+ Vector3(0, delta * (3.4 + launch * 1.4), 0)
+			var res: Dictionary = FaunaMove.swim_clear(self, global_position, want, 0.30,
+				BloomFauna.fauna_bodies(self))
+			if bool(res["blocked"]):
+				for side in [1.0, -1.0]:
+					var alt: Vector3 = _flee_dir.rotated(Vector3.UP, side * 0.9)
+					var probe: Dictionary = FaunaMove.swim_clear(self, global_position,
+						global_position + alt * 1.2 + Vector3(0, 0.6, 0), 0.30,
+						BloomFauna.fauna_bodies(self))
+					if not bool(probe["blocked"]):
+						_flee_dir = alt
+						break
+			global_position = res["pos"]
+			rotation.y = lerp_angle(rotation.y,
+				atan2(_flee_dir.x, _flee_dir.z) + PI, 1.0 - exp(-6.0 * delta))
 			if _fleeing > 3.0:
 				visible = false
 				_flee_regen = randf_range(30.0, 70.0)
@@ -4579,10 +4687,21 @@ class CorvidGull extends Node3D:
 		var to: Vector3 = dest - global_position
 		if to.length() < 0.35:
 			return true
-		# Arc a little upward mid-flight so it reads as flight, not sliding.
+		# Arc a little upward mid-flight so it reads as flight, not sliding — and beat the
+		# wings while doing it: the heist swoops used to fly on whatever rate/amp the last
+		# state left in the shader, i.e. usually the perched idle's near-nothing.
+		ANIM.drive(_gen_mats, 4.4, 0.2, 0.13)
 		var step: Vector3 = to.limit_length(speed * delta)
 		step.y += minf(to.length() * 0.02, 0.05)
-		global_position += step
+		# Wall-tested like every other 3D move on this rig now. On a block it climbs —
+		# the loot run detours over an obstacle rather than through it.
+		var res: Dictionary = FaunaMove.swim_clear(self, global_position,
+			global_position + step, 0.30, BloomFauna.fauna_bodies(self))
+		if bool(res["blocked"]):
+			res = FaunaMove.swim_clear(self, global_position,
+				global_position + Vector3(0, speed * delta * 0.8, 0), 0.30,
+				BloomFauna.fauna_bodies(self))
+		global_position = res["pos"]
 		var flat := Vector3(to.x, 0, to.z)
 		if flat.length_squared() > 0.01:
 			rotation.y = lerp_angle(rotation.y, atan2(flat.x, flat.z), delta * 4.0)

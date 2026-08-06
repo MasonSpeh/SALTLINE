@@ -164,6 +164,13 @@ const MIN_STAND: float = 0.45
 ## heading eases onto its direction of travel. Same construction as the pelagic shoals:
 ## `1 - exp(-k * dt)` closes the same fraction of the gap per SECOND however the seconds
 ## arrive, which is what makes the station-level decimation below invisible.
+## Minimum comfortable water between station-mates, metres — a soft target-space push,
+## not a hard wall, so a startled shoal can still compress as it pours into the coral.
+## ~1.5 body lengths on the mid-size species.
+const SEP_M: float = 0.34
+## The butterfly pair's tether: past this the partners drift back toward each other.
+## Their species note promises a body length; this is that with a little slack.
+const PAIR_M: float = 0.55
 const FOLLOW: float = 1.9
 const TURN: float = 2.6
 const PITCH: float = 0.40        ## how much of its own vertical speed a fish noses into
@@ -659,6 +666,31 @@ func _tick(st: Dictionary, dt: float, eye: Vector3, has_eye: bool) -> void:
 		var out: float = MIN_STAND + span * (0.45 + slot.z * 0.55
 			+ sin(wt * (0.11 if graze else 0.19) * spd + ph * 2.1) * 0.20)
 		var target: Vector3 = wall + tan_ax * along + Vector3.UP * up + out_ax * out
+		target.y = minf(target.y, ceiling)
+		# --- SPACING, station-mates only — the term this system never had. Each fish's
+		# along/up/out are independent noise off its own seed, so nothing ever stopped two
+		# shoal-mates drifting into the same water and swimming inside each other, which is
+		# most of why a shoal read as a render bug rather than a living thing up close.
+		# A soft short-range push on the TARGET (never the position — the ease below stays
+		# the only mover): inside SEP_M of a station-mate, the target slides apart with a
+		# falloff. n is at most 11 (anthias), so this is <= 55 distance checks per station
+		# per thinking-frame, only for stations already inside the cull and AI budget.
+		# The butterfly PAIR gets the opposite term as well — its species note promises
+		# "within a body length of each other all game", the seed put them there and
+		# nothing ever held them: past PAIR_M the partners are pulled gently back in.
+		for j in range(fish.size()):
+			if j == i:
+				continue
+			var od: Vector3 = target - (fish[j] as Node3D).global_position
+			var d: float = od.length()
+			if d < 0.001:
+				target += tan_ax * (0.05 if i > j else -0.05)
+			elif d < SEP_M:
+				target += od * ((SEP_M - d) / SEP_M) * 0.6
+		if fish.size() == 2:
+			var pd: Vector3 = (fish[1 - i] as Node3D).global_position - target
+			if pd.length() > PAIR_M:
+				target += pd.normalized() * (pd.length() - PAIR_M) * 0.5
 		target.y = minf(target.y, ceiling)
 		var cur: Vector3 = f.global_position
 		var nxt: Vector3 = cur.lerp(target, follow)
