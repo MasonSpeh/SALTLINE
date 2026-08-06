@@ -59,10 +59,9 @@ landed and nobody updated the file.
   SWITCHBACK — arrive on a mid-landing, turn 180, take the next flight — which is what "each
   landing" most likely means on a nine-flight tower. The probe has a diagnostic pass for it
   whose legs are frame-timed rather than waypoint-driven, so it does not vote; make them
-  waypoint-driven first. Also worth trying: `floor_block_on_wall` is discussed in three
-  comments in player_controller.gd and never actually set, so it is at Godot's default
-  `true`, and a contact classed as a wall while grounded has its whole frame of motion
-  discarded — the only way past which is to leave the ground.
+  waypoint-driven first. `floor_block_on_wall` was finally SET (false) in s42 along with a
+  13 cm micro-step tier that fires on losing 8% of a frame's travel — retest the
+  switchback against those before more geometry work.
 
 - **The cat's ear-scratch grooming style was written and cut.** It is the most recognisable
   grooming action a cat has and it wants a hind foot up behind the ear; driven from the sit
@@ -100,15 +99,6 @@ landed and nobody updated the file.
   s38 "symmetric to 1%" numbers were measured while a fore-aft hip-translation bug
   (see s40 DEVLOG) blurred all four legs. Judge visibility on film; removal needs the
   re-rig (docs/CAT_RIG_CEILING.md §3). CatYawDiag PART 4 prints both gaits.
-
-- **The head sits +0.91 deg off the travel line at a walk — a constant, not a wobble.**
-  Down from +3.43 mean / +6.40 worst before s38, and the oscillation that read as "looking
-  around" is gone entirely (rms 3.89 -> 0.91). The residue is a DC offset and does not
-  appear in the headless rig test (+/-0.08 deg), so it comes from something the live animal
-  has and the bare skeleton does not — most likely the second-order composition of the
-  equal-and-opposite spine bends through two different rest bases. 0.9 deg moves the nose
-  about 2 mm at game distance. Read the head-on reel before spending time on it:
-  `godot --path . --fixed-fps 60 tests/CatFilm.tscn -- /tmp/f fps=30 reels=headon`.
 
 - **The cat's tail is driven through `R_ThighTwist01`, which also owns the rump.** Still
   the reason `cat_rig.TAIL_MAX` is 0.30 rad. s40 upgraded the drive — an underdamped
