@@ -70,3 +70,19 @@ architecture already did — but any future asset drop must not resurrect clip p
 constant), `tests/BoneDump`, `tests/CatAxisDiag`, and `tests/CatYawDiag` before authoring
 anything; `cat_rig.gd` re-derives hinges, gains and stride from whatever skeleton it is
 handed, so most of the animator carries over unchanged.
+
+## Texture/material ceiling (s45 fidelity pass)
+
+Fixed in code, measured off the live import: metallic factor 1.0 x a JPEG metalness
+channel (speckled plastic glints — forced to 0, fur has no metal signal), plain trilinear
+filtering (no anisotropy — the 2048 albedo smeared at grazing; now anisotropic like every
+world surface), specular at the 0.5 default (wet-plastic sheen; 0.25 now).
+
+What only a NEW ASSET can buy, for the owner to decide (Tripo credits):
+  * 4K texture re-bake — the albedo is 2048x2048 under heavy JPEG; extreme close-ups
+    (the routine reel's 1.2 m orbit) show compression mottle in the white chest fur.
+  * A cleaner roughness map — the current one is serviceable but flat; real fur wants
+    directional roughness variation along the coat.
+  * Everything already filed above (ears, eyelid blendshapes, a real caudal tail chain,
+    symmetric femurs) — the same re-rig that unlocks those would carry new textures for
+    free. One re-roll, every ceiling at once, is the economical order.

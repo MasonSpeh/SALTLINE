@@ -344,6 +344,25 @@ static func attach_rigged(host: Node3D, path: String, target_m: float) -> Dictio
 		var mi := n as MeshInstance3D
 		var base: AABB = mi.get_aabb()
 		mi.custom_aabb = base.grow(maxf(base.get_longest_axis_size(), 0.5))
+		# FUR-GRADE PBR POLISH, measured off the live import (s45). Three defects, all
+		# zero-cost, all found by dumping the imported material rather than reading specs:
+		#   * metallic 1.0 x a JPEG metalness channel. Fur is metal-zero everywhere, but
+		#     JPEG noise in that channel scatters speckled metalness across the coat —
+		#     glinting plastic sparkle in sunlight. Factor to zero kills the noise with
+		#     the signal, because for an animal there IS no signal.
+		#   * texture_filter imported as plain trilinear — no anisotropy, so the 2048
+		#     albedo smears to mud at grazing angles, which is most views of a walking or
+		#     lying animal. Same fix mat_lib._pbr applies to every world surface.
+		#   * metallic_specular at the 0.5 default — the dielectric sheen of wet plastic.
+		#     0.25 is soft-fur territory.
+		for s in range((mi.mesh.get_surface_count()) if mi.mesh != null else 0):
+			var bm := mi.mesh.surface_get_material(s) as BaseMaterial3D
+			if bm == null:
+				continue
+			bm.metallic = 0.0
+			bm.metallic_texture = null
+			bm.metallic_specular = 0.25
+			bm.texture_filter = BaseMaterial3D.TEXTURE_FILTER_LINEAR_WITH_MIPMAPS_ANISOTROPIC
 	var fac := facing_for(path)
 	model.rotation = Vector3(deg_to_rad(fac["pitch"]), deg_to_rad(fac["yaw"]), 0.0)
 	return {"model": model, "skeleton": skel, "anim": ap}

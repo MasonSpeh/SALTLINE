@@ -1958,3 +1958,14 @@ again window is isolated from the cat's own stay-time hunts, which can legitimat
 a 2.7 s affronted wash running when COME arrives.
 
 CatProbe 0 (incl. new gates), CatHuntProbe 0, CatJointProbe 0, TestRunner 0.
+
+## s45b — the fur stops being plastic
+
+The fidelity pass, everything zero-cost and measured off the LIVE imported material
+rather than read from specs: the cat's coat carried metallic 1.0 multiplied by a JPEG
+metalness channel (noise = speckled metal glints in sunlight), no anisotropic filtering
+(the 2048 albedo smeared to mud at grazing angles — most views of a walking cat), and
+default 0.5 specular (wet plastic). attach_rigged now polishes every kept PBR material:
+metal zeroed, aniso on, specular 0.25. Filmed on the close routine orbit: matte fur,
+legible tabby, no sparkle. The 213,902-triangle mesh was never the limit. What only a
+re-roll buys is filed in docs/CAT_RIG_CEILING.md. TestRunner 0, CatProbe 0.
