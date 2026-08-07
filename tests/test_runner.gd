@@ -1,4 +1,8 @@
 extends Node
+
+## One leap plus a margin — the height `_reachable_up` must refuse. Named rather than
+## inlined so it reads as "higher than any single jump" instead of a magic 1.6.
+const JUMP_CEIL_TEST: float = 1.6
 ## Headless integration test for the v0.1 slice: boots Main, then walks the core loop —
 ## verbs, power puzzle chain, night crab, contact-respawn, end-card path. Run with:
 ##   godot --headless res://tests/TestRunner.tscn
@@ -1148,6 +1152,66 @@ func _run() -> void:
 		_check(SaveManager.load_game(), "save reloads with a stowed locker item in it")
 		_check(test_locker.items.has("rope"), "an item stowed in a found locker survives a reload")
 		test_locker.items = locker_before   # leave the world as this test found it
+
+	# --- the cat remembers you across a reload ---------------------------------------
+	#
+	# The animal's design opens with "FOUND, not spawned at you... ONCE, and then for good",
+	# and until s47 it had NO save section at all: `friend` was a plain var, so every reload
+	# handed the player a stranger and re-fired the one-time meeting toast. The failure was
+	# invisible in-session, which is exactly why it survived — like the s23 save-wipe, it
+	# only shows on the NEXT boot.
+	var save_cat: Node3D = get_tree().get_first_node_in_group("ship_cat")
+	_check(save_cat != null, "there is a cat to remember")
+	if save_cat != null:
+		var cat_friend_before: bool = bool(save_cat.get("friend"))
+		save_cat.set("friend", true)
+		save_cat.set("_stayed", true)
+		save_cat.set("_stay_spot", Vector3(-21.5, 18.0, 11.5))
+		save_cat.set("_fed_game_h", 123.5)
+		SaveManager.save_game()
+		# Wipe the live state the way a fresh boot would, so the reload has to do the work.
+		save_cat.set("friend", false)
+		save_cat.set("_stayed", false)
+		save_cat.set("_stay_spot", Vector3.ZERO)
+		save_cat.set("_fed_game_h", -1000.0)
+		_check(SaveManager.load_game(), "the save reloads with the cat in it")
+		_check(bool(save_cat.get("friend")),
+			"a befriended cat is still your friend after a reload")
+		_check(bool(save_cat.get("_stayed")),
+			"...and a cat told to STAY is still staying")
+		_check((save_cat.get("_stay_spot") as Vector3).distance_to(
+				Vector3(-21.5, 18.0, 11.5)) < 0.01,
+			"...at the spot it was told, not a fresh one")
+		_check(absf(float(save_cat.get("_fed_game_h")) - 123.5) < 0.01,
+			"...and it remembers being fed today (%.1f)" % float(save_cat.get("_fed_game_h")))
+		# The crosshair is the player-visible half of both flags — a restored friend that
+		# still offered SAY HELLO would read as having forgotten you whatever the var says.
+		var restored_verbs: Array = save_cat.call("available_verbs")
+		_check(not restored_verbs.has("SAY HELLO"),
+			"...and the crosshair does not ask you to meet it again (%s)" % str(restored_verbs))
+		save_cat.set("_stayed", false)
+		save_cat.set("friend", cat_friend_before)
+		if save_cat.has_method("_sync_verbs"):
+			save_cat.call("_sync_verbs")
+
+	# --- the cat will not strand itself on a stack of ledges --------------------------
+	#
+	# s38 made high ledges visible to the jump gate and CatHuntProbe caught the animal at
+	# y 20.26, 2.26 m up, having climbed a staircase of legal hops with no way down — the
+	# attempt was reverted for it. `_reachable_up` is the stopping condition that was
+	# missing: the ceiling is the PLAYER's height plus one leap, an absolute reference, so
+	# hops cannot accumulate. Asserted both ways round, because a rule that only ever
+	# refuses is indistinguishable from a jump that never fires.
+	var jump_cat: Node3D = get_tree().get_first_node_in_group("ship_cat")
+	var jump_player: Node3D = get_tree().get_first_node_in_group("player")
+	if jump_cat != null and jump_player != null and jump_cat.has_method("_reachable_up"):
+		var py: float = jump_player.global_position.y
+		_check(bool(jump_cat.call("_reachable_up", py + 0.9)),
+			"a crate one leap up is reachable")
+		_check(bool(jump_cat.call("_reachable_up", py - 2.0)),
+			"...so is anything at or below the player")
+		_check(not bool(jump_cat.call("_reachable_up", py + JUMP_CEIL_TEST)),
+			"...but a second storey is refused, so ledges cannot be stacked")
 
 	# --- a crafted storage bin holds items and survives a reload ---------------------
 	# storage_bin_kit is bench-craftable (recipes.json) and, via ComfortFurniture's

@@ -204,6 +204,11 @@ var _slope_s: float = 0.0
 var _anim_t: float = 0.0
 var _chat_w: float = 0.0
 var _groom_style: int = 0
+## WHICH WAY IS THE SCRATCHING SIDE, as a sign along BODY_SIDE. Measured off the rest skeleton
+## in `_measure_gains`, never typed: the ear scratch's head tilt rolls TOWARD this sign, and a
+## left/right sign taken from a bone's name is how this rig's right foreleg spent every session
+## of the gait's life being driven about an axis that moved it 0.005 m/rad.
+var _scratch_side: float = -1.0
 var _shake_w: float = 0.0
 ## bone index -> its limb's sagittal hinge, in that bone's OWN local frame. Derived from the
 ## skeleton's geometry in `_measure_gains`; replaces the hand-written local-X + sign map.
@@ -492,6 +497,12 @@ func _measure_gains() -> void:
 	var base := {}
 	for k in _limb:
 		base[k] = _paw_pos(_limb[k]["paw"])
+	# WHICH SIDE THE EAR SCRATCH WORKS ON. The scratching limb can only be the left hind on
+	# this fit (`_build_poses` gives the measurement), but which way "left" points along
+	# BODY_SIDE is a fact about the fit rather than about the bone's name — here L_Foot rests
+	# at z -0.098 and R_Foot at +0.069. Read off the rest anchor so a mirrored re-export tilts
+	# the head toward the paw instead of away from it. Not `signf`, which answers 0 on 0.
+	_scratch_side = -1.0 if (base["lh"] as Vector3).z < 0.0 else 1.0
 	const D: float = 0.25
 	var gr := {}
 	var gf := {}
@@ -910,7 +921,7 @@ func _load_library(path: String) -> void:
 ##     stride. The lean is itself a locomotion pose, so the stride can begin under it.
 ## Same-family changes (sit <-> groom, walk <-> run) stay plain crossfades — their
 ## midpoints are all legal cat.
-const _SIT_FAMILY := ["sit", "groom", "groom_flat", "sleep"]
+const _SIT_FAMILY := ["sit", "groom", "groom_flat", "groom_scratch", "sleep"]
 const _MOVE_FAMILY := ["walk", "run", "stalk", "carry", "stand", "jump", "stretch"]
 
 func set_pose(nm: String, rate: float = 7.0) -> void:
@@ -962,23 +973,25 @@ func tail(up: float, sway: float, rate: float) -> void:
 ## running the same paw-lick every time is what makes an idle animal read as a loop. The
 ## styles differ in which part of the body does the work, so they are legible from across a
 ## deck without any facial detail:
-##   0 PAW    — the classic. Forepaw up to the lowered muzzle, short quick strokes.
-##   1 FLANK  — head right round to the shoulder and side, long slow strokes, body curled in.
-##   2 CHEST  — head down between the forelegs, small strokes, the most hunched of the three.
+##   0 PAW     — the classic. Forepaw up to the lowered muzzle, short quick strokes.
+##   1 FLANK   — head right round to the shoulder and side, long slow strokes, body curled in.
+##   2 CHEST   — head down between the forelegs, small strokes, the most hunched of the four.
+##   3 SCRATCH — the hind foot up at the ear, weight rolled onto the other hip. Three paws on
+##               the deck and one working, which is why it needs a pose of its own.
 ##
-## THE EAR SCRATCH IS NOT HERE, and it was written and then cut. It is the most recognisable
-## grooming action a cat has, and it needs a HIND foot up behind the ear — from a pose whose
-## hip is dropped and whose hind legs are already folded underneath, which is what a sit is.
-## Driven from there the leg has nowhere to go and it filmed as a twitch rather than a scratch.
-## It wants its own authored pose with the hind leg free, which is real pose work; shipping a
-## spasm in the meantime is worse than shipping three washes that read.
+## EACH STYLE NAMES ITS OWN BODY, in one table, because a style is a body plus a motion and the
+## two have been separated once already: the raised forepaw was baked into the single `groom`
+## pose, so the flank wash filmed as a cat washing its shoulder while holding a paw in the air.
+## `tick` gates the strokes on this same table, so a style can never be drawn on a body that
+## does not belong to it.
+const _GROOM_POSE := ["groom", "groom_flat", "groom_flat", "groom_scratch"]
+
 func groom_style(i: int) -> void:
-	_groom_style = clampi(i, 0, 2)
-	# The paw-lick needs the pose that holds a forepaw up; the others need the one that does
-	# not. Retargeting here rather than at the call site means a caller cannot pick a style
-	# and forget the body that goes with it.
-	if _target == "groom" or _target == "groom_flat":
-		set_pose("groom" if _groom_style == 0 else "groom_flat", _blend_rate)
+	_groom_style = clampi(i, 0, _GROOM_POSE.size() - 1)
+	# Retargeting here rather than at the call site means a caller cannot pick a style and
+	# forget the body that goes with it.
+	if _GROOM_POSE.has(_target):
+		set_pose(String(_GROOM_POSE[_groom_style]), _blend_rate)
 
 ## A FULL-BODY SHAKE — the wet-dog ripple, which cats do on waking, after rain, and after any
 ## indignity. Decays like the look, so one call is one shake.
@@ -1367,7 +1380,7 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 	_mul_body(_spine, BODY_SIDE, breath)
 	_mul_body(_spine2, BODY_SIDE, breath * 0.55)
 	_mul_body(_neck, BODY_SIDE, -breath * 1.35)
-	if _target == "groom" or _target == "groom_flat":
+	if _GROOM_POSE.has(_target):
 		# THE WASH, and there is more than one of them. All four ride the blended groom pose
 		# rather than replacing it, and all four are expressed in body axes at the torso so
 		# none of them can leak a yaw into the head the way the breath layer used to.
@@ -1387,6 +1400,45 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 				_mul_body(_neck, BODY_SIDE, -0.42 + s2 * 0.10)
 				_mul_body(_head, BODY_SIDE, -0.26 + s2 * 0.12)
 				_mul_body(_spine2, BODY_SIDE, -0.12)
+			3:
+				# EAR SCRATCH. The POSTURE is authored — `groom_scratch` takes the left hind
+				# out of the bake's plant and holds it up and abducted (see `_build_poses`,
+				# which also records how far short of the ear this rig's hip can carry it).
+				# This is the WORK: the fast small paw arc, and the head tilted into it.
+				#
+				# 7 Hz (44 rad/s), which is the animal's own rate for this action and most of
+				# why it reads as a scratch rather than a wave. The low end of the 6-9 Hz band
+				# on purpose: `_anim_t` advances by AiBudget's SUMMED delta, capped at 0.15 s,
+				# so a faster sine aliases into noise on exactly the frames the animal is
+				# thought about least.
+				var s3: float = sin(t * 44.0)
+				var L3: Dictionary = _limb["lh"]
+				# THE HOCK DOES THE WORK AND THE THIGH BARELY MOVES — a scratching cat flicks
+				# from the stifle down. The amplitudes are sized against the headroom
+				# `groom_scratch` deliberately leaves under the ROM clamp (thigh -0.48 of 0.62,
+				# stifle 0.92 of 1.35, hock 0.22 of 0.50), so the peaks land INSIDE it: a
+				# clamped stroke flattens one half of its own arc and draws as a stutter with
+				# no visible cause. 48 mm of paw travel peak-to-peak, which is the few
+				# centimetres the real action covers.
+				_mul(L3["prox"], Quaternion(_hinge_of(L3["prox"]), s3 * 0.05))
+				_mul(L3["dist"], Quaternion(_hinge_of(L3["dist"]), s3 * 0.18))
+				# Overlapping action down the limb, the gait's DRAG idiom: the hock and then
+				# the toes are read a little later in the cycle than the stifle.
+				_mul(L3["paw"], Quaternion(_hinge_of(L3["paw"]), sin(t * 44.0 - 0.55) * 0.13))
+				_mul(L3["toe"], Quaternion(_hinge_of(L3["toe"]), sin(t * 44.0 - 0.95) * 0.09))
+				# THE HEAD TILTS INTO THE PAW, and on this rig the tilt carries most of the
+				# read — the hip clamp stops the paw 0.61 m short of the ear. A ROLL toward the
+				# scratching side, a small drop, and a whisker of yaw the same way so the ear
+				# is presented rather than merely lowered; plus the paw's own rhythm at a sixth
+				# of its amplitude, which is what "the head barely moves relative to the paw"
+				# looks like from outside.
+				#
+				# LIVE map, neck before head: this torso is both pitched and rolled, and the
+				# rest map turns a commanded roll into yaw on a sitting cat.
+				_mul_body_live(_neck, BODY_FWD, _scratch_side * 0.15)
+				_mul_body_live(_neck, BODY_SIDE, -0.10)
+				_mul_body_live(_head, BODY_FWD, _scratch_side * (0.25 + s3 * 0.04))
+				_mul_body_live(_head, BODY_UP, _scratch_side * -0.10)
 			_:
 				# PAW. The classic: forepaw up to the lowered muzzle, short quick strokes.
 				# BODY pitch for the nods and the measured hinge for the forearm — this
@@ -1881,8 +1933,15 @@ func _ik_leg(q: Dictionary, chain: Array, paw: int, target: Vector3, iters: int 
 
 ## Build a pose: torso offsets first, then IK every leg to its target. Targets default to
 ## the paws' REST positions — "the feet stay where they stand" — with optional shifts.
+##
+## `free_leg` NAMES A LIMB THAT IS NOT ON THE DECK, and it is the whole of why the ear scratch
+## can exist. `arms_too` could already drop BOTH forelimbs out of the plant; nothing could drop
+## ONE hind, and a scratch is a tripod — three paws planted, the fourth posed. Left in the bake
+## a leg is solved to its rest anchor on the deck, so any lift authored on top of it is fighting
+## the IK that just put it back down: that is exactly why the first cut of this style could only
+## twitch. Default "" matches no limb key, so every existing caller bakes as it always did.
 func _bake(torso: Dictionary, hip_drop: float, paw_shift: Dictionary = {},
-		seed_fold: float = 0.0, arms_too: bool = true) -> Dictionary:
+		seed_fold: float = 0.0, arms_too: bool = true, free_leg: String = "") -> Dictionary:
 	# Rest paw anchors, measured once per bake from the skeleton itself.
 	var rest_q := {}
 	for i in _rest:
@@ -1906,6 +1965,8 @@ func _bake(torso: Dictionary, hip_drop: float, paw_shift: Dictionary = {},
 	for k in _limb:
 		var L: Dictionary = _limb[k]
 		var hind: bool = k.ends_with("h")
+		if k == free_leg:
+			continue
 		if not hind and not arms_too:
 			continue
 		if seed_fold > 0.0:
@@ -1971,6 +2032,55 @@ func _build_poses() -> void:
 		"Spine02": [[1, 0.15]],
 		"NeckTwist01": [[0, -0.55]], "Head": [[0, -0.28]],
 	}, 0.118, {}, 0.7)
+	# GROOM_SCRATCH: the ear scratch, and the one pose in the library with a leg OUT of the
+	# bake. A scratching cat is a TRIPOD — it rolls its weight onto one hip, keeps two forepaws
+	# and one hind on the deck, and works with the fourth. So the left hind is handed to `_bake`
+	# as `free_leg` and authored here instead of being solved to an anchor on the deck. That is
+	# the whole difference from the version this replaces, which was driven off the `groom` sit
+	# with all four feet planted and could only twitch: the lift was fighting the IK that had
+	# just put the foot back down.
+	#
+	# WHY THE LEFT HIND, MEASURED RATHER THAN CHOSEN. This fit's two hind chains are not the
+	# same animal. Thigh->calf->foot is 0.336 + 0.111 m on the left against 0.086 + 0.106 on
+	# the right, and the right hind rests at 99.9% of its own reach (the dead-straight bind the
+	# load report prints). The left paw therefore travels more than twice as far per radian of
+	# hip, and it is the only one of the four whose reach envelope contains the head at all:
+	# 0.447 m of chain against a 0.424 m socket-to-ear. The right hind would repeat the twitch
+	# for a second, different reason.
+	#
+	# AND HERE IS THE CEILING, because what fails is not the leg's LENGTH. The paw has to swing
+	# about 155 degrees from where it rests to point at the ear, and `_rom` allows +/-0.62 rad
+	# (35.5) at the hip — a limit that exists because this animal was measured driving that
+	# joint through 103 degrees a stride. Sweeping the hip with the clamp lifted: -0.62 leaves
+	# the paw 0.589 m from the ear, -1.30 leaves 0.464, and it takes about -2.60 rad (149
+	# degrees, 4.2x ROM_PROX) to close to 0.16 m. Widening one joint's clamp fourfold to buy one
+	# pose hands the same licence to the gait, which is the defect the clamp was added to stop,
+	# so the pose stops where the anatomy stops. At -0.48 the hock stands 0.204 m up — level
+	# with the top of the back — and the paw 0.132 m up and 0.172 m out, outside the body's own
+	# half-width of 0.133. The leg reads as raised, folded and working; the paw is at the
+	# shoulder rather than the ear, and the head does the rest of the travelling by tilting into
+	# it (`tick`, style 3).
+	#
+	# The trunk sits at 0.34 rad and not the sit's 0.58 because the hip pitch FIGHTS the lift:
+	# it rotates the whole limb's swing plane backward, and at 0.58 the same authored leg draws
+	# its hock below its own socket. Rolled 0.14 rad onto the right hip — a few degrees, toward
+	# the planted side — with the thorax keeping a little of it back so the shoulders stay level
+	# over the two planted forepaws: they land within 4 mm of their rest anchors, and the
+	# planted right hind lands 19 mm low against `groom_flat`'s 61.
+	_poses["groom_scratch"] = _bake({
+		"Hip": [[3, 0.34], [5, 0.14]],
+		"Spine01": [[5, -0.05]], "Spine02": [[5, -0.04]],
+		"NeckTwist01": [[0, -0.18]], "Head": [[0, -0.08]],
+		# The free limb, on BODY axes and the measured hinge and never on raw local X, which on
+		# these bones is an abduction axis as often as a swing. [6] lifts the leg in its own
+		# sagittal plane, [5] rolls it out from under the belly, [4] swings it clear of the
+		# flank — and the last two are perpendicular to the hinge, so `_clamp_joint` (which
+		# bounds the hinge component and preserves the rest) passes them through untouched.
+		# Only the 0.48 spends ROM.
+		"L_Thigh": [[6, -0.48], [5, 0.65], [4, -0.32]],
+		"L_Calf": [[6, 0.92]],          # the stifle folded, carrying the paw up under the hock
+		"L_Foot": [[6, 0.22]], "L_ToeBase": [[6, 0.16]],
+	}, 0.118, {"rh": Vector3(0.13, 0, 0)}, 0.7, true, "lh")
 	# SLEEP: the loaf — belly nearly on the deck, all four paws tucked in under the body,
 	# head sunk and turned. The tuck is the paw targets pulled inward and up a whisker.
 	_poses["sleep"] = _bake({

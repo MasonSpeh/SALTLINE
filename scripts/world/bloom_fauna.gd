@@ -32,6 +32,25 @@ const TEAL := Color(0.2, 0.9, 0.85)
 const DIM_TEAL := Color(0.12, 0.5, 0.48)
 const PEARL := Color(0.88, 0.94, 0.92)
 
+## THE ONE THING THAT TELLS AN ANIMAL FROM SCENERY. Every collider belonging to a living
+## creature joins this group at the moment it is constructed, and nothing else ever does.
+##
+## It exists because "is it under the fauna root?" is not that question. This node's subtree
+## carries the Bloom GROWTH — creeper-wrapped pipes, kelp stands, anemone clumps — and the
+## corvids' nest alongside the animals, and those are world geometry that a body is supposed
+## to stop at. ship_cat's wall ray tried the subtree walk and CatHuntProbe's burial sweep went
+## from 2 mm to 65 mm, A/B'd both ways, so the walk was removed rather than tuned.
+##
+## Membership is declared at the two places a creature collider is BUILT: FaunaTouch, which is
+## every species' interaction handle wherever it ends up parented (leg_reef spawns LampSnail
+## and PyramidSnail out of this file), and GlowWorm, which is its own Interactable instead of
+## carrying one. So a species added later inherits the tag by taking a FaunaTouch, and an
+## untagged animal is only possible by building a collider some third way.
+##
+## Reach it as `BloomFauna.CREATURE_GROUP`, never through `Object.get()` — that returns null
+## for a script constant and the caller then silently uses its own fallback (AGENT_TRAPS).
+const CREATURE_GROUP := "creature_body"
+
 ## --- Giant crabs: a pool of EIGHT, spread around the four caisson legs --------------
 ## DAY: every crab clings to a submerged face of one of the 4 caisson legs (6x6 boxes at
 ## x=±22 z=±12 — SE fills x[19,25] z[-15,-9]) and crawls slowly UP AND DOWN it, below the
@@ -772,6 +791,14 @@ static func ground_model(host: Node3D, model: Node3D) -> void:
 ## metres under the plate it belongs on, and the grounding probe scored that as a pass.
 ## Call once and cache — the fauna set is built in one pass in _ready(), so the list
 ## never needs rebuilding, and walking it per-frame per-snail would not be cheap.
+##
+## THE SET IS "EVERY COLLIDER UNDER THE FAUNA ROOT", WHICH IS NOT THE SET OF ANIMALS. It also
+## picks up the ship's cat's own handle (built in ship_cat.gd) and the corvids' nest, a
+## LootContainer, i.e. scenery — and it MISSES the animals parented elsewhere, which is the
+## trap that had a crab standing on a leg_reef snail for a day (AGENT_TRAPS, s21). Left as it
+## is because every caller here is a creature ruling its own neighbourhood out of its own
+## ground ray, where one extra 0.7 m box on the bunkhouse roof changes no measurement taken so
+## far. A consumer that means ANIMALS should read CREATURE_GROUP instead.
 static func fauna_bodies(host: Node3D) -> Array[RID]:
 	var out: Array[RID] = []
 	var root: Node = host
@@ -1702,6 +1729,12 @@ class GlowWorm extends Interactable:
 		display_name = "Glow Worm"
 		var v: Array[String] = ["GRAB"]
 		verbs = v
+		# The one animal in this file that IS its own Interactable rather than carrying a
+		# FaunaTouch, so it is the one collider the shared tag in FaunaTouch._init misses.
+		# Tagged whether or not the den is awake: _col.disabled comes and goes every night,
+		# and a skip list that only holds the animals currently emerged is a hole with a
+		# schedule. See CREATURE_GROUP.
+		add_to_group(BloomFauna.CREATURE_GROUP)
 
 	func _ready() -> void:
 		_t = global_position.x * 2.1 + global_position.z
@@ -2836,6 +2869,12 @@ class FaunaTouch extends Interactable:
 		display_name = name_
 		verbs_fn = verbs_fn_
 		act_fn = act_fn_
+		# TAGGED AT CONSTRUCTION, not at any of the ten call sites, because that is the only
+		# version of the habit a species added next session cannot forget to copy — and it is
+		# what carries the tag to the handles built under other hosts (leg_reef's climbing
+		# snails are LampSnail / PyramidSnail instances parented over there). A group is legal
+		# on a node that is not in the tree yet; it registers on _enter_tree. See CREATURE_GROUP.
+		add_to_group(BloomFauna.CREATURE_GROUP)
 		var cs := CollisionShape3D.new()
 		var sph := SphereShape3D.new()
 		sph.radius = radius

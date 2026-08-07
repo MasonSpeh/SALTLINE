@@ -2028,3 +2028,51 @@ ALSO LANDED (four concurrent streams, integration-reviewed before commit):
 
 TestRunner 0, CatProbe 0 (incl. the new trail gates), CatJointProbe 0, CatHuntProbe 0,
 FishSpreadProbe 0, ReefFishProbe 0, FaunaBugsProbe 0.
+
+## s47 — the cat is complete: it remembers you, it leaps, and it knows animals from walls
+
+THE CAT HAD NO SAVE SECTION AT ALL. Its design opens with "FOUND, not spawned at you...
+ONCE, and then for good", and `friend` was a plain var — so every reload handed the player
+a stranger and re-fired the one-time meeting toast. Invisible in-session, like the s23 save
+wipe, and only visible on the NEXT boot. Now persisted: friend, STAY (with its spot — a
+STAY that forgets WHERE is a different instruction), the fed-today game hour, and energy.
+Deliberately not persisted: state, hunt beat, pose, trail — a restored mid-pounce would be
+a bug, not a feature.
+
+THE LEAP HAS NEVER ONCE FIRED, in five sessions of trying, and it took FOUR stacked faults
+plus two more in the arc check to explain why. Each hid the next:
+  * the footfall probe reaches 0.75 m against JUMP_UP 1.25, so ledges in between passed
+    UNDER the ray and read as flat deck (the s38 diagnosis, correct as far as it went);
+  * the ledge probe that fixes that sat AFTER the detour fan — which returns early on
+    exactly the frames a ledge matters. Dead code. It changed nothing and filmed identical;
+  * it probed ONE STEP (26 mm) ahead rather than a body length, so it sampled the deck the
+    cat was already standing on;
+  * `d > FOLLOW_NEAR` is a THREE-DIMENSIONAL distance: a player on a 1 m crate 1.35 m away
+    measures 1.87 m, inside the gap, so the cat declared itself arrived and sat down on the
+    deck below without ever calling the walk. That one is a gameplay bug in its own right —
+    stand on anything and the companion gives up nearby.
+  * then the arc refused every steep hop TWICE: the flight advanced horizontally at a
+    constant rate (at 35% of a 1.0 m climb over a 0.63 m run it is inside the crate it is
+    aiming at), and the clearance test asked the WALKING question in mid-air, where a
+    rising cat's muzzle is legitimately out over the lip.
+Fixed: shared `_arc_point` so the check and the flight cannot model different paths, with
+the horizontal eased by rise-over-run (a cat goes UP first); airborne samples test the body
+only; and the reachability rule the reverted s38 attempt lacked — the ceiling is the
+PLAYER's height plus one leap, an absolute reference, so hops cannot accumulate into the
+staircase that stranded the animal at y 20.26. CatProbe now watches it leave the ground:
+rose 1.10 m, ended ON the crate at 19.00.
+
+CREATURE COLLIDERS ARE TAGGED (`BloomFauna.CREATURE_GROUP`), applied where each is BUILT —
+so `_walk_skip` finally tells animals from scenery, three sessions after KNOWN_ISSUES named
+the fix. Burial went 2 mm -> 0 mm. And the probe that "proved" the previous attempt wrong
+was itself broken: CatHuntProbe's `_fauna_skip` looked up a group NOTHING has ever joined,
+so its burial figure always counted animals as burial — the 65 mm that got a correct fix
+reverted was very likely manufactured by the instrument.
+
+THE EAR SCRATCH ships (cat_rig `groom_scratch` + style 3, a tripod on a free hind leg with
+the head rolled into the paw). Its ROM ceiling is honest and filed: the paw reaches the
+SHOULDER, not the ear — 155 deg of hip swing is needed against ROM_PROX's 35, and widening
+that clamp to buy one pose hands the same licence to the gait that was driving the hip
+through 103 deg a stride.
+
+TestRunner 0, CatProbe 0 (incl. leap + trail + STAY/COME), CatHuntProbe 0, CatJointProbe 0.

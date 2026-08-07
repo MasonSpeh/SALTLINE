@@ -389,6 +389,66 @@ func _run() -> void:
 	for i in range(30):
 		await get_tree().physics_frame
 
+	# 5d. IT ACTUALLY LEAPS — and this is the first assertion in the project's history that
+	# has ever watched the cat leave the ground.
+	#
+	# The leap existed for five sessions and had never fired. Four separate faults stacked,
+	# each hiding the next, and every one of them passed whatever test was pointed at it:
+	#   * the footfall probe reaches 0.75 m while JUMP_UP is 1.25, so ledges in between
+	#     passed UNDER the ray and read as flat deck;
+	#   * the ledge probe that fixes that sat AFTER the detour fan, which returns early on
+	#     exactly the frames a ledge matters — dead code;
+	#   * it then probed one step (26 mm) ahead instead of a body length, landing short of
+	#     the lip and finding the deck the cat was already on;
+	#   * and `d > FOLLOW_NEAR` measures a THREE-DIMENSIONAL distance, so a player standing
+	#     on a 1 m crate 1.35 m away reads 1.87 m — inside the gap — and the animal declared
+	#     itself arrived and sat down without ever calling the walk.
+	# Then the arc check refused every steep hop, twice over: the flight advanced
+	# horizontally at a constant rate (so at 35% of the climb it was inside the crate it was
+	# aiming at), and the clearance test asked the WALKING question mid-air, where a rising
+	# cat's muzzle is legitimately out over the lip.
+	#
+	# A CRATE WE BUILD, not a ledge we hunt for. Probing the world for "a surface in the
+	# 0.66-1.20 m band" kept returning small props the animal simply walks around, so the
+	# test measured the pathfinder and answered differently each run.
+	var leap_crate := StaticBody3D.new()
+	var leap_cs := CollisionShape3D.new()
+	var leap_box := BoxShape3D.new()
+	leap_box.size = Vector3(2.4, 1.0, 2.4)
+	leap_cs.shape = leap_box
+	leap_crate.add_child(leap_cs)
+	get_tree().current_scene.add_child(leap_crate)
+	leap_crate.global_position = Vector3(5.6, 18.5, -3.0)
+	cat.global_position = Vector3(3.0, 18.0, -3.0)
+	cat.call("_reseat")
+	cat.set("_hunt_cd", 999.0)
+	cat.set("_zoom_cd", 999.0)
+	cat.set("_play_cd", 999.0)
+	cat.set("_wash_t", 0.0)
+	cat.set("_stayed", false)
+	var leap_y0: float = cat.global_position.y
+	var leap_top: float = 0.0
+	var leap_flew: bool = false
+	for i in range(600):
+		player.global_position = Vector3(5.6, 19.2, -3.0)
+		await get_tree().physics_frame
+		leap_top = maxf(leap_top, cat.global_position.y)
+		if float(cat.get("_jump_t")) > 0.0:
+			leap_flew = true
+	_ok(leap_flew, "the leap actually fires at a crate one jump high")
+	_ok(leap_top - leap_y0 > 0.5,
+		"...and the body leaves the deck (rose %.2f m)" % (leap_top - leap_y0))
+	_ok(cat.global_position.y > leap_y0 + 0.5,
+		"...and it ends up ON the crate (y %.2f, deck %.2f)"
+			% [cat.global_position.y, leap_y0])
+	leap_crate.queue_free()
+	await get_tree().physics_frame
+	cat.global_position = Vector3(-22.0, 18.05, 11.0)
+	cat.call("_reseat")
+	player.global_position = Vector3(-22.0, 18.1, 12.0)
+	for i in range(30):
+		await get_tree().physics_frame
+
 	# 6. IT WANTS THE FISH. A fish in hand pulls it in closer than its normal follow distance.
 	PlayerState.add_item("fish_herring")
 	for i in range(PlayerState.hotbar.size()):

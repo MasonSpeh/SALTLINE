@@ -193,6 +193,12 @@ func save_game() -> bool:
 		# Landed weights not yet spent (fished but not filleted, dropped, or dried). A v2
 		# reader that predates the key simply never looks at it.
 		"fish_sizes": FISH.sizes_payload(),
+		# THE CAT'S OWN DECISIONS — whether it has met you, whether you told it to stay,
+		# when you last fed it. The animal's design promises befriending is permanent
+		# ("once, and then for good") and without this key it was permanent for exactly one
+		# session. Additive like the rest: an older reader ignores it, and a save without
+		# it restores the cat exactly as it spawns.
+		"cat": _cat_payload(),
 	}
 	# Where the player stood at save time, so Continue resumes them there rather than
 	# back at the pod. Only written when a player is actually in the tree.
@@ -276,6 +282,7 @@ func load_game() -> bool:
 	# comes back as part of a rebuilt camp can claim its items the moment it spawns.
 	_pending_containers = data.get("containers", {}) if typeof(data.get("containers")) == TYPE_DICTIONARY else {}
 	restore_harvest(data.get("harvest", {}))
+	_restore_cat(data.get("cat", {}))
 	restore_structures(data.get("structures", []))
 	_apply_pending_to_existing()
 	restore_dropped(data.get("dropped", []))
@@ -453,6 +460,21 @@ func claim_container(c: Node3D) -> void:
 func _harvest_key(s: Node3D) -> String:
 	var p: Vector3 = s.global_position
 	return "%.2f,%.2f,%.2f" % [p.x, p.y, p.z]
+
+## The ship's cat, if one is in the tree. Asked of the ANIMAL rather than reached into, so
+## the set of remembered fields lives next to the fields themselves and cannot drift out of
+## step with them (ship_cat.save_state / restore_state).
+func _cat_payload() -> Dictionary:
+	var cat: Node = get_tree().get_first_node_in_group("ship_cat")
+	if cat == null or not cat.has_method("save_state"):
+		return {}
+	return cat.call("save_state")
+
+func _restore_cat(d: Variant) -> void:
+	var cat: Node = get_tree().get_first_node_in_group("ship_cat")
+	if cat == null or not cat.has_method("restore_state"):
+		return
+	cat.call("restore_state", d)
 
 func _harvest_payload() -> Dictionary:
 	var out: Dictionary = {}

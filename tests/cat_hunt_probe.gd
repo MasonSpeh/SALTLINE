@@ -43,12 +43,25 @@ func _ok(c: bool, m: String) -> void:
 ## buried in the world. A test that fails when the feature works is worse than no test: the
 ## whole point of a pounce is to land ON the bird. Every fauna collider is excluded, so what is
 ## left is steel.
+## THIS FUNCTION'S ANIMAL EXCLUSION HAS NEVER RUN, and it is very likely why a correct fix
+## was reverted three sessions ago.
+##
+## It looked the fauna host up with `get_first_node_in_group("bloom_fauna")` — and NOTHING in
+## this repo ever joins a group by that name (main.gd does a bare `add_child(BloomFauna.new())`;
+## every other consumer identifies the host by `resource_path.ends_with("bloom_fauna.gd")`).
+## The lookup returned null every run, the loop never executed, and this probe's burial figure
+## has always been measured against the ANIMALS as well as the steel. So when s38 gave the cat
+## a blanket fauna exclusion, the animal legitimately closed on a bird — and this probe, unable
+## to subtract animals, scored the contact as burial and read 65 mm. The fix was reverted for a
+## number its own instrument manufactured.
+##
+## Now it uses the same tag the cat does, so the two agree by construction rather than by two
+## separate walks that can drift apart.
 func _fauna_skip() -> Array[RID]:
 	var out: Array[RID] = _cat.call("_walk_skip")
-	var bf: Node = _cat.get_tree().get_first_node_in_group("bloom_fauna")
-	if bf != null:
-		for c in bf.find_children("*", "CollisionObject3D", true, false):
-			out.append((c as CollisionObject3D).get_rid())
+	for n in _cat.get_tree().get_nodes_in_group(BloomFauna.CREATURE_GROUP):
+		if n is CollisionObject3D:
+			out.append((n as CollisionObject3D).get_rid())
 	return out
 
 func _buried() -> float:

@@ -618,12 +618,12 @@ func _process(delta: float) -> void:
 func _fly_jump(delta: float) -> void:
 	_jump_t -= delta
 	var k: float = clampf(1.0 - _jump_t / JUMP_SEC, 0.0, 1.0)
-	var flat: Vector3 = _jump_from.lerp(_jump_to, k)
+	var flat: Vector3 = _arc_point(_jump_from, _jump_to, k)
 	# Peak height scales with the rise so a small hop does not launch the cat at the
 	# deckhead, with a floor so a flat leap still leaves the ground.
 	var lift: float = maxf(_jump_to.y - _jump_from.y, 0.0) * 0.35 + 0.14
 	var before_fly: Vector3 = global_position
-	global_position = Vector3(flat.x, flat.y + sin(k * PI) * lift, flat.z)
+	global_position = flat
 	# A LEAP TURNS THE SAFETY NET OFF, AND THAT IS WHY IT NEEDS ONE OF ITS OWN.
 	#
 	# `_unbury` runs unconditionally every frame precisely because no predictive gate can
@@ -900,7 +900,18 @@ func _companion(delta: float, player: Node3D) -> void:
 	# nearest reachable spot and waits there, which is what a real cat does at the top of
 	# a companionway. The player who wants it parked has the STAY verb now, which is a
 	# decision, not a distance.
-	if d > FOLLOW_NEAR:
+	# THE COMPANIONABLE GAP SHRINKS WHEN YOU ARE STANDING ABOVE IT — and this gate, not the
+	# one inside `_walk_toward`, is the one that decides whether the animal moves at all.
+	# `d` is a 3D distance, so a player up on a 1.1 m ledge only 1.35 m away measures 1.87 m
+	# — inside FOLLOW_NEAR — and the cat declares itself arrived and sits down on the deck
+	# below, having never called the walk at all. Every gate in the leap path was verified
+	# passing at that exact spot (tests/LeapScratch.tscn) while the shipping loop never
+	# reached one of them: the jump was unreachable from the STATE MACHINE, not from the
+	# geometry. Both the gate and the stop distance take the same shrunken gap now.
+	var near_gap: float = FOLLOW_NEAR
+	if ppos.y - global_position.y > CLIMB_UP:
+		near_gap = 0.35
+	if d > near_gap:
 		# ...and it BREAKS INTO A RUN when it has been left behind, which is the one moment a
 		# follower reads as an animal rather than a marker: same walk otherwise.
 		var running: bool = d > RUN_M
@@ -917,8 +928,16 @@ func _companion(delta: float, player: Node3D) -> void:
 		# park the animal a metre before every corner. The distance that decides whether to
 		# walk at all is still `d`, which is measured to the player.
 		var aim: Vector3 = _trail_goal(ppos, delta)
+		# YOU CANNOT BE "NEAR" SOMEONE WHO IS STANDING ABOVE YOU. `FOLLOW_NEAR` is the
+		# companionable gap on level ground, and applied to a player up on a crate it parked
+		# the animal 2.2 m out on the deck — where the ledge is still a metre beyond its nose,
+		# so the jump probe never fires and the cat simply gives up near the thing it should
+		# be hopping onto. Filmed: staged at a real 1.00 m ledge, the cat walked to z 5.80 and
+		# stopped dead, 2.2 m short of a lip at z 8.00, for all 270 frames.
+		# So when the player is more than a step above, the target is the FOOT of whatever
+		# they are on: close right up, let the ledge probe see it, and let the leap decide.
 		_walk_toward(aim, (RUN_SPEED if running else (TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED))
-			* _pace * _ease_turn(aim, delta), delta, 0.05 if _trail_live else FOLLOW_NEAR)
+			* _pace * _ease_turn(aim, delta), delta, 0.05 if _trail_live else near_gap)
 		return
 	# A WASH IN PROGRESS FINISHES. Below the hunt on purpose — a bird interrupts a wash, which
 	# is exactly what happens — but above settling, so the cat is not yanked out of it by its
@@ -1156,6 +1175,62 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# movement code slides along what it touches, so this tries the direct line first and
 	# then the two tangents, taking whichever still carries it toward the target.
 	var moved_dir: Vector3 = dir
+	# THE LEDGE THE FOOTFALL PROBE CANNOT SEE — and the reason the leap almost never fired.
+	#
+	# That probe starts at `STEP_UP + 0.3` = 0.75 m above the cat's feet, while `JUMP_UP` is
+	# 1.25. Anything between those heights passes UNDER the ray, which then finds the lower
+	# deck beyond and reports a rise of zero: the gate below reads "flat ground", the volume
+	# check refuses the step because the lip is solid, and the animal walks into the face.
+	# The jump could only ever fire in the narrow 0.62-0.75 m band — the owner's "clean up
+	# the jump, and make it more frequent".
+	#
+	# So when the direct step is REFUSED, look higher before giving up. Only then: this ray
+	# is the expensive, greedy question and asking it every step is what would make the cat
+	# leap at scenery it should walk around.
+	#
+	# AND IT HAS TO RUN BEFORE THE DETOUR FAN, which is where the first cut of this put it
+	# and why it changed nothing: the fan RETURNS when every candidate is refused, so on the
+	# exact frames a ledge is worth looking for, control never reached the probe. Filmed at a
+	# real 0.85 m ledge — inside the band that was invisible — and the telemetry read y 18.00
+	# across all 270 sampled frames, i.e. identical to the pre-fix animal. Dead code passes
+	# every test that does not watch the animal.
+	if rise <= CLIMB_UP and not _step_clear(Vector3(want.x, ground, want.z), dir) \
+			and _jump_t <= 0.0 and _jump_wind <= 0.0 and _jump_cd <= 0.0:
+		# LOOK WHERE THE LANDING IS, NOT WHERE THE NEXT FOOTFALL IS — and that is a second
+		# thing the first cut got wrong. `want` is ONE STEP ahead (26 mm at a walk), while
+		# `_step_clear` refuses the step when the cat's NOSE sphere touches the lip, which is
+		# `_body_len()/2 - r + r` = about 0.33 m out. So a ray at `want` comes down a third of
+		# a metre SHORT of the ledge, hits the deck the cat is already standing on, and reports
+		# a rise of zero — the probe fired, found flat ground, and the animal walked into the
+		# face exactly as before. Filmed twice against real 0.85 m and 1.10 m ledges before the
+		# telemetry (y pinned at 18.00 across 270 frames) made it obvious.
+		#
+		# So probe a body-length out, and if a ledge is there, that probed point IS the
+		# landing — jumping to `want` would put the cat down in mid-air off the lip.
+		var lookahead: Vector3 = global_position + dir * (_body_len() * 0.95)
+		var hq := PhysicsRayQueryParameters3D.create(
+			lookahead + Vector3(0, JUMP_UP + 0.45, 0), lookahead + Vector3(0, 0.05, 0))
+		hq.collision_mask = 1
+		hq.collide_with_areas = false
+		hq.exclude = _walk_skip()
+		var hhit: Dictionary = world.direct_space_state.intersect_ray(hq)
+		if not hhit.is_empty():
+			var top: float = (hhit["position"] as Vector3).y
+			var lift: float = top - global_position.y
+			# ONLY CLAIM THE LEDGE IF THE LEAP IS ACTUALLY ON. Raising `rise` past CLIMB_UP
+			# hands control to the jump gate below, which RETURNS whether or not it fires —
+			# so a ledge the cat may see but not take (out of the reachability ceiling, arc
+			# fouled, landing occupied) converted a perfectly ordinary walk-around into a
+			# dead stop. Measured: CatHuntProbe's stalk froze 2.26 m short of the bird and
+			# never pounced, because a structure near the deck answered this ray and the
+			# refused jump ate the frame the detour fan should have had. Prove the whole
+			# leap here; anything less and the fan keeps the step, as it did before.
+			if lift > CLIMB_UP and lift <= JUMP_UP and _reachable_up(top) \
+					and _step_clear(Vector3(lookahead.x, top, lookahead.z), dir) \
+					and _arc_clear(Vector3(lookahead.x, top, lookahead.z), dir):
+				want = Vector3(lookahead.x, top, lookahead.z)
+				ground = top
+				rise = lift
 	if not _step_clear(Vector3(want.x, ground, want.z), dir):
 		# THE DETOUR FAN — navigation for an animal with no navmesh, and the cure for the
 		# corner the owner watched it wedge in.
@@ -1251,6 +1326,8 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# get onto. Above JUMP_UP it still refuses: a cat does not scale a bulkhead.
 	if rise > CLIMB_UP:
 		if rise <= JUMP_UP and _jump_t <= 0.0 and _jump_wind <= 0.0 and _jump_cd <= 0.0 \
+				and _reachable_up(ground) \
+				and _step_clear(Vector3(want.x, ground, want.z), dir) \
 				and _arc_clear(Vector3(want.x, ground, want.z), dir):
 			# ...and the ARC has to be clear, not just the ledge. Same hole the pounce had:
 			# `_fly_jump` drives the body along the path with no gates of its own, so a leap
@@ -1346,7 +1423,15 @@ func _body_r() -> float:
 ## Would the cat's BODY fit at `at`? A sphere query rather than a ray, so a step that leaves
 ## the origin outside a wall but the flank inside it is refused. Tested at the body centre
 ## and again at the nose, which is the one place a width-sized disc cannot see.
-func _step_clear(at: Vector3, dir: Vector3, extra_skip: Array = []) -> bool:
+## `nose` FALSE tests the BODY ONLY — for points the animal is FLYING through rather than
+## standing at. The nose probe exists because a WALKING cat's origin can be clear while its
+## head is buried in a bulkhead; applied mid-leap it double-counts, because a cat rising
+## beside a crate legitimately has its muzzle out over the crate top. With it on, every
+## tight vertical hop refused itself: measured at a 1.0 m crate directly ahead, reach and
+## landing both clear and `_arc_clear` FALSE on every frame, because the nose sphere 0.2 m
+## ahead of a body climbing past the lip is inside the lip. The landing sample still asks
+## the full question — that is where the animal has to stand and walk away.
+func _step_clear(at: Vector3, dir: Vector3, extra_skip: Array = [], nose: bool = true) -> bool:
 	var world: World3D = get_world_3d()
 	if world == null:
 		return true
@@ -1366,8 +1451,10 @@ func _step_clear(at: Vector3, dir: Vector3, extra_skip: Array = []) -> bool:
 	# probe there too or the animal walks its head into a bulkhead and stops with the face
 	# buried while its centre is legally clear.
 	var lead: float = _body_len() * 0.5 - r
-	for probe in [at + Vector3(0, r + 0.04, 0),
-			at + dir * maxf(lead, 0.0) + Vector3(0, r + 0.04, 0)]:
+	var probes: Array = [at + Vector3(0, r + 0.04, 0)]
+	if nose:
+		probes.append(at + dir * maxf(lead, 0.0) + Vector3(0, r + 0.04, 0))
+	for probe in probes:
 		q.transform = Transform3D(Basis.IDENTITY, probe)
 		if not world.direct_space_state.intersect_shape(q, 1).is_empty():
 			return false
@@ -1423,6 +1510,107 @@ func _unbury() -> void:
 		return
 	global_position += push.normalized() * (worst + 0.02)
 	_reseat()
+
+## ---------------------------------------------------------------- persistence
+##
+## THE CAT HAD NO SAVE SECTION AT ALL, and the design's very first promise is the one that
+## broke: "FOUND, not spawned at you... ONCE, and then for good. There is no befriending
+## minigame and no trust meter. You reach out, it accepts, and that is the last decision
+## either of you makes about it." `friend` was a plain var, so every reload made the animal
+## a stranger again — the player had to re-befriend the cat every session, and the toast
+## that is meant to happen once in a run happened every time they loaded.
+##
+## Saved here rather than left to a generic walker because these are DECISIONS the player
+## made (met it, told it to stay, fed it today), not world geometry that gets rebuilt.
+## `_stay_spot` rides along because a STAY that forgets WHERE is a different instruction on
+## reload, and `_fed_game_h` because it is measured in absolute game hours precisely so it
+## survives a slept night — surviving a save is the same requirement.
+##
+## Deliberately NOT saved: the behaviour state, the hunt beat, the pose, the trail. Those
+## are momentary and the animal should wake up doing whatever its situation calls for; a
+## restored mid-pounce would be a bug, not a feature.
+func save_state() -> Dictionary:
+	return {
+		"friend": friend,
+		"stayed": _stayed,
+		"stay_spot": [_stay_spot.x, _stay_spot.y, _stay_spot.z],
+		"fed_game_h": _fed_game_h,
+		"energy": _energy,
+	}
+
+## Restore, defensively — every field optional, every type checked. A save written before
+## this existed simply leaves the cat as it spawns, which is the old behaviour exactly.
+func restore_state(d: Variant) -> void:
+	if typeof(d) != TYPE_DICTIONARY:
+		return
+	var s: Dictionary = d
+	friend = bool(s.get("friend", false))
+	_stayed = bool(s.get("stayed", false))
+	var sp: Variant = s.get("stay_spot", null)
+	if sp is Array and (sp as Array).size() == 3:
+		_stay_spot = Vector3(float(sp[0]), float(sp[1]), float(sp[2]))
+	_fed_game_h = float(s.get("fed_game_h", -1000.0))
+	_energy = clampf(float(s.get("energy", 0.6)), 0.0, 1.0)
+	# The handle's verbs are the player-visible half of `friend` and `_stayed`, and they are
+	# set at interaction time — so a restored cat that skipped the interaction would offer
+	# SAY HELLO to someone it already knows.
+	if _touch != null:
+		_sync_verbs()
+	# A cat restored as a friend is a companion, not the stranger `_ready` left grooming.
+	_enter(State.SIT if _stayed else State.FOLLOW) if friend else _enter(State.GROOM)
+
+## ONE POINT ON THE LEAP ARC — used by BOTH the flight and the clearance check, because
+## these were two copies of the same formula and a check that models a different path from
+## the one flown is worse than no check at all.
+##
+## THE HORIZONTAL LAGS ON A STEEP LEAP, and that is the difference between a cat and a
+## trebuchet. A constant-rate horizontal over a symmetric parabola is fine for a long flat
+## bound and wrong for the commonest jump there is — onto something directly in front of
+## you: at 35% of a 1.0 m rise over a 0.63 m run the animal is only 0.35 m up and already
+## a third of the way in, i.e. INSIDE the crate it is trying to land on. Measured exactly
+## that way (tests/LeapScratch.tscn: reach true, top clear true, arc FALSE, every frame) —
+## the leap was refusing itself on a path no cat would take. A real cat rises almost
+## vertically off the hocks and translates late, so the horizontal is eased by an exponent
+## that grows with the rise-over-run: flat leaps keep their old linear travel exactly.
+func _arc_point(from: Vector3, to: Vector3, k: float) -> Vector3:
+	var rise: float = to.y - from.y
+	var run: float = Vector2(to.x - from.x, to.z - from.z).length()
+	var steep: float = clampf(rise / maxf(run, 0.05), 0.0, 2.0)
+	var kh: float = pow(k, 1.0 + steep)
+	var lift: float = maxf(rise, 0.0) * 0.35 + 0.14
+	return Vector3(
+		lerpf(from.x, to.x, kh),
+		lerpf(from.y, to.y, k) + sin(k * PI) * lift,
+		lerpf(from.z, to.z, kh))
+
+## MAY THE CAT LEAP UP TO `top`, OR WOULD IT STRAND ITSELF THERE?
+##
+## THIS IS THE RULE THE PREVIOUS ATTEMPT LACKED, and its absence is why that attempt was
+## reverted. s38 made high ledges visible to the jump gate (the same fix that sits above
+## this) and CatHuntProbe immediately caught the animal at y 20.26 — 2.26 m above the deck,
+## having climbed a STAIRCASE OF LEDGES, one legal 0.6-1.2 m hop at a time, each one fine
+## on its own, with no way back down. `JUMP_UP`'s own comment warns about exactly that:
+## "an animal that leaps onto things the level design assumed were out of reach".
+##
+## A longer ray cannot fix it because the fault is not perception, it is the lack of a
+## stopping condition. The condition that works is the companion contract itself: this cat
+## follows a person, that person is standing on a deck the level design says is walkable,
+## and no cat needs to be more than one leap above the human it is following. So the ceiling
+## is the PLAYER's own height plus one jump. It is free (no query), it cannot be climbed
+## incrementally (every hop is measured against the same absolute reference, not against the
+## last one), and it self-releases the moment the player goes up too — follow someone up the
+## stair tower and the cat may hop the crates on that deck, exactly as it should.
+##
+## Down is never gated: falling back to the deck is what `_walk_toward`'s own probe does,
+## and an animal that may descend can always undo a mistake.
+func _reachable_up(top: float) -> bool:
+	var player: Node3D = AIB.player(self)
+	if player == null:
+		# No one to follow, no reason to climb. Refusing is the safe half of the branch:
+		# the animal simply walks round whatever it is, which is what it did before leaps
+		# existed at all.
+		return false
+	return top <= player.global_position.y + JUMP_UP
 
 # ------------------------------------------------------------------ the bait trail
 
@@ -1691,23 +1879,24 @@ func _walk_skip() -> Array[RID]:
 			skip.append((player as CollisionObject3D).get_rid())
 		for c in player.find_children("*", "CollisionObject3D", true, false):
 			skip.append((c as CollisionObject3D).get_rid())
-	# THERE IS NO BLANKET FAUNA EXCLUSION HERE, AND THAT IS DELIBERATE.
+	# THE OTHER ANIMALS, BY TAG — NOT BY SUBTREE, AND THAT DISTINCTION IS THE WHOLE FIX.
 	#
-	# The branch that used to sit here read `fauna_bodies` — a STATIC FUNCTION on bloom_fauna —
-	# through `Object.get()`, which returns null for a method name. It has therefore added
-	# nothing since s36 while the comment above it described the intention. The visible
-	# consequence is small and real: another animal's grab collider counts as a wall, which is
-	# why `_launch_pounce` has to exclude the prey explicitly to land on a bird at all.
+	# What used to sit here read `fauna_bodies`, a STATIC FUNCTION on bloom_fauna, through
+	# `Object.get()`, which returns null for a method name: the branch added nothing from s36
+	# until this replaced it. The repair that looks obvious — walk the bloom_fauna subtree and
+	# skip every CollisionObject3D under it — was written, measured and removed, because that
+	# subtree carries the corvids' nest (a real LootContainer collider) as well as the animals.
 	#
-	# The obvious repair — walk the bloom_fauna subtree and skip every CollisionObject3D in it
-	# — was written, measured, and removed. That subtree is not only animals: the Bloom GROWTH
-	# lives there too (creeper-wrapped pipes, kelp stands, anemone clumps), and those are world
-	# geometry. Excluding them let the cat walk into them, and CatHuntProbe's burial sweep went
-	# from 2 mm to 65 mm on the first run with it in. A/B'd both ways to be sure.
-	#
-	# So it stays targeted at the call site until creature colliders can be told apart from
-	# scenery colliders — a group tag on the animals would do it, and that is a change to
-	# bloom_fauna rather than to the cat.
+	# `BloomFauna.CREATURE_GROUP` is the tag that pass asked for, applied where each creature
+	# collider is BUILT — FaunaTouch._init, and GlowWorm, which is its own Interactable — so
+	# no scenery can be in it however the subtree is rearranged, and the animals parented
+	# OUTSIDE bloom_fauna (leg_reef's thirteen climbing snails, which the subtree walk could
+	# never reach — the s21 crab-stood-on-a-snail trap) are in it anyway.
+	for n in get_tree().get_nodes_in_group(BloomFauna.CREATURE_GROUP):
+		var body := n as CollisionObject3D
+		if body == null or body == _touch:
+			continue
+		skip.append(body.get_rid())
 	return skip
 
 func _face(target: Vector3, delta: float) -> void:
@@ -1839,9 +2028,10 @@ func _maybe_wash() -> void:
 		return
 	if _rig != null:
 		_rig.call("tail_flick", 0.45)   # the small settling flick as it starts a wash
-	_wash_style = [0, 0, 0, 1, 1, 2][_rng.randi_range(0, 5)]
+	_wash_style = [0, 0, 0, 1, 1, 2, 3][_rng.randi_range(0, 6)]
 	# The ear scratch is short and furious; a flank wash is long and unhurried.
-	_wash_t = {0: 4.5, 1: 7.0, 2: 5.0}.get(_wash_style, 4.0) * _rng.randf_range(0.7, 1.4)
+	# The ear scratch is short and furious — 2.8 s against the flank wash's seven.
+	_wash_t = {0: 4.5, 1: 7.0, 2: 5.0, 3: 2.8}.get(_wash_style, 4.0) * _rng.randf_range(0.7, 1.4)
 
 # ------------------------------------------------------------------ the predatory sequence
 
@@ -2021,11 +2211,9 @@ func _launch_pounce(target: Vector3) -> void:
 ## has to be proven here, before the animal commits to any of it.
 func _arc_clear(to: Vector3, dir: Vector3, extra_skip: Array = []) -> bool:
 	var from: Vector3 = global_position
-	var lift: float = maxf(to.y - from.y, 0.0) * 0.35 + 0.14
 	for k in [0.35, 0.6, 0.8, 1.0]:
-		var flat: Vector3 = from.lerp(to, k)
-		var at := Vector3(flat.x, flat.y + sin(k * PI) * lift, flat.z)
-		if not _step_clear(at, dir, extra_skip):
+		var at: Vector3 = _arc_point(from, to, k)
+		if not _step_clear(at, dir, extra_skip, k >= 1.0):
 			return false
 	return true
 
