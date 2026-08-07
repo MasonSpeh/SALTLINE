@@ -43,6 +43,16 @@ const DRAG: float = 0.045   ## s45c: a touch more overlap down the limb — "smo
 
 ## Metres the paw rises at the two ends of its stance sweep — see `_foot_path`.
 const STANCE_ARC: float = 0.012
+## HOW MUCH OF THE LIMB'S SWING THE SHOULDER BLADE TAKES — and the old 0.34 is why the owner
+## could not see it. A cat has no functional clavicle: the scapula floats on muscle and IS the
+## proximal foreleg segment, travelling further than almost any other mammal's, and it riding
+## up over the line of the spine at the top of the reach is most of why a walking cat flows
+## instead of hinging at the humerus. Arithmetic on the shipped numbers: the walk table's peak
+## reach is 0.30 and `amp` at a walk is ~0.85, so 0.34 bought +/-5.0 degrees — TEN degrees
+## peak-to-peak on a joint whose real travel is twenty to twenty-five. It was working exactly
+## as written and far too small to see. 0.85 puts it at 24.8 peak-to-peak, inside ROM_BLADE's
+## 21.8 either way.
+const BLADE_TRAVEL: float = 0.85
 
 ## THE TAIL, AND IT IS NOT WHERE ANY NAMING CONVENTION WOULD PUT IT.
 ##
@@ -185,6 +195,9 @@ var _look_w_s: float = 0.0
 ## The head stabiliser's lagged view of what the trunk is doing (see section 5e).
 var _stab_pitch: float = 0.0
 var _stab_roll: float = 0.0
+## The wash layer's eased weight — see the note at the groom block. A boolean gate on the
+## pose name dropped 31 degrees of neck yaw in one frame every time a bout ended.
+var _groom_w: float = 0.0
 ## Last frame's DRAWN head orientation in skeleton space, for the total-rate ceiling.
 var _head_prev_g: Quaternion = Quaternion.IDENTITY
 ## The reactions that used to be whole-body node rotations (see section 5f). Decaying
@@ -600,7 +613,14 @@ const ROM_DIST_FOLD := 1.35   ## elbow / stifle, in the folding direction
 const ROM_DIST_BACK := 0.12   ## ...and the hard stop against hyperextension
 const ROM_PAW := 0.50         ## carpus / hock
 const ROM_TOE := 0.40
-const ROM_BLADE := 0.38       ## scapula travel
+## SCAPULA TRAVEL, RAISED BECAUSE THE JOINT WAS SATURATING ITS OWN LIMIT. With BLADE_TRAVEL
+## at 0.85 the joint probe measured L/R_Clavicle at exactly -21.8..+21.8 deg — i.e. pinned on
+## 0.38 rad at BOTH ends through a run, which flat-tops the sine and draws as a stutter with
+## no visible cause (the same trap the ear-scratch stroke amplitudes were sized to avoid).
+## A real scapula travels FURTHER at a gallop than at a walk, so the ceiling was the wrong
+## bound, not the amplitude: 0.52 rad clears the gallop's own peak (0.55 x amp x 0.85 = 0.47)
+## with room, and the walk sits at 0.22 — well inside.
+const ROM_BLADE := 0.52       ## scapula travel
 ## Radians per second the LOOK may sweep the head — the neck and head weights sum to 1.0,
 ## so this IS the drawn head's yaw rate. 2.8 rad/s puts a 90 degree glance at a third of a
 ## second: brisk, and nothing like the 600-1200 deg/s the owner was watching.
@@ -613,7 +633,12 @@ const LOOK_MAX_RATE: float = 2.8
 ## stabiliser residual): each layer green, the head still too quick. Capping any one
 ## layer cannot bound a sum; the choke point can — the same shape as the ROM clamp, for
 ## the same reason. 3.3 rad/s is ~189 deg/s, under the probe's 200 gate with margin.
-const HEAD_MAX_RATE: float = 3.3
+## 2.4 rad/s = 137 deg/s. Was 3.3, and the sit scenario measured a p99 of 182 — i.e. the head
+## was living AT its own ceiling while glancing, which is the owner's "shakes side to side"
+## in its calm-state form: a saccade that saturates its limiter reads as a snap rather than a
+## look. A cat's casual head turn is brisk, not violent; the chatter tremor and the stabiliser
+## both sit far below this, so this bounds the glance and nothing else.
+const HEAD_MAX_RATE: float = 2.4
 ## How much of the trunk's own pitch and roll the neck cancels. Cats are among the best
 ## head-stabilisers in the animal kingdom — the eyes hold a near-constant horizon while
 ## the body does whatever the gait demands — and the gait's spine engine pitches the chest
@@ -1227,6 +1252,14 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			_mul_body(_spine, BODY_UP, bend)
 			_mul_body(_spine2, BODY_UP, -bend)
 			_mul_body(_hip, BODY_FWD, sway * 0.050 * walk_w)
+			# THE SHOULDER GIRDLE ROLLS AGAINST THE PELVIS. In a walking quadruped the chest
+			# and the hips counter-rotate — the girdle settling weight onto the stance
+			# foreleg while the pelvis rolls the other way — and this rig had the pelvis half
+			# of it and not the chest half, so the back of the animal worked while the front
+			# stayed flat. Antiphase and a little smaller, because a cat's thorax is the
+			# stiffer end. The head stabiliser cancels it at the neck (5e), so putting roll
+			# into the chest cannot tip the face.
+			_mul_body(_spine2, BODY_FWD, -sway * 0.038 * walk_w)
 		# WEIGHT — ONE whole-body vertical, phase-locked to the footfall (the pelvis rides
 		# `base_ph`, the same variable the paws are planted from, so it CANNOT drift off
 		# the steps). Two bobs per cycle, minima 0.125 after each HIND plant — the
@@ -1304,7 +1337,19 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# live. Written first, the scapula rides up over the spine at the top of the
 			# reach — the signature cat shoulder — while the paw stays exactly planted,
 			# which is the anatomical truth of a floating shoulder girdle.
-			_mul(L["blade"], Quaternion(_hinge_of(L["blade"]), reach * 0.34))
+			# ...AND IT LEADS THE LEG. Overlapping action runs proximal-to-distal, so the
+			# knee and paw are already read a DRAG LATER than the shoulder (`ph_t`); the
+			# scapula is the most proximal segment of the chain and was being read at the
+			# same instant as the humerus — the one place in the limb where nothing was
+			# offset from anything. Reading it a DRAG EARLIER completes the sequence: blade,
+			# shoulder, knee, paw, toe. That ripple down the limb is what separates a walk
+			# from four levers on one crank.
+			var ph_lead: float = fposmod(ph + DRAG, 1.0)
+			var reach_lead: float = lerpf(
+				float(_cyc_eval(CYC_WALK_FORE if fore else CYC_WALK_HIND, ph_lead)[0]),
+				float(_cyc_eval(CYC_GAL_FORE if fore else CYC_GAL_HIND, ph_lead)[0]),
+				mix) * amp * reach_k
+			_mul(L["blade"], Quaternion(_hinge_of(L["blade"]), reach_lead * BLADE_TRAVEL))
 			var sol: Array = _solve_leg(limb_key, target)
 			# SLEW-LIMITED, because two of these chains rest ON the two-bone model's
 			# singularity (the load report above prints the triangles: rf rests at 99.7% of
@@ -1380,26 +1425,41 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 	_mul_body(_spine, BODY_SIDE, breath)
 	_mul_body(_spine2, BODY_SIDE, breath * 0.55)
 	_mul_body(_neck, BODY_SIDE, -breath * 1.35)
-	if _GROOM_POSE.has(_target):
-		# THE WASH, and there is more than one of them. All four ride the blended groom pose
-		# rather than replacing it, and all four are expressed in body axes at the torso so
-		# none of them can leak a yaw into the head the way the breath layer used to.
+	# THE WASH FADES, IT DOES NOT VANISH — and this is the owner's "head glitches around a
+	# good bit after licking, it visibly shakes side to side".
+	#
+	# Every stroke below used to be gated on `_GROOM_POSE.has(_target)` alone, which is a
+	# BOOLEAN on the pose NAME. So the frame a wash ended, the whole layer disappeared at
+	# once — and these are not small oscillations, they are large DC offsets: the flank wash
+	# holds the neck 0.55 rad (31 degrees) round toward the shoulder, the chest wash holds it
+	# -0.42. Dropping 31 degrees of neck yaw in a single frame is a step discontinuity, and
+	# the head-rate ceiling then has no choice but to smear it across ten frames at its
+	# 189 deg/s limit, which is precisely what a visible side-to-side shake IS. The pose
+	# itself was crossfading politely the whole time; the layer riding on top was not.
+	#
+	# So the layer gets a WEIGHT, eased in and out like every other reaction in this file
+	# (pet, delight, wiggle, shake) — the offsets ride it to zero over about a third of a
+	# second, in the same direction they came from, and there is no step left to smear.
+	var groom_want: float = 1.0 if _GROOM_POSE.has(_target) else 0.0
+	_groom_w = lerpf(_groom_w, groom_want, 1.0 - exp(-4.5 * dt))
+	if _groom_w > 0.008:
+		var gw: float = _groom_w
 		match _groom_style:
 			1:
 				# FLANK. The head goes right round to the shoulder and the strokes are long
 				# and slow; the trunk curls toward the side being worked on.
 				var s1: float = sin(t * 1.6)
-				_mul_body(_neck, BODY_UP, 0.55 + s1 * 0.16)
-				_mul_body(_head, BODY_UP, 0.30)
-				_mul_body(_head, BODY_SIDE, -0.22 + s1 * 0.14)
-				_mul_body(_spine2, BODY_UP, 0.16)
+				_mul_body(_neck, BODY_UP, (0.55 + s1 * 0.16) * gw)
+				_mul_body(_head, BODY_UP, (0.30) * gw)
+				_mul_body(_head, BODY_SIDE, (-0.22 + s1 * 0.14) * gw)
+				_mul_body(_spine2, BODY_UP, (0.16) * gw)
 			2:
 				# CHEST. Head straight down between the forelegs, small fast strokes, and the
 				# most hunched of the set.
 				var s2: float = sin(t * 3.3)
-				_mul_body(_neck, BODY_SIDE, -0.42 + s2 * 0.10)
-				_mul_body(_head, BODY_SIDE, -0.26 + s2 * 0.12)
-				_mul_body(_spine2, BODY_SIDE, -0.12)
+				_mul_body(_neck, BODY_SIDE, (-0.42 + s2 * 0.10) * gw)
+				_mul_body(_head, BODY_SIDE, (-0.26 + s2 * 0.12) * gw)
+				_mul_body(_spine2, BODY_SIDE, (-0.12) * gw)
 			3:
 				# EAR SCRATCH. The POSTURE is authored — `groom_scratch` takes the left hind
 				# out of the bake's plant and holds it up and abducted (see `_build_poses`,
@@ -1420,12 +1480,12 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 				# clamped stroke flattens one half of its own arc and draws as a stutter with
 				# no visible cause. 48 mm of paw travel peak-to-peak, which is the few
 				# centimetres the real action covers.
-				_mul(L3["prox"], Quaternion(_hinge_of(L3["prox"]), s3 * 0.05))
-				_mul(L3["dist"], Quaternion(_hinge_of(L3["dist"]), s3 * 0.18))
+				_mul(L3["prox"], Quaternion(_hinge_of(L3["prox"]), (s3 * 0.05) * gw))
+				_mul(L3["dist"], Quaternion(_hinge_of(L3["dist"]), (s3 * 0.18) * gw))
 				# Overlapping action down the limb, the gait's DRAG idiom: the hock and then
 				# the toes are read a little later in the cycle than the stifle.
-				_mul(L3["paw"], Quaternion(_hinge_of(L3["paw"]), sin(t * 44.0 - 0.55) * 0.13))
-				_mul(L3["toe"], Quaternion(_hinge_of(L3["toe"]), sin(t * 44.0 - 0.95) * 0.09))
+				_mul(L3["paw"], Quaternion(_hinge_of(L3["paw"]), (sin(t * 44.0 - 0.55) * 0.13) * gw))
+				_mul(L3["toe"], Quaternion(_hinge_of(L3["toe"]), (sin(t * 44.0 - 0.95) * 0.09) * gw))
 				# THE HEAD TILTS INTO THE PAW, and on this rig the tilt carries most of the
 				# read — the hip clamp stops the paw 0.61 m short of the ear. A ROLL toward the
 				# scratching side, a small drop, and a whisker of yaw the same way so the ear
@@ -1435,20 +1495,20 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 				#
 				# LIVE map, neck before head: this torso is both pitched and rolled, and the
 				# rest map turns a commanded roll into yaw on a sitting cat.
-				_mul_body_live(_neck, BODY_FWD, _scratch_side * 0.15)
-				_mul_body_live(_neck, BODY_SIDE, -0.10)
-				_mul_body_live(_head, BODY_FWD, _scratch_side * (0.25 + s3 * 0.04))
-				_mul_body_live(_head, BODY_UP, _scratch_side * -0.10)
+				_mul_body_live(_neck, BODY_FWD, (_scratch_side * 0.15) * gw)
+				_mul_body_live(_neck, BODY_SIDE, (-0.10) * gw)
+				_mul_body_live(_head, BODY_FWD, (_scratch_side * (0.25 + s3 * 0.04)) * gw)
+				_mul_body_live(_head, BODY_UP, (_scratch_side * -0.10) * gw)
 			_:
 				# PAW. The classic: forepaw up to the lowered muzzle, short quick strokes.
 				# BODY pitch for the nods and the measured hinge for the forearm — this
 				# branch was the last raw-local-axis user in the file, sitting beside two
 				# wash styles already converted, and on these bones a raw X is not a nod.
 				var stroke: float = sin(t * 2.9)
-				_mul_body(_neck, BODY_SIDE, -stroke * 0.13)
-				_mul_body(_head, BODY_SIDE, -stroke * 0.16)
+				_mul_body(_neck, BODY_SIDE, (-stroke * 0.13) * gw)
+				_mul_body(_head, BODY_SIDE, (-stroke * 0.16) * gw)
 				var L2: Dictionary = _limb["lf"]
-				_mul(L2["dist"], Quaternion(_hinge_of(L2["dist"]), stroke * 0.10))
+				_mul(L2["dist"], Quaternion(_hinge_of(L2["dist"]), (stroke * 0.10) * gw))
 	# 5b2. THE SHAKE — a fast damped ripple that runs from the shoulders back, which is what a
 	# cat does on waking, after rain, and after anything undignified. Rolling the segments in
 	# sequence rather than together is the whole effect; in phase it is a wobble, out of phase

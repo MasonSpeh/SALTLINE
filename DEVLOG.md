@@ -2076,3 +2076,53 @@ that clamp to buy one pose hands the same licence to the gait that was driving t
 through 103 deg a stride.
 
 TestRunner 0, CatProbe 0 (incl. leap + trail + STAY/COME), CatHuntProbe 0, CatJointProbe 0.
+
+## s48 — the walk's shoulders, the head that stopped shaking, and a wash worth waiting for
+
+THE HEAD SHAKE AFTER LICKING was a step discontinuity, and an obvious one once named. Every
+wash stroke was gated on `_GROOM_POSE.has(_target)` — a BOOLEAN on the pose NAME — so the
+frame a bout ended the whole layer vanished at once. These are not small oscillations: the
+flank wash holds the neck 0.55 rad (31 deg) round toward the shoulder and the chest wash
+-0.42. Dropping 31 degrees of neck yaw in one frame is a step, and the head-rate ceiling then
+has no choice but to smear it across ten frames at its limit — which is exactly what a
+visible side-to-side shake IS. The pose was crossfading politely the whole time; the layer
+riding on top was not. The layer has a WEIGHT now (`_groom_w`, eased like pet/wiggle/shake),
+so the offsets ride to zero in the direction they came from and there is no step to smear.
+
+THE SHOULDERS, which the owner could not see because they were moving TEN DEGREES. Arithmetic
+on the shipped numbers: the walk table's peak reach is 0.30 and `amp` is ~0.85, so the old
+`reach * 0.34` bought +/-5.0 deg on a joint whose real travel is 20-25 peak-to-peak. It was
+working exactly as written and far too small to read. Now `BLADE_TRAVEL` 0.85, and two things
+found on the way:
+  * at 0.85 the joint SATURATED its own clamp — L/R_Clavicle pinned at exactly -21.8..+21.8,
+    i.e. flat-topped at both ends through a run, which draws as a stutter with no visible
+    cause. A real scapula travels FURTHER at a gallop than at a walk, so ROM_BLADE was the
+    wrong bound, not the amplitude: 0.52 rad. Measured after: -26.8..+27.9, unsaturated.
+  * the blade was read at the SAME instant as the humerus — the one place in the limb where
+    nothing was offset from anything, while the knee and paw were already a DRAG later. It
+    now leads by a DRAG, so the sequence runs blade -> shoulder -> knee -> paw -> toe.
+Plus the shoulder girdle now counter-rotates against the pelvis (Spine02 roll, antiphase,
+0.038) — the rig had the pelvis half of a walking quadruped's roll and not the chest half,
+so the back worked while the front stayed flat.
+
+Also: HEAD_MAX_RATE 3.3 -> 2.4 rad/s. The sit scenario measured a p99 of 182 deg/s against a
+189 ceiling — the head was LIVING at its limiter while glancing, and a saccade that saturates
+its own cap reads as a snap rather than a look. 182 -> 133.
+
+THE WASH IS A RANDOM EVENT NOW (owner: "shouldn't lick itself EVERY time right after
+stopping"). `_wash_cd` counts down on every frame whatever the animal is doing, so it ran out
+while the cat was walking and the bout was then inevitable on the first settled frame. The
+cooldown was doing its job and the job was the wrong one. Two gates: 3 s settled before it is
+even considered, then a Poisson roll at ~1-in-7-seconds instead of a threshold. Two stops in
+a row now look different from each other.
+
+AND IT EXPLAINED A FLAKE WE HAD BEEN LIVING WITH. CatProbe's "settles rather than circling"
+passed for sessions only because a wash was guaranteed on arrival and reliably filled the
+window; with the wash made occasional, `_still` keeps climbing and the ZOOMIES fire on their
+own documented trigger (a player settled nearby) and orbit at 2.0-3.4 m — more than that
+check's 2.5 m bound. The tension was always there, masked by an accident. The probe now holds
+the self-directed games off in that window, as every cat_film reel already does, and says
+which behaviour it is judging. Three consecutive clean runs.
+
+Joint probe: walk head speed 6.7 deg/s, sit 133, run 78, scapula unsaturated, all gates green.
+TestRunner 0, CatProbe 0 x3, CatHuntProbe 0, CatJointProbe 0.

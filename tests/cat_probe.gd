@@ -244,8 +244,19 @@ func _run() -> void:
 		"it stayed on the deck while following (y %.2f)" % cat.global_position.y)
 
 	# 5. IT SETTLES WHEN YOU DO. Stand still and it should stop walking and sit.
+	#
+	# THE SELF-DIRECTED GAMES ARE HELD OFF, as every reel in cat_film holds them off, because
+	# this assertion is about the FOLLOW and the zoomies are a deliberate feature that fires
+	# on exactly this trigger — a player who has settled nearby — and orbits them at 2.0-3.4 m,
+	# which is more than the 2.5 m this bound allows. Until s48 the check passed only by luck:
+	# a wash was guaranteed on arrival and reliably filled the window. Making the wash the
+	# random event the owner asked for removed that accident and left the tension visible,
+	# which is the honest place for it — the probe now says which behaviour it is judging.
 	var before_still: Vector3 = cat.global_position
 	for i in range(420):     # past SETTLE_SEC at 60 Hz
+		cat.set("_zoom_cd", 999.0)
+		cat.set("_play_cd", 999.0)
+		cat.set("_hunt_cd", 999.0)
 		await get_tree().physics_frame
 	_ok(cat.global_position.distance_to(before_still) < 2.5,
 		"it settles rather than circling when the player rests")
@@ -289,7 +300,16 @@ func _run() -> void:
 	cat.set("_zoom_cd", 999.0)
 	cat.set("_play_cd", 999.0)
 	var come_start: Vector3 = cat.global_position
-	player.global_position = Vector3(-12.0, 18.1, 10.0)
+	# WALK, DO NOT TELEPORT, and the reason is the feature under test two checks below.
+	# A teleport BREAKS the bait trail by design (a >0.9 m jump cannot be a step), so a
+	# COME that ends with a teleported player leaves the cat solving the bunkhouse with the
+	# detour fan alone — and the trail check itself proves the fan cannot leave the west
+	# cabin. This assertion is about the TOGGLE, not about routing, so it should exercise
+	# the conditions real play produces: a player who walked there. Its flakiness across
+	# sessions was exactly this — pass or fail depending on which side of a divider the cat
+	# happened to be standing when the window opened.
+	await _walk_player(player, Vector3(-18.0, 18.1, 11.2))
+	await _walk_player(player, Vector3(-12.0, 18.1, 10.0))
 	for i in range(480):
 		await get_tree().physics_frame
 	_ok(cat.global_position.distance_to(come_start) > 1.0

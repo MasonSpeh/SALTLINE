@@ -953,7 +953,7 @@ func _companion(delta: float, player: Node3D) -> void:
 		_pose_sit(delta)
 		# ...and a settled, unbothered cat washes. This is where most of the animal's screen
 		# time actually is, so it is where the variety matters most.
-		_maybe_wash()
+		_maybe_wash(delta)
 		# The shake: on waking, and otherwise rarely and at random. It is a whole-body event
 		# that costs one line and reads from right across the deck.
 		if _shake_cd <= 0.0 and _rng.randf() < delta * 0.25:
@@ -1012,7 +1012,7 @@ func _stay_behaviour(delta: float, ppos: Vector3, d: float) -> void:
 	else:
 		_enter(State.SIT)
 		_pose_sit(delta)
-		_maybe_wash()
+		_maybe_wash(delta)
 		if _shake_cd <= 0.0 and _rng.randf() < delta * 0.25:
 			if _rig != null:
 				_rig.call("shake", 1.0)
@@ -2023,8 +2023,28 @@ func _self_groom(delta: float) -> bool:
 
 ## Start one, if the mood is right. Cats groom when settled and unbothered, and after
 ## anything that ruffled them.
-func _maybe_wash() -> void:
+## A WASH IS A RANDOM EVENT, NOT A GREETING — the owner's "it shouldn't lick itself EVERY
+## time right after stopping".
+##
+## `_wash_cd` counts down in `_companion` on EVERY frame, whatever the animal is doing — so
+## it runs out while the cat is walking, and this function was then reached, ready, on the
+## first settled frame after the player stopped. The cooldown was doing its job perfectly and
+## the job was the wrong one: it made a wash *inevitable on arrival* rather than occasional.
+## Two gates fix it without touching the pacing:
+##   * a SETTLING DELAY — a cat that has just stopped looks around first; it does not sit
+##     down and immediately start washing. `_still` is already the seconds-since-the-player-
+##     moved counter the settle ladder uses;
+##   * a POISSON ROLL rather than a threshold, so once eligible a bout starts at a rate
+##     (about one in seven seconds) instead of the instant the clock allows it. Two stops in
+##     a row now look different from each other, which is the whole point.
+const WASH_SETTLE_S: float = 3.0     ## seconds settled before a wash is even considered
+const WASH_RATE: float = 0.145       ## per second, once eligible — about one in seven
+func _maybe_wash(delta: float) -> void:
 	if _wash_cd > 0.0 or _wash_t > 0.0:
+		return
+	if _still < WASH_SETTLE_S:
+		return
+	if _rng.randf() > WASH_RATE * maxf(delta, 0.0):
 		return
 	if _rig != null:
 		_rig.call("tail_flick", 0.45)   # the small settling flick as it starts a wash
