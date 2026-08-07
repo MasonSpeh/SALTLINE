@@ -291,3 +291,21 @@ landed and nobody updated the file.
   the whole band is now reachable; and mussel_beds' two-rate oxygen integration is
   degenerate (both rates equal) with `_dive_floor()` moving past `DIVE_FLOOR_MIN`, which
   will clamp and push_warning on every world build.
+
+## Open after s46
+
+- **The gull's overlay flight wings are UNJUDGED, and one magnified frame reads badly.**
+  s46 gave both gull species geometry wings (bloom_fauna's `GullWings`) because the s43
+  shader wingbeat was invisible on a mesh authored wings-FOLDED. The rotation algebra was
+  re-derived by hand and is correct — YXZ euler `(PI/2, ±PI/2, 0)` does map the prism's
+  span onto the lateral axis, its chord onto the body axis and its thickness vertical —
+  and the build derives every dimension from the model's own bounds. But the only frames
+  that exist are from a FLUSH (tests/out/cat_review/hunt/), where `RAISE` 1.0 rad legitimately
+  throws both wings up, and magnified 4x that reads as a flat triangular sail off the
+  bird's back rather than a wing. Two possibilities and a still cannot separate them:
+  (a) it is a correctly-raised takeoff wing caught at its worst instant, or (b) the panel
+  is simply too crude — a PrismMesh triangle with 20% sweep — to read as a wing at any
+  phase. What is needed is a reel of a gull in LEVEL CRUISE across a full beat, which no
+  harness films today (CatFilm's hunt reel only catches the flush). Until then this is
+  shipped-but-unseen; do not call it done. If it wants replacing, the fix is a better
+  planform (a 3-4 segment tapered strip with a wrist bend), not a different rotation.
