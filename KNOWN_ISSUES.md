@@ -294,18 +294,29 @@ landed and nobody updated the file.
 
 ## Open after s46
 
-- **The gull's overlay flight wings are UNJUDGED, and one magnified frame reads badly.**
-  s46 gave both gull species geometry wings (bloom_fauna's `GullWings`) because the s43
-  shader wingbeat was invisible on a mesh authored wings-FOLDED. The rotation algebra was
-  re-derived by hand and is correct — YXZ euler `(PI/2, ±PI/2, 0)` does map the prism's
-  span onto the lateral axis, its chord onto the body axis and its thickness vertical —
-  and the build derives every dimension from the model's own bounds. But the only frames
-  that exist are from a FLUSH (tests/out/cat_review/hunt/), where `RAISE` 1.0 rad legitimately
-  throws both wings up, and magnified 4x that reads as a flat triangular sail off the
-  bird's back rather than a wing. Two possibilities and a still cannot separate them:
-  (a) it is a correctly-raised takeoff wing caught at its worst instant, or (b) the panel
-  is simply too crude — a PrismMesh triangle with 20% sweep — to read as a wing at any
-  phase. What is needed is a reel of a gull in LEVEL CRUISE across a full beat, which no
-  harness films today (CatFilm's hunt reel only catches the flush). Until then this is
-  shipped-but-unseen; do not call it done. If it wants replacing, the fix is a better
+- **The gull's overlay wings are GEOMETRICALLY CLEARED — the alarming frame was a
+  correctly-raised takeoff wing, and the scare is worth keeping for its method.**
+  A 4x magnification of the only frames that existed (a FLUSH, tests/out/cat_review/hunt/)
+  showed what read as a flat triangular sail standing off the bird's back, and a still
+  cannot tell "wing raised 57 degrees at takeoff, which is correct" from "wrong axis".
+  `tests/WingScratch.tscn` settles it without rendering anything: it builds the real wings
+  on the real model and reads each panel's extent back IN THE BIRD'S OWN AXES, at all three
+  flight states. Measured (body half-width 0.187, span 0.50, chord 0.35):
+
+      takeoff   lateral 0.287   vertical 0.410   fore-aft 0.350   dihedral +55.0 deg
+      cruise    lateral 0.448   vertical 0.224   fore-aft 0.350   dihedral +26.5 deg
+      glide     lateral 0.497   vertical 0.055   fore-aft 0.350   dihedral  +6.3 deg
+
+  The span's two components square-sum to exactly 0.500 at every state, i.e. the panel
+  lies in the lateral-vertical plane throughout and only its DIHEDRAL changes — which is
+  what a wing is. At cruise and glide the largest extent is lateral, as a wing's must be.
+  The takeoff row IS the frightening frame, and it is the pose the owner asked for
+  ("wings up when they fly away").
+  TWO TRAPS RECORDED. The first scratch called `drive(0.016, false, false)` and `false`
+  coerces to airtime 0.0 — inside `HOLD_S`, so it measured the RAISE and nothing else,
+  re-photographing the exact pose already in doubt. And a single `drive` call reads 15% of
+  an eased dihedral; the states above are settled over 180 ticks. What remains genuinely
+  unjudged is only AESTHETIC — whether a PrismMesh triangle reads as plumage at gameplay
+  distance — and that wants a level-cruise reel, which no harness films today (CatFilm's
+  hunt reel only ever catches the flush). If it does want replacing, the fix is a better
   planform (a 3-4 segment tapered strip with a wrist bend), not a different rotation.
