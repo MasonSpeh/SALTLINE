@@ -26,6 +26,17 @@ func _ok(c: bool, m: String) -> void:
 	if not c:
 		failures += 1
 
+## Move the player like a PLAYER, not like a harness: 0.08 m per physics tick, which at this
+## project's 30 Hz is 2.4 m/s — an ordinary walk, and well under the cat's TRAIL_JUMP break.
+## Teleporting is what breaks the trail, on purpose, so a scenario that means to exercise it
+## has to walk.
+func _walk_player(player: Node3D, to: Vector3) -> void:
+	while player.global_position.distance_to(to) > 0.08:
+		player.global_position = player.global_position.move_toward(to, 0.08)
+		await get_tree().physics_frame
+	player.global_position = to
+	await get_tree().physics_frame
+
 func _run() -> void:
 	var cat: Node3D = get_tree().get_first_node_in_group("ship_cat")
 	_ok(cat != null, "a cat exists on the rig")
@@ -288,6 +299,95 @@ func _run() -> void:
 				cat.global_position.distance_to(player.global_position),
 				str(cat.global_position.snappedf(0.1)), int(cat.get("_state")),
 				str(cat.get("_pose")), float(cat.get("_detour_stall"))])
+
+	# 5c. THE BAIT TRAIL — the owner's "maneuver with grace around corners and doorways".
+	#
+	# WHY THIS GEOMETRY AND NOT A SIMPLER ONE. The cat is parked deep in the WEST-SOUTH bunk
+	# cabin and the player finishes in the EAST-SOUTH one, so the goal bearing is due EAST —
+	# while the only way out of that cabin is the 1.4 m opening at x -24.665, three metres
+	# WEST (rig_builder._build_bunkhouse cuts one at the centre of each 6.67 m corridor
+	# segment; the dividers at x -21.33 / -14.66 are solid from z4 to z10). Every heading the
+	# detour fan will try is inside +-115 deg of the goal, so greedy steering CANNOT find that
+	# door: it slides up and down the divider it is pressed against.
+	#
+	# The player WALKS the route rather than being teleported along it, which is the point —
+	# a teleport is what breaks the trail, deliberately, and every other scenario in this file
+	# teleports, so the trail is empty for all of them and none of their verdicts move.
+	#
+	# The cat is STAYED for the walk, so it solves the route from cold afterwards instead of
+	# trailing two metres behind the whole way. That also proves the recorder keeps running
+	# while the cat is stayed — a COME with a cold trail would be a different feature.
+	var trail_doors: Array = [-24.665, -17.995, -11.33]   # cabin openings on z=10
+	cat.global_position = Vector3(-23.8, 18.05, 8.6)
+	cat.call("_reseat")
+	cat.set("_hunt_cd", 999.0)
+	cat.set("_zoom_cd", 999.0)
+	cat.set("_play_cd", 999.0)
+	cat.set("_after_t", 0.0)
+	cat.set("_wash_t", 0.0)
+	cat.set("_carry", "")
+	player.global_position = Vector3(-23.0, 18.1, 8.8)
+	for i in range(20):
+		await get_tree().physics_frame
+	touch_s.emit_signal("interacted", "STAY")
+	for i in range(10):
+		await get_tree().physics_frame
+	for leg in [Vector3(-24.665, 18.1, 8.8), Vector3(-24.665, 18.1, 11.2),
+			Vector3(-11.33, 18.1, 11.2), Vector3(-11.33, 18.1, 8.6),
+			Vector3(-10.6, 18.1, 6.9)]:
+		await _walk_player(player, leg)
+	var crumbs: int = (cat.get("_trail") as PackedVector3Array).size()
+	# ~22 m of route at TRAIL_STEP 0.6 is about 36 crumbs, capped at TRAIL_MAX 64. A short
+	# trail means the recorder's ground probe or its swim-line guard rejected the deck, not
+	# that the cat cannot navigate — which is a different bug, so it gets its own line.
+	_ok(crumbs > 20, "the player's walk laid a trail (%d crumbs over ~22 m of route)" % crumbs)
+	touch_s.emit_signal("interacted", "COME")
+	cat.set("_hunt_cd", 999.0)
+	cat.set("_after_t", 0.0)
+	cat.set("_wash_t", 0.0)
+	cat.set("_zoom_cd", 999.0)
+	cat.set("_play_cd", 999.0)
+	# THE CROSSING COUNT IS THE ASSERTION, not a timeout. A cat that solves this room has to
+	# cross the z=10 wall line twice — out of one cabin and into the other — and both times
+	# through an opening. Zero crossings is the pre-trail animal; a crossing anywhere but a
+	# door would be the s36 wall-clipping bug back again.
+	var prev_c: Vector3 = cat.global_position
+	var crossings: int = 0
+	var thru_wall: int = 0
+	var cat_path: float = 0.0
+	for i in range(600):        # 20 s at 30 Hz; the route is ~22 m and it runs at 4.4 m/s
+		await get_tree().physics_frame
+		var now_c: Vector3 = cat.global_position
+		cat_path += prev_c.distance_to(now_c)
+		if (prev_c.z - 10.0) * (now_c.z - 10.0) < 0.0:
+			crossings += 1
+			var f: float = (10.0 - prev_c.z) / (now_c.z - prev_c.z)
+			var xh: float = prev_c.x + (now_c.x - prev_c.x) * f
+			var in_door: bool = false
+			for dx in trail_doors:
+				if absf(xh - float(dx)) < 0.75:
+					in_door = true
+			if not in_door:
+				thru_wall += 1
+		prev_c = now_c
+	_ok(crossings >= 2,
+		"it left one cabin and entered the other (%d crossings of z=10, cat %s, path %.1f m)"
+			% [crossings, str(cat.global_position.snappedf(0.1)), cat_path])
+	_ok(thru_wall == 0,
+		"...and every crossing was through a doorway, never a wall (%d bad of %d)"
+			% [thru_wall, crossings])
+	_ok(cat.global_position.distance_to(player.global_position) < 3.0
+			and cat.global_position.x > -14.5 and cat.global_position.z < 9.87,
+		"...and it is in the east cabin with the player (%.1f m away, cat %s)"
+			% [cat.global_position.distance_to(player.global_position),
+				str(cat.global_position.snappedf(0.1))])
+	# PUT THE WORLD BACK. The trap this file already records: a probe that repositions the
+	# world and leaves it there makes the NEXT check assert something nobody meant.
+	cat.global_position = Vector3(-22.0, 18.05, 11.0)
+	cat.call("_reseat")
+	player.global_position = Vector3(-22.0, 18.1, 12.0)
+	for i in range(30):
+		await get_tree().physics_frame
 
 	# 6. IT WANTS THE FISH. A fish in hand pulls it in closer than its normal follow distance.
 	PlayerState.add_item("fish_herring")

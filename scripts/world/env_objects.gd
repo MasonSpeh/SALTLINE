@@ -124,7 +124,9 @@ class FireBarrel extends Node3D:
 	##   * six punched draught holes round the base — the thing that makes a burn barrel a
 	##     burn barrel, and the reason it drags air and glows at the bottom;
 	##   * a heat-scorched band up the top third: bare steel discolours before it rusts,
-	##     and the gradient from rusty base to blued rim is the strongest realism cue here;
+	##     and the gradient from rusty base to blued rim is the strongest realism cue here —
+	##     after dark it runs at dull-red incandescence, and it has to, because no light on
+	##     the drum's axis can ever reach the skin (the N.L note at the band);
 	##   * the fire DOWN INSIDE at a third height, with soft-edged flame billboards licking
 	##     up past the rim rather than a hard-edged disc sitting on it.
 	##
@@ -140,6 +142,7 @@ class FireBarrel extends Node3D:
 
 	var _light: OmniLight3D
 	var _coals: StandardMaterial3D
+	var _scorch: StandardMaterial3D
 	var _flames: Array[MeshInstance3D] = []
 	var _flame_mat: StandardMaterial3D
 	var _t: float = 0.0
@@ -159,21 +162,37 @@ class FireBarrel extends Node3D:
 		add_child(shell)
 		shell.position.y = H * 0.5
 		# The inside wall, a hair narrower and much darker — soot, and it stops the shell
-		# looking like paper when you see its back face through the opening.
+		# looking like paper when you see its back face through the opening. It leans out to
+		# meet the shell AT the rim (top edge at H, 2 mm inside the shell's 0.29): the first
+		# build stopped it at H - 0.02, and because the shell's own interior faces are
+		# back-face-culled, the last centimetre of the far wall's inside was a genuine
+		# see-through stripe — right where the eye lands when looking into the drum.
 		var sooted := StandardMaterial3D.new()
 		sooted.albedo_color = Color(0.07, 0.06, 0.055)
 		sooted.roughness = 1.0
 		sooted.cull_mode = BaseMaterial3D.CULL_FRONT   # we are looking at its INSIDE
 		var liner := MeshInstance3D.new()
 		var lm := CylinderMesh.new()
-		lm.top_radius = R - 0.012
+		lm.top_radius = R - 0.002
 		lm.bottom_radius = R - 0.012
-		lm.height = H - 0.02
+		lm.height = H
 		lm.cap_top = false
 		lm.material = sooted
 		liner.mesh = lm
 		add_child(liner)
 		liner.position.y = H * 0.5
+		# ...and it must NOT cast shadows. cast_shadow ON respects the material's cull mode,
+		# and CULL_FRONT keeps exactly the faces that face a light INSIDE the drum — so the
+		# liner wrote shadow depth on every radial ray while the outward-wound shell was
+		# culled into writing none. Net: the fire lit the drum's interior and nothing else.
+		# Every ray below the rim was blocked, and the grazing ray OVER the rim (light at
+		# y 1.00, rim 0.29 out at 0.88) first touches deck at 0.29 * 1.00 / 0.12 = 2.42 m —
+		# a barrel standing pure black in a 2.4 m unlit moat of its own firelight, which is
+		# the owner's night screenshot. With the liner transparent to light the pool starts
+		# at the base (base spill through the wall is what the draught holes are for), while
+		# shadow_enabled stays on for the props and player around it. The sun still sees the
+		# shell's front faces, so the daytime shadow is unchanged.
+		liner.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
 		# The charred floor of the barrel, set down inside where ash would collect.
 		var floor_disc := MeshInstance3D.new()
 		var fm := CylinderMesh.new()
@@ -187,10 +206,24 @@ class FireBarrel extends Node3D:
 		# HEAT SCORCH. Bare steel blues and greys where it has been hot, and on a burn
 		# barrel that is the top third. A slightly proud band reads as discolouration
 		# rather than as a separate object.
-		var scorch := StandardMaterial3D.new()
-		scorch.albedo_color = Color(0.16, 0.15, 0.16)
-		scorch.roughness = 0.85
-		scorch.metallic = 0.35
+		#
+		# The band also GLOWS, faintly, and it has to: every skin normal on a drum points
+		# radially OUT, so against the fire's own on-axis light N.L < 0 for the entire
+		# exterior — no light on the axis can ever diffuse-light this surface, at any height,
+		# with or without shadows. At night nothing else reaches it either (ambient floor
+		# 0.16, moon 0.28 shadowless — sun_controller), so the whole skin rendered black,
+		# and a black skin under a glowing interior reads as a MISSING WALL. The physical
+		# answer is the physical thing: a hard-run burn barrel's scorch band sits at dull-red
+		# incandescence after dark. Peak effective emission is 0.85 * 0.16 * 2.75 = 0.37,
+		# under main.gd's glow_hdr_threshold 0.8 — hot steel glows, it does not bloom (the
+		# draught holes at 1.4 do, deliberately).
+		_scorch = StandardMaterial3D.new()
+		_scorch.albedo_color = Color(0.16, 0.15, 0.16)
+		_scorch.roughness = 0.85
+		_scorch.metallic = 0.35
+		_scorch.emission_enabled = true
+		_scorch.emission = Color(0.85, 0.18, 0.03)
+		_scorch.emission_energy_multiplier = 0.35
 		var band := MeshInstance3D.new()
 		var bm := CylinderMesh.new()
 		bm.top_radius = R + 0.004
@@ -198,7 +231,7 @@ class FireBarrel extends Node3D:
 		bm.height = H * 0.34
 		bm.cap_top = false
 		bm.cap_bottom = false
-		bm.material = scorch
+		bm.material = _scorch
 		band.mesh = bm
 		add_child(band)
 		band.position.y = H - H * 0.17
@@ -286,8 +319,9 @@ class FireBarrel extends Node3D:
 		_light.light_volumetric_fog_energy = 1.6
 		_light.shadow_enabled = true
 		add_child(_light)
-		# Just above the rim: a light down inside a now-genuinely-open drum lights the
-		# inside of the barrel and nothing else.
+		# Just above the rim, on the axis: it lights the sooted interior, the upper faces of
+		# the hoops, and — with the liner casting no shadow — the deck pool from the base
+		# outward. The one thing it can never light is the skin (N.L; see the scorch band).
 		_light.position.y = H + 0.12
 		var heat := WarmthZone.new()
 		heat.mode = 1
@@ -329,6 +363,8 @@ class FireBarrel extends Node3D:
 		var flicker: float = 2.2 + sin(_t * 9.0) * 0.35 + sin(_t * 23.0) * 0.2
 		_light.light_energy = flicker
 		_coals.emission_energy_multiplier = flicker * 0.9
+		# The hot band breathes with the coals; 0.16 keeps its peak at 0.44, under bloom.
+		_scorch.emission_energy_multiplier = flicker * 0.16
 		# The flames breathe out of phase with each other — in phase they pulse as one
 		# blob, which is the same lesson the cat's body shake learned about segments.
 		for i in range(_flames.size()):

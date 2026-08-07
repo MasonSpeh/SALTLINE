@@ -1969,3 +1969,62 @@ default 0.5 specular (wet plastic). attach_rigged now polishes every kept PBR ma
 metal zeroed, aniso on, specular 0.25. Filmed on the close routine orbit: matte fur,
 legible tabby, no sparkle. The 213,902-triangle mesh was never the limit. What only a
 re-roll buys is filed in docs/CAT_RIG_CEILING.md. TestRunner 0, CatProbe 0.
+
+## s46 — the head, SOLVED; the trail; and four streams landed
+
+THE HEAD, after nine owner reports and four wrong values. Every previous constant was
+fitted by eye against a film, and every instrument used to grade it defined the head's
+forward FROM THE SKELETON — the thing being corrected — so each new value silently
+re-zeroed its own gate. The s34 tautology, four times. tests/nose_scratch.gd ends it by
+taking the muzzle from the MESH (mean direction of head-weighted vertices farthest from
+the neck joint — the one definition ears cannot fool; the head's principal horizontal
+axis IS the ear line, 84 deg off, which is the trap the first cut fell into) and sweeping
+the constant:
+    HEAD_MESH_YAW   0.000   0.597   1.300   1.720   2.200
+    drawn nose yaw -19.05  -53.25  -93.53 -117.60 -145.10  deg off the body axis
+Linear at -57.29 deg/rad — EXACTLY unit gain, NEGATIVE sign. Every value ever tried was
+adding to the error. The mesh bias is 19.05 deg, so the answer is -0.3325, which measures
+0.00 and films straight head-on at both walk and run
+(tests/out/cat_review/headon/). The method, not the number, is what is written down.
+
+THE BAIT TRAIL (owner: "navigation/awareness... around corners, doorways and stairs...
+bait trail the player"). The cat follows the player's recent FOOTSTEPS, not the straight
+line to where they are now: every crumb is a place a body already stood, at a height it
+already reached, joined by a step it actually took. Recorded on PHYSICS ticks (a
+decimated recorder samples 0.9 m apart and can straddle a doorway), probed onto the deck
+(the same probe rejects swimming/falling/ladders), broken by any >0.9 m move (so a
+teleport never draws a line through a bulkhead). Consumption: join newest-crumb-first
+(loops are never retraced), string-pull to the player when the line is provably walkable,
+aim at a lerp BETWEEN two crumbs so the animal turns before the corner, and a turn-speed
+ease with a 20 deg deadzone. `_seg_clear` samples the GROUND under the line, not the
+chord — a chord across a staircase passes through every tread's nosing, which would have
+made the cat refuse every flight on the rig.
+  Why it was needed, provably: the west bunk cabin's only opening is at x -24.665, so a
+  cat whose player is EAST must first travel three metres WEST — outside every heading
+  the s45 detour fan will consider. It could not leave that room. CatProbe now asserts
+  the fix structurally: 34 crumbs over a 22 m walked route, 2 crossings of the z=10 wall
+  line, both through doorways, 0 through wall.
+
+ALSO LANDED (four concurrent streams, integration-reviewed before commit):
+  * FIRE BARREL: it was shadowing its own fire. The interior light's rays were blocked by
+    the sooted liner, so the drum sat black inside a 2.42 m unlit moat of its own
+    firelight, with a 1 cm gap under the rim showing the far inner wall — the owner's
+    "can't see the back side". Liner closed to the rim, self-shadow off, scorch band lit
+    by the existing flicker (under the bloom threshold on purpose).
+  * FISH: schools de-shelled into volumes (per-member radius seats), pillar orbits
+    5.0-6.8 -> 8.0-11.5 m at preserved tangential speed, stations ~1.35x wider with
+    species interleaved, ALL reef/school emissive glow zeroed (owner: raw texture),
+    ambient floor 0.34 -> 0.40 to compensate, goliath +15 m. The lid guard needed one
+    fix found by probe: it tested the fish's ORIGIN while the world judges its BODY, so
+    the footprint now grows by half a fish — "test the volume, not the point", the same
+    rule the cat's gates carry.
+  * DROPPED FISH: catch weight rides the item through drop/pickup/save; drops render at
+    true length (grouper 1.66 m median, swordfish to 3.0 m); 3% trophy tier; old saves
+    load unchanged.
+  * REVIEW CATCHES: the journal still told the player to net herring "by their own
+    light"; the new trophy assertion passed with the feature DELETED (the ordinary roll
+    alone puts ~7 of 600 in the band against a bound of 3 — now 14, with the arithmetic);
+    a save-restore that hard-errored on a malformed file; a silently-skippable assertion.
+
+TestRunner 0, CatProbe 0 (incl. the new trail gates), CatJointProbe 0, CatHuntProbe 0,
+FishSpreadProbe 0, ReefFishProbe 0, FaunaBugsProbe 0.

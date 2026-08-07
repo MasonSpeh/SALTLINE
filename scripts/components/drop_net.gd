@@ -124,7 +124,17 @@ func _haul() -> void:
 	for i in range(count):
 		var pick: Dictionary = FISH.roll("net", ctx, _rng)
 		if not pick.is_empty() and PlayerState.add_item(pick["id"]):
-			names.append(pick["name"])
+			# Sized species weigh in at the haul, exactly as they do at the rod's rail —
+			# the fathom halibut only ever comes up in THIS mesh, so if the net did not
+			# roll weights the door-sized fish would be the one species that never had
+			# one: it would fillet, drop and render as an average halibut forever.
+			var kg: float = FISH.roll_size(String(pick["id"]), _rng)
+			if kg > 0.0:
+				FISH.record_size(String(pick["id"]), kg)
+				names.append("%s — %.1f kg%s" % [pick["name"], kg,
+					", a trophy" if FISH.is_trophy_size(String(pick["id"]), kg) else ""])
+			else:
+				names.append(pick["name"])
 			Journal.discover(pick["id"])
 	Journal.discover("system_drop_net")
 	if hud:

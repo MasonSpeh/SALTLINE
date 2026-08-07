@@ -81,6 +81,17 @@ const LIGHT_SHY_MULT: float = 0.15
 const TROPHY_KG: float = 20.0
 const TROPHY_PULL: float = 1.6
 
+## ---------------------------------------------------------------- the trophy BAND
+## is_trophy() above is a statement about a SPECIES (is a grouper the kind of thing worth
+## jumping at); these two are about ONE FISH. Every sized species rolls its landed weight
+## from its own size_kg range, and the top slice of that range is the trophy band: the
+## fish the catch line names out loud and the one a dropped body renders at nearly the
+## species' full length. TROPHY_CHANCE of takes draw their weight uniformly INSIDE the
+## band — the ordinary small-skewed roll (see roll_size) reaches it only ~1 time in 80,
+## so without the explicit draw a "trophy grouper" would be a rumour, not a chase.
+const TROPHY_T: float = 0.85       ## the band: the top 15% of the species' weight range
+const TROPHY_CHANCE: float = 0.03  ## takes that roll inside the band on purpose
+
 ## ---------------------------------------------------------------- bait
 ## WHAT IS ON THE HOOK CHANGES WHAT LOOKS AT IT. Bait is the deep rig's alone (the surface
 ## rod fishes bare — see fishing_rod.gd), and until now every legal bait fished identically:
@@ -364,14 +375,20 @@ static func depth_read(depth_m: float) -> String:
 # ------------------------------------------------------------------ size and yield
 ## A landed fish has a WEIGHT, and a big fish fillets out into many portions — that is
 ## the whole payoff of the deep rig. The inventory is item ids and stack counts and
-## NOTHING else (PlayerState has no per-item payload, and the save file stores none), so
-## the weight rolled at the rail is kept here, in the table that already owns every other
-## fish fact: one FIFO queue of landed weights per species. The stove and the drying line
-## pop one when they preserve that species.
+## NOTHING else (PlayerState has no per-item payload), so the weight rolled at the rail
+## is kept here, in the table that already owns every other fish fact: one FIFO queue of
+## landed weights per species. The stove and the drying line pop one when they preserve
+## that species, and a DROP pops one too — the weight rides the Takeable on the deck
+## (takeable.size_kg, drawn at that length by ItemVisual) and is pushed back into this
+## queue when the fish is picked up again, so a fish keeps its number across a round
+## trip through the world.
 ##
-## A missing entry — a reloaded save, a fish out of a locker, a netted halibut — simply
-## rolls a fresh weight from the same range, so the fillet spread always holds. The only
-## thing a reload can lose is WHICH particular fish in the pack was the 40 kg one.
+## The queue itself round-trips through the save ("fish_sizes" — sizes_payload /
+## restore_sizes below), so a reload no longer flattens the pack back to average fish.
+## A missing entry — a pre-size save, a fish out of a locker — simply rolls a fresh
+## weight from the same range, so the fillet spread always holds. The only thing the
+## queue cannot know is WHICH stacked fish in the pack was the 40 kg one: stacks have no
+## order, so drops and fillets take the OLDEST recorded weight first.
 static var _sizes: Dictionary = {}
 
 ## A fresh landed weight in kg for one fish of this species; 0.0 = species has no size.
@@ -381,7 +398,32 @@ static func roll_size(id: String, rng: RandomNumberGenerator) -> float:
 		return 0.0
 	# Skewed toward the small end: a monster is meant to be a story, not a Tuesday.
 	var t: float = rng.randf() * rng.randf()
+	# ...but the story has to be POSSIBLE: a few takes in a hundred draw from the trophy
+	# band instead (see TROPHY_T/TROPHY_CHANCE), landing near the species' full weight.
+	if rng.randf() < TROPHY_CHANCE:
+		t = lerpf(TROPHY_T, 1.0, rng.randf())
 	return lerpf(float(s[0]), float(s[1]), t)
+
+## Is THIS fish — not its species — a trophy: its rolled weight sits in the top slice of
+## its own size range. The rail names it, and a dropped one is most of the real animal.
+static func is_trophy_size(id: String, kg: float) -> bool:
+	if kg <= 0.0:
+		return false
+	var s: Array = all().get(id, {}).get("size_kg", [])
+	if s.size() < 2:
+		return false
+	return kg >= lerpf(float(s[0]), float(s[1]), TROPHY_T)
+
+## The TYPICAL landed weight — the median of the roll_size draw above, not the midpoint
+## of the range (the small-end skew puts the median well under it). This is what a sized
+## fish from a save written before weights persisted is assumed to have weighed: an old
+## save's dropped grouper comes back as an ordinary grouper, never a surprise monster.
+const MEDIAN_T: float = 0.19
+static func median_size(id: String) -> float:
+	var s: Array = all().get(id, {}).get("size_kg", [])
+	if s.size() < 2:
+		return 0.0
+	return lerpf(float(s[0]), float(s[1]), MEDIAN_T)
 
 ## Remember a weight just landed, so the stove and the line can find it later.
 static func record_size(id: String, kg: float) -> void:
@@ -402,6 +444,40 @@ static func take_size(id: String, rng: RandomNumberGenerator) -> float:
 			_sizes.erase(id)
 		return kg
 	return roll_size(id, rng)
+
+## The whole ledger, in save-file shape. Duplicated per queue so the save dict cannot
+## share live arrays with the running game (JSON.stringify would be safe either way, but
+## a payload that mutates after it is built is a trap this repo has paid for elsewhere).
+static func sizes_payload() -> Dictionary:
+	var out: Dictionary = {}
+	for id in _sizes:
+		out[id] = (_sizes[id] as Array).duplicate()
+	return out
+
+## Replace the ledger with a saved one. AUTHORITATIVE, like restore_harvest: the save's
+## record of what is in the pack replaces the session's, because the pack itself just
+## did the same. A save without the key (every save before weights persisted) restores
+## an empty ledger, which is exactly the old behaviour — everything rolls fresh.
+static func restore_sizes(data: Variant) -> void:
+	_sizes = {}
+	if typeof(data) != TYPE_DICTIONARY:
+		return
+	for id in (data as Dictionary):
+		var q: Variant = (data as Dictionary)[id]
+		if typeof(q) != TYPE_ARRAY:
+			continue
+		var kept: Array = []
+		for kg in (q as Array):
+			# TYPE FIRST, THEN VALUE. `float()` on a Dictionary or an Array is a hard
+			# runtime error, not a 0.0 — and this function's whole job is to survive a
+			# save file it did not write. Everything else here type-guards; this line
+			# was the one hole.
+			if typeof(kg) != TYPE_FLOAT and typeof(kg) != TYPE_INT:
+				continue
+			if float(kg) > 0.0:
+				kept.append(float(kg))
+		if not kept.is_empty():
+			_sizes[String(id)] = kept
 
 ## Portions one fish of this weight gives up: the species' fillet range, walked across
 ## its own weight range. 1 for everything that has no fillet data — which is every

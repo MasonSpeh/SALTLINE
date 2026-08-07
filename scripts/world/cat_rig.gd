@@ -39,7 +39,7 @@ const BODY_SIDE := Vector3(0, 0, 1)
 ## never keys a whole limb on the same frame — the paw follows the wrist follows the elbow, and
 ## that lag is most of what separates a live limb from a hinged stick. Small on purpose; past
 ## about 0.06 the paw visibly detaches from the leg.
-const DRAG: float = 0.035
+const DRAG: float = 0.045   ## s45c: a touch more overlap down the limb — "smoother"
 
 ## Metres the paw rises at the two ends of its stance sweep — see `_foot_path`.
 const STANCE_ARC: float = 0.012
@@ -77,24 +77,34 @@ const TAIL_MAX: float = 0.30
 ## angle between the head's own mirror-symmetry plane and the torso's, measured off the
 ## GLB's vertices rather than off its joint frames — which is the only way to see it,
 ## because every joint-frame instrument in this repo calibrates the rest pose to zero.
-## THE GEOMETRIC VALUE, RESTORED — and the story of how it got doubled is the trap worth
-## keeping. The bake below composes `Q(head_local(BODY_UP), θ)` against the rest pose,
-## which is ALGEBRAICALLY a rotation about world-up at exactly unit gain: on paper, 0.597
-## puts the measured 34.2-degree mesh bias to zero, full stop. The s43b top-down reel
-## nevertheless showed ~25 degrees of lean at 0.597, the constant was closed-loop "tuned"
-## to 1.30 against that reel — and the owner immediately saw the head bent again in play,
-## for the eighth time.
+## SOLVED OFF THE MESH, AFTER NINE OWNER REPORTS AND FOUR WRONG VALUES. The whole history,
+## because the failure mode repeated four times and the cure is a method, not a number.
 ##
-## The reel was honest; the SCENE was not controlled. The chatter — ungated by `_hunt_cd`,
-## the one hold every reel applies — had the cat `_watch()`ing any airborne gull within
-## 11 m at FULL weight while walking, dragging the head tens of degrees off the line
-## whenever a bird happened to be up. Every film therefore measured the SUM of the rest
-## constant and a bird-dependent stare, and tuning the constant against that sum
-## overcorrected it by the stare's worth: two confounded causes, one knob, eight failed
-## fixes. The stare is now weight-gated while walking (ship_cat's chatter block), the
-## constant is the geometry again, and the topdown reel films a chatter-muzzled beat AND
-## a chatter-live control so the two can never be confounded again.
-const HEAD_MESH_YAW: float = 0.597
+## Every previous value was fitted by EYE against a film, and every instrument used to check
+## it defined the head's forward FROM THE SKELETON — the very thing being corrected — so each
+## new constant silently re-zeroed its own gate (this repo's s34 tautology, four times over).
+## The values tried were 0.597 (derived from symmetry planes), 1.30, and 1.72; measured, they
+## leave the drawn muzzle 19, 54, 94 and 118 degrees off the line of travel respectively. They
+## were not converging. They were walking away, because the sign was wrong from the start.
+##
+## tests/nose_scratch.gd settles it without any constant of ours in the loop: it takes the
+## muzzle direction from the MESH — the mean direction of the head-weighted vertices farthest
+## from the neck joint, which is the one definition ears cannot fool (the head's principal
+## horizontal axis IS the ear line, 84 degrees off, and that is the trap the first cut fell
+## into) — and sweeps this constant, reading the drawn nose each time. Measured:
+##
+##     HEAD_MESH_YAW   0.000   0.597   1.300   1.720   2.200
+##     drawn nose yaw -19.05  -53.25  -93.53 -117.60 -145.10   degrees off +X
+##
+## Perfectly linear at -57.29 deg/rad — i.e. EXACTLY unit gain, negative sign, which is what
+## the algebra always said (R_rest * Q(local_up, t) == Q(BODY_UP, t) * R_rest). The mesh's own
+## bias is 19.05 degrees, so the correction is -19.05/57.2958 = -0.3325 rad, and the sign is
+## the entire lesson: four sessions of "tune it a bit further" were adding to the error.
+##
+## If the asset is ever re-rolled, re-run tests/NoseScratch.tscn and read the zero off the
+## table. Do not eyeball it, and do not trust any gate whose definition of forward comes from
+## the skeleton this constant edits.
+static var HEAD_MESH_YAW: float = -0.3325
 
 ## Footfall phase offsets per limb, in cycles. The gait MODE is not a switch: the active
 ## offsets are themselves eased between these tables as speed crosses the bands, so a cat
@@ -677,7 +687,9 @@ func _prep_ik() -> void:
 			# hip and 127 deg stifle in the joint audit came from. The SHORTEST of the four
 			# still sets the stride for all of them — per-limb envelopes truncate the two
 			# hinds by different amounts and put the limp straight back.
-			"sweep_max": 0.845 * c0,
+			# 0.94: +-28 deg of swing (s45c raised it from +-25 for the owner's longer stride;
+			# the out-of-reach vertical give absorbs the extremes the same way it always has).
+			"sweep_max": 0.94 * c0,
 			# Which side of the chain line the knee sits on, so the thigh's own rotation adds
 			# or subtracts the triangle's apex angle.
 			"side": 1.0 if _flat(D0 - P, n).cross(e0).dot(n) < 0.0 else -1.0,
@@ -1138,7 +1150,10 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 	# cheat, it is what a gallop is. At 0.20 the stride becomes 1.1 m and the cadence 4 Hz,
 	# which is a real cat's. Foot-lock is untouched: it only ever applied during contact,
 	# and contact is still exact.
-	var duty: float = float(pose.get("duty", lerpf(0.62, 0.20, mix)))
+	# Walk duty 0.62 -> 0.55 (s45c, the owner's "wider, slower, smoother"): stride is
+	# sweep/duty, so a shorter stance fraction LENGTHENS the stride and drops the walking
+	# cadence ~20%% — fewer, longer, more deliberate steps at the same ground speed.
+	var duty: float = float(pose.get("duty", lerpf(0.55, 0.20, mix)))
 	var sweep_k: float = float(pose.get("sweep_k", 1.0))
 	var lift_k: float = float(pose.get("lift_k", 1.0))
 	var stride: float = maxf(_sweep_cap * sweep_k, 0.05) / duty
@@ -1261,8 +1276,13 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			var lift_m: float = lerpf(0.058, 0.125, mix) * (1.0 if fore else 0.88) * lift_k
 			var sweep_m: float = _sweep_cap * reach_k * sweep_k
 			var pth: Vector2 = _foot_path(ph, duty, sweep_m, lift_m)
-			var target: Vector3 = (_ik.get(limb_key, {}).get("W0", Vector3.ZERO) as Vector3) \
-				+ BODY_FWD * pth.x + BODY_UP * pth.y
+			# +12 mm of stance width per side (s45c, "wider"): the rest anchors carry the
+			# bind pose's narrow track, and widening at the TARGET keeps foot-lock exact —
+			# the paw plants and stays planted, just a whisker further out from the
+			# centreline, which is what keeps a slower stride from reading tightrope.
+			var w0: Vector3 = _ik.get(limb_key, {}).get("W0", Vector3.ZERO) as Vector3
+			var target: Vector3 = w0 + BODY_FWD * pth.x + BODY_UP * pth.y \
+				+ BODY_SIDE * signf(w0.z) * 0.012
 			# THE SHOULDER BLADE WRITES BEFORE THE SOLVE, because the solve compensates
 			# through the LIVE parent chain and the blade IS the fore leg's parent: written
 			# after (as it was), its swing rode on top of solved angles and carried the paw

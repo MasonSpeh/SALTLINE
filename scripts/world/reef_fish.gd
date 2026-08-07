@@ -52,13 +52,21 @@ const AIB := preload("res://scripts/world/ai_budget.gd")
 
 const MODEL_PATH := "res://assets/models/fauna/%s/%s.glb"
 ## creature_swim's mode-0 body wave plus albedo-keyed BODY emission — see the shader's own
-## header for why the reef fish cannot use the shared one unmodified, and why this is a
-## separate file instead of a change to it.
+## header for why that addition was a separate file instead of a change to the shared one.
+## The emission is retired (BODY_GLOW below) but the swap STAYS: 119 built materials carry
+## this shader's uniform set, and un-swapping buys nothing — at zero energy the two shaders
+## draw the same fish.
 const FISH_SHADER := preload("res://materials/reef_fish.gdshader")
-## How hard the fish's own colours light themselves. leg_reef drives its coral at 1.35 through
-## the same mechanism; the fish sit just under that, because a fish that out-glows the reef
-## reads as a lamp rather than as an animal. Judged by looking, at four depths.
-const BODY_GLOW: float = 1.25
+## How hard the fish's own colours light themselves. It ran at 1.25 — just under the 1.35
+## leg_reef drives its coral at — from the day the species shipped, and it is now OFF
+## (owner, 2026-08-06: "remove any unnatural glow overlay, should be just raw graphic
+## texture, otherwise looks unnatural/weird"): the fish are lit by the water alone, like
+## the catchable shoals. The honest cost is the one s19/s27 measured — an unlit albedo
+## under the depth grade goes dark while the coral behind it still self-lights at 1.35 —
+## and the compensation lives on the WATER's side, not here: underwater_fx.amb_floor was
+## raised so the reef band carries more ambient for everything in it. If the fish still
+## sink into the reef at depth, that floor is the lever to argue about, not this constant.
+const BODY_GLOW: float = 0.0
 
 ## TEN SPECIES, TEN BEHAVIOURS. The brief was explicit that ten identical shoals is one
 ## shoal repeated ten times, so the table below varies six things independently and no two
@@ -79,7 +87,11 @@ const BODY_GLOW: float = 1.25
 ##   stand   how far off the concrete the shoal hangs, metres — "how tightly it hugs
 ##           the structure". A clownfish never leaves the coral; an anthias cloud feeds
 ##           out in the flow.
-##   rad/vrt how far it ranges along the wall and up/down it.
+##   rad/vrt how far it ranges along the wall and up/down it. Widened ~1.35x on 2026-08-06
+##           (owner: "spread the fish spacing out a bit, there are huge schools tightly
+##           condensed") for every species but the clownfish, whose whole species note is
+##           that it never leaves its coral head — the seat slots and the wander both ride
+##           these numbers, so the one edit spreads the standing shoal and its swimming.
 ##   skit    flee radius in metres: how close the player gets before the shoal ducks.
 ##           0 = does not flee at all.
 ##   pace    body-wave rate multiplier; also how fast it eases to its target.
@@ -87,11 +99,12 @@ const BODY_GLOW: float = 1.25
 ##   bold    inverts the alarm: this one comes AT you instead of hiding.
 ##   alb     optional albedo multiply, for a mesh whose generated colour does not separate
 ##           from the reef behind it.
-##   glow    fresnel rim energy, and `rim` the colour it comes off in. The band is 5-20 m
-##           down a fog grade that eats saturation
-##           (see the s19 reef screenshots — correct colour, invisible), so each fish
-##           carries a little rim light in its OWN signature colour. The small species that
-##           only ever read as a fleck of colour get the most.
+##   glow    RETIRED (owner, 2026-08-06: no glow overlay on fish — see BODY_GLOW). The
+##           values were the per-species fresnel rim energies and are kept only as the
+##           record of that tuning; nothing reads them any more. `rim` still names each
+##           species' signature colour and still rides into the materials as glow_color —
+##           INERT at the shader's 0.0 default energy, kept so a future owner call for a
+##           startle flare would be a retint away rather than a re-plumb.
 const SPECIES := [
 	# --- shallow: the growth band a diving player reaches --------------------------------
 	{"slug": "trop_clown", "len": 0.24, "y": -5.5, "st": 4, "n": 3,
@@ -99,11 +112,11 @@ const SPECIES := [
 		"glow": 0.30, "rim": Color(1.00, 0.58, 0.24),
 		"note": "host-bound: three fish that never leave one coral head, bobbing in place"},
 	{"slug": "trop_yellow_tang", "len": 0.34, "y": -6.5, "st": 5, "n": 4,
-		"stand": 0.80, "rad": 1.55, "vrt": 0.95, "skit": 3.2, "pace": 0.85, "sleep": 0.70,
+		"stand": 0.80, "rad": 2.10, "vrt": 1.30, "skit": 3.2, "pace": 0.85, "sleep": 0.70,
 		"glow": 0.26, "rim": Color(1.00, 0.88, 0.24),
 		"note": "grazers: small groups working the wall, slow, not easily bothered"},
 	{"slug": "trop_damsel", "len": 0.22, "y": -8.0, "st": 5, "n": 7,
-		"stand": 0.55, "rad": 0.70, "vrt": 0.62, "skit": 5.5, "pace": 1.30, "sleep": 0.80,
+		"stand": 0.55, "rad": 1.05, "vrt": 0.90, "skit": 5.5, "pace": 1.30, "sleep": 0.80,
 		"glow": 0.32, "rim": Color(0.25, 0.80, 1.00),
 		"note": "a tight shoal glued to one head — the most skittish thing on the reef"},
 	# Moved from y -10 to the top of the coral band after looking at the frames: the shallow
@@ -113,20 +126,20 @@ const SPECIES := [
 	# and read well in it; the cleaner is the one that gains from open water around it, and a
 	# cleaning station at the top of the reef is where the animal belongs anyway.
 	{"slug": "trop_wrasse", "len": 0.28, "y": -12.4, "st": 8, "n": 1,
-		"stand": 0.55, "rad": 0.95, "vrt": 0.55, "skit": 0.0, "pace": 1.55, "sleep": 0.90,
+		"stand": 0.55, "rad": 1.20, "vrt": 0.70, "skit": 0.0, "pace": 1.55, "sleep": 0.90,
 		"glow": 0.28, "rim": Color(0.62, 0.90, 1.00),
 		"note": "a solitary cleaner working its station: quick, jittery, and unafraid"},
 	# --- the coral band -------------------------------------------------------------------
 	{"slug": "trop_butterfly", "len": 0.34, "y": -11.5, "st": 6, "n": 2,
-		"stand": 0.85, "rad": 1.15, "vrt": 0.72, "skit": 3.8, "pace": 0.90, "sleep": 0.75,
+		"stand": 0.85, "rad": 1.55, "vrt": 0.95, "skit": 3.8, "pace": 0.90, "sleep": 0.75,
 		"glow": 0.26, "rim": Color(1.00, 0.94, 0.62),
 		"note": "bonded PAIRS that stay within a body length of each other all game"},
 	{"slug": "trop_blue_tang", "len": 0.40, "y": -13.5, "st": 4, "n": 7,
-		"stand": 1.35, "rad": 2.30, "vrt": 1.05, "skit": 4.2, "pace": 1.00, "sleep": 0.65,
+		"stand": 1.35, "rad": 3.10, "vrt": 1.45, "skit": 4.2, "pace": 1.00, "sleep": 0.65,
 		"glow": 0.22, "rim": Color(0.24, 0.36, 1.00),
 		"note": "a loose roving shoal that drifts across the whole colony rather than over it"},
 	{"slug": "trop_anthias", "len": 0.24, "y": -15.0, "st": 5, "n": 11,
-		"stand": 1.70, "rad": 1.50, "vrt": 1.10, "skit": 5.0, "pace": 1.40, "sleep": 0.85,
+		"stand": 1.70, "rad": 2.30, "vrt": 1.60, "skit": 5.0, "pace": 1.40, "sleep": 0.85,
 		"glow": 0.34, "rim": Color(1.00, 0.44, 0.72),
 		# Pushed MAGENTA. Tripo returned a coral-orange fish, and leg_reef's reef is peach,
 		# salmon and cream — photographed on it, sixteen orange anthias vanished into the
@@ -136,15 +149,15 @@ const SPECIES := [
 		"note": "the cloud: a big loose swarm feeding out in the flow, that pours back into "
 			+ "the coral all at once"},
 	{"slug": "trop_triggerfish", "len": 0.44, "y": -16.0, "st": 4, "n": 1,
-		"stand": 1.90, "rad": 2.90, "vrt": 1.20, "skit": 6.0, "pace": 1.05, "sleep": 0.45,
+		"stand": 1.90, "rad": 3.50, "vrt": 1.45, "skit": 6.0, "pace": 1.05, "sleep": 0.45,
 		"bold": true, "glow": 0.20, "rim": Color(1.00, 0.90, 0.55),
 		"note": "territorial: the ONE species that closes on you instead of hiding"},
 	{"slug": "trop_angel", "len": 0.50, "y": -17.5, "st": 5, "n": 1,
-		"stand": 1.45, "rad": 2.60, "vrt": 1.10, "skit": 2.6, "pace": 0.62, "sleep": 0.60,
+		"stand": 1.45, "rad": 3.20, "vrt": 1.40, "skit": 2.6, "pace": 0.62, "sleep": 0.60,
 		"glow": 0.20, "rim": Color(0.55, 0.78, 1.00),
 		"note": "solitary and slow: a wide unhurried circuit of its own patch"},
 	{"slug": "trop_parrot", "len": 0.62, "y": -19.0, "st": 5, "n": 2,
-		"stand": 0.70, "rad": 2.10, "vrt": 0.85, "skit": 2.2, "pace": 0.72, "sleep": 0.55,
+		"stand": 0.70, "rad": 2.70, "vrt": 1.05, "skit": 2.2, "pace": 0.72, "sleep": 0.55,
 		"graze": true, "glow": 0.18, "rim": Color(0.40, 1.00, 0.78),
 		"note": "big grazers nosing along the concrete, head down, barely reacting to you"},
 ]
@@ -166,8 +179,10 @@ const MIN_STAND: float = 0.45
 ## arrive, which is what makes the station-level decimation below invisible.
 ## Minimum comfortable water between station-mates, metres — a soft target-space push,
 ## not a hard wall, so a startled shoal can still compress as it pours into the coral.
-## ~1.5 body lengths on the mid-size species.
-const SEP_M: float = 0.34
+## Raised from 0.34 on 2026-08-06 ("huge schools tightly condensed"): ~1.6 body lengths on
+## the mid-size species, ~2.5 on a damsel, which is open water between every pair of fish
+## rather than fin-to-fin — the widened rad/vrt above gives the push room to resolve.
+const SEP_M: float = 0.55
 ## The butterfly pair's tether: past this the partners drift back toward each other.
 ## Their species note promises a body length; this is that with a little slack.
 const PAIR_M: float = 0.55
@@ -293,7 +308,10 @@ func _pool() -> Array:
 			for row in range(SHALLOW_ROWS):
 				var y: float = lerpf(SHALLOW_TOP, SHALLOW_BOTTOM,
 					(float(row) + _rng.randf_range(0.15, 0.85)) / float(SHALLOW_ROWS))
-				var along: float = _rng.randf_range(-2.2, 2.2)
+				# ±2.7 of a 6 m face (±2.2 until 2026-08-06 — "spread out the activity"):
+				# stations can now sit near the corners, so a face reads as populated along
+				# its width rather than as one column of life up its centre line.
+				var along: float = _rng.randf_range(-2.7, 2.7)
 				var target: Vector3 = Vector3(leg.x, y, leg.y) + n * LEG_HALF + tangent * along
 				var hit: Dictionary = _probe(target, n)
 				var seat: Vector3 = hit["position"]
@@ -332,6 +350,14 @@ func _blocked(p: Vector3) -> bool:
 ## animal belongs at, do not stack on a colony somebody else already took, and spread the life
 ## over all four legs so no leg is a desert. A small deterministic jitter breaks ties, because
 ## a pure argmin puts every species of a similar depth on the same four best colonies.
+##
+## REWEIGHTED 2026-08-06 (owner: "spread out the activity and diversity"): the depth pull
+## eased 0.55 -> 0.42 and the leg-load push rose 0.30 -> 0.45, so a species will now take a
+## seat a metre or two off its preferred plane on an under-used leg over the perfect depth
+## on a crowded one — which is what interleaves the species through the column instead of
+## stacking each depth-band into a same-species block. The species' own stations also hold
+## a wider berth from each other (rad * 5 + 4, was rad * 4 + 3), so one species' presence
+## is spread along the reef rather than clustered where its depth is best served.
 func _assign(pool: Array) -> void:
 	var use: Array[int] = []
 	use.resize(pool.size())
@@ -347,12 +373,12 @@ func _assign(pool: Array) -> void:
 			var best_score: float = 1.0e9
 			for i in range(pool.size()):
 				var c: Dictionary = pool[i]
-				var score: float = absf(float(c["y"]) - float(sp["y"])) * 0.55
+				var score: float = absf(float(c["y"]) - float(sp["y"])) * 0.42
 				score += float(use[i]) * 1.1
-				score += float(leg_load.get(_leg_key(c["pos"]), 0)) * 0.30
+				score += float(leg_load.get(_leg_key(c["pos"]), 0)) * 0.45
 				# keep one species' own stations apart, or a "shoal" is really one shoal
 				for q in picked:
-					if c["pos"].distance_to(q["pos"]) < float(sp["rad"]) * 4.0 + 3.0:
+					if c["pos"].distance_to(q["pos"]) < float(sp["rad"]) * 5.0 + 4.0:
 						score += 4.0
 						break
 				score += _rng.randf() * 0.35
@@ -439,8 +465,10 @@ func _build_station(sp: Dictionary, seat: Dictionary) -> void:
 				var sm: ShaderMaterial = m
 				# Swap in the reef-fish shader. Every uniform name it needs is one CreatureAnim
 				# has already written (a ShaderMaterial holds its parameters by NAME, so they
-				# survive the swap), and it adds the one thing the shared shader has no way to
-				# do: emission keyed to the fish's own albedo.
+				# survive the swap). Its albedo-keyed emission — the reason the file exists —
+				# is retired with the owner's no-glow call, and the body_glow write below is
+				# now LOAD-BEARING at 0.0: the shader's own default is 0.9, and a parameter
+				# that was never written falls back to the default the moment the swap lands.
 				sm.shader = FISH_SHADER
 				sm.set_shader_parameter("body_glow", BODY_GLOW)
 				sm.set_shader_parameter("glow_color", sp["rim"])
@@ -493,7 +521,7 @@ func _build_station(sp: Dictionary, seat: Dictionary) -> void:
 		"phase": _stations.size() * 7,
 		# The wave rate is BUILD STATE, not per-frame state: kept so _tick can re-assert the
 		# same number without ever changing it (see BASE_AMP's note on the phase teleport).
-		"rate": float(sp["pace"]) * 2.0, "amp": -1.0, "glow": -1.0,
+		"rate": float(sp["pace"]) * 2.0, "amp": -1.0,
 	})
 
 ## Build a fish that re-uses an existing station's materials. This is what CreatureAnim.attach
@@ -710,19 +738,18 @@ func _tick(st: Dictionary, dt: float, eye: Vector3, has_eye: bool) -> void:
 
 	# --- THE SHARED MATERIALS, driven per STATION rather than per fish. This is ~3 writes for
 	# a 16-fish anthias cloud, and only for the stations that are actually near enough to be
-	# ticking at all. The rim glow flares as the shoal scatters — the flash of colour a real
-	# reef gives you when something big swims through it — and dims right down at night.
-	# `rate` is re-asserted at its BUILD value and is never allowed to change (BASE_AMP's note
-	# has the arithmetic). What the alarm actually moves is the throw of the tail and the rim
-	# glow, both plain multipliers outside the sine, so the shoal can flare continuously.
+	# ticking at all. The rim-glow flare that used to ride along here is gone (owner
+	# 2026-08-06, no glow on fish — see BODY_GLOW), so the alarm is spent entirely on the
+	# throw of the tail: a startled shoal now reads as a burst of MOTION into the coral
+	# rather than a flash of light. `rate` is re-asserted at its BUILD value and is never
+	# allowed to change (BASE_AMP's note has the arithmetic); amplitude is a plain multiplier
+	# outside the sine, so the flick can ramp continuously.
 	var want_amp: float = BASE_AMP * lerpf(1.0, ALARM_AMP, alarm) * lerpf(1.0, REST_AMP, rest)
-	var want_glow: float = float(sp["glow"]) * lerpf(1.0, 1.9, alarm) * lerpf(1.0, 0.35, rest)
-	if absf(want_amp - float(st["amp"])) > 0.0008 or absf(want_glow - float(st["glow"])) > 0.01:
+	if absf(want_amp - float(st["amp"])) > 0.0008:
 		st["amp"] = want_amp
-		st["glow"] = want_glow
 		for v in st["mats"]:
 			if v != null:
-				ANIM.drive(v, float(st["rate"]), want_glow, want_amp)
+				ANIM.drive(v, float(st["rate"]), 0.0, want_amp)
 
 # ------------------------------------------------------------ report
 

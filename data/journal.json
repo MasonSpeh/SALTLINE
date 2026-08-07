@@ -219,7 +219,7 @@
  "fish_herring": {
   "cat": "creature",
   "title": "Lantern Herring",
-  "body": "The shoal glows. You can net them at night by their own light, which feels like cheating and isn't.",
+  "body": "Small, quick and everywhere at once. Net a shoal and half the sea's food chain is in your hands, which is the whole reason everything else is here.",
   "hint": "Bites: dawn/day/dusk/night · takes: rod+net · sears to Seared Fish"
  },
  "fish_slate_cod": {
@@ -309,7 +309,7 @@
  "item_fish_herring": {
   "cat": "item",
   "title": "Lantern Herring (raw)",
-  "body": "Glows faintly even out of the water.",
+  "body": "A palmful of silver. Barely a meal alone; the sea disagrees.",
   "hint": "Sear it at the galley stove — raw bites back."
  },
  "item_fish_slate_cod": {

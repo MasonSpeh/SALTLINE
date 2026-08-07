@@ -238,6 +238,10 @@ var _detour_side: float = 0.0
 var _detour_t: float = 0.0
 ## Seconds of fully-refused frames — past 0.35 the animal backs out of the pocket.
 var _detour_stall: float = 0.0
+## The stair-grade window: rise and run accumulated with ~0.45 m distance decay, so a
+## staircase reads as its true grade instead of a once-a-tread flicker.
+var _grade_dy: float = 0.0
+var _grade_run: float = 0.0
 ## STAY/COME — the owner's follow toggle. While true the cat holds its own patch (the spot
 ## it was told to stay at) and lives its own life there; a COME (or any re-greeting after
 ## time away) releases it.
@@ -310,6 +314,22 @@ var _jump_cd: float = 0.0
 var _jump_wind: float = 0.0
 var _jump_from: Vector3 = Vector3.ZERO
 var _jump_to: Vector3 = Vector3.ZERO
+## THE BAIT TRAIL — the player's recent footsteps, oldest crumb first. Written by
+## `_physics_process` (a recording, so it is never decimated) and read by `_trail_goal`.
+var _trail: PackedVector3Array = PackedVector3Array()
+## Last tick's player position, for the teleport break. INF means nothing sampled yet.
+var _trail_prev: Vector3 = Vector3.INF
+## True while the cat is steering at a CRUMB rather than at the player, so the follow branch
+## knows whether `stop_at` means "short of the player" or "onto the waypoint".
+var _trail_live: bool = false
+## Seconds pinned on the same crumb — past TRAIL_STALL the thread is walked on anyway.
+var _trail_stall: float = 0.0
+## The string-pull's throttle, and a LATCH on its verdict: re-deciding a shortcut every frame
+## is the same oscillation the detour fan's 0.8 s side commitment exists to stop.
+var _pull_cd: float = 0.0
+var _pull_free: bool = false
+## The turn ease — 1.0 on a straight, TURN_EASE_MIN going into a right-angle doorway.
+var _turn_slow: float = 1.0
 
 func _ready() -> void:
 	_rng.seed = 5150
@@ -731,9 +751,13 @@ func _companion(delta: float, player: Node3D) -> void:
 			# walks": not a rig constant, an attention weight no walking animal would hold.
 			# Stationary keeps the locked-on stare the chatter deserves; on the move it is
 			# a flick of the ears and eyes, and the head stays on the line of travel.
-			_watch(n.global_position, 0.22 if _last_speed > 0.2 else 1.0)
+			# Stationary only: a moving cat's chatter-watch is fully suppressed at the
+			# rig feed (see _drive_rig) — the 0.22 walking whisper this used to carry was
+			# still a visible head-turn, and the owner's rule is absolute.
+			_watch(n.global_position, 1.0)
 			if _rig != null:
-				_rig.call("chatter", 1.0)
+				if _last_speed <= 0.2:
+					_rig.call("chatter", 1.0)
 				# A bird it cannot have is the single most reliable tail-lash there is.
 				if _rng.randf() < delta * 2.2:
 					_rig.call("tail_flick", 0.9)
@@ -803,7 +827,11 @@ func _companion(delta: float, player: Node3D) -> void:
 	var has_fish: bool = _player_holding_fish(player)
 	if has_fish and d < FISH_M:
 		_enter(State.FISH)
-		_walk_toward(ppos, TROT_SPEED, delta, 0.9)
+		# Trailed like the follow is: FISH_M is 9 m and a cat that can smell a fish through a
+		# bulkhead should still come round by the door.
+		var fish_aim: Vector3 = _trail_goal(ppos, delta)
+		_walk_toward(fish_aim, TROT_SPEED * _ease_turn(fish_aim, delta), delta,
+			0.05 if _trail_live else 0.9)
 		if _meow_cd <= 0.0:
 			_meow_cd = _rng.randf_range(4.0, 9.0)
 			AudioDirector.play_one_shot("cat_chirp", global_position, -20.0)
@@ -882,8 +910,15 @@ func _companion(delta: float, player: Node3D) -> void:
 		if _pace_cd <= 0.0:
 			_pace = _rng.randf_range(0.86, 1.14)
 			_pace_cd = _rng.randf_range(0.6, 2.2)
-		_walk_toward(ppos, (RUN_SPEED if running else (TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED))
-			* _pace, delta, FOLLOW_NEAR)
+		# BAIT-TRAILED. The goal is a point on the route the player actually walked, not the
+		# player — see the trail section. It degrades to `ppos` the moment the trail has
+		# nothing usable, so this line is the s45 behaviour whenever there is no route to
+		# follow. `stop_at` follows the goal: stopping FOLLOW_NEAR short of a WAYPOINT would
+		# park the animal a metre before every corner. The distance that decides whether to
+		# walk at all is still `d`, which is measured to the player.
+		var aim: Vector3 = _trail_goal(ppos, delta)
+		_walk_toward(aim, (RUN_SPEED if running else (TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED))
+			* _pace * _ease_turn(aim, delta), delta, 0.05 if _trail_live else FOLLOW_NEAR)
 		return
 	# A WASH IN PROGRESS FINISHES. Below the hunt on purpose — a bird interrupts a wash, which
 	# is exactly what happens — but above settling, so the cat is not yanked out of it by its
@@ -1234,8 +1269,20 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	_detour_stall = 0.0
 	# The slope it is standing on, for the body pitch. Taken from the rise over the step
 	# actually taken rather than from a second probe, so it cannot disagree with the move.
+	# THE GRADE IS A WINDOW, NOT A STEP (s45c — the owner's "cat should angle up/down when
+	# going down stairs"). Per-step atan2 cannot see a staircase: on treads the rise is
+	# zero for ~a dozen steps and then a whole tread's drop lands in one 26 mm step
+	# (atan2 saturates the clamp for a single frame), so the eased slope averaged to a
+	# flicker near zero and the animal descended flights dead level. Accumulate rise and
+	# run in a ~0.45 m distance-decayed window instead: on a rig stair that reads the
+	# flight's true ~40-degree grade, steady, from the second tread on — and on flat deck
+	# it decays to zero the way the old code did.
 	var run: float = maxf(step.length(), 0.0001)
-	_slope = lerpf(_slope, clampf(atan2(rise, run), -0.7, 0.7), 1.0 - exp(-5.0 * delta))
+	var wf: float = exp(-run / 0.45)
+	_grade_dy = _grade_dy * wf + rise
+	_grade_run = _grade_run * wf + run
+	_slope = lerpf(_slope, clampf(atan2(_grade_dy, maxf(_grade_run, 0.05)), -0.7, 0.7),
+		1.0 - exp(-5.0 * delta))
 	var before_step: Vector3 = global_position
 	global_position = Vector3(want.x, ground, want.z)
 	_last_speed = speed
@@ -1376,6 +1423,260 @@ func _unbury() -> void:
 		return
 	global_position += push.normalized() * (worst + 0.02)
 	_reseat()
+
+# ------------------------------------------------------------------ the bait trail
+
+## THE PLAYER'S OWN FOOTSTEPS, WHICH ARE THE ONLY NAVIGATION DATA THIS GAME HAS THAT IS
+## GUARANTEED CORRECT.
+##
+## Steering at where the player IS draws a straight line, and a straight line across this rig
+## goes through steel. The detour fan then has to solve — greedily, one 0.05 m step at a time,
+## with every candidate confined to +-115 deg of "toward the player" — a routing problem the
+## human already solved with their feet. It cannot, and the failure is not subtle: from the
+## west bunk cabin the only opening is at x -24.665 (rig_builder._build_bunkhouse cuts a 1.4 m
+## hole at the centre of each 6.67 m corridor segment; the dividers at x -21.33 / -14.66 are
+## solid from z4 to z10), so a cat whose player walked EAST must first travel three metres
+## WEST. No heading in the fan points there. It slides up and down the divider until something
+## else interrupts it.
+##
+## So the cat follows the TRAIL. Every crumb is a place a body already stood, at a height a
+## body already reached, joined to the next by a step a body actually took — a proof of
+## walkability nothing in this file could synthesise, laid down for free by the player as they
+## walk. Doorways, corners and stair flights come out right because the human routed through
+## them, not because the cat understands them.
+##
+## THE TRAIL IS A HINT, NEVER A RAIL. Anything that makes it unavailable — a fresh session, a
+## teleport, a player who swam off, a cat a harness moved across the rig — falls straight back
+## to the direct line and the detour fan, i.e. exactly the animal that shipped in s45. There is
+## no state in which this can stall it.
+const TRAIL_STEP: float = 0.6      ## metres of PLAYER travel between crumbs
+## 64 crumbs is 38 m of PATH, and path is the quantity that matters: the follow distances are
+## straight-line (FOLLOW_NEAR 2.2, RUN_M 8, FOLLOW_FAR 14) while a route through these rooms
+## runs two to three times its own chord. 768 bytes.
+const TRAIL_MAX: int = 64
+## A move no walking body could make in one physics tick. Physics runs at 30 Hz here, so a
+## sprinting player (SPRINT_SPEED 5.0) covers 0.167 m; past 0.9 m the two positions are not
+## joined by a step and the segment between them is a line through whatever stood in the way.
+## One rule, and it covers every teleport in the game: _respawn, the death respawn, the ladder
+## top, and the harnesses — CatProbe teleports the player a dozen times, so the trail is empty
+## for every one of its existing checks and none of them change behaviour.
+const TRAIL_JUMP: float = 0.9
+## "I am standing on this crumb." Above the worst distance one think can cover (RUN_SPEED 4.4
+## x AiBudget.MAX_STEP 0.15 = 0.66 m), so a running cat cannot overshoot the whole radius and
+## be dragged backwards onto a crumb it has already passed.
+const JOIN_NEAR: float = 1.0
+## ...and how far off the thread it may be and still walk back to it. Beyond this the trail is
+## not a route to anywhere useful and the direct line is honest.
+const JOIN_FAR: float = 5.0
+## Seconds pinned on one crumb before the thread is walked on regardless — the anti-wedge for
+## a crumb the cat can see but cannot stand on (the player squeezed past furniture it cannot).
+const TRAIL_STALL: float = 0.9
+const PULL_M: float = 3.0          ## how long a shortcut may be, and therefore proven
+const PULL_SEC: float = 0.25       ## how often the shortcut tests run
+const PULL_TRIES: int = 2          ## crumbs that may be skipped per test
+const SEG_SAMPLE_M: float = 0.35   ## roughly what one _step_clear (centre + nose) covers
+const LOOK_M: float = 0.8          ## the lookahead blend distance
+## The slow into a hard turn. A real cat does not take a doorway at a trot; TURN_EASE_RAD is
+## the yaw error at which the ease bottoms out (1.6 rad = 92 deg, i.e. a square corner), and
+## the floor is a slow, never a stop.
+const TURN_EASE_RAD: float = 1.6
+const TURN_EASE_MIN: float = 0.45
+const TURN_EASE_RATE: float = 6.0
+## ...AND A DEADZONE, WITHOUT WHICH THIS IS A TAX RATHER THAN A CHARACTER BEAT. The first
+## cut ramped straight from zero error, so an ordinary 0.2 rad steering correction — which
+## happens continuously while following a moving target — cost 12% of speed, permanently,
+## on every straight. Measured: the settle and COME checks in CatProbe both went red purely
+## from the compounded slowdown. A real cat does not brake for a ten-degree correction; it
+## brakes for a doorway. Full speed inside 20 deg, ramping to the floor at the square corner.
+const TURN_EASE_DEAD: float = 0.35
+
+## RECORDING IS NOT THINKING, SO IT DOES NOT GO THROUGH AiBudget.
+##
+## The whole of this animal's decision-making runs decimated on summed deltas, which is
+## correct — but a decimated RECORDER samples the player up to 0.15 s apart, and 0.15 s of a
+## sprint is 0.9 m. That is longer than the crumb spacing, which means two consecutive crumbs
+## could straddle a doorway with the segment between them running through the jamb: the trail
+## would be recording a route the player never took. Physics ticks are fixed and never summed
+## (the s38 shutter trap cannot reach them either), so the sampling here is 0.167 m at the
+## worst, whatever the frame rate is doing.
+##
+## Cost is one distance compare per tick, plus one ray every 0.6 m of player travel — about
+## four rays a second at a walk.
+func _physics_process(_delta: float) -> void:
+	var player: Node3D = AIB.player(self)
+	if player == null:
+		_trail_prev = Vector3.INF
+		return
+	var p: Vector3 = player.global_position
+	var prev: Vector3 = _trail_prev
+	_trail_prev = p
+	if prev == Vector3.INF:
+		return
+	if p.distance_squared_to(prev) > TRAIL_JUMP * TRAIL_JUMP:
+		_trail.clear()
+		return
+	if _trail.size() > 0 \
+			and p.distance_squared_to(_trail[_trail.size() - 1]) < TRAIL_STEP * TRAIL_STEP:
+		return
+	var world: World3D = get_world_3d()
+	if world == null:
+		return
+	# A CRUMB IS A FOOTFALL, NOT A POSITION. Probed rather than taken from the player's origin
+	# for two reasons: it puts the crumb on the deck, where the cat's own origin lives (see
+	# _reseat), so the two are comparable; and the probe IS the walkability gate — no deck
+	# within reach means the player is swimming, falling, flying or halfway up a ladder, and
+	# none of those are places a cat can be baited to.
+	var from: Vector3 = p + Vector3(0, 0.9, 0)
+	var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 1.6, 0))
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = _walk_skip()
+	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return
+	var foot: Vector3 = hit["position"]
+	# ...AND IT MUST BE OUT OF THE SEA. A submerged surface passes the probe perfectly well —
+	# the boat landing sits at y -3..1 — so the ray alone would happily bait the cat into the
+	# water off the end of a dive. Same swim line the player, main.gd and underwater_fx test
+	# against, so "the cat will not follow you in" means what it means everywhere else.
+	if foot.y < Gyre.swim_line(Vector2(foot.x, foot.z), Gyre.water_time()) + 0.1:
+		return
+	if _trail.size() > 0 \
+			and _trail[_trail.size() - 1].distance_squared_to(foot) > TRAIL_JUMP * TRAIL_JUMP:
+		_trail.clear()
+	_trail.push_back(foot)
+	while _trail.size() > TRAIL_MAX:
+		_trail.remove_at(0)
+
+## Where to steer THIS frame: a point on the player's route, or the player themselves when the
+## trail has nothing better to say. Never returns something that cannot be walked at.
+func _trail_goal(ppos: Vector3, delta: float) -> Vector3:
+	_trail_live = false
+	_pull_cd -= delta
+	var n: int = _trail.size()
+	if n < 2:
+		# One crumb is a spot, not a route — and steering at a spot the cat is already on is
+		# the one way this could stall the animal.
+		_trail_stall = 0.0
+		return ppos
+	# 1. WHERE ON THE THREAD AM I? Free — distance compares, no physics. Scanned NEWEST first,
+	# which is how "a cat does not retrace a loop you walked" falls out for nothing: where the
+	# route doubles back past itself, the later pass wins and the loop is never re-walked.
+	var join: int = -1
+	for i in range(n - 1, -1, -1):
+		if global_position.distance_squared_to(_trail[i]) <= JOIN_NEAR * JOIN_NEAR:
+			join = i
+			break
+	if join < 0:
+		# Off the thread — after a COME, a harness move, or a spell blocked. Rejoin at the
+		# NEAREST crumb, deliberately not the newest: at five metres "newest" is an unproven
+		# shortcut through a bulkhead, which is the bug this whole section exists to fix.
+		var best: float = JOIN_FAR * JOIN_FAR
+		for i in range(n - 1, -1, -1):
+			var dd: float = global_position.distance_squared_to(_trail[i])
+			if dd < best:
+				best = dd
+				join = i
+	if join < 0:
+		_trail_stall = 0.0
+		return ppos
+	if join > 0:
+		_trail = _trail.slice(join)
+		_trail_stall = 0.0
+	else:
+		_trail_stall += delta
+		if _trail_stall > TRAIL_STALL and _trail.size() > 1:
+			# A crumb the player reached and the cat cannot (squeezed past a chair leg, say).
+			# Walking the thread on is bounded and always makes progress; standing on it is
+			# the wedge.
+			_trail.remove_at(0)
+			_trail_stall = 0.0
+	# 2. THE STRING-PULL — the only physics this costs, throttled and LATCHED. Latched because
+	# a shortcut re-decided every frame is the same flip-flop the fan's side commitment cures:
+	# the aim point would alternate between the player and a crumb at frame rate.
+	if global_position.distance_to(ppos) > PULL_M:
+		_pull_free = false
+	if _pull_cd <= 0.0:
+		_pull_cd = PULL_SEC
+		_pull_free = global_position.distance_to(ppos) <= PULL_M and _seg_clear(ppos)
+		if not _pull_free:
+			for _k in range(PULL_TRIES):
+				if _trail.size() < 2 or global_position.distance_to(_trail[1]) > PULL_M \
+						or not _seg_clear(_trail[1]):
+					break
+				_trail.remove_at(0)
+				_trail_stall = 0.0
+	if _pull_free or _trail.size() < 2:
+		return ppos
+	# 3. THE AIM POINT, WHICH IS WHY IT ROUNDS A CORNER INSTEAD OF CLIPPING IT. Slid along the
+	# segment between the crumb it is on and the next one as it closes, so the animal is always
+	# chasing a point a little further round the turn than itself and starts turning early.
+	# It cannot aim into geometry: a point between two crumbs 0.6 m apart is ON the path the
+	# player walked, by construction.
+	_trail_live = true
+	var c0: Vector3 = _trail[0]
+	return c0.lerp(_trail[1],
+		clampf(1.0 - global_position.distance_to(c0) / LOOK_M, 0.0, 1.0))
+
+## Could the cat WALK the straight line from here to `to`? The crumbs prove the route the
+## player took; this proves a shortcut ACROSS it.
+##
+## SAMPLED ON THE GROUND, NOT ON THE CHORD, and that distinction is the whole of stairs. A
+## staircase surface is a zigzag of treads and risers, so the straight line between two points
+## on it passes through the NOSING of every tread between them — a chord test calls every
+## flight on this rig a wall, and the cat would refuse to string-pull up a stair it is standing
+## on. Each sample is instead dropped onto whatever deck is under it with the same probe (and
+## the same 1.1 m of downward reach) `_walk_toward` uses, and handed to the same `_step_clear`
+## volume query, so a line this accepts is a line that function can actually walk. A sample
+## more than CLIMB_UP above the last is refused, which is "one tread yes, a bulkhead no" — and
+## it is also what stops a shortcut cutting through a stairwell wall between two crumbs on
+## different flights, because the deck under the middle of that line is a whole storey off.
+func _seg_clear(to: Vector3) -> bool:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return true
+	var flat: Vector3 = to - global_position
+	flat.y = 0.0
+	var span: float = flat.length()
+	if span < 0.01:
+		return true
+	var dir: Vector3 = flat / span
+	# Bounded twice over: PULL_M caps the span, and this caps the samples whatever that becomes.
+	var steps: int = mini(int(ceil(span / SEG_SAMPLE_M)), 12)
+	var skip: Array[RID] = _walk_skip()
+	var last_y: float = global_position.y
+	for i in range(1, steps + 1):
+		var at: Vector3 = global_position + dir * (span * float(i) / float(steps))
+		var from: Vector3 = Vector3(at.x, last_y + CLIMB_UP + 0.3, at.z)
+		var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, CLIMB_UP + 1.4, 0))
+		q.collision_mask = 1
+		q.collide_with_areas = false
+		q.exclude = skip
+		var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+		if hit.is_empty():
+			return false
+		var g: float = (hit["position"] as Vector3).y
+		if g - last_y > CLIMB_UP:
+			return false
+		if not _step_clear(Vector3(at.x, g, at.z), dir):
+			return false
+		last_y = g
+	return true
+
+## A REAL CAT SLOWS INTO A DOORWAY. Multiplied into the commanded speed rather than applied
+## inside `_walk_toward`, so the stalk, the zoomies and the play pounce keep their own pacing.
+## `1 - exp(-rate * dt)` because this animal is handed SUMMED deltas up to 0.15 s and the
+## clamped form snaps — the standing rule for every ease in this file.
+func _ease_turn(aim: Vector3, delta: float) -> float:
+	var to: Vector3 = aim - global_position
+	to.y = 0.0
+	var want: float = 1.0
+	if to.length_squared() > 0.0004:
+		var turn: float = absf(wrapf(atan2(to.x, to.z) + PI - rotation.y, -PI, PI))
+		want = clampf(1.0 - maxf(turn - TURN_EASE_DEAD, 0.0)
+			/ maxf(TURN_EASE_RAD - TURN_EASE_DEAD, 1e-3), TURN_EASE_MIN, 1.0)
+	_turn_slow = lerpf(_turn_slow, want, 1.0 - exp(-TURN_EASE_RATE * delta))
+	return _turn_slow
 
 ## Everything the cat's WALL ray must not mistake for a wall: its own handle, the player,
 ## and every other animal's touch sphere. Rebuilt each call rather than cached, because
@@ -1867,7 +2168,15 @@ func _drive_rig(delta: float) -> void:
 	if _rig == null:
 		return
 	# The head, first, so tick applies it this frame: attention wins over the gait's neck.
-	if _focus_w > 0.01:
+	# THE OWNER'S STANDING RULE, made structural at the ONE place looks reach the rig:
+	# "the cat always looks straight while walking/running; when she pauses to sit, then
+	# she looks around everywhere and does cat things." Above a threshold between the
+	# stalk (0.62 — which keeps its locked-on creep, the whole tell of a stalk) and the
+	# walk (1.55), NO look of any kind reaches the head: not a glance, not a chatter
+	# whisper, not a gift-carry gaze. Suppressed HERE rather than at each caller so no
+	# future behaviour can re-introduce a mid-stride head-turn — the ninth report of this
+	# defect was caused by exactly such a caller nobody had gated.
+	if _focus_w > 0.01 and _last_speed < 0.8:
 		var to: Vector3 = _focus - global_position
 		if to.length_squared() > 0.0004:
 			# Into the BODY's frame: the neck yaw is relative to where the animal is facing,

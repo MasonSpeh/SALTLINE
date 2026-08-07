@@ -689,6 +689,14 @@ func _land() -> void:
 		return
 	var id: String = String(_fish["id"])
 	Journal.discover(id)
+	# THE SIZE OF THE FISH, rolled here, at the rail, on the one fish that was actually
+	# landed. Rolled BEFORE the pack is tried, because both destinations need the number:
+	# a stowed fish's weight is remembered on the table (FishTable.record_size) so the
+	# stove and the drying line can fillet THIS fish rather than an average one, and a
+	# spilled fish carries the same weight onto the deck so the Takeable at your feet IS
+	# the fish the catch line lists — at its real length, not the pocket-scale one.
+	# Species with no size range in fish.json roll 0.0 and read exactly as they always did.
+	var kg: float = FISH.roll_size(id, _rng)
 	# A FULL PACK MUST NOT COST YOU THE FISH. Owner, 2026-07-30: "What happens when i catch fish
 	# with full inventory? I still want to keep the fish, currently it just dissapeared." It
 	# used to: the catch was announced, the pack refused it, and the fish was gone — after a
@@ -697,30 +705,30 @@ func _land() -> void:
 	# fillets, and everything downstream (the journal entry, the size roll, the fillet count)
 	# runs exactly as it does for a fish that fitted.
 	var stowed: bool = PlayerState.add_item(id)
-	if not stowed:
+	if stowed:
+		if kg > 0.0:
+			FISH.record_size(id, kg)
+	else:
 		var feet: Vector3 = _player.global_position if is_instance_valid(_player) else global_position
 		var toss := Vector3(_rng.randf_range(-0.4, 0.4), 0.0, _rng.randf_range(-0.4, 0.4))
-		SaveManager.drop_into_world(id, feet, toss)
+		SaveManager.drop_into_world(id, feet, toss, kg)
 	var spill: String = "" if stowed else "  Pack's full — it's on the deck at your feet."
 	_fly_catch_to_player()
-	# THE SIZE OF THE FISH, rolled here, at the rail, on the one fish that was actually
-	# landed — and remembered on the table (FishTable.record_size) so the stove and the
-	# drying line can fillet THIS fish rather than an average one. Species with no size
-	# range in fish.json roll 0.0 and read exactly as they always did.
-	var kg: float = FISH.roll_size(id, _rng)
 	_log_catch(id, kg)
 	if kg <= 0.0:
 		_finish("Caught: %s%s" % [_fish["name"], spill])
 		return
-	FISH.record_size(id, kg)
+	# The trophy band (FishTable.TROPHY_T): a roll in the top of the species' own range
+	# gets named at the rail, the same voice the bite prompt already uses for the species.
+	var big: String = ", a trophy" if FISH.is_trophy_size(id, kg) else ""
 	var n: int = FISH.fillets_for(id, kg)
 	if n <= 1:
-		_finish("Caught: %s — %.1f kg%s" % [_fish["name"], kg, spill])
+		_finish("Caught: %s — %.1f kg%s%s" % [_fish["name"], kg, big, spill])
 		return
 	# Name the payoff at the moment it is earned: the whole reason to fight a fish this
 	# big is what it fillets out into on the stove or the line.
-	_finish("Caught: %s — %.1f kg. That'll fillet out %d times over.%s"
-		% [_fish["name"], kg, n, spill])
+	_finish("Caught: %s — %.1f kg%s. That'll fillet out %d times over.%s"
+		% [_fish["name"], kg, big, n, spill])
 
 ## The visual payoff: the fish arcs out of the water into your hands, flashing
 ## and flipping, then vanishes into the pack. Owned by the scene, so it plays

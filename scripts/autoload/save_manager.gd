@@ -23,6 +23,9 @@ const HANDBOOK := preload("res://scripts/components/handbook.gd")
 const FAUNA := preload("res://scripts/world/bloom_fauna.gd")
 ## Surface lookup, so a rebuilt camp lands on the deck instead of inheriting a bad saved Y.
 const SUPPORT := preload("res://scripts/world/support_index.gd")
+## The size ledger: a dropped sized fish carries its landed weight (see _make_drop), and
+## the ledger itself rides the save so a reload keeps the pack's weights too.
+const FISH := preload("res://scripts/world/fish_table.gd")
 
 ## Which slot (1..SLOT_COUNT) autosaves and loads. Set by the start screen — and until
 ## something chooses one, 0: NO SESSION, NO WRITES.
@@ -187,6 +190,9 @@ func save_game() -> bool:
 		"dropped": _dropped_payload(),
 		"snails": FAUNA.snail_payload(get_tree()),
 		"harvest": _harvest_payload(),
+		# Landed weights not yet spent (fished but not filleted, dropped, or dried). A v2
+		# reader that predates the key simply never looks at it.
+		"fish_sizes": FISH.sizes_payload(),
 	}
 	# Where the player stood at save time, so Continue resumes them there rather than
 	# back at the pod. Only written when a player is actually in the tree.
@@ -255,6 +261,10 @@ func load_game() -> bool:
 		data.get("inventory", []),
 		data.get("inventory_counts", []))
 	PlayerState.apply_comfort_payload(data)
+	# The pack's landed weights come back with the pack. Authoritative replace (the save's
+	# inventory just replaced the session's, and these numbers belong to it); a save from
+	# before weights persisted restores an empty ledger, i.e. exactly the old behaviour.
+	FISH.restore_sizes(data.get("fish_sizes", {}))
 	# Non-destructive merge: discoveries union and a catch record keeps the heavier fish,
 	# so this layers cleanly over whatever the journal's own sidecar already restored.
 	Journal.restore(data)
@@ -500,7 +510,14 @@ func _dropped_payload() -> Array:
 		var id: String = String(d.get("item_id")) if d.get("item_id") != null else ""
 		if id == "":
 			continue
-		out.append(_xform_dict({"id": id}, (d as Node3D).global_transform))
+		var entry: Dictionary = {"id": id}
+		# A sized fish keeps its landed weight across the reload — the whole point of the
+		# weight riding the node. Only written when there is one, so every other dropped
+		# item's entry is byte-identical to what it always was.
+		var kg: Variant = d.get("size_kg")
+		if kg != null and float(kg) > 0.0:
+			entry["kg"] = float(kg)
+		out.append(_xform_dict(entry, (d as Node3D).global_transform))
 	return out
 
 ## Rebuild dropped items. Clears any currently on the deck first so a second load
@@ -521,7 +538,15 @@ func restore_dropped(list: Variant) -> int:
 		var id: String = String(entry.get("id", ""))
 		if id == "":
 			continue
-		var t: Node3D = _make_drop(id)
+		# A save from before weights persisted has no "kg" on its dropped fish. Those
+		# fish still have to be SOME size now that sized species render at their weight,
+		# so they come back as the species' typical catch (FishTable.median_size) — an
+		# ordinary fish, deterministically, never a reload-lottery monster. Species with
+		# no size range get 0.0 from median_size and are untouched.
+		var kg: float = float(entry.get("kg", 0.0))
+		if kg <= 0.0:
+			kg = FISH.median_size(id)
+		var t: Node3D = _make_drop(id, kg)
 		scene.add_child(t)
 		t.global_transform = _xform_from(entry)
 		n += 1
@@ -529,7 +554,13 @@ func restore_dropped(list: Variant) -> int:
 
 ## Build a dropped-item Takeable: its real world visual plus an interaction collider,
 ## tagged so it persists. Not yet parented.
-func _make_drop(item_id: String) -> Node3D:
+##
+## `kg` is a sized fish's landed weight (0.0 for everything else, and for every non-fish
+## caller): the node remembers it (takeable.size_kg — given back to the ledger on TAKE),
+## ItemVisual draws the body at the real length that weight implies, and the interaction
+## box grows along the body so a two-metre grouper can be picked up by its tail, not
+## only by a 0.4 m cube buried somewhere in its middle.
+func _make_drop(item_id: String, kg: float = 0.0) -> Node3D:
 	# THE HANDBOOK IS NOT A TAKEABLE. Set down anywhere on the rig it has to still be the
 	# book — [E] READs it where it sits, [F] pockets it again (Handbook) — where a plain
 	# Takeable would offer nothing but TAKE and make "place it where you fish and read it
@@ -540,23 +571,55 @@ func _make_drop(item_id: String) -> Node3D:
 	var t: Node3D = TAKEABLE.new()
 	t.set("item_id", item_id)
 	t.set("display_name", String(PlayerState.items.get(item_id, {}).get("name", item_id.capitalize())))
+	var fish_m: float = ItemVisual.fish_instance_length_m(item_id, kg)
+	if fish_m > 0.0:
+		t.set("size_kg", kg)
+		# A sized fish's grown box must not also be a wall. An Interactable is a
+		# StaticBody3D on the solid layer, the landing is ~0.7 m from the dropper's
+		# feet, and a grouper-length box reaches further than that — the player would
+		# be standing inside it the frame it lands, and depenetration shoves whoever
+		# dropped it. The s35 third layer is exactly this case (see interaction_ray:
+		# reachable by the ray, nothing to the capsule). Ordinary drops keep their
+		# solid 0.4 cube untouched.
+		t.set("collision_layer", InteractionRay.INTERACT_LAYER)
 	var col := CollisionShape3D.new()
 	var box := BoxShape3D.new()
-	box.size = Vector3(0.4, 0.4, 0.4)
+	if fish_m > 0.0:
+		# The body lies along X (ItemVisual yaws the mesh so the flank faces the view).
+		# Footprint follows the animal, CAPPED — a 3.5 m sturgeon does not need three
+		# and a half metres of hitbox to be picked up by, and stray interaction rays
+		# should not find a fish through a bulkhead. Height stays the ordinary 0.4 —
+		# the ray wants width, not a wall.
+		box.size = Vector3(clampf(fish_m * 0.85, 0.4, 2.4), 0.4, clampf(fish_m * 0.3, 0.4, 0.9))
+	else:
+		box.size = Vector3(0.4, 0.4, 0.4)
 	col.shape = box
 	col.position.y = 0.2
 	t.add_child(col)
-	t.add_child(ItemVisual.build(item_id))
+	t.add_child(ItemVisual.build(item_id, kg))
 	t.add_to_group("dropped_item")
 	return t
 
 ## Drop one item into the world at a foot point, with a short toss so it reads as set
 ## down rather than teleported. Called by the HUD's drop control. Returns the node.
-func drop_into_world(item_id: String, feet: Vector3, toss_dir: Vector3 = Vector3.ZERO) -> Node3D:
+##
+## `kg`: the fish's landed weight, for callers that know it (the rod's and the spear's
+## full-pack spill — the fish never entered the pack, so its weight was never recorded
+## and rides straight onto the node). The default -1.0 means "ask the ledger": a sized
+## species popped out of the pack takes its OLDEST recorded weight with it, exactly as
+## the stove does when it fillets one, and a fish the ledger never saw (a pre-size save,
+## a locker find) rolls fresh from its own range. Non-fish ids resolve to 0.0 either way
+## and drop precisely as they always have.
+func drop_into_world(item_id: String, feet: Vector3, toss_dir: Vector3 = Vector3.ZERO,
+		kg: float = -1.0) -> Node3D:
 	var scene: Node = get_tree().current_scene
 	if scene == null:
 		return null
-	var t: Node3D = _make_drop(item_id)
+	if kg < 0.0:
+		var rng := RandomNumberGenerator.new()
+		rng.randomize()
+		kg = FISH.take_size(item_id, rng)
+	var t: Node3D = _make_drop(item_id, kg)
 	scene.add_child(t)
 	var landing: Vector3 = feet + toss_dir
 	t.global_position = feet + Vector3(0, 0.6, 0)

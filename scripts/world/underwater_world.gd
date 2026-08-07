@@ -87,6 +87,9 @@ static func _pods_for(band: String) -> int:
 ##          and also puts them where the coral is.
 ##   any  — the historical ±24 x ±28 near-rig box and its ±41 x ±46 open ring. Unchanged.
 ##   open — pushed out past the moorings, where a tuna belongs.
+## Since 2026-08-06 these pairs are the CLASS envelope rather than the literal ring every
+## species of the class shares: each species scales its pair by _ring_scatter (below), which
+## is what stopped sixteen `any` pod-0s parading the same ellipse.
 const POD_SPREAD_BY_WATER: Dictionary = {
 	"near": [Vector2(6.5, 7.5), Vector2(9.0, 10.5)],
 	"any": [Vector2(24.0, 28.0), Vector2(41.0, 46.0)],
@@ -110,6 +113,30 @@ static func _pod_spread(water: String, pod: int, pods: int) -> Vector2:
 	if pods <= 1:
 		return lo
 	return lo.lerp(pair[1] as Vector2, float(pod) / float(pods - 1))
+
+## EVERY SAME-CLASS POD USED TO RIDE THE SAME TWO OR THREE ELLIPSES, AND THAT IS WHERE THE
+## DEAD WATER CAME FROM (owner, 2026-08-06: "huge schools tightly condensed, with vast areas
+## of open waters ... just distribute fish more evenly"). Sixteen `any` species meant sixteen
+## pod-0 centres on ONE ±24 x ±28 ring — and because each pod's wander rate is derived from
+## its spread (POD_PATH_SPEED / spread), every one of them also turned at the SAME angular
+## rate, so the fleet held a fixed parade formation forever and the water between the rings
+## never saw a fish. Each species now takes its own ring: the class ellipse scaled by a
+## factor dealt low-discrepancy off the species index (the golden-ratio scramble, so
+## neighbouring species land far apart in the range and the rings FILL the annulus instead
+## of clumping). Derived, not drawn — no new _rng calls, so the goliath size jitter and
+## everything else downstream of _spawn_schools still sees the stream it always has (the
+## leviathan-roll lesson at _deep_giants). Scaling the spread also re-derives the rate, so
+## the parade breaks two ways: different rings AND different angular speeds, constant linear
+## speed throughout. `near` pods are exempt — they hold a caisson, and "small tight groups
+## near the legs" (s34) is still wanted there.
+const POD_RING_SCATTER_LO: float = 0.80
+const POD_RING_SCATTER_HI: float = 1.25
+
+static func _ring_scatter(water: String, species_i: int) -> float:
+	if water == "near":
+		return 1.0
+	return lerpf(POD_RING_SCATTER_LO, POD_RING_SCATTER_HI,
+		fposmod(float(species_i) * 0.618034, 1.0))
 
 ## The wander RATE is derived, not typed. The four historical numbers are within 8% of a
 ## constant linear speed along each axis — 24 x 0.050 = 1.20 and 41 x 0.029 = 1.19; 28 x
@@ -251,15 +278,25 @@ const PONTOON_CLEAR: float = 0.35    ## how far under the concrete the tallest f
 const PONTOON_FADE: float = 2.5
 
 ## 1.0 anywhere the slab is overhead, falling linearly to 0 across PONTOON_FADE outside it.
-static func _pontoon_lid_t(x: float, z: float) -> float:
+## `margin` GROWS THE FOOTPRINT BY HALF A FISH, and it is not decoration. The lid is
+## evaluated at the fish's ORIGIN while the probe — and the eye — judge its BODY, so a fish
+## sitting a hand's width outside the slab can still have its nose inside the concrete.
+## FishSpreadProbe caught exactly one such body-sample after the s46 spread widened, which
+## is what a boundary case looks like when it is real rather than random. Growing the
+## footprint by the fish's own half-length makes the ceiling engage a half-body early, which
+## is the same "test the volume, not the point" rule the cat's movement gates already carry.
+static func _pontoon_lid_t(x: float, z: float, margin: float = 0.0) -> float:
+	var z_in: float = PONTOON_Z_IN - margin
+	var z_out: float = PONTOON_Z_OUT + margin
+	var x_lim: float = PONTOON_X + margin
 	var az: float = absf(z)
-	if az < PONTOON_Z_IN - PONTOON_FADE or az > PONTOON_Z_OUT + PONTOON_FADE:
+	if az < z_in - PONTOON_FADE or az > z_out + PONTOON_FADE:
 		return 0.0
-	if absf(x) > PONTOON_X + PONTOON_FADE:
+	if absf(x) > x_lim + PONTOON_FADE:
 		return 0.0
 	# How far OUTSIDE the footprint the point is, per axis; 0 on either axis it is inside.
-	var dz: float = maxf(maxf(PONTOON_Z_IN - az, az - PONTOON_Z_OUT), 0.0)
-	var dx: float = maxf(absf(x) - PONTOON_X, 0.0)
+	var dz: float = maxf(maxf(z_in - az, az - z_out), 0.0)
+	var dx: float = maxf(absf(x) - x_lim, 0.0)
 	return clampf(1.0 - maxf(dx, dz) / PONTOON_FADE, 0.0, 1.0)
 
 var _kelp: Array[Node3D] = []
@@ -581,14 +618,17 @@ const LEG_HOME := Vector3(24.0, 0.0, 12.0)
 ##   stand 4.25 m off the axis. A ~14 m fish held tangent to a 12 m circle bows its
 ##   mid-body in to r*cos(asin(L/2r)) ~ 9.4 m — still 5 m clear of the corner — while a
 ##   9 m orbit would put the belly inside the steel on every pass.
-##   DEPTH. -36 - 40 = -76. The caissons run in one casting to -92 (seabed.CAISSON_BOTTOM),
-##   so the pillar is still there to orbit at this depth, and the mudline out at r 12 sits
-##   around -91..-95, so a 1.1 m bob never touches bottom. Far below the 13 m death line
-##   and far below the lit band underwater_fx grades (-17..-29): this is a shape you find
-##   with a light, or never.
+##   DEPTH. -36 - 40 = -76, then RAISED 15 (owner, 2026-08-06: "Raise the massive grouper
+##   from the depths 15M so it is slightly more visible down there"): -61. The caissons run
+##   in one casting to -92 (seabed.CAISSON_BOTTOM), so the pillar is still there to orbit at
+##   this depth, and the mudline out at r 12 sits around -91..-95, so a 1.1 m bob never
+##   touches bottom. Still far below the 13 m death line and below the lit band underwater_fx
+##   grades (-17..-29), so it keeps reading as the deep monster — the raise moves it from
+##   "a shape you find with a light, or never" toward the top of the dark, where a player
+##   peering down the SE leg has a chance of catching the silhouette.
 const LEG_PILLAR := Vector3(22.0, 0.0, 12.0)   # SE caisson axis == LEGS[3]
 const LEVIATHAN_SCALE: float = 0.8      # 20% smaller: 16-19 m becomes 12.8-15.2 m
-const LEVIATHAN_Y: float = -76.0        # was -36.0
+const LEVIATHAN_Y: float = -61.0        # was -36.0, then -76.0; -76 + 15 (owner 2026-08-06)
 const LEVIATHAN_R: float = 12.0         # orbit radius about the pillar axis
 const LEVIATHAN_LAP_SEC: float = 58.0   # one full circuit, ~1.3 m/s: 0.09 body-lengths/s
 
@@ -651,9 +691,10 @@ func _deep_giants() -> void:
 	# THE LEVIATHAN. A rare colossal grouper — the biggest animal in the sea, a slow shape
 	# the size of the escape pod itself — patrolling the deep dark below the death line. It
 	# is NOT on every dive: seeing one is meant to be an event, so ~45% of playthroughs get
-	# one. Since 2026-07-27 it is 20% smaller, 40 m deeper (-76) and running a true circular
-	# patrol about the SE caisson's own axis rather than a drifting circuit — see LEG_PILLAR
-	# and the PillarPatrol class for the numbers and why each one is what it is.
+	# one. Since 2026-07-27 it is 20% smaller, much deeper (-76, raised to -61 on the owner's
+	# 2026-08-06 "raise the massive grouper 15M") and running a true circular patrol about
+	# the SE caisson's own axis rather than a drifting circuit — see LEG_PILLAR and the
+	# PillarPatrol class for the numbers and why each one is what it is.
 	#
 	# THE ROLL GETS ITS OWN RANDOM STREAM (2026-07-26). It used to be drawn from the shared
 	# _rng, which meant the biggest animal in the game was decided by however many draws
@@ -1020,7 +1061,7 @@ class PillarPatrol extends DeepGiant:
 	func _process(delta: float) -> void:
 		# DECIMATED (see DeepGiant). Bounded by construction — position is a function of the
 		# clock, the home and the radius — so a skipped frame plus its delta is arithmetically
-		# the same circuit. The leviathan patrols at -76 m; nothing about this is ever seen
+		# the same circuit. The leviathan patrols at -61 m; nothing about this is ever seen
 		# at a range where an 8 Hz update could read as anything.
 		_ai_acc += delta
 		if not AIB.due(self, _ai_acc):
@@ -1159,10 +1200,9 @@ func _spawn_schools() -> void:
 		var mat := StandardMaterial3D.new()
 		mat.albedo_color = tint
 		mat.roughness = 0.6
-		if id == "fish_herring":   # the lantern shoal glows, canon
-			mat.emission_enabled = true
-			mat.emission = Color(0.2, 0.9, 0.85)
-			mat.emission_energy_multiplier = 0.5
+		# The herring's "lantern shoal" emission is gone with the rest of the fish glow
+		# (owner, 2026-08-06: "remove any unnatural glow overlay, should be just raw graphic
+		# texture") — one species kept as a lamp would be the exact look the ask names.
 		# The band NAME is carried, not just its plane: pod 1's drop is a property of which
 		# band this is (see _pod_drop), so resolving it to a float here would throw away the
 		# thing the rule needs. An unknown value falls back to `mid`, the same way the plane
@@ -1175,8 +1215,8 @@ func _spawn_schools() -> void:
 		# fish, not about which patch of water this particular shoal is working.
 		var pods: int = _pods_for(band)
 		for pod in range(pods):
-			_spawn_pod(id, def, school, tint, mat, band_y - _pod_drop(band, pod, pods), pod,
-				_species_index, pods)
+			_spawn_pod(id, def, school, tint, mat, band_y - _pod_drop(band, pod, pods),
+				pod, _species_index, pods)
 
 ## THE CATCHABLE SHOALS WERE RENDERING AS BLACK SILHOUETTES, and it was light, not material.
 ##
@@ -1193,24 +1233,20 @@ func _spawn_schools() -> void:
 ## and the trop fish read at the same depth because they carry emission and these carried none:
 ## `glow_energy` defaults to 0 and the HERRING was the only species that ever called ANIM.drive.
 ##
-## So the fish get a little light of their own. Deliberately small, and deliberately two parts:
-## the fresnel rim draws the SILHOUETTE in the species' own tint (which is what makes a fish
-## identifiable against fog at spear range), while a touch of body glow lifts the flank enough to
-## read as a colour rather than a hole. It is on-theme rather than a cheat — this is an ocean the
-## Bloom has made faintly luminous, and the herring lantern shoal at 0.5 is the same idea louder.
+## s27's answer was to give the fish a little light of their own — a fresnel rim in the species'
+## tint plus a touch of body glow, swept to 0.75/0.38 on one build (tests/SpearShot.tscn).
 ##
-## Both sit well under main.gd's `glow_hdr_threshold` of 0.8, so nothing here reaches the glow
-## buffer: this is legibility, not bloom (see the emission note in docs/AGENT_TRAPS.md). The
-## brightest tint in the table (0.80, 0.40, 0.25) peaks at 0.60 on the rim and 0.27 on the
-## flank, so no species crosses it.
-##
-## SWEPT, not picked — three candidates re-exposed on ONE world build at spear range
-## (tests/SpearShot.tscn, the same trick ReefShot uses for the reef): 0.20/0.10 was still a
-## black cut-out, 0.45/0.22 found the flank colour but no edge, 0.75/0.38 draws the dorsal line
-## and the fins and reads as a fish while staying dark water. Judging these across separate
-## launches would have been three windowed runs in three thermal states.
-const POD_RIM_ENERGY: float = 0.75
-const POD_BODY_GLOW: float = 0.38
+## THAT LIFT IS REMOVED (owner, 2026-08-06: "remove any unnatural glow overlay, should be just
+## raw graphic texture, otherwise looks unnatural/weird"). The arithmetic above has not changed —
+## it is why the overlay existed — but the owner is right that a self-lit fish reads as a lamp,
+## and s34's fog rework moved the real ground: the grade now runs amb_near 1.05 down to a raised
+## amb_floor over the reef's own 24 m, so the s27 figures (ambient 0.088-0.223 at 0.5 energy by
+## 8 m) describe water that no longer exists. What visibility the fish still need comes from the
+## WATER's side — underwater_fx.amb_floor carries the compensation and the note — so the animal
+## is lit by the medium like everything else, never by itself. creature_swim's glow_energy and
+## body_glow both default to 0.0, so attach() alone now yields the raw imported texture; nothing
+## here writes either uniform any more, and a future session that wants the overlay back should
+## re-read the sweep note in the git history of this block first.
 
 ## One pod of one species: its own node, its own members, its own circuit. Pod 0 works the
 ## water immediately around the rig; pod 1 and up work the open water (POD_SPREAD).
@@ -1228,7 +1264,9 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 	# swimming on the UNDULATE body wave, each fish on its own phase so the school
 	# doesn't beat in lockstep. Missing asset -> the tinted primitive silhouette, so a
 	# fish still generating in the background never leaves a hole in the water.
-	var glow: Color = Color(0.2, 0.9, 0.85) if id == "fish_herring" else tint
+	# `tint` doubles as the rim COLOUR handed to attach() — inert since the no-glow call
+	# (glow_energy stays at its 0.0 default), kept so a startle flare could be re-tinted
+	# without re-plumbing if the owner ever asks for one.
 	var model_len: float = maxf(size, 0.3) * 0.7
 	var model_path: String = "res://assets/models/fauna/%s/%s.glb" % [id, id]
 	var members: Array = []
@@ -1239,6 +1277,7 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 	var speeds: Array = []
 	var heads: Array = []
 	var climbs: Array = []
+	var seats: Array = []
 	for i in range(int(school["count"])):
 		var f := Node3D.new()
 		root.add_child(f)
@@ -1251,19 +1290,15 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		var member_len: float = model_len * sv
 		var ph: float = _rng.randf() * TAU
 		var gen: Dictionary = ANIM.attach(f, model_path, member_len, ANIM.Mode.UNDULATE,
-			0.1, 2.2, glow, ph)
+			0.1, 2.2, tint, ph)
 		if gen.is_empty():
 			_build_fish(f, shape, size * sv, mat)   # no generated mesh yet — keep the silhouette
 		else:
 			for m in gen["mats"]:
 				(m as ShaderMaterial).set_shader_parameter("tint", tint)
-			if id == "fish_herring":
-				ANIM.drive(gen["mats"], 2.2, 0.5)   # the lantern shoal keeps its glow
-			else:
-				for m in gen["mats"]:
-					var sm := m as ShaderMaterial
-					sm.set_shader_parameter("glow_energy", POD_RIM_ENERGY)
-					sm.set_shader_parameter("body_glow", POD_BODY_GLOW)
+			# No glow_energy / body_glow writes and no herring special case — the s27 legibility
+			# lift and the lantern shoal's canon 0.5 both fell to the owner's 2026-08-06 no-glow
+			# call (see the block above _spawn_pod). attach() leaves both uniforms at 0.0.
 		# This fish's own distance budget, generated mesh or silhouette alike.
 		_budget_fish(f, clampf(member_len * FISH_RANGE_PER_M, FISH_RANGE_MIN, FISH_RANGE_MAX))
 		members.append(f)
@@ -1271,14 +1306,25 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		speeds.append(_rng.randf_range(0.78, 1.28))
 		heads.append(_rng.randf() * TAU)
 		climbs.append(0.0)
+		# A stable RADIUS seat in [0, 1): where in the ring's depth this fish lives, so the
+		# shoal is a volume rather than a shell (see the `rad` line in the swim loop).
+		# Scrambled off the phase the member ALREADY carries — golden ratio, not a fresh
+		# randf — so the RNG stream length is unchanged and the goliath size jitter
+		# downstream still lands where it always has (the leviathan-roll lesson).
+		seats.append(fposmod(ph * 0.618034, 1.0))
 	# How wide the pod itself is. It used to be a flat (0.8..1.3) * (1 + size/2), i.e. a
 	# ~1.4 m ball whether the shoal held two groupers or thirty-four sprats — which is why
 	# a big school read as a knot rather than a shoal. Scaling on sqrt(count) keeps the
-	# density roughly constant instead: more fish, more water.
-	var spread_r: float = (0.9 + size * 0.55) * sqrt(float(maxi(members.size(), 1))) * 0.42
-	# Where this pod works, and how fast round it — see POD_SPREAD_BY_WATER and _pod_spread.
+	# density roughly constant instead: more fish, more water. The tail factor was 0.42
+	# until the owner's 2026-08-06 "spread the fish spacing out a bit, there are huge
+	# schools tightly condensed": 0.62 is ~1.5x the water per shoal at the same population,
+	# and the per-member radius SEAT in the swim loop spends that room through the ring's
+	# depth instead of on a wider shell.
+	var spread_r: float = (0.9 + size * 0.55) * sqrt(float(maxi(members.size(), 1))) * 0.62
+	# Where this pod works, and how fast round it — see POD_SPREAD_BY_WATER, _pod_spread
+	# and _ring_scatter (the per-species ring, which is what fills the annulus).
 	var water: String = String(def.get("water", "any"))
-	var spread: Vector2 = _pod_spread(water, pod, pods)
+	var spread: Vector2 = _pod_spread(water, pod, pods) * _ring_scatter(water, species_i)
 	# A near pod holds a caisson; everything else wanders about the rig's centre line. The
 	# two pods of one near species take DIFFERENT legs (+1) so a species is not stacked
 	# twice on the same corner.
@@ -1288,7 +1334,7 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		"band_y": band_y, "size": size, "anchor": anchor,
 		"spread": spread, "radius": spread_r,
 		"rates": Vector2(POD_PATH_SPEED.x / spread.x, POD_PATH_SPEED.y / spread.y),
-		"ph": phases, "spd": speeds, "head": heads, "climb": climbs,
+		"ph": phases, "spd": speeds, "head": heads, "climb": climbs, "seat": seats,
 		"warm": false,
 		"t": _rng.randf_range(0, 100.0),
 		# Per-pod AI decimation state — see the block in _process. `acc` is the delta this pod
@@ -1589,6 +1635,7 @@ func _process(delta: float) -> void:
 		var mspd: Array = s["spd"]
 		var mhead: Array = s["head"]
 		var mclimb: Array = s["climb"]
+		var mseat: Array = s["seat"]
 		var r_base: float = s["radius"]
 		# Slow enough that the eased follow below can actually keep up with it: a target
 		# moving faster than FISH_EASE can track just drags the whole ring inward.
@@ -1630,7 +1677,17 @@ func _process(delta: float) -> void:
 			# reading as a carousel of clones.
 			var a: float = t * orbit * spd + float(i) * (TAU / maxi(n, 1)) \
 				+ sin(t * 0.23 * spd + ph) * 0.55
-			var rad: float = r_base * (0.72 + 0.34 * sin(t * 0.27 * spd + ph * 1.3))
+			# The mean radius is the member's own SEAT in the ring's depth, not the shoal's
+			# one shared 0.72 — every fish at the same mean radius was the other half of the
+			# fish-ball (owner 2026-08-06: "huge schools tightly condensed"): the members
+			# occupied a breathing SHELL, and a shell photographs as a knot from any angle.
+			# 0.50 + 0.44 * seat spans the same mean (0.72 at seat 0.5) so the school's
+			# centre of mass stays put; the ±0.22 octave still breathes each fish through
+			# its neighbours' lanes so the seats never read as train tracks. The seat is
+			# constant per member and the tunables stay OUTSIDE the sine — nothing here may
+			# multiply the clock (the s23 phase-teleport trap).
+			var rad: float = r_base * (0.50 + 0.44 * float(mseat[i])
+				+ 0.22 * sin(t * 0.27 * spd + ph * 1.3))
 			var bob: float = sin(t * 0.41 * spd + ph) * 0.34 + sin(t * 0.15 + ph * 2.1) * 0.26
 			var target: Vector3 = center + Vector3(cos(a) * rad, bob, sin(a) * rad * 0.72)
 			var cur: Vector3 = f.global_position
@@ -1653,7 +1710,7 @@ func _process(delta: float) -> void:
 			# concrete: 0.6 * 0.60 = 0.36 < 0.45. Blended from PONTOON_TOP so the ramp starts
 			# outside the slab and the fish is already low by the time it is underneath.
 			if needs_lid:
-				var lid_t: float = _pontoon_lid_t(next.x, next.z)
+				var lid_t: float = _pontoon_lid_t(next.x, next.z, s["size"] * 0.5)
 				if lid_t > 0.0:
 					next.y = minf(next.y,
 						lerpf(PONTOON_TOP, lid_y - 0.45 + bob * 0.6, lid_t))

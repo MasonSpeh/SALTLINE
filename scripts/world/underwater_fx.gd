@@ -118,7 +118,18 @@ var near_dens: float = 0.028
 ## itself only (0.10, 0.21, 0.23): there was very little light down there to be clear about.
 ## Clarity and illumination were swept together in the end (candidates d and e) and the
 ## reef band needs both.
-var amb_floor: float = 0.34
+##
+## RAISED AGAIN 2026-08-06, 0.34 -> 0.40, AS THE OTHER HALF OF THE FISH GLOW REMOVAL. The
+## owner ordered every fish's emissive overlay off ("just raw graphic texture"), which
+## re-opens s27's arithmetic in a milder form: an unlit fish in the reef band is now lit
+## ONLY by this grade, against coral that still self-lights at 1.35. Spending the
+## difference here rather than on the animals is the point — brighter WATER reads as a
+## clearer day; a brighter FISH reads as a lamp, which is the exact complaint. +18% at the
+## deep end of the graded band, nothing at the surface (amb_near untouched), and the abyss
+## ramp below still collapses to 0.03 — the dark under the reef stays dark. NOT swept: no
+## windowed runs were available this session, so this figure is the one lever left
+## deliberately arguable — FogShot --fog sweeps it on one build if the fish still sink.
+var amb_floor: float = 0.40
 ## The shallow end of the ambient curve, i.e. how lit the water is just under the surface.
 var amb_near: float = 1.05
 ## HOW FAR ALONG THE NEAR->DEEP COLOUR RAMP THE REEF FLOOR SITS.

@@ -476,9 +476,10 @@ func _ready() -> void:
 	# ORBIT CENTRES ARE THE LEG CENTRES, not points on their faces. (19, -12) was the SE
 	# caisson's west FACE and (22, 9) the NE leg's south face — so the old 1.2-3.2 m orbits
 	# swept through the concrete on every lap and swim_clear snapped the shoal at the steel
-	# twice a circuit. Centred on the legs themselves (SE 22,-12; NE 22,12) the widened
-	# 5.0-6.8 m rings circle the WHOLE pillar with water on every side, which is the
-	# "natural, wider, even circle around" the owner asked for.
+	# twice a circuit. Centred on the legs themselves (SE 22,-12; NE 22,12), s43's 5.0-6.8 m
+	# rings circled the whole pillar — and the owner still saw them hugging it ("circle
+	# wider around the poles", 2026-08-06), so the rings are now 8.0-11.5 m and sit BELOW
+	# the pontoon slab (see the class for both sets of numbers and what each buys).
 	add_child(ReefFish.new(Vector3(22.0, 0.0, -12.0)))
 	add_child(ReefFish.new(Vector3(22.0, 0.0, 12.0)))
 	# The Bloom growing ON the rig: creeper-wrapped pipes in the splash zone, kelp
@@ -3272,7 +3273,8 @@ class DeckGull extends Node3D:
 # -------------------------------------------------------------- ReefFish
 class ReefFish extends Node3D:
 	## A loose school of mutated reef fish at diving depth around a rig leg — colour
-	## variants of the one bait-fish mesh (tint + glow), each on its own wander orbit.
+	## variants of the one bait-fish mesh (albedo tint; the rim glow that used to ride
+	## with it fell to the owner's 2026-08-06 no-glow call), each on its own wander orbit.
 	## The reason to duck your head under and look.
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL_PATH := "res://assets/models/fauna/bait_fish/bait_fish.glb"
@@ -3299,15 +3301,37 @@ class ReefFish extends Node3D:
 				continue
 			for m in gen["mats"]:
 				(m as ShaderMaterial).set_shader_parameter("tint", VARIANTS[i % 3][0])
-			ANIM.drive(gen["mats"], 2.4, 0.5)
+			# Glow retired (owner, 2026-08-06: "remove any unnatural glow overlay, should be
+			# just raw graphic texture") — this drive carried 0.5 of rim energy, the loudest
+			# fish light in the game after the herring's. Rate-only now; the tint variants
+			# alone carry the mutation read.
+			ANIM.drive(gen["mats"], 2.4, 0.0)
 			# THE ORBIT GOES ROUND THE PILLAR, NOT INTO IT — the owner's "they go too close
 			# and snap around". The old seed drew radii of 1.2-3.2 m around a centre sitting
 			# ON a caisson FACE, so a large arc of every orbit was geometrically inside the
 			# concrete; swim_clear hard-stopped the fish at the steel and the next frame's
-			# wall-clock recompute snapped it back onto the ideal circle. The radius now
-			# clears the leg's own half-diagonal (a 6 x 6 leg reaches 4.24 m from centre —
-			# the CENTRES are moved onto leg centres at the spawn sites) plus real water,
-			# so the circle never intersects at all: 5.0-6.8 m, wide and even.
+			# wall-clock recompute snapped it back onto the ideal circle. s43 moved the
+			# CENTRES onto the leg centres and widened the rings to 5.0-6.8 m; the owner
+			# still saw the shoal hugging the steel ("The schools ... should circle wider
+			# around the poles", 2026-08-06), so the ring is now 8.0-11.5 m — clear of the
+			# leg's 4.24 m half-diagonal by 3.7+ m, clear of the kelp stand's 6.0 m
+			# holdfast ring, open water the whole lap.
+			#
+			# THE BAND DROPS WITH IT, -3.8..-5.6 (was -1.6..-4.2), because the top of the
+			# old band was inside the PONTOON: the slabs run y -3.05..0.95 over |z| 8..16
+			# and both spawn legs stand at z ±12, so every fish above -3.05 spent the
+			# inboard arc of its lap stopped against concrete — the safety ray "should
+			# never fire" claim below was wrong for half the shoal. -3.8 plus the +-0.3
+			# height sway in _process tops out at -3.5, which clears the slab's -3.05
+			# underside by more than the 0.35 clearance underwater_world grants its own
+			# schools — so "water on every side" is finally true of the whole band, at
+			# any radius.
+			#
+			# SPEED SCALES DOWN AS THE RADIUS SCALES UP, 0.10-0.19 rad/s against the old
+			# 0.16-0.30: angular rate times the new radius lands on the same 0.8-2.2 m/s
+			# swim the s43 ring had, so the wider circle reads as the same unhurried fish
+			# on a longer lap, not a speed-up. (Constant per fish, integrated below — the
+			# tunable never multiplies the clock inside a sine.)
 			#
 			# PHASE IS EVENLY DEALT, i * TAU/9 plus a small personal wander — the pelagic
 			# pods' own spacing idiom — so nine fish spread round the whole ring instead of
@@ -3316,8 +3340,8 @@ class ReefFish extends Node3D:
 			# is the wall-clock-inside-a-sine trap AGENT_TRAPS documents, and it is also
 			# WHY it snapped — an absolute clock cannot remember where the fish actually
 			# was after a collision stop.
-			_fish.append({"node": f, "r": randf_range(5.0, 6.8), "h": randf_range(-4.2, -1.6),
-				"spd": randf_range(0.16, 0.30) * (1.0 if i % 2 == 0 else -1.0),
+			_fish.append({"node": f, "r": randf_range(8.0, 11.5), "h": randf_range(-5.6, -3.8),
+				"spd": randf_range(0.10, 0.19) * (1.0 if i % 2 == 0 else -1.0),
 				"ph": randf_range(0.0, 0.5), "gone": 0.0,
 				"a": float(i) * TAU / 9.0})
 			# A swimming player can grab an individual fish out of the shoal.
@@ -3406,7 +3430,10 @@ class ReefFish extends Node3D:
 				if blend.length_squared() > 0.0001:
 					node.look_at(nxt + blend, Vector3.UP)
 		var player: Node3D = get_tree().get_first_node_in_group("player")
-		if player and player.get("swimming") and player.swimming 				and player.global_position.distance_to(_centre) < 8.0:
+		# 13 m, not the old 8: the discovery range is measured from the LEG the shoal
+		# orbits, and the 2026-08-06 ring runs 8.0-11.5 m out — at 8.0 a swimmer sharing
+		# water with the fish could no longer log them without touching the pillar.
+		if player and player.get("swimming") and player.swimming 				and player.global_position.distance_to(_centre) < 13.0:
 			Journal.discover("creature_fiddler_shoal")
 
 # ------------------------------------------------------------ FloraPatch

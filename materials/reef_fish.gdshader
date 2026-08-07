@@ -56,6 +56,9 @@ uniform float flow_flip = 0.0;    // 0: head at min end           1: head at max
 
 // --- how the fish reads through the water -------------------------------------------------
 // BODY: the albedo lit by itself. This is the one thing creature_swim does not have.
+// DRIVEN AT 0.0 since the owner's 2026-08-06 no-glow call (reef_fish.gd writes BODY_GLOW
+// onto every material it builds, so this default is only ever seen by a material nothing
+// wrote). The mechanism stays because the flare plumbing does; the light is off.
 uniform float body_glow : hint_range(0.0, 3.0) = 0.9;
 // RIM: the Bloom edge light, in the species' own signature colour. Kept because the flare on
 // a startled shoal is driven through it (reef_fish.gd pushes glow_energy up with `alarm`).

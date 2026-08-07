@@ -960,25 +960,30 @@ func _land_speared(id: String, point: Vector3) -> void:
 	rng.randomize()
 	Journal.discover(id)
 	AudioDirector.play_one_shot("splash", global_position, -8.0)
+	# The size rolls BEFORE the pack is tried, for the same reason the rod's does: a
+	# stowed fish's weight goes on the ledger, a spilled fish carries it into the world.
+	var kg: float = FishTable.roll_size(id, rng)
 	# A FULL PACK MUST NOT COST YOU THE FISH — same rule the rod follows. Underwater there is
 	# no deck to spill onto, so it goes into the world at the kill and can be swum back for.
 	var stowed: bool = PlayerState.add_item(id)
-	if not stowed:
-		SaveManager.drop_into_world(id, point, Vector3.ZERO)
+	if stowed:
+		if kg > 0.0:
+			FishTable.record_size(id, kg)
+	else:
+		SaveManager.drop_into_world(id, point, Vector3.ZERO, kg)
 	var spill: String = "" if stowed else "  Pack's full — it's in the water where you took it."
 	var data: Dictionary = PlayerState.items.get(id, {})
 	var fish_name: String = String(data.get("name", id))
-	var kg: float = FishTable.roll_size(id, rng)
 	if kg <= 0.0:
 		_spear_toast("Speared: %s%s" % [fish_name, spill])
 		return
-	FishTable.record_size(id, kg)
+	var big: String = ", a trophy" if FishTable.is_trophy_size(id, kg) else ""
 	var n: int = FishTable.fillets_for(id, kg)
 	if n <= 1:
-		_spear_toast("Speared: %s — %.1f kg%s" % [fish_name, kg, spill])
+		_spear_toast("Speared: %s — %.1f kg%s%s" % [fish_name, kg, big, spill])
 		return
-	_spear_toast("Speared: %s — %.1f kg. That'll fillet out %d times over.%s"
-		% [fish_name, kg, n, spill])
+	_spear_toast("Speared: %s — %.1f kg%s. That'll fillet out %d times over.%s"
+		% [fish_name, kg, big, n, spill])
 
 func _spear_toast(text: String) -> void:
 	var hud: Node = get_tree().get_first_node_in_group("hud")

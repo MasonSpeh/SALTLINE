@@ -111,11 +111,12 @@ func _run() -> void:
 		print("shot: %s   depth %.1f m   prompt: %s"
 			% [f, -fp.y, line if line != "" else "(none)"])
 		shots += 1
-		# LEGIBILITY SWEEP, off ONE world build. The shoals render near-black at depth because
-		# they carry no emission of their own (see underwater_world.POD_RIM_ENERGY); picking the
-		# lift by eye across separate launches would be three windowed runs and three different
-		# thermal/lighting states. Re-expose the SAME frame at each candidate instead — the same
-		# trick ReefShot uses for the reef's glow.
+		# LEGIBILITY SWEEP, off ONE world build. The shoals carry no emission of their own —
+		# s27's rim/body lift was removed on the owner's 2026-08-06 no-glow call (the story is
+		# on _spawn_pod), so this sweep is now the instrument for CANDIDATE lifts only, should
+		# one ever be argued for again; picking such a value by eye across separate launches
+		# would be three windowed runs and three different thermal/lighting states. Re-expose
+		# the SAME frame at each candidate instead — the same trick ReefShot uses for the reef.
 		if shots == 1:
 			for pair in [[0.20, 0.10], [0.45, 0.22], [0.75, 0.38]]:
 				for m in _pod_mats(root):

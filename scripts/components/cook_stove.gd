@@ -413,9 +413,17 @@ func _on_circuit_lost(id: String) -> void:
 	if id != CIRCUIT or not _cooking:
 		return
 	var raw: String = _cook_raw
+	# The weight came OFF the ledger when the fish went on the heat (take_yield, in
+	# interact). The fish is coming back, so its number has to come back with it —
+	# recorded again if it fits the pack, riding the Takeable if it spills — or an
+	# interrupted cook would quietly turn a weighed fish into an average one.
+	var kg: float = _cook_kg
 	_clear()
-	if not PlayerState.add_item(raw):
-		SaveManager.drop_into_world(raw, _cook_at, Vector3.ZERO)
+	if PlayerState.add_item(raw):
+		if kg > 0.0:
+			FISH.record_size(raw, kg)
+	else:
+		SaveManager.drop_into_world(raw, _cook_at, Vector3.ZERO, kg)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
 		hud.toast("The range dies mid-cook. You pull it back out raw.")

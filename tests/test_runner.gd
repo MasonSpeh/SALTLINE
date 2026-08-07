@@ -20,6 +20,21 @@ func _find_takeable(root: Node, id: String) -> Node:
 			return n
 	return null
 
+## Longest axis, in metres, of everything drawn under a dropped item — measured in the
+## node's own space so the toss tween cannot move the answer. Node transforms are plain
+## tree state, so this is honest under --headless (unlike MultiMesh instance reads).
+func _dropped_len(t: Node3D) -> float:
+	var box := AABB()
+	var found := false
+	for n in t.find_children("*", "MeshInstance3D", true, false):
+		var mi: MeshInstance3D = n
+		if mi.mesh == null:
+			continue
+		var b: AABB = (t.global_transform.affine_inverse() * mi.global_transform) * mi.mesh.get_aabb()
+		box = b if not found else box.merge(b)
+		found = true
+	return maxf(box.size.x, maxf(box.size.y, box.size.z)) if found else 0.0
+
 ## Find a node whose script path contains `frag` (new classes: cache-safe lookup).
 func _find_class(root: Node, frag: String) -> Node:
 	var stack: Array[Node] = [root]
@@ -1012,6 +1027,106 @@ func _run() -> void:
 	await get_tree().process_frame
 	_check(get_tree().get_nodes_in_group("built_structures").size() == 2,
 		"a second load does not duplicate the camp")
+
+	# --- a dropped sized fish IS the fish that was caught -----------------------------
+	# Owner: "When player drops fish like grouper or swordfish on the ground, they should
+	# render in real size to the listed size when caught." The landed weight is popped off
+	# FishTable's ledger at the drop, rides the Takeable (and the save), and the body is
+	# drawn at the length that weight implies; taking the fish back pushes the weight back
+	# on the ledger, so a round trip through the deck loses nothing.
+	for leftover in get_tree().get_nodes_in_group("dropped_item"):
+		leftover.free()
+	FishTable.restore_sizes({})   # clean ledger: nothing an earlier check landed
+	FishTable.record_size("fish_barrel_grouper", 41.5)
+	var fish_drop: Node3D = SaveManager.drop_into_world("fish_barrel_grouper",
+		Vector3(13.5, 18.0, -4.0))
+	await get_tree().process_frame
+	_check(fish_drop != null and absf(float(fish_drop.get("size_kg")) - 41.5) < 0.001,
+		"a dropped grouper takes its recorded 41.5 kg with it")
+	var want_m: float = ItemVisual.fish_instance_length_m("fish_barrel_grouper", 41.5)
+	var drawn_m: float = _dropped_len(fish_drop) if fish_drop != null else 0.0
+	_check(want_m > 1.5 and absf(drawn_m - want_m) < want_m * 0.06,
+		"the deck body is drawn at real length (drawn %.2f m, want %.2f m)" % [drawn_m, want_m])
+	# Variable sizing, up to the trophy band: seeded, so the numbers cannot flake.
+	var size_rng := RandomNumberGenerator.new()
+	size_rng.seed = 4242
+	var size_lo: float = 1.0e9
+	var size_hi: float = 0.0
+	var size_trophies: int = 0
+	for _i in range(600):
+		var roll_kg: float = FishTable.roll_size("fish_swordfish", size_rng)
+		size_lo = minf(size_lo, roll_kg)
+		size_hi = maxf(size_hi, roll_kg)
+		if FishTable.is_trophy_size("fish_swordfish", roll_kg):
+			size_trophies += 1
+	_check(size_lo >= 35.0 and size_hi <= 120.0,
+		"swordfish weights stay inside their 35-120 kg range (%.1f..%.1f)" % [size_lo, size_hi])
+	_check(size_hi - size_lo > 30.0,
+		"the sizing is genuinely variable (spread %.1f kg)" % (size_hi - size_lo))
+	# LOWER BOUND ABOVE THE NO-FEATURE BASELINE. `roll_size` skews with
+	# t = randf()*randf() BEFORE the explicit trophy draw, and
+	# P(U1*U2 >= 0.85) = 1 - 0.85*(1 - ln 0.85) = 0.0119 — about 7 of 600 land in the
+	# band from the ordinary roll alone. A bound of 3 therefore passed with
+	# TROPHY_CHANCE set to ZERO, i.e. with the feature deleted. Expected WITH it is
+	# ~25; 14 separates the two cleanly.
+	_check(size_trophies >= 14 and size_trophies <= 90,
+		"a few percent of rolls land in the trophy band (%d of 600)" % size_trophies)
+	# The weight survives the save both ways: on the dropped node, and in the pack ledger.
+	FishTable.record_size("fish_swordfish", 99.0)
+	SaveManager.save_game()
+	if fish_drop != null:
+		fish_drop.free()
+	FishTable.restore_sizes({})   # world and session both forget; the save must not
+	_check(SaveManager.load_game(), "save reloads with a sized fish on the deck")
+	await get_tree().process_frame
+	var back_fish: Node3D = null
+	for d in get_tree().get_nodes_in_group("dropped_item"):
+		if is_instance_valid(d) and String(d.get("item_id")) == "fish_barrel_grouper":
+			back_fish = d
+	_check(back_fish != null and absf(float(back_fish.get("size_kg")) - 41.5) < 0.001,
+		"the dropped grouper's 41.5 kg survives the reload")
+	# Both halves of the s35 layer contract: off the solid layer AND not on no layer —
+	# a big fish must be pickable without being an invisible wall at the dropper's feet.
+	_check(back_fish != null \
+		and int(back_fish.get("collision_layer")) == InteractionRay.INTERACT_LAYER,
+		"a sized dropped fish sits on the interact layer (pickable, not solid, not lost)")
+	var led_rng := RandomNumberGenerator.new()
+	led_rng.seed = 7
+	_check(absf(FishTable.take_size("fish_swordfish", led_rng) - 99.0) < 0.001,
+		"the pack ledger's 99 kg swordfish survives the reload")
+	# A save from BEFORE weights persisted: no "kg" on the entry, no ledger in the file.
+	# The fish comes back at the species' typical weight, deterministically.
+	SaveManager.restore_dropped([{"id": "fish_barrel_grouper", "pos": [14.5, 18.0, -4.0],
+		"basis": [1, 0, 0, 0, 1, 0, 0, 0, 1]}])
+	await get_tree().process_frame   # restore_dropped queue_frees the old drops — let them go
+	var old_fish: Node3D = null
+	for d in get_tree().get_nodes_in_group("dropped_item"):
+		if is_instance_valid(d) and String(d.get("item_id")) == "fish_barrel_grouper":
+			old_fish = d
+	_check(old_fish != null and absf(float(old_fish.get("size_kg")) \
+		- FishTable.median_size("fish_barrel_grouper")) < 0.001,
+		"an old save's dropped grouper defaults to the species' typical weight")
+	# Pickup symmetry — TAKE puts the weight back on the ledger. Only asserted when the
+	# pack genuinely has room, probed the same way the take will claim it.
+	# ASSERTED, NOT GUARDED. This whole block used to sit inside the `if`, so a full pack
+	# at this point in the run skipped the pickup-symmetry check with no output at all —
+	# the silently-skipped assertion AGENT_TRAPS names as how a real defect hides.
+	_check(old_fish != null, "the dropped grouper is still in the world to pick back up")
+	var took_back: bool = old_fish != null and PlayerState.add_item("fish_barrel_grouper")
+	_check(took_back, "...and there was pack room to take it")
+	if took_back:
+		PlayerState.remove_item("fish_barrel_grouper")
+		old_fish.call("interact", "TAKE", player)
+		var take_rng := RandomNumberGenerator.new()
+		take_rng.seed = 11
+		_check(absf(FishTable.take_size("fish_barrel_grouper", take_rng) \
+			- FishTable.median_size("fish_barrel_grouper")) < 0.001,
+			"picking the fish back up returns its weight to the ledger")
+		PlayerState.remove_item("fish_barrel_grouper")
+	# Leave nothing of this block behind: later sections save and reload too.
+	for leftover in get_tree().get_nodes_in_group("dropped_item"):
+		leftover.free()
+	FishTable.restore_sizes({})
 
 	# --- found lockers/cabinets are real, working, persistent containers ------------
 	# Bunkhouse "wardrobe" lockers and the Deck B cabin lockers used to be a bare

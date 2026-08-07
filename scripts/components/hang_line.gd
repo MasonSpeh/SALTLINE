@@ -122,17 +122,21 @@ func _hang() -> void:
 	# it is THIS fish on the hook, and the ledger should not hand its weight to another.
 	# It only becomes the number of items the hook gives back once the cure has actually
 	# happened (see _process): a big fish taken back off the line still raw is one fish.
-	_hung.append({"id": id, "age_h": 0.0, "visual": visual, "n": 1, "cure_n": _cure_yield(id)})
+	# The claimed kg rides the entry so a raw take can hand it back (see _take).
+	var cut: Dictionary = _claim_cut(id)
+	_hung.append({"id": id, "age_h": 0.0, "visual": visual, "n": 1,
+		"cure_n": maxi(int(cut["n"]), 1), "kg": float(cut["kg"])})
 	AudioDirector.play_one_shot("clang", global_position, -22.0)
 	Journal.discover("system_preserving")
 
-## Portions this hook will give back once it has cured. One for every ordinary fish; for a
-## big species, what that fish's landed weight fillets out into — the same cut the stove
-## would have made of it.
-func _cure_yield(id: String) -> int:
+## What this hook holds: the fish's landed weight and the portions it will give back once
+## it has cured. One portion (and no weight) for every ordinary fish; for a big species,
+## what that particular fish weighed and what that fillets out into — the same cut the
+## stove would have made of it.
+func _claim_cut(id: String) -> Dictionary:
 	if FISH.cooked_for(id) == "":
-		return 1   # already cooked / dried / rotten — one item in, one item out
-	return int(FISH.take_yield(id, _rng)["n"])
+		return {"kg": 0.0, "n": 1}   # already cooked / dried / rotten — one in, one out
+	return FISH.take_yield(id, _rng)
 
 func _take() -> void:
 	if _hung.is_empty():
@@ -141,6 +145,11 @@ func _take() -> void:
 	(entry["visual"] as Node3D).queue_free()
 	var id: String = String(entry["id"])
 	var want: int = maxi(int(entry.get("n", 1)), 1)
+	# A fish coming back off the hook STILL RAW brings its claimed weight with it — the
+	# mirror of _hang, same rule as the stove's dead-range path. Once it has cured (or
+	# turned) the weight has been spent into cure_n and the pieces carry nothing, which
+	# is also why the spill below passes kg explicitly: the ledger must not be asked.
+	var kg: float = float(entry.get("kg", 0.0)) if FISH.cooked_for(id) != "" else 0.0
 	# A cured grouper is a dozen pieces off one hook, so the pack can run out mid-handful.
 	# Anything that won't fit is set down under the line as a real, savable Takeable rather
 	# than lost — same rule as the stove.
@@ -149,9 +158,13 @@ func _take() -> void:
 	for _i in range(want):
 		if PlayerState.add_item(id):
 			got += 1
+			if kg > 0.0:
+				FISH.record_size(id, kg)
+				kg = 0.0   # one fish, one weight — a raw take is always a single item
 		else:
 			var toss := Vector3(_rng.randf_range(-0.4, 0.4), 0.0, _rng.randf_range(-0.4, 0.4))
-			SaveManager.drop_into_world(id, global_position + Vector3(0, -0.9, 0), toss)
+			SaveManager.drop_into_world(id, global_position + Vector3(0, -0.9, 0), toss, kg)
+			kg = 0.0
 			floored += 1
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:

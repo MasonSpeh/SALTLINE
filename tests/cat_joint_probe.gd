@@ -306,10 +306,14 @@ func _scn_head_bias() -> void:
 	# straight; this gate exists only to catch future drift away from it.
 	# RE-ANCHORED WITH HEAD_MESH_YAW, AND THE TWO MOVE TOGETHER OR THIS GATE LIES: the
 	# proxy is calibrated to the film-verified drawn head, so any change of Δ to cat_rig's
-	# rest bake shifts this by exactly -Δ (s44: bake 1.30 -> 0.597, proxy -1.222 ->
-	# -0.519; the stale value read a film-straight head as 40.28 deg — precisely the
-	# 0.703 rad delta, which is also the proof the relation holds).
-	const NOSE_OFF_Y: float = -0.519
+	# rest bake shifts this by exactly -Δ. (s44 proved the relation numerically — a 0.703
+	# rad bake change read as exactly 40.28 deg here — and then abused it to certify a
+	# regression: the constant this gate guards was re-anchored to a WRONG bake and the
+	# gate dutifully printed 0.000 for a face 35 degrees off on film. s46: the bake is SOLVED off the
+	# mesh now (-0.3325, tests/nose_scratch.gd), so this proxy is 0.4105 by the same
+	# relation (proxy = 0.078 - bake). Re-derive it whenever that solve moves. This gate catches DRIFT from the
+	# film-verified state; it cannot bless the state itself — only the head-on reel can.)
+	const NOSE_OFF_Y: float = 0.4105
 	var yaws: Array[float] = []
 	var pos_prev: Vector3 = _cat.global_position
 	for f in range(int(5.0 / DT)):

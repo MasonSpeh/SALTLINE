@@ -110,6 +110,28 @@ static func fish_max_kg(item_id: String) -> float:
 	var kg: Array = FishTable.all().get(FISH_MODEL.species_of(item_id), {}).get("size_kg", [])
 	return float(kg[1]) if kg.size() >= 2 else 0.0
 
+## Body length in metres of ONE PARTICULAR FISH — the length its landed weight implies,
+## not the species ceiling fish_length_m() reports. Same isometric relation as KG_TO_M
+## (mass grows with the cube of length), anchored at the species' own documented length
+## rather than at the global constant: a fish at its heaviest IS fish_length_m() long,
+## and everything lighter shrinks by the cube root of the weight ratio. That keeps the
+## authored lengths in charge — a 95 kg sturgeon is the full 3.5 m the FISH_SIZE note
+## argues for, where the raw KG_TO_M law would under-read it at 2.4.
+##
+## 0.0 for anything that is not a raw fish with a size_kg range (cooked ids included —
+## a fillet borrowing the whole species mesh must not borrow the whole species LENGTH),
+## so callers can fall back to the fixed species-scale draw with a plain `> 0.0` test.
+static func fish_instance_length_m(item_id: String, kg: float) -> float:
+	if kg <= 0.0 or item_id.begins_with("cooked_") or not is_species_fish(item_id):
+		return 0.0
+	var top: float = fish_max_kg(item_id)
+	if top <= 0.0:
+		return 0.0
+	# The floor keeps a degenerate weight (a hand-written save, a future 0-min range)
+	# from rendering a fish as a crumb: nothing draws under ~37% of the species length.
+	var t: float = clampf(kg / top, 0.05, 1.0)
+	return fish_length_m(item_id) * pow(t, 1.0 / 3.0)
+
 ## ---------------------------------------------------------------- HOW BIG IT IS IN HAND
 ## Owner, 2026-07-31: "when i hold the barrel grouper it is tiny — it should look massive,
 ## like the inventory picture."
@@ -168,7 +190,13 @@ static func longest_fish_m() -> float:
 ## geometry and are built out of the same vocabulary every player-built thing uses.
 const SL := preload("res://scripts/world/structure_lib.gd")
 
-static func build(item_id: String) -> Node3D:
+## `kg` is the one particular fish's landed weight, and 0.0 (every existing caller) means
+## "no particular fish": icons, hand visuals and generic drops keep the fixed species
+## scale they have always had. A dropped SIZED fish passes its recorded weight through
+## here (save_manager._make_drop) and the body is drawn at the real length that weight
+## implies — a 46 kg grouper on the deck is the 1.9 m animal the catch line listed, not
+## the 0.76 m keepsake every grouper used to shrink to on the floor.
+static func build(item_id: String, kg: float = 0.0) -> Node3D:
 	var root := Node3D.new()
 	# Fish family — raw fish AND per-species cooked meals ("cooked_fish_herring").
 	# Try the real generated species mesh first (a caught fish reads as that fish),
@@ -177,7 +205,15 @@ static func build(item_id: String) -> Node3D:
 		var cooked: bool = item_id.begins_with("cooked_")
 		var species: String = FISH_MODEL.species_of(item_id)
 		var size_mul: float = FISH_SIZE.get(species, 1.0)
-		var model: Node3D = FISH_MODEL.build(species, cooked, 0.42 * size_mul)
+		# Real length wins when a weight rode in with the item; the fixed 0.42-of-a-metre
+		# ladder stands for everything else. The procedural fallback keeps the same
+		# contract by converting the target back into its own multiplier.
+		var target_m: float = 0.42 * size_mul
+		var real_m: float = fish_instance_length_m(item_id, kg)
+		if real_m > 0.0:
+			target_m = real_m
+			size_mul = target_m / 0.42
+		var model: Node3D = FISH_MODEL.build(species, cooked, target_m)
 		if model != null:
 			# Real fish meshes are authored nose-along-+Z (Meshy is viewer-facing) and
 			# creature_anim.load_model() does NOT apply the swim-facing yaw that live
