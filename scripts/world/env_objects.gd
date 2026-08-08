@@ -116,11 +116,11 @@ class FireBarrel extends Node3D:
 	##
 	## What it is now: a real 55-gallon drum, open-topped, burning inside.
 	##   * 0.29 m radius, 0.88 m tall — the actual dimensions of a 208 L steel drum;
-	##   * OPEN and DOUBLE-WALLED: an outer skin, a sooted inner skin 12 mm inside it, a
-	##     rolled chime closing the edge between them, and a charred floor disc set down
-	##     inside — so looking in from above you see into the barrel rather than at a lid,
-	##     and no surface anywhere on the drum can be reached by the eye from its own back
-	##     (which is the whole of what "you can see right through it" was);
+	##   * OPEN and DOUBLE-WALLED: an outer skin wound OUTWARD, a sooted inner skin 12 mm
+	##     inside it wound INWARD, a rolled chime closing the edge between them, and a
+	##     charred floor disc set down inside — so looking in from above you see into the
+	##     barrel rather than at a lid, and every surface the eye can reach is one it meets
+	##     from the FRONT (which is the whole of what "you can see right through it" was);
 	##   * two rolling hoops, the ribs a real drum is pressed with, which are most of what
 	##     makes a bare cylinder read as a barrel at a glance;
 	##   * six punched draught holes round the base — the thing that makes a burn barrel a
@@ -152,35 +152,46 @@ class FireBarrel extends Node3D:
 
 	func _ready() -> void:
 		var steel: Material = MatLib.dark_metal()
-		# WHY THE DRUM IS BUILT WITH REAL WALL THICKNESS.
+		# WHY THE INNER SKIN IS TURNED INSIDE OUT IN THE MESH DATA, AND NOT BY A CULL MODE.
 		#
-		# A single-sided surface seen from behind does not render dark — it renders ABSENT,
-		# and whatever the frame already holds behind it survives. An open-topped tube hands
-		# the eye exactly that view: look down into it and you are looking at the FAR wall
-		# from the inside. tests/out/barrel/barrel_05_into.png is that failure photographed
-		# from 1.5 m out at 1.45 m up — through the drum's mouth you can read the deck's
-		# diamond plate and the foot of a barrel standing behind it, with no far rim edge
-		# drawn at all, so the drum's silhouette simply stops at the NEAR rim arc. The
-		# owner's words, twice: "can see back side of barrel, can see right through".
+		# THE FAILURE, MEASURED OFF THE ONE FRAME THAT EXISTS. In the 1152x648
+		# tests/out/barrel/barrel_05_into.png (night, eye 1.5 m out and 0.57 m above the rim)
+		# the topmost drawn pixel of the drum sits at y 308 at x 505, y 323 at x 575 and y 308
+		# at x 645: a 15 px SAG toward the middle. A rim ellipse seen from above sags that way
+		# on its NEAR half only; the far half arches the other way. So the drum's silhouette
+		# STOPS AT THE NEAR RIM, and everything the mouth should hold is background — at
+		# x 610-655 the pixels above the arc are the deck's diamond plate, and at x 560-590
+		# they are the foot of an oil drum standing BEHIND this one. Not a dark far wall: no
+		# far wall. The owner, three times: "can see right through".
 		#
-		# What that picture rules out, and this matters because the near skin and the far
-		# wall fail differently: the near skin, its hoops, its draught holes and its scorch
-		# band all render correctly IN THAT SAME FRAME, so nothing is wrong with the shell's
-		# winding, its cull mode, or the mesh's side surface. And a z-fight between two
-		# drawn surfaces shows the LOSER's steel, never the deck well beyond both — and the
-		# depth buffer here resolves about 1.2e-6 * d^2 metres (near plane 0.05), i.e. 3
-		# microns at the 1.5 m that frame was shot from and finer still at the closer range
-		# the owner reports, so the 2 mm shell-to-liner spacing it had at the rim was never
-		# in contention: close range is the PRECISE end of a depth buffer, not the ragged one.
-		# Only "no surface was drawn here" produces background, and the one surface that was
-		# meant to fill the far wall was a liner with cull_mode CULL_FRONT — the sole
-		# CULL_FRONT material in this project, with no other instance to compare against.
+		# WHAT THE SAME FRAME RULES OUT. The shell, the scorch band, both hoops and the six
+		# draught holes all render correctly in it, and every one of them is the same kind of
+		# thing the inner skin is — a plain MeshInstance3D child of this node carrying a
+		# PrimitiveMesh with a material set on it, built in the same _ready, in the same frame.
+		# Nothing about the node type, the parent, the build order, the radius or the material
+		# assignment separates the one that fails from the four that work. Exactly one thing
+		# does: the four are met by the eye from their FRONT and the inner skin is met from its
+		# BACK. Nor is this a depth fight — a z-fight shows the LOSER's steel, never the deck
+		# two metres past both, and at 1.5 m this buffer resolves ~3 microns (1.2e-6 * d^2,
+		# near plane 0.05) against a 12 mm wall spacing.
 		#
-		# So the drum is built the way a drum is, and nothing depends on being seen from one
-		# side only: an outer skin at R, a sooted inner skin 12 mm inside it that is
-		# DOUBLE-SIDED, a rolled chime closing the annulus between them at the rim, and an
-		# ash floor wide enough to seal the bottom. Every remaining edge is buried inside
-		# another solid, so there is no aperture into the wall cavity from any angle.
+		# AND THE CULL MODE IS NOT THE LEVER, because it has been changed twice with no change
+		# in the picture: CULL_FRONT through s42 and s46 (the frame above), then CULL_DISABLED
+		# in s48 — whose answer from the owner was that the rim is fixed and "the back side
+		# panel actual barrel portion is missing still". Two different values, one result. A
+		# variable you have moved twice for no effect is not the variable.
+		#
+		# SO THE SURFACE IS TURNED ROUND IN THE DATA INSTEAD. CylinderMesh winds its side
+		# OUTWARD (which the shell proves every frame: it is visible from outside under the
+		# default cull), so reversing every triangle and negating every normal turns the same
+		# tube into a genuinely INWARD-facing wall whose front faces point at the drum's axis.
+		# It then draws under the ordinary CULL_BACK that the shell, the hoops, the chime and
+		# the holes are already the proof of. What is left is a real annulus — outer skin
+		# facing out, inner skin facing in, the chime closing the 12 mm slot between them at
+		# the rim, the ash floor closing it at the bottom — with no surface anywhere on the
+		# drum asked to be seen from behind. CULL_DISABLED stays on the sooted material as a
+		# belt and is NOT expected to be what does the work; to find out which of the two did,
+		# put that material back to the default cull mode and re-shoot.
 		#
 		# THE SHELL. An open cylinder has no cap to stand on and lets the eye into the
 		# barrel. CylinderMesh's cap flags are exactly the right tool.
@@ -194,37 +205,33 @@ class FireBarrel extends Node3D:
 		shell.mesh = cm
 		add_child(shell)
 		shell.position.y = H * 0.5
-		# THE SOOTED INNER SKIN — the surface you actually see when you look into the drum,
-		# and the one the fire lights. DOUBLE-SIDED, not inward-facing: CULL_DISABLED is the
-		# mode this project has nine working instances of, and a double-sided wall cannot be
-		# looked at from its back by definition, from any angle, ever. Its outer face is
-		# hidden 12 mm inside an opaque shell — far enough that the two never contend for
-		# depth (12 mm resolves out to 100 m, where the whole drum is ten pixels tall), and
-		# straight enough that the wall reads the same thickness at the rim as at the floor.
+		# THE SOOTED INNER SKIN — the far wall the owner has reported missing three times, and
+		# the one the fire lights. Same tube it always was (R - WALL, full height, no caps),
+		# rebuilt INWARD-WOUND by _inward below so the face that points at the axis is a FRONT
+		# face. Its back is now the one buried 12 mm inside an opaque shell, which is the right
+		# way round: 12 mm only fails to resolve in depth past 100 m, where the whole drum is
+		# ten pixels tall. No bottom cap — it would sit in the same y=0 plane as the shell's,
+		# and two coplanar discs speckle; the ash floor below is what closes the drum.
 		var sooted := StandardMaterial3D.new()
 		sooted.albedo_color = Color(0.07, 0.06, 0.055)
 		sooted.roughness = 1.0
-		sooted.cull_mode = BaseMaterial3D.CULL_DISABLED
+		sooted.cull_mode = BaseMaterial3D.CULL_DISABLED   # the belt, not the fix — see above
 		var liner := MeshInstance3D.new()
 		var lm := CylinderMesh.new()
 		lm.top_radius = R - WALL
 		lm.bottom_radius = R - WALL
 		lm.height = H
 		lm.cap_top = false
-		# No bottom cap: it would sit in the same y=0 plane as the shell's, and two coplanar
-		# double-sided discs speckle. The ash floor below is what closes the drum.
 		lm.cap_bottom = false
-		lm.material = sooted
-		liner.mesh = lm
+		liner.mesh = _inward(lm, sooted)
 		add_child(liner)
 		liner.position.y = H * 0.5
 		# ...and it must NOT cast shadows — the rule for every surface inside this drum, since
-		# the only light they can occlude is the drum's own fire. cast_shadow ON respects the
-		# material's cull mode, and a wall that keeps both faces keeps exactly the ones that
-		# face a light INSIDE the drum, so the liner wrote shadow depth on every radial ray
-		# while the outward-wound shell was culled into writing none (double-sided is the
-		# stronger case of the CULL_FRONT this was first built with, so the arithmetic below
-		# is if anything more true now). Net: the fire lit the drum's interior and nothing else.
+		# the only light they can occlude is the drum's own fire. cast_shadow respects the
+		# material's cull mode, and a skin facing the axis keeps exactly the faces that look
+		# back at a light INSIDE the drum, so with shadows on it wrote shadow depth on every
+		# radial ray while the outward-wound shell was culled into writing none. Net: the fire
+		# lit the drum's interior and nothing else.
 		# Every ray below the rim was blocked, and the grazing ray OVER the rim (light at
 		# y 1.00, rim 0.29 out at 0.88) first touches deck at 0.29 * 1.00 / 0.12 = 2.42 m —
 		# a barrel standing pure black in a 2.4 m unlit moat of its own firelight, which is
@@ -393,6 +400,41 @@ class FireBarrel extends Node3D:
 		heat.setup(Vector3(5, 3, 5))
 		add_child(heat)
 		heat.position.y = 1.2
+
+	## The same primitive, wound the other way: every triangle reversed and every normal
+	## negated, so a surface Godot generates facing OUT comes back facing IN. This is the one
+	## operation in the class that decides whether the drum has a back wall, and it is done in
+	## the vertex data rather than with a material flag for the reason argued in _ready — the
+	## flag has been given two different values across three sessions and the picture never
+	## moved, while a front face under the default cull mode is the thing every other mesh on
+	## this drum is already proof of.
+	##
+	## The tangent's handedness flips with the winding (the w term), which costs nothing here
+	## because the sooted material carries no normal map, but leaving it wrong would be a trap
+	## for whoever gives this wall a texture. 512 triangles on a 64-segment tube: this runs
+	## once, at build.
+	static func _inward(src: PrimitiveMesh, mat: Material) -> ArrayMesh:
+		var arr: Array = src.get_mesh_arrays()
+		var idx: PackedInt32Array = arr[Mesh.ARRAY_INDEX]
+		for i in range(0, idx.size(), 3):
+			var keep: int = idx[i]
+			idx[i] = idx[i + 2]
+			idx[i + 2] = keep
+		arr[Mesh.ARRAY_INDEX] = idx
+		var nrm: PackedVector3Array = arr[Mesh.ARRAY_NORMAL]
+		for i in range(nrm.size()):
+			nrm[i] = -nrm[i]
+		arr[Mesh.ARRAY_NORMAL] = nrm
+		var raw_tangents: Variant = arr[Mesh.ARRAY_TANGENT]
+		if raw_tangents != null:
+			var tf: PackedFloat32Array = raw_tangents
+			for i in range(3, tf.size(), 4):
+				tf[i] = -tf[i]
+			arr[Mesh.ARRAY_TANGENT] = tf
+		var out := ArrayMesh.new()
+		out.add_surface_from_arrays(Mesh.PRIMITIVE_TRIANGLES, arr)
+		out.surface_set_material(0, mat)
+		return out
 
 	## The drum, plus the cone that makes the opening unstandable.
 	func _build_collision() -> void:

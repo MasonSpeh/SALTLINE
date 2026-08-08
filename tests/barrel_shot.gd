@@ -54,22 +54,37 @@ func _ready() -> void:
 	for i in range(30):
 		await get_tree().physics_frame
 	# Four sides at eye height, then two looking down into the drum.
-	for i in range(6):
+	# EIGHT POSES: four at eye height, two looking in, and two STEEP. The steep pair is the
+	# one that matters and it did not exist for the first two attempts at this bug — at
+	# 1.5 m out and 0.57 m above the rim the drum's mouth is a ~15 px sliver, so the failure
+	# was IN the archived frames and too small to be read. At 0.9 m out and 1.93 m up the
+	# elevation is 49 deg: the mouth reads near-circular, the ray over the near rim reaches
+	# past the ash floor, and the ENTIRE far wall plus the floor and coals are in one frame.
+	for i in range(8):
 		var a: float = TAU * float(i) / 4.0
-		var high: bool = i >= 4
-		var r: float = 2.6 if not high else 1.5
-		var eye: Vector3 = BARREL + Vector3(cos(a) * r, 1.45 if high else 0.55, sin(a) * r)
+		var high: bool = i >= 4 and i < 6
+		var steep: bool = i >= 6
+		var r: float = 2.6
+		var eye_y: float = 0.55
+		if high:
+			r = 1.5
+			eye_y = 1.45
+		elif steep:
+			r = 0.9
+			eye_y = 1.93
+		var eye: Vector3 = BARREL + Vector3(cos(a) * r, eye_y, sin(a) * r)
 		for f in range(12):
 			_pin()
 			_cam.global_position = eye
-			_cam.look_at(BARREL + Vector3(0, 0.55 if not high else 0.75, 0), Vector3.UP)
+			_cam.look_at(BARREL + Vector3(0, 0.15 if steep else (0.75 if high else 0.55), 0), Vector3.UP)
 			await get_tree().process_frame
 		await RenderingServer.frame_post_draw
 		var tex: Texture2D = get_viewport().get_texture()
 		var img: Image = tex.get_image() if tex != null else null
 		if img != null:
 			img.resize(SHOT_PX.x, SHOT_PX.y)
-			img.save_png("%s/barrel_%02d_%s.png" % [_dir, _shot, "into" if high else "side"])
+			img.save_png("%s/barrel_%02d_%s.png" % [_dir, _shot,
+				"steep" if steep else ("into" if high else "side")])
 		_shot += 1
 		print("[barrel] shot %d from %s" % [_shot, str(eye.snappedf(0.1))])
 	print("[barrel] done -> %s (%d shots)" % [_dir, _shot])

@@ -3043,17 +3043,50 @@ class DeckGull extends Node3D:
 	var _closest: float = 1e9     ## closest the player has crept this landing (threat roll)
 	var _look_cd: float = 0.0     ## idle head-turn clock
 	var _look_yaw: float = 0.0
-	## LEGS: there are none, and that is deliberate (2026-07-28).
-	## The old mesh was a dark long-legged wader whose model sank a quarter-metre into the
+	## LEGS: PAINTED INTO THE MESH — THE CEILING, AND WHY THEY DO NOT TUCK IN FLIGHT.
+	##
+	## A real gull trails its legs straight back under the tail the moment it is up and drops
+	## them again to land ("seagull legs should tuck when flying"). This bird cannot: there is
+	## no leg to pose. Measured off the asset, not assumed —
+	## assets/models/fauna/herring_gull/herring_gull.glb is ONE node holding ONE mesh with ONE
+	## primitive: 250,356 vertices and 453,620 triangles carrying POSITION, NORMAL and
+	## TEXCOORD_0 and nothing else. No skin, no joints, no animation clips, no morph targets.
+	## The legs and the webbed feet are simply the bottom quarter of that single welded
+	## surface — 36,993 verts below 0.25 of local height, of which 23,951 are in the bottom
+	## 5%: the feet, splayed across the full 0.374 body width. At SIZE_M that is 0.099 m of
+	## undercarriage and a 0.157 m span of foot hanging under a 0.396 m bird, which is why it
+	## reads at the flush.
+	##
+	## THREE WAYS TO FAKE IT AND WHY NONE OF THEM IS TAKEN:
+	##   * hide the legs, fly an overlay pair (the GullWings idiom above) — needs the legs to
+	##     be their own MeshInstance3D. They are not. Hiding them hides the whole bird.
+	##   * bend them in the vertex program — with no weights, the only selector available is a
+	##     BOX in local space. The waist is at least in the right place (13,042 verts spread
+	##     over the whole 0.05-0.25 height band against 24,782 in the 0.25-0.28 band alone —
+	##     the shanks are thin and the belly above them is dense), but the surface is
+	##     continuous across it: an unfeathered rotation TEARS the bird at the hip and a
+	##     feathered one drags the lower belly round with the legs. It also cannot be written
+	##     from this file — the vertex program lives in creature_anim.gd and would need a new
+	##     uniform. This is the cat's "deforming face without face geometry" case
+	##     (docs/CAT_RIG_CEILING.md §2): worse than leaving it still.
+	##   * a box on height alone is not even the right box. 1,617 of those sub-quarter verts
+	##     are the TAIL TIP, at local z +0.2..+0.5, the other end of the animal.
+	##
+	## RE-ROLL ASK, if this is ever worth an asset pass: a RIGGED gull — hip / tibiotarsus /
+	## tarsometatarsus / toe per side, weights stopping at the belly line — and wing bones in
+	## the same pass. Wings would retire GullWings entirely (those overlay panels exist for
+	## exactly this reason: the mesh is authored wings-FOLDED and cannot open them), so one
+	## rigged asset closes both holes. Nothing procedural closes either.
+	##
+	## The history, kept because it is why this class calls ANIM.attach and not ANIM.replace:
+	## the old mesh was a dark long-legged wader whose model sank a quarter-metre into the
 	## plating, so two procedural pivot-and-shin legs were built here to be the feet the
-	## player actually saw — which is why this class uses ANIM.attach rather than .replace
-	## (attach does not hide pre-existing geometry). The herring gull that replaced it
-	## brings its own pink legs and webbed feet, modelled and textured. Keeping the
-	## procedural pair would put FOUR legs under one bird — and the built ones are glowing
-	## amber cylinders that would look nothing like the mesh's. They are gone; the gait
-	## now lives in the body (see the strut below), which costs a stiffer stride and buys
-	## a bird that reads as a real animal from two metres away. attach() is still the right
-	## call: .replace would hide nothing here now, but attach is what this class means.
+	## player actually saw (attach does not hide pre-existing geometry; replace does). The
+	## herring gull brings its own pink legs and webbed feet, so keeping the procedural pair
+	## would have put FOUR legs under one bird — and the built ones were glowing amber
+	## cylinders that looked nothing like the mesh's. They are gone; the gait lives in the
+	## body (see the strut below), which costs a stiffer stride and buys a bird that reads as
+	## a real animal from two metres away.
 	var _lift: float = 0.0   ## metres the model was raised to stand its feet on the deck
 	var _snapped: bool = false   ## has the deck under this landing been probed yet?
 
@@ -4606,8 +4639,10 @@ class AnchorLimpet extends Node3D:
 class CorvidGull extends Node3D:
 	const ANIM := preload("res://scripts/world/creature_anim.gd")
 	const MODEL_PATH := "res://assets/models/fauna/herring_gull/herring_gull.glb"
-	## Same bird as the deck gulls (DeckGull.SIZE_M) — the thief on the bunkhouse rail is
-	## the same species standing on a different surface, so it is the same size.
+	## Same bird as the deck gulls (DeckGull.SIZE_M) — the thief on the bunkhouse rail is the
+	## same species standing on a different surface, so it is the same size, and it inherits
+	## the same asset ceiling: its legs are painted into the one unrigged surface and cannot
+	## tuck when it flies (DeckGull's LEGS note carries the measurements and the re-roll ask).
 	const SIZE_M := 0.42
 	const GLOW := Color(0.30, 0.85, 0.80)
 	var _gen_mats: Array = []
