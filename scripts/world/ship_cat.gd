@@ -145,8 +145,26 @@ const PLAY_SEC: float = 6.0
 ## dropped in the doorway. The Y is PROBED at spawn, never trusted from this constant.
 const HOME := Vector3(-24.6, 18.0, 11.4)
 
-const WALK_SPEED: float = 1.55
-const TROT_SPEED: float = 2.6        ## when it has fallen behind, or there is fish
+## THE LEGS LOOKED QUICK BECAUSE THEY WERE, AND THE CAUSE IS ARITHMETIC, NOT ANIMATION.
+##
+## Cadence is not a free parameter: stride = `_sweep_cap / duty`, and this rig's shortest leg
+## caps the sweep at 0.180 m, so a walking stride is 0.327 m and nothing in the cycle tables
+## can change that. At the old WALK_SPEED of 1.55 m/s the animal therefore had to take
+## 1.55 / 0.327 = 4.7 STRIDES A SECOND. A real cat of this size walks at about two. Every
+## attempt to make the walk read slower — retuning the tables, widening the sweep, easing the
+## turn — was fighting a cadence set by a speed constant nobody had questioned; 1.55 m/s is a
+## brisk TROT for a 0.66 m animal, being drawn with a walk cycle.
+##
+## 0.95 m/s puts it at 2.9 strides/s, which is a walk. It also makes the gait bands mean what
+## they say for the first time: WALK_V is 1.8, so at 1.55 the "walk" was already 0.86 of the
+## way into the walk->trot blend and carrying trot footfall timing. Now it sits at pure walk.
+##
+## The cat is genuinely slower on its feet than the player, which is correct and is what
+## TROT_SPEED and RUN_SPEED are for — it ambles when it is beside you and trots or runs when
+## it has ground to make up. That is the animal; a companion that matches your pace at all
+## times is a camera on a stick.
+const WALK_SPEED: float = 0.95
+const TROT_SPEED: float = 1.9        ## when it has fallen behind, or there is fish
 const FOLLOW_NEAR: float = 2.2       ## closer than this and it stops walking
 const FOLLOW_FAR: float = 14.0       ## further than this and it trots
 ## (LOST_M is gone: no distance gives up the follow — see the note above the follow

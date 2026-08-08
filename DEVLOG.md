@@ -2126,3 +2126,39 @@ which behaviour it is judging. Three consecutive clean runs.
 
 Joint probe: walk head speed 6.7 deg/s, sit 133, run 78, scapula unsaturated, all gates green.
 TestRunner 0, CatProbe 0 x3, CatHuntProbe 0, CatJointProbe 0.
+
+## s51 — the walk's cadence was arithmetic, not animation
+
+The owner asked for legs that "carry the cat further with little bounces instead of quick
+legs", and every previous attempt at that had been a tuning pass on the cycle tables. It
+could never have worked. Cadence is not a free parameter here:
+
+    stride = _sweep_cap / duty = 0.180 / 0.55 = 0.327 m
+    cadence = WALK_SPEED / stride = 1.55 / 0.327 = 4.74 strides per SECOND
+
+A cat this size walks at about two. The legs looked quick because the animal was being
+carried at TROT speed on a walk cycle, and nothing in the tables could have slowed it — the
+sweep is capped by the shortest chain (s49 proved widening it past 0.94*c0 breaks foot-lock
+at 14.7 mm/frame) and duty is what makes a walk a walk. WALK_SPEED 1.55 -> 0.95 puts it at
+2.90 strides/s. It also fixes a quieter thing: WALK_V is 1.8, so at 1.55 the "walk" was
+already 86% of the way into the walk->trot blend and wearing trot footfall offsets. It is
+pure walk now. TROT_SPEED 2.6 -> 1.9 keeps the bands ordered.
+
+With time to see the step, three things that were previously illegible were raised:
+  * PAWS BEND BACK (owner's ask). The paw column drove the carpus FORWARD (+0.18) at
+    toe-off — a paw lifted flat, like a table leg. It goes negative there now (fore -0.20,
+    hind -0.13): the wrist extends and the paw trails as the foot peels off, then folds
+    under, carries forward folded, and opens flat for the plant. The hind takes half the
+    fore's amount because a hock is not a wrist and a hind foot that flicks reads as a limp.
+    Measured: fore paw range 0..+26 deg -> -10.2..+26.0, i.e. bidirectional for the first
+    time.
+  * LIFT 0.058 -> 0.072. At 4.7 Hz a 58 mm lift was a blur; at 2.9 the swing is a third
+    longer in wall-clock. It deepens the fold the honest way — through the PATH the IK must
+    reach — which is the lesson the s49 revert paid for.
+  * BOB 0.018 -> 0.028. The same amplitude that read as a vibration at 4.7 Hz reads as a
+    bounce at 2.9; a bob is judged by its rate as much as its size.
+
+Filmed side-on and read back magnified: near foreleg lifted with the carpus broken back and
+the paw hanging behind the wrist, hind mid-push with the hock folded, diagonal pair planted.
+Also, unlooked-for: the sit paw-sink that failed s50 (25.5 mm below deck) now measures
+-1.1 mm. CatJointProbe 0, CatProbe 0.

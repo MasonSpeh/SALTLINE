@@ -158,12 +158,23 @@ const GALLOP_OFF := {"lh": 0.00, "rh": 0.12, "rf": 0.55, "lf": 0.67}
 ## plant. The fold is the whole difference between an animal and a toy horse.
 ## `reach` +ve is toward the head, `flex` +ve bends the joint, paw follows through. Signs
 ## are mapped per limb below — this table is semantic.
+## THE PAW COLUMN NOW BENDS BACK AT TOE-OFF (the owner's "paws to bend back slightly"), and
+## it is the one part of the walk a viewer reads without being told what to look at. The old
+## column drove the carpus FORWARD (+0.18) at the moment the paw leaves the deck, which is a
+## paw being lifted flat like a table leg. A real cat's wrist EXTENDS as the foot peels off —
+## the paw trails behind the leg, hanging back — then flexes to fold under, carries forward
+## folded, and opens flat just before the plant. So the value at the toe-off key goes negative
+## (trailing) and the fold peak moves later, which is also what puts the flick in the right
+## place relative to the knee (read a DRAG later than the shoulder).
+##
+## The hind carries less of it than the fore on purpose: the hock is a much stiffer joint than
+## the carpus, and a hind foot that flicks like a wrist reads as a limp.
 const CYC_WALK_FORE := [
-	[0.00, 0.30, 0.08, -0.12], [0.30, 0.02, 0.03, 0.02], [0.62, -0.30, 0.06, 0.18],
-	[0.72, -0.12, 0.60, 0.38], [0.86, 0.24, 0.42, 0.10], [1.00, 0.30, 0.08, -0.12]]
+	[0.00, 0.30, 0.08, -0.06], [0.30, 0.02, 0.03, 0.00], [0.62, -0.30, 0.06, -0.20],
+	[0.72, -0.12, 0.60, 0.30], [0.86, 0.24, 0.42, 0.12], [1.00, 0.30, 0.08, -0.06]]
 const CYC_WALK_HIND := [
-	[0.00, 0.34, 0.06, 0.00], [0.34, 0.02, 0.03, 0.00], [0.62, -0.34, 0.09, 0.10],
-	[0.74, -0.12, 0.72, 0.30], [0.88, 0.28, 0.48, 0.08], [1.00, 0.34, 0.06, 0.00]]
+	[0.00, 0.34, 0.06, -0.03], [0.34, 0.02, 0.03, 0.00], [0.62, -0.34, 0.09, -0.13],
+	[0.74, -0.12, 0.72, 0.24], [0.88, 0.28, 0.48, 0.09], [1.00, 0.34, 0.06, -0.03]]
 ## Gallop: shorter stance (duty ~0.38), far bigger reach and fold. The legs GATHER under
 ## the body and EXTEND — but half of a real gallop lives in the spine engine below.
 const CYC_GAL_FORE := [
@@ -1326,7 +1337,12 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		# shoulder height (~6 mm each way) and read as a glide. 18 mm is nearer a real cat's
 		# step, and still small enough not to push the straight-bound left hind past its
 		# reach at the bob peaks, which is what pops that knee.
-		var bob_amp: float = lerpf(0.018, 0.045, mix)
+		# 0.028 AT A WALK — the owner's "little bounces". The same 18 mm that read as a
+		# vibration at 4.7 Hz reads as a bounce at 2.9, because a bob is judged by its
+		# rate as much as its size; the slower cycle is what makes a bigger one legible
+		# instead of buzzy. Two per stride, minima on the contacts, so it is the body
+		# arcing over each planted foot rather than a hover.
+		var bob_amp: float = lerpf(0.028, 0.045, mix)
 		bob_amp += maxf(1.0 - absf(mix - 0.5) * 2.0, 0.0) * 0.010
 		var bob_min_ph: float = lerpf(0.125, 0.15, mix)
 		_reach_give = 0.018 + 0.04 * mix
@@ -1376,7 +1392,13 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# of its leg length. 58 mm fore is that, and the IK then has to fold the elbow
 			# and stifle to reach it — the fold is a CONSEQUENCE of the path, which is the
 			# same principle that made foot-lock fall out of the stance definition.
-			var lift_m: float = lerpf(0.058, 0.125, mix) * (1.0 if fore else 0.88) * lift_k
+			# 0.072 AT A WALK, RAISED BECAUSE THERE IS NOW TIME TO SEE IT. At 4.7 strides a
+			# second a 58 mm lift was a blur; at 2.9 the swing is a third longer in
+			# wall-clock and a deliberate step reads as deliberate. It also deepens the
+			# fold the honest way — through the PATH the IK has to reach, which is the
+			# lesson the s49 revert paid for (a fold authored on top of the solution is a
+			# flick, not a bend).
+			var lift_m: float = lerpf(0.072, 0.125, mix) * (1.0 if fore else 0.88) * lift_k
 			var sweep_m: float = _sweep_cap * reach_k * sweep_k
 			var pth: Vector2 = _foot_path(ph, duty, sweep_m, lift_m)
 			# +12 mm of stance width per side (s45c, "wider"): the rest anchors carry the
