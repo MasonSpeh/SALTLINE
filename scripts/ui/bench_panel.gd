@@ -38,6 +38,12 @@ static var recipes: Dictionary = {}
 static var items: Dictionary = {}
 
 var laid: Array[String] = []
+## What each laid part is CARRYING, parallel to `laid` — a big fish's landed weight, so a
+## part taken back off the bench is the same animal that went on it. Deliberately tolerant of
+## being out of step: harnesses assign `laid` wholesale (`laid.assign(["rope"])`,
+## `laid.clear()`), so every reader goes through _fit_laid_meta() first rather than trusting
+## the lengths to match.
+var laid_meta: Array = []
 var bench: Node3D = null            ## the in-world CraftBench, for part visuals + sound
 var _pack_grid: GridContainer
 var _laid_buttons: Array[Button] = []
@@ -57,6 +63,9 @@ var _pack_slots: Array[Button] = []
 ## What each pack slot currently holds, parallel to _pack_slots — the click and hover handlers
 ## are bound once at build time and read this, so a refresh never rebuilds a single Control.
 var _pack_ids: Array[String] = []
+## Which unified pack slot each of those sockets is drawn from, parallel to _pack_ids — so a
+## click lays the exact fish in that socket instead of "any grouper".
+var _pack_slot_at: Array[int] = []
 
 static func load_recipes() -> void:
 	if not recipes.is_empty():
@@ -200,7 +209,10 @@ func _ready() -> void:
 		var pidx: int = i
 		pb.pressed.connect(func() -> void:
 			if pidx < _pack_ids.size():
-				lay_item(_pack_ids[pidx]))
+				# The socket's own slot, so laying the 3 kg grouper drawn here cannot take
+				# the 48 kg one sitting two sockets along.
+				lay_item(_pack_ids[pidx],
+					_pack_slot_at[pidx] if pidx < _pack_slot_at.size() else -1))
 		pb.mouse_entered.connect(func() -> void:
 			_hover(_pack_ids[pidx] if pidx < _pack_ids.size() else ""))
 		_pack_grid.add_child(pb)
@@ -305,8 +317,10 @@ static func slot_button(px: int) -> Button:
 ## strip. `id` empty leaves the socket bare rather than stale. `renderer` is the HUD's shared
 ## ItemIcons — passed in rather than read off `self`, because the crate exchange fills slots
 ## from hud.gd and there is only ever one renderer to hand it.
+## `kg` (0 = none) is what THIS one weighs — a big fish's landed weight. It replaces the
+## stack count in the tag strip, because a slot carrying a weight always holds exactly one.
 static func fill_slot(b: Button, id: String, count: int, empty_text: String,
-		renderer: Node) -> void:
+		renderer: Node, kg: float = 0.0) -> void:
 	var pic: TextureRect = b.get_node("Pic")
 	var tag_bg: Panel = b.get_node("TagBG")
 	var tag_lbl: Label = tag_bg.get_node("Tag")
@@ -319,7 +333,7 @@ static func fill_slot(b: Button, id: String, count: int, empty_text: String,
 	pic.texture = renderer.get_icon(id) if renderer != null \
 		and renderer.has_method("get_icon") else null
 	tag_bg.visible = true
-	tag_lbl.text = tag_text(id, count)
+	tag_lbl.text = tag_text(id, count, kg)
 	b.text = ""
 	b.modulate = Color(1, 1, 1)
 
@@ -328,9 +342,14 @@ static func fill_slot(b: Button, id: String, count: int, empty_text: String,
 const _TAG_MAX_CHARS: int = 12
 ## Height of that bottom name/count strip. One number for every panel that builds a slot.
 const TAG_STRIP_PX: int = 16
-static func tag_text(id: String, count: int) -> String:
+## The WEIGHT takes the count's place on a slot that carries one (it holds exactly one item
+## by definition, so the "×N" it would otherwise print is dead space) — see HUD._slot_tag_text
+## for the arithmetic that makes "Barrel… 48kg" fit twelve characters.
+static func tag_text(id: String, count: int, kg: float = 0.0) -> String:
 	var full: String = item_name(id)
 	var suffix: String = " ×%d" % count if count > 1 else ""
+	if kg > 0.0 and count <= 1:
+		suffix = " %dkg" % roundi(kg) if kg >= 10.0 else " %.1fkg" % kg
 	var budget: int = _TAG_MAX_CHARS - suffix.length()
 	var shown: String = full
 	if full.length() > budget:
@@ -366,11 +385,27 @@ func _process(delta: float) -> void:
 
 # ---------------------------------------------------------------- lay / take
 
-func lay_item(item_id: String) -> bool:
-	if laid.size() >= MAX_LAID or not PlayerState.has_item(item_id):
+## Lay one part on the bench. `unified_idx` names the exact pack slot when the caller knows
+## it (the pack grid does — each stack is its own socket); -1 means "any of these".
+##
+## IT MUST NOT EAT THE TROPHY. With -1 and several instances of the same species in the
+## pack, the SMALLEST is taken. Two recipes read "@raw_fish" (fillet_catch, galley_stew) and
+## a fish laid on the bench is destroyed by the craft — so a player with a 48 kg grouper and
+## a 3 kg one who lays "a grouper" must get the 3 kg one filleted. `find_slot_of(id,
+## "smallest")` is where that rule lives; the choice is made HERE, at lay time, because by
+## the time _finish_work runs the parts have already left the pack.
+func lay_item(item_id: String, unified_idx: int = -1) -> bool:
+	if laid.size() >= MAX_LAID:
 		return false
-	PlayerState.remove_item(item_id)
+	var u: int = unified_idx
+	if u < 0 or PlayerState.slot_id(u) != item_id:
+		u = PlayerState.find_slot_of(item_id, "smallest")
+	var taken: Dictionary = PlayerState.take_one_at(u)
+	if not bool(taken.get("ok", false)):
+		return false
 	laid.append(item_id)
+	_fit_laid_meta()
+	laid_meta[laid.size() - 1] = taken.get("meta", {})
 	refresh()
 	if bench:
 		AudioDirector.play_one_shot("step", bench.global_position, -18.0)
@@ -380,18 +415,25 @@ func take_back(idx: int) -> void:
 	if _working or idx >= laid.size():
 		return
 	var id: String = laid[idx]
-	if PlayerState.add_item(id):
+	_fit_laid_meta()
+	if PlayerState.add_item(id, laid_meta[idx] if typeof(laid_meta[idx]) == TYPE_DICTIONARY else {}):
 		laid.remove_at(idx)
+		laid_meta.remove_at(idx)
 		refresh()
 
 ## Sweep the bench back into the pack. Anything that will not fit STAYS on the
 ## bench — walking away from a full pack must not delete the parts you laid.
 func return_all() -> void:
+	_fit_laid_meta()
 	var stuck: Array[String] = []
-	for id in laid:
-		if not PlayerState.add_item(id):
-			stuck.append(id)
+	var stuck_meta: Array = []
+	for i in range(laid.size()):
+		var m: Dictionary = laid_meta[i] if typeof(laid_meta[i]) == TYPE_DICTIONARY else {}
+		if not PlayerState.add_item(laid[i], m):
+			stuck.append(laid[i])
+			stuck_meta.append(laid_meta[i])
 	laid.assign(stuck)
+	laid_meta.assign(stuck_meta)
 	if not stuck.is_empty():
 		var hud: Node = get_tree().get_first_node_in_group("hud")
 		if hud:
@@ -595,23 +637,37 @@ func _free_slots() -> int:
 
 # ---------------------------------------------------------------- display
 
+## Pad or trim `laid_meta` to `laid` — see its declaration for why that is not assumed.
+func _fit_laid_meta() -> void:
+	while laid_meta.size() < laid.size():
+		laid_meta.append(null)
+	while laid_meta.size() > laid.size():
+		laid_meta.remove_at(laid_meta.size() - 1)
+
 func refresh() -> void:
+	_fit_laid_meta()
 	# Lay slots — the item's own picture now, not its name in a wide button.
 	for i in range(MAX_LAID):
+		var lkg: float = 0.0
+		if i < laid.size() and typeof(laid_meta[i]) == TYPE_DICTIONARY:
+			lkg = float((laid_meta[i] as Dictionary).get("kg", 0.0))
 		fill_slot(_laid_buttons[i], str(laid[i]) if i < laid.size() else "", 1,
-			"· lay here ·", icons)
+			"· lay here ·", icons, lkg)
 	# Pack grid: one slot per STACK, filled into buttons that already exist.
 	var stacks: Array = _pack_stacks()
 	_pack_ids.clear()
+	_pack_slot_at.clear()
 	for st in stacks:
 		_pack_ids.append(str(st["id"]))
+		_pack_slot_at.append(int(st["u"]))
 	for i in range(_pack_slots.size()):
 		if i >= stacks.size():
 			_pack_slots[i].visible = i < maxi(stacks.size(), PACK_COLS)
 			fill_slot(_pack_slots[i], "", 0, "", icons)
 			continue
 		_pack_slots[i].visible = true
-		fill_slot(_pack_slots[i], str(stacks[i]["id"]), int(stacks[i]["n"]), "", icons)
+		fill_slot(_pack_slots[i], str(stacks[i]["id"]), int(stacks[i]["n"]), "", icons,
+			float(stacks[i]["kg"]))
 	# Match line.
 	var exact: String = current_match()
 	var partials: Array[String] = partial_matches()
@@ -654,15 +710,20 @@ func refresh() -> void:
 ## The pack as a list of STACKS — {id, n} per occupied slot, hotbar first, in the order the
 ## player sees them. The old grid appended one button per slot without its count, so a stack
 ## of six ropes read as one rope.
+## Each entry also carries `u`, its unified slot index, and `kg`, what THAT stack's contents
+## weigh (0 for everything ordinary) — so a click on a socket lays the exact fish drawn in it
+## rather than "one of that species", and the socket can say which one it is.
 func _pack_stacks() -> Array:
 	var out: Array = []
 	for i in range(PlayerState.hotbar.size()):
 		if PlayerState.hotbar[i] != null and String(PlayerState.hotbar[i]) != "":
-			out.append({"id": String(PlayerState.hotbar[i]), "n": PlayerState.hotbar_stack(i)})
+			out.append({"id": String(PlayerState.hotbar[i]), "n": PlayerState.hotbar_stack(i),
+				"u": i, "kg": PlayerState.slot_kg(i)})
 	for i in range(PlayerState.inventory.size()):
 		if PlayerState.inventory[i] != null and String(PlayerState.inventory[i]) != "":
+			var u: int = PlayerState.HOTBAR_SIZE + i
 			out.append({"id": String(PlayerState.inventory[i]),
-				"n": PlayerState.inventory_stack(i)})
+				"n": PlayerState.inventory_stack(i), "u": u, "kg": PlayerState.slot_kg(u)})
 	return out
 
 ## HOW MANY OF EACH MATERIAL YOU ACTUALLY HAVE, per ingredient, against what the recipe wants.

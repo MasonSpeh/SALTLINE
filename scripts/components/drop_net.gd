@@ -123,19 +123,25 @@ func _haul() -> void:
 	var names: Array[String] = []
 	for i in range(count):
 		var pick: Dictionary = FISH.roll("net", ctx, _rng)
-		if not pick.is_empty() and PlayerState.add_item(pick["id"]):
-			# Sized species weigh in at the haul, exactly as they do at the rod's rail —
-			# the fathom halibut only ever comes up in THIS mesh, so if the net did not
-			# roll weights the door-sized fish would be the one species that never had
-			# one: it would fillet, drop and render as an average halibut forever.
-			var kg: float = FISH.roll_size(String(pick["id"]), _rng)
+		if pick.is_empty():
+			continue
+		# Sized species weigh in at the haul, exactly as they do at the rod's rail —
+		# the fathom halibut only ever comes up in THIS mesh, so if the net did not
+		# roll weights the door-sized fish would be the one species that never had
+		# one: it would fillet, drop and render as an average halibut forever.
+		#
+		# ROLLED BEFORE THE PACK IS TRIED, because add_item now needs the payload to know
+		# the slot cannot stack. The old order (add, then roll, then record) worked only
+		# because the weight went to a side ledger keyed on the species.
+		var nid: String = String(pick["id"])
+		var kg: float = FISH.roll_size(nid, _rng)
+		if PlayerState.add_item(nid, FISH.catch_meta(nid, kg)):
 			if kg > 0.0:
-				FISH.record_size(String(pick["id"]), kg)
 				names.append("%s — %.1f kg%s" % [pick["name"], kg,
-					", a trophy" if FISH.is_trophy_size(String(pick["id"]), kg) else ""])
+					", a trophy" if FISH.is_trophy_size(nid, kg) else ""])
 			else:
 				names.append(pick["name"])
-			Journal.discover(pick["id"])
+			Journal.discover(nid)
 	Journal.discover("system_drop_net")
 	if hud:
 		hud.toast("Net comes up: %s" % ", ".join(names) if not names.is_empty() else "Net comes up empty this time.")

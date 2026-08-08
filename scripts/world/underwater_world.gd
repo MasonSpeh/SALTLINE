@@ -240,6 +240,65 @@ const FISH_EASE: float = 2.2     ## how hard a fish is drawn toward its wander t
 const FISH_TURN: float = 2.4     ## how fast the remembered heading eases onto the new one (1/s)
 const FISH_PITCH: float = 0.42   ## how much of its own vertical speed a fish noses into
 
+## THE CATCHABLE SHOALS NOW READ THE PLAYER (s47, owner: "make spearfishing less OP — fish
+## need to swim away from player when they come too close, or swim away fast whenever spear is
+## used to kill a fish").
+##
+## Until this block the pelagic schools were the only fauna in the game that never looked at
+## you: `_pod_due` sampled the camera for LOD and nothing else did. That is the third of the
+## five measured reasons the spear was overpowered — a shoal that cannot be spooked is a shoal
+## you stand inside and empty at ~1.5 fish/second.
+##
+## THE ALARM IS PER POD, NOT PER FISH. 83 pods vs 1033 members, at the already-decimated pod
+## rate, and it is ONE `distance_to` against the frame-cached `_cam_eye` that `_pod_due` is
+## reading anyway. The per-member loop pays nothing new: it reads a pod centre that has
+## already been pushed away from the eye. Copied from reef_fish.gd's station alarm, which is
+## the shipping shape of this in this repo (`ALARM_RISE`/`ALARM_FALL` there).
+##
+## TWO EVENTS, ONE VARIABLE. Walking up to a shoal and putting a spear through one of its
+## members should not produce the same reaction, so proximity can only ever drive `alarm` as
+## far as SHOAL_SKIT_ALARM (a standoff — the shoal keeps its distance and you have to work for
+## the last metre) while `scatter_fish` slams it to a full 1.0 (a bolt — the shoal LEAVES).
+## Same easing, same push, an order of magnitude apart in effect.
+##
+## THE PUSH IS AN EASED DISPLACEMENT, NOT A FUNCTION OF ALARM. `centre = home + dir * alarm *
+## SHOAL_FLEE_M` read directly would move the pod centre 7 m in the single frame a thrust
+## lands — a 400 m/s target, and the members chasing it at `FISH_EASE` would cover the 7 m in
+## about half a second. `flee` is therefore a state vector eased toward that displacement at
+## SHOAL_FLEE_EASE, which makes the bolt's peak speed exactly `SHOAL_FLEE_M * SHOAL_FLEE_EASE`
+## = 8.4 m/s decaying on a 0.83 s time constant. That is a burst-speed dart for a fish and it
+## is continuous, so nothing here is a teleport.
+##
+## HORIZONTAL ONLY. The two surface tests in the swim loop (`needs_surface`, `needs_lid`) are
+## skipped for any pod whose `pod_ceiling` — derived from `band_y` plus the pod's own two
+## vertical octaves — clears the trough floor. A flee with a Y term would invalidate that
+## bound and breach a shallow shoal through the swell on exactly the frame it is skipped.
+## Flattening the direction keeps every one of those exemptions honest.
+const SHOAL_ALARM_RISE: float = 6.0    ## alarm rises fast (1/s)...
+const SHOAL_ALARM_FALL: float = 0.40   ## ...and falls slow: ~2.5 s to forget a thrust
+const SHOAL_SKIT_ALARM: float = 0.30   ## ceiling on the PROXIMITY-driven alarm (a standoff)
+const SHOAL_FLEE_M: float = 7.0        ## metres the pod centre runs from the eye at alarm 1
+const SHOAL_FLEE_EASE: float = 1.2     ## how fast the displacement itself closes (1/s)
+const SHOAL_ALARM_PACE: float = 1.7    ## clock PACE at full alarm — the integration, never
+                                       ## the sine argument (the s23 phase-teleport trap)
+const SHOAL_ALARM_FOLLOW: float = 1.4  ## extra FISH_EASE a startled member swims with
+
+## Per-species flee radius, metres — the distance at which a pod starts to feel the player.
+## Small fish are the skittish ones and a 3 m halibut does not care much, so it is derived
+## from the school's own `size` rather than hand-typed per species. `data/fish.json`'s
+## `school` block may override it with a `skit` key; nothing in the file carries one today
+## and the derivation below is the whole behaviour without it.
+const SHOAL_SKIT_BASE: float = 7.0     ## flee radius at size 0
+const SHOAL_SKIT_PER_M: float = 1.0    ## ...less this much per metre of body
+const SHOAL_SKIT_MIN: float = 4.0
+const SHOAL_SKIT_MAX: float = 7.5
+
+## How long a speared fish stays out of the water before it rejoins its shoal somewhere else.
+## The same shape as bloom_fauna.FiddlerShoal's `_gone` (50-110 s), which is the only other
+## fish in the game that can be individually removed and brought back.
+const SPEAR_GONE_MIN: float = 45.0
+const SPEAR_GONE_MAX: float = 100.0
+
 ## THE PONTOONS ARE A LID ON THE SHALLOW BAND, AND THE SHALLOW SHOALS WERE SWIMMING INSIDE
 ## THEM (found s35 while measuring surface density for the owner's "larger visual density
 ## closer to the surface").
@@ -1278,6 +1337,9 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 	var heads: Array = []
 	var climbs: Array = []
 	var seats: Array = []
+	# ...and its respawn countdown. Sixth parallel array, same lockstep rule as the other
+	# five: 0.0 is "in the water", anything above it is seconds until this member rejoins.
+	var gones: Array = []
 	for i in range(int(school["count"])):
 		var f := Node3D.new()
 		root.add_child(f)
@@ -1312,6 +1374,7 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		# randf — so the RNG stream length is unchanged and the goliath size jitter
 		# downstream still lands where it always has (the leviathan-roll lesson).
 		seats.append(fposmod(ph * 0.618034, 1.0))
+		gones.append(0.0)
 	# How wide the pod itself is. It used to be a flat (0.8..1.3) * (1 + size/2), i.e. a
 	# ~1.4 m ball whether the shoal held two groupers or thirty-four sprats — which is why
 	# a big school read as a knot rather than a shoal. Scaling on sqrt(count) keeps the
@@ -1335,7 +1398,15 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		"spread": spread, "radius": spread_r,
 		"rates": Vector2(POD_PATH_SPEED.x / spread.x, POD_PATH_SPEED.y / spread.y),
 		"ph": phases, "spd": speeds, "head": heads, "climb": climbs, "seat": seats,
+		"gone": gones,
 		"warm": false,
+		# How near the player has to get before this shoal minds, and how much it currently
+		# minds. See the SHOAL_ALARM_* block. `flee` is the pod centre's live displacement
+		# from the wander position it would otherwise be at — a state vector rather than a
+		# function of `alarm`, so the bolt has a finite speed.
+		"skit": _skit_for(school, size),
+		"alarm": 0.0,
+		"flee": Vector3.ZERO,
 		"t": _rng.randf_range(0, 100.0),
 		# Per-pod AI decimation state — see the block in _process. `acc` is the delta this pod
 		# has accumulated but not yet spent; `centre` is where it was last seen, which is what
@@ -1347,6 +1418,15 @@ func _spawn_pod(id: String, def: Dictionary, school: Dictionary, tint: Color,
 		# own index up per frame would be a linear scan comparing dictionaries.
 		"phase": _schools.size(),
 	})
+
+## This shoal's flee radius, metres — see the SHOAL_SKIT_* constants. An explicit `skit` in
+## the species' `school` block wins; otherwise it is derived from body size, so adding a
+## species to data/fish.json cannot leave it with no flee response at all (a hand-typed table
+## keyed by id would, silently, and the new fish would be the one that is still farmable).
+func _skit_for(school: Dictionary, size: float) -> float:
+	if school.has("skit"):
+		return maxf(float(school["skit"]), 0.0)
+	return clampf(SHOAL_SKIT_BASE - size * SHOAL_SKIT_PER_M, SHOAL_SKIT_MIN, SHOAL_SKIT_MAX)
 
 ## Give one fish — generated mesh or fallback silhouette — its own distance budget; see
 ## FISH_RANGE_PER_M for why it does not take render_budget.gd's generic size-derived one.
@@ -1615,7 +1695,29 @@ func _process(delta: float) -> void:
 		if not _pod_due(s, pod_delta):
 			continue
 		s["acc"] = 0.0
-		s["t"] += pod_delta
+		# --- DOES THIS SHOAL MIND YOU? One distance compare, per pod, at the pod rate. See the
+		# SHOAL_ALARM_* block for why it lives here and not in the per-member loop.
+		#
+		# It is measured against the pod's WANDER position, not against the fled centre it is
+		# about to be given: ranging on the pushed centre would be a feedback loop — the shoal
+		# runs, the distance grows, the alarm drops, the shoal comes back, and it oscillates on
+		# the player standing still. The wander position is the one already in hand as
+		# `centre - flee`, so this costs no extra state.
+		var flee: Vector3 = s["flee"]
+		var alarm: float = float(s["alarm"])
+		var skit: float = float(s["skit"])
+		var near: float = 0.0
+		if _cam_eye_ok and skit > 0.01:
+			near = SHOAL_SKIT_ALARM * clampf(
+				1.0 - _cam_eye.distance_to((s["centre"] as Vector3) - flee) / skit, 0.0, 1.0)
+		alarm = lerpf(alarm, near,
+			1.0 - exp(-(SHOAL_ALARM_RISE if near > alarm else SHOAL_ALARM_FALL) * pod_delta))
+		s["alarm"] = alarm
+		# A SPOOKED SHOAL HURRIES. The pace multiplies the INTEGRATION of the pod's clock and
+		# never the argument of a sine — reef_fish.gd:640-651 records what the other way round
+		# cost (a 10% pace change at t=400 s jumped the wave ~58 radians and the shoal
+		# detonated at the first touch of alarm: mean |accel| 0.2 -> 45 m/s^2).
+		s["t"] += pod_delta * lerpf(1.0, SHOAL_ALARM_PACE, alarm)
 		var t: float = s["t"]
 		# THE POD'S OWN WANDER. Two incommensurate octaves per axis instead of one, so the
 		# centre never retraces the same lap — the jelly's trick, at shoal scale.
@@ -1628,6 +1730,24 @@ func _process(delta: float) -> void:
 		var anch: Vector3 = s["anchor"]
 		var center := Vector3(anch.x + cx,
 			s["band_y"] + sin(t * 0.11) * 0.8 + sin(t * 0.037) * 0.5, anch.z + cz)
+		# ...AND THEN AWAY FROM YOU. Flattened in Y (the surface and pontoon exemptions below
+		# are bounded off `band_y` and a vertical flee would invalidate both), eased rather
+		# than assigned so the bolt has a real top speed, and run through FaunaMove.usable
+		# before any normalize — one NaN into intersect_ray wrote 4.4 GB of stderr in a
+		# measured run. The fallbacks are the direction the pod is ALREADY running and then a
+		# stable per-pod bearing, so a player standing exactly on a pod centre gets a shoal
+		# that picks a side instead of one that cannot decide.
+		if alarm > 0.0005 or flee.length_squared() > 0.0001:
+			var away := Vector3(center.x - _cam_eye.x, 0.0, center.z - _cam_eye.z)
+			if not _cam_eye_ok or not MOVE.usable(away):
+				away = Vector3(flee.x, 0.0, flee.z)
+			if not MOVE.usable(away):
+				var bearing: float = float(s["phase"]) * 1.7
+				away = Vector3(cos(bearing), 0.0, sin(bearing))
+			flee = flee.lerp(away.normalized() * (SHOAL_FLEE_M * alarm),
+				1.0 - exp(-SHOAL_FLEE_EASE * pod_delta))
+			s["flee"] = flee
+			center += flee
 		s["centre"] = center
 		var members: Array = s["fish"]
 		var n: int = members.size()
@@ -1636,6 +1756,7 @@ func _process(delta: float) -> void:
 		var mhead: Array = s["head"]
 		var mclimb: Array = s["climb"]
 		var mseat: Array = s["seat"]
+		var mgone: Array = s["gone"]
 		var r_base: float = s["radius"]
 		# Slow enough that the eased follow below can actually keep up with it: a target
 		# moving faster than FISH_EASE can track just drags the whole ring inward.
@@ -1644,8 +1765,11 @@ func _process(delta: float) -> void:
 		# not per frame, so a 15 fps dip and a 60 fps stretch swim identically. On a pod's
 		# very first live frame the fish are still stacked at the origin, so that one frame
 		# seats them outright instead of letting them swoop in from the middle of the world.
+		# ...and a startled fish swims at its slot harder, which is what turns a pod centre that
+		# has moved into a shoal that visibly BOLTS rather than one that slides.
 		var warm: bool = s["warm"]
-		var follow: float = (1.0 - exp(-FISH_EASE * pod_delta)) if warm else 1.0
+		var follow: float = (1.0 - exp(-FISH_EASE * (1.0 + alarm * SHOAL_ALARM_FOLLOW)
+			* pod_delta)) if warm else 1.0
 		var turn: float = 1.0 - exp(-FISH_TURN * pod_delta)
 		s["warm"] = true
 		# CAN THE SURFACE CLAMP EVER BIND FOR THIS POD? The clamp below is a safety rail —
@@ -1670,6 +1794,20 @@ func _process(delta: float) -> void:
 		var needs_lid: bool = pod_ceiling > lid_y
 		for i in range(n):
 			var f: Node3D = members[i]
+			# SPEARED, AND NOT IN THE WATER RIGHT NOW. The node and all six of its parallel
+			# array entries stay exactly where they are — removing one would have to re-index
+			# ph/spd/head/climb/seat/gone together, and DEVLOG:759-761 records what a mismatch
+			# there does (one fish silently on another's swim personality). What is gone is the
+			# FISH: hidden, so `spear_target` and `scatter_fish` both skip it and the 10 Hz
+			# prompt stops offering it, and skipped here, so its slot solve, swell sample, leg
+			# raycast and look_at are not paid either. The despawn is a net saving, not a cost.
+			var rejoin: bool = false
+			if mgone[i] > 0.0:
+				mgone[i] = float(mgone[i]) - pod_delta
+				if mgone[i] > 0.0:
+					continue
+				mgone[i] = 0.0
+				rejoin = true
 			var ph: float = mph[i]
 			var spd: float = mspd[i]
 			# A TARGET, not a rail. The evenly spaced slot is what still makes it read as
@@ -1690,7 +1828,14 @@ func _process(delta: float) -> void:
 				+ 0.22 * sin(t * 0.27 * spd + ph * 1.3))
 			var bob: float = sin(t * 0.41 * spd + ph) * 0.34 + sin(t * 0.15 + ph * 2.1) * 0.26
 			var target: Vector3 = center + Vector3(cos(a) * rad, bob, sin(a) * rad * 0.72)
-			var cur: Vector3 = f.global_position
+			# ...AND THE FISH COMES BACK SOMEWHERE ELSE (owner: "disappear once they have been
+			# speared, respawns somewhere else later"). It rejoins AT its slot rather than
+			# swimming to it from the kill site: the pod has wandered tens of metres in the
+			# 45-100 s it was away, so `cur.lerp(target, follow)` would drag a fish visibly
+			# across open water out of nothing. Taking `cur` from the target as well keeps the
+			# leg raycast below honest — the step it is handed is zero length, not a 40 m
+			# segment through however many caissons lie between the two points.
+			var cur: Vector3 = target if rejoin else f.global_position
 			var next: Vector3 = cur.lerp(target, follow)
 			# Never let a school breach. The "surface" band sits at -1.2, which was under
 			# water when the sea was a flat plane; against the Gerstner swell (±2 m calm,
@@ -1725,6 +1870,12 @@ func _process(delta: float) -> void:
 					next = _slide_leg(next, target, pod_delta)
 			var step: Vector3 = next - cur
 			f.global_position = next
+			if rejoin:
+				# Back in the water, on its slot, with its old heading. The heading is NOT
+				# re-derived from `step` — the step is zero by construction above, and atan2 of
+				# nothing is a spin.
+				f.visible = true
+				continue
 			if not warm:
 				continue
 			# THE HEADING IS REMEMBERED, NOT RE-DERIVED. Pointing a fish straight down its
@@ -1904,12 +2055,28 @@ func spear_target(origin: Vector3, forward: Vector3, reach: float) -> Dictionary
 
 ## Take the speared member out of its shoal and hand back what it was.
 ##
-## The member NODE is kept and recycled rather than freed: the per-member parallel arrays
-## (`ph`/`spd`/`head`/`climb`) are indexed in lockstep with `fish`, and removing one entry
-## would have to re-index all five together on every take — a standing invitation for the
-## kind of silent mismatch that puts one fish on another's swim personality. Re-seating it at
-## the pod centre instead reads correctly too: the shoal closes the gap, and the water keeps
-## the population the fish.json entry asked for.
+## THE FISH YOU SPEAR NOW LEAVES THE WATER, and until s47 it did not — which was the first and
+## sharpest of the five measured reasons the spear was overpowered (owner: "make spearfishing
+## less OP... then disappear once they have been speared (respawns somewhere else later)").
+##
+## What this line used to do was `f.global_position = s["centre"]`, on the reasoning quoted
+## below: keep the node, re-seat it in the middle of its own pod, let the shoal close the gap,
+## and the water keeps the population data/fish.json asked for. Two things were wrong with it.
+## Nothing ever died, so a pod was a hard invariant and no amount of spearing could thin the
+## sea. Worse, it RE-SEATED THE FISH INTO THE PLAYER'S FACE: you aim into a shoal, so
+## `s["centre"]` is one to three metres down your own look vector — inside `crude_spear`'s 3.0
+## reach and inside the 31 degree cone — so the fish you had just banked was legal again on the
+## very next frame, and the sustained rate was ~1.4-1.6 fish per second against a 35 s breath.
+##
+## The NODE is still kept and still never freed, for the original reason, which was sound:
+## `ph`/`spd`/`head`/`climb`/`seat`/`gone` are indexed in lockstep with `fish`, and removing one
+## entry would have to re-index all six on every take (DEVLOG:759-761 — a mismatch there puts
+## one fish silently on another's swim personality). What changes is that the member is HIDDEN
+## and given a respawn countdown, the shape bloom_fauna.FiddlerShoal has shipped for months.
+## `spear_target` already refuses an invisible member, so this one line is also what drops the
+## fish out of the 10 Hz spear prompt; the swim loop ticks the countdown, skips the member's
+## whole update while it runs, and re-seats it on its slot — tens of metres away by then,
+## because the pod has been wandering the whole time.
 func take_speared(hit: Dictionary) -> Dictionary:
 	if hit.is_empty():
 		return {}
@@ -1922,9 +2089,11 @@ func take_speared(hit: Dictionary) -> Dictionary:
 	if not is_instance_valid(f):
 		return {}
 	var id: String = String(s["id"])
-	# Put it back in the middle of its own pod so the shoal closes the gap and eases it out to
-	# a fresh slot rather than popping it into one.
-	f.global_position = s["centre"]
+	# Out of the water. The position is left alone deliberately — the member is skipped by the
+	# swim loop while it is gone, so where it lies is never read again, and the rejoin seats it
+	# from the pod's slot rather than from here.
+	f.visible = false
+	(s["gone"] as Array)[i] = _rng.randf_range(SPEAR_GONE_MIN, SPEAR_GONE_MAX)
 	# SIZE IS LEFT TO FishTable.roll_size, deliberately. `_spawn_pod` does draw a per-member
 	# length spread, so "the big one you picked out is the big one in your pack" is a real
 	# thing this could deliver — but the weight range in fish.json is the contract the stove,
@@ -1934,11 +2103,29 @@ func take_speared(hit: Dictionary) -> Dictionary:
 	# follow-up; v1 hands back the species and lets the caller roll it the same way the rod does.
 	return {"id": id}
 
-## Scatter the water around a point — every member within `radius` is shoved outward. Used by
-## a thrust whether it hits or misses: a spear going past is the most alarming thing that has
-## ever happened to a herring, and a shoal that did not react would make the miss feel like
-## nothing happened. The pod's easing pulls them back to their slots over the next second or
-## two, so this is a startle, not a teleport.
+## Scatter the water around a point — every member within `radius` is shoved outward, and every
+## pod that felt it is put on FULL ALARM. Used by a thrust whether it hits or misses: a spear
+## going past is the most alarming thing that has ever happened to a herring.
+##
+## THE SHOVE ON ITS OWN WAS COSMETIC, and measurably so. It moves a member SPEAR_SCATTER_HIT =
+## 1.4 m; `follow` closes `1 - exp(-FISH_EASE * dt)` of the gap to its slot per second, so 89%
+## of that 1.4 m is undone within ONE second — and 1.4 m never exceeded the 3.0 m reach anyway,
+## so the shoal you had just thrust at was still entirely inside the cone. The pod CENTRE was
+## untouched, so the school itself never went anywhere.
+##
+## So the durable half of the reaction is the alarm, which pushes the pod centre away from the
+## eye at SHOAL_FLEE_M and decays on SHOAL_ALARM_FALL — several seconds of the shoal genuinely
+## leaving, rather than a spring. It is set here rather than integrated because a spear is an
+## event: proximity can only ever raise `alarm` to SHOAL_SKIT_ALARM (0.30), and this is the one
+## thing in the game that takes it to 1.0.
+##
+## The pod centre is NOT kicked directly. It is recomputed analytically from the pod's clock on
+## the next tick, so a kick here would last one frame; and the eased `flee` vector the alarm
+## drives is what gives the bolt a finite speed instead of a 7 m jump. See SHOAL_ALARM_*.
+##
+## The `f.visible` test is not cosmetic either: without it, a member that has been speared and
+## is waiting out its respawn gets shoved around in the dark, and the `moved` count — which is
+## what the probe reads — would report fish that are not in the water.
 func scatter_fish(point: Vector3, radius: float, strength: float) -> int:
 	var moved: int = 0
 	var r2: float = radius * radius
@@ -1948,8 +2135,9 @@ func scatter_fish(point: Vector3, radius: float, strength: float) -> int:
 			continue
 		if point.distance_squared_to(s["centre"]) > (radius + float(s["radius"]) + 4.0) ** 2:
 			continue
+		s["alarm"] = 1.0
 		for f in s["fish"]:
-			if not is_instance_valid(f):
+			if not is_instance_valid(f) or not (f as Node3D).visible:
 				continue
 			var away: Vector3 = f.global_position - point
 			var d2: float = away.length_squared()

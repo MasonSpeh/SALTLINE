@@ -1254,3 +1254,21 @@ the frames the animal thinks least — so the idle layers twitched exactly when 
 froze, and any harness running faster or slower than real time measured different animation
 than the game plays. One accumulated `_anim_t += dt` in the rig serves every layer; the
 wall clock serves none.
+
+## A stance detector that keys on paw HEIGHT stops measuring when the paw stops being flat
+
+CatReviewProbe scores foot-slide over frames where a paw sits "within 6 mm of its own lowest
+point". That is a stance detector only while the stance is level. On a short-legged rig it is
+not: a chain of reach c0 covering s of ground traces an arc of roughly c0*(1-cos(asin(s/2c0))),
+so the paw rides tens of millimetres above its minimum for most of its contact. Widen the stride
+and the window empties — and an empty window reports **0.0000 mm/frame, which passes**.
+
+Measured at s52: `stance_pairs` at the walk 20 -> 6, and run / stalk / carry all reached 0 pairs
+and a perfect zero. The run's gate was already vacuous one session earlier and read as green.
+Meanwhile a phase-gated instrument (`tests/GaitScratch`, stance = `fposmod(phase + WALK_OFF[k], 1)
+< duty`, which cannot empty) measured the left hind sliding 32 mm/frame — on BOTH builds.
+
+The general shape, and this repo keeps re-learning it: **a gate whose sample set is chosen by the
+quantity under test can be silenced by the change it is meant to catch.** Choose the sample set
+from something the change cannot move — here the gait's own clock — and check the SAMPLE COUNT
+next to every measurement. `pairs = 0` is not a pass, it is a missing measurement.

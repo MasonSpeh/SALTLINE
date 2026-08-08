@@ -68,6 +68,15 @@ func _ready() -> void:
 	process_mode = Node.PROCESS_MODE_ALWAYS
 	_slot_prefix = SaveManager.slot_file_prefix
 	SaveManager.slot_file_prefix = "mussel_probe_slot_"
+	# AND CLAIM A SLOT (2026-08-08). The four checks in _save_round_trip had been failing on
+	# a green feature: `save_game()` returns false without writing anything when
+	# active_slot < 1 (save_manager.gd:176, the "NO SESSION, NO WRITE" guard), and the only
+	# thing that claims a slot is main.gd when Main is the SCENE ROOT — which it is not here,
+	# it is a child of this probe. The symptom was "the save carries this bed's spent state
+	# ... of 0 entries", i.e. indistinguishable from the mussel beds not persisting at all.
+	# Verified pre-existing at HEAD before this line went in. Safe: the throwaway prefix
+	# above is already set, so slot 1 is a scratch file, never the owner's.
+	SaveManager.active_slot = 1
 	var main: Node3D = null
 	var packed: PackedScene = load("res://scenes/Main.tscn")
 	if packed != null:

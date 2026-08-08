@@ -10,6 +10,9 @@ class_name Salvage extends Interactable
 ##   permanent  (regrow_sec <= 0) — salvage. Spent forever, wearing the damage.
 ##   renewable  (regrow_sec >  0) — harvest. Tar seams, barnacle crust, kelp: the
 ##                                  sea puts it back if you leave it alone a while.
+## Every renewable node's span is now measured on the GAME CALENDAR (see
+## regrow_game_hours); `regrow_sec` carries the same span expressed in real seconds so the
+## "permanent vs renewable" test above stays a one-liner anyone can read off the node.
 ##
 ## Built through the two static factories at the bottom, never by hand:
 ##   Salvage.from_prop(parent, "drawer_cabinet", pos, yaw, scale, def)
@@ -34,15 +37,15 @@ var start_line: String = ""
 var done_line: String = "You work it loose."
 var bare_hand_risk: float = 0.0    ## life cost for doing it bare-handed (glass, shell)
 var regrow_sec: float = 0.0        ## > 0 makes this a renewable harvest node
-## THE OTHER KIND OF REGROWTH, in GAME HOURS off GameClock instead of real seconds.
+## THE REGROWTH CLOCK, in GAME HOURS off GameClock instead of real seconds.
 ##
-## `regrow_sec` is right for a patch that comes back inside one visit — the tar seams and
-## the glow-worm broods are 200-300 s, i.e. "later this session". It is the wrong shape for
-## anything measured in DAYS (the mussel beds are five), because a real-seconds countdown
-## cannot see a night the player slept through: skip_to_next_dawn() advances the calendar
-## without spending any real time, so a five-day bed would sit bare through five slept
-## nights and then regrow after five real hours of standing next to it. Set from a def's
-## `regrow_days`; when > 0 it takes precedence over regrow_sec.
+## A real-seconds countdown CANNOT SEE A NIGHT THE PLAYER SLEPT THROUGH:
+## skip_to_next_dawn() advances the calendar without spending any real time, so a patch
+## counted in `delta` sits bare through every slept night and only comes back if the player
+## stands about in the world for the same number of real seconds. That is the wrong shape
+## for anything a player thinks of as growing back — which is all of it — and it was the
+## shape every wet-deck node shipped in until s47. Set from a def's `regrow_days` or
+## `regrow_hours`; when > 0 it takes precedence over regrow_sec in _process.
 var regrow_game_hours: float = 0.0
 var sound: String = "clang"
 
@@ -452,9 +455,19 @@ func _configure(def: Dictionary) -> void:
 	done_line = String(def.get("done", done_line))
 	bare_hand_risk = float(def.get("risk", 0.0))
 	regrow_sec = float(def.get("regrow", 0.0))
-	# `regrow` is real seconds, `regrow_days` is game days off GameClock — see
-	# regrow_game_hours for why anything measured in days must not be the former.
-	regrow_game_hours = float(def.get("regrow_days", 0.0)) * 24.0
+	# `regrow` is real seconds; `regrow_days` and `regrow_hours` are GAME time off GameClock
+	# — see regrow_game_hours for why a patch that has to survive a slept night must be one
+	# of the latter. The two game-time keys add, so a def states whichever unit reads better
+	# (five days for a mussel bed, six hours for kelp).
+	regrow_game_hours = float(def.get("regrow_days", 0.0)) * 24.0 \
+		+ float(def.get("regrow_hours", 0.0))
+	if regrow_game_hours > 0.0 and regrow_sec <= 0.0:
+		# THE SAME SPAN, IN REAL SECONDS — and it is NOT what drives the regrowth: _process
+		# tests the calendar first and never reaches the countdown below it. It is filled in
+		# because `regrow_sec > 0` is this component's published "is this renewable?" test
+		# (the class doc says so, and four harnesses read it that way), and a node whose span
+		# lives on the calendar is still very much renewable. Derived, never authored.
+		regrow_sec = regrow_game_hours / 24.0 * GameClock.real_sec_per_game_day()
 	sound = String(def.get("sound", "clang"))
 	if def.has("name"):
 		display_name = String(def["name"])

@@ -1744,5 +1744,231 @@
    "shape": "slender"
   },
   "note": "Two long tail filaments trailing behind it like a swallow. Barely worth eating; worth looking at."
+ },
+ "fish_clownfish": {
+  "name": "Anemone Clownfish",
+  "rod": true,
+  "net": true,
+  "w": {
+   "dawn": 9,
+   "day": 10,
+   "dusk": 9,
+   "night": 3
+  },
+  "storm": "never",
+  "rain": "ok",
+  "fog": "ok",
+  "light": "any",
+  "water": "near",
+  "depth": "mid",
+  "fight": 0.4,
+  "pull": 0.35,
+  "cooked_to": "cooked_fish_clownfish",
+  "note": "Lives and dies inside one coral head and will not follow a bait out of it, so it only ever bites where the reef is. Two mouthfuls of fish and a great deal of orange."
+ },
+ "fish_yellow_tang": {
+  "name": "Yellow Tang",
+  "rod": true,
+  "net": true,
+  "w": {
+   "dawn": 15,
+   "day": 14,
+   "dusk": 13,
+   "night": 6
+  },
+  "storm": "never",
+  "rain": "bonus",
+  "fog": "ok",
+  "light": "any",
+  "water": "near",
+  "depth": "mid",
+  "fight": 0.7,
+  "pull": 0.6,
+  "cooked_to": "cooked_fish_yellow_tang",
+  "note": "Grazes the shallow growth in small unhurried groups. There is a scalpel at the root of the tail that will open a palm — take it behind the gills or not at all."
+ },
+ "fish_damsel": {
+  "name": "Sergeant Damsel",
+  "rod": false,
+  "net": true,
+  "w": {
+   "dawn": 18,
+   "day": 20,
+   "dusk": 18,
+   "night": 4
+  },
+  "storm": "never",
+  "rain": "ok",
+  "fog": "ok",
+  "light": "any",
+  "water": "near",
+  "depth": "mid",
+  "fight": 0.35,
+  "pull": 0.3,
+  "cooked_to": "cooked_fish_damsel",
+  "note": "The most suspicious thing on the reef: it sees the line before it sees the hook. It comes up in the net or it does not come up."
+ },
+ "fish_butterflyfish": {
+  "name": "Threadfin Butterflyfish",
+  "rod": true,
+  "net": true,
+  "w": {
+   "dawn": 13,
+   "day": 12,
+   "dusk": 13,
+   "night": 5
+  },
+  "storm": "never",
+  "rain": "ok",
+  "fog": "bonus",
+  "light": "any",
+  "water": "near",
+  "depth": "deep",
+  "fight": 0.6,
+  "pull": 0.55,
+  "cooked_to": "cooked_fish_butterflyfish",
+  "note": "Paired for life and rarely a body length apart. Land one and its partner works the same patch of coral for hours afterwards, which is when the second one is easy."
+ },
+ "fish_cleaner_wrasse": {
+  "name": "Cleaner Wrasse",
+  "rod": true,
+  "net": true,
+  "w": {
+   "dawn": 12,
+   "day": 11,
+   "dusk": 10,
+   "night": 2
+  },
+  "storm": "ok",
+  "rain": "ok",
+  "fog": "ok",
+  "light": "any",
+  "water": "near",
+  "depth": "deep",
+  "fight": 0.4,
+  "pull": 0.3,
+  "cooked_to": "cooked_fish_cleaner_wrasse",
+  "note": "Holds one station and picks parasites off whatever queues at it, including divers. The only fish down here that swims TOWARD a hook, and a bare one fools it."
+ },
+ "fish_blue_tang": {
+  "name": "Blue Tang",
+  "rod": true,
+  "net": true,
+  "w": {
+   "dawn": 16,
+   "day": 15,
+   "dusk": 15,
+   "night": 7
+  },
+  "storm": "ok",
+  "rain": "bonus",
+  "fog": "ok",
+  "light": "any",
+  "water": "any",
+  "depth": "deep",
+  "fight": 0.8,
+  "pull": 0.7,
+  "cooked_to": "cooked_fish_blue_tang",
+  "note": "Roves the whole colony instead of holding a patch, so it turns up well off the legs as often as under them. Rain puts the shoal on the move and the move makes it careless."
+ },
+ "fish_anthias": {
+  "name": "Magenta Anthias",
+  "rod": true,
+  "net": true,
+  "w": {
+   "dawn": 14,
+   "day": 13,
+   "dusk": 14,
+   "night": 3
+  },
+  "storm": "never",
+  "rain": "ok",
+  "fog": "ok",
+  "light": "drawn",
+  "water": "near",
+  "depth": "deep",
+  "fight": 0.35,
+  "pull": 0.3,
+  "cooked_to": "cooked_fish_anthias",
+  "note": "A cloud of them feeds out in the current and pours back into the coral all at once. After dark the swarm comes up to the floodlights, which is the only hour it is worth a cast."
+ },
+ "fish_triggerfish": {
+  "name": "Titan Triggerfish",
+  "rod": true,
+  "net": false,
+  "w": {
+   "dawn": 8,
+   "day": 7,
+   "dusk": 9,
+   "night": 11
+  },
+  "storm": "bonus",
+  "rain": "ok",
+  "fog": "ok",
+  "light": "any",
+  "water": "any",
+  "depth": "deep",
+  "fight": 1.6,
+  "pull": 1.5,
+  "cooked_to": "cooked_fish_triggerfish",
+  "note": "Territorial enough to charge a diver, and it fights like something twice the weight for a fillet you get nothing extra for. Mind the teeth on the way to the bucket."
+ },
+ "fish_emperor_angel": {
+  "name": "Emperor Angelfish",
+  "rod": true,
+  "net": false,
+  "w": {
+   "dawn": 7,
+   "day": 6,
+   "dusk": 7,
+   "night": 8
+  },
+  "storm": "never",
+  "rain": "ok",
+  "fog": "only",
+  "light": "any",
+  "water": "near",
+  "depth": "deep",
+  "size_kg": [
+   0.4,
+   1.8
+  ],
+  "fillets": [
+   1,
+   2
+  ],
+  "fight": 1.0,
+  "pull": 0.95,
+  "cooked_to": "cooked_fish_emperor_angel",
+  "note": "Blue and gold in hard bands, and it rises off the deep coral ONLY under the fog bank a squall leaves behind. No fog, no angelfish; that is the whole of the rule."
+ },
+ "fish_parrotfish": {
+  "name": "Steephead Parrotfish",
+  "rod": true,
+  "net": false,
+  "w": {
+   "dawn": 10,
+   "day": 9,
+   "dusk": 10,
+   "night": 9
+  },
+  "storm": "never",
+  "rain": "ok",
+  "fog": "ok",
+  "light": "shy",
+  "water": "near",
+  "depth": "deep",
+  "size_kg": [
+   1.5,
+   6.0
+  ],
+  "fillets": [
+   2,
+   5
+  ],
+  "fight": 1.3,
+  "pull": 1.2,
+  "cooked_to": "cooked_fish_parrotfish",
+  "note": "Sleeps in a bag of its own mucus and will not rise while the floodlights burn — kill the breaker and fish it at night. The beak crunches coral to sand; expect grit."
  }
 }

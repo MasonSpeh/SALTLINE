@@ -123,10 +123,15 @@ func _process(delta: float) -> void:
 ## anything already rotten, dried or non-perishable is left exactly as it is.
 func _turn() -> void:
 	var spoiled: int = 0
+	_fit_meta()
 	for i in range(items.size()):
 		var id: String = String(items[i])
 		if _perishable(id):
 			items[i] = "fish_rotten"
+			# A turned fish is no longer a 48 kg grouper, it is rot — so the payload goes
+			# with the species that used to carry it. Leaving it would hand the next reader
+			# a weight belonging to an animal that is not in the box any more.
+			item_meta[i] = null
 			spoiled += 1
 	if spoiled <= 0:
 		return

@@ -133,13 +133,28 @@ func _harvest_standing_close() -> void:
 		_p("[DEFECT]", "kelp harvest never completed in reach")
 		return
 	_p("[OK]", "kelp harvest completes (%s), yielded=%s" % [node.verb, PlayerState.has_item("kelp_bundle")])
-	node._regrow_left = 0.2
-	await get_tree().create_timer(0.8).timeout
+	# REGROWTH IS ON THE CALENDAR (2026-08-08). This used to poke `_regrow_left` and wait
+	# 0.8 real seconds, which stopped meaning anything the moment the wet-deck nodes moved
+	# off their real-seconds countdowns: Salvage._process tests regrow_game_hours FIRST and
+	# never reaches the delta branch, so the poke did nothing and this reported a [DEFECT]
+	# against a working feature. Advance the way a bunk does instead — that is the thing the
+	# whole change exists to make work. Clock put back afterwards so the sections below run
+	# at the time of day they expect.
+	var day0: int = GameClock.day_count
+	var phase0: GameClock.Phase = GameClock.current_phase
+	var slept: int = 0
+	while node.spent and slept < 12:
+		GameClock.skip_to_next_dawn()
+		slept += 1
+		await get_tree().process_frame
+		await get_tree().process_frame
 	if node.spent:
-		_p("[DEFECT]", "renewable node never regrew after its timer elapsed")
+		_p("[DEFECT]", "renewable node never regrew after %d slept nights" % slept)
 	else:
-		_p("[OK]", "renewable node regrows and leaves group 'salvaged' (%s)"
-			% (not node.is_in_group("salvaged")))
+		_p("[OK]", "renewable node regrows over %d slept night(s) and leaves group 'salvaged' (%s)"
+			% [slept, not node.is_in_group("salvaged")])
+	GameClock.day_count = day0
+	GameClock.force_phase(phase0)
 	_clear_pack()
 
 # ---- 3: placement validity aimed OUT TO SEA (no deck under the aim point) ----

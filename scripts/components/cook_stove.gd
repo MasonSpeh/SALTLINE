@@ -6,7 +6,9 @@ class_name CookStove extends Interactable
 ##
 ## "Bigger fish feed you more" is literal for the big deep species: a fish carrying a
 ## fillets range in data/fish.json comes off the grill as MANY portions, and how many
-## depends on what that particular fish weighed when it was landed (FishTable.take_yield).
+## depends on what that particular fish weighed when it was landed — the weight carried on
+## the pack slot the fish came out of (FishTable.yield_for), so with two groupers in the
+## pack the pan cuts the ONE YOU CHOSE, at its own number.
 ## A grouper is the point of the deep rig — 6 to 12 fillets off one fish.
 ##
 ## COOKING TAKES TIME, AND YOU CAN SEE IT. A cook is no longer an instant swap: the raw
@@ -30,8 +32,8 @@ const CIRCUIT: String = "topside_floodlights"
 ## short enough that nobody stands there resenting it.
 const COOK_SECONDS: float = 6.0
 
-## Only ever used to roll a landed weight for a fish we never saw caught (a reloaded save,
-## a netted halibut) — see FishTable.take_size.
+## Only ever used to roll a landed weight for a fish that never carried one — a seeded
+## locker find, a v1 save — see FishTable.yield_for.
 var _rng := RandomNumberGenerator.new()
 
 # Non-fish things the range also cooks — a caught sea-bird off the deck, a cut fillet
@@ -345,7 +347,13 @@ func interact(verb: String, player: Node3D) -> void:
 		if hud:
 			hud.toast("The range is dead. Nothing on this circuit runs until 4-A is closed.")
 		return
-	var raw: String = _first_raw()
+	# WHICH FISH. A unified slot index, not just an id: the pan takes the one the player
+	# pointed at (what is in hand first — see _first_raw_slot), and with two groupers of
+	# different weights in the pack that distinction is the whole feature. The old code asked
+	# for an id and then asked a species-keyed queue what "a" grouper weighed, which is how
+	# filleting the small one could spend the big one's number.
+	var slot: int = _first_raw_slot()
+	var raw: String = PlayerState.slot_id(slot)
 	if raw == "":
 		if hud:
 			hud.toast("Nothing raw to cook. The pan waits.")
@@ -355,10 +363,10 @@ func interact(verb: String, player: Node3D) -> void:
 		if hud:
 			hud.toast("Nothing raw to cook. The pan waits.")
 		return
-	# How much fish is on the board. Asked once, HERE, as the fish goes in — the weight
-	# belongs to this fish and the ledger must not hand it to another while it cooks.
-	var cut: Dictionary = FISH.take_yield(raw, _rng)
-	PlayerState.remove_item(raw)
+	# How much fish is on the board. Taken WITH the fish, off its own slot, so the weight
+	# cannot be handed to another one while this cooks.
+	var taken: Dictionary = PlayerState.take_one_at(slot)
+	var cut: Dictionary = FISH.yield_for(raw, FISH.meta_kg(taken.get("meta", {})), _rng)
 	_cooking = true
 	_boiling = _is_boil(raw)
 	_boil_t = 0.0
@@ -413,16 +421,13 @@ func _on_circuit_lost(id: String) -> void:
 	if id != CIRCUIT or not _cooking:
 		return
 	var raw: String = _cook_raw
-	# The weight came OFF the ledger when the fish went on the heat (take_yield, in
-	# interact). The fish is coming back, so its number has to come back with it —
-	# recorded again if it fits the pack, riding the Takeable if it spills — or an
-	# interrupted cook would quietly turn a weighed fish into an average one.
+	# The weight came OUT OF THE PACK with the fish when it went on the heat (take_one_at,
+	# in interact). The fish is coming back, so its number has to come back with it — onto
+	# the slot it lands in if it fits, riding the Takeable if it spills — or an interrupted
+	# cook would quietly turn a weighed fish into an average one.
 	var kg: float = _cook_kg
 	_clear()
-	if PlayerState.add_item(raw):
-		if kg > 0.0:
-			FISH.record_size(raw, kg)
-	else:
+	if not PlayerState.add_item(raw, FISH.catch_meta(raw, kg)):
 		SaveManager.drop_into_world(raw, _cook_at, Vector3.ZERO, kg)
 	var hud: Node = get_tree().get_first_node_in_group("hud")
 	if hud:
@@ -520,20 +525,31 @@ func _set_hot(hot: bool) -> void:
 			if is_instance_valid(w["mi"]):
 				(w["mi"] as MeshInstance3D).visible = false
 
+## What goes in next, as an id — for the prompt and the BOIL/COOK verb choice.
 func _first_raw() -> String:
-	# What is in your hand first, then the rest of the belt, then the pack — the same
-	# order the drying line uses, so "cook the fish I'm holding" always does that.
+	return PlayerState.slot_id(_first_raw_slot())
+
+## WHICH SLOT goes in next (a unified index; -1 for nothing cookable).
+##
+## What is in your hand first, then the rest of the belt, then the pack — the same order the
+## drying line uses, so "cook the fish I'm holding" always does that. Returning the SLOT
+## rather than the id is what lets the cook take that fish's own weight with it: two
+## groupers of different weights are two slots now, and the one you selected is the one
+## that gets filleted.
+func _first_raw_slot() -> int:
 	var sel: int = PlayerState.selected_hotbar
 	if sel >= 0 and sel < PlayerState.HOTBAR_SIZE and PlayerState.hotbar[sel] != null \
 			and _cooked_for(String(PlayerState.hotbar[sel])) != "":
-		return String(PlayerState.hotbar[sel])
-	for it in PlayerState.hotbar:
+		return sel
+	for i in range(PlayerState.HOTBAR_SIZE):
+		var it: Variant = PlayerState.hotbar[i]
 		if it != null and _cooked_for(String(it)) != "":
-			return String(it)
+			return i
 	# The pack is a SPARSE array — a deliberately-empty square holds null, and interior
 	# holes persist — so it needs the same null guard the belt does. Without it a cook
 	# with a gap in the pack calls String(null) on the hole.
-	for it in PlayerState.inventory:
-		if it != null and _cooked_for(String(it)) != "":
-			return String(it)
-	return ""
+	for i in range(PlayerState.inventory.size()):
+		var pit: Variant = PlayerState.inventory[i]
+		if pit != null and _cooked_for(String(pit)) != "":
+			return PlayerState.HOTBAR_SIZE + i
+	return -1

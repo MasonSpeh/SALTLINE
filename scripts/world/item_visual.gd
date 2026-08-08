@@ -57,10 +57,23 @@ const FISH_SIZE := {
 	"fish_tallow_pollock": 1.1, "fish_squall_garfish": 1.2,
 	"fish_lantern_dogfish": 1.5, "fish_anchor_ray": 1.6,       # both a two-handed lift
 	"fish_trench_hagfish": 0.9, "fish_rotten": 0.9,           # see the FISH_TINT note above
+	# s52: the ten reef tropicals, now catchable. NOT invented — every number is the
+	# authored body length reef_fish.gd's SPECIES table already builds that mesh at (its
+	# `len` column), so a fish landed in the hand is the same size as the fish the player
+	# swam past on the caisson. They are the smallest things on this ladder on purpose:
+	# a damsel really is half a copper sprat, and the reef reads as zoned by size.
+	"fish_damsel": 0.22, "fish_clownfish": 0.24, "fish_anthias": 0.24,
+	"fish_cleaner_wrasse": 0.28,
+	"fish_yellow_tang": 0.34, "fish_butterflyfish": 0.34, "fish_blue_tang": 0.40,
+	"fish_triggerfish": 0.44, "fish_emperor_angel": 0.50, "fish_parrotfish": 0.62,
 }
 ## Real generated fish meshes (assets/models/fauna/<id>) when present; procedural
 ## silhouette when not. Preloaded — the class cache lags for this new file.
 const FISH_MODEL := preload("res://scripts/world/fish_model_lib.gd")
+## For FACING_OVERRIDES — which species' meshes are authored along local X rather than Z.
+## See the held-fish yaw correction in build(); three meshes need it and one of them has
+## been shipping end-on.
+const ANIM := preload("res://scripts/world/creature_anim.gd")
 
 ## HOW BIG A SPECIES REALLY IS, in metres of body length. Used by the pack's fish preview
 ## (ui/item_icons.gd) to frame a caught fish at its own size instead of a uniform thumbnail.
@@ -223,7 +236,21 @@ static func build(item_id: String, kg: float = 0.0) -> Node3D:
 			# fallback). Y-only: a fish hung or laid flat stays level, just turned to show
 			# its side. The procedural fallback below is already built side-on, so this
 			# correction lives ONLY on the real-mesh branch.
-			model.rotation.y = deg_to_rad(-90)
+			#
+			# ...AND NOT EVERY FISH MESH RUNS ALONG Z, which made this correction cause the
+			# exact failure it exists to prevent. `creature_anim.FACING_OVERRIDES` records
+			# three meshes authored along local X — trop_angel, trop_butterfly and
+			# fish_ribbon_eel, all MEASURED in s34 — and on those the -90 swings the long
+			# axis ONTO Z and hands you the nose. Measured s52 off the real built visual:
+			# the emperor angel came out 0.07 x 0.18 x 0.21, i.e. end-on. fish_ribbon_eel
+			# has SHIPPED that way since it was wired in; this is its fix too.
+			# `axis` 1 = body along local X. `flip` says which end the head is on:
+			# 1 = head at MAX X, so yaw 180 puts it at -X; 0 = head already at -X, yaw 0.
+			var face: Dictionary = ANIM.facing_for(FISH_MODEL.fauna_path(species))
+			if int(face.get("axis", 0)) == 1:
+				model.rotation.y = deg_to_rad(180.0 if float(face.get("flip", 1.0)) > 0.5 else 0.0)
+			else:
+				model.rotation.y = deg_to_rad(-90)
 			root.add_child(model)
 			return root
 		_fish_body(root, species, cooked, size_mul)

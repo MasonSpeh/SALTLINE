@@ -20,17 +20,48 @@ const ANIM := preload("res://scripts/world/creature_anim.gd")
 ## Default longest-axis size in the hand (metres). Callers scale by species heft.
 const HELD_SIZE := 0.42
 
-## ---------------------------------------------------------------- PLACEHOLDER MESHES
-## A species whose own .glb has not been generated yet, borrowing the nearest silhouette in
-## the tree so it lands as a FISH instead of the default grey capsule. Strictly temporary:
-## delete the entry the moment the real asset exists and the species picks up its own mesh
-## with no other edit anywhere. The table's own `school.tint` is applied on top by _skin()
-## below, so a borrowed body still comes up the right COLOUR for the species wearing it.
+## ---------------------------------------------------------------- SPECIES ID -> MESH SLUG
+## Where a fish.json species id and its .glb slug are not the same word.
 ##
-## Empty as of s24 — the swordfish (the last placeholder, borrowing the garfish's beak
-## silhouette) got its own generated mesh. Left in place, empty, for the next species that
-## ships to the fish table before its model does.
-const MESH_ALIAS := {}
+## TWO KINDS OF ENTRY LIVE HERE, AND THEY HAVE OPPOSITE LIFETIMES. Read this before deleting
+## anything out of the table.
+##
+##   PLACEHOLDER (temporary) — a species whose own .glb has not been generated yet, borrowing
+##   the nearest silhouette in the tree so it lands as a FISH instead of the default grey
+##   capsule. Delete the entry the moment the real asset exists and the species picks up its
+##   own mesh with no other edit anywhere. The table's own `school.tint` is applied on top by
+##   _skin() below, so a borrowed body still comes up the right COLOUR for the species
+##   wearing it. There are none right now: the swordfish, the last one, got its own mesh in
+##   s24.
+##
+##   PERMANENT — the ten `trop_*` entries below. These are NOT borrows and must NOT be
+##   deleted "once the real asset arrives": the real asset is the one they already point at.
+##   The reason the two names differ is a hard constraint elsewhere. reef_fish.gd shipped the
+##   reef community under Tripo's own slugs (trop_clown, trop_angel, ...), and a fish.json id
+##   MUST begin with "fish_" — sixteen literal begins_with("fish_") / begins_with("cooked_")
+##   tests across bench_panel, ship_cat, item_visual, hang_line, cold_store and fishing_rod
+##   would silently drop a species called `trop_clown` out of the pack, the stove, the drying
+##   line and the cold store, with no error anywhere. Renaming the GLB directories instead
+##   would break reef_fish.gd's MODEL_PATH and creature_anim.gd's FACING_OVERRIDES, which are
+##   keyed on the slug and were measured against it. So the id and the slug differ on
+##   purpose, permanently, and this table is the join.
+##
+## s52: the ten reef species became CATCHABLE with zero new assets — all ten meshes were
+## already in the tree and already swimming the caisson reef, and all ten together are
+## 16,199 triangles (measured off the GLB index buffers), i.e. less than ONE undecimated
+## leopard grouper at 198,902 (KNOWN_ISSUES:265-274).
+const MESH_ALIAS := {
+	"fish_clownfish": "trop_clown",
+	"fish_yellow_tang": "trop_yellow_tang",
+	"fish_damsel": "trop_damsel",
+	"fish_cleaner_wrasse": "trop_wrasse",
+	"fish_butterflyfish": "trop_butterfly",
+	"fish_blue_tang": "trop_blue_tang",
+	"fish_anthias": "trop_anthias",
+	"fish_triggerfish": "trop_triggerfish",
+	"fish_emperor_angel": "trop_angel",
+	"fish_parrotfish": "trop_parrot",
+}
 
 static func fauna_path(species_id: String) -> String:
 	var slug: String = String(MESH_ALIAS.get(species_id, species_id))
@@ -61,19 +92,38 @@ static func species_of(item_id: String) -> String:
 
 # ---- internals ----
 
-## Give an UNTEXTURED species mesh the colour the fish table already assigns it.
+## Give an UNTEXTURED species mesh a real fish read, built from the colour the fish table
+## already assigns it.
 ##
-## s15 (2026-07-26): the Meshy account ran down to its last credits mid-wave, so seven of
+## s15 (2026-07-26): the Meshy account ran down to its last credits mid-wave, so SEVEN of
 ## the new species shipped as PREVIEW meshes — correct geometry, but glTF primitives with
-## no material at all. The schools survive that (underwater_world pushes the table's
-## school tint straight into the swim shader), but a fish in the player's HAND has no
-## shader in front of it: it was rendering as a blank chalk-white fish, which reads worse
-## than the coloured capsule it replaced. So the same `school.tint` the shoal uses becomes
-## a plain albedo here, and a landed pollock is a pollock-coloured pollock.
+## no material at all. Verified s52 by parsing the GLBs directly: 0 materials, 0 textures,
+## 0 images, and POSITION/NORMAL/TEXCOORD_0 with no COLOR_0. The seven are
+##   fish_anchor_ray  fish_gannet_mackerel  fish_kelp_pipefish  fish_lantern_dogfish
+##   fish_rust_wrasse  fish_squall_garfish  fish_tallow_pollock
+## The schools survive it (underwater_world pushes the table's tint into the swim shader),
+## but a fish in the player's HAND has no shader in front of it: it rendered chalk-white,
+## which reads worse than the coloured capsule it replaced.
 ##
-## Keyed on "has no albedo texture", not on the species id: every properly refined model
-## in the tree carries a baseColorTexture, so this touches exactly the meshes that need it
-## and silently stops applying to any species once its textures are generated.
+## s15's cover was one flat albedo. That stopped the white and produced the owner's next
+## report instead — "it shouldnt be just 1 color" — because a single uniform matte value
+## over a whole body is not a fish, it is a fish-shaped swatch. There is nothing to fall
+## back to: with 0 materials in the GLB, removing this override returns Godot's default
+## white, i.e. the s15 failure. The colour has to be SYNTHESISED, so it may as well be
+## synthesised into something that reads.
+##
+## materials/fish_skin.gdshader does that from the same one number: countershading (dark
+## back, pale belly) off the WORLD normal, body-locked mottle, and a wet fresnel sheen.
+## The shader's header records why the countershade cannot key off a body axis — the seven
+## meshes disagree about which axis is dorsoventral and none of them says which end is the
+## back.
+##
+## Still keyed on "has no albedo texture", not on a species list: every properly refined
+## model in the tree carries a baseColorTexture, so this touches exactly the meshes that
+## need it and silently stops applying to any species the moment its textures land. That
+## is what makes regenerating these seven a drop-in with no code change.
+const SKIN_SHADER := preload("res://materials/fish_skin.gdshader")
+
 static func _skin(model: Node3D, species_id: String) -> void:
 	var tint: Color = _tint_of(species_id)
 	if tint.a < 0.5:                          # species not in the table / no tint
@@ -86,10 +136,9 @@ static func _skin(model: Node3D, species_id: String) -> void:
 			var src := inst.mesh.surface_get_material(s) as BaseMaterial3D
 			if src != null and src.albedo_texture != null:
 				continue                      # a real texture pass: leave it alone
-			var m: BaseMaterial3D = src.duplicate() if src else StandardMaterial3D.new()
-			m.albedo_color = tint
-			m.roughness = 0.55                # wet fish: damp, not glossy, not chalk
-			m.metallic = 0.0
+			var m := ShaderMaterial.new()
+			m.shader = SKIN_SHADER
+			m.set_shader_parameter("base_tint", Vector3(tint.r, tint.g, tint.b))
 			inst.set_surface_override_material(s, m)
 
 ## The fish table's school tint for a species, or a zero-alpha Color when it has none.
@@ -129,12 +178,23 @@ static func _tint_of(species_id: String) -> Color:
 ##
 ## Reads the OVERRIDE first: on an untextured species _skin() has already put the table's
 ## colour there, and searing must crush that, not the white nothing underneath it.
+##
+## THE SHADER BRANCH IS NOT OPTIONAL. Since s52 the seven untextured species wear a
+## ShaderMaterial, and `as BaseMaterial3D` on one returns NULL — which would fall straight
+## through to `StandardMaterial3D.new()` and plate a pure WHITE fish, silently, only on
+## the cooked path. The shader carries its own `sear` uniform for exactly this reason.
 static func _char(model: Node3D) -> void:
 	for mi in _meshes(model):
 		var inst: MeshInstance3D = mi
 		if inst.mesh == null:
 			continue
 		for s in range(inst.mesh.get_surface_count()):
+			var shaded := inst.get_surface_override_material(s) as ShaderMaterial
+			if shaded != null:
+				var sm: ShaderMaterial = shaded.duplicate()
+				sm.set_shader_parameter("sear", 1.0)
+				inst.set_surface_override_material(s, sm)
+				continue
 			var src := inst.get_surface_override_material(s) as BaseMaterial3D
 			if src == null:
 				src = inst.mesh.surface_get_material(s) as BaseMaterial3D

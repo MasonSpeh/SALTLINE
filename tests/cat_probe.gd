@@ -461,7 +461,91 @@ func _run() -> void:
 	_ok(cat.global_position.y > leap_y0 + 0.5,
 		"...and it ends up ON the crate (y %.2f, deck %.2f)"
 			% [cat.global_position.y, leap_y0])
+
+	# 5e. AND IT CAN GET BACK DOWN — the half nobody had ever tested.
+	#
+	# The check above ends by TELEPORTING the cat off the crate, which is why five sessions of
+	# green runs never noticed that the animal it left up there could not have walked off. The
+	# descent was refused by construction: `_step_clear` puts the landing sphere 0.157 m above
+	# the lower deck immediately beside the crate's vertical face, where it needs `_body_r()`
+	# = 0.117 m of clearance and a walk step is 0.0158 m. Refused, deterministically, every
+	# frame, for ever. Compounding it, `near_gap` only shrank when the PLAYER was above the
+	# cat, so with the cat up and the player down the 3D distance sat inside FOLLOW_NEAR and
+	# the animal declared itself arrived and SAT DOWN on the crate.
+	#
+	# So: player back on the deck, and watch it come off. Both halves are asserted — that it
+	# LEAVES (a cat stranded on a workbench is the bug) and that it JUMPS rather than sliding
+	# down some seam (`_jump_t` positive on a descending arc).
+	#
+	# JUDGED WHEN IT HAS LANDED, NOT WHEN IT IS PAST THE LIP. The first cut of this broke out
+	# of the loop the frame the cat's y crossed a threshold, which it does IN MID-AIR — it
+	# reported 18.19 m for an animal that was still falling, i.e. it would have passed just as
+	# happily on a cat that dropped through the deck. Wait for the flight to be over and the
+	# wind-up to be clear, then read the settled height.
+	player.global_position = Vector3(3.0, 18.1, -3.0)
+	var down_from: float = cat.global_position.y
+	var down_flew: bool = false
+	var down_low: float = down_from
+	var down_settled: bool = false
+	for i in range(900):
+		await get_tree().physics_frame
+		if float(cat.get("_jump_t")) > 0.0 or float(cat.get("_jump_wind")) > 0.0:
+			down_flew = true
+			continue
+		down_low = minf(down_low, cat.global_position.y)
+		if down_flew and cat.global_position.y < leap_y0 + 0.25:
+			down_settled = true
+			break
+	_ok(down_settled and absf(cat.global_position.y - leap_y0) < 0.15,
+		"it GETS DOWN off the crate and lands on the deck (%.2f -> %.2f, deck %.2f)"
+			% [down_from, cat.global_position.y, leap_y0])
+	_ok(down_flew, "...and it jumps down rather than being slid down (a flight fired)")
+	_ok(down_low > leap_y0 - 0.20,
+		"...and it never went through the deck (lowest settled y %.2f, deck %.2f)"
+			% [down_low, leap_y0])
 	leap_crate.queue_free()
+	await get_tree().physics_frame
+
+	# 5f. A DROP TALLER THAN THE PROBE THAT LOOKS FOR IT.
+	#
+	# The crate above is 1.0 m, which the footfall ray (0.75 m up, 1.85 m of reach) can still
+	# see the deck under. Six metres cannot be seen at all: the ray finds NOTHING, and the old
+	# code's answer to nothing was a bare `return` — correct as "a cat does not walk off a
+	# rig", fatal as "a cat left up here stays up here for the session". The owner's ask is ten
+	# metres; this is six, inside DROP_MAX with room to spare, and it exercises the other of
+	# the two routes into the descent.
+	var tower := StaticBody3D.new()
+	var tcs := CollisionShape3D.new()
+	var tbox := BoxShape3D.new()
+	tbox.size = Vector3(2.0, 6.0, 2.0)
+	tcs.shape = tbox
+	tower.add_child(tcs)
+	get_tree().current_scene.add_child(tower)
+	# Foot on the deck, top SIX metres up: centre = deck + half the height. (The first cut put
+	# the centre at deck+3 and the cat at 21.0 — which is INSIDE a box spanning 18..24, and a
+	# ray whose origin is inside a shape reports nothing in Godot, so `_reseat` silently left
+	# the animal buried and the test measured `_unbury` plus a free fall instead of a jump.)
+	tower.global_position = Vector3(5.6, 18.0 + 3.0, -3.0)     # spans y 18..24
+	cat.global_position = Vector3(5.6, 24.0, -3.0)
+	cat.call("_reseat")
+	player.global_position = Vector3(3.0, 18.1, -3.0)
+	var tall_from: float = cat.global_position.y
+	var tall_flew: bool = false
+	var tall_down: bool = false
+	for i in range(1200):
+		await get_tree().physics_frame
+		if float(cat.get("_jump_t")) > 0.0 or float(cat.get("_jump_wind")) > 0.0:
+			tall_flew = true
+			continue
+		if tall_flew and cat.global_position.y < 18.3:
+			tall_down = true
+			break
+	_ok(tall_from > 23.5, "the tall-drop cat really started on top (y %.2f)" % tall_from)
+	_ok(tall_down and absf(cat.global_position.y - 18.0) < 0.15,
+		"it comes down a %.1f m drop the footfall ray cannot even see (%.2f -> %.2f)"
+			% [tall_from - 18.0, tall_from, cat.global_position.y])
+	_ok(tall_flew, "...as a jump, with an arc (a flight fired)")
+	tower.queue_free()
 	await get_tree().physics_frame
 	cat.global_position = Vector3(-22.0, 18.05, 11.0)
 	cat.call("_reseat")
@@ -624,4 +708,116 @@ func _run() -> void:
 	_ok(buried_frames == 0,
 		"the cat's BODY was never inside the rig (%d/%d samples buried, worst %.0f mm)"
 			% [buried_frames, samples, worst_depth * 1000.0])
+
+	# ------------------------------------------------------- THE OTHER ONE THAT WAS MISSING
+	#
+	# THE CAT USED TO WALK ON THE WATER, and `ship_cat.gd` had exactly ONE water-aware line in
+	# 2600 (the trail recorder's). `_reseat` had no `else` branch: when its ray found nothing
+	# it silently kept the previous height, and over open sea the ray ALWAYS finds nothing —
+	# the ocean surface is a shader-displaced visual mesh with no collider. So a cat that left
+	# the deck horizontally stood at DECK_Y 18.0 above the swell, permanently frozen, because
+	# every recovery path also fails open out there: `_walk_toward` gets an empty deck hit and
+	# returns, `_unbury` finds nothing to push out of, and `_reseat` holds the height.
+	#
+	# MEASURED AGAINST THE SWIM LINE, NOT AGAINST A NUMBER. `Gyre.swim_line` is the same
+	# source of truth the player, main.gd and underwater_fx use, and it MOVES — so the
+	# boarding lip below is sized from the range this spot's surface actually covers rather
+	# than from a hand-typed height, which is the standing rule in this repo.
+	var sea := Vector3(0.0, 18.0, 168.0)
+	var surf_lo: float = 1e9
+	var surf_hi: float = -1e9
+	for i in range(24):
+		await get_tree().physics_frame
+		var s: float = Gyre.swim_line(Vector2(sea.x, sea.z), Gyre.water_time())
+		surf_lo = minf(surf_lo, s)
+		surf_hi = maxf(surf_hi, s)
+	# Prove the spot really is open water before drawing any conclusions from it: nothing
+	# solid anywhere under the drop point, which is precisely the condition `_reseat` used to
+	# fail open on.
+	var vq := PhysicsRayQueryParameters3D.create(sea, sea - Vector3(0, 60.0, 0))
+	vq.collision_mask = 1
+	vq.collide_with_areas = false
+	var empty_below: bool = cat.get_world_3d().direct_space_state.intersect_ray(vq).is_empty()
+	_ok(empty_below,
+		"the drop point is genuinely open sea (swim line %.2f..%.2f, nothing solid for 60 m below)"
+			% [surf_lo, surf_hi])
+
+	# A BOARDING LIP, BUILT rather than hunted for — the same reasoning as the leap crate, and
+	# it FLOATS. A fixed height cannot work here and the arithmetic says so: the lip must stand
+	# clear of the sea (> swim line + 0.1, or `_find_board` correctly calls it a submerged
+	# shelf) AND stay inside one JUMP_UP of a cat riding at swim line - SWIM_SINK, so the swell
+	# range has to be under ~1.03 m for any constant to satisfy both. Measured at this spot it
+	# is not — a 24-frame sample read 1.17..1.94 and the run then spent minutes at ~0.60. So
+	# the dock rides the swell like a real pontoon and the test measures the CAT instead of the
+	# sea state it happened to start in.
+	const LIP_FREEBOARD: float = 0.7
+	var lip_top: float = surf_hi + LIP_FREEBOARD
+	var pontoon := StaticBody3D.new()
+	var pcs := CollisionShape3D.new()
+	var pbox := BoxShape3D.new()
+	pbox.size = Vector3(4.0, 0.5, 4.0)
+	pcs.shape = pbox
+	pontoon.add_child(pcs)
+	get_tree().current_scene.add_child(pontoon)
+	pontoon.global_position = Vector3(sea.x, lip_top - 0.25, sea.z)
+	# Drop it in over open water, 2.6 m clear of the lip, at DECK HEIGHT — which is exactly the
+	# state the bug left the animal in.
+	# Far enough out that it has to actually SWIM there: the lip's near edge is 2 m from the
+	# pontoon's centre, so this is 5 m of open water to cross.
+	cat.global_position = Vector3(sea.x, sea.y, sea.z - 7.0)
+	player.global_position = Vector3(sea.x, lip_top + 0.1, sea.z)
+	cat.set("_hunt_cd", 999.0)
+	cat.set("_zoom_cd", 999.0)
+	cat.set("_play_cd", 999.0)
+	var fell_in: bool = false
+	var swam: bool = false
+	var swam_frames: int = 0
+	var worst_under: float = 0.0      # deepest the BODY ever got below the swim line
+	var boarded: bool = false
+	var swum_m: float = 0.0
+	var last_xz: Vector2 = Vector2(cat.global_position.x, cat.global_position.z)
+	for i in range(2400):
+		await get_tree().physics_frame
+		# The dock rides the swell — see LIP_FREEBOARD. Set from the sea under the PONTOON, not
+		# under the cat, because that is what a floating thing does.
+		lip_top = Gyre.swim_line(Vector2(sea.x, sea.z), Gyre.water_time()) + LIP_FREEBOARD
+		pontoon.global_position = Vector3(sea.x, lip_top - 0.25, sea.z)
+		var s2: float = Gyre.swim_line(
+			Vector2(cat.global_position.x, cat.global_position.z), Gyre.water_time())
+		if int(cat.get("_state")) == 14:
+			swum_m += last_xz.distance_to(Vector2(cat.global_position.x, cat.global_position.z))
+		last_xz = Vector2(cat.global_position.x, cat.global_position.z)
+		if cat.global_position.y < sea.y - 1.0:
+			fell_in = true
+		if int(cat.get("_state")) == 14:
+			swam = true
+			swam_frames += 1
+			worst_under = maxf(worst_under, s2 - cat.global_position.y)
+		# ON THE LIP, NOT OVER IT. Read only on frames the animal is neither winding up nor
+		# airborne — the boarding leap passes through exactly this height on its way, so a
+		# check that does not exclude the flight photographs the jump and calls it a landing
+		# (measured: it reported y 1.63 against a 1.91 lip, i.e. still 0.28 m short and
+		# rising).
+		if swam and float(cat.get("_jump_t")) <= 0.0 and float(cat.get("_jump_wind")) <= 0.0 \
+				and cat.global_position.y > lip_top - 0.10 and int(cat.get("_state")) != 14:
+			boarded = true
+			break
+	_ok(fell_in, "a cat over open sea does NOT stand at deck height (fell to y %.2f from 18.00)"
+		% cat.global_position.y)
+	_ok(swam and swum_m > 2.0,
+		"...it ends up in the water and SWIMS for it (%d frames in SWIM, %.1f m paddled)"
+			% [swam_frames, swum_m])
+	_ok(worst_under < 0.9,
+		"...riding the surface rather than sinking (worst %.2f m under the swim line)"
+			% worst_under)
+	_ok(boarded, "...and it climbs back out ONTO the lip (settled y %.2f, lip top %.2f)"
+		% [cat.global_position.y, lip_top])
+	# PUT THE WORLD BACK — the trap this file records twice already.
+	pontoon.queue_free()
+	await get_tree().physics_frame
+	cat.global_position = Vector3(-22.0, 18.05, 11.0)
+	cat.call("_reseat")
+	player.global_position = Vector3(-22.0, 18.1, 12.0)
+	for i in range(20):
+		await get_tree().physics_frame
 	_completed = true

@@ -50,8 +50,11 @@ const MODEL_PATH := "res://assets/models/fauna/ship_cat/ship_cat.glb"
 ##
 ## STALK / POUNCE / GIFT are the predatory sequence; PLAY is the same machinery with nothing
 ## on the end of it; PERCH is the cat's standing preference for being higher than you.
+## SWIM is APPENDED for the same reason JUMP was — see the two paragraphs above. It is the
+## recovery state for a cat that has ended up in the sea: it treads water, finds a lip it
+## can board from, and climbs out. Nothing chooses it; only `_over_water` does.
 enum State { GROOM, FOLLOW, RUN, SIT, SLEEP, FISH, PET, JUMP,
-	STALK, POUNCE, GIFT, PLAY, PERCH, STRETCH }
+	STALK, POUNCE, GIFT, PLAY, PERCH, STRETCH, SWIM }
 
 ## s35: THE RIGGED MESHES, where they exist. Same five poses, same look — Tripo rigged the
 ## ALREADY-SHIPPING meshes off the task ids s34 logged, and the bind pose photographs
@@ -100,6 +103,11 @@ const STATE_POSE := {
 	State.PLAY: "walk",
 	State.PERCH: "sit",
 	State.STRETCH: "stretch",
+	# A swimming cat paddles: `walk` is the one locomoting pose whose cycle reads as legs
+	# working under a body that is not bounding. Named here rather than left to the
+	# fallback because `_enter`'s default is "stand" and a statue in the sea is worse than
+	# a wrong gait. (`set_pose` no-ops silently on an unknown name — cat_rig.gd:1017.)
+	State.SWIM: "walk",
 }
 
 # ------------------------------------------------------------------ the hunt
@@ -155,15 +163,23 @@ const HOME := Vector3(-24.6, 18.0, 11.4)
 ## turn — was fighting a cadence set by a speed constant nobody had questioned; 1.55 m/s is a
 ## brisk TROT for a 0.66 m animal, being drawn with a walk cycle.
 ##
-## 0.95 m/s puts it at 2.9 strides/s, which is a walk. It also makes the gait bands mean what
+## 0.95 m/s put it at 2.9 strides/s, which is a walk. It also made the gait bands mean what
 ## they say for the first time: WALK_V is 1.8, so at 1.55 the "walk" was already 0.86 of the
 ## way into the walk->trot blend and carrying trot footfall timing. Now it sits at pure walk.
+##
+## 1.10 m/s (s52), AND THE STRIDE MOVED FIRST. The owner's next note was "step out further, be
+## a bit slower, but pull the cat further at a faster rate" — cadence DOWN and speed UP at the
+## same time, which is only possible if the stride rises by more than the speed does. It has:
+## cat_rig's walk envelope went 0.181 -> 0.232 m (a per-limb derived stance arc plus a measured
+## girdle) and the walk duty 0.55 -> 0.52, taking the stride 0.328 -> 0.445 m. At 1.10 m/s that
+## is 2.47 strides/s — 15% FEWER steps per second than at 0.95, while covering 16% more ground.
+## Raising this constant alone would have done the opposite; it is only safe after the stride.
 ##
 ## The cat is genuinely slower on its feet than the player, which is correct and is what
 ## TROT_SPEED and RUN_SPEED are for — it ambles when it is beside you and trots or runs when
 ## it has ground to make up. That is the animal; a companion that matches your pace at all
 ## times is a camera on a stick.
-const WALK_SPEED: float = 0.95
+const WALK_SPEED: float = 1.10
 const TROT_SPEED: float = 1.9        ## when it has fallen behind, or there is fish
 const FOLLOW_NEAR: float = 2.2       ## closer than this and it stops walking
 const FOLLOW_FAR: float = 14.0       ## further than this and it trots
@@ -195,6 +211,49 @@ const JUMP_UP: float = 1.25
 const JUMP_SEC: float = 0.52
 ## Stops a cat that lands just under another lip from jumping every frame forever.
 const JUMP_CD: float = 0.9
+## HOW FAR IT WILL JUMP DOWN, and the asymmetry is the animal, not an oversight. A cat can
+## step off things it could never leap onto — the owner's ask, verbatim, is ten metres — and
+## until s52 this file had NO descent path at all. The comment above `_reachable_up` claimed
+## "down is never gated"; it was gated, hard, by `_step_clear`: the landing sphere sits
+## 0.157 m above the lower deck immediately beside the face the cat is stepping off, needs
+## `_body_r()` = 0.117 m of clearance from it, and one walk step is 0.0158 m at 60 fps. Every
+## down-step was refused, deterministically, for as long as the cat has existed. The cat on
+## the rigging bench could not get off the rigging bench.
+const DROP_MAX: float = 10.0
+## A fall is not a hop: JUMP_SEC's fixed 0.52 s over a 10 m drop is 19 m/s, which is a
+## trebuchet. The flight time comes from the physics instead — t = sqrt(2h/g) — so a step off
+## a bench takes 0.43 s and a ten-metre drop takes 1.43 s, and both look like the same
+## gravity. JUMP_SEC is KEPT for the up-jump (tests/cat_probe.gd polls `_jump_t` against it).
+const DROP_G: float = 9.8
+const DROP_SEC_MIN: float = 0.30
+const DROP_SEC_MAX: float = 1.7
+## The little push-out a cat gives leaving a ledge — it does not simply topple off the edge.
+const DROP_HOP: float = 0.10
+## Seconds of refused frames, while ABOVE whatever it is walking at, before the descent stops
+## asking "is there a way down THIS way" and starts asking "is there a way down at all". The
+## stranding escape hatch; every other wedge in this file has one (_detour_stall 0.35,
+## _bed_stall 2.5, _trail_stall 0.9).
+const DROP_STALL: float = 1.1
+## THE SEA. `_reseat` had no `else` branch, so a cat whose seat ray found nothing simply kept
+## its old height — and over open water the ray ALWAYS finds nothing, because the ocean
+## surface is a shader-displaced visual mesh with no collider. The cat therefore stood at
+## DECK_Y over the swell, permanently frozen, which is the owner's "walks on the water".
+## Gravity is the honest else: it falls, it hits the sea, and SWIM brings it home.
+const FALL_G: float = 12.0
+const FALL_VMAX: float = 14.0
+## How deep the body rides while treading water, and how fast it paddles. Slower than a walk
+## on purpose — a swimming cat is working.
+const SWIM_SINK: float = 0.12
+## How hard the body chases the moving surface, and the most it may ever lag behind it.
+const SWIM_RISE: float = 14.0
+const SWIM_LAG_MAX: float = 0.20
+## Under `_drive_rig`'s 0.8 m/s look-suppression threshold on purpose: a swimming cat must be
+## able to look at the place it is trying to reach, and that gate would otherwise cut the head
+## off exactly the one state whose whole tell is where it is looking.
+const SWIM_SPEED: float = 0.70
+## How often it looks for somewhere to climb out, and how far it looks.
+const SWIM_SCAN_CD: float = 0.45
+const BOARD_SCAN_M: float = 6.0
 ## The stand mesh's longest-axis target, hull-volume-equalised against walk@0.66 (s36's
 ## sizing method, one entry now that there is one mesh). Recomputed if the base mesh is
 ## ever re-rolled: tools/extract_cat_poses.py prints the reminder.
@@ -332,6 +391,23 @@ var _jump_cd: float = 0.0
 var _jump_wind: float = 0.0
 var _jump_from: Vector3 = Vector3.ZERO
 var _jump_to: Vector3 = Vector3.ZERO
+## HOW LONG THIS PARTICULAR FLIGHT LASTS. `_fly_jump` used to divide by the JUMP_SEC constant
+## whatever `_jump_t` had been set to, which was already wrong before the drop existed: a
+## pounce sets POUNCE_SEC (0.42) and the arc therefore STARTED at k = 1 - 0.42/0.52 = 0.19,
+## i.e. the animal teleported a fifth of the way along its own leap on the first airborne
+## frame. One duration, set wherever the flight is armed, read in exactly one place.
+var _jump_dur: float = JUMP_SEC
+## Seconds spent refused while standing above what it is trying to reach — see DROP_STALL.
+var _drop_stall: float = 0.0
+## The fall. Non-zero only while the cat is off the world with nothing under it.
+var _fall_v: float = 0.0
+## SWIM: when it next looks for a way out, and the lip it found (INF for none).
+var _swim_scan: float = 0.0
+var _board: Vector3 = Vector3.INF
+## The last place the seat ray found real ground. A cat in the water steers at this when it
+## cannot see a boarding lip from where it is floating — it is the only point in the world
+## this animal can prove it was once standing on.
+var _last_ground: Vector3 = Vector3.INF
 ## THE BAIT TRAIL — the player's recent footsteps, oldest crumb first. Written by
 ## `_physics_process` (a recording, so it is never decimated) and read by `_trail_goal`.
 var _trail: PackedVector3Array = PackedVector3Array()
@@ -449,19 +525,38 @@ func _seat() -> void:
 ## is NOT walking — because `_walk_toward` is the only thing that used to re-ground it, so
 ## a cat that stands still on a deck another session moves would hang in the air until it
 ## happened to take a step.
-func _reseat() -> void:
+##
+## ...AND IT HAD NO `else`, WHICH IS THE WHOLE OF "THE CAT WALKS ON THE WATER".
+##
+## When the ray finds nothing this used to silently keep the previous height and return, and
+## it is called from a dozen sites, so it FAILED OPEN every time. Over open sea the ray always
+## finds nothing — the ocean surface is a shader-displaced visual mesh with no collider — so a
+## cat that left the deck horizontally (a play spot drawn blind over the side, a pounce at a
+## gull on the rail) stood at DECK_Y 18.0 above the swell for the rest of the session, frozen:
+## `_walk_toward` gets an empty deck hit and returns, `_unbury` finds nothing to push out of,
+## and this held the height.
+##
+## A no-hit reseat is not a null result, it is a FINDING — the animal is off the world. It
+## returns that finding now, and `_fall_step` acts on it.
+func _reseat() -> bool:
 	var world: World3D = get_world_3d()
 	if world == null:
-		return
+		return true
 	var from: Vector3 = global_position + Vector3(0, 1.2, 0)
 	var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 4.0, 0))
 	q.collision_mask = 1
 	q.collide_with_areas = false
 	q.exclude = [_touch.get_rid()]
 	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
-	if not hit.is_empty():
-		global_position.y = (hit["position"] as Vector3).y
+	if hit.is_empty():
+		return false
+	global_position.y = (hit["position"] as Vector3).y
 	_seated_y = global_position.y
+	# PROVEN GROUND, REMEMBERED. The one point this animal can show its own working on, and
+	# the only thing a cat adrift in the sea has to steer at.
+	if not _over_water(global_position):
+		_last_ground = global_position
+	return true
 
 ## Kept for probes and for anything that asks the CAT rather than its handle; the handle's own
 ## `verbs` is what the interaction ray reads, and both are set together in _sync_verbs.
@@ -608,7 +703,7 @@ func _process(delta: float) -> void:
 		_jump_wind -= delta
 		_last_speed = 0.0
 		if _jump_wind <= 0.0:
-			_jump_t = JUMP_SEC
+			_jump_t = _jump_dur
 			_enter(State.JUMP)
 			AudioDirector.play_one_shot("cat_chirp", global_position, -24.0)
 		_drive_rig(delta)
@@ -618,6 +713,22 @@ func _process(delta: float) -> void:
 	# otherwise cancel the jump on its first airborne frame.
 	if _jump_t > 0.0:
 		_fly_jump(delta)
+		_drive_rig(delta)
+		return
+	# THE SEA OWNS THE ANIMAL TOO, and it is checked HERE — above the player lookup and above
+	# the friend/_companion fork — for three reasons. It has to be reachable from the
+	# companion, from `_stay_behaviour` and from the not-friend `_groom` path, because a cat
+	# can end up in the water in any of them. It has to work with NO player: the follow
+	# contract is why `_reachable_up` refuses to climb when nobody is there, and drowning is
+	# not a thing to be polite about. And it must sit below the two jump blocks, because a
+	# leap that legitimately passes over water is not a cat in the water.
+	if _over_water(global_position):
+		_swim(delta)
+		_drive_rig(delta)
+		return
+	# ...AND NOTHING UNDER IT AT ALL IS THE OTHER HALF. See `_reseat`: no ground within reach
+	# means the animal is off the world, and the honest answer to that is gravity.
+	if _fall_step(delta):
 		_drive_rig(delta)
 		return
 	var player: Node3D = get_tree().get_first_node_in_group("player")
@@ -635,12 +746,15 @@ func _process(delta: float) -> void:
 ## over the top, so the cat rises clear of the lip it is clearing and comes down onto it.
 func _fly_jump(delta: float) -> void:
 	_jump_t -= delta
-	var k: float = clampf(1.0 - _jump_t / JUMP_SEC, 0.0, 1.0)
+	# `_jump_dur`, not JUMP_SEC — a ten-metre drop and a hop onto a crate are not the same
+	# flight, and the pounce was never 0.52 s either (see `_jump_dur`).
+	var k: float = clampf(1.0 - _jump_t / maxf(_jump_dur, 0.05), 0.0, 1.0)
 	var flat: Vector3 = _arc_point(_jump_from, _jump_to, k)
-	# Peak height scales with the rise so a small hop does not launch the cat at the
-	# deckhead, with a floor so a flat leap still leaves the ground.
-	var lift: float = maxf(_jump_to.y - _jump_from.y, 0.0) * 0.35 + 0.14
+	# (The `lift` local that used to sit here was dead: `_arc_point` owns the vertical, and
+	# has since s47 — it was a leftover of the two-copies-of-the-formula era this file's own
+	# comment warns about. Its live twin is `lift2` below, which the slope tangent reads.)
 	var before_fly: Vector3 = global_position
+	var descending: bool = _jump_to.y < _jump_from.y - 0.02
 	global_position = flat
 	# A LEAP TURNS THE SAFETY NET OFF, AND THAT IS WHY IT NEEDS ONE OF ITS OWN.
 	#
@@ -658,7 +772,16 @@ func _fly_jump(delta: float) -> void:
 		global_position = before_fly
 		_jump_t = 0.0
 		_jump_cd = JUMP_CD
-		_reseat()
+		# AND THE ABORT MUST NOT LEAVE THE CAT IN MID-AIR. `_reseat`'s ray reaches 2.8 m below
+		# the feet — shorter than a fall it is now allowed to take — so aborting at 40% of a
+		# ten-metre drop used to hang the animal in the sky with no ground under it and no
+		# path back. The probed landing is the one point on this arc that has been proven to
+		# be solid, dry and body-sized; take it. (`_fall_step` would catch the case anyway,
+		# and does for any route that reaches here without a `_jump_to`, but arriving on the
+		# spot it aimed at is a leap that fell short rather than a cat that fell.)
+		if not _reseat():
+			global_position = _jump_to
+			_reseat()
 		if _pouncing:
 			_resolve_pounce()
 		return
@@ -670,10 +793,19 @@ func _fly_jump(delta: float) -> void:
 	# One static mid-air stretch across the whole arc read as an animal hung from a wire.
 	# `play_seq([], pose, rate)` is the grammar-free pose set (the family grammar would
 	# route jump -> jump_descend through the sit machinery).
+	#
+	# A DROP IS THE SAME FOUR POSES ON A DIFFERENT CLOCK. Going up, most of the flight is the
+	# sprawl and the reach is the last third. Coming down there is barely a push-off and the
+	# whole middle of the fall is `jump_descend` — fores reaching long and DOWN, nose over the
+	# paws — which is precisely "landing on its feet" and is why no new pose was authored for
+	# any of this. (`play_seq`/`set_pose` no-op SILENTLY on a name that is not in the library,
+	# so a typo here gives a cat falling in its walk pose and no error anywhere.)
 	if _rig != null:
-		if k < 0.24:
+		var k_launch: float = 0.14 if descending else 0.24
+		var k_reach: float = 0.34 if descending else 0.60
+		if k < k_launch:
 			_rig.call("play_seq", [], "jump_launch", 16.0)
-		elif k < 0.60:
+		elif k < k_reach:
 			_rig.call("play_seq", [], "jump", 14.0)
 		else:
 			_rig.call("play_seq", [], "jump_descend", 14.0)
@@ -682,17 +814,50 @@ func _fly_jump(delta: float) -> void:
 		# through the same skeletal slope channel the ramps use, so it is chest-and-pelvis
 		# rotation, never the node. The stabiliser keeps the HEAD level on top of it, which
 		# is exactly the flat-eyed arc every slow-motion cat jump shows.
-		var horiz: float = maxf(Vector2(_jump_to.x - _jump_from.x,
-			_jump_to.z - _jump_from.z).length(), 0.2)
-		var lift2: float = maxf(_jump_to.y - _jump_from.y, 0.0) * 0.35 + 0.14
-		_rig.call("slope", atan2(PI * cos(k * PI) * lift2, horiz) * 0.85)
+		#
+		# ON A DESCENT THE TANGENT IS TAKEN FROM `_arc_point` ITSELF rather than from the
+		# closed form beside it. `maxf(rise, 0.0)` is zero for every drop, so the expression
+		# below returns atan2(0, horiz) = 0 — a cat falling ten metres, dead level, all the
+		# way down. Differencing the shared arc function cannot disagree with the path
+		# actually flown, which is the rule this file learned the hard way in s47; the up
+		# branch keeps its own expression only because a render pass is in flight against it.
+		if descending:
+			var a0: Vector3 = _arc_point(_jump_from, _jump_to, maxf(k - 0.06, 0.0))
+			var a1: Vector3 = _arc_point(_jump_from, _jump_to, minf(k + 0.06, 1.0))
+			var dv: Vector3 = a1 - a0
+			_rig.call("slope", atan2(dv.y, maxf(Vector2(dv.x, dv.z).length(), 0.02)) * 0.85)
+		else:
+			var horiz: float = maxf(Vector2(_jump_to.x - _jump_from.x,
+				_jump_to.z - _jump_from.z).length(), 0.2)
+			var lift2: float = maxf(_jump_to.y - _jump_from.y, 0.0) * 0.35 + 0.14
+			_rig.call("slope", atan2(PI * cos(k * PI) * lift2, horiz) * 0.85)
 	if _jump_t <= 0.0:
 		global_position = _jump_to
+		# JUMP_CD exists to stop a cat that lands just under another lip from jumping every
+		# frame for ever, which is an UP problem. A cat coming down a flight of coamings has
+		# somewhere to be; 0.9 s between 0.2 m steps down is a companion in slow motion. So the
+		# cooldown is proportional on a descent and untouched on a climb.
 		_jump_cd = JUMP_CD
-		_reseat()
+		if descending:
+			_jump_cd = JUMP_CD * clampf((_jump_from.y - _jump_to.y) / 1.2, 0.22, 1.0)
+		# LAND ON THE PROBED SPOT, not on whatever a 4 m ray can see from it. `_reseat` reaches
+		# 2.8 m below the feet, which is fine at the top of a crate and useless at the bottom
+		# of a ten-metre drop if the landing happens to be a grating edge the ray misses — and
+		# its old failure mode was to keep the OLD height, i.e. to leave the cat in the air.
+		# `_jump_to` was probed and volume-tested before the animal committed to any of this.
+		if not _reseat():
+			global_position = _jump_to
+		_fall_v = 0.0
+		_drop_stall = 0.0
 		# LAND -> SETTLE: fore-paws-first absorption held a beat, then the state's own pose.
+		# THE ABSORPTION GROWS WITH THE DROP. A cat stepping off a bench takes the landing on
+		# its forepaws and walks on; one arriving from four metres crumples through the whole
+		# forehand and takes a beat to unfold. Same pose, longer hold — 0.16 s at a hop,
+		# 0.34 s off the top of DROP_MAX.
 		if _rig != null:
-			_rig.call("play_seq", [["jump_land", 0.16, 14.0]],
+			var fell: float = maxf(_jump_from.y - _jump_to.y, 0.0)
+			_rig.call("play_seq",
+				[["jump_land", 0.16 + 0.18 * clampf(fell / DROP_MAX, 0.0, 1.0), 14.0]],
 				String(STATE_POSE.get(_state, "stand")), 8.0)
 			_rig.call("tail_flick", 0.8)   # the counterweight swinging through touchdown
 		# A POUNCE RESOLVES WHERE IT LANDS, not where it was aimed. Done here rather than in
@@ -933,8 +1098,17 @@ func _companion(delta: float, player: Node3D) -> void:
 	# passing at that exact spot (tests/LeapScratch.tscn) while the shipping loop never
 	# reached one of them: the jump was unreachable from the STATE MACHINE, not from the
 	# geometry. Both the gate and the stop distance take the same shrunken gap now.
+	#
+	# ...AND IT SHRINKS BOTH WAYS, WHICH IS THE SINGLE HIGHEST-VALUE LINE IN THE DROP FIX.
+	# The gate above was written for a player on a crate and only ever tested `ppos.y -
+	# global_position.y`. Invert the picture — cat up on the rigging bench, player on the deck
+	# beside it — and the 3D distance is again under FOLLOW_NEAR, so the animal declares
+	# itself ARRIVED, enters SIT, and never calls `_walk_toward` at all. No descent code
+	# anywhere in this file could have fired, because control never reached the walk: the cat
+	# sat on the bench looking pleased with itself for as long as you cared to watch. Height
+	# is not company in either direction.
 	var near_gap: float = FOLLOW_NEAR
-	if ppos.y - global_position.y > CLIMB_UP:
+	if absf(ppos.y - global_position.y) > CLIMB_UP:
 		near_gap = 0.35
 	if d > near_gap:
 		# ...and it BREAKS INTO A RUN when it has been left behind, which is the one moment a
@@ -1171,16 +1345,40 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 		return
 	# Probe the deck under the next footfall. No hit means the step would walk it off an edge,
 	# so it simply does not take it — a cat does not fall off a rig.
+	#
+	# DO NOT LENGTHEN THIS RAY. 1.85 m of reach is exactly what makes "a cat does not fall off
+	# a rig" true; widening it to see the ten-metre drop the descent branch below can now take
+	# would turn every deck edge into a walk-off, which is the mirror image of the s38 mistake
+	# that stranded the animal at y 20.26. The descent asks its OWN question, further out, and
+	# only when this one has already refused.
 	var from: Vector3 = want + Vector3(0, STEP_UP + 0.3, 0)
 	var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, STEP_UP + 1.4, 0))
 	q.collision_mask = 1
 	q.collide_with_areas = false
-	q.exclude = [_touch.get_rid()]
+	# `_walk_skip()`, not the bare handle — the fan (below), the back-out and the ledge probe
+	# all use the full list and this one did not, so the footfall ray alone could read another
+	# animal's grab collider, or the player's own capsule, as the deck to stand on.
+	q.exclude = _walk_skip()
+	var jump_idle: bool = _jump_t <= 0.0 and _jump_wind <= 0.0 and _jump_cd <= 0.0
 	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
 	if hit.is_empty():
+		# NOTHING WITHIN 1.85 m OF THE NEXT FOOTFALL. Refusing the step stays right — it is
+		# what keeps the cat off the edge of the rig — but refusing it and RETURNING is how an
+		# animal on top of anything taller than this ray's reach stays there for the session:
+		# the deck below passes under the ray entirely, so the descent branch further down is
+		# never reached at all. Ask the way-down question before giving up.
+		if jump_idle and target.y < global_position.y - STEP_UP:
+			_try_descend(dir, delta)
 		return
 	var ground: float = (hit["position"] as Vector3).y
 	var rise: float = ground - global_position.y
+	# ...AND THE DECK IT FOUND MUST BE OUT OF THE SEA. A submerged surface answers this ray
+	# perfectly well — the boat landing sits at y -3..1 — so without this the cat walks down
+	# the landing and keeps going. Same swim line the player, main.gd, underwater_fx and this
+	# file's own trail recorder test against, so "the cat will not follow you in" means the
+	# same thing in all five places.
+	if _over_water(Vector3(want.x, ground, want.z)):
+		return
 	# IS THERE A WALL IN THE WAY? The owner's "Cat glitches through walls".
 	#
 	# Every probe above asks about the FLOOR — "is there deck under the next footfall, and
@@ -1219,8 +1417,10 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 	# real 0.85 m ledge — inside the band that was invisible — and the telemetry read y 18.00
 	# across all 270 sampled frames, i.e. identical to the pre-fix animal. Dead code passes
 	# every test that does not watch the animal.
-	if rise <= CLIMB_UP and not _step_clear(Vector3(want.x, ground, want.z), dir) \
-			and _jump_t <= 0.0 and _jump_wind <= 0.0 and _jump_cd <= 0.0:
+	# ASKED ONCE, READ THREE TIMES — the ledge probe, the descent probe and the fan all turn on
+	# the same question, and asking it three times invited them to disagree.
+	var direct_ok: bool = _step_clear(Vector3(want.x, ground, want.z), dir)
+	if rise <= CLIMB_UP and not direct_ok and jump_idle:
 		# LOOK WHERE THE LANDING IS, NOT WHERE THE NEXT FOOTFALL IS — and that is a second
 		# thing the first cut got wrong. `want` is ONE STEP ahead (26 mm at a walk), while
 		# `_step_clear` refuses the step when the cat's NOSE sphere touches the lip, which is
@@ -1256,7 +1456,37 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 				want = Vector3(lookahead.x, top, lookahead.z)
 				ground = top
 				rise = lift
-	if not _step_clear(Vector3(want.x, ground, want.z), dir):
+				direct_ok = true
+	# ------------------------------------------------------------------ THE WAY DOWN
+	#
+	# THE DESCENT, which this animal has never had, and the comment above `_reachable_up` has
+	# been saying "down is never gated" while it was gated absolutely.
+	#
+	# Trace the bench: the cat stands on a 0.90 m CraftBench top, the player is on the deck
+	# beside it. The footfall ray at `want` clears the lip, finds the deck, reports rise
+	# -0.90 — and then `_step_clear` puts the test sphere 0.157 m above that deck, hard
+	# against the bench's vertical face, where it needs `_body_r()` = 0.117 m of clearance and
+	# has 0.0158 m (one walk step at 60 fps). Refused. Refused again next frame, from 0.0158 m
+	# further on. Refused for ever. Going UP the identical test sits ON TOP of the obstacle and
+	# is trivially clear — the asymmetry is the whole bug, and it is not a tuning error, it is
+	# a missing branch.
+	#
+	# WHERE THIS SITS IS LOAD-BEARING. After the ledge probe, before the detour fan: the fan
+	# `return`s on refused frames, so anything below it is dead on exactly the frames it
+	# matters (KNOWN_ISSUES:87-93 — the previous ledge fix was put there, filmed identically to
+	# no fix at all, and telemetry read y 18.00 across all 270 frames).
+	#
+	# ONLY DOWNHILL, AND ONLY TOWARD SOMETHING LOWER. `target.y` below the cat is what keeps
+	# this from turning every deck edge into a walk-off: a cat crossing a deck toward someone
+	# standing on it never asks the question at all. The stall clause is the escape hatch — if
+	# the animal has been stuck above its target for DROP_STALL seconds, it widens the search
+	# to a fan of headings, because "the way down is not the way I am facing" is exactly how a
+	# cat gets stranded on a bench it hopped onto from the other side.
+	if not direct_ok and rise <= 0.0 and jump_idle \
+			and target.y < global_position.y - STEP_UP:
+		if _try_descend(dir, delta):
+			return
+	if not direct_ok:
 		# THE DETOUR FAN — navigation for an animal with no navmesh, and the cure for the
 		# corner the owner watched it wedge in.
 		#
@@ -1298,6 +1528,11 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 					continue
 				var aground: float = (ahit["position"] as Vector3).y
 				if absf(aground - global_position.y) > CLIMB_UP:
+					continue
+				# The same swim line the direct step is held to. A fan candidate is a STEP, and
+				# a step onto a submerged surface is a step into the sea whichever heading it
+				# was found on — without this the cat slides down the boat landing sideways.
+				if _over_water(Vector3(awant.x, aground, awant.z)):
 					continue
 				if not _step_clear(Vector3(awant.x, aground, awant.z), alt):
 					continue
@@ -1364,11 +1599,13 @@ func _walk_toward(target: Vector3, speed: float, delta: float, stop_at: float) -
 			_jump_wind = 0.34
 			_jump_from = global_position
 			_jump_to = Vector3(want.x, ground, want.z)
+			_jump_dur = JUMP_SEC        # the climb keeps its authored beat, unchanged
 			if _rig != null:
 				_rig.call("play_seq", [["jump_crouch", 0.34, 14.0]], "jump", 10.0)
 		return
 	# A step was taken — whatever pocket the stall counter was accumulating toward is open.
 	_detour_stall = 0.0
+	_drop_stall = 0.0
 	# The slope it is standing on, for the body pitch. Taken from the rise over the step
 	# actually taken rather than from a second probe, so it cannot disagree with the move.
 	# THE GRADE IS A WINDOW, NOT A STEP (s45c — the owner's "cat should angle up/down when
@@ -1597,9 +1834,29 @@ func restore_state(d: Variant) -> void:
 ## the leap was refusing itself on a path no cat would take. A real cat rises almost
 ## vertically off the hocks and translates late, so the horizontal is eased by an exponent
 ## that grows with the rise-over-run: flat leaps keep their old linear travel exactly.
+##
+## A DROP NEEDS THE OPPOSITE EASING IN BOTH AXES, and the up formula does not merely look
+## wrong on a descent, it is degenerate: `steep` clamps at 0 for any negative rise, so the
+## horizontal runs linear, and `lift = maxf(rise, 0) * 0.35 + 0.14` throws the whole drop away
+## — a ten-metre fall drawn as a straight line with a 0.14 m hump on it, at constant vertical
+## speed, which is a cat on a zip wire. Gravity is the other way round from a leap: HORIZONTAL
+## EARLY (the push-out off the ledge happens at the top, and there is nothing to accelerate it
+## afterwards) and VERTICAL LATE (k², because that is what falling is). Both the flight and
+## `_arc_clear` read this one function, and now so does the descent's nose-down pitch, so
+## nothing can model a path the animal does not fly.
 func _arc_point(from: Vector3, to: Vector3, k: float) -> Vector3:
 	var rise: float = to.y - from.y
 	var run: float = Vector2(to.x - from.x, to.z - from.z).length()
+	if rise < -0.02:
+		# The horizontal FRONT-LOADS, harder the steeper the drop: a cat stepping off a ten
+		# metre ledge is over the edge in the first fifth of the fall and travelling nowhere
+		# for the rest of it.
+		var steep_d: float = clampf(-rise / maxf(run, 0.05), 0.0, 6.0)
+		var kh_d: float = pow(k, 1.0 / (1.0 + steep_d * 0.55))
+		return Vector3(
+			lerpf(from.x, to.x, kh_d),
+			lerpf(from.y, to.y, k * k) + sin(k * PI) * DROP_HOP,
+			lerpf(from.z, to.z, kh_d))
 	var steep: float = clampf(rise / maxf(run, 0.05), 0.0, 2.0)
 	var kh: float = pow(k, 1.0 + steep)
 	var lift: float = maxf(rise, 0.0) * 0.35 + 0.14
@@ -1607,6 +1864,11 @@ func _arc_point(from: Vector3, to: Vector3, k: float) -> Vector3:
 		lerpf(from.x, to.x, kh),
 		lerpf(from.y, to.y, k) + sin(k * PI) * lift,
 		lerpf(from.z, to.z, kh))
+
+## HOW LONG A FALL OF `drop` METRES TAKES. t = sqrt(2h/g), floored so a 0.2 m step down is
+## still a beat rather than a snap and capped so nothing can hang in the air.
+func _drop_secs(drop: float) -> float:
+	return clampf(sqrt(2.0 * maxf(drop, 0.0) / DROP_G), DROP_SEC_MIN, DROP_SEC_MAX)
 
 ## MAY THE CAT LEAP UP TO `top`, OR WOULD IT STRAND ITSELF THERE?
 ##
@@ -1626,8 +1888,15 @@ func _arc_point(from: Vector3, to: Vector3, k: float) -> Vector3:
 ## last one), and it self-releases the moment the player goes up too — follow someone up the
 ## stair tower and the cat may hop the crates on that deck, exactly as it should.
 ##
-## Down is never gated: falling back to the deck is what `_walk_toward`'s own probe does,
-## and an animal that may descend can always undo a mistake.
+## DOWN HAS ITS OWN RULE AND IT IS NOT THIS ONE. The line that used to sit here said "down is
+## never gated: falling back to the deck is what `_walk_toward`'s own probe does, and an animal
+## that may descend can always undo a mistake." Every clause of that was false. The probe
+## reaches 1.85 m, so it cannot see a descent worth the name; `_step_clear` refused every
+## down-step there was (see the descent branch in `_walk_toward`); and the mistake the animal
+## could not undo was the ordinary one of hopping onto a workbench. Whatever gates a descent, it
+## must NOT be a copy of this function — this one returns false when there is no player, which
+## is the right answer to "may I climb" (no one to follow) and a cruel one to "may I get down".
+## A stranded cat with nobody on the rig still has to be able to get off the bench.
 func _reachable_up(top: float) -> bool:
 	var player: Node3D = AIB.player(self)
 	if player == null:
@@ -1636,6 +1905,275 @@ func _reachable_up(top: float) -> bool:
 		# existed at all.
 		return false
 	return top <= player.global_position.y + JUMP_UP
+
+# --------------------------------------------------------------- the water, and the way down
+
+## IS `at` AT OR UNDER THE SEA?
+##
+## ONE SOURCE OF TRUTH, and it is `swim_line` rather than `wave_height` because this file
+## already tested against `swim_line` in its trail recorder — a cat using the drawn surface in
+## one gate and the swim line in another would disagree with itself by SWIM_SCALE * swell. The
+## +0.1 m margin is that same line's margin, so "the cat will not go in the water" means
+## exactly what "you are swimming" means to the player, main.gd and underwater_fx.
+##
+## DELIBERATELY NOT INSIDE `_step_clear`. That function is called mid-flight from `_fly_jump`
+## and from every sample of `_arc_clear`, where the cat is legitimately airborne over whatever
+## it is crossing; a water test there would abort every legal arc over the sea and, worse,
+## would do it from inside the one gate the whole movement system trusts.
+func _over_water(at: Vector3) -> bool:
+	return at.y < Gyre.swim_line(Vector2(at.x, at.z), Gyre.water_time()) + 0.1
+
+## IS THERE REAL, DRY DECK AT `at`, and where exactly? Returns the grounded point or INF.
+##
+## The same probe `_walk_toward` uses, made callable — because three separate behaviours (the
+## play spot, the pounce landing, the zoomie heading) each named a position and then validated
+## it with `_step_clear` ALONE, which is a VOLUME query: empty air over the open sea passes it
+## with flying colours. That is how the cat got out over the water in the first place, and
+## `_play` — a spot drawn blind 1.6-3.4 m in a random direction every PLAY_CD 38 s, then
+## POUNCED at — is the likeliest single route of the three.
+func _deck_at(at: Vector3, reach: float = 1.4) -> Vector3:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return Vector3.INF
+	var from: Vector3 = at + Vector3(0, STEP_UP + 0.3, 0)
+	var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, STEP_UP + reach, 0))
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = _walk_skip()
+	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return Vector3.INF
+	var p: Vector3 = hit["position"]
+	if _over_water(p):
+		return Vector3.INF
+	return p
+
+## WHERE WOULD A STEP OFF THE LEDGE ON HEADING `hd` LAND? INF if the answer is "nowhere it
+## should go". Called only from the descent branch, only on frames the direct step was already
+## refused, so the cost is paid by cats that are actually stuck.
+##
+## The probe starts a body-length out — `want` is 16 mm ahead, which is still over the thing the
+## cat is standing on, so a ray there measures the bench top and reports no drop at all. Same
+## mistake, same distance, as the ledge probe's first cut (see its comment).
+func _drop_landing(hd: Vector3) -> Vector3:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return Vector3.INF
+	var out: Vector3 = global_position + hd * (_body_len() * 0.95)
+	var from: Vector3 = out + Vector3(0, 0.30, 0)
+	var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, DROP_MAX + 0.5, 0))
+	q.collision_mask = 1
+	q.collide_with_areas = false
+	q.exclude = _walk_skip()
+	var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+	if hit.is_empty():
+		return Vector3.INF      # nothing within DROP_MAX — that is a cliff, not a step down
+	var land: Vector3 = hit["position"]
+	var fell: float = global_position.y - land.y
+	if fell <= 0.02 or fell > DROP_MAX:
+		return Vector3.INF
+	# The sea is not a landing, and this is the gate that stops the descent branch from being
+	# a licence to walk off the rig into the water.
+	if _over_water(land):
+		return Vector3.INF
+	# It has to be able to STAND there (full nose probe — this is where it walks away from) and
+	# the whole fall has to be clear of the structure it is dropping past.
+	if not _step_clear(land, hd):
+		return Vector3.INF
+	if not _arc_clear(land, hd):
+		return Vector3.INF
+	return land
+
+## ARM A JUMP DOWN, if there is one to be had. Returns true when the leap is armed and the
+## caller must stop moving the animal this frame.
+##
+## Called from the two places in `_walk_toward` where a descent can be the answer: the refused
+## step (a lip inside the footfall ray's reach — the bench) and the empty footfall ray
+## (anything taller than 1.85 m, where the deck below is invisible to that probe entirely).
+## Both callers have already established that the animal is trying to get to somewhere LOWER.
+func _try_descend(dir: Vector3, delta: float) -> bool:
+	_drop_stall += delta
+	# The way it is facing, first — a cat gets off a thing the way it is already pointed. Only
+	# after DROP_STALL seconds of getting nowhere does it look over the other edges: that is
+	# the stranding escape hatch, and every other wedge in this file has one (_detour_stall
+	# 0.35, _bed_stall 2.5, _trail_stall 0.9).
+	var headings: Array[Vector3] = [dir]
+	if _drop_stall > DROP_STALL:
+		for a in [0.8, -0.8, 1.6, -1.6, 2.4, -2.4, PI]:
+			headings.append(dir.rotated(Vector3.UP, float(a)))
+	for hd in headings:
+		var land: Vector3 = _drop_landing(hd)
+		if land == Vector3.INF:
+			continue
+		# Armed exactly as the up-jump is — the crouch is held ON THE DECK for the anticipation
+		# beat and `_process` fires the flight when the wind-up elapses. The wind-up scales with
+		# the drop: a fixed 0.34 s gather before a 0.2 m step off a coaming is a cat pretending
+		# to be a diver, while one facing four metres genuinely does hesitate.
+		var fell: float = global_position.y - land.y
+		_jump_wind = 0.10 + 0.24 * clampf(fell / DROP_MAX, 0.0, 1.0)
+		_jump_from = global_position
+		_jump_to = land
+		_jump_dur = _drop_secs(fell)
+		_drop_stall = 0.0
+		_face(land, delta)
+		if _rig != null:
+			_rig.call("play_seq", [["jump_crouch", _jump_wind, 14.0]], "jump", 10.0)
+		return true
+	return false
+
+## NOTHING UNDER THE CAT: FALL. Returns true while the fall owns the animal.
+##
+## This is the `else` `_reseat` never had, made visible. It is a real integration rather than a
+## snap to the surface because an 18 m teleport reads as a bug even when it is a fix, and
+## because the whole file's rule is that anything time-based here runs on `1 - exp(-rate*dt)` or
+## on an accumulated velocity — never on a per-call constant, since AiBudget hands out summed
+## deltas up to 0.15 s.
+func _fall_step(delta: float) -> bool:
+	if _reseat():
+		_fall_v = 0.0
+		return false
+	_fall_v = minf(_fall_v + FALL_G * delta, FALL_VMAX)
+	var surf: float = Gyre.swim_line(
+		Vector2(global_position.x, global_position.z), Gyre.water_time())
+	# It never falls THROUGH the sea: the swim line is the floor of the fall, and `_over_water`
+	# picks the animal up from there on the next think.
+	global_position.y = maxf(global_position.y - _fall_v * delta, surf - 0.02)
+	_last_speed = 0.0
+	_moved_frame = 0.0
+	if _rig != null:
+		# Reaching for a landing it cannot see, which is what a falling cat does. Grammar-free
+		# (`play_seq([], …)`) for the same reason the flight is — the family grammar would
+		# route this through the sit machinery.
+		_rig.call("play_seq", [], "jump_descend", 10.0)
+		_rig.call("slope", -0.35)
+	return true
+
+## IT IS IN THE SEA. Tread water, find something to climb out onto, climb out.
+##
+## The owner's rule is "the cat never goes in the water; if it does, it treads water back
+## toward the nearest landing and climbs back aboard" — so this is a RECOVERY, not a feature: no
+## behaviour above chooses it and nothing here is on a cooldown. It also cannot use
+## `_walk_toward`, whose deck ray refuses every step at sea by construction (that refusal is
+## Bug B's fix and it is correct); a swimming animal needs a mover of its own.
+func _swim(delta: float) -> void:
+	_enter(State.SWIM)
+	var t: float = Gyre.water_time()
+	var surf: float = Gyre.swim_line(Vector2(global_position.x, global_position.z), t)
+	# RIDE THE SURFACE, EASED. `1 - exp(-rate*dt)` like every other ease in this file: the
+	# swell moves under the animal and a lerp with a bare `delta * k` overshoots on a summed
+	# 0.15 s think. The vertical goes on the ROOT, never on `_body` — `_body.position` and
+	# `_body.rotation` are forced to zero every frame and CatJointProbe asserts it.
+	global_position.y = lerpf(global_position.y, surf - SWIM_SINK, 1.0 - exp(-SWIM_RISE * delta))
+	# ...AND A HARD FLOOR UNDER THE EASE. Measured on the first run: the cat spent frames up to
+	# 0.72 m below the swim line, because an exponential ease chasing a moving surface always
+	# lags and AiBudget can hand this animal a 0.15 s think. A cat treading water is AT the
+	# surface — the ease is there to keep the ride smooth, not to let the animal submerge.
+	global_position.y = maxf(global_position.y, surf - SWIM_SINK - SWIM_LAG_MAX)
+	_fall_v = 0.0
+	# WHERE IS THE WAY OUT? Probed, on a throttle — never a hand-typed dock position.
+	_swim_scan -= delta
+	if _swim_scan <= 0.0 or _board == Vector3.INF:
+		_swim_scan = SWIM_SCAN_CD
+		_board = _find_board(surf)
+	# Failing a visible lip, steer at the last place the seat ray proved was ground. That is
+	# the only point in the world this animal can show its own working on, and it is where it
+	# came from, so it is by construction reachable from somewhere near here.
+	var goal: Vector3 = _board if _board != Vector3.INF else _last_ground
+	if goal == Vector3.INF:
+		goal = HOME
+	var to: Vector3 = goal - global_position
+	to.y = 0.0
+	var span: float = to.length()
+	_watch(goal + Vector3(0, 0.4, 0), 0.9)
+	if span > 0.05:
+		var dir: Vector3 = to / span
+		_face(goal, delta)
+		# CLIMB OUT the moment the lip is inside one jump: the ordinary up-jump, armed the
+		# ordinary way, deliberately WITHOUT `_reachable_up` — that gate encodes the follow
+		# contract ("no cat needs to be more than one leap above the human it is following")
+		# and refuses outright when there is no player, which must not be able to hold an
+		# animal in the water.
+		if _board != Vector3.INF and span < _body_len() * 1.6 \
+				and _board.y - global_position.y <= JUMP_UP \
+				and _jump_t <= 0.0 and _jump_wind <= 0.0 and _jump_cd <= 0.0 \
+				and _step_clear(_board, dir) and _arc_clear(_board, dir):
+			_jump_wind = 0.20
+			_jump_from = global_position
+			_jump_to = _board
+			_jump_dur = JUMP_SEC
+			if _rig != null:
+				_rig.call("play_seq", [["jump_crouch", 0.20, 14.0]], "jump", 10.0)
+			return
+		# The paddle. Body-checked like a walk step, because the rig's legs and pontoons are
+		# solid at the waterline and a swimming cat must not be pushed into one.
+		var want: Vector3 = global_position + dir * minf(SWIM_SPEED * delta, span)
+		if _step_clear(want, dir, [], false):
+			var before: Vector3 = global_position
+			global_position.x = want.x
+			global_position.z = want.z
+			_moved_frame += global_position.distance_to(before)
+			_last_speed = SWIM_SPEED
+		else:
+			# Blocked at the waterline — work along the obstruction rather than pressing into
+			# it. Same idea as the detour fan, four candidates instead of eight.
+			for a in [0.9, -0.9, 1.8, -1.8]:
+				var alt: Vector3 = dir.rotated(Vector3.UP, float(a))
+				var aw: Vector3 = global_position + alt * SWIM_SPEED * delta
+				if _step_clear(aw, alt, [], false):
+					global_position.x = aw.x
+					global_position.z = aw.z
+					_moved_frame += SWIM_SPEED * delta
+					_last_speed = SWIM_SPEED * 0.7
+					break
+	if _rig != null:
+		# Nose up out of the water, the one thing every photograph of a swimming cat has in
+		# common. Through the rig's trunk pitch, never the node.
+		_rig.call("slope", 0.22)
+
+## SOMEWHERE TO CLIMB OUT ONTO, or INF. A ring scan: for each heading and radius, ray down
+## through the waterline and keep the first surface that stands proud of the sea by more than
+## the margin and is no more than one jump above the swimming cat.
+##
+## PROBED, NEVER TYPED — the standing rule. A hand-written "the boat landing is at (x, z)"
+## would be the same class of bug as every floating prop this repo has fixed, and it would be
+## wrong the first time somebody moves the pontoon.
+func _find_board(surf: float) -> Vector3:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return Vector3.INF
+	var skip: Array[RID] = _walk_skip()
+	var best: Vector3 = Vector3.INF
+	var best_d: float = 1e9
+	# Bias the search toward where the animal came from, so a cat that fell off the west side
+	# does not set out for the east one: the nearest lip wins, and `_last_ground` breaks ties
+	# by being what the fallback steers at anyway.
+	for r in [1.0, 2.0, 3.2, 4.6, BOARD_SCAN_M]:
+		for i in range(12):
+			var a: float = TAU * float(i) / 12.0
+			var at: Vector3 = global_position + Vector3(cos(a) * r, 0.0, sin(a) * r)
+			var from: Vector3 = Vector3(at.x, surf + JUMP_UP + 0.4, at.z)
+			var q := PhysicsRayQueryParameters3D.create(
+				from, Vector3(at.x, surf - 0.6, at.z))
+			q.collision_mask = 1
+			q.collide_with_areas = false
+			q.exclude = skip
+			var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+			if hit.is_empty():
+				continue
+			var p: Vector3 = hit["position"]
+			if _over_water(p):
+				continue      # a submerged shelf is not a way out of the water
+			if p.y - global_position.y > JUMP_UP:
+				continue
+			if not _step_clear(p, (p - global_position).normalized()):
+				continue
+			var dd: float = global_position.distance_squared_to(p)
+			if dd < best_d:
+				best_d = dd
+				best = p
+		if best != Vector3.INF:
+			break      # nearest ring wins; no reason to scan further out
+	return best
 
 # ------------------------------------------------------------------ the bait trail
 
@@ -1954,7 +2492,12 @@ func _player_holding_fish(_player: Node3D) -> bool:
 ## without a single behaviour having been rewritten.
 func _tick_energy(delta: float) -> void:
 	var spend: float = 0.0
+	# SWIM IS NAMED, and it has to be: the `_:` arm below RECOVERS energy at -0.010, so an
+	# unlisted state means a cat treading water for its life is quietly resting. Hardest work
+	# this animal ever does.
 	match _state:
+		State.SWIM:
+			spend = 0.120
 		State.RUN, State.POUNCE, State.PLAY:
 			spend = 0.085
 		State.STALK, State.FOLLOW, State.GIFT:
@@ -1999,7 +2542,10 @@ func _idle_attention(delta: float, ppos: Vector3, d: float) -> void:
 	# ahead is the RESTING state of the head, not an average it passes through. Predatory and
 	# errand states keep the hard suppression: a stalk, a pounce and a leap aim the head
 	# deliberately, and a gift-carry wants its eyes on the person.
-	if _state in [State.STALK, State.POUNCE, State.GIFT, State.JUMP]:
+	# SWIM joins the hard suppressions for the same reason JUMP is there: it aims the head
+	# deliberately (at the way out) and an idle flourish while the animal is in the sea is the
+	# wrong read by a mile.
+	if _state in [State.STALK, State.POUNCE, State.GIFT, State.JUMP, State.SWIM]:
 		_glance_hold = 0.0
 		return
 	var walking: bool = _last_speed > 0.2 \
@@ -2232,14 +2778,18 @@ func _launch_pounce(target: Vector3) -> void:
 			prey_skip.append((c as CollisionObject3D).get_rid())
 		if _prey is CollisionObject3D:
 			prey_skip.append((_prey as CollisionObject3D).get_rid())
-	var land: Vector3 = global_position + over * _rng.randf_range(0.94, 1.12)
-	land.y = target.y
-	if not _arc_clear(land, dir, prey_skip):
+	# ...AND THE LANDING MUST BE DECK, NOT THE HEIGHT OF THE BIRD. `land.y = target.y` takes the
+	# altitude from the GULL, and a gull on the rail is a gull over the sea: the arc check is a
+	# volume query, so empty air off the side passes it and the pounce puts the cat in the
+	# water. Probed instead — real ground, above the swim line — and the pounce is simply
+	# declined if there is none, which is the same "wound up and could not go" the crowded case
+	# already handles.
+	var land: Vector3 = _pounce_land(global_position + over * _rng.randf_range(0.94, 1.12))
+	if land == Vector3.INF or not _arc_clear(land, dir, prey_skip):
 		# Try landing short before giving up — a cat crowded by furniture takes the shorter
 		# leap rather than not leaping.
-		land = global_position + over * 0.6
-		land.y = target.y
-		if not _arc_clear(land, dir, prey_skip):
+		land = _pounce_land(global_position + over * 0.6)
+		if land == Vector3.INF or not _arc_clear(land, dir, prey_skip):
 			# It wound up and could not go. That still has to READ, so it gets the same
 			# affronted wash a miss gets rather than silently forgetting the whole thing.
 			_after_t = WASH_SEC * 0.6
@@ -2253,6 +2803,7 @@ func _launch_pounce(target: Vector3) -> void:
 	if _rig != null:
 		_rig.call("play_seq", [["jump_crouch", 0.10, 16.0]], "jump", 10.0)
 	_jump_t = POUNCE_SEC
+	_jump_dur = POUNCE_SEC
 	_jump_from = global_position
 	# Land ON the bird's patch of deck, not on the bird — the seat ray sorts the height out,
 	# and a pounce that overshoots by a body length looks more like a cat than one that
@@ -2278,9 +2829,22 @@ func _launch_pounce(target: Vector3) -> void:
 ## thing for a gull to do, and the leap at it passes through the steel on the way in. `_fly_jump`
 ## drives the body along the arc directly with no gates of its own, so every point of that arc
 ## has to be proven here, before the animal commits to any of it.
+##
+## AND A DROP IS SAMPLED DENSER, because four samples over a ten-metre fall are 1.2 m apart at
+## the top and 3 m apart at the bottom, which is a bulkhead-sized hole in the proof. Added as a
+## separate list rather than by making the shared one adaptive: every up-jump in the game is
+## tuned against exactly these four k values (the s47 leap fix measured against them), and a
+## denser sweep refuses more arcs. New behaviour pays for its own gates.
 func _arc_clear(to: Vector3, dir: Vector3, extra_skip: Array = []) -> bool:
 	var from: Vector3 = global_position
-	for k in [0.35, 0.6, 0.8, 1.0]:
+	var ks: Array = [0.35, 0.6, 0.8, 1.0]
+	var fall: float = from.y - to.y
+	if fall > CLIMB_UP:
+		ks = []
+		var n: int = clampi(int(ceil(fall / 0.45)) + 2, 6, 26)
+		for i in range(1, n + 1):
+			ks.append(float(i) / float(n))
+	for k in ks:
 		var at: Vector3 = _arc_point(from, to, k)
 		if not _step_clear(at, dir, extra_skip, k >= 1.0):
 			return false
@@ -2314,6 +2878,13 @@ func _resolve_pounce() -> void:
 		# success is.
 		_after_t = WASH_SEC
 	_end_hunt(caught)
+
+## The pounce's landing, grounded and dried off. `at` names an xz; the height comes from the
+## deck, not from the bird. Returns INF when there is nothing there to land on.
+func _pounce_land(at: Vector3) -> Vector3:
+	# A little more downward reach than a walk step: a gull three metres off can legitimately
+	# be standing a coaming lower, and refusing that pounce loses the behaviour to be safe.
+	return _deck_at(at, 1.9)
 
 func _end_hunt(_caught: bool) -> void:
 	_hunt = 0
@@ -2354,9 +2925,25 @@ func _zoomies(delta: float, ppos: Vector3) -> bool:
 	# random-walks off the deck is a cat leaving, and "it settles rather than circling when
 	# you rest" is a contract this animal has kept since s34. Orbiting keeps both.
 	if _zoom_to == Vector3.ZERO or global_position.distance_to(_zoom_to) < 1.0:
-		var a: float = _rng.randf() * TAU
-		_zoom_to = ppos + Vector3(cos(a), 0.0, sin(a)) * _rng.randf_range(2.0, 3.4)
-		_zoom_to.y = global_position.y
+		# PROBED, like the play spot beside it. `_zoom_to.y = global_position.y` was a heading
+		# drawn blind at the cat's own altitude, and `_walk_toward` is the only thing that ever
+		# refused it — which it does correctly, but a burst that spends its whole three seconds
+		# pressed against a rail aimed over the sea is a zoomie that never happened.
+		for _try in range(6):
+			var a: float = _rng.randf() * TAU
+			var cand: Vector3 = ppos + Vector3(cos(a), 0.0, sin(a)) * _rng.randf_range(2.0, 3.4)
+			cand.y = global_position.y
+			var g: Vector3 = _deck_at(cand)
+			if g == Vector3.INF:
+				continue
+			_zoom_to = g
+			break
+		if _zoom_to == Vector3.ZERO:
+			# Nowhere to run. Ending the burst is the honest answer — the alternative is
+			# `_walk_toward(Vector3.ZERO, …)`, i.e. the cat setting off for the world origin.
+			_zoom_t = 0.0
+			_zoom_cd = ZOOM_CD * _rng.randf_range(0.7, 1.5)
+			return false
 	_enter(State.RUN)
 	_still = 0.0
 	_walk_toward(_zoom_to, RUN_SPEED, delta, 0.4)
@@ -2377,14 +2964,23 @@ func _play(delta: float) -> bool:
 		# PROBED, like everything else that names a position in this file. A spot drawn blind
 		# lands inside a bunk frame about as often as not in the room the cat lives in, and
 		# then the pounce that follows puts the animal in the steel.
+		# ...AND `_step_clear` ALONE IS NOT "PROBED" — it is a VOLUME query, and empty air over
+		# the open sea is the emptiest volume there is. It passed every candidate off the side
+		# of the rig, `cand.y = global_position.y` then put that candidate at DECK HEIGHT over
+		# the water, and the pounce below launched the animal into it: the most likely single
+		# route to the owner's cat-on-the-water, firing on a 38 s cooldown for the whole
+		# session. The deck ray is what makes a named position real.
 		_play_spot = Vector3.ZERO
 		for _try in range(6):
 			var a: float = _rng.randf() * TAU
 			var cand: Vector3 = global_position \
 				+ Vector3(cos(a), 0.0, sin(a)) * _rng.randf_range(1.6, 3.4)
 			cand.y = global_position.y
-			if _step_clear(cand, (cand - global_position).normalized()):
-				_play_spot = cand
+			var g: Vector3 = _deck_at(cand)
+			if g == Vector3.INF:
+				continue
+			if _step_clear(g, (g - global_position).normalized()):
+				_play_spot = g
 				break
 		if _play_spot == Vector3.ZERO:
 			_play_t = 0.0
@@ -2400,8 +2996,10 @@ func _play(delta: float) -> bool:
 		if _rig != null:
 			_rig.call("wiggle", 0.85)
 		if _wiggle_t <= 0.0 and _jump_t <= 0.0 and _jump_cd <= 0.0 \
+				and not _over_water(_play_spot) \
 				and _step_clear(_play_spot, (_play_spot - global_position).normalized()):
 			_jump_t = POUNCE_SEC
+			_jump_dur = POUNCE_SEC
 			_jump_from = global_position
 			_jump_to = _play_spot
 			_enter(State.POUNCE)
@@ -2461,6 +3059,10 @@ func _drive_rig(delta: float) -> void:
 			_rig.tail(1.0, 0.10, 8.0)        # the greeting flag, quivering
 		State.SLEEP:
 			_rig.tail(-0.5, 0.02, 0.4)       # wrapped in and still
+		State.SWIM:
+			# A wet tail is a rope. Clamped down, barely moving, and NOT signalling anything
+			# — the one state where the tail has nothing to say.
+			_rig.tail(-1.0, 0.04, 0.8)
 		State.GROOM, State.SIT, State.PERCH:
 			_rig.tail(-0.2, 0.16, 0.9)       # settled, an idle sweep along the deck
 		State.PLAY:

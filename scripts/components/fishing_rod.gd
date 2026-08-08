@@ -691,10 +691,11 @@ func _land() -> void:
 	Journal.discover(id)
 	# THE SIZE OF THE FISH, rolled here, at the rail, on the one fish that was actually
 	# landed. Rolled BEFORE the pack is tried, because both destinations need the number:
-	# a stowed fish's weight is remembered on the table (FishTable.record_size) so the
-	# stove and the drying line can fillet THIS fish rather than an average one, and a
-	# spilled fish carries the same weight onto the deck so the Takeable at your feet IS
-	# the fish the catch line lists — at its real length, not the pocket-scale one.
+	# a stowed fish carries its weight into the SLOT it lands in (FishTable.catch_meta ->
+	# PlayerState's per-slot payload) so the stove and the drying line fillet THIS fish
+	# rather than the oldest one on a species queue, and a spilled fish carries the same
+	# weight onto the deck so the Takeable at your feet IS the fish the catch line lists —
+	# at its real length, not the pocket-scale one.
 	# Species with no size range in fish.json roll 0.0 and read exactly as they always did.
 	var kg: float = FISH.roll_size(id, _rng)
 	# A FULL PACK MUST NOT COST YOU THE FISH. Owner, 2026-07-30: "What happens when i catch fish
@@ -704,11 +705,8 @@ func _land() -> void:
 	# a real, savable Takeable, the same spill path cook_stove._finish() uses for surplus
 	# fillets, and everything downstream (the journal entry, the size roll, the fillet count)
 	# runs exactly as it does for a fish that fitted.
-	var stowed: bool = PlayerState.add_item(id)
-	if stowed:
-		if kg > 0.0:
-			FISH.record_size(id, kg)
-	else:
+	var stowed: bool = PlayerState.add_item(id, FISH.catch_meta(id, kg))
+	if not stowed:
 		var feet: Vector3 = _player.global_position if is_instance_valid(_player) else global_position
 		var toss := Vector3(_rng.randf_range(-0.4, 0.4), 0.0, _rng.randf_range(-0.4, 0.4))
 		SaveManager.drop_into_world(id, feet, toss, kg)

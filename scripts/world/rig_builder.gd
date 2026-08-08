@@ -2885,18 +2885,30 @@ func _decorate_pump_room() -> void:
 		_cyl_nc(Vector3(PUMP_C.x + gx, y + 1.35, pump_face_z()), 0.11, 0.04,
 			MatLib.flat(Color(0.88, 0.88, 0.82))).rotation.x = deg_to_rad(90)
 
-## A moulded survival-pod bench: grey GRP shell flush on the pod floor, a hi-vis orange
-## nosing along the top front edge, a dark anti-slip seat pad, and two kick recesses at
+## A moulded survival-pod bench: grey GRP shell flush on the pod floor, a dark nosing
+## along the top front edge, a dark anti-slip seat pad, and two kick recesses at
 ## the base so it reads as a real seat rather than the flat orange block it replaced.
 ## `floor_center.y` is the FLOOR — the shell rests on it; `depth` runs along Z.
+##
+## THE NOSING IS DARK, NOT HI-VIS, AND THAT IS THE FIX FOR "the two red lines".
+## Owner-reported twice. s49 read the cause as BLOOM and re-based `sphl_hi_vis()` off a
+## neutral paint map so no channel clips (see mat_lib.gd) — which was true and did not
+## help, because clipping was never what made them red. These two strips sit two metres
+## from the pod's emergency lamp, `Color(0.9, 0.15, 0.1)` at energy 1.6 (`_build_sphl`),
+## and that lamp is the only light in the room. Reflected colour is albedo x light, so
+## hi-vis albedo (0.440, 0.165, 0.028) returns (0.396, 0.025, 0.003): saturation 0.99,
+## i.e. PURE red, and brighter than the grey shell beside it. No warm albedo can survive
+## a red-only light — recolouring within the warm family could never have worked.
+## `dark_metal()` returns (0.198, 0.034, 0.026): DARKER than the shell's (0.558, 0.099,
+## 0.070), so the edge now reads as moulding shadow instead of paint. It is also already
+## the pad's and the kick recesses' material, so the bench is down to two materials.
 func _sphl_bench(floor_center: Vector3, length: float, depth: float) -> void:
 	var seat_h: float = 0.47
 	var grey: Material = MatLib.sphl_grey()
-	var hv: Material = MatLib.sphl_hi_vis()
 	var dark: Material = MatLib.dark_metal()
 	_box(floor_center + Vector3(0, seat_h * 0.5, 0), Vector3(length, seat_h, depth), grey)        # shell, colliding
 	_box(floor_center + Vector3(0, seat_h - 0.03, depth * 0.5 - 0.02),
-		Vector3(length, 0.06, 0.04), hv, self, false)                                            # hi-vis nosing
+		Vector3(length, 0.06, 0.04), dark, self, false)                                          # moulded nosing
 	_box(floor_center + Vector3(0, seat_h + 0.008, 0),
 		Vector3(length - 0.1, 0.02, depth - 0.08), dark, self, false)                             # anti-slip pad
 	for sx in [-length * 0.28, length * 0.28]:

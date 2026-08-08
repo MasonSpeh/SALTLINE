@@ -80,6 +80,11 @@ var _inv_hovered_idx: int = -1   ## last unified slot the cursor was over (for D
 ## it is the difference between dropping what the player chose and dropping their dinner.
 var _inv_selected_idx: int = -1
 var _inv_selected_id: String = ""
+## The picked slot's weight, when it had one. Part of the pick's identity, not decoration:
+## the pack can hold two Barrel Groupers now, so "the slot still holds the id I picked" is
+## no longer enough to prove the pick survived a crate exchange or a craft moving things
+## under an open panel — the 12 kg one taking the 48 kg one's square would pass that test.
+var _inv_selected_kg: float = 0.0
 ## Click a slot holding a fish and the fish itself comes up over the pack, rendered at the
 ## size that species really is (item_icons.get_preview). Nodes built in _build_fish_preview.
 var _fish_preview: Control
@@ -688,7 +693,12 @@ func _on_hotbar_selection_changed(slot: int) -> void:
 	if slot < 0 or slot >= PlayerState.HOTBAR_SIZE or PlayerState.hotbar[slot] == null:
 		_hide_item_name()
 		return
-	show_selected_item_name(_item_name(String(PlayerState.hotbar[slot])))
+	# NAME THE FISH, NOT THE SPECIES. With two groupers of different weights in the belt,
+	# "Barrel Grouper" is the same words over two different animals; the weight is the only
+	# thing that tells the player which one just came to hand.
+	var held: String = _item_name(String(PlayerState.hotbar[slot]))
+	var held_kg: float = PlayerState.slot_kg(slot)
+	show_selected_item_name(held if held_kg <= 0.0 else "%s — %s" % [held, _kg_text(held_kg)])
 
 func _refresh_hotbar() -> void:
 	_refresh_hotbar_selection()
@@ -711,6 +721,12 @@ func _refresh_hotbar() -> void:
 		var n: int = PlayerState.hotbar_stack(i)
 		if n > 1:
 			txt += "  ×%d" % n
+		else:
+			# A weighed slot never stacks, so the ×N its label would otherwise carry is dead
+			# space — the weight goes there instead, and the belt says which fish is which.
+			var slot_kg: float = PlayerState.slot_kg(i)
+			if slot_kg > 0.0:
+				txt += "  %s" % _kg_text(slot_kg)
 		lbl.text = txt
 		hotbar_slots[i].modulate.a = 0.95
 
@@ -1129,22 +1145,28 @@ func _sync_fish_preview() -> void:
 		_fish_preview.visible = false
 		return
 	_fish_preview_id = id
+	var picked_kg: float = PlayerState.slot_kg(_inv_selected_idx)
 	var tex: Texture2D = _icons.get_preview(id)
 	# Not rendered yet: hold the overlay back rather than flash an empty scrim. The
 	# preview_ready signal calls straight back here when the render lands, a frame or two on.
 	_fish_preview.visible = tex != null
 	_fish_preview_pic.texture = tex
-	_fish_preview_caption.text = _fish_caption(id)
+	_fish_preview_caption.text = _fish_caption(id, picked_kg)
 
 ## What the picture is: the species, the body length the framing was built from, and the
 ## weight fish.json actually rolls for it. Straight off the data, so a suspicious-looking
 ## frame can be checked against the numbers that produced it.
-func _fish_caption(id: String) -> String:
+## THIS fish's weight when the slot is carrying one, the species' ceiling when it is not —
+## a picked 41.5 kg grouper should say what IT weighs, not what a grouper can weigh.
+func _fish_caption(id: String, kg: float = 0.0) -> String:
 	var parts: PackedStringArray = [_item_name(id).to_upper()]
 	parts.append("%.2f m" % ItemVisual.fish_length_m(id))
-	var kg: float = ItemVisual.fish_max_kg(id)
 	if kg > 0.0:
-		parts.append("up to %d kg" % roundi(kg))
+		parts.append("%.1f kg" % kg)
+	else:
+		var max_kg: float = ItemVisual.fish_max_kg(id)
+		if max_kg > 0.0:
+			parts.append("up to %d kg" % roundi(max_kg))
 	return "   ·   ".join(parts)
 
 func any_panel_open() -> bool:
@@ -1172,12 +1194,14 @@ func open_crate(container: LootContainer) -> void:
 func _prewarm_crate_icons(container: LootContainer) -> void:
 	if _icons == null or not _icons.has_method("prewarm"):
 		return
+	# Row keys carry an entry index for a weighed instance (see ROW_AT); the renderer wants
+	# the plain species id, and two rows of the same fish want the same one picture.
 	var ids: Array[String] = []
 	if container != null and is_instance_valid(container):
-		for g in _group_counts(container.items):
-			ids.append(str(g[0]))
-	for g in _pack_groups():
-		ids.append(str(g[0]))
+		for g in _crate_rows():
+			ids.append(_row_id(str(g[0])))
+	for g in _pack_rows():
+		ids.append(_row_id(str(g[0])))
 	_icons.prewarm(ids)
 
 func toggle_panel(which: String) -> void:
@@ -1355,7 +1379,7 @@ func _refresh_inventory_panel() -> void:
 		var cnt: int = PlayerState.hotbar_stack(i) if i < PlayerState.HOTBAR_SIZE \
 			else PlayerState.inventory_stack(i - PlayerState.HOTBAR_SIZE)
 		tag_bg.visible = true
-		tag_lbl.text = _slot_tag_text(id, cnt)
+		tag_lbl.text = _slot_tag_text(id, cnt, PlayerState.slot_kg(i))
 		_inv_buttons[i].modulate = Color(1, 0.95, 0.75) if i < PlayerState.HOTBAR_SIZE \
 			else Color(1, 1, 1)
 		# The picked slot reads as picked — the drop instruction in the header has to be
@@ -1373,9 +1397,18 @@ func _refresh_inventory_panel() -> void:
 ## trusting clip to pick a sane cutoff — "Fathom..." reads as a name, "Fathom Halibut F"
 ## reads as a bug. Short names pass through untouched.
 const _TAG_MAX_CHARS: int = 12
-func _slot_tag_text(item_id: String, count: int) -> String:
+## THE WEIGHT TAKES THE COUNT'S PLACE, and that is what makes it fit. "Barrel Grouper 48kg"
+## is nineteen characters against a twelve-character strip, so a naive append would simply
+## have been clipped away — but a slot carrying a weight ALWAYS holds exactly one (it cannot
+## stack, see PlayerState.is_stackable), so the "×N" that suffix would have spent is dead
+## space on precisely the slots that need the room. " 48kg" is five of the twelve, leaving
+## seven, and the existing word-boundary rule below turns "Barrel Grouper" into "Barrel…":
+##   "Barrel… 48kg"  — twelve characters exactly, name and number both legible.
+func _slot_tag_text(item_id: String, count: int, kg: float = 0.0) -> String:
 	var full: String = _item_name(item_id)
 	var suffix: String = " ×%d" % count if count > 1 else ""
+	if kg > 0.0 and count <= 1:
+		suffix = " " + _kg_text(kg)
 	var budget: int = _TAG_MAX_CHARS - suffix.length()
 	var shown: String = full
 	if full.length() > budget:
@@ -1384,6 +1417,11 @@ func _slot_tag_text(item_id: String, count: int) -> String:
 		var cut: int = full.rfind(" ", budget)
 		shown = full.substr(0, cut if cut > 3 else budget) + "…"
 	return shown + suffix
+
+## A weight in as few characters as it can honestly be written: "48kg" over ten kilos,
+## "4.2kg" under (a 0.4 kg swallowtail rounded to "0kg" would read as a bug).
+static func _kg_text(kg: float) -> String:
+	return "%dkg" % roundi(kg) if kg >= 10.0 else "%.1fkg" % kg
 
 ## The id in a unified slot index (hotbar 0..HOTBAR_SIZE-1, then the pack); "" when the slot
 ## is empty or out of range. The one place unified indices are decoded for reading.
@@ -1408,20 +1446,25 @@ func _item_name(item_id: String) -> String:
 func _inv_select(idx: int) -> void:
 	_inv_selected_idx = idx
 	_inv_selected_id = _inv_slot_item(idx)
+	_inv_selected_kg = PlayerState.slot_kg(idx)
 	if _inv_selected_id == "":
 		_inv_selected_idx = -1
+		_inv_selected_kg = 0.0
 
 func _inv_clear_selection() -> void:
 	_inv_selected_idx = -1
 	_inv_selected_id = ""
+	_inv_selected_kg = 0.0
 	# Nothing is picked, so nothing is being looked at. This also covers closing the pack,
 	# which clears the selection but never refreshes the (now hidden) panel.
 	if _fish_preview != null:
 		_sync_fish_preview()
 
-## True while the picked slot still holds the item that was picked.
+## True while the picked slot still holds the item that was picked — the same INSTANCE,
+## weight included (see _inv_selected_kg).
 func _inv_selection_valid() -> bool:
-	return _inv_selected_id != "" and _inv_slot_item(_inv_selected_idx) == _inv_selected_id
+	return _inv_selected_id != "" and _inv_slot_item(_inv_selected_idx) == _inv_selected_id \
+		and absf(PlayerState.slot_kg(_inv_selected_idx) - _inv_selected_kg) < 0.001
 
 ## Left-click a slot: PICK IT UP, then click where you want it. That is the whole model.
 ##
@@ -1568,15 +1611,24 @@ func _inv_slot_gui_input(idx: int, event: InputEvent) -> void:
 func _drop_slot(unified_idx: int) -> void:
 	if unified_idx < 0:
 		return
-	var id: String = PlayerState.take_one_from_slot(unified_idx)
-	if id == "":
+	# take_one_at, not take_one_from_slot: the fish that leaves the pack has to take ITS OWN
+	# weight onto the deck with it. Under the old ledger the drop asked for "a" weight for
+	# the species and got the oldest one recorded, so dropping the 12 kg grouper could put
+	# the 48 kg one on the planks, at 48 kg's length.
+	var taken: Dictionary = PlayerState.take_one_at(unified_idx)
+	if not bool(taken.get("ok", false)):
 		return
-	_spawn_drop(id)
+	var id: String = String(taken["id"])
+	# -1.0, not 0.0, when there is no payload: that is drop_into_world's "you tell me" and
+	# keeps an unweighed big fish (a locker find, a v1 save) rolling a size as it always did.
+	# 0.0 would assert "this fish has no size" and draw a grouper at pocket scale.
+	var meta: Dictionary = taken.get("meta", {})
+	_spawn_drop(id, float(meta.get("kg", -1.0)))
 	_refresh_inventory_panel()
 	toast("Dropped %s" % _item_name(id))
 
 ## Make the item real again on the deck in front of the player, with a small toss.
-func _spawn_drop(item_id: String) -> void:
+func _spawn_drop(item_id: String, kg: float = -1.0) -> void:
 	var player: Node3D = get_tree().get_first_node_in_group("player") as Node3D
 	if player == null:
 		return
@@ -1586,7 +1638,7 @@ func _spawn_drop(item_id: String) -> void:
 	var side: Vector3 = player.global_transform.basis.x
 	# A little forward of the feet, jittered sideways so a burst of drops fans out.
 	var toss: Vector3 = fwd * 0.7 + side * randf_range(-0.18, 0.18)
-	SaveManager.drop_into_world(item_id, player.global_position, toss)
+	SaveManager.drop_into_world(item_id, player.global_position, toss, kg)
 
 # ============================ crate exchange ==================================
 
@@ -1644,7 +1696,7 @@ func _crate_fit_slots(grid: GridContainer, crate_side: bool, n: int) -> void:
 			_crate_move(ids[idx], crate_side, Input.is_key_pressed(KEY_SHIFT)))
 		b.mouse_entered.connect(func() -> void:
 			var ids: Array[String] = _crate_slot_ids if crate_side else _crate_pack_ids
-			_crate_info.text = _item_info_bbcode(ids[idx]) if idx < ids.size() else "")
+			_crate_info.text = _row_info(ids[idx], crate_side) if idx < ids.size() else "")
 		grid.add_child(b)
 		if crate_side:
 			_crate_slots.append(b)
@@ -1654,14 +1706,37 @@ func _crate_fit_slots(grid: GridContainer, crate_side: bool, n: int) -> void:
 ## One click's worth of exchange: `whole` moves the entire stack, otherwise a single item.
 ## Both directions run through _crate_take / _crate_stow so there is exactly one place that
 ## knows how goods cross, and the headless probes keep testing the path the player uses.
+## ROW KEYS — how one row of either column is named.
+##
+## The crate panel has always been ID-KEYED: its click handlers, CratePanelProbe and
+## av2_probe all pass a bare item id, and ordinary stacks keep exactly that, so every one of
+## those callers is untouched. What CANNOT be id-keyed any more is an INSTANCE. A locker can
+## hold a 48 kg grouper and a 12 kg one; they are two rows, and "fish_barrel_grouper" no
+## longer says which. Those rows are keyed "<id>#<n>" — n being the crate entry index on the
+## crate side and the unified pack slot on the pack side — and _row_id / _row_at split it
+## back apart. A key with no "#" means "any ordinary one of these", which is what a stack is.
+const ROW_AT: String = "#"
+
+static func _row_id(key: String) -> String:
+	var i: int = key.find(ROW_AT)
+	return key if i < 0 else key.substr(0, i)
+
+## The exact entry a row names, or -1 for a plain by-id row.
+static func _row_at(key: String) -> int:
+	var i: int = key.find(ROW_AT)
+	return -1 if i < 0 else int(key.substr(i + 1))
+
 func _crate_move(item_id: String, from_crate: bool, whole: bool) -> void:
 	if item_id == "":
 		return
 	var have_crate: bool = _crate != null and is_instance_valid(_crate)
 	var n: int = 1
-	if whole:
-		n = _group_count(_crate.items, item_id) if from_crate and have_crate \
-			else PlayerState.count_item(item_id)
+	# Only an ordinary stack HAS a "whole" — an instance row is one fish, and shift-clicking
+	# it must not sweep the plain ones of the same species along with it.
+	if whole and _row_at(item_id) < 0:
+		var plain_id: String = _row_id(item_id)
+		n = _crate_plain_count(plain_id) if from_crate and have_crate \
+			else _pack_plain_count(plain_id)
 	for _i in range(maxi(n, 1)):
 		# Stop on the first refusal — a full pack has nothing more to say after the
 		# first "Pack is full.", and a stack that ran out mid-loop is already across.
@@ -1680,48 +1755,95 @@ func _crate_move(item_id: String, from_crate: bool, whole: bool) -> void:
 		# established soft, non-positional cue.
 		AudioDirector.play_one_shot("hiss", Vector3.ZERO, -24.0)
 
-## [ [id, count], ... ] in first-seen order — collapses duplicate ids into one row.
-func _group_counts(list: Array) -> Array:
-	var order: Array = []
-	var counts: Dictionary = {}
-	for it in list:
-		var id: String = str(it)
-		if not counts.has(id):
-			counts[id] = 0
-			order.append(id)
-		counts[id] = int(counts[id]) + 1
+## The info box for one crate/pack row: the item's usual write-up, headed by THIS one's
+## weight when it is carrying one — the only thing distinguishing two rows of the same
+## species, so it has to be readable before the player commits to moving one of them.
+func _row_info(key: String, crate_side: bool) -> String:
+	var id: String = _row_id(key)
+	if id == "":
+		return ""
+	var body: String = _item_info_bbcode(id)
+	var kg: float = _row_kg(key, crate_side)
+	if kg <= 0.0:
+		return body
+	return "[color=#7fd8c8][b]%.1f kg[/b] — this one[/color]\n%s" % [kg, body]
+
+## The weight the row named by `key` is carrying, read live. `crate_side` is passed in rather
+## than inferred: the index in a key means a CRATE ENTRY on one side and a PACK SLOT on the
+## other, and the two number ranges overlap, so guessing would read the wrong column's fish.
+func _row_kg(key: String, crate_side: bool) -> float:
+	var at: int = _row_at(key)
+	if at < 0:
+		return 0.0
+	if not crate_side:
+		return PlayerState.slot_kg(at)
+	if _crate == null or not is_instance_valid(_crate):
+		return 0.0
+	return float(_crate.meta_at(at).get("kg", 0.0))
+
+## The crate as [ [row_key, count, kg], ... ] in first-seen order. Ordinary entries collapse
+## into one row per id exactly as they always did; anything CARRYING A PAYLOAD gets a row of
+## its own, keyed to its exact entry, because two weighed groupers are two animals and a
+## single "×2" row would make the panel move an arbitrary one of them.
+func _crate_rows() -> Array:
 	var out: Array = []
-	for id in order:
-		out.append([id, int(counts[id])])
+	if _crate == null or not is_instance_valid(_crate):
+		return out
+	var at: Dictionary = {}     # plain id -> which row in `out` is counting it
+	for i in range(_crate.items.size()):
+		var id: String = String(_crate.items[i])
+		var m: Dictionary = _crate.meta_at(i)
+		if not m.is_empty():
+			out.append([id + ROW_AT + str(i), 1, float(m.get("kg", 0.0))])
+			continue
+		if at.has(id):
+			var r: int = int(at[id])
+			out[r][1] = int(out[r][1]) + 1
+			continue
+		at[id] = out.size()
+		out.append([id, 1, 0.0])
 	return out
 
-## How many of one id `list` holds — the shift-click "take the whole stack" count, without
-## grouping the entire crate to read a single row.
-func _group_count(list: Array, item_id: String) -> int:
+## The pack as [ [row_key, count, kg], ... ] — same rule as _crate_rows, over unified slots.
+## Plain stacks of one id sum together; each weighed slot stands alone, keyed to its slot.
+func _pack_rows() -> Array:
+	var out: Array = []
+	var at: Dictionary = {}
+	for u in range(PlayerState.HOTBAR_SIZE + PlayerState.inventory.size()):
+		var id: String = PlayerState.slot_id(u)
+		if id == "":
+			continue   # an empty belt slot, or an empty square in the sparse pack grid
+		var n: int = PlayerState.slot_count(u)
+		var kg: float = PlayerState.slot_kg(u)
+		if kg > 0.0:
+			out.append([id + ROW_AT + str(u), n, kg])
+			continue
+		if at.has(id):
+			var r: int = int(at[id])
+			out[r][1] = int(out[r][1]) + n
+			continue
+		at[id] = out.size()
+		out.append([id, n, 0.0])
+	return out
+
+## How many PLAIN (payload-free) entries of an id each side holds — the shift-click count
+## for an ordinary row. It must not reach past itself and sweep up a weighed fish that
+## happens to share the id: that fish is its own row and has its own click.
+func _crate_plain_count(id: String) -> int:
+	if _crate == null or not is_instance_valid(_crate):
+		return 0
 	var n: int = 0
-	for it in list:
-		if str(it) == item_id:
+	for i in range(_crate.items.size()):
+		if String(_crate.items[i]) == id and _crate.meta_at(i).is_empty():
 			n += 1
 	return n
 
-## The pack as [ [id, total], ... ], summing across split stacks.
-func _pack_groups() -> Array:
-	var order: Array = []
-	var seen: Dictionary = {}
-	for it in PlayerState.hotbar:
-		if it != null and not seen.has(it):
-			seen[it] = true
-			order.append(str(it))
-	for it in PlayerState.inventory:
-		if it == null:
-			continue   # an empty square in the sparse pack grid, not an item
-		if not seen.has(it):
-			seen[it] = true
-			order.append(str(it))
-	var out: Array = []
-	for id in order:
-		out.append([id, PlayerState.count_item(id)])
-	return out
+func _pack_plain_count(id: String) -> int:
+	var n: int = 0
+	for u in PlayerState.slots_of(id):
+		if PlayerState.slot_kg(u) <= 0.0:
+			n += PlayerState.slot_count(u)
+	return n
 
 ## Refill both grids from live state. Also connected to inventory_changed, so eating from
 ## the hotbar (etc.) while the panel is open stays in sync.
@@ -1738,8 +1860,8 @@ func _refresh_crate_panel() -> void:
 		toggle_panel("crate")   # the crate got freed under us — close its view
 		return
 	crate_title.text = _crate.display_name.to_upper()
-	var crate_groups: Array = _group_counts(_crate.items)
-	var pack_groups: Array = _pack_groups()
+	var crate_groups: Array = _crate_rows()
+	var pack_groups: Array = _pack_rows()
 	# CAPACITY, both sides — and the "· empty ·" line the old list carried, moved up here
 	# because a 66 px socket cannot hold a sentence and the caption has the whole column.
 	# The pack's tally is the number that decides whether TAKE ALL finishes or stops on
@@ -1747,7 +1869,7 @@ func _refresh_crate_panel() -> void:
 	# the bench's MATERIALS block made.
 	_crate_caption.text = "CRATE — take one · shift: all       %s" % (
 		"· empty ·" if crate_groups.is_empty() else "%d inside" % _crate.items.size())
-	# Counted over the HOTBAR TOO, because this column shows the hotbar too (_pack_groups
+	# Counted over the HOTBAR TOO, because this column shows the hotbar too (_pack_rows
 	# reads both). pack_used() alone said "1/18" under a panel displaying seven stacks.
 	var carried: int = PlayerState.pack_used()
 	for h in PlayerState.hotbar:
@@ -1782,20 +1904,31 @@ func _crate_fill(grid: GridContainer, crate_side: bool, groups: Array) -> void:
 			BenchPanel.fill_slot(slots[i], "", 0, "", _icons)
 			continue
 		slots[i].visible = true
-		BenchPanel.fill_slot(slots[i], str(groups[i][0]), int(groups[i][1]), "", _icons)
+		# The KEY goes in the id list (that is what the click handler resolves); the socket
+		# is painted from the real id and the row's own weight.
+		BenchPanel.fill_slot(slots[i], _row_id(str(groups[i][0])), int(groups[i][1]), "",
+			_icons, float(groups[i][2]) if groups[i].size() > 2 else 0.0)
 
 ## Move ONE across, either way. Both answer whether the item actually crossed, so a
 ## shift-click's loop can stop the moment the pack fills instead of toasting sixteen times.
+## `item_id` is a ROW KEY (see ROW_AT): a bare id for an ordinary stack — which is what
+## every existing caller and probe passes — or "<id>#<entry>" for one weighed instance.
 func _crate_take(item_id: String) -> bool:
 	if _crate == null or not is_instance_valid(_crate):
 		_refresh_crate_panel()
 		return false
-	var idx: int = _crate.items.find(item_id)
-	if idx == -1:
+	var id: String = _row_id(item_id)
+	var idx: int = _row_at(item_id)
+	# A plain row, or a snapshot the panel refreshed out from under a shift-click loop,
+	# resolves by search — and by find_plain, so a bulk take of ordinary goods leaves the
+	# weighed fish beside them where it is.
+	if idx < 0 or idx >= _crate.items.size() or String(_crate.items[idx]) != id:
+		idx = _crate.find_plain(id)
+	if idx < 0:
 		return false
-	var took: bool = PlayerState.add_item(item_id)
+	var took: bool = PlayerState.add_item(id, _crate.meta_at(idx))
 	if took:
-		_crate.items.remove_at(idx)
+		_crate.take_item(idx)     # items and item_meta come out together
 	else:
 		toast("Pack is full.")
 	_refresh_crate_panel()
@@ -1805,9 +1938,16 @@ func _crate_stow(item_id: String) -> bool:
 	if _crate == null or not is_instance_valid(_crate):
 		_refresh_crate_panel()
 		return false
-	var stowed: bool = PlayerState.remove_item(item_id)
+	var id: String = _row_id(item_id)
+	var u: int = _row_at(item_id)
+	# An instance row names its exact slot; a plain row asks for any payload-free one, so a
+	# bulk stow of ordinary goods can never post the weighed fish sharing the species.
+	var taken: Dictionary = PlayerState.take_one_at(u) \
+		if (u >= 0 and PlayerState.slot_id(u) == id) else PlayerState.remove_one_of(id, "plain")
+	var stowed: bool = bool(taken.get("ok", false))
 	if stowed:
-		_crate.items.append(item_id)
+		# THE CRATE KEEPS THE WEIGHT (owner call). A trophy survives being stowed.
+		_crate.put_item(id, taken.get("meta", {}))
 	_refresh_crate_panel()
 	return stowed
 
@@ -1816,23 +1956,32 @@ func _crate_take_all() -> void:
 		_refresh_crate_panel()
 		return
 	while not _crate.items.is_empty():
-		if not PlayerState.add_item(_crate.items[0]):
+		if not PlayerState.add_item(String(_crate.items[0]), _crate.meta_at(0)):
 			toast("Pack is full.")
 			break
-		_crate.items.remove_at(0)
+		_crate.take_item(0)
 	AudioDirector.play_one_shot("hiss", Vector3.ZERO, -24.0)
 	_refresh_crate_panel()
 
-## Empty the pack into the crate — the mirror of TAKE ALL. Snapshot the totals first
-## so decrementing stacks as we go can't race the loop.
+## Empty the pack into the crate — the mirror of TAKE ALL. Snapshot the rows first so
+## decrementing stacks as we go can't race the loop. Each weighed fish is its own row and
+## goes in by its own slot, carrying its own number; ordinary stacks go in by the "plain"
+## pick, so a sweep can never post the trophy in place of one of sixteen anonymous herring.
 func _crate_stow_all() -> void:
 	if _crate == null or not is_instance_valid(_crate):
 		_refresh_crate_panel()
 		return
-	for g in _pack_groups():
-		for _k in range(int(g[1])):
-			if PlayerState.remove_item(g[0]):
-				_crate.items.append(g[0])
+	for g in _pack_rows():
+		var key: String = String(g[0])
+		var id: String = _row_id(key)
+		var at: int = _row_at(key)
+		for _k in range(maxi(int(g[1]), 1)):
+			var u: int = at if (at >= 0 and PlayerState.slot_id(at) == id) \
+				else PlayerState.find_slot_of(id, "plain")
+			var taken: Dictionary = PlayerState.take_one_at(u)
+			if not bool(taken.get("ok", false)):
+				break
+			_crate.put_item(id, taken.get("meta", {}))
 	AudioDirector.play_one_shot("hiss", Vector3.ZERO, -24.0)
 	_refresh_crate_panel()
 

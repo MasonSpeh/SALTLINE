@@ -2162,3 +2162,140 @@ Filmed side-on and read back magnified: near foreleg lifted with the carpus brok
 the paw hanging behind the wrist, hind mid-push with the hock folded, diagonal pair planted.
 Also, unlooked-for: the sit paw-sink that failed s50 (25.5 mm below deck) now measures
 -1.1 mm. CatJointProbe 0, CatProbe 0.
+
+## s52 — the stride was capped by the PATH, not by the legs; and the girdle is worth 8 mm
+
+Owner, in capitals: "THE CAT'S LEGS SHOULD STEP OUT FURTHER, BE A BIT SLOWER, BUT PULL THE CAT
+FURTHER AT A FASTER RATE WITH THE LONGER BOUNCY GAIT... LEGS SHOULD ARTICULATE MORE TO MOVE THE
+BODY FORWARD." Cadence DOWN and speed UP at once is only possible if the stride rises by more
+than the speed does, and `stride = sweep / duty` with duty at its floor. So the sweep had to move.
+
+    sweep 0.181 -> 0.232 m   duty 0.55 -> 0.52   stride 0.328 -> 0.445 m (+36%)
+    WALK_SPEED 0.95 -> 1.10 m/s (+16%)           cadence 2.893 -> 2.470 /s (-15%)
+    hip bob (CatReviewProbe hip_y_span) 18.5 -> 25.1 mm
+
+THE 0.94*c0 CEILING WAS STALE, AND THE FILE SAID SO IN CAPITALS. "0.94 IS THIS RIG'S CEILING AND
+THE OWNER'S WIDER GAIT CANNOT HAVE MORE" rested on s49's measurement of 14.7 mm/frame of paw drift
+at 1.05*c0 — taken on a gait running at 4.7 strides a second. s51 halved the cadence and nobody
+re-measured underneath it. Slide per FRAME scales with cadence.
+
+AND WHAT BROKE AT 1.05 WAS THE PATH, NOT THE SWING ANGLE. A chain of reach c0 covering s of ground
+traces an ARC; it cannot stay level, because level means shortening a chain already at full
+stretch (this rig's binding limb, the stub right hind, rests at 101.4% of the two-bone model's own
+reach cap). `_foot_path` asked for a flat stance with a hand-set 12 mm of rise; the geometry wanted
+25.6 mm at the old sweep and 39 at 1.05*c0. The difference came out of `_reach_give` until it ran
+out, and then the solve fell back to SHORTENING the reach — which is what a skate is. `_stance_arc`
+now derives that rise per limb from that limb's own triangle and the sweep it is handed, so the
+clamp stops firing and the envelope can go to `2*c0*sin(ROM_PROX)` — the joint limit this file
+already enforces, instead of a hand-set 81% of it.
+
+THE GIRDLE IS IN, AND IT IS WORTH 8 MILLIMETRES. Pelvic long-axis yaw (cancelled at Spine01) and
+thoracic yaw (cancelled at the neck through the LIVE map), phase-locked so each socket travels
+toward its own planting paw; `_solve_leg` already carries its target through the live parent chain,
+so the ground the paw covers is leg sweep PLUS girdle travel and foot-lock survives by
+construction. Measured levers, in metres of fore-aft socket travel per radian:
+
+    pelvis yaw -> hip socket        lh -0.0189   rh +0.0189
+    chest  yaw -> shoulder socket   lf -0.0712   rf +0.0906
+    blade swing -> shoulder socket  lf +0.0003   rf -0.0230
+
+The pelvic lever is tiny and the reason is a measured defect: this auto-rig puts the right hind
+socket 9 mm off the centreline and the left hind's socket at x +0.1686, at the FRONT of the animal.
+A yaw's lever arm IS that lateral offset. So the binding limb's girdle earns 8.3 mm of the 51 mm
+the stride gained, and can never earn more without the re-rig. The fore girdle earns 19-24 mm and
+is not binding. **The route the brief pointed at is real, it is in, and on this fit it is a
+sixth of the answer. The rest came from the arc.** The drive SIGN is read off the measured gain,
+not asserted: the first cut drove the pelvis with +cos(phase) — correct arithmetic about the paw,
+and half a cycle wrong about the bone, which would have retreated the socket from the planting paw
+while the budget was added on top of it. Caught by measuring leg DEMAND (paw travel minus socket
+travel) rather than by eye.
+
+THE SLEW LIMITER'S COVERAGE, which is where KNOWN_ISSUES said to start. It bounded `_solve_leg` and
+nothing else, and four layers write those bones after it (the swing fold, the paw roll, the toe,
+and the ROM clamp's own rebuild) — so a 20 rad/s ceiling drew 0.472 rad/frame. The ceiling is now
+at the WRITE, on the composed local rotation, the same shape and for the same reason as
+HEAD_MAX_RATE: capping any one layer cannot bound a sum. LIMB_MAX_RATE 19 rad/s = 0.317 rad/frame,
+under the 0.35 gate, above the ~0.16 this gait legitimately asks for, and A/B'd against 30 rad/s
+with the phase-gated foot-lock IDENTICAL to three decimals — it clips swing spikes and costs
+nothing. **Six joint_step failures became passes and the number did not move by widening anything.**
+
+Also: the startup diagnostic was lying. It divided by a hard-typed 0.62/0.38 for four sessions
+after the duties moved, under-reporting the walking stride by 11%. It reads WALK_DUTY/GALLOP_DUTY
+now. And the carry pose leaked 4.8 deg of head ROLL out of the new chest yaw — the neck cancel went
+through the rest-basis map, which is only close enough at the 0.055 rad of the spine bend.
+
+GATES. TestRunner 0. CatProbe 0. CatJointProbe 0 (and the s50 sit paw-sink flake measured 12.3 mm,
+inside its 25 mm gate). CatReviewProbe 10 -> 3, all three pre-existing and untouched: lookwalk
+head_yaw_toward_target (the gate encodes the OLD full-weight stare), bigdt summed_joint_step
+1.3517 -> 1.2613 against 1.0, bigdt turn_equivalence 6.0275 against 6.0. Walk slide_frame
+8.4826 -> 6.5109 mm/frame against a 10 mm gate WITH the stride 36% longer. Nothing was widened.
+
+WHAT IS NOT FIXED, filed in KNOWN_ISSUES: the probe's height-band stance detector is going vacuous
+(0 stance pairs at run/stalk/carry) and it hides a pre-existing 32 mm/frame slide on the left hind;
+the speed bands are stale and the trot is now the worst gait; and CatHuntProbe failed 2 of 8 runs
+against a clean 7 of 7 on the baseline, unexplained and not significant. `tests/GaitScratch.tscn`
+is the new instrument: chain geometry, measured girdle levers, a sweep_k x duty design grid, and a
+phase-gated foot-lock that cannot empty its own window.
+
+### s52 — an owner action list of eleven, and two instruments that were pointing the wrong way
+
+**THE TWO RED LINES ARE PALE OBJECTS UNDER A RED-ONLY LAMP, AND s49 FIXED THE WRONG HALF.**
+Third report. s49 read the cause as BLOOM and re-based `sphl_hi_vis()` on a neutral paint map so
+no channel clips — true, and useless, because clipping was never why they were red. The pod's only
+light is `Color(0.9, 0.15, 0.1)` at energy 1.6. Reflected colour is albedo x light, so the hi-vis
+nosings' (0.440, 0.165, 0.028) returned (0.396, 0.025, 0.003): saturation 0.99 and BRIGHTER than
+the grey shell's (0.558, 0.099, 0.070). No warm albedo survives a red-only light, so recolouring
+within the warm family could never have worked. The nosings are now `dark_metal()` — (0.198, 0.034,
+0.026), DARKER than the shell, so the edge reads as moulding shadow. Filed in KNOWN_ISSUES: the two
+`_readable` page blocks (`rig_builder.gd:2482-2483`) are the same physics and are now the brightest
+thing in the pod — `PAGE_COL` (0.87, 0.85, 0.77) returns (0.783, 0.128, 0.077), 90% saturated,
+brighter than the wall. Awaiting the owner's call on which pair they meant.
+
+**`beta1_shot`'s "sphl_interior" had never been inside the pod.** It stood at z -20.0 photographing
+an exterior bulkhead; `_build_sphl` puts the interior at x 14.9..21.1, z -25.3..-22.9. That is why
+a twice-reported visual defect had never appeared in any frame anyone checked. Fixed to (20.5,
+WET_Y, -24.0) yaw 90 — and note `_place` moves the PLAYER, whose eye rides ~1.6 m above its feet,
+so a y of 3.3 stood the camera on the roof and photographed open sea. The argument is a FLOOR.
+
+**Seven fish had no material at all, and one flat albedo is not a fix.** Parsed the GLBs: the seven
+s15 Meshy preview meshes carry 0 materials, 0 textures, 0 images. There is nothing to fall through
+to — removing s15's flat-albedo cover returns Godot's default WHITE. So the colour is synthesised
+properly now: `materials/fish_skin.gdshader` does countershading, body-locked mottle and a wet
+fresnel rim off the one `school.tint`. The countershade keys off the WORLD normal, not a body axis,
+because the seven disagree about which axis is dorsoventral and none of them says which end is the
+back. `_char`'s cooked branch needed the ShaderMaterial case explicitly: `as BaseMaterial3D` on one
+returns null and would have plated a pure WHITE fish, silently, only when cooked.
+
+**The held-fish yaw assumed every fish mesh runs along Z.** Three do not (trop_angel, trop_butterfly,
+fish_ribbon_eel, all measured s34), and on those `item_visual`'s blanket -90 swung the long axis ONTO
+Z and handed the player the nose. `fish_ribbon_eel` had shipped end-on since it was wired in. Now
+routed through `creature_anim.facing_for`; exactly three species change.
+
+**Ten tropical reef fish became catchable for zero new assets.** They were already swimming and none
+of them was in fish.json. All ten together are 16,199 triangles — less than ONE undecimated leopard
+grouper at 198,902. No `school` block, so `_spawn_schools` skips them and nothing renders twice
+(census byte-identical: 1033 bodies, 34 pod species). 46 -> 56 species; the day rod pool's junk share
+falls 40.0% -> 29.9%, and sea fog finally gates something (one `fog: "only"` species, where before
+42 of 46 were `fog: "ok"`).
+
+**Spearfishing was infinite because the spear RECYCLED the fish.** `take_speared` re-seated the kill
+at the pod centre — 1-3 m ahead of you, because that is where you aimed — so it was a legal target
+again next frame. Now it hides and rejoins ~23.9 m away after 45-100 s. Pod-level alarm off the
+already-cached `_cam_eye` (83 distance checks at the pod rate, not 1033 per frame), and a thrust
+takes the nearest fish 2.24 -> 5.89 m, clear of the honed spear's 3.3.
+
+**Three of the four kelp stands were growing out of thin air.** Probed before adding any: (28.80,
+0.95, -20.40) and two others had NOTHING under them, and the fourth was sealed in the 0.55 m crawl
+space under the wet-deck slab. There was no reachable kelp on the rig. Moved to the open south
+pontoon with every hand-typed Y deleted — XZ authored, seat by ray, refused unless flat and inside a
+0.4..1.6 m splash band. Regrow also moved off a real-seconds countdown onto GameClock hours, so
+sleeping advances it at last.
+
+**Per-fish weights replaced the FIFO ledger.** Parallel `hotbar_meta`/`inventory_meta`, so all 196
+plain-id readers are untouched; `is_stackable` is payload-aware, so a big fish taking its own slot is
+a CONSEQUENCE of carrying a weight rather than a second rule. SAVE_VERSION 3 with a real migration:
+the old `clampi(count, 1, cap)` would have silently deleted four of five stacked groupers.
+
+Suite at close: TestRunner FAILURES 0, CatProbe 0, SpearProbe 0, MusselProbe 0, HarvestGrowthProbe 0.
+Playtest holds 4 failures — PROVEN pre-existing by stashing the whole session and re-running at HEAD,
+which gave the identical four.

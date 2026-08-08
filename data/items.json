@@ -1079,5 +1079,127 @@
  "gull_feather": {
   "name": "Gull Feather",
   "use": "tool"
+ },
+ "fish_clownfish": {
+  "name": "Anemone Clownfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_clownfish": {
+  "name": "Cooked Anemone Clownfish",
+  "use": "eat",
+  "hunger": 0.26,
+  "thirst": 0.05
+ },
+ "fish_yellow_tang": {
+  "name": "Yellow Tang",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_yellow_tang": {
+  "name": "Cooked Yellow Tang",
+  "use": "eat",
+  "hunger": 0.34,
+  "thirst": 0.05
+ },
+ "fish_damsel": {
+  "name": "Sergeant Damsel",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_damsel": {
+  "name": "Cooked Sergeant Damsel",
+  "use": "eat",
+  "hunger": 0.24,
+  "thirst": 0.05
+ },
+ "fish_butterflyfish": {
+  "name": "Threadfin Butterflyfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_butterflyfish": {
+  "name": "Cooked Threadfin Butterflyfish",
+  "use": "eat",
+  "hunger": 0.34,
+  "thirst": 0.05
+ },
+ "fish_cleaner_wrasse": {
+  "name": "Cleaner Wrasse",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_cleaner_wrasse": {
+  "name": "Cooked Cleaner Wrasse",
+  "use": "eat",
+  "hunger": 0.28,
+  "thirst": 0.05
+ },
+ "fish_blue_tang": {
+  "name": "Blue Tang",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_blue_tang": {
+  "name": "Cooked Blue Tang",
+  "use": "eat",
+  "hunger": 0.38,
+  "thirst": 0.05
+ },
+ "fish_anthias": {
+  "name": "Magenta Anthias",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_anthias": {
+  "name": "Cooked Magenta Anthias",
+  "use": "eat",
+  "hunger": 0.26,
+  "thirst": 0.05
+ },
+ "fish_triggerfish": {
+  "name": "Titan Triggerfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_triggerfish": {
+  "name": "Cooked Titan Triggerfish",
+  "use": "eat",
+  "hunger": 0.44,
+  "thirst": 0.05
+ },
+ "fish_emperor_angel": {
+  "name": "Emperor Angelfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_emperor_angel": {
+  "name": "Emperor Angelfish Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
+ },
+ "fish_parrotfish": {
+  "name": "Steephead Parrotfish",
+  "use": "eat",
+  "hunger": 0.08,
+  "side_effect": "sick"
+ },
+ "cooked_fish_parrotfish": {
+  "name": "Steephead Parrotfish Fillet",
+  "use": "eat",
+  "hunger": 0.42,
+  "thirst": 0.05,
+  "effect": "A portion, not the whole fish — one breaks down into several of these on the stove."
  }
 }

@@ -21,7 +21,7 @@ var length_m: float = 2.4
 ## whole handful on one hook; everything else is 1 either way.
 var _hung: Array = []
 var _game_hour_per_sec: float = 0.0
-## Only for weights we never saw landed (a reloaded save, a netted fish) — FishTable.take_size.
+## Only for weights we never saw landed (a locker find, a v1 save) — FishTable.yield_for.
 var _rng := RandomNumberGenerator.new()
 
 func _init() -> void:
@@ -97,33 +97,41 @@ func _hangable(id: String) -> bool:
 		or id == "dried_fish" or id == "fish_rotten"
 
 func _player_fish() -> String:
+	return PlayerState.slot_id(_player_fish_slot())
+
+## WHICH SLOT would be hung — a unified index, -1 for nothing hangable. The hook has to take
+## the fish's own weight off the fish's own slot (two groupers in the pack are two slots
+## now), so the search answers with the square rather than just the species.
+func _player_fish_slot() -> int:
 	var sel: int = PlayerState.selected_hotbar
 	if sel >= 0 and sel < PlayerState.HOTBAR_SIZE and PlayerState.hotbar[sel] != null \
 			and _hangable(String(PlayerState.hotbar[sel])):
-		return String(PlayerState.hotbar[sel])   # hang what's in your hand first
-	for it in PlayerState.hotbar:
+		return sel                               # hang what's in your hand first
+	for i in range(PlayerState.HOTBAR_SIZE):
+		var it: Variant = PlayerState.hotbar[i]
 		if it != null and _hangable(String(it)):
-			return String(it)
-	for it in PlayerState.inventory:
-		if it != null and _hangable(String(it)):
-			return String(it)
-	return ""
+			return i
+	for i in range(PlayerState.inventory.size()):
+		var pit: Variant = PlayerState.inventory[i]
+		if pit != null and _hangable(String(pit)):
+			return PlayerState.HOTBAR_SIZE + i
+	return -1
 
 func _hang() -> void:
-	var id: String = _player_fish()
+	var slot: int = _player_fish_slot()
+	var id: String = PlayerState.slot_id(slot)
 	if id == "" or _hung.size() >= SLOTS:
 		return
-	PlayerState.remove_item(id)
+	var taken: Dictionary = PlayerState.take_one_at(slot)
 	var visual: Node3D = ItemVisual.build(id)
 	add_child(visual)
 	visual.position = Vector3(_slot_x(_hung.size()), -0.55, 0)
 	visual.rotation.z = PI   # hung by the tail
-	# The weight is claimed HERE, as the fish leaves the pack, not when the cure finishes —
-	# it is THIS fish on the hook, and the ledger should not hand its weight to another.
-	# It only becomes the number of items the hook gives back once the cure has actually
-	# happened (see _process): a big fish taken back off the line still raw is one fish.
-	# The claimed kg rides the entry so a raw take can hand it back (see _take).
-	var cut: Dictionary = _claim_cut(id)
+	# The weight comes off the SLOT, with the fish, as it leaves the pack — it is THIS fish
+	# on the hook. It only becomes the number of items the hook gives back once the cure has
+	# actually happened (see _process): a big fish taken back off the line still raw is one
+	# fish. The claimed kg rides the entry so a raw take can hand it back (see _take).
+	var cut: Dictionary = _claim_cut(id, FISH.meta_kg(taken.get("meta", {})))
 	_hung.append({"id": id, "age_h": 0.0, "visual": visual, "n": 1,
 		"cure_n": maxi(int(cut["n"]), 1), "kg": float(cut["kg"])})
 	AudioDirector.play_one_shot("clang", global_position, -22.0)
@@ -133,10 +141,10 @@ func _hang() -> void:
 ## it has cured. One portion (and no weight) for every ordinary fish; for a big species,
 ## what that particular fish weighed and what that fillets out into — the same cut the
 ## stove would have made of it.
-func _claim_cut(id: String) -> Dictionary:
+func _claim_cut(id: String, kg: float) -> Dictionary:
 	if FISH.cooked_for(id) == "":
 		return {"kg": 0.0, "n": 1}   # already cooked / dried / rotten — one in, one out
-	return FISH.take_yield(id, _rng)
+	return FISH.yield_for(id, kg, _rng)
 
 func _take() -> void:
 	if _hung.is_empty():
@@ -156,11 +164,9 @@ func _take() -> void:
 	var got: int = 0
 	var floored: int = 0
 	for _i in range(want):
-		if PlayerState.add_item(id):
+		if PlayerState.add_item(id, FISH.catch_meta(id, kg)):
 			got += 1
-			if kg > 0.0:
-				FISH.record_size(id, kg)
-				kg = 0.0   # one fish, one weight — a raw take is always a single item
+			kg = 0.0   # one fish, one weight — a raw take is always a single item
 		else:
 			var toss := Vector3(_rng.randf_range(-0.4, 0.4), 0.0, _rng.randf_range(-0.4, 0.4))
 			SaveManager.drop_into_world(id, global_position + Vector3(0, -0.9, 0), toss, kg)

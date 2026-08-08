@@ -11,9 +11,12 @@ const SLOT_COUNT: int = 3
 const LEGACY_PATH: String = "user://saltline_autosave.json"
 ## Format version. v1 = the original (plain hotbar/inventory string arrays, no
 ## container/dropped/structure persistence). v2 = stacks carry counts, and placed
-## structures, container contents and dropped items all round-trip. Old (v1, or
-## version-less) saves still load: every reader below defaults gracefully.
-const SAVE_VERSION: int = 2
+## structures, container contents and dropped items all round-trip. v3 = SLOTS AND CRATE
+## ENTRIES CARRY A PAYLOAD: "hotbar_meta"/"inventory_meta" beside the counts, and a
+## container's contents may be `{items, meta}` instead of a bare id list. Old (v1, v2, or
+## version-less) saves still load: every reader below defaults gracefully, and a v2 pack is
+## actively MIGRATED rather than merely tolerated — see _migrate_fish_stacks.
+const SAVE_VERSION: int = 3
 
 const TAKEABLE := preload("res://scripts/components/takeable.gd")
 ## By path rather than by class name: handbook.gd is newer than the class cache this
@@ -182,6 +185,11 @@ func save_game() -> bool:
 		"inventory": PlayerState.inventory,
 		"hotbar_counts": PlayerState.hotbar_counts,
 		"inventory_counts": PlayerState.inventory_counts,
+		# v3: what each slot's contents are CARRYING — today one big fish's landed weight.
+		# JSON writes a null for an empty slot exactly as the id arrays already do, so the
+		# shape is the pack's own shape and a v2 reader that never looks at it is unharmed.
+		"hotbar_meta": PlayerState.hotbar_meta,
+		"inventory_meta": PlayerState.inventory_meta,
 		"phase": GameClock.current_phase,
 		"day_count": GameClock.day_count,
 		"powered": PowerGrid.powered_ids(),
@@ -190,8 +198,12 @@ func save_game() -> bool:
 		"dropped": _dropped_payload(),
 		"snails": FAUNA.snail_payload(get_tree()),
 		"harvest": _harvest_payload(),
-		# Landed weights not yet spent (fished but not filleted, dropped, or dried). A v2
-		# reader that predates the key simply never looks at it.
+		# THE RETIRED SIZE LEDGER. Since v3 the weights live on the slots that hold the fish
+		# ("hotbar_meta"/"inventory_meta" above) and nothing in the game pushes here any
+		# more, so in an ordinary session this writes `{}`. It is still written — and still
+		# read — for one version, because it is the only thing that can drain a v2 save's
+		# weights onto the migrated slots, and because drop_into_world(kg = -1.0) still
+		# falls back to it. See fish_table.gd's _sizes header.
 		"fish_sizes": FISH.sizes_payload(),
 		# THE CAT'S OWN DECISIONS — whether it has met you, whether you told it to stay,
 		# when you last fed it. The animal's design promises befriending is permanent
@@ -259,18 +271,30 @@ func load_game() -> bool:
 	PlayerState.thirst = data.get("thirst", 1.0)
 	PlayerState.warmth = data.get("warmth", 1.0)
 	PlayerState.life = data.get("life", 1.0)
-	# load_inventory keeps the id arrays and their counts the same length, and copes
-	# with a v1 save that has no counts arrays at all (every slot defaults to one).
-	PlayerState.load_inventory(
-		data.get("hotbar", [null, null, null, null]),
-		data.get("hotbar_counts", []),
-		data.get("inventory", []),
-		data.get("inventory_counts", []))
-	PlayerState.apply_comfort_payload(data)
 	# The pack's landed weights come back with the pack. Authoritative replace (the save's
 	# inventory just replaced the session's, and these numbers belong to it); a save from
 	# before weights persisted restores an empty ledger, i.e. exactly the old behaviour.
+	#
+	# RESTORED BEFORE THE PACK, not after, because a v2 pack's weights are IN this ledger
+	# and the migration below has to drain them onto the slots it splits.
 	FISH.restore_sizes(data.get("fish_sizes", {}))
+	# v2 -> v3: split anonymous big-fish stacks into one slot per fish and give each one its
+	# own weight. A no-op on a v3 save, which already has its payload arrays.
+	var pack: Dictionary = _migrate_fish_stacks(data)
+	if pack.has("fish_sizes_left"):
+		# Whatever the migration did NOT consume stays on the ledger; what it did consume
+		# must not still be sitting there for drop_into_world to hand out a second time.
+		FISH.restore_sizes(pack["fish_sizes_left"])
+	# load_inventory keeps the id arrays, their counts and their payloads the same length,
+	# and copes with a v1 save that has none of the extra arrays at all (every slot defaults
+	# to one, carrying nothing). It hands back anything an over-cap stack could not seat.
+	var spill: Array = PlayerState.load_inventory(
+		pack["hotbar"], pack["hotbar_counts"],
+		pack["inventory"], pack["inventory_counts"],
+		pack["hotbar_meta"], pack["inventory_meta"])
+	for extra in pack.get("spill", []):
+		spill.append(extra)
+	PlayerState.apply_comfort_payload(data)
 	# Non-destructive merge: discoveries union and a catch record keeps the heavier fish,
 	# so this layers cleanly over whatever the journal's own sidecar already restored.
 	Journal.restore(data)
@@ -286,6 +310,10 @@ func load_game() -> bool:
 	restore_structures(data.get("structures", []))
 	_apply_pending_to_existing()
 	restore_dropped(data.get("dropped", []))
+	# AFTER restore_dropped, never before: that call queue_frees every node in the
+	# "dropped_item" group first, so a fish set down earlier in this load would be swept
+	# straight back out by the very step that rebuilds the deck.
+	_spill_to_deck(spill, data)
 	# The world rebuild always respawns the wet-deck handbook, because the world is built
 	# before any save is read. Now that the pack and the dropped items are back, the book
 	# knows where it really is and can delete the duplicate. Must run AFTER both.
@@ -311,6 +339,193 @@ func load_game() -> bool:
 ## load_game() as the backstop for a restore step that errors out before the flag drops.
 func _clear_loading() -> void:
 	_loading = false
+
+# -------------------------------------------------------- v2 -> v3 pack migration
+# THE ONE PLACE A REAL PLAYER COULD HAVE LOST FISH.
+#
+# Under v2 a big fish was an anonymous item in a stack (up to MAX_STACK = 16 of them in one
+# square) and its weight sat in a species-keyed FIFO queue under "fish_sizes". Under v3 a
+# big fish carries its own weight and therefore CANNOT STACK. Loading a v2 save through the
+# v3 rules with nothing in between would have run the old clamp in load_inventory —
+# `clampi(count, 1, cap)` with cap now 1 — and turned a saved stack of five groupers into
+# ONE grouper. Four fish, gone, with no error and nothing in the log.
+#
+# So the split happens HERE, on the raw save data, before PlayerState ever sees it:
+#   · every occupied slot holding a big species is expanded to one slot per fish;
+#   · each of those fish is handed a weight, popped IN ORDER off the save's own
+#     "fish_sizes" queue for that species, so an old save's 41.5 kg grouper keeps its
+#     number instead of re-rolling into an average one;
+#   · a species with no weight left on the queue gets median_size() — the same
+#     deterministic "an old save's fish is a typical fish" answer restore_dropped has
+#     always given a dropped fish with no "kg" on it, and never a reload lottery;
+#   · the extra fish are seated in real free squares, hotbar holes first;
+#   · anything that STILL does not fit is spilled — see _spill_to_deck.
+#
+# A v3 save skips all of it and passes its own arrays straight through.
+
+## THE SPLIT CAN OVERFLOW THE PACK, and that is not a hypothetical: 16 × grouper in one
+## square was a legal v2 save, the pack is 18 squares (+4 with a tool belt) and the hotbar
+## six, so a full pack of stacked deep fish cannot possibly be seated one-to-one.
+##
+## THE SURPLUS GOES ON THE DECK, at the player's saved feet, as real savable Takeables —
+## each with its own weight, drawn at its own length. That is this codebase's standing
+## answer to "there is no room and the item must not vanish": the rod's full-pack spill, the
+## stove's surplus fillets and the drying line's cured handful all already do exactly this,
+## and a dropped item is a first-class saved object, so the next save keeps them.
+##
+## The alternative considered and rejected was a transitional over-cap stack. It would have
+## leaked "17 groupers, one weight" into every reader in the game (the HUD's tag strip, the
+## bench's counts, count_item, the next save) and there is no moment at which it would ever
+## have been repaired — a "temporary" invariant break with no owner.
+func _spill_to_deck(spill: Array, data: Dictionary) -> void:
+	if spill.is_empty():
+		return
+	var feet: Vector3 = Vector3.ZERO
+	if typeof(data.get("player_pos")) == TYPE_ARRAY and (data["player_pos"] as Array).size() >= 3:
+		var a: Array = data["player_pos"]
+		feet = Vector3(float(a[0]), float(a[1]), float(a[2]))
+	else:
+		var pl: Node = get_tree().get_first_node_in_group("player")
+		if pl is Node3D:
+			feet = (pl as Node3D).global_position
+	var rng := RandomNumberGenerator.new()
+	rng.seed = 20260808
+	for entry in spill:
+		var id: String = String((entry as Dictionary).get("id", ""))
+		if id == "":
+			continue
+		var kg: float = FISH.meta_kg((entry as Dictionary).get("meta", {}))
+		var toss := Vector3(rng.randf_range(-0.7, 0.7), 0.0, rng.randf_range(-0.7, 0.7))
+		drop_into_world(id, feet, toss, kg)
+	var hud: Node = get_tree().get_first_node_in_group("hud")
+	if hud:
+		hud.call("toast", "%d didn't fit in the pack — they're on the deck at your feet."
+			% spill.size())
+
+## Pop the oldest saved weight for a species off a WORKING COPY of the ledger, or fall back
+## to the species' typical catch. `queues` is mutated; what is left is put back on the
+## ledger by load_game so nothing is handed out twice.
+func _drain_kg(queues: Dictionary, id: String) -> float:
+	var q: Variant = queues.get(id, null)
+	if typeof(q) == TYPE_ARRAY and not (q as Array).is_empty():
+		var kg: float = float((q as Array)[0])
+		(q as Array).remove_at(0)
+		if (q as Array).is_empty():
+			queues.erase(id)
+		if kg > 0.0:
+			return kg
+	return FISH.median_size(id)
+
+## Does this saved pack carry a tool belt? Asked of the SAVE, not of the live PlayerState —
+## at migration time the singleton still holds the previous session's inventory, and the
+## capacity the split has to fit inside is the one the save is about to establish.
+func _saved_capacity(hb: Array, inv: Array) -> int:
+	for v in hb:
+		if v != null and String(v) == "tool_belt":
+			return PlayerState.MAX_BACKPACK + PlayerState.TOOL_BELT_SLOTS
+	for v in inv:
+		if v != null and String(v) == "tool_belt":
+			return PlayerState.MAX_BACKPACK + PlayerState.TOOL_BELT_SLOTS
+	return PlayerState.MAX_BACKPACK
+
+## A saved counts array as exactly `n` real ints, defaulting to 1 — a missing entry, a null
+## from a resize, or a v1 save with no counts array at all all mean "one".
+func _counts_of(src: Array, n: int) -> Array:
+	var out: Array = []
+	out.resize(n)
+	for i in range(n):
+		var v: Variant = src[i] if i < src.size() else null
+		out[i] = maxi(int(v), 1) if (typeof(v) == TYPE_INT or typeof(v) == TYPE_FLOAT) else 1
+	return out
+
+## {hotbar, hotbar_counts, hotbar_meta, inventory, inventory_counts, inventory_meta,
+##  spill: [{id, meta}], fish_sizes_left: Dictionary}
+func _migrate_fish_stacks(data: Dictionary) -> Dictionary:
+	var hb: Array = (data.get("hotbar", []) as Array).duplicate() \
+		if typeof(data.get("hotbar")) == TYPE_ARRAY else []
+	var inv: Array = (data.get("inventory", []) as Array).duplicate() \
+		if typeof(data.get("inventory")) == TYPE_ARRAY else []
+	var hb_n: Array = (data.get("hotbar_counts", []) as Array).duplicate() \
+		if typeof(data.get("hotbar_counts")) == TYPE_ARRAY else []
+	var inv_n: Array = (data.get("inventory_counts", []) as Array).duplicate() \
+		if typeof(data.get("inventory_counts")) == TYPE_ARRAY else []
+	var out: Dictionary = {
+		"hotbar": hb, "hotbar_counts": hb_n,
+		"inventory": inv, "inventory_counts": inv_n,
+		"hotbar_meta": data.get("hotbar_meta", []),
+		"inventory_meta": data.get("inventory_meta", []),
+		"spill": [],
+	}
+	if int(data.get("version", 1)) >= 3:
+		return out                       # already carries its payloads
+	# --- v1 / v2 from here. Build mutable, index-addressable slot arrays. The counts are
+	# NORMALISED to real ints of the right length first: a v1 save has no counts arrays at
+	# all, and padding those with nulls would hand load_inventory an int(null).
+	hb.resize(PlayerState.HOTBAR_SIZE)
+	hb_n = _counts_of(hb_n, PlayerState.HOTBAR_SIZE)
+	inv_n = _counts_of(inv_n, inv.size())
+	var hb_m: Array = []
+	hb_m.resize(PlayerState.HOTBAR_SIZE)
+	var inv_m: Array = []
+	inv_m.resize(inv.size())
+	var queues: Dictionary = FISH.sizes_payload()   # a copy; sizes_payload duplicates
+	var cap: int = _saved_capacity(hb, inv)
+	var extras: Array = []               # [{id, meta}] — one entry per fish needing a home
+	# Split every big-fish stack down to one, banking the rest.
+	for i in range(PlayerState.HOTBAR_SIZE):
+		if hb[i] == null or not FISH.is_big(String(hb[i])):
+			continue
+		var id: String = String(hb[i])
+		var n: int = int(hb_n[i])
+		hb_n[i] = 1
+		hb_m[i] = {"kg": _drain_kg(queues, id)}
+		for _k in range(n - 1):
+			extras.append({"id": id, "meta": {"kg": _drain_kg(queues, id)}})
+	for i in range(inv.size()):
+		if inv[i] == null or not FISH.is_big(String(inv[i])):
+			continue
+		var pid: String = String(inv[i])
+		var pn: int = int(inv_n[i])
+		inv_n[i] = 1
+		inv_m[i] = {"kg": _drain_kg(queues, pid)}
+		for _k in range(pn - 1):
+			extras.append({"id": pid, "meta": {"kg": _drain_kg(queues, pid)}})
+	# Seat them: hotbar holes first, then pack holes, then the pack's growable tail — the
+	# same order add_item fills, so a migrated pack looks like a packed one.
+	for e in extras:
+		var seated: bool = false
+		for i in range(PlayerState.HOTBAR_SIZE):
+			if hb[i] == null:
+				hb[i] = String(e["id"])
+				hb_n[i] = 1
+				hb_m[i] = e["meta"]
+				seated = true
+				break
+		if seated:
+			continue
+		for i in range(inv.size()):
+			if inv[i] == null:
+				inv[i] = String(e["id"])
+				inv_n[i] = 1
+				inv_m[i] = e["meta"]
+				seated = true
+				break
+		if seated:
+			continue
+		if inv.size() < cap:
+			inv.append(String(e["id"]))
+			inv_n.append(1)
+			inv_m.append(e["meta"])
+			continue
+		(out["spill"] as Array).append(e)
+	out["hotbar"] = hb
+	out["hotbar_counts"] = hb_n
+	out["hotbar_meta"] = hb_m
+	out["inventory"] = inv
+	out["inventory_counts"] = inv_n
+	out["inventory_meta"] = inv_m
+	out["fish_sizes_left"] = queues
+	return out
 
 # --------------------------------------------------------------- base building
 # A camp that evaporates when you go to bed is not a camp. Every placed structure
@@ -409,6 +624,11 @@ func _container_key(c: Node3D) -> String:
 	var name_: String = String(c.get("display_name")) if c.get("display_name") != null else ""
 	return "%.2f,%.2f,%.2f|%s" % [p.x, p.y, p.z, name_]
 
+## A CRATE PRESERVES A WEIGHT, so a container that holds one writes `{items, meta}` instead
+## of the bare id list v2 wrote. A container holding nothing but ordinary goods — which is
+## every crate on the rig until the player stows a fish in one — keeps the v2 shape exactly,
+## so the overwhelming majority of saved containers are byte-identical to before and an
+## older reader still understands them.
 func _containers_payload() -> Dictionary:
 	var out: Dictionary = {}
 	for c in get_tree().get_nodes_in_group("loot_container"):
@@ -417,7 +637,22 @@ func _containers_payload() -> Dictionary:
 		var its: Variant = c.get("items")
 		if typeof(its) != TYPE_ARRAY:
 			continue
-		out[_container_key(c as Node3D)] = (its as Array).duplicate()
+		var key: String = _container_key(c as Node3D)
+		var metas: Variant = c.get("item_meta")
+		var carries: bool = false
+		if typeof(metas) == TYPE_ARRAY:
+			for m in (metas as Array):
+				if not PlayerState.meta_empty(m):
+					carries = true
+					break
+		if not carries:
+			out[key] = (its as Array).duplicate()
+			continue
+		var mlist: Array = []
+		for i in range((its as Array).size()):
+			var m2: Variant = (metas as Array)[i] if i < (metas as Array).size() else null
+			mlist.append(m2)
+		out[key] = {"items": (its as Array).duplicate(), "meta": mlist}
 	return out
 
 ## Reapply saved contents to every container currently in the tree with a final
@@ -438,12 +673,27 @@ func claim_container(c: Node3D) -> void:
 	if not _pending_containers.has(key):
 		return
 	var saved: Variant = _pending_containers[key]
-	if typeof(saved) != TYPE_ARRAY:
+	# v2 wrote a bare id list; v3 writes {items, meta} when — and only when — something in
+	# the box is carrying a payload. Both shapes are read here, so a v2 slot still restores
+	# its lockers exactly as it always did.
+	var ids: Variant = saved
+	var metas: Array = []
+	if typeof(saved) == TYPE_DICTIONARY:
+		ids = (saved as Dictionary).get("items", [])
+		var m: Variant = (saved as Dictionary).get("meta", [])
+		if typeof(m) == TYPE_ARRAY:
+			metas = m as Array
+	if typeof(ids) != TYPE_ARRAY:
 		return
 	var restored: Array[String] = []
-	for it in (saved as Array):
+	for it in (ids as Array):
 		restored.append(String(it))
 	c.set("items", restored)
+	var mlist: Array = []
+	for i in range(restored.size()):
+		var mv: Variant = metas[i] if i < metas.size() else null
+		mlist.append(mv if typeof(mv) == TYPE_DICTIONARY and not (mv as Dictionary).is_empty() else null)
+	c.set("item_meta", mlist)
 
 # ------------------------------------------------------------- harvest / salvage
 # A rig you have stripped should stay stripped, and this is the gap that closed it: before

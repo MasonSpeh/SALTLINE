@@ -92,6 +92,22 @@ var inventory: Array = []
 ## meaningful where the matching slot holds an id; a null slot's count is ignored.
 var hotbar_counts: Array = _new_hotbar_counts()
 var inventory_counts: Array = [] ## parallel to inventory, one int per stack
+## WHAT THIS PARTICULAR ONE IS. A third parallel array, for exactly the reason the counts
+## are parallel rather than folded into the slots (see above): every one of the ~196 direct
+## `hotbar[i]` / `for it in inventory` reads across the scripts and the tests still sees a
+## plain item id or a null, and the payload rides alongside.
+##
+## A slot's meta is a Dictionary of whatever makes THIS instance not interchangeable with
+## another of the same id — today only `{"kg": float}`, the weight one big fish was landed
+## at (FishTable.catch_meta) — or null for the ordinary case, which is nearly every slot.
+##
+## THE ONE RULE: a slot carrying a payload stacks to ONE (see is_stackable). Two groupers of
+## 41.5 and 12.0 kg are not the same object and cannot share a count. "A big fish gets its
+## own slot" is therefore a CONSEQUENCE of carrying a weight, not a second special case
+## bolted on beside EQUIPMENT — and a species that carries no weight (a herring, a can of
+## peaches) piles to MAX_STACK exactly as it always did.
+var hotbar_meta: Array = _new_hotbar_meta()
+var inventory_meta: Array = [] ## parallel to inventory, Dictionary|null per slot
 ## Which hotbar slot is in hand (-1 = empty hands). Written from several places — the
 ## number keys, the inventory panel's place-into-hotbar, scripted setups — so it carries a
 ## setter that announces itself rather than making every writer remember to tell the HUD.
@@ -311,10 +327,32 @@ const EQUIPMENT := {
 	"life_ring": true, "mini_anchor": true, "cable_spool": true,
 }
 
-## How tall a stack of this item may grow. Equipment never stacks (a wrench is a
-## wrench); everything else — food, drink, kits, materials, flares — piles to MAX_STACK.
-func is_stackable(item_id: String) -> bool:
+## How tall a stack of this item may grow. Three tiers, in order:
+##   · a slot carrying a PAYLOAD stacks to one — a 41.5 kg grouper is a specific animal and
+##     merging it into a pile would erase which one it was (see hotbar_meta);
+##   · EQUIPMENT never stacks (a wrench is a wrench);
+##   · everything else — food, drink, kits, materials, flares — piles to MAX_STACK.
+## `meta` defaults to null so every existing caller keeps the species-level answer.
+func is_stackable(item_id: String, meta: Variant = null) -> bool:
+	if not meta_empty(meta):
+		return false
 	return not EQUIPMENT.has(item_id)
+
+## True when a payload is "nothing at all" — null, an empty dict, or something that is not
+## a dict. The one test every meta read goes through, so no caller has to know the shape.
+static func meta_empty(m: Variant) -> bool:
+	return typeof(m) != TYPE_DICTIONARY or (m as Dictionary).is_empty()
+
+## A payload as a plain Dictionary ({} when there is none). COPIED, never the live slot
+## dict: a caller that stores what it was handed must not be able to reach back into the
+## pack and rewrite a slot through it.
+static func as_meta(m: Variant) -> Dictionary:
+	return (m as Dictionary).duplicate(true) if not meta_empty(m) else {}
+
+## What a payload is stored AS in a slot: null when empty, a private copy otherwise. Nulls
+## rather than empty dicts so `hotbar_meta` reads the same way `hotbar` does.
+static func _store_meta(m: Variant) -> Variant:
+	return (m as Dictionary).duplicate(true) if not meta_empty(m) else null
 
 ## A freshly emptied hotbar: HOTBAR_SIZE slots, every one null. Array.resize() on a brand
 ## new array leaves every element null already — spelled out anyway so a reader doesn't
@@ -330,8 +368,15 @@ static func _new_hotbar_counts() -> Array:
 	a.fill(1)
 	return a
 
-func _stack_cap(item_id: String) -> int:
-	return MAX_STACK if is_stackable(item_id) else 1
+## Array.resize() leaves every element null, which is exactly "no payload" — spelled out
+## the same way _new_hotbar() is so a reader does not have to know that.
+static func _new_hotbar_meta() -> Array:
+	var a: Array = []
+	a.resize(HOTBAR_SIZE)
+	return a
+
+func _stack_cap(item_id: String, meta: Variant = null) -> int:
+	return MAX_STACK if is_stackable(item_id, meta) else 1
 
 # ---------------------------------------------------------------- pack slots
 # The pack is a sparse grid (see `inventory`). These four helpers are the only places that
@@ -339,10 +384,26 @@ func _stack_cap(item_id: String) -> int:
 
 ## Drop empty tail cells so an emptied pack is `[]` again and `inventory.size()` stays a
 ## meaningful "how far the grid is used". Called after anything that vacates a cell.
+## KEEP THE PAYLOAD ARRAYS THE LENGTH OF THE SLOTS THEY SHADOW.
+##
+## A short one is a NORMAL state here, not a corruption to assert on: scripted setups and
+## the test harnesses append straight into `inventory`/`inventory_counts`
+## (tests/test_runner.gd:326 and a dozen more) and know nothing about a third array. Rather
+## than chase every one of those — and leave the next one to trip over it — every function
+## that indexes a payload fits the arrays first, and a missing entry simply reads as
+## "carrying nothing", which is what a hand-placed item is.
+func _fit_meta() -> void:
+	if hotbar_meta.size() != HOTBAR_SIZE:
+		hotbar_meta.resize(HOTBAR_SIZE)
+	if inventory_meta.size() != inventory.size():
+		inventory_meta.resize(inventory.size())
+
 func _trim_pack() -> void:
+	_fit_meta()
 	while not inventory.is_empty() and inventory[inventory.size() - 1] == null:
 		inventory.remove_at(inventory.size() - 1)
 		inventory_counts.remove_at(inventory_counts.size() - 1)
+		inventory_meta.remove_at(inventory_meta.size() - 1)
 
 ## How many pack cells actually hold something — NOT inventory.size(), which also counts
 ## the gaps the player left between them.
@@ -366,27 +427,38 @@ func pack_first_free() -> int:
 
 ## Write a stack into an EXACT pack index, growing the grid with empty cells if the target
 ## sits past the end. This is what makes "put it in that square" literal.
-func _pack_put(i: int, item_id: Variant, count: int) -> void:
+func _pack_put(i: int, item_id: Variant, count: int, meta: Variant = null) -> void:
+	_fit_meta()
 	while inventory.size() <= i:
 		inventory.append(null)
 		inventory_counts.append(1)
+		inventory_meta.append(null)
 	inventory[i] = item_id
 	inventory_counts[i] = count
+	inventory_meta[i] = _store_meta(meta)
 	if item_id == null:
 		_trim_pack()
 
-func add_item(item_id: String) -> bool:
-	var cap: int = _stack_cap(item_id)
+## Take one item into the pack. `meta` is what THIS one is carrying — {} for nearly
+## everything, `{"kg": 41.5}` for a big fish (FishTable.catch_meta). A payload always takes
+## a fresh slot, because a slot holding one cannot stack (see is_stackable).
+func add_item(item_id: String, meta: Dictionary = {}) -> bool:
+	_fit_meta()
+	var cap: int = _stack_cap(item_id, meta)
 	# Top up an existing stack before spending a fresh slot — hotbar first, then pack.
+	# Only ever a stack that carries NO payload: piling a weighed fish onto a plain one
+	# would be the silent weight-erasure this whole scheme exists to end.
 	if cap > 1:
 		for i in range(HOTBAR_SIZE):
-			if hotbar[i] == item_id and int(hotbar_counts[i]) < cap:
+			if hotbar[i] == item_id and meta_empty(hotbar_meta[i]) \
+					and int(hotbar_counts[i]) < cap:
 				hotbar_counts[i] = int(hotbar_counts[i]) + 1
 				inventory_changed.emit()
 				Journal.discover("item_" + item_id)
 				return true
 		for i in range(inventory.size()):
-			if inventory[i] == item_id and int(inventory_counts[i]) < cap:
+			if inventory[i] == item_id and meta_empty(inventory_meta[i]) \
+					and int(inventory_counts[i]) < cap:
 				inventory_counts[i] = int(inventory_counts[i]) + 1
 				inventory_changed.emit()
 				Journal.discover("item_" + item_id)
@@ -396,6 +468,7 @@ func add_item(item_id: String) -> bool:
 		if hotbar[i] == null:
 			hotbar[i] = item_id
 			hotbar_counts[i] = 1
+			hotbar_meta[i] = _store_meta(meta)
 			inventory_changed.emit()
 			Journal.discover("item_" + item_id)
 			return true
@@ -407,7 +480,7 @@ func add_item(item_id: String) -> bool:
 			# used to be a dead end the player had to guess their way out of.
 			hud.toast("Pack is full. [I] — click an item, then the empty space, to drop it.")
 		return false
-	_pack_put(free, item_id, 1)
+	_pack_put(free, item_id, 1, meta)
 	inventory_changed.emit()
 	Journal.discover("item_" + item_id)
 	return true
@@ -415,13 +488,15 @@ func add_item(item_id: String) -> bool:
 ## Inventory panel moves: click a pack item into a free hotbar slot, or stow a
 ## hotbar item back into the pack.
 func backpack_to_hotbar(inv_idx: int) -> bool:
+	_fit_meta()
 	if inv_idx < 0 or inv_idx >= inventory.size() or inventory[inv_idx] == null:
 		return false
 	for i in range(HOTBAR_SIZE):
 		if hotbar[i] == null:
-			# The whole stack moves as a unit, count and all.
+			# The whole stack moves as a unit, count, payload and all.
 			hotbar[i] = inventory[inv_idx]
 			hotbar_counts[i] = int(inventory_counts[inv_idx])
+			hotbar_meta[i] = inventory_meta[inv_idx]
 			_pack_put(inv_idx, null, 1)
 			inventory_changed.emit()
 			return true
@@ -440,15 +515,22 @@ func backpack_to_hotbar(inv_idx: int) -> bool:
 ##    of the same thing back and forth; anything over the cap stays in the pack;
 ##  · anything else — a straight swap, counts included.
 func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
+	_fit_meta()
 	if inv_idx < 0 or inv_idx >= inventory.size() or inventory[inv_idx] == null:
 		return false
 	if slot < 0 or slot >= HOTBAR_SIZE:
 		return false
 	var pack_id: String = String(inventory[inv_idx])
 	var pack_n: int = int(inventory_counts[inv_idx])
+	var pack_m: Variant = inventory_meta[inv_idx]
 	var hand_id: Variant = hotbar[slot]
 	var hand_n: int = int(hotbar_counts[slot])
-	if hand_id != null and String(hand_id) == pack_id:
+	var hand_m: Variant = hotbar_meta[slot]
+	# Same id on both sides piles up — but ONLY when neither side carries a payload. Two
+	# weighed groupers are two animals and must stay two slots, so they fall through to the
+	# plain exchange below instead of being merged into a stack of "2 × grouper, one weight".
+	if hand_id != null and String(hand_id) == pack_id \
+			and meta_empty(hand_m) and meta_empty(pack_m):
 		var room: int = _stack_cap(pack_id) - hand_n
 		var moved: int = mini(pack_n, maxi(room, 0))
 		if moved > 0:
@@ -461,11 +543,13 @@ func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
 		return true   # a topped-out hand stack is a no-op, never a downgrade
 	hotbar[slot] = pack_id
 	hotbar_counts[slot] = pack_n
+	hotbar_meta[slot] = pack_m
 	if hand_id == null:
 		_pack_put(inv_idx, null, 1)
 	else:
 		inventory[inv_idx] = hand_id
 		inventory_counts[inv_idx] = hand_n
+		inventory_meta[inv_idx] = hand_m
 	inventory_changed.emit()
 	return true
 
@@ -492,6 +576,7 @@ func swap_backpack_hotbar(inv_idx: int, slot: int) -> bool:
 ## growing empty cells beneath it if it sits past the end, and a vacated cell goes null in
 ## place so no index after it shifts under the player's hands.
 func move_slot(from_u: int, to_u: int) -> bool:
+	_fit_meta()
 	if from_u == to_u or from_u < 0 or to_u < 0:
 		return false
 	var from_h: bool = from_u < HOTBAR_SIZE
@@ -514,18 +599,26 @@ func move_slot(from_u: int, to_u: int) -> bool:
 
 	var f_id: String = String(hotbar[fi]) if from_h else String(inventory[fi])
 	var f_n: int = int(hotbar_counts[fi]) if from_h else int(inventory_counts[fi])
+	var f_m: Variant = hotbar_meta[fi] if from_h else inventory_meta[fi]
 	var t_id: String = ""
 	var t_n: int = 0
+	var t_m: Variant = null
 	if to_h:
 		if hotbar[ti] != null:
 			t_id = String(hotbar[ti])
 			t_n = int(hotbar_counts[ti])
+			t_m = hotbar_meta[ti]
 	elif ti < inventory.size() and inventory[ti] != null:
 		t_id = String(inventory[ti])
 		t_n = int(inventory_counts[ti])
+		t_m = inventory_meta[ti]
 
 	# ---- same thing on both sides: pile it up instead of shuffling two identical stacks.
-	if t_id != "" and t_id == f_id:
+	# NEITHER side may carry a payload. Dropping a 41.5 kg grouper onto a 12.0 kg one used to
+	# be a merge, and a merge is where a weight would silently vanish — two counts can be
+	# added, two weights cannot. Payload slots therefore fall through to the exchange below,
+	# which is lossless: the two animals swap places and both keep their number.
+	if t_id != "" and t_id == f_id and meta_empty(f_m) and meta_empty(t_m):
 		var moved: int = mini(f_n, maxi(_stack_cap(f_id) - t_n, 0))
 		if moved <= 0:
 			return false      # target stack already at the cap: a no-op, not a swap
@@ -543,47 +636,60 @@ func move_slot(from_u: int, to_u: int) -> bool:
 		return true
 
 	# ---- otherwise the two slots exchange contents outright. The target index is written
-	# literally in both directions — that is the whole point of the sparse pack.
+	# literally in both directions — that is the whole point of the sparse pack. Every write
+	# below moves the payload with the count it belongs to; a branch that wrote one without
+	# the other would duplicate a weight onto a fish that never had it.
 	if to_h:
 		hotbar[ti] = f_id
 		hotbar_counts[ti] = f_n
+		hotbar_meta[ti] = f_m
 	else:
-		_pack_put(ti, f_id, f_n)
+		_pack_put(ti, f_id, f_n, f_m)
 	if t_id == "":
 		_clear_slot(from_h, fi)
 	elif from_h:
 		hotbar[fi] = t_id
 		hotbar_counts[fi] = t_n
+		hotbar_meta[fi] = t_m
 	else:
 		inventory[fi] = t_id
 		inventory_counts[fi] = t_n
+		inventory_meta[fi] = t_m
 	inventory_changed.emit()
 	return true
 
 ## Empty one slot. Both grids go null in place; the pack then trims any empty tail, so
 ## indices the player can still see never shift under them but an emptied pack is still `[]`.
 func _clear_slot(is_hotbar: bool, i: int) -> void:
+	_fit_meta()
 	if is_hotbar:
 		hotbar[i] = null
 		hotbar_counts[i] = 1
+		hotbar_meta[i] = null
 	else:
 		_pack_put(i, null, 1)
 
 func hotbar_to_backpack(slot: int) -> bool:
+	_fit_meta()
 	if slot < 0 or slot >= HOTBAR_SIZE or hotbar[slot] == null:
 		return false
 	var free: int = pack_first_free()
 	if free == -1:
 		return false
-	_pack_put(free, hotbar[slot], int(hotbar_counts[slot]))
+	_pack_put(free, hotbar[slot], int(hotbar_counts[slot]), hotbar_meta[slot])
 	hotbar[slot] = null
 	hotbar_counts[slot] = 1
+	hotbar_meta[slot] = null
 	inventory_changed.emit()
 	return true
 
 ## Remove ONE of item_id — decrements the first stack found (hotbar before pack),
 ## clearing the slot only when its count hits zero. Signature unchanged: every caller
 ## that expected "take one away" still gets exactly that.
+##
+## IT THROWS THE PAYLOAD AWAY, which is right for a caller that does not care (laying a
+## rope on the bench) and wrong for anything that then has to know what the fish weighed.
+## Those use remove_one_of() / take_one_at() instead — see them.
 func remove_item(item_id: String) -> bool:
 	var hotbar_idx: int = hotbar.find(item_id)
 	if hotbar_idx != -1:
@@ -597,12 +703,16 @@ func remove_item(item_id: String) -> bool:
 		return true
 	return false
 
-## Take one off a hotbar stack; empty the slot (no auto-refill) when it runs out.
+## Take one off a hotbar stack; empty the slot (no auto-refill) when it runs out. A payload
+## slot always holds exactly one, so it is always the emptying branch that runs — and the
+## payload goes with the item rather than being left behind for whatever lands there next.
 func _dec_hotbar(i: int) -> void:
+	_fit_meta()
 	var c: int = int(hotbar_counts[i]) - 1
 	if c <= 0:
 		hotbar[i] = null
 		hotbar_counts[i] = 1
+		hotbar_meta[i] = null
 	else:
 		hotbar_counts[i] = c
 
@@ -642,36 +752,143 @@ func inventory_stack(idx: int) -> int:
 
 ## Drop-one plumbing for the HUD: pull a single item off a unified slot index
 ## (0..HOTBAR_SIZE-1 = hotbar, then the pack). Returns the id removed, or "".
+##
+## KEPT AS IT WAS, and now a thin skin over take_one_at() — a caller that only wants to know
+## WHAT it removed should not have to unpack a dictionary to find out.
 func take_one_from_slot(unified_idx: int) -> String:
+	return String(take_one_at(unified_idx).get("id", ""))
+
+# ------------------------------------------------------------------ slots, by index
+# A unified slot index is 0..HOTBAR_SIZE-1 for the hotbar and HOTBAR_SIZE + i for pack
+# entry i — the same numbering move_slot() and the inventory panel already speak. These
+# are what let a consumer act on the fish the player POINTED AT instead of "the first
+# stack found", which is the whole defect the size ledger's own header admitted to.
+
+## What one unified slot holds; "" for empty or out of range.
+func slot_id(unified_idx: int) -> String:
 	if unified_idx < 0:
 		return ""
 	if unified_idx < HOTBAR_SIZE:
-		var id: Variant = hotbar[unified_idx]
-		if id == null:
-			return ""
+		return String(hotbar[unified_idx]) if hotbar[unified_idx] != null else ""
+	var i: int = unified_idx - HOTBAR_SIZE
+	if i >= inventory.size() or inventory[i] == null:
+		return ""
+	return String(inventory[i])
+
+## What that slot's contents are CARRYING; {} when it is an ordinary item.
+func slot_meta(unified_idx: int) -> Dictionary:
+	_fit_meta()
+	if unified_idx < 0:
+		return {}
+	if unified_idx < HOTBAR_SIZE:
+		return as_meta(hotbar_meta[unified_idx]) if hotbar[unified_idx] != null else {}
+	var i: int = unified_idx - HOTBAR_SIZE
+	if i >= inventory.size() or i >= inventory_meta.size() or inventory[i] == null:
+		return {}
+	return as_meta(inventory_meta[i])
+
+## The landed weight on a slot, or 0.0 — the one number every fish path actually wants.
+func slot_kg(unified_idx: int) -> float:
+	return float(slot_meta(unified_idx).get("kg", 0.0))
+
+func slot_count(unified_idx: int) -> int:
+	if unified_idx < 0:
+		return 0
+	if unified_idx < HOTBAR_SIZE:
+		return hotbar_stack(unified_idx)
+	return inventory_stack(unified_idx - HOTBAR_SIZE)
+
+## Every unified slot holding this id, hotbar first then pack, in the order the player
+## sees them.
+func slots_of(item_id: String) -> Array[int]:
+	var out: Array[int] = []
+	for i in range(HOTBAR_SIZE):
+		if hotbar[i] == item_id:
+			out.append(i)
+	for i in range(inventory.size()):
+		if inventory[i] == item_id:
+			out.append(HOTBAR_SIZE + i)
+	return out
+
+## WHICH one of several identical-looking stacks a by-id caller should act on. -1 = none.
+##   "first"    — hotbar before pack, exactly the order remove_item() has always used;
+##   "plain"    — the first stack carrying NO payload, so a bulk crate-stow of "3 × rope"
+##                cannot reach past them and post the one weighed fish;
+##   "smallest" — the lightest instance. THE TROPHY RULE: anything that eats a fish it was
+##                not pointed at (the bench's family tokens) must eat the small one.
+##   "largest"  — the heaviest, for symmetry; nothing uses it yet.
+## "plain" and "smallest"/"largest" fall back to "first" when nothing better exists.
+func find_slot_of(item_id: String, pick: String = "first") -> int:
+	var slots: Array[int] = slots_of(item_id)
+	if slots.is_empty():
+		return -1
+	match pick:
+		"plain":
+			for u in slots:
+				if slot_meta(u).is_empty():
+					return u
+		"smallest", "largest":
+			var best: int = slots[0]
+			var best_kg: float = slot_kg(best)
+			for u in slots:
+				var kg: float = slot_kg(u)
+				if (kg < best_kg) if pick == "smallest" else (kg > best_kg):
+					best = u
+					best_kg = kg
+			return best
+	return slots[0]
+
+## Take ONE item out of an exact slot and hand back what it was carrying.
+## {"ok": bool, "id": String, "meta": Dictionary} — `meta` is {} for ordinary items, and
+## for a big fish it is the payload of THAT fish, not of the oldest one on a species queue.
+func take_one_at(unified_idx: int) -> Dictionary:
+	_fit_meta()
+	var miss: Dictionary = {"ok": false, "id": "", "meta": {}}
+	if unified_idx < 0:
+		return miss
+	if unified_idx < HOTBAR_SIZE:
+		if hotbar[unified_idx] == null:
+			return miss
+		var out: Dictionary = {"ok": true, "id": String(hotbar[unified_idx]),
+			"meta": as_meta(hotbar_meta[unified_idx])}
 		_dec_hotbar(unified_idx)
 		inventory_changed.emit()
-		return String(id)
+		return out
 	var inv_i: int = unified_idx - HOTBAR_SIZE
 	if inv_i >= inventory.size() or inventory[inv_i] == null:
-		return ""
-	var iid: String = String(inventory[inv_i])
+		return miss
+	var got: Dictionary = {"ok": true, "id": String(inventory[inv_i]),
+		"meta": as_meta(inventory_meta[inv_i]) if inv_i < inventory_meta.size() else {}}
 	_dec_inventory(inv_i)
 	inventory_changed.emit()
-	return iid
+	return got
 
-## Wholesale load of saved inventory, counts included. Tolerates old saves (no counts
-## arrays): a missing/short counts array defaults every occupied slot to one. Called by
-## SaveManager so hotbar/inventory and their counts can never drift out of length.
-func load_inventory(hb: Variant, hb_counts: Variant, inv: Variant, inv_counts: Variant) -> void:
+## REMOVE ONE, AND TELL ME WHAT IT WAS. The by-id counterpart of take_one_at, and the
+## replacement for every `remove_item(id)` that then had to guess the weight off a species
+## queue. Same default order remove_item uses; `pick` chooses between duplicates (see
+## find_slot_of). {"ok": bool, "id": String, "meta": Dictionary}.
+func remove_one_of(item_id: String, pick: String = "first") -> Dictionary:
+	return take_one_at(find_slot_of(item_id, pick))
+
+## Wholesale load of saved inventory — counts and payloads included. Tolerates old saves
+## (no counts arrays, no meta arrays): a missing/short array defaults every occupied slot
+## to one, carrying nothing. Called by SaveManager so hotbar/inventory and their two
+## parallel arrays can never drift out of length.
+## Returns the SURPLUS it could not seat: `[{"id": String, "meta": Dictionary}]`, one entry
+## per item, empty in every ordinary case. See _seat_surplus for why that can happen at all
+## and why it is returned rather than clamped away.
+func load_inventory(hb: Variant, hb_counts: Variant, inv: Variant, inv_counts: Variant,
+		hb_meta: Variant = [], inv_meta: Variant = []) -> Array:
 	hotbar = _new_hotbar()
 	hotbar_counts = _new_hotbar_counts()
+	hotbar_meta = _new_hotbar_meta()
 	if hb is Array:
 		for i in range(mini((hb as Array).size(), HOTBAR_SIZE)):
 			var v: Variant = (hb as Array)[i]
 			hotbar[i] = String(v) if v != null else null
 	inventory = []
 	inventory_counts = []
+	inventory_meta = []
 	if inv is Array:
 		# Nulls are KEPT now, not skipped: the pack is a sparse grid, so a saved gap between
 		# two items is part of how the player arranged their pack and has to come back where
@@ -681,17 +898,81 @@ func load_inventory(hb: Variant, hb_counts: Variant, inv: Variant, inv_counts: V
 		for v in (inv as Array):
 			inventory.append(String(v) if v != null else null)
 			inventory_counts.append(1)
+			inventory_meta.append(null)
 	_trim_pack()
-	# Overlay saved counts where present, clamped to each item's stack cap.
+	# PAYLOADS BEFORE COUNTS, and that order is load-bearing: the cap a count is clamped to
+	# depends on whether the slot carries one (is_stackable). Read the other way round, a
+	# weighed grouper would be clamped against MAX_STACK and the split below would never fire.
+	if hb_meta is Array:
+		for i in range(mini((hb_meta as Array).size(), HOTBAR_SIZE)):
+			if hotbar[i] != null:
+				hotbar_meta[i] = _store_meta((hb_meta as Array)[i])
+	if inv_meta is Array:
+		for i in range(mini((inv_meta as Array).size(), inventory.size())):
+			if inventory[i] != null:
+				inventory_meta[i] = _store_meta((inv_meta as Array)[i])
+	# Overlay saved counts, capped at what the slot may legally hold — and the excess is
+	# PEELED OFF, not clamped away.
+	#
+	# THE SHARPEST EDGE IN THIS WHOLE FEATURE lived on the old `clampi(..., 1, cap)` here.
+	# The moment a big fish's cap dropped from 16 to 1, an existing save holding "5 ×
+	# grouper" in one square would have loaded as ONE grouper: four fish deleted, silently,
+	# with no error and nothing in the log. A clamp is the right shape for a corrupt number
+	# and exactly the wrong shape for a stack that was legal when it was written.
+	var over: Array = []
 	if hb_counts is Array:
 		for i in range(mini((hb_counts as Array).size(), HOTBAR_SIZE)):
-			if hotbar[i] != null:
-				hotbar_counts[i] = clampi(int((hb_counts as Array)[i]), 1, _stack_cap(hotbar[i]))
+			if hotbar[i] == null:
+				continue
+			var want: int = maxi(int((hb_counts as Array)[i]), 1)
+			var cap: int = _stack_cap(hotbar[i], hotbar_meta[i])
+			hotbar_counts[i] = mini(want, cap)
+			for _k in range(want - cap):
+				over.append({"id": String(hotbar[i]), "meta": as_meta(hotbar_meta[i])})
 	if inv_counts is Array:
 		for i in range(mini((inv_counts as Array).size(), inventory.size())):
-			if inventory[i] != null:
-				inventory_counts[i] = clampi(int((inv_counts as Array)[i]), 1, _stack_cap(inventory[i]))
+			if inventory[i] == null:
+				continue
+			var iwant: int = maxi(int((inv_counts as Array)[i]), 1)
+			var icap: int = _stack_cap(inventory[i], inventory_meta[i])
+			inventory_counts[i] = mini(iwant, icap)
+			for _k in range(iwant - icap):
+				over.append({"id": String(inventory[i]), "meta": as_meta(inventory_meta[i])})
+	var spilled: Array = _seat_surplus(over)
 	inventory_changed.emit()
+	return spilled
+
+## Find real slots for items peeled off an over-cap stack. Hotbar holes first, then pack
+## holes, then the pack's growable tail — the same order add_item() fills, but WITHOUT its
+## stack-merging step, because a peeled item is only ever peeled because it could not share
+## a slot. Whatever still has nowhere to go is handed back to the caller; SaveManager sets
+## it down on the deck (see load_game), which is this codebase's standing answer to "the
+## pack is full and the item must not vanish" — the same one the stove, the drying line and
+## the rod's full-pack spill already give.
+func _seat_surplus(items_over: Array) -> Array:
+	_fit_meta()
+	var left: Array = []
+	for entry in items_over:
+		var id: String = String((entry as Dictionary).get("id", ""))
+		if id == "":
+			continue
+		var meta: Dictionary = as_meta((entry as Dictionary).get("meta", {}))
+		var placed: bool = false
+		for i in range(HOTBAR_SIZE):
+			if hotbar[i] == null:
+				hotbar[i] = id
+				hotbar_counts[i] = 1
+				hotbar_meta[i] = _store_meta(meta)
+				placed = true
+				break
+		if placed:
+			continue
+		var free: int = pack_first_free()
+		if free == -1:
+			left.append({"id": id, "meta": meta})
+			continue
+		_pack_put(free, id, 1, meta)
+	return left
 
 ## An upgraded tool does everything the crude one did. Without this the honed knife
 ## was a trap: its recipe EATS the crude knife, but every knife gate in the game
@@ -734,6 +1015,7 @@ func use_hotbar(slot: int) -> void:
 	var def: Dictionary = items.get(id, {})
 	var use: String = def.get("use", "")
 	if use == "eat" or use == "drink":
+		_fit_meta()
 		if use == "eat":
 			hunger += def.get("hunger", 0.35)
 			if def.has("thirst"):
@@ -757,13 +1039,17 @@ func use_hotbar(slot: int) -> void:
 		else:
 			hotbar[slot] = null
 			hotbar_counts[slot] = 1
+			hotbar_meta[slot] = null
 			# Refill the hand from the pack's first OCCUPIED square (the grid is sparse now,
-			# so the front cell may legitimately be an empty one the player left).
+			# so the front cell may legitimately be an empty one the player left). The
+			# payload comes with it — a stack that refills into the hand is the same objects
+			# in a different square.
 			for i in range(inventory.size()):
 				if inventory[i] == null:
 					continue
 				hotbar[slot] = inventory[i]
 				hotbar_counts[slot] = int(inventory_counts[i])
+				hotbar_meta[slot] = inventory_meta[i]
 				_pack_put(i, null, 1)
 				break
 		inventory_changed.emit()

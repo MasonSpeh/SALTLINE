@@ -1110,8 +1110,12 @@ func _run() -> void:
 	_check(old_fish != null and absf(float(old_fish.get("size_kg")) \
 		- FishTable.median_size("fish_barrel_grouper")) < 0.001,
 		"an old save's dropped grouper defaults to the species' typical weight")
-	# Pickup symmetry — TAKE puts the weight back on the ledger. Only asserted when the
-	# pack genuinely has room, probed the same way the take will claim it.
+	# Pickup symmetry — TAKE puts the weight back ON THE SLOT THE FISH LANDS IN. It used to
+	# push it onto FishTable's species-keyed FIFO and this check popped it straight back off;
+	# the weight is a per-slot payload now (PlayerState.hotbar_meta / inventory_meta), so the
+	# assertion moved with it and got STRICTER: it names the square, not just the species.
+	# Only asserted when the pack genuinely has room, probed the same way the take will
+	# claim it.
 	# ASSERTED, NOT GUARDED. This whole block used to sit inside the `if`, so a full pack
 	# at this point in the run skipped the pickup-symmetry check with no output at all —
 	# the silently-skipped assertion AGENT_TRAPS names as how a real defect hides.
@@ -1121,11 +1125,11 @@ func _run() -> void:
 	if took_back:
 		PlayerState.remove_item("fish_barrel_grouper")
 		old_fish.call("interact", "TAKE", player)
-		var take_rng := RandomNumberGenerator.new()
-		take_rng.seed = 11
-		_check(absf(FishTable.take_size("fish_barrel_grouper", take_rng) \
+		var back_slot: int = PlayerState.find_slot_of("fish_barrel_grouper")
+		_check(back_slot >= 0 and absf(PlayerState.slot_kg(back_slot) \
 			- FishTable.median_size("fish_barrel_grouper")) < 0.001,
-			"picking the fish back up returns its weight to the ledger")
+			"picking the fish back up writes its weight onto the pack slot (%.2f kg)"
+				% PlayerState.slot_kg(back_slot))
 		PlayerState.remove_item("fish_barrel_grouper")
 	# Leave nothing of this block behind: later sections save and reload too.
 	for leftover in get_tree().get_nodes_in_group("dropped_item"):
@@ -1403,6 +1407,8 @@ func _run() -> void:
 	_check(not main.hud.oxygen_bar.visible,
 		"oxygen bar stays hidden on dry land at a full breath")
 
+	await _check_fish_weights(main, player)
+
 	# --- three save slots + Continue --------------------------------------------------
 	# (slot_file_prefix is the test stem set at the top of _run, so none of this touches
 	# the player's real saltline_slot_*.json.)
@@ -1442,6 +1448,268 @@ func _run() -> void:
 	_check_wave_math()
 	_check_ai_budget()
 	await _check_decimation_equivalence(main)
+
+# ============================ per-fish weights ================================
+## EVERY BIG FISH CARRIES ITS OWN WEIGHT, through the pack, a crate, the stove, the bench
+## and the save. Five things are asserted here and all five were impossible — or actively
+## wrong — under the species-keyed FIFO these payload arrays replaced, whose own header
+## admitted it: "stacks have no order, so drops and fillets take the OLDEST recorded weight
+## first." Filleting the small grouper spent the big one's number.
+##
+## The species is Goliath Grouper: size_kg [28, 48], fillets [6, 12], so a 29 kg fish cuts
+## into 6 portions and a 47 kg one into 12. That gap is what makes "the stove filleted the
+## fish you chose" measurable rather than asserted.
+const W_FISH: String = "fish_barrel_grouper"
+
+## Hand-write a save file straight onto a slot — the only way to get a genuine v2 payload
+## (anonymous stacks + a "fish_sizes" ledger) in front of the v3 loader.
+func _write_raw_save(slot: int, data: Dictionary) -> void:
+	var f: FileAccess = FileAccess.open(SaveManager.slot_path(slot), FileAccess.WRITE)
+	if f == null:
+		return
+	f.store_string(JSON.stringify(data))
+	f.close()
+
+## Every weight the pack is holding for one species, smallest first.
+func _pack_kgs(id: String) -> Array[float]:
+	var out: Array[float] = []
+	for u in PlayerState.slots_of(id):
+		out.append(PlayerState.slot_kg(u))
+	out.sort()
+	return out
+
+## Every weight the DECK is holding for one species, smallest first.
+func _deck_kgs(id: String) -> Array[float]:
+	var out: Array[float] = []
+	for d in get_tree().get_nodes_in_group("dropped_item"):
+		if is_instance_valid(d) and String(d.get("item_id")) == id:
+			out.append(float(d.get("size_kg")))
+	out.sort()
+	return out
+
+func _clear_deck() -> void:
+	for d in get_tree().get_nodes_in_group("dropped_item"):
+		if is_instance_valid(d):
+			d.free()
+
+func _check_fish_weights(main: Node3D, player: Node3D) -> void:
+	PlayerState.load_inventory([], [], [], [])
+	FishTable.restore_sizes({})
+	_clear_deck()
+
+	# ---- 1. TWO GROUPERS OF DIFFERENT WEIGHTS ARE TWO FISH, not a stack of two.
+	_check(PlayerState.add_item(W_FISH, FishTable.catch_meta(W_FISH, 41.5)),
+		"a 41.5 kg grouper goes in the pack")
+	_check(PlayerState.add_item(W_FISH, FishTable.catch_meta(W_FISH, 29.0)),
+		"a 29.0 kg grouper goes in beside it")
+	var two: Array[int] = PlayerState.slots_of(W_FISH)
+	_check(two.size() == 2,
+		"two weighed groupers take two slots, not one stack (got %d)" % two.size())
+	_check(PlayerState.count_item(W_FISH) == 2, "...and still count as two groupers")
+	_check(absf(PlayerState.slot_kg(two[0]) - 41.5) < 0.001
+		and absf(PlayerState.slot_kg(two[1]) - 29.0) < 0.001,
+		"each slot keeps its own weight (%.1f, %.1f kg)"
+			% [PlayerState.slot_kg(two[0]), PlayerState.slot_kg(two[1])])
+	# A payload slot is capped at one, so a THIRD grouper cannot merge into either of them.
+	_check(not PlayerState.is_stackable(W_FISH, {"kg": 41.5}),
+		"a slot carrying a weight refuses to stack")
+	_check(PlayerState.is_stackable("fish_herring"),
+		"...while an ordinary herring still stacks (the rule is the payload, not the species)")
+	# THE SWALLOWTAIL STAYS NON-STACKING. It is is_big() (fillets [1, 2]) at 0.2-1.0 kg, so
+	# it carries a weight and therefore gets its own slot — no weight threshold anywhere.
+	_check(not FishTable.catch_meta("fish_swallowtail", 0.4).is_empty(),
+		"a 0.4 kg swallowtail still carries its weight (is_big is the line, not a kg cutoff)")
+	_check(FishTable.catch_meta("fish_herring", 0.0).is_empty()
+		and FishTable.catch_meta("fish_gulper_eel", 0.0).is_empty(),
+		"a species with no size range carries nothing")
+
+	# ---- 2. THE STOVE FILLETS THE FISH YOU CHOSE.
+	var wstove: Node = _find_class(main, "cook_stove")
+	_check(wstove != null, "there is a range to cook on")
+	if wstove != null and not bool(wstove.get("_cooking")):
+		PowerGrid.power_circuit("topside_floodlights")
+		PlayerState.selected_hotbar = two[1]        # the 29 kg one, in hand
+		wstove.call("interact", "COOK", player)
+		_check(bool(wstove.get("_cooking")), "the range takes the fish in hand")
+		_check(absf(float(wstove.get("_cook_kg")) - 29.0) < 0.001,
+			"it cooks the 29.0 kg fish that was selected (got %.1f kg)"
+				% float(wstove.get("_cook_kg")))
+		_check(int(wstove.get("_cook_n")) == FishTable.fillets_for(W_FISH, 29.0),
+			"...and cuts it into ITS OWN %d portions, not the 41.5 kg fish's %d (got %d)"
+				% [FishTable.fillets_for(W_FISH, 29.0),
+					FishTable.fillets_for(W_FISH, 41.5), int(wstove.get("_cook_n"))])
+		var still: Array[int] = PlayerState.slots_of(W_FISH)
+		_check(still.size() == 1 and absf(PlayerState.slot_kg(still[0]) - 41.5) < 0.001,
+			"the 41.5 kg fish is untouched in the pack, weight and all")
+		wstove.call("_clear")                        # abandon the cook; no fillets wanted here
+
+	# ---- 3. A TROPHY SURVIVES A CRATE (owner call: crates preserve weight too).
+	PlayerState.load_inventory([], [], [], [])
+	PlayerState.add_item(W_FISH, FishTable.catch_meta(W_FISH, 47.0))
+	PlayerState.add_item("rope")
+	PlayerState.add_item("rope")
+	var wcrate := LootContainer.new()
+	wcrate.display_name = "Weight Test Crate"
+	main.add_child(wcrate)
+	wcrate.global_position = Vector3(30.0, 18.0, 30.0)
+	await get_tree().process_frame
+	main.hud.open_crate(wcrate)
+	var fish_slot: int = PlayerState.find_slot_of(W_FISH)
+	_check(main.hud._crate_stow("%s#%d" % [W_FISH, fish_slot]),
+		"the 47 kg grouper stows into the crate")
+	_check(wcrate.items.size() == 1 and absf(float(wcrate.meta_at(0).get("kg", 0.0)) - 47.0) < 0.001,
+		"the crate is holding the weight, not just the species (%.1f kg)"
+			% float(wcrate.meta_at(0).get("kg", 0.0)))
+	# A bulk stow of the ordinary goods beside it must not disturb the fish's row.
+	main.hud._crate_move("rope", false, true)
+	_check(wcrate.items.count("rope") == 2 and absf(float(wcrate.meta_at(0).get("kg", 0.0)) - 47.0) < 0.001,
+		"stowing the rope stack leaves the fish's weight where it was")
+	# ...and it survives the save, because the container payload carries the meta with it.
+	SaveManager.save_game()
+	wcrate.items.clear()
+	wcrate.item_meta.clear()
+	_check(SaveManager.load_game(), "the save reloads with a weighed fish in a crate")
+	await get_tree().process_frame
+	_check(wcrate.items.has(W_FISH), "the crate still has the fish after the reload")
+	var back_i: int = wcrate.items.find(W_FISH)
+	_check(back_i >= 0 and absf(float(wcrate.meta_at(back_i).get("kg", 0.0)) - 47.0) < 0.001,
+		"...at 47.0 kg (got %.1f)" % float(wcrate.meta_at(maxi(back_i, 0)).get("kg", 0.0)))
+	# Back out of the crate and into the pack — the round trip is lossless.
+	PlayerState.load_inventory([], [], [], [])
+	main.hud._crate_take("%s#%d" % [W_FISH, back_i])
+	var came_back: int = PlayerState.find_slot_of(W_FISH)
+	_check(came_back >= 0 and absf(PlayerState.slot_kg(came_back) - 47.0) < 0.001,
+		"pack -> crate -> save -> pack keeps the exact weight (%.2f kg)"
+			% PlayerState.slot_kg(came_back))
+	main.hud.toggle_panel("crate")
+	wcrate.free()
+
+	# ---- 4. THE BENCH EATS THE SMALLEST FISH, NEVER THE TROPHY.
+	# Two recipes read "@raw_fish" (fillet_catch, galley_stew) and a laid part is destroyed by
+	# the craft, so a player who lays "a grouper" with a 47 kg fish and a 29 kg one in the
+	# pack must lose the 29.
+	PlayerState.load_inventory([], [], [], [])
+	PlayerState.add_item(W_FISH, FishTable.catch_meta(W_FISH, 47.0))
+	PlayerState.add_item(W_FISH, FishTable.catch_meta(W_FISH, 29.0))
+	var wbench = main.hud.bench_panel
+	wbench.laid.clear()
+	wbench.laid_meta.clear()
+	_check(wbench.lay_item(W_FISH), "the bench takes a grouper off the pack")
+	var laid_kg: float = 0.0
+	if not wbench.laid_meta.is_empty() and typeof(wbench.laid_meta[0]) == TYPE_DICTIONARY:
+		laid_kg = float((wbench.laid_meta[0] as Dictionary).get("kg", 0.0))
+	_check(absf(laid_kg - 29.0) < 0.001,
+		"it ate the SMALLEST grouper, not the 47 kg trophy (laid %.1f kg)" % laid_kg)
+	var kept: int = PlayerState.find_slot_of(W_FISH)
+	_check(kept >= 0 and absf(PlayerState.slot_kg(kept) - 47.0) < 0.001,
+		"the trophy is still in the pack at 47.0 kg")
+	wbench.return_all()
+	_check(_pack_kgs(W_FISH) == ([29.0, 47.0] as Array[float]),
+		"taking it back off the bench returns the SAME fish (%s)" % str(_pack_kgs(W_FISH)))
+
+	# ---- 5. THE v2 MIGRATION: a stack of five groupers must not become one grouper.
+	# This is the sharpest edge in the whole feature. Under v2 that stack was legal; under v3
+	# a big fish cannot stack, and the old `clampi(count, 1, cap)` in load_inventory would
+	# have silently deleted four fish. Fixture written by hand, because no v3 save can
+	# produce a v2 pack.
+	PlayerState.load_inventory([], [], [], [])
+	FishTable.restore_sizes({})
+	_clear_deck()
+	var med: float = FishTable.median_size(W_FISH)
+	_write_raw_save(1, {
+		"version": 2,
+		"hotbar": [null, null, null, null, null, null],
+		"hotbar_counts": [1, 1, 1, 1, 1, 1],
+		"inventory": [W_FISH],
+		"inventory_counts": [5],
+		# Three remembered weights for five fish: the drain has to be ORDERED, and the two it
+		# runs out for fall back to the species' typical catch rather than a reload lottery.
+		"fish_sizes": {W_FISH: [41.5, 30.0, 28.5]},
+	})
+	SaveManager.active_slot = 1
+	_check(SaveManager.load_game(), "a hand-written v2 save loads")
+	await get_tree().process_frame
+	_check(PlayerState.count_item(W_FISH) == 5,
+		"ALL FIVE groupers survive the migration (got %d)" % PlayerState.count_item(W_FISH))
+	_check(PlayerState.slots_of(W_FISH).size() == 5,
+		"...as five separate slots (got %d)" % PlayerState.slots_of(W_FISH).size())
+	var got5: Array[float] = _pack_kgs(W_FISH)
+	var want5: Array[float] = [28.5, 30.0, 41.5, med, med]
+	want5.sort()
+	var same5: bool = got5.size() == want5.size()
+	if same5:
+		for i in range(got5.size()):
+			same5 = same5 and absf(got5[i] - want5[i]) < 0.01
+	_check(same5, "the v2 ledger's weights land on the split slots, in order (got %s want %s)"
+		% [str(got5), str(want5)])
+	# The drained weights must not ALSO be left on the ledger for a later drop to hand out.
+	var drain_rng := RandomNumberGenerator.new()
+	drain_rng.seed = 3
+	var leftover_kg: float = FishTable.take_size(W_FISH, drain_rng)
+	_check(absf(leftover_kg - 41.5) > 0.01 and absf(leftover_kg - 30.0) > 0.01
+		and absf(leftover_kg - 28.5) > 0.01,
+		"the migration CONSUMED the ledger — nothing it spent is handed out twice (%.2f kg)"
+			% leftover_kg)
+
+	# ---- 6. A 16-STACK OVERFLOWS TO THE DECK, and no fish is deleted doing it.
+	# 6 belt slots and 18 pack squares against 16 fish plus 17 other things: the split
+	# CANNOT fit, and the surplus's defined home is the deck at the player's feet, the same
+	# answer the rod, the stove and the drying line already give a full pack.
+	PlayerState.load_inventory([], [], [], [])
+	FishTable.restore_sizes({})
+	_clear_deck()
+	var belt: Array = []
+	for _b in range(PlayerState.HOTBAR_SIZE):
+		belt.append("wrench")                        # EQUIPMENT: one per slot, no stacking
+	var packed: Array = [W_FISH]
+	var packed_n: Array = [16]
+	for _p in range(PlayerState.MAX_BACKPACK - 1):
+		packed.append("prybar")
+		packed_n.append(1)
+	var sixteen: Array = []
+	for i in range(16):
+		sixteen.append(28.0 + float(i) * 1.25)       # 28.0 .. 46.75, all distinct
+	_write_raw_save(1, {
+		"version": 2,
+		"hotbar": belt,
+		"hotbar_counts": [1, 1, 1, 1, 1, 1],
+		"inventory": packed,
+		"inventory_counts": packed_n,
+		"fish_sizes": {W_FISH: sixteen},
+	})
+	_check(SaveManager.load_game(), "a v2 save with a 16-stack of groupers loads")
+	await get_tree().process_frame
+	var in_pack: Array[float] = _pack_kgs(W_FISH)
+	var on_deck: Array[float] = _deck_kgs(W_FISH)
+	_check(in_pack.size() + on_deck.size() == 16,
+		"all sixteen fish still exist — %d in the pack, %d on the deck"
+			% [in_pack.size(), on_deck.size()])
+	_check(not on_deck.is_empty(),
+		"the surplus really went to the deck (its defined home), not into an over-cap stack")
+	for u in PlayerState.slots_of(W_FISH):
+		_check(PlayerState.slot_count(u) == 1,
+			"no migrated slot is over its cap of one (slot %d holds %d)"
+				% [u, PlayerState.slot_count(u)])
+	var all_kg: Array[float] = []
+	all_kg.append_array(in_pack)
+	all_kg.append_array(on_deck)
+	all_kg.sort()
+	var want16: Array[float] = []
+	for kg in sixteen:
+		want16.append(float(kg))
+	want16.sort()
+	var same16: bool = all_kg.size() == want16.size()
+	if same16:
+		for i in range(all_kg.size()):
+			same16 = same16 and absf(all_kg[i] - want16[i]) < 0.01
+	_check(same16, "and every one of the sixteen weights came through (%s)" % str(all_kg))
+
+	# Leave nothing behind: the save-slot section that follows asserts on fresh slots.
+	_clear_deck()
+	PlayerState.load_inventory([], [], [], [])
+	FishTable.restore_sizes({})
+	SaveManager.erase_slot(1)
+	SaveManager.active_slot = 1
 
 ## The CPU sea and the drawn sea have to be the same sea, and Gyre's Gerstner sum was
 ## optimised (precomputed band constants, a height-only path that skips the horizontal

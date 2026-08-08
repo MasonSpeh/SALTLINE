@@ -374,22 +374,53 @@ static func depth_read(depth_m: float) -> String:
 
 # ------------------------------------------------------------------ size and yield
 ## A landed fish has a WEIGHT, and a big fish fillets out into many portions — that is
-## the whole payoff of the deep rig. The inventory is item ids and stack counts and
-## NOTHING else (PlayerState has no per-item payload), so the weight rolled at the rail
-## is kept here, in the table that already owns every other fish fact: one FIFO queue of
-## landed weights per species. The stove and the drying line pop one when they preserve
-## that species, and a DROP pops one too — the weight rides the Takeable on the deck
-## (takeable.size_kg, drawn at that length by ItemVisual) and is pushed back into this
-## queue when the fish is picked up again, so a fish keeps its number across a round
-## trip through the world.
+## the whole payoff of the deep rig.
 ##
-## The queue itself round-trips through the save ("fish_sizes" — sizes_payload /
-## restore_sizes below), so a reload no longer flattens the pack back to average fish.
-## A missing entry — a pre-size save, a fish out of a locker — simply rolls a fresh
-## weight from the same range, so the fillet spread always holds. The only thing the
+## THE WEIGHT NOW RIDES THE FISH. PlayerState grew a per-slot payload (hotbar_meta /
+## inventory_meta), so the number rolled at the rail is written onto the slot that fish
+## lands in and travels with it: into a crate, onto the drying line, into the pan, onto the
+## deck, through the save. catch_meta() below is the one place that decides what a landed
+## fish carries, and meta_kg() the one place that reads it back.
+##
+## WHAT THAT REPLACED, and why. Before this, the inventory was item ids and stack counts
+## and nothing else, so the weight had to be parked HERE, in one FIFO queue per species,
+## and the queue's own header admitted the defect it could never fix: "the only thing the
 ## queue cannot know is WHICH stacked fish in the pack was the 40 kg one: stacks have no
-## order, so drops and fillets take the OLDEST recorded weight first.
+## order, so drops and fillets take the OLDEST recorded weight first." Two groupers in a
+## pack were interchangeable numbers; filleting the small one spent the big one's weight.
+##
+## THE QUEUE IS STILL HERE, doing two smaller jobs, and is not to be extended:
+##   · it DRAINS v2 SAVES. A save written before payloads existed has its weights in
+##     "fish_sizes" and its fish in anonymous stacks; SaveManager's v2->v3 migration pops
+##     this queue to stamp those stacks (see _migrate_fish_stacks). Keep it one version.
+##   · it is the LAST-RESORT fallback for drop_into_world(kg = -1.0) — a caller that has no
+##     payload to offer and no weight of its own. In normal play it is empty, and take_size
+##     then simply rolls fresh, which is the same answer the pack gives an unweighed fish.
+## Nothing in the game pushes to it any more; every producer stamps a slot instead.
 static var _sizes: Dictionary = {}
+
+## THE PAYLOAD ONE LANDED FISH CARRIES THROUGH THE PACK. `{"kg": w}` for a big species,
+## `{}` for everything else — a herring is a herring and must keep stacking to 16.
+##
+## THE LINE IS is_big(), and it is drawn there on purpose. The 17 species with a `size_kg`
+## range in data/fish.json and the 17 where is_big() is true are THE SAME SET, so is_big()
+## already means exactly "this species rolls a landed weight at all" — which is precisely
+## the set that has anything to put in a payload. It is also already the drying line's
+## big/small gate (hang_line._process). is_trophy() is NOT the line: it is a species-level
+## question about the fight, and it both includes fish_gulper_eel (no size_kg at all — it
+## qualifies on pull) and excludes fish_bluelined_grouper and fish_peacock_grouper, which
+## do roll weights and so do have something to carry.
+static func catch_meta(id: String, kg: float) -> Dictionary:
+	if kg <= 0.0 or not is_big(id):
+		return {}
+	return {"kg": kg}
+
+## The landed weight on a slot payload; 0.0 when there is none (an ordinary item, or a big
+## fish that came out of a pre-payload save or a seeded locker and never had one).
+static func meta_kg(meta: Variant) -> float:
+	if typeof(meta) != TYPE_DICTIONARY:
+		return 0.0
+	return float((meta as Dictionary).get("kg", 0.0))
 
 ## A fresh landed weight in kg for one fish of this species; 0.0 = species has no size.
 static func roll_size(id: String, rng: RandomNumberGenerator) -> float:
@@ -514,8 +545,23 @@ static func is_trophy(id: String) -> bool:
 		return true
 	return float(def.get("pull", 0.0)) >= TROPHY_PULL
 
-## One call for the preserving paths (stove, drying line): what this fish weighed and
-## how many portions it makes. {"kg": float (0.0 = unsized species), "n": int >= 1}.
+## ONE CALL FOR THE PRESERVING PATHS (stove, drying line), taking the weight off the slot
+## the fish actually came out of: what it weighed and how many portions it makes.
+## {"kg": float (0.0 = unsized species), "n": int >= 1}.
+##
+## `kg` is what PlayerState handed back with the item (FishTable.meta_kg of its payload). A
+## zero means nobody ever weighed this one — a seeded locker find, a fish out of a v1 save —
+## and it rolls fresh from the species' own range, exactly as the retired queue did on a
+## miss, so the fillet spread holds either way.
+static func yield_for(id: String, kg: float, rng: RandomNumberGenerator) -> Dictionary:
+	var w: float = kg
+	if w <= 0.0:
+		w = roll_size(id, rng)
+	return {"kg": w, "n": fillets_for(id, w)}
+
+## The old ledger-popping form of yield_for. Only the v2 drain and drop_into_world's
+## fallback still reach the queue — see _sizes. Kept so nothing that predates payloads
+## breaks; new callers want yield_for().
 static func take_yield(id: String, rng: RandomNumberGenerator) -> Dictionary:
 	var kg: float = take_size(id, rng)
 	return {"kg": kg, "n": fillets_for(id, kg)}

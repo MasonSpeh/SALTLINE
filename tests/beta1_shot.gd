@@ -44,7 +44,15 @@ func _ready() -> void:
 
 	# (e) SPHL / spawn pod (wet deck) + machine shop — real props flush, no flat blocks
 	await _shot(Vector3(20.5, 3.3, -20.5), 6.0, -6.0, "sphl_spawn")
-	await _shot(Vector3(16.5, 3.4, -20.0), 0.0, -4.0, "sphl_interior")
+	# THIS SHOT WAS NOT INSIDE THE POD. It stood at z -20.0 looking down +Z at the outside of
+	# a bulkhead — but `_build_sphl` puts the interior at x 14.9..21.1, z -25.3..-22.9, floor
+	# WET_Y 2.0, ceiling 4.2, and both benches at z -23.2 / -24.8. So the frame named
+	# "sphl_interior" has been photographing an exterior wall, which is why the owner's
+	# twice-reported red lines were never in a picture anyone checked.
+	# `_place` moves the PLAYER and the eye rides ~1.6 m above its feet (AGENT_TRAPS), so the
+	# argument is a FLOOR position: y = WET_Y 2.0 puts the eye at 3.6, inside the 2.0..4.2
+	# shell. Anything higher stands the camera on the roof — y 3.3 photographed open sea.
+	await _shot(Vector3(20.5, 2.0, -24.0), 90.0, -15.0, "sphl_interior")
 	await _shot(Vector3(-24.5, 18.95, -12.2), -90.0, -3.0, "machine_shop")
 	await _shot(Vector3(-24.5, 18.95, -9.0), -70.0, -3.0, "machine_shop_bench")
 

@@ -31,6 +31,14 @@ extends Node3D
 ## FIVE DAYS, and why it is not a number of seconds. See Salvage.regrow_game_hours and
 ## GameClock.game_time_hours(). A real-seconds countdown cannot see a night the player slept
 ## through, so `regrow_days: 5.0` is counted on the calendar instead.
+##
+## AND NEW BEDS SETTLE (2026-08-08). Regrowth only ever puts back a bed the player has already
+## found. The owner asked for mussels that appear over time, so the reef opens with 6 beds a
+## leg and thickens toward 8 a leg, one more every SETTLE_HOURS of game time. The candidate
+## pool for that was already here and already thrown away — the reachable colony seats
+## _plant() shuffles through and stops using after six. Every one of those positions is now
+## MEASURED UP FRONT and only BUILT later, which is what keeps the position-keyed save
+## (save_manager.gd:455-462) honest; see _plant() for why that ordering is the whole trick.
 
 const SALVAGE := preload("res://scripts/components/salvage.gd")
 const REEF_PATH := "res://assets/models/fauna/reef/%s/%s.glb"
@@ -74,6 +82,10 @@ const CLUMP_HI: float = 0.60
 ## a diver only ever visits one leg at a time, so six a leg is what "scattered throughout the
 ## coral" means from the water, and a global 24 could otherwise land 20 of them on one leg.
 const BEDS_PER_LEG: int = 6
+## …and how many a leg may end up with once spat has been settling for a while (see
+## SETTLE_HOURS). Eight not twelve: each bed is 3 draw calls in a renderer that was measured
+## at 9.3 fps, so the ceiling costs +24 draws over the opening 72 and no more.
+const BEDS_PER_LEG_CAP: int = 8
 ## Accents per bed. Each is a real MeshInstance3D, which is the cost driver here (this is a
 ## draw-call-bound renderer): 1 mat + 2 accents = 3 draws a bed, 72 in the whole ocean.
 const ACCENTS: int = 2
@@ -100,6 +112,18 @@ const YIELD_HI: int = 4
 
 ## FIVE DAYS (owner brief). Counted on the game calendar — see the module note.
 const REGROW_DAYS: float = 5.0
+
+## HOW OFTEN A NEW BED SETTLES, in game hours. Regrowth puts back a bed the player has
+## already found; this is the other half of the owner's "over time" — spat drifting onto
+## concrete that had none, so the reef the player learned on day 1 is not the reef on day 8.
+##
+## One game day per bed. Mussels settle out of the plankton in pulses and then take months to
+## be worth picking, so anything faster would read as pop-in; anything slower and a player who
+## has found all 24 never sees the system exist. Eight extra beds = eight game days to the cap.
+const SETTLE_HOURS: float = 24.0
+## How often the settle check runs, in real seconds. SETTLE_HOURS is 3600 real seconds, so
+## this is ~500x finer than the thing it watches and costs one float compare a frame.
+const SETTLE_CHECK_SEC: float = 7.0
 ## Work seconds for one pick. Bare hands do it; a knife or prybar halves it and spares your
 ## hands (Salvage.speed_tools + bare_hand_risk). Short, because it is paid underwater out of
 ## the same breath as the swim down — see _dive_floor.
@@ -143,6 +167,11 @@ var _mat: StandardMaterial3D = null
 
 ## Report numbers, not impressions.
 var beds: Array = []             ## the live Salvage nodes, for the probe and the report
+## Every bed this reef will ever have, measured once at world build and built as the calendar
+## reaches it — see _plant(). `_opening` is how many of them stand on day 0.
+var _plan: Array = []
+var _opening: int = 0
+var _settle_check: float = 0.0
 var _refused_no_collider: int = 0
 var _refused_spacing: int = 0
 var _refused_blocked: int = 0
@@ -174,14 +203,43 @@ func _ready() -> void:
 
 # ------------------------------------------------------------ the air budget
 
-## THE DEEPEST A BED MAY SIT, derived from the player's own lungs.
+## THE DEEPEST A BED MAY SIT — derived from the player's own lungs, and then OVERRULED by the
+## sanity envelope below it. Both halves of that sentence are true today; the docstring used
+## to claim only the first, which has been inoperative since the breath was rebalanced.
 ##
-## Food the player cannot reach on one breath is not food, and the coral band runs to y -22
-## — well past what a breath-hold dive can do. Rather than pick a depth that "feels
-## reachable", this integrates the controller's real drain: OXYGEN_DRAIN above
-## DEEP_UNEASE_M, OXYGEN_DRAIN_DEEP below it (the dark burns air near twice as fast), over a
-## round trip at SWIM_SPEED plus the work seconds spent holding still at the bed. The answer
-## is the deepest depth that still leaves AIR_MARGIN of the breath unspent.
+## WHAT ACTUALLY HAPPENS, measured (tests/HarvestGrowthProbe.tscn prints it every run):
+## the integration below returns 27.8 m, i.e. y -27.80. DIVE_FLOOR_MIN is -24.0, so line 199
+## fires its push_warning on EVERY world build and line 201 clamps the answer to -24.00. The
+## shipping dive floor is therefore the hand-typed envelope, not the derived number.
+##
+## AND IT IS NOT COSMETIC, which was the first thing this rewrite got wrong and had to
+## measure: the coral band runs to y -39.86, not to the -22 an earlier note claimed, so the
+## clamp really does cost candidates. Counted (HarvestGrowthProbe): of 366 colony seats, 224
+## are above the derived -27.80 and only 171 are above the clamped -24.00. THE CLAMP THROWS
+## AWAY 53 REACHABLE SEATS, a quarter of the pool, and it is what stops the mussels 4 m
+## shallower than the player's lungs allow. It does not change the bed COUNT — 32 beds fit
+## into 171 seats with room to spare, and the deepest bed today sits at y -23.13.
+##
+## WHICH NUMBER IS WRONG: the envelope. 27.8 m is correct arithmetic for the breath that
+## ships — player_controller.OXYGEN_DRAIN is 1/35 and its own comment costs a walk-speed
+## round trip at 40.25 m — and DIVE_FLOOR_MIN was written when the breath was 28 s. So the
+## warning CAN be silenced honestly, by widening DIVE_FLOOR_MIN to about -30 (or by deriving
+## the envelope from the breath instead of typing it).
+##
+## Deliberately NOT done here. It would push the mussels up to 3.8 m deeper as a side effect
+## of a change about spawn frequency, which is a design decision about how hard the food is
+## to reach and wants making knowingly; and `player_controller.gd`, whose dead constant pair
+## below wants deleting in the same pass, is another session's file. Left measured, warned
+## about, and written down.
+##
+## THE INTEGRATION IS ALSO DEGENERATE, and that is not this file's to fix either.
+## `_air_cost` splits the dive at DEEP_UNEASE_M and charges OXYGEN_DRAIN above it and
+## OXYGEN_DRAIN_DEEP below — but the controller now holds those two constants EQUAL on
+## purpose (player_controller.gd:118-125 says so, and says it is retained only because this
+## file and tests/mussel_probe.gd would fail to parse without it). So the piecewise sum
+## evaluates to one rate over the whole depth and the split is arithmetic that cannot change
+## its own answer. It is kept in that shape, rather than collapsed, so that whoever deletes
+## the controller's dead pair deletes both sides of it in one pass.
 ##
 ## Conservative on purpose: it costs the descent at flat swim speed although a crouch-dive is
 ## faster, and it ignores the sprint multiplier entirely.
@@ -261,6 +319,19 @@ func _mesh_of(slug: String) -> Mesh:
 func _leg_of(pos: Vector3) -> int:
 	return (1 if pos.x > 0.0 else 0) + (2 if pos.z > 0.0 else 0)
 
+## SURVEY EVERYTHING, BUILD SOME OF IT. Every bed this reef will EVER have is measured here,
+## at world build, in one deterministic pass — the seeded shuffle, the raycasts, the spacing
+## rejections, the offsets. Only then are the opening beds actually constructed; the rest sit
+## in `_plan` as fully-decided positions and are built later by _settle() as the calendar
+## reaches them.
+##
+## THAT ORDER IS THE WHOLE TRICK, and it is what keeps the save working. SaveManager keys a
+## harvest node by where it stands (save_manager.gd:460) on the contract that world
+## construction places nodes deterministically, so a bed whose position were CHOSEN at the
+## moment it appeared would either vanish on load or collide with another bed's key. Deciding
+## every position up front means a bed that settles on day 6 stands exactly where the same run
+## would have put it on day 0, and claim_harvest (save_manager.gd:512) — which exists for
+## exactly this, late-built reef nodes — hands it its saved state whenever it does arrive.
 func _plant() -> void:
 	# Bucket the reef's own colony seats by leg, keeping only the ones a diver can reach on
 	# one breath (see _dive_floor). Shuffled so a leg's beds are not the first six colonies
@@ -277,19 +348,60 @@ func _plant() -> void:
 			by_leg[leg] = [] as Array
 		(by_leg[leg] as Array).append(seat)
 	var placed: Array = []       # [pos] rejection list for BED_SPACING
-	for leg in by_leg.keys():
+	var legs: Array = by_leg.keys()
+	legs.sort()                  # dictionary order is insertion order; this is the seat data's
+	var per_leg: Dictionary = {} # leg -> the plans made for it, in the order they were made
+	for leg in legs:
 		var pool: Array = (by_leg[leg] as Array).duplicate()
 		_shuffle(pool)
-		var made: int = 0
+		var made: Array = []
 		for seat in pool:
-			if made >= BEDS_PER_LEG:
+			if made.size() >= BEDS_PER_LEG_CAP:
 				break
-			if _seat_bed(seat, placed):
-				made += 1
-	print("[mussels] %d beds (%d/%d colony seats above the derived dive floor y %.2f) · %d refused (%d no collider, %d spacing, %d keep-out)"
-		% [beds.size(), reachable, _seats.size(), _dive_y, _refused_no_collider
-			+ _refused_spacing + _refused_blocked, _refused_no_collider, _refused_spacing,
-			_refused_blocked])
+			var plan: Dictionary = _plan_bed(seat, placed)
+			if not plan.is_empty():
+				made.append(plan)
+		per_leg[leg] = made
+	# ORDER: every leg's opening beds first, then the extras taken a leg at a time so the
+	# reef thickens evenly rather than one caisson growing a stripe of mussels.
+	for leg in legs:
+		for i in range(mini(BEDS_PER_LEG, (per_leg[leg] as Array).size())):
+			_plan.append((per_leg[leg] as Array)[i])
+	_opening = _plan.size()
+	for i in range(BEDS_PER_LEG, BEDS_PER_LEG_CAP):
+		for leg in legs:
+			var made: Array = per_leg[leg]
+			if i < made.size():
+				_plan.append(made[i])
+	_settle()
+	print("[mussels] %d beds up of %d planned (%d opening, cap %d = %d/leg; one more settles every %.0f game hours) · %d/%d colony seats above the derived dive floor y %.2f · %d refused (%d no collider, %d spacing, %d keep-out)"
+		% [beds.size(), _plan.size(), _opening, BEDS_PER_LEG_CAP * legs.size(),
+			BEDS_PER_LEG_CAP, SETTLE_HOURS, reachable, _seats.size(), _dive_y,
+			_refused_no_collider + _refused_spacing + _refused_blocked, _refused_no_collider,
+			_refused_spacing, _refused_blocked])
+	set_process(true)
+
+## How many beds the calendar says should be on the concrete right now. A pure function of
+## absolute game time, which is what lets the density survive a save with no new save field:
+## a slot loaded on day 6 arrives at day 6's density, and every bed in it stands where this
+## same survey put it. Monotonic within a session — the reef never sheds a bed it has built.
+func bed_target() -> int:
+	return mini(_plan.size(), _opening + int(GameClock.game_time_hours() / SETTLE_HOURS))
+
+func _settle() -> void:
+	var want: int = bed_target()
+	while beds.size() < want:
+		_build_bed(_plan[beds.size()])
+
+func _process(delta: float) -> void:
+	_settle_check -= delta
+	if _settle_check > 0.0:
+		return
+	_settle_check = SETTLE_CHECK_SEC
+	if beds.size() >= _plan.size():
+		set_process(false)       # the reef is at its ceiling; nothing left to watch for
+		return
+	_settle()
 
 func _shuffle(a: Array) -> void:
 	for i in range(a.size() - 1, 0, -1):
@@ -298,8 +410,11 @@ func _shuffle(a: Array) -> void:
 		a[i] = a[j]
 		a[j] = t
 
-## One bed. Returns true if it seated.
-func _seat_bed(seat: Dictionary, placed: Array) -> bool:
+## MEASURE one bed. Returns {} if the candidate is refused, otherwise everything the build
+## step needs — all of it decided here, at world build, so a bed that settles on day 6 is the
+## same bed in the same place as one that settled on day 0. Nothing in the returned plan is
+## re-derived later, and nothing in it depends on WHEN the bed is built.
+func _plan_bed(seat: Dictionary, placed: Array) -> Dictionary:
 	var n: Vector3 = (seat["n"] as Vector3).normalized()
 	var tangent := Vector3(n.z, 0.0, -n.x)
 	# A little off the colony centre, in the face plane, so the mussels sit AMONG the coral
@@ -308,39 +423,63 @@ func _seat_bed(seat: Dictionary, placed: Array) -> bool:
 		+ tangent * _rng.randf_range(-0.75, 0.75) \
 		+ Vector3.UP * _rng.randf_range(-0.55, 0.55)
 	if target.y < _dive_y or target.y > _band_top:
-		return false
+		return {}
 	var hit: Dictionary = _probe(target, n)
 	if hit.is_empty() or not _is_wall((hit["normal"] as Vector3).normalized(), n):
 		_refused_no_collider += 1
-		return false
+		return {}
 	var surface: Vector3 = hit["position"]
 	if _blocked(surface):
 		_refused_blocked += 1
-		return false
+		return {}
 	for p in placed:
 		if surface.distance_to(p) < BED_SPACING:
 			_refused_spacing += 1
-			return false
+			return {}
 	var face: Vector3 = (hit["normal"] as Vector3).normalized()
-	var visual := MusselBed.new()
-	var size: float = _rng.randf_range(BED_LO, BED_HI)
-	# The mat itself, at the seat. Built FIRST and biggest, which is also what makes it the
-	# piece Salvage._strip leaves standing (it sorts by AABB volume and never pulls the
-	# largest) — a harvested bed loses an accent clump, never the bed.
-	visual.add_patch(_bed_mesh, _mat, Vector3.ZERO, face, size, _rng, TILT_MAX_DEG, RECESS)
+	var plan := {
+		"surface": surface, "face": face, "expect": n,
+		"size": _rng.randf_range(BED_LO, BED_HI), "accents": [] as Array,
+	}
 	# The accents, each seated by its OWN raycast so a clump on a slightly different plane
 	# (a corner, a lip, a chamfer) still lies flush instead of inheriting the mat's normal.
 	for i in range(ACCENTS):
 		var off: Vector3 = tangent * _rng.randf_range(-0.62, 0.62) \
 			+ Vector3.UP * _rng.randf_range(-0.42, 0.42)
+		var a_size: float = _rng.randf_range(CLUMP_LO, CLUMP_HI)
 		var a_hit: Dictionary = _probe(surface + off + face * 0.05, face)
 		if a_hit.is_empty() or _blocked(a_hit["position"]):
 			continue
 		var a_face: Vector3 = (a_hit["normal"] as Vector3).normalized()
 		if not _is_wall(a_face, n):
 			continue
-		visual.add_patch(_clump_mesh, _mat, (a_hit["position"] as Vector3) - surface,
-			a_face, _rng.randf_range(CLUMP_LO, CLUMP_HI), _rng, TILT_MAX_DEG, RECESS)
+		(plan["accents"] as Array).append({
+			"off": (a_hit["position"] as Vector3) - surface, "face": a_face, "size": a_size,
+		})
+	placed.append(surface)
+	return plan
+
+## BUILD one planned bed. Called at world build for the opening stock and later, from
+## _settle(), for the beds the calendar has since let settle.
+##
+## The tilt scatter runs on a per-bed RNG seeded off the bed's own index rather than off the
+## shared `_rng`, so the geometry cannot depend on the ORDER or the MOMENT the beds are built
+## — a reef that grew to 30 beds over ten days and one that arrives at 30 beds on a loaded
+## save are the same reef down to the shell angles.
+func _build_bed(plan: Dictionary) -> Salvage:
+	var surface: Vector3 = plan["surface"]
+	var face: Vector3 = plan["face"]
+	var size: float = plan["size"]
+	var vrng := RandomNumberGenerator.new()
+	vrng.seed = 51_09_21 + beds.size() * 7919
+	var visual := MusselBed.new()
+	# The mat itself, at the seat. Built FIRST and biggest, which is also what makes it the
+	# piece Salvage._strip leaves standing (it sorts by AABB volume and never pulls the
+	# largest) — a harvested bed loses an accent clump, never the bed.
+	visual.add_patch(_bed_mesh, _mat, Vector3.ZERO, face, size, vrng, TILT_MAX_DEG, RECESS)
+	for a in (plan["accents"] as Array):
+		visual.add_patch(_clump_mesh, _mat, a["off"], a["face"], a["size"], vrng,
+			TILT_MAX_DEG, RECESS)
 	# The scar: the bare patch the mussels are sitting on, revealed when they are picked off.
 	visual.add_scar(size, face)
 	# Salvage._finish already logs "first_salvage" in the journal, so nothing extra is
@@ -348,8 +487,7 @@ func _seat_bed(seat: Dictionary, placed: Array) -> bool:
 	var node: Salvage = SALVAGE.from_visual(self, visual, surface, 0.0, _def(), 0.5)
 	visual.bind(node)
 	beds.append(node)
-	placed.append(surface)
-	return true
+	return node
 
 ## The harvest definition. Bare hands do it; a knife or prybar is faster and saves your
 ## skin. `regrow_days` is the field Salvage turns into game hours — see its own note.
@@ -403,8 +541,10 @@ func _probe(target: Vector3, normal: Vector3) -> Dictionary:
 	var q := PhysicsRayQueryParameters3D.create(target + normal * 1.8, target - normal * 0.7)
 	q.collision_mask = 1
 	var skip: Array[RID] = _skip.duplicate()
-	# ...plus the beds already built, or the second bed on a face measures the first bed's
-	# interaction box instead of the wall.
+	# ...plus any bed already built, or the second bed on a face would measure the first
+	# bed's interaction box instead of the wall. Belt and braces since s47: the whole survey
+	# now runs in _plant() BEFORE the first bed is constructed, so there is nothing to hit.
+	# Kept because it is the invariant, not the accident, that makes the seats honest.
 	for b in beds:
 		if is_instance_valid(b):
 			skip.append((b as CollisionObject3D).get_rid())

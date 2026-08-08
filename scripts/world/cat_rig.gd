@@ -42,7 +42,12 @@ const BODY_SIDE := Vector3(0, 0, 1)
 const DRAG: float = 0.045   ## s45c: a touch more overlap down the limb — "smoother"
 
 ## Metres the paw rises at the two ends of its stance sweep — see `_foot_path`.
-const STANCE_ARC: float = 0.012
+## A VAR rather than a const so tests/gait_scratch.gd can sweep it against the stride in one
+## run; `_prep_ik` DERIVES the shipped value from the binding leg's own geometry (a straight
+## chain of reach c0 sweeping s of ground traces an arc of c0*(1-cos(asin(s/2c0))), and asking
+## it for a flatter path than that is asking it to shorten a chain that is already at full
+## stretch). 0.012 is the pre-s52 hand-set value, kept as the floor.
+static var STANCE_ARC: float = 0.012
 ## HOW MUCH OF THE LIMB'S SWING THE SHOULDER BLADE TAKES — and the old 0.34 is why the owner
 ## could not see it. A cat has no functional clavicle: the scapula floats on muscle and IS the
 ## proximal foreleg segment, travelling further than almost any other mammal's, and it riding
@@ -53,6 +58,41 @@ const STANCE_ARC: float = 0.012
 ## as written and far too small to see. 0.85 puts it at 24.8 peak-to-peak, inside ROM_BLADE's
 ## 21.8 either way.
 const BLADE_TRAVEL: float = 0.85
+
+## ---------------------------------------------------------------- the girdles (s52)
+##
+## THE OWNER'S "LEGS SHOULD ARTICULATE MORE TO MOVE THE BODY FORWARD" IS A DESCRIPTION OF
+## GIRDLE EXCURSION, AND THIS RIG CAN ONLY PAY A LITTLE OF IT. In a real cat the scapula
+## slides fore-aft over the ribcage and the pelvis counter-rotates about its long axis, so a
+## large slice of the stride is girdle reach rather than leg swing. The engine had none of it:
+## every limb swung from a socket pinned to the torso.
+##
+## Both girdles are now driven, phase-locked to the gait, and `_solve_leg` sees them EXACTLY
+## because it already carries its target back through the live parent chain — so a socket that
+## moves forward at the plant costs the leg that much less reach, and the ground the paw covers
+## is leg sweep PLUS girdle travel. The budget below is MEASURED off the skeleton at bake
+## (`_prep_ik`), never assumed, and it is added to the sweep the stride is derived from — so
+## foot-lock survives by construction, which is the property the whole design rests on.
+##
+## WHAT IT IS ACTUALLY WORTH HERE, measured (tests/GaitScratch, block 2), in metres of
+## fore-aft SOCKET travel per radian of girdle rotation:
+##     pelvis yaw -> hip socket        lh -0.0189   rh +0.0189
+##     chest  yaw -> shoulder socket   lf -0.0712   rf +0.0906
+##     blade swing -> shoulder socket  lf +0.0003   rf -0.0230
+## The pelvic lever is TINY and the reason is a measured defect, not a tuning choice: this
+## auto-rig puts the right hind socket 9 mm off the body centreline (`sock_z` +0.0090) and the
+## left hind's socket at x +0.1686 — at the FRONT of the animal, the stretched-backwards chain
+## docs/CAT_RIG_CEILING.md §3 describes. A yaw's lever arm IS that lateral offset, so the
+## binding limb's pelvic girdle is worth about 8 mm of stride and can never be worth more
+## without a re-rig. The thoracic lever is real (71-91 mm/rad) and the fore girdle earns
+## 19-24 mm. Both are in; neither is where the stride came from. See the s52 DEVLOG.
+##
+## Amplitudes are anatomical rather than fitted: a walking quadruped's pelvis rotates about its
+## long axis by ~10-15 degrees and its shoulder girdle a little less. Walk-only — the gallop's
+## footfall order (GALLOP_OFF: lh 0.00, rh 0.12) lands the hinds nearly together, so there is
+## no differential for a yaw to express, which is also why real cats stop doing it at speed.
+const PELVIS_YAW: float = 0.22   ## rad, +/- — the pelvis counter-rotating with each hind step
+const CHEST_YAW: float = 0.16    ## rad, +/- — the shoulder girdle doing the same at the front
 
 ## THE TAIL, AND IT IS NOT WHERE ANY NAMING CONVENTION WOULD PUT IT.
 ##
@@ -188,6 +228,20 @@ const CYC_GAL_HIND := [
 const WALK_V: float = 1.8
 const TROT_V: float = 3.4
 
+## THE STANCE FRACTION AT EACH END OF THE GAIT, and the second half of `stride = sweep/duty`.
+##
+## WALK 0.52. A gait is a walk while at least two feet are down on average, and with four
+## limbs that average is exactly `4 * duty` — so 0.50 IS the walk/trot boundary and there is
+## no room below it whatever the owner asks for. s45c took it 0.62 -> 0.55 for "wider, slower,
+## smoother"; 0.52 is the last of it, worth 6% of stride, and going further would not make the
+## step longer so much as make it a trot with the walk's footfall order, which is a limp.
+##
+## GALLOP 0.20. A galloping cat is airborne about 80% of the time (the appendix's measured
+## figure is ~0.18), so a short contact and a long stride is what a gallop IS rather than a
+## cheat — see the long note in `tick` about the 7.5-strides-a-second bug this fixed.
+const WALK_DUTY: float = 0.52
+const GALLOP_DUTY: float = 0.20
+
 var _sk: Skeleton3D = null
 var _idx: Dictionary = {}          ## bone name -> index in THIS skeleton
 var _rest: Dictionary = {}         ## index -> rest Quaternion (the stand mesh's pose)
@@ -231,6 +285,8 @@ var _stab_roll: float = 0.0
 ## The wash layer's eased weight — see the note at the groom block. A boolean gate on the
 ## pose name dropped 31 degrees of neck yaw in one frame every time a bout ended.
 var _groom_w: float = 0.0
+## Last frame's WRITTEN local rotation per limb bone, for the limb rate ceiling above.
+var _limb_prev: Dictionary = {}
 ## Last frame's DRAWN head orientation in skeleton space, for the total-rate ceiling.
 var _head_prev_g: Quaternion = Quaternion.IDENTITY
 ## The reactions that used to be whole-body node rotations (see section 5f). Decaying
@@ -624,7 +680,31 @@ func _hinge_of(bone: int) -> Vector3:
 var _ik: Dictionary = {}
 ## How far a paw may sweep during stance, metres — the shortest leg's envelope, shared by all
 ## four. It sets the stride, which is what makes foot-lock exact instead of approximate.
+## This one is the GALLOP's, unchanged since s45c (0.94 * c0 on the binding limb).
 var _sweep_cap: float = 0.24
+## ...and the WALK's, which is larger, and the whole of s52's stride. Two numbers rather than
+## one because the two ends of the gait are limited by different things and only one of them
+## has an instrument that can see its stance:
+##   * the walk envelope is `2*c0*sin(ROM_PROX)` plus the measured girdle travel — i.e. the
+##     joint limit this file ALREADY enforces, rather than the hand-set 0.94*c0 (= 2*sin(28
+##     deg)) that has stood since the gait ran at 4.7 strides a second;
+##   * the gallop keeps 0.94, because CatReviewProbe's run scenario finds ZERO to ONE stance
+##     pairs in 7.5 m — its slide gate is vacuous today (it reported a perfect 0.0000 from an
+##     empty window), so a wider gallop stride cannot be validated there. Measured, not
+##     guessed: pushing the gallop to the walk envelope took the run's slide from a vacuous
+##     0.00 to 23.7 mm/frame the moment the window became non-empty. Widen it when the run
+##     has a gate that can see it, and not before.
+## `tick` lerps between them by the same `mix` that eases the footfall offsets, so the stride
+## stays DERIVED from whatever sweep is actually in use and foot-lock survives the blend.
+var _sweep_walk: float = 0.24
+## Which limb binds the walk envelope, and how much of that envelope its girdle paid for —
+## printed at bake so the split is on the record rather than in a comment.
+var _bind_limb: String = ""
+var _sweep_girdle: float = 0.0
+## Which way each girdle must rotate to carry a socket TOWARD its own planting paw. Derived
+## in `_prep_ik` from the measured lever, never typed — see the note there.
+var _pelv_sign: float = 1.0
+var _chest_sign: float = 1.0
 ## How much VERTICAL give an out-of-reach leg is allowed before it must shorten its step
 ## (see _solve_leg). Written by tick per frame: the whole-body bob asks the legs to extend
 ## with it, so the give grows with gait intensity — held at the old tight cap the bob's
@@ -687,6 +767,28 @@ const LOOK_MAX_RATE: float = 2.8
 ## look. A cat's casual head turn is brisk, not violent; the chatter tremor and the stabiliser
 ## both sit far below this, so this bounds the glance and nothing else.
 const HEAD_MAX_RATE: float = 2.4
+## ...and the same idea for the LIMBS, which is where KNOWN_ISSUES' s49 entry said the next
+## session should start. The `_solve_leg` slew limiter in `tick` bounds the SOLVE and nothing
+## else, and four layers are applied to those bones after it — the swing fold, the paw roll,
+## the toe follow-through and the ROM clamp's own rebuild — so the drawn joint could step
+## further than the limiter's ceiling by whatever they added. Measured before this: a walk
+## limiter of 20 rad/s (0.333 rad/frame at 60 Hz) drew 0.472 rad/frame, and CatReviewProbe's
+## joint_step gate failed honestly in six scenarios at once. Capping any one layer cannot
+## bound a sum; the choke point can, which is the argument HEAD_MAX_RATE already makes one
+## paragraph up, applied to the other end of the animal.
+##
+## 19 rad/s is 0.317 rad/frame at 60 Hz — inside the 0.35 gate with margin, and comfortably
+## ABOVE what this gait legitimately asks for: the short-shank knees work at ~0.31 rad/frame
+## at 4.74 strides a second (the figure the old ceiling was set against) and s52's walk runs
+## at 2.47, so the honest requirement is ~0.16. A cat's elbow at a gallop cycles about 90
+## degrees in 0.1 s, i.e. ~16 rad/s, so this is an anatomical ceiling rather than a numerical
+## one and it is not scaled by gait: a joint that wants to move faster than a real cat's is
+## the artefact, whatever speed the animal is going.
+##
+## It is applied to the LOCAL pose rotation, which is exactly the quantity CatReviewProbe
+## measures, and only to bones that carry a ROM entry — the limbs. The torso, neck, head and
+## tail have their own governors.
+const LIMB_MAX_RATE: float = 19.0
 ## How much of the trunk's own pitch and roll the neck cancels. Cats are among the best
 ## head-stabilisers in the animal kingdom — the eyes hold a near-constant horizon while
 ## the body does whatever the gait demands — and the gait's spine engine pitches the chest
@@ -726,6 +828,49 @@ func _clamp_joint(bone: int, q: Quaternion) -> Quaternion:
 	var swing: Quaternion = rel * Quaternion(hinge, ang).inverse()
 	return (rest_q * swing * Quaternion(hinge, cl)).normalized()
 
+## Metres of fore-aft travel at `target`'s origin per radian of BODY-YAW at `driver` —
+## the girdle's lever arm on this limb, measured off the rest skeleton exactly the way
+## `_measure_gains` measures a hinge. A two-sided difference so a nonlinearity cannot bias it.
+## Leaves the skeleton on the rest pose the caller handed in.
+func _yaw_gain(driver: int, target: int, rest_q: Dictionary) -> float:
+	if driver < 0 or target < 0:
+		return 0.0
+	var d: float = 0.12
+	var ax: Vector3 = ((_rest_gb.get(driver, Basis.IDENTITY) as Basis).inverse() * BODY_UP).normalized()
+	var out: Array[float] = []
+	for sgn in [-d, d]:
+		_set_chain(rest_q)
+		_sk.set_bone_pose_rotation(driver, (_rest[driver] as Quaternion) * Quaternion(ax, sgn))
+		out.append(_paw_pos(target).dot(BODY_FWD))
+	_set_chain(rest_q)
+	return (out[1] - out[0]) / (2.0 * d)
+
+## HOW HIGH THE PAW MUST RIDE AT THE ENDS OF ITS STANCE, in metres, for this limb to cover
+## `sweep` of ground without the two-bone solve having to shorten the chain.
+##
+## This is the change that let the stride grow. The old path carried a hand-set 12 mm of rise
+## for every limb at every stride; the geometry wants what the triangle wants. Take the rest
+## vector's components in the limb's own sagittal plane (`d_fw` forward, `d_up` down), push the
+## paw `sweep/2` to the worse end, and ask what height puts the target back on the reach
+## sphere:  h = -d_up - sqrt(cmax^2 - (d_fw +- sweep/2)^2).  Below that the solve clamps, the
+## stance path is silently shortened, and a shortened stance path IS a skate — which is why
+## every previous attempt at a wider stride measured as sliding paws.
+##
+## It is a floor, never a ceiling on the animator: `STANCE_ARC` still applies when the geometry
+## asks for less (a real paw lands toe-first and rolls flat whatever the maths says), and the
+## caller caps it against the swing lift so a leg that cannot pay simply carries on clamping
+## rather than turning the walk into a tiptoe.
+func _stance_arc(k: String, sweep: float) -> float:
+	var S: Dictionary = _ik.get(k, {})
+	if S.is_empty():
+		return STANCE_ARC
+	var cmax: float = float(S["cmax"])
+	var worst: float = maxf(absf(float(S["d_fw"]) + sweep * 0.5), absf(float(S["d_fw"]) - sweep * 0.5))
+	var rad: float = cmax * cmax - worst * worst
+	if rad <= 0.0:
+		return STANCE_ARC          # cannot be covered at any height — the solve clamps, as before
+	return maxf(STANCE_ARC, -float(S["d_up"]) - sqrt(rad))
+
 func _prep_ik() -> void:
 	if not valid():
 		return
@@ -757,39 +902,68 @@ func _prep_ik() -> void:
 		_set_chain(rest_q)
 		var par: int = _sk.get_bone_parent(L["prox"])
 		var par_t: Transform3D = _sk.get_bone_global_pose(par) if par >= 0 else Transform3D.IDENTITY
+		# THE GIRDLE'S LEVER, MEASURED ON THIS SKELETON. Rotate the girdle bone about the
+		# body's own up axis and read how far THIS limb's socket travels fore-aft. Same
+		# discipline as the knee-fold test above, and the reason the s52 note can state what
+		# the pelvis is worth on this fit instead of what a pelvis is worth in general.
+		var g_bone: int = _spine2 if int(L["blade"]) >= 0 else _hip
+		var g_amp: float = CHEST_YAW if int(L["blade"]) >= 0 else PELVIS_YAW
+		var g_gain: float = _yaw_gain(g_bone, int(L["prox"]), rest_q)
+		_set_chain(rest_q)
+		if _hip >= 0:
+			_sk.set_bone_pose_position(_hip, _rest_t[_hip])
+		# THE STANCE PATH IS AN ARC, AND HOW DEEP AN ARC IS THE CHAIN'S OWN BUSINESS —
+		# cached here so `tick` can ask for it in three flops and a sqrt (see `_stance_arc`):
+		# the rest vector's components along the sagittal plane's forward and up, plus the
+		# reach cap the solve clamps against.
+		var e_up: Vector3 = _flat(BODY_UP, n)
+		var e_fw: Vector3 = _flat(BODY_FWD, n)
 		_ik[k] = {
 			"P": P, "n": n, "a": a, "b": b, "c0": c0, "e0": e0, "W0": W0,
+			"cmax": (a + b) * 0.985,
+			"d_fw": (W0 - P).dot(e_fw),
+			"d_up": (W0 - P).dot(e_up),
+			# Metres of fore-aft SOCKET travel per radian of this limb's girdle rotation,
+			# and the amplitude that rotation runs at. Turned into a stride budget in the
+			# second pass below, once every limb's gain is known and the DRIVE SIGN can be
+			# read off the reference limb instead of guessed.
+			"g_gain": g_gain,
+			"g_amp": g_amp,
+			"girdle": 0.0,
 			"alpha0": _tri_angle(a, c0, b), "beta0": _tri_angle(a, b, c0),
 			# +1 when a positive rotation at the knee FOLDS the leg.
 			"knee": -1.0 if c_test > c0 else 1.0,
 			# HOW FAR THIS LEG CAN ACTUALLY SWING. Geometry, not a feel number: a limb of
-			# reach c0 swinging +/-theta about its socket covers 2*c0*sin(theta) of ground,
-			# so +/-25 degrees — about a cat's walking envelope — is 0.845*c0. The old
-			# 1.15*c0 was 2*c0*sin(35deg) AND it ignored that the socket is not directly
-			# above the paw, so it asked the stub right-hind chain (c0 0.192 m) to cover
-			# 0.221 m: more ground than the whole leg is long. That is where the 103 deg
-			# hip and 127 deg stifle in the joint audit came from. The SHORTEST of the four
-			# still sets the stride for all of them — per-limb envelopes truncate the two
-			# hinds by different amounts and put the limp straight back.
-			# 0.94: +-28 deg of swing (s45c raised it from +-25 for the owner's longer stride;
-			# the out-of-reach vertical give absorbs the extremes the same way it always has).
-			# 1.05 rather than 0.94: the owner asked for a "wider, slower gait", and at a
-			# fixed speed those are ONE request — stride is `sweep / duty`, so more ground
-			# per cycle IS fewer steps per second. 0.94*c0 is 2*c0*sin(28 deg); 1.05 is
-			# sin(31.7), still inside a cat's hip excursion, and it takes the walk stride
-			# from 0.29 m to 0.33 m — about an 11% drop in cadence at WALK_SPEED, which is
-			# what reads as unhurried rather than mincing.
-			# 0.94 IS THIS RIG'S CEILING, AND THE OWNER'S "wider gait" CANNOT HAVE MORE.
-			# Stride is `sweep / duty`, so a wider stride is genuinely what was asked for —
-			# but the sweep is set by the SHORTEST chain, and this rig's right hind is a stub
-			# whose rest reach (0.192 m) IS its full bone length: it is already at the edge of
-			# its reachable set standing still. Pushing to 1.05*c0 asked that leg for ground
-			# it does not have, the solve clamped, and foot-lock went with it — measured at
-			# 14.7 mm/frame of in-stance paw drift against a 10 mm gate, i.e. visible skating,
-			# which is a worse gait than a slightly quick one. The width the owner can have
-			# comes from the paw curl, the deeper fold and the bob instead; the rest needs the
-			# re-rig (docs/CAT_RIG_CEILING.md).
+			# reach c0 swinging +/-theta about its socket covers 2*c0*sin(theta) of ground.
+			# The SHORTEST of the four still sets the stride for all of them — per-limb
+			# envelopes truncate the two hinds by different amounts and put the limp straight
+			# back — so these two numbers are the whole animal's, decided by the worst chain.
+			#
+			# 0.94*c0 IS 2*sin(28 deg), AND IT WAS A POLICY, NOT A LIMIT. Its history is worth
+			# keeping because it is the trap this session nearly repeated. s45c raised it 0.845
+			# -> 0.94 for the owner's "wider gait"; s49 pushed to 1.05 and MEASURED foot-lock
+			# breaking (14.7 mm/frame of in-stance drift against a 10 mm gate), and the file has
+			# said ever since that 0.94 is "this rig's ceiling". It is not, and the reason it
+			# looked like one is that BOTH those measurements were taken on a gait running at
+			# 4.7 strides a second. s51 halved the cadence (WALK_SPEED 1.55 -> 0.95) and nobody
+			# re-measured the envelope underneath it. Slide per FRAME scales with cadence.
+			#
+			# What actually broke at 1.05 was not the swing angle, it was the PATH. A chain of
+			# reach c0 covering s of ground traces an ARC — the paw cannot stay level, because
+			# staying level means shortening a chain that is already at full stretch (this rig's
+			# binding limb rests at 101.4% of the two-bone model's reach cap). `_foot_path` asked
+			# for a flat stance with a hand-set 12 mm of rise at the ends; the geometry wanted
+			# 25.6 mm at the old sweep and 39 at 1.05*c0. The difference came out of
+			# `_reach_give`, and past ~1.0*c0 the give ran out, the solve fell back to SHORTENING
+			# the reach, and a shortened stance path is exactly what a skate is. `_stance_arc`
+			# now derives that rise per limb from the limb's own triangle, so the clamp stops
+			# firing and the envelope can go to the joint limit this file already enforces.
+			#
+			# WALK: 2*c0*sin(ROM_PROX) — the hip/shoulder clamp, so the swing envelope and the
+			# anatomy clamp can no longer disagree — plus the measured girdle travel. GALLOP:
+			# still 0.94, and see `_sweep_walk` for why the run does not get the new one.
 			"sweep_max": 0.94 * c0,
+			"sweep_walk": 2.0 * c0 * sin(ROM_PROX),
 			# Which side of the chain line the knee sits on, so the thigh's own rotation adds
 			# or subtracts the triangle's apex angle.
 			"side": 1.0 if _flat(D0 - P, n).cross(e0).dot(n) < 0.0 else -1.0,
@@ -817,14 +991,60 @@ func _prep_ik() -> void:
 			_rom[L2["toe"]] = [-ROM_TOE, ROM_TOE]
 		if int(L2["blade"]) >= 0:
 			_rom[L2["blade"]] = [-ROM_BLADE, ROM_BLADE]
+	# THE GIRDLE'S DRIVE SIGN IS READ OFF THE MEASUREMENT, NOT ASSERTED — and it had to be.
+	# The first cut of this drove the pelvis with +cos(phase) because that is the phase the
+	# LEFT HIND's paw path peaks at, which is correct arithmetic about the paw and says nothing
+	# about the bone: on this fit a positive pelvic yaw moves the left hip socket BACKWARD
+	# (gain -0.0189 m/rad). Half a cycle out, the socket retreats from the planting paw, the
+	# leg is asked for MORE reach rather than less, and the stride budget added on top of it
+	# would have been a straight lie. So the sign comes from the measured gain of the
+	# REFERENCE limb of each girdle — the one whose footfall offset the drive is written
+	# against — and every other limb inherits it through its own WALK_OFF phase.
+	var ref_h: float = float(_ik.get("lh", {}).get("g_gain", 1.0))
+	var ref_f: float = float(_ik.get("lf", {}).get("g_gain", 1.0))
+	_pelv_sign = -1.0 if ref_h < 0.0 else 1.0
+	_chest_sign = -1.0 if ref_f < 0.0 else 1.0
+	for k in _ik:
+		var S3: Dictionary = _ik[k]
+		var fore3: bool = int(_limb[k]["blade"]) >= 0
+		var ref_off: float = float(WALK_OFF["lf" if fore3 else "lh"])
+		var sgn3: float = _chest_sign if fore3 else _pelv_sign
+		# The drive's value at THIS limb's own plant, as a fraction of its amplitude.
+		var at_plant: float = sgn3 * cos(TAU * (ref_off - float(WALK_OFF[k])))
+		# ...and the ground it is worth over a whole cycle. Negative means this girdle works
+		# AGAINST this limb (two limbs of a pair whose measured gains share a sign, which a
+		# yaw cannot serve) — it then earns no budget rather than a fictional one.
+		var contrib: float = 2.0 * float(S3["g_amp"]) * float(S3["g_gain"]) * at_plant
+		S3["girdle"] = maxf(0.0, contrib)
+		S3["sweep_walk"] = float(S3["sweep_walk"]) + float(S3["girdle"])
 	# The stride the whole animal can hold, set by whichever leg runs out first.
 	_sweep_cap = 1e9
+	_sweep_walk = 1e9
 	for k in _ik:
 		_sweep_cap = minf(_sweep_cap, float(_ik[k]["sweep_max"]))
+		_sweep_walk = minf(_sweep_walk, float(_ik[k]["sweep_walk"]))
 	if _sweep_cap > 1e8:
 		_sweep_cap = 0.24
-	print("[cat_rig] foot-lock sweep %.3f m -> stride %.3f m walking, %.3f m at a gallop"
-		% [_sweep_cap, _sweep_cap / 0.62, _sweep_cap / 0.38])
+	if _sweep_walk > 1e8:
+		_sweep_walk = _sweep_cap
+	_sweep_walk = maxf(_sweep_walk, _sweep_cap)
+	_bind_limb = ""
+	for k in _ik:
+		if is_equal_approx(float(_ik[k]["sweep_walk"]), _sweep_walk):
+			_bind_limb = k
+			_sweep_girdle = float(_ik[k]["girdle"])
+			break
+	# THE DIAGNOSTIC READS THE CONSTANTS THE GAIT READS. It divided by a hard-typed 0.62
+	# and 0.38 for four sessions after the duties moved to 0.55 and 0.20, so the one line
+	# anybody checks the stride against under-reported the walk by 11% (0.291 against a
+	# true 0.329) and over-reported the gallop. A diagnostic that does not read the live
+	# value is a comment that can lie, which is the same failure mode as an assertion that
+	# cannot fail — and this repo has a trap filed about each.
+	print("[cat_rig] foot-lock sweep %.3f m walking (leg %.3f + girdle %.3f, bound by %s)"
+		% [_sweep_walk, _sweep_walk - _sweep_girdle, _sweep_girdle, _bind_limb]
+		+ ", %.3f m at a gallop" % _sweep_cap)
+	print("[cat_rig]   -> stride %.3f m at duty %.2f walking, %.3f m at duty %.2f galloping"
+		% [_sweep_walk / WALK_DUTY, WALK_DUTY, _sweep_cap / GALLOP_DUTY, GALLOP_DUTY])
 	# The solve triangles, one line per leg — the cheapest check that the two-bone model
 	# FITS each chain: a rest reach (c0) OUTSIDE [fold-floor, reach-cap] means that leg's
 	# law-of-cosines saturates at rest and its knee will spike wherever the clamps engage.
@@ -922,7 +1142,7 @@ func _solve_leg(k: String, target: Vector3) -> Array:
 ## stride: the body covers `stride` in a whole cycle, so a paw down for `duty` of that cycle
 ## must travel `stride * duty` backwards to stay put. Getting that product right is the whole
 ## of foot-lock.
-func _foot_path(t: float, duty: float, sweep: float, lift: float) -> Vector2:
+func _foot_path(t: float, duty: float, sweep: float, lift: float, arc: float) -> Vector2:
 	if t < duty:
 		# STANCE — a straight line backwards at body speed, on a very shallow arc.
 		#
@@ -931,12 +1151,14 @@ func _foot_path(t: float, duty: float, sweep: float, lift: float) -> Vector2:
 		# the edge of its own reachable set and cannot move horizontally at all without
 		# shortening the chain. A flat stance therefore asks for a target the leg cannot hit,
 		# the solve clamps it, and — because the two hinds clamp by different amounts — the
-		# limp comes back at speed. Twelve millimetres of rise at the ends of the sweep buys
-		# the headroom, and it is what a real paw does anyway: it lands toe-first, rolls flat
-		# through mid-stance, and pushes off the toes.
+		# limp comes back at speed. A rise at the ends of the sweep buys the headroom, and it
+		# is what a real paw does anyway: it lands toe-first, rolls flat through mid-stance,
+		# and pushes off the toes. HOW MUCH rise is `_stance_arc`'s answer now, derived per
+		# limb from that limb's own triangle and the sweep it is being asked for, rather than
+		# the one hand-set 12 mm that capped the stride for five sessions.
 		var u: float = t / maxf(duty, 1e-4)
 		var e: float = 2.0 * u - 1.0
-		return Vector2(sweep * (0.5 - u), STANCE_ARC * e * e)
+		return Vector2(sweep * (0.5 - u), arc * e * e)
 	# SWING — up fast, forward, and DOWN INTO THE PLANT rather than dropping onto it. The
 	# forward travel is eased at both ends (the paw is momentarily still relative to the body
 	# at toe-off and at touchdown, which is what a real limb does) while the lift runs on a
@@ -1255,10 +1477,16 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 	# Walk duty 0.62 -> 0.55 (s45c, the owner's "wider, slower, smoother"): stride is
 	# sweep/duty, so a shorter stance fraction LENGTHENS the stride and drops the walking
 	# cadence ~20%% — fewer, longer, more deliberate steps at the same ground speed.
-	var duty: float = float(pose.get("duty", lerpf(0.55, 0.20, mix)))
+	var duty: float = float(pose.get("duty", lerpf(WALK_DUTY, GALLOP_DUTY, mix)))
 	var sweep_k: float = float(pose.get("sweep_k", 1.0))
 	var lift_k: float = float(pose.get("lift_k", 1.0))
-	var stride: float = maxf(_sweep_cap * sweep_k, 0.05) / duty
+	# THE ENVELOPE IS THE WALK'S AT A WALK AND THE GALLOP'S AT A GALLOP, eased by the same
+	# `mix` that eases the footfall offsets — because the girdle drive that pays for part of
+	# the walk's extra reach is itself walk-only (GALLOP_OFF lands the hinds 0.12 apart, so
+	# there is no differential for a pelvic yaw to express) and because the run has no gate
+	# that can see its stance yet. See `_sweep_walk`.
+	var sweep_env: float = lerpf(_sweep_walk, _sweep_cap, mix)
+	var stride: float = maxf(sweep_env * sweep_k, 0.05) / duty
 	_phase = fposmod(_phase + moved / stride, 1.0)
 	# 3b. TURN IN PLACE IS A GAIT, NOT A TURNTABLE (flaw 4). `_face` lerps the node's yaw with
 	# the feet planted, so a cat asked to turn round pivots like a display stand and all four
@@ -1324,6 +1552,40 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# stiffer end. The head stabiliser cancels it at the neck (5e), so putting roll
 			# into the chest cannot tip the face.
 			_mul_body(_spine2, BODY_FWD, -sway * 0.038 * walk_w)
+			# THE GIRDLES SWING, AND THE LEGS SOLVE AGAINST THEM (s52). This is the owner's
+			# "legs should articulate more to move the body forward": in a real quadruped a
+			# slice of every stride is the pelvis rotating about its long axis and the shoulder
+			# girdle doing the same at the front, so the socket is already travelling forward
+			# when the paw plants and already travelling back at toe-off. The engine had none of
+			# it — every limb swung from a socket welded to the torso.
+			#
+			# PHASE IS BY CONSTRUCTION, NOT BY EAR. A yaw is DIFFERENTIAL: it can only serve a
+			# pair whose phases are exactly half a cycle apart, and WALK_OFF gives exactly that
+			# twice over — lh 0.00 / rh 0.50 at the back, lf 0.25 / rf 0.75 at the front. A
+			# paw's fore-aft path peaks at its own phase 0, so the pelvis wants cos(base_ph)
+			# (lh's phase) and the chest wants cos(base_ph + 0.25), which is `-sway`. Getting
+			# this wrong by half a cycle would drive the socket AWAY from the planting paw and
+			# COST stride rather than buy it, so it is derived here rather than fitted — and the
+			# budget it earns is measured off the skeleton in `_prep_ik`, not asserted.
+			#
+			# Each is CANCELLED one joint along, so the girdle moves and the animal above it
+			# does not: the pelvis's yaw comes back out at Spine01 (its child) and the chest's
+			# at the neck. Without that the whole trunk and the head yaw with the hips, which
+			# is a fish, not a cat.
+			var pelv: float = _pelv_sign * PELVIS_YAW * walk_w \
+				* cos(TAU * (base_ph + float(WALK_OFF["lh"])))
+			_mul_body(_hip, BODY_UP, pelv)
+			_mul_body(_spine, BODY_UP, -pelv)
+			var chest: float = _chest_sign * CHEST_YAW * walk_w \
+				* cos(TAU * (base_ph + float(WALK_OFF["lf"])))
+			_mul_body(_spine2, BODY_UP, chest)
+			# ...and the chest's cancel goes through the LIVE map, not the rest map. At the
+			# 0.055 rad of the spine bend above, a rest-basis cancel is close enough; at
+			# CHEST_YAW's 0.16 the residual is three times larger, and on a torso far from rest
+			# it is not even a yaw — the CARRY pose measured 4.8 deg of head ROLL out of a
+			# commanded pure yaw, which is the same trap `_mul_body_live` was written for when
+			# the look banked a sitting cat's face by 22 degrees.
+			_mul_body_live(_neck, BODY_UP, -chest)
 		# WEIGHT — ONE whole-body vertical, phase-locked to the footfall (the pelvis rides
 		# `base_ph`, the same variable the paws are planted from, so it CANNOT drift off
 		# the steps). Two bobs per cycle, minima 0.125 after each HIND plant — the
@@ -1342,7 +1604,12 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		# rate as much as its size; the slower cycle is what makes a bigger one legible
 		# instead of buzzy. Two per stride, minima on the contacts, so it is the body
 		# arcing over each planted foot rather than a hover.
-		var bob_amp: float = lerpf(0.028, 0.045, mix)
+		# 0.038 AT A WALK (s52). The same argument one turn further on: the cadence drops
+		# 2.89 -> 2.47 strides a second with the longer stride, and a bob is judged by its
+		# RATE as much as its size, so the amplitude that read as a bounce at 2.9 reads as a
+		# glide at 2.5 unless it grows with the step. Measured at the write: see the s52
+		# DEVLOG table.
+		var bob_amp: float = lerpf(0.038, 0.045, mix)
 		bob_amp += maxf(1.0 - absf(mix - 0.5) * 2.0, 0.0) * 0.010
 		var bob_min_ph: float = lerpf(0.125, 0.15, mix)
 		_reach_give = 0.018 + 0.04 * mix
@@ -1398,9 +1665,18 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# fold the honest way — through the PATH the IK has to reach, which is the
 			# lesson the s49 revert paid for (a fold authored on top of the solution is a
 			# flick, not a bend).
-			var lift_m: float = lerpf(0.072, 0.125, mix) * (1.0 if fore else 0.88) * lift_k
-			var sweep_m: float = _sweep_cap * reach_k * sweep_k
-			var pth: Vector2 = _foot_path(ph, duty, sweep_m, lift_m)
+			# 0.085 AT A WALK (s52), up again for the same reason and by the same route:
+			# the stride is a third longer in wall-clock than at s51, so the paw can lift
+			# further without the swing RATE rising. It is the honest lever for "articulate
+			# more" — a higher arc is ground the IK must FOLD the elbow and stifle to reach,
+			# where an authored fold on top of the solve is the flick s49 was reverted for.
+			var lift_m: float = lerpf(0.085, 0.125, mix) * (1.0 if fore else 0.88) * lift_k
+			var sweep_m: float = sweep_env * reach_k * sweep_k
+			# The stance arc this limb's own triangle needs at this sweep, capped against the
+			# swing lift: a leg that cannot pay for the ground it is asked to cover goes back
+			# to clamping, as it always did, rather than turning the walk into a tiptoe.
+			var arc_m: float = minf(_stance_arc(limb_key, sweep_m), lift_m * 0.55)
+			var pth: Vector2 = _foot_path(ph, duty, sweep_m, lift_m, arc_m)
 			# +12 mm of stance width per side (s45c, "wider"): the rest anchors carry the
 			# bind pose's narrow track, and widening at the TARGET keeps foot-lock exact —
 			# the paw plants and stays planted, just a whisker further out from the
@@ -1817,6 +2093,17 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		var q_out: Quaternion = _out.get(i, _cur_q[i])
 		if _rom.has(i):
 			q_out = _clamp_joint(i, q_out)
+			# THE LIMB RATE CEILING (see LIMB_MAX_RATE) — after the ROM clamp, because the
+			# clamp's rebuild is itself one of the fast terms it has to bound, and because a
+			# rate limit applied before a clamp is a rate limit on something that is not what
+			# gets drawn. Scaled by dt so a summed AiBudget think and a 60 Hz frame agree.
+			var pv = _limb_prev.get(i)
+			if pv != null:
+				var st: float = (pv as Quaternion).angle_to(q_out)
+				var cap_l: float = LIMB_MAX_RATE * dt
+				if st > cap_l and st > 1e-5:
+					q_out = (pv as Quaternion).slerp(q_out, cap_l / st).normalized()
+			_limb_prev[i] = q_out
 		# THE HEAD RATE CEILING — the sum-of-layers cap (see HEAD_MAX_RATE), applied to the
 		# head's SKELETON-SPACE orientation, parent chain included. A local-bone cap was
 		# tried first and bounded nothing: the fast paths live upstream (the look's

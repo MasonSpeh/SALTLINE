@@ -930,8 +930,33 @@ const SPEAR_SCATTER_R: float = 4.5    ## how far the shoal feels a thrust go pas
 const SPEAR_SCATTER_HIT: float = 1.4  ## metres the startled members are shoved
 const SPEAR_SCATTER_MISS: float = 2.1 ## a miss spooks them HARDER — nothing died to calm it
 
+## A THRUST COSTS BREATH — the one real cost the verb had, and it did not have it (s47).
+##
+## Before this, the only thing a thrust spent was time: OXYGEN_DRAIN is 1/35 per second whether
+## you hang in the water watching a shoal or empty it, so at the measured ~1.4-1.6 fish/second
+## a single 35 s breath was worth a pack full of fish. The shoal reacting (underwater_world's
+## SHOAL_ALARM_* block) is most of the nerf, but "the fish run away" on its own leaves the verb
+## free to spam, and a lunge with a spear underwater is genuinely anaerobic.
+##
+## 0.05 of the bar is 1.75 s of breath — about a seventh of a full dive's air over seven
+## thrusts, which caps a dive at roughly that many attempts if you spend nothing on swimming
+## down and back. Charged on a MISS as well: you lunged either way.
+##
+## Deliberately NOT an accuracy roll. A random miss chance is the obvious other lever and it was
+## considered and rejected: it makes the thrust's outcome unmeasurable (SpearProbe's "a thrust
+## banked a fish" would become a coin flip that reports FAILURES: 0 most runs), and the owner
+## asked for fish that get away, not for a spear that misses fish it visibly went through.
+const SPEAR_BREATH: float = 0.05      ## fraction of the oxygen bar spent per thrust
+## ...and the floor it may never take you below, so the thing that drowns you is always the
+## clock and never a button press. The bar can still be emptied here to a hair above nothing,
+## which starts the low-air toast and leaves DROWN_GRACE_SEC to get up; what it cannot do is
+## make a left click the killing blow.
+const SPEAR_BREATH_FLOOR: float = 0.01
+
 func _spear_thrust(reach: float) -> void:
 	_lunge_hand(_attack_cd)
+	PlayerState.oxygen = maxf(PlayerState.oxygen - SPEAR_BREATH,
+		minf(PlayerState.oxygen, SPEAR_BREATH_FLOOR))
 	var uw: Node = get_tree().get_first_node_in_group("underwater_world")
 	if uw == null:
 		return
@@ -960,16 +985,13 @@ func _land_speared(id: String, point: Vector3) -> void:
 	rng.randomize()
 	Journal.discover(id)
 	AudioDirector.play_one_shot("splash", global_position, -8.0)
-	# The size rolls BEFORE the pack is tried, for the same reason the rod's does: a
-	# stowed fish's weight goes on the ledger, a spilled fish carries it into the world.
+	# The size rolls BEFORE the pack is tried, for the same reason the rod's does: a stowed
+	# fish carries its weight into the SLOT it lands in, a spilled one into the world.
 	var kg: float = FishTable.roll_size(id, rng)
 	# A FULL PACK MUST NOT COST YOU THE FISH — same rule the rod follows. Underwater there is
 	# no deck to spill onto, so it goes into the world at the kill and can be swum back for.
-	var stowed: bool = PlayerState.add_item(id)
-	if stowed:
-		if kg > 0.0:
-			FishTable.record_size(id, kg)
-	else:
+	var stowed: bool = PlayerState.add_item(id, FishTable.catch_meta(id, kg))
+	if not stowed:
 		SaveManager.drop_into_world(id, point, Vector3.ZERO, kg)
 	var spill: String = "" if stowed else "  Pack's full — it's in the water where you took it."
 	var data: Dictionary = PlayerState.items.get(id, {})

@@ -350,3 +350,71 @@ landed and nobody updated the file.
   reachable set. DO NOT widen these thresholds — they were set against the inflated numbers
   and are if anything too generous. Next session starts here, with the paw-curl rate and the
   limiter's coverage.
+
+## Open after s52 — the walk's stride, and an instrument that stops seeing
+
+- **CatReviewProbe's foot-slide gates go VACUOUS as the stance arc grows, and they already
+  have.** The probe finds stance by paw HEIGHT — "within 6 mm of this paw's own minimum" —
+  which is only a stance detector while the paw is flat. It is not. Measured at s52's stride,
+  the drawn paws ride 38-59 mm above their lowest point during contact (they rode 26-41 mm
+  before it), because a chain of reach c0 covering s of ground traces an arc and this rig's
+  binding limb is 0.192 m long. So the window empties: `stance_pairs` at the walk went 20 ->
+  6, and run / stalk / carry now report **0 pairs and a perfect 0.0000 mm/frame** — a number
+  that cannot fail. The run gate was ALREADY vacuous at s51 (0 pairs, 0.0000) and nobody
+  noticed, because a passing gate looks like a passing gate.
+  What it hides is real. `tests/GaitScratch` block 4 gates stance off the GAIT'S OWN PHASE
+  (`fposmod(phase + WALK_OFF[k], 1) < duty`), which cannot empty, and scores drift over the
+  middle 70% of each contact. At the walk it measures:
+      lf 4.5   rf 14.5   lh 32.1   rh 5.3   mm/frame
+  against the same run's height-band figure of 6.5. The **left hind slides 32 mm/frame and
+  always has** (33.7 at the pre-s52 baseline, A/B'd on the same instrument) — it is invisible
+  to the shipped gate because that leg lifts 41 mm during its own stance. Cause is measured
+  and known: lh's fore-aft lever is 0.214 m/rad against rh's 0.189 and a c0 of 0.402, i.e.
+  the stretched-backwards chain of docs/CAT_RIG_CEILING.md §3, so ROM_PROX clamps its hip
+  before it has covered the ground and it delivers 0.146 m of a commanded 0.232. DO NOT widen
+  ROM_PROX. The fix is the re-rig; the fix for the INSTRUMENT is to port the phase gate into
+  cat_review_probe.gd and let it fail honestly first.
+
+- **The speed bands are stale by two sessions and the TROT is now the worst-behaved gait.**
+  `WALK_V 1.8 / TROT_V 3.4` were "chosen against WALK_SPEED 1.55 / TROT 2.6 / RUN 4.4" and
+  those constants are now 1.10 / 1.9 / 4.4. At TROT_SPEED the mix is 0.06 — the "trot" is a
+  walk cycle driven at 1.9 m/s, 4.16 strides/s, and the phase-gated slide there measures
+  rf 33.7 and lh 47.2 mm/frame (baseline 29.4 / 47.8, i.e. no worse per stride but the worst
+  band in the animal). Re-siting the bands on the shipped speeds is a small change with a
+  large payoff and it was deliberately left out of s52 to keep the run untouched.
+
+- **CatHuntProbe failed 2 runs in 8 on the s52 build and 0 in 7 on the baseline, and the
+  cause was not found.** Both failures are the same shape: `closed on the bird (nearest
+  4.5 m)` plus `zoomies furthest 7.3-7.5 m`. Fisher exact on 2/8 against 0/7 is p ~ 0.47, so
+  this is suggestive and NOT significant, and no path was found by which cat_rig feeds back
+  into ship_cat's navigation (ship_cat never reads `settle()`, the phase or any bone). It is
+  recorded rather than dismissed because the baseline's 7/7 was clean. Re-run it a dozen
+  times before and after any further gait change.
+
+## Open after s52 — the red lines, half-answered
+
+- **The pod's two red lines: the hi-vis nosings are fixed, the two READABLES are the same physics
+  and are still there.** Owner report, third time. Cause is not bloom and not the paint choice — it
+  is that the SPHL's only light is `Color(0.9, 0.15, 0.1)` (rig_builder `_build_sphl`), and
+  reflected colour is albedo x light, so ANY pale or warm surface in that room returns a saturated
+  red brighter than its neighbours. Measured, against the grey shell's (0.558, 0.099, 0.070):
+      hi-vis nosing  albedo (0.440, 0.165, 0.028) -> (0.396, 0.025, 0.003)  sat 0.99   FIXED s52
+      readable page  albedo (0.870, 0.850, 0.770) -> (0.783, 0.128, 0.077)  sat 0.90   OPEN
+  The nosings now use `dark_metal()` -> (0.198, 0.034, 0.026), darker than the shell, and read as
+  moulding. The two `_readable` page blocks (`rig_builder.gd:2482-2483`, Survival Manual at
+  (15.15, WET_Y+1.35, cz+0.9) and Pressure Log at cz-0.9) are now the BRIGHTEST objects in the pod
+  and are exactly two, symmetric, and line-shaped at viewing distance — the best remaining match for
+  the report. They are functional story items and were NOT removed unilaterally; awaiting the
+  owner's call. If they are the ones: the fix is not to recolour them (no warm albedo survives that
+  lamp) but either to give the pod a small neutral fill light, or to accept them and darken the page
+  stock. `tests/Beta1Shot --only=sphl_interior` now actually photographs the pod and settles it.
+
+- **The seven untextured fish are covered, not fixed.** `materials/fish_skin.gdshader` synthesises a
+  countershaded, mottled skin from `school.tint` so they no longer read as one flat colour, and it
+  is keyed on "has no albedo texture" so it silently stops applying the moment real textures land.
+  The real fix is still to regenerate the seven through Tripo; dropping a textured `<id>.glb` into
+  `assets/models/fauna/<id>/` needs NO code change anywhere. Measured while judging the render: the
+  mackerel and garfish read washed out (`belly_pale` 0.85 lifts already-pale tints hard), and the
+  kelp pipefish is nearly invisible in hand because six of the small species clamp to the 0.18 m
+  hand floor (`hand = max(0.18, body * 0.5)`), so a pipefish and a copper sprat are the same size
+  in the pack.
