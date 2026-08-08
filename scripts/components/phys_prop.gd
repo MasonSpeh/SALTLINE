@@ -55,6 +55,30 @@ const RELEASE_MAX_SPEED: float = 2.5  ## m/s a prop may still carry the instant 
 ## velocities and freeze the body STATIC. It holds its pose for good, costs nothing, and —
 ## being a static collider now — you can stack things on it and stand on it. Grabbing it wakes
 ## it again (wake_from_settle), so this is a rest state, not a death.
+##
+## ...AND A PROP NOBODY HAS EVER TOUCHED IS AT REST TOO.
+##
+## Owner report, 2026-08-06: "barrels glitch/shake slightly just sitting on the wetdeck". The
+## clock above was only ever started by end_carry(), i.e. on the held -> not-held edge, so it
+## reached exactly the props the player had picked up and put down. Everything the world
+## SPAWNS as a bare PhysProp — the five oil drums (env_objects.oil_drum, placed by
+## rig_builder._build_env_objects) and main.gd's three wet-deck salvage blocks — went live at
+## load and stayed live for the whole session, arguing with the plating at 30 Hz for as long
+## as the game was running. That is the paragraph above, running on the untouched case.
+##
+## MovableProp is the control: same base class, same resting contact, and it does not shake —
+## because its own _ready() freezes it STATIC (movable_prop.gd). Which is why the PropLib
+## barrels (Barrel_01/02/barrel_03, spawned movable) sit still and the EnvObjects drums beside
+## them do not.
+##
+## So the clock is armed by the body itself whenever it is live and unheld, not by the one
+## caller that used to remember. That also makes the rest state self-healing: anything that
+## wakes a settled prop (a grab, a load, a collision) is followed by a fresh countdown instead
+## of leaving it simulating forever.
+##
+## These are physics bodies, not scenery — the player carries, drags and throws them — so the
+## fix is the SLEEP path, not a one-shot seat. A seat-once would have to be undone the first
+## time anybody picked one up, and re-done wherever they set it down.
 const SETTLE_SEC: float = 3.0         ## seconds after release before the body locks
 ## A prop thrown over the rail is still in free fall at T+3, and freezing it there hangs a
 ## crate in the sky above the water. A body still falling re-checks on this interval instead —
@@ -127,6 +151,10 @@ func _physics_process(_delta: float) -> void:
 			_was_carried = false
 			end_carry()
 		release_carry_orient()
+		# Live, unheld and no clock running: put it on one. See the SETTLE block above —
+		# this is what catches the props the world spawned and nobody ever picked up.
+		if not freeze and _settle_timer != null and _settle_timer.is_stopped():
+			arm_settle()
 
 ## The clamped carry servo. Use this instead of writing `(target - pos) * gain` directly.
 func carry_velocity(target: Vector3, gain: float = 12.0) -> Vector3:

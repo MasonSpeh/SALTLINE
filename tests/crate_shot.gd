@@ -33,11 +33,20 @@ func _ready() -> void:
 	add_child(crate)
 	await get_tree().process_frame
 	hud.open_crate(crate)
-	# Icons bake one per frame; ~18 distinct ids across both sides.
-	await get_tree().create_timer(6.0).timeout
+	# THE FRAME THE OWNER COMPLAINED ABOUT. 18 distinct ids across both columns and one render
+	# retiring per frame (ItemIcons.ICON_PARALLEL), so ~20 frames — comfortably inside 1.2 s
+	# even at 30 fps — and NOTHING is touched between the open and the shutter. Before
+	# 2026-08-06 this frame was 18 empty sockets no matter how long the wait, because the panel
+	# was never repainted when a render landed; this harness only ever produced a picture at
+	# all because the shot below used to hand-call _refresh_crate_panel() first, which is
+	# precisely the click the owner was having to make.
+	await get_tree().create_timer(1.2).timeout
+	await RenderingServer.frame_post_draw
+	print("[crate first paint] saved err=", get_viewport().get_texture().get_image().save_png(
+		"/tmp/crate_panel_open.png"))
+	await get_tree().create_timer(4.8).timeout
 	# Stand in for the cursor so the hover info box is in the same frame.
 	hud._crate_slots[0].mouse_entered.emit()
-	hud._refresh_crate_panel()
 	await RenderingServer.frame_post_draw
 	await RenderingServer.frame_post_draw
 	print("[crate] saved err=", get_viewport().get_texture().get_image().save_png(

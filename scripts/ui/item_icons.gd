@@ -121,11 +121,27 @@ const CROP_TO_HEAD := {"fish_barrel_grouper": true}
 ## runs off every edge. Small enough to read as "head", big enough to keep the eye and jaw.
 const HEAD_CROP_FILL: float = 0.62
 
+## HOW MANY ICON RENDERS MAY OVERLAP — a PIPELINE DEPTH, not a throughput knob.
+##
+## _render spans several frames and only its LAST one is expensive: a process_frame so the
+## model's _ready() children exist to be measured, two frame_post_draw, and then a single
+## `get_texture().get_image()` — a GPU->CPU readback, i.e. a pipeline stall. Held strictly to
+## one at a time (as this was) the system delivers one icon every ~3 frames while two of those
+## three frames sit idle, so a container that shows a dozen kinds pops its pictures in over
+## most of a second.
+##
+## The fix is to STAGGER, not to batch. _process starts at most ONE render per frame, so the
+## stages interleave and one render retires — one readback — per frame: ~3x the throughput
+## with the per-frame cost unchanged. Starting a whole container's worth in one frame would
+## land all of their readbacks in one frame too, which is the visible hitch this is avoiding.
+## The cap is a ceiling on that stagger, not a target; in-flight settles at 2-3 on its own.
+const ICON_PARALLEL: int = 3
+
 var _cache: Dictionary = {}             ## item_id -> ImageTexture (or null = tried, no art)
 var _previews: Dictionary = {}          ## item_id -> ImageTexture, the big fish renders
 var _queue: Array[String] = []
 var _preview_queue: Array[String] = []
-var _busy: bool = false
+var _inflight: int = 0                  ## renders started and not yet finished (see ICON_PARALLEL)
 
 func _ready() -> void:
 	name = "ItemIcons"
@@ -149,18 +165,41 @@ func get_preview(item_id: String) -> Texture2D:
 		_preview_queue.append(item_id)
 	return null
 
-func _process(_delta: float) -> void:
-	if _busy:
+## Every id a panel is ABOUT to show, moved to the head of the queue in the order the panel
+## draws it. Nothing here renders — it only decides what the next few frames spend themselves
+## on, which is the whole difference between a container whose pictures arrive left-to-right
+## as it opens and one that waits behind whatever the last pickup queued.
+##
+## Called on the OPEN, before the panel is filled: get_icon() would queue these anyway when
+## the slots ask for them, but only at the BACK, and only for the sockets that got filled.
+func prewarm(item_ids: Array) -> void:
+	var front: Array[String] = []
+	for raw in item_ids:
+		var id: String = str(raw)
+		if id == "" or _cache.has(id) or front.has(id):
+			continue
+		_queue.erase(id)      # it may already be waiting further back; this is a re-order
+		front.append(id)
+	if front.is_empty():
 		return
+	front.append_array(_queue)
+	_queue = front
+
+func _process(_delta: float) -> void:
 	# Previews jump the queue: a player has just clicked a slot and is waiting on one,
 	# while icons are background work for slots that already show their name and count.
+	# A preview is 1180x660 — thirty times an icon's pixels — so it runs alone.
 	if not _preview_queue.is_empty():
-		_busy = true
+		if _inflight > 0:
+			return
+		_inflight += 1
 		_render_preview(_preview_queue.pop_front())
 		return
-	if _queue.is_empty():
+	if _queue.is_empty() or _inflight >= ICON_PARALLEL:
 		return
-	_busy = true
+	# ONE start per frame. _render returns at its first await, so this hands the next few
+	# frames a staggered pipeline rather than a burst (see ICON_PARALLEL).
+	_inflight += 1
 	_render(_queue.pop_front())
 
 ## Photograph ONE item in a viewport built for it and thrown away afterwards.
@@ -271,7 +310,7 @@ func _drop_stage(vp: SubViewport) -> void:
 	if vp != null:
 		remove_child(vp)     # out of the render tree at once; freed on the normal schedule
 		vp.queue_free()
-	_busy = false
+	_inflight = maxi(_inflight - 1, 0)
 
 ## Photograph a fish AT ITS REAL SIZE for the pack preview.
 ##

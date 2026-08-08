@@ -35,6 +35,9 @@ func _ready() -> void:
 
 	# ---- panel opens, and wears the pack's kit
 	hud.open_crate(crate)
+	# SNAPSHOT BEFORE THE FIRST FRAME. ItemIcons pops an id off its queue every _process, so
+	# the pre-warm order is only readable in the same frame the panel opened.
+	var warmed: Array = hud._icons._queue.duplicate()
 	await get_tree().process_frame
 	if not hud.crate_panel.visible:
 		_bad("open_crate did not raise the panel")
@@ -88,6 +91,29 @@ func _ready() -> void:
 		_ok("the empty sockets stay on screen, like the pack's")
 	else:
 		_bad("empty sockets were hidden — the grid will float over dead space")
+
+	# ---- THE FIRST PAINT (owner, 2026-08-06: "the item graphic doesnt show right away until
+	# you click it"). The panel asks ItemIcons for pictures it has not rendered yet, and the
+	# renderer answers null and finishes in the background — so BOTH halves have to hold: the
+	# ids have to be queued when the crate opens, and the finished render has to repaint a
+	# panel that is already on screen. Only the plumbing is asserted here; the render itself
+	# is a SubViewport read-back and presents nothing under --headless (docs/AGENT_TRAPS.md),
+	# so the PICTURE is CrateShot's job, windowed.
+	if warmed.slice(0, 3) == ["rope", "steel_plate", "driftwood"]:
+		_ok("open_crate pre-warms both columns, crate ids first: %s" % str(warmed))
+	else:
+		_bad("pre-warm did not head the render queue: %s" % str(warmed))
+	# A stand-in texture, so this measures the REPAINT and not the renderer.
+	var stand_in := PlaceholderTexture2D.new()
+	hud._icons._cache["rope"] = stand_in
+	hud._icons.icon_ready.emit("rope")
+	await get_tree().process_frame
+	if (slots[0].get_node("Pic") as TextureRect).texture == stand_in:
+		_ok("a finished icon repaints the open crate panel — no click needed")
+	else:
+		_bad("icon_ready never reached the crate socket: the slot stays blank until something "
+			+ "else refreshes the panel, which is the 2026-08-06 blank-icon report")
+	hud._icons._cache.erase("rope")
 
 	# ---- captions carry the capacity
 	if hud._crate_caption.text.contains("5 inside"):

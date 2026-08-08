@@ -77,6 +77,25 @@ func _ready() -> void:
 	for s in HIGH_SPOTS:
 		bodies.append(_drop(float(s[1]), float(s[2]), 2.0))
 		names.append(String(s[0]))
+	# THE PROPS THE WORLD PLACED, which is what the owner is actually looking at. Everything
+	# else in this table is a block the probe dropped, i.e. a body that has been through a
+	# release — and release is the ONLY thing that used to start the settle clock. A prop that
+	# is spawned at load and never touched (the five EnvObjects oil drums, main.gd's three
+	# wet-deck salvage blocks) is in the same resting contact and was in it all session:
+	# "barrels glitch/shake slightly just sitting on the wetdeck", 2026-08-06. Found by tree
+	# walk rather than by name so a loose prop added later is covered the day it lands.
+	var world: Array[RigidBody3D] = _world_props(main)
+	for w in world:
+		bodies.append(w)
+		names.append("world: %s (%.1f,%.1f)" % [w.name, w.global_position.x, w.global_position.z])
+	# A plausible COUNT, not just an absence of failures — a walk that found nothing would
+	# otherwise pass this whole section vacuously (docs/AGENT_TRAPS.md).
+	if world.size() < 6:
+		_say("FAIL  only %d world-placed PhysProp(s) found; the rig ships 5 oil drums and 3 "
+			% world.size() + "salvage blocks. The walk is measuring the wrong tree.")
+		failures += 1
+	else:
+		_say("  %d world-placed loose props found and watched" % world.size())
 	# A PLAIN DROP IS NOT WHAT THE OWNER DID. Every spot above settles instantly; the
 	# report is about props "dropped", i.e. CARRIED and then released. The carry loop
 	# steers the prop with velocity (`linear_velocity = (target - pos) * 12` and a yaw
@@ -115,14 +134,18 @@ func _ready() -> void:
 
 	_say("PROP SETTLE PROBE — %d drops, %.1fs settle then %.1fs watched at %d Hz"
 		% [bodies.size(), SETTLE_SEC, WATCH_SEC, Engine.physics_ticks_per_second])
-	_say("%-28s %8s %8s %8s %7s %8s" % ["spot", "|v|max", "|w|max", "drift", "sleep", "rest y"])
+	_say("%-34s %8s %8s %8s %7s %8s" % ["spot", "|v|max", "|w|max", "drift", "rest", "rest y"])
 	for i in range(bodies.size()):
 		var b: RigidBody3D = bodies[i]
 		var bad: bool = vmax[i] > REST_V or wmax[i] > REST_W or drift[i] > REST_DRIFT \
 			or b.global_position.y < WET_Y - 0.5
-		_say("%-28s %8.4f %8.4f %8.4f %7s %8.3f  %s"
+		# THREE rest states, not two. `sleeping` is Jolt's; `freeze` is this project's settle
+		# lock (phys_prop.gd), which is the one a prop nobody has touched now reaches — a
+		# frozen body reads sleeping=false, so a two-state column would call the fix a failure.
+		var rest: String = "froze" if b.freeze else ("sleep" if b.sleeping else "LIVE")
+		_say("%-34s %8.4f %8.4f %8.4f %7s %8.3f  %s"
 			% [names[i], vmax[i], wmax[i], drift[i],
-				"yes" if b.sleeping else "NO", b.global_position.y, "<- RESTLESS" if bad else ""])
+				rest, b.global_position.y, "<- RESTLESS" if bad else ""])
 		if bad:
 			failures += 1
 	if failures == 0:
@@ -176,6 +199,19 @@ func _carry_and_release(x: float, z: float, yaw_rate: float, look_down: bool) ->
 	_say("  release @ (%.1f, %.1f): commanded |v| %.2f m/s, |w| %.2f rad/s  ->  handed off |v| %.2f, |w| %.2f"
 		% [x, z, v0.length(), w0.length(), p.linear_velocity.length(), p.angular_velocity.length()])
 	return p
+
+## Every PhysProp under the built world. The probe's own drops are children of THIS node, not
+## of `main`, so walking from `main` separates the two populations without a bookkeeping set.
+func _world_props(main: Node) -> Array[RigidBody3D]:
+	var out: Array[RigidBody3D] = []
+	var stack: Array = [main]
+	while not stack.is_empty():
+		var n: Node = stack.pop_back()
+		for c in n.get_children():
+			stack.append(c)
+		if n is PhysProp:
+			out.append(n as RigidBody3D)
+	return out
 
 ## One dunnage-block-sized PhysProp, dropped 0.35 m over the plating — the same class,
 ## mass and shape main.gd scatters on the wet deck.

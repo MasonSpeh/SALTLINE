@@ -134,9 +134,18 @@ func _ready() -> void:
 	# the first refresh after a pickup shows the item's name and the next shows the item.
 	_icons = ITEM_ICONS.new()
 	add_child(_icons)
+	# EVERY SURFACE THAT DRAWS AN ICON HAS TO BE ON THIS LIST. get_icon() answers null the
+	# first time it is asked for an item and renders it in the background, so a panel that
+	# is not repainted when the render lands keeps whatever it painted at populate time —
+	# blank sockets — until something else happens to refresh it. The crate exchange was
+	# missing here, and its only other refresh triggers are inventory_changed and its own
+	# take/stow handlers, i.e. a CLICK: that is the owner's "the item graphic doesn't show
+	# right away until you click it" (2026-08-06), exactly, and it is why the pack panel
+	# beside it — which has always been on this list — never showed the same symptom.
 	_icons.icon_ready.connect(func(_id: String) -> void:
 		_refresh_hotbar()
 		_refresh_inventory_panel()
+		_refresh_crate_panel()      # no-ops unless the exchange is open
 		if bench_panel != null and bench_panel.visible:
 			bench_panel.refresh())
 	# A preview is rendered a frame or two after the click that asked for it; this is what
@@ -1149,7 +1158,27 @@ func open_bench(bench: Node3D) -> void:
 ## Called by a LootContainer's OPEN verb — crate ⇄ pack exchange view.
 func open_crate(container: LootContainer) -> void:
 	_crate = container
+	_prewarm_crate_icons(container)
 	toggle_panel("crate")
+
+## Owner call, 2026-08-06: every picture a container is about to show is asked for the moment
+## it opens, not the moment a socket is pointed at.
+##
+## The fill path already asks — BenchPanel.fill_slot calls get_icon on each socket — so this
+## is not what makes the renders happen. What it does is put BOTH columns' ids at the head of
+## the render queue, in the order the grids draw them, BEFORE the panel is built: a player who
+## has just picked up half a dozen new things has that many icons already queued behind them,
+## and without this the crate they open next waits its turn behind the pack's backlog.
+func _prewarm_crate_icons(container: LootContainer) -> void:
+	if _icons == null or not _icons.has_method("prewarm"):
+		return
+	var ids: Array[String] = []
+	if container != null and is_instance_valid(container):
+		for g in _group_counts(container.items):
+			ids.append(str(g[0]))
+	for g in _pack_groups():
+		ids.append(str(g[0]))
+	_icons.prewarm(ids)
 
 func toggle_panel(which: String) -> void:
 	var target: Panel = {"help": help_panel, "journal": journal_panel,
