@@ -1,6 +1,6 @@
 {
   "groom": {
-    "axis_dist_min_m": 0.0887780711054802,
+    "axis_dist_min_m": 0.0887780785560608,
     "body_node_pos_max_mm": {
       "cmp": "<",
       "pass": true,
@@ -15,42 +15,42 @@
     },
     "body_pos_max_mm": 0.0,
     "body_rot_max_deg": 0.0,
-    "head_speed_max_deg_s": 118.277766871217,
+    "head_speed_max_deg_s": 115.236134223422,
     "head_speed_p99_deg_s": {
       "cmp": "<",
       "pass": true,
       "threshold": 200.0,
-      "value": 117.467633864894
+      "value": 115.222956227193
     },
     "paw_axis_clearance_min_m": {
       "cmp": ">",
       "pass": true,
       "threshold": 0.05,
-      "value": 0.0887780711054802
+      "value": 0.0887780785560608
     },
     "paw_splay_max_m": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.1,
-      "value": 0.054980855435133
+      "value": 0.0560293607413769
     },
-    "splay_max": 0.054980855435133
+    "splay_max": 0.0560293607413769
   },
   "head_bias": {
     "head_yaw_mean_vs_travel_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 5.0,
-      "value": 0.0136795598404145
+      "value": 0.0106514656063466
     },
-    "max": 0.435328065850507,
-    "mean": -0.0136795598404145,
+    "max": 0.440416103113597,
+    "mean": -0.0106514656063466,
     "mesh_rest_bias_deg": {
       "cmp": "logged",
       "pass": true,
       "value": -4.48
     },
-    "min": -0.387926673115971,
+    "min": -0.380895428709107,
     "n": 239,
     "samples": {
       "cmp": "logged",
@@ -65,95 +65,95 @@
     "yaw_min_deg": {
       "cmp": "logged",
       "pass": true,
-      "value": -0.39
+      "value": -0.38
     }
   },
   "joints": {
     "L_Calf": {
       "max_deg": 77.3493218666694,
-      "min_deg": -6.8755023384491,
+      "min_deg": -6.87550237155435,
       "off_hinge_deg": 0.0000244035930444238
     },
     "L_Clavicle": {
-      "max_deg": 27.923076399492,
-      "min_deg": -26.8138870791075,
-      "off_hinge_deg": 0.0000197733144662677
+      "max_deg": 27.9144440368469,
+      "min_deg": -26.8514370025083,
+      "off_hinge_deg": 0.0000167153343928955
     },
     "L_Foot": {
-      "max_deg": 20.0834453342507,
-      "min_deg": -0.569109732028283,
-      "off_hinge_deg": 0.00000631464334191923
+      "max_deg": 28.6478968835442,
+      "min_deg": -0.56905097749026,
+      "off_hinge_deg": 0.00000630672828987225
     },
     "L_Forearm": {
-      "max_deg": 77.3493143945432,
+      "max_deg": 77.3493122661267,
       "min_deg": -6.87549681545952,
-      "off_hinge_deg": 0.0000195746019591008
+      "off_hinge_deg": 0.000019582928193257
     },
     "L_Hand": {
-      "max_deg": 26.0085996682664,
-      "min_deg": -8.60636668806915,
-      "off_hinge_deg": 0.0000109773010862878
+      "max_deg": 28.6478952290806,
+      "min_deg": -8.60631663105395,
+      "off_hinge_deg": 0.0000129269898589115
     },
     "L_Thigh": {
-      "max_deg": 9.25154394504296,
-      "min_deg": -23.3183425559332,
+      "max_deg": 9.39155389322552,
+      "min_deg": -23.3201215290249,
       "off_hinge_deg": 0.0000137815703991635
     },
     "L_ToeBase": {
-      "max_deg": 10.0417216562051,
-      "min_deg": -0.28456082191593,
-      "off_hinge_deg": 0.00000192099070406609
+      "max_deg": 21.6134212593641,
+      "min_deg": -0.284527772208876,
+      "off_hinge_deg": 0.00000514482739141246
     },
     "L_Upperarm": {
-      "max_deg": 5.76844916467133,
+      "max_deg": 7.2773879603846,
       "min_deg": -35.5233942647676,
-      "off_hinge_deg": 0.0000404236404746234
+      "off_hinge_deg": 0.0000383970191222537
     },
     "R_Calf": {
       "max_deg": 77.3493069337511,
       "min_deg": 15.1267342593065,
-      "off_hinge_deg": 0.0000068841704600663
+      "off_hinge_deg": 0.00000686345828086961
     },
     "R_Clavicle": {
-      "max_deg": 27.9269014194322,
-      "min_deg": -26.8517203382929,
-      "off_hinge_deg": 0.0000116517423373798
+      "max_deg": 27.9236429358982,
+      "min_deg": -26.8520913258262,
+      "off_hinge_deg": 0.0000177571916923461
     },
     "R_Foot": {
-      "max_deg": 20.0706477328571,
-      "min_deg": -0.569124551677169,
-      "off_hinge_deg": 0.00000541658660383768
+      "max_deg": 28.6478919201533,
+      "min_deg": -0.569130809304074,
+      "off_hinge_deg": 0.00000871988850845624
     },
     "R_Forearm": {
-      "max_deg": 77.349317598502,
+      "max_deg": 77.349316534294,
       "min_deg": -6.87550192888309,
       "off_hinge_deg": 0.000019605031063627
     },
     "R_Hand": {
-      "max_deg": 26.0045387979657,
-      "min_deg": -8.59926343584097,
-      "off_hinge_deg": 0.00000625887849857806
+      "max_deg": 28.6478903010417,
+      "min_deg": -8.60590030429994,
+      "off_hinge_deg": 0.0000107762501335414
     },
     "R_Thigh": {
-      "max_deg": 17.8479136363509,
-      "min_deg": -35.523396602168,
+      "max_deg": 21.1034227394485,
+      "min_deg": -35.5233933498592,
       "off_hinge_deg": 0.0000151094508591193
     },
     "R_ToeBase": {
-      "max_deg": 10.0353224800236,
-      "min_deg": -0.284561649006564,
-      "off_hinge_deg": 0.00000109357210079372
+      "max_deg": 21.6586277908188,
+      "min_deg": -0.2845614961665,
+      "off_hinge_deg": 0.00000242425114353593
     },
     "R_Upperarm": {
-      "max_deg": 4.80794407818564,
+      "max_deg": 7.59020148024128,
       "min_deg": -35.5233921811588,
-      "off_hinge_deg": 0.0000306193198126389
+      "off_hinge_deg": 0.0000282191692331462
     },
     "off_hinge_max_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 15.0,
-      "value": 0.0000404236404746234
+      "value": 0.0000383970191222537
     },
     "weakest_fold_bone": {
       "cmp": "logged",
@@ -173,7 +173,7 @@
     }
   },
   "run": {
-    "axis_dist_min_m": 0.156735733151436,
+    "axis_dist_min_m": 0.152078166604042,
     "body_node_pos_max_mm": {
       "cmp": "<",
       "pass": true,
@@ -188,29 +188,29 @@
     },
     "body_pos_max_mm": 0.0,
     "body_rot_max_deg": 0.0,
-    "head_speed_max_deg_s": 78.584451212542,
+    "head_speed_max_deg_s": 66.6104295031197,
     "head_speed_p99_deg_s": {
       "cmp": "<",
       "pass": true,
       "threshold": 200.0,
-      "value": 78.4222619673977
+      "value": 65.8643167136604
     },
     "paw_axis_clearance_min_m": {
       "cmp": ">",
       "pass": true,
       "threshold": 0.05,
-      "value": 0.156735733151436
+      "value": 0.152078166604042
     },
     "paw_splay_max_m": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.1,
-      "value": 0.0525241531431675
+      "value": 0.0524847581982613
     },
-    "splay_max": 0.0525241531431675
+    "splay_max": 0.0524847581982613
   },
   "sit": {
-    "axis_dist_min_m": 0.0887781158089638,
+    "axis_dist_min_m": 0.0887781009078026,
     "body_node_pos_max_mm": {
       "cmp": "<",
       "pass": true,
@@ -225,29 +225,29 @@
     },
     "body_pos_max_mm": 0.0,
     "body_rot_max_deg": 0.0,
-    "head_speed_max_deg_s": 135.84675084586,
+    "head_speed_max_deg_s": 135.769898411093,
     "head_speed_p99_deg_s": {
       "cmp": "<",
       "pass": true,
       "threshold": 200.0,
-      "value": 133.48996419067
+      "value": 133.384629867063
     },
     "paw_axis_clearance_min_m": {
       "cmp": ">",
       "pass": true,
       "threshold": 0.05,
-      "value": 0.0887781158089638
+      "value": 0.0887781009078026
     },
     "paw_splay_max_m": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.1,
-      "value": 0.0562011525034904
+      "value": 0.055585689842701
     },
-    "splay_max": 0.0562011525034904
+    "splay_max": 0.055585689842701
   },
   "stand_walk": {
-    "axis_dist_min_m": 0.169659405946732,
+    "axis_dist_min_m": 0.161733731627464,
     "body_node_pos_max_mm": {
       "cmp": "<",
       "pass": true,
@@ -262,25 +262,25 @@
     },
     "body_pos_max_mm": 0.0,
     "body_rot_max_deg": 0.0,
-    "head_speed_max_deg_s": 7.31429296806342,
+    "head_speed_max_deg_s": 10.9041483483509,
     "head_speed_p99_deg_s": {
       "cmp": "<",
       "pass": true,
       "threshold": 200.0,
-      "value": 6.72544368341811
+      "value": 9.70941459357917
     },
     "paw_axis_clearance_min_m": {
       "cmp": ">",
       "pass": true,
       "threshold": 0.05,
-      "value": 0.169659405946732
+      "value": 0.161733731627464
     },
     "paw_splay_max_m": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.1,
-      "value": 0.0244666188955307
+      "value": 0.0283053740859032
     },
-    "splay_max": 0.0244666188955307
+    "splay_max": 0.0283053740859032
   }
 }

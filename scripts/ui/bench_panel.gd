@@ -106,6 +106,7 @@ func _ready() -> void:
 	var title := Label.new()
 	title.text = "RIGGING BENCH        lay parts · work them"
 	title.add_theme_font_size_override("font_size", 17)
+	title.add_theme_stylebox_override("normal", _text_plate())
 	vbox.add_child(title)
 	# The pack's hazard-stripe rule, same colour and same 3 px, so the two panels read as
 	# one piece of kit rather than two different UIs.
@@ -120,6 +121,7 @@ func _ready() -> void:
 	laid_caption.text = "ON THE BENCH — click a part to take it back"
 	laid_caption.add_theme_font_size_override("font_size", 13)
 	laid_caption.add_theme_color_override("font_color", Color(0.65, 0.7, 0.68))
+	laid_caption.add_theme_stylebox_override("normal", _text_plate())
 	vbox.add_child(laid_caption)
 	var laid_row := HBoxContainer.new()
 	laid_row.add_theme_constant_override("separation", 8)
@@ -143,6 +145,10 @@ func _ready() -> void:
 	var match_scroll := ScrollContainer.new()
 	match_scroll.custom_minimum_size = Vector2(0, MATCH_LINE_H * MATCH_VISIBLE_LINES)
 	match_scroll.horizontal_scroll_mode = ScrollContainer.SCROLL_MODE_DISABLED
+	# The densest text in the panel and the only run that scrolls, so it gets the heaviest
+	# plate: a recipe name half-crossed by a bright part on the bench behind is unreadable
+	# in exactly the moment the player is deciding what to make.
+	match_scroll.add_theme_stylebox_override("panel", _text_plate(0.82))
 	vbox.add_child(match_scroll)
 	_match_label = RichTextLabel.new()
 	_match_label.bbcode_enabled = true
@@ -171,6 +177,7 @@ func _ready() -> void:
 	pack_title.text = "YOUR PACK — click a part to lay it on the bench"
 	pack_title.add_theme_font_size_override("font_size", 13)
 	pack_title.add_theme_color_override("font_color", Color(0.65, 0.7, 0.68))
+	pack_title.add_theme_stylebox_override("normal", _text_plate())
 	vbox.add_child(pack_title)
 	var pack_scroll := ScrollContainer.new()
 	pack_scroll.custom_minimum_size = Vector2(0, PACK_SLOT_PX * 2 + 14)
@@ -207,7 +214,27 @@ func _ready() -> void:
 	_hover_label.add_theme_font_size_override("font_size", 14)
 	_hover_label.add_theme_color_override("font_color", Color(0.88, 0.88, 0.84))
 	_hover_label.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_hover_label.add_theme_stylebox_override("normal", _text_plate())
 	vbox.add_child(_hover_label)
+
+## A near-black backing plate for one run of text.
+##
+## The panel field behind these is deliberately translucent (hud._locker_panel_style(0.34),
+## owner 2026-08-07: "so player can see items added on the table"), which means no text run
+## in here can borrow its contrast from the panel any more — the bench top, a lit worklight
+## and whatever the player just laid down are all visible through it. Slots do not need one:
+## `slot_button` gives every socket an opaque bg, so icons and their name strips already sit
+## on solid ground. Tone and 0.72 are the slot name strip's (`tag_style`), so the plates read
+## as the same piece of kit rather than as a second UI laid over the first.
+static func _text_plate(alpha: float = 0.72) -> StyleBoxFlat:
+	var s := StyleBoxFlat.new()
+	s.bg_color = Color(0.02, 0.02, 0.025, alpha)
+	s.set_corner_radius_all(3)
+	s.content_margin_left = 6
+	s.content_margin_right = 6
+	s.content_margin_top = 3
+	s.content_margin_bottom = 3
+	return s
 
 ## One pack-style slot: a square riveted socket with the item's own render filling it and an
 ## always-visible name/count strip along the bottom.

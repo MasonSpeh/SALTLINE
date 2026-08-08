@@ -739,9 +739,16 @@ func _panel_style() -> StyleBoxFlat:
 ## gl_compatibility-friendly static theming, so the "riveted plate" read comes from a
 ## flat dark-steel bg plus a warm rust border rather than an actual texture — cheap,
 ## and it never redraws per frame.
-func _locker_panel_style() -> StyleBoxFlat:
+##
+## `bg_alpha` is the only thing callers vary. The pack and the crate are read against
+## nothing but themselves and stay near-opaque; the bench is read against the bench TOP it
+## covers, because the parts the player lays are real geometry standing on that top
+## (BenchPanel.LAY_WORLD_SIZE / _part_visuals), directly behind this plate. The border,
+## the shadow and the corner rivets keep full alpha at any bg_alpha — it is the FIELD that
+## has to be see-through, not the frame, or the panel stops reading as a panel at all.
+func _locker_panel_style(bg_alpha: float = 0.97) -> StyleBoxFlat:
 	var s := StyleBoxFlat.new()
-	s.bg_color = Color(0.10, 0.105, 0.115, 0.97)   ## MatLib.dark_metal's tone, flattened for UI
+	s.bg_color = Color(0.10, 0.105, 0.115, bg_alpha)   ## MatLib.dark_metal's tone, flattened for UI
 	s.border_color = Color(0.42, 0.27, 0.15, 0.95)  ## rust_steel — the locker's worn edge
 	s.set_border_width_all(3)
 	s.set_corner_radius_all(3)   ## near-square: a toolbox corner, not a rounded app card
@@ -1030,7 +1037,15 @@ splice the burned cable → throw Master Breaker 4-A → when night falls,
 	bench_panel = BenchPanel.new()
 	# The pack's own crew-locker steel, not the generic panel: the bench is the same kit
 	# (owner, 2026-07-30: "that should also have UI updated like the inventory").
-	bench_panel.add_theme_stylebox_override("panel", _locker_panel_style())
+	#
+	# Owner, 2026-08-07: "make crafting UI background low opacity so player can see items
+	# added on the table." The panel is centred on a 720 x 620 rect and the bench top it
+	# opens over is directly behind it, so at 0.97 the panel hid the one thing laying a
+	# part is supposed to show you. 0.34 is the field alpha; the frame, shadow and rivets
+	# stay opaque. Legibility does NOT ride on this number — every text run inside the
+	# panel carries its own near-black backing plate (BenchPanel._text_plate) and every
+	# icon sits in an opaque slot socket, so contrast survives a lit plank behind it.
+	bench_panel.add_theme_stylebox_override("panel", _locker_panel_style(0.34))
 	bench_panel.z_index = PANEL_Z
 	# Share the pack's icon renderer rather than starting a second one — an icon costs a
 	# SubViewport render per distinct item and the pack has already paid for everything the

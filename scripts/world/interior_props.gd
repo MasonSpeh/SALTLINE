@@ -374,6 +374,19 @@ func _wet_deck() -> void:
 	# Crate, 2.20 m from the lifebuoy's bracket, and 3.39 m of open floor west of it. That
 	# wall was the ready-room archway until s36 walled it up, which is what freed it.
 	_pc("steel_frame_shelves_01", Vector3(17.65, y, -9.5), -90)
+	# THE BOLT CUTTERS, off the machine-shop bench (owner: spread the tools out). Seized bolts
+	# are pipework's problem, the rack was standing empty, and a cutter STANDS — this prop's
+	# mesh is 0.6 m tall on its long axis, so a rack is the one place upright reads right.
+	# TWO measured numbers, not one: the same prop id on Deck D was measured with its top at
+	# y+1.0 (see _deck_d_works), and this prop's ORIGIN sits 0.65 m ABOVE its mesh base — off
+	# the sonar scan, where an authored y 18.96 put the mesh at 18.31..18.91. Authoring at the
+	# surface top is therefore the bug, not the fix: it drops the base 0.65 m under the top,
+	# support_top's rise allowance (base + half-height) can no longer see that surface, and
+	# the settle picks whatever is BELOW it. That is exactly what had happened on the shop
+	# bench — both this and the crowbar were standing on the bench's LOWER SHELF (top 18.305)
+	# with their heads through the work top. +1.65 = rack top +1.0 plus the 0.65 offset, so
+	# the base starts on the boards and the settle only has to nudge it.
+	_p("bolt_cutters_01", Vector3(17.65, y + 1.65, -9.5), -90)
 	_pc("worn_metal_rack", Vector3(10.38, y, -8.6), -90)         # rack flush on the west wall (face x 10.125)
 	_p("medical_tape", Vector3(10.38, y + 1.3, -8.5), 30)        # first-aid on the rack shelf
 	# Authored onto the rack shelf, but SupportIndex never sees the GLB's thin shelf
@@ -1539,9 +1552,11 @@ func _rec_room_more() -> void:
 func _machine_shop_more() -> void:
 	var y: float = DECK_Y
 	var bench: float = y + 0.96
-	# The rest of the tool wall, resting on the fitter's bench top.
-	_p("crowbar_01", Vector3(-20.55, bench, -12.55), 60)
-	_p("bolt_cutters_01", Vector3(-19.05, bench, -11.7), -40)
+	# THE VICE IS THE ONLY LOOSE TOOL LEFT ON THIS BENCH. The crowbar went to the store room
+	# (_scatter_wetdeck) and the bolt cutters to the pump room's spares rack (_wet_deck) —
+	# owner: "all the tools shouldnt just be in the machine shop, maybe have 2-3 in there",
+	# and rig_builder cut the same bench's pocketable set from six to two in the same pass.
+	# A bench vice is not a hand tool that could live anywhere else; it is what a bench is for.
 	_p("bench_vice_01", Vector3(-18.9, bench, -12.0), 0)
 	# The shelf run FLUSH on the west wall (inner face -27.875) with its tins riding along —
 	# the whole line sat 1.3m off the wall before the sonar audit caught it. Declutter pass:
@@ -1623,6 +1638,17 @@ func _scatter_wetdeck() -> void:
 	_pc("metal_jerrycan", Vector3(11.0, w, -16.7), 25)    # jerry cans by the west shelf head
 	_p("wooden_bucket_01", Vector3(13.7, w + 0.05, -21.4), 0)   # bucket against the south wall
 	_p("Lantern_01", Vector3(15.3, w + 1.05, -16.7), 0)   # lantern on the barrels = the room light
+	# THE CROWBAR, off the machine-shop bench (owner: spread the tools out). Stood in the
+	# store room's SE angle, which is where a pry bar lives: the mesh is 0.7 m tall on its
+	# long axis, so upright only reads if two walls are behind it. Interior faces are
+	# x 15.875 and z -21.875 (0.25 walls on x16 / z-22), so 0.5 m in from each keeps it clear
+	# of the corner post. Nothing else is in that angle — nearest are the bucket at
+	# (13.7, -21.4), 1.65 m, and the wicker basket at (14.6, -20.6), 1.06 m — and it is clear
+	# of the north door lane (x 12.39..13.61) and the central crate at z -20.
+	# +0.65, not +0.0: this prop's origin sits 0.65 m above its mesh base (measured off the
+	# sonar scan — see the bolt-cutter note in _wet_deck for the whole trap), so authoring at
+	# the floor would bury the bar and let the settle hunt for a surface underneath it.
+	_p("crowbar_01", Vector3(15.35, w + 0.65, -21.35), 25)
 	_lamp(Vector3(15.0, w + 1.2, -16.9), Color(1.0, 0.85, 0.55), 0.5, 4.5)
 	# SPHL interior — the survivor's few things on the aft benches (all west of x18).
 	_p("modified_thermos", Vector3(16.6, w + 0.75, -24.9), 10)

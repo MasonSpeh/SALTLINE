@@ -754,7 +754,14 @@ func _companion(delta: float, player: Node3D) -> void:
 			# Stationary only: a moving cat's chatter-watch is fully suppressed at the
 			# rig feed (see _drive_rig) — the 0.22 walking whisper this used to carry was
 			# still a visible head-turn, and the owner's rule is absolute.
-			_watch(n.global_position, 1.0)
+			# 0.10 WHILE MOVING, and this is the last of "still crooked to the right a
+			# little bit". The bare rig measures 0.00 deg off the travel line
+			# (tests/NoseScratch.tscn), so the residual was never the bake — it was this:
+			# a gull in the air anywhere within eleven metres held the head over at FULL
+			# weight for as long as the bird stayed up, which on a 1.05 rad clamp is a
+			# standing lean of tens of degrees. A moving cat notices a bird; it does not
+			# stare at one.
+			_watch(n.global_position, 0.10 if _last_speed > 0.2 else 1.0)
 			if _rig != null:
 				if _last_speed <= 0.2:
 					_rig.call("chatter", 1.0)
@@ -1966,13 +1973,25 @@ func _idle_attention(delta: float, ppos: Vector3, d: float) -> void:
 	# to a radian, so letting it run during FOLLOW would hand all of that straight back for
 	# the sake of an idle flourish. A settled cat looks around; a walking one looks where she
 	# is going.
-	if _last_speed > 0.2 or _state in [State.FOLLOW, State.RUN, State.STALK, State.POUNCE,
-			State.PLAY, State.GIFT, State.JUMP]:
+	# ...BUT IT DOES GLANCE. Suppressing the layer outright was the right answer to "the head
+	# defaults sideways" and the wrong one to "the cat should look around as it walks": a
+	# companion whose head is welded to its travel line for a whole walk is a vehicle. The
+	# two asks only conflict if a glance is a HELD STARE, which is what a full-weight look
+	# is. A WALKING glance is brief, shallow, and returns all the way to zero — so straight
+	# ahead is the RESTING state of the head, not an average it passes through. Predatory and
+	# errand states keep the hard suppression: a stalk, a pounce and a leap aim the head
+	# deliberately, and a gift-carry wants its eyes on the person.
+	if _state in [State.STALK, State.POUNCE, State.GIFT, State.JUMP]:
 		_glance_hold = 0.0
+		return
+	var walking: bool = _last_speed > 0.2 \
+		or _state in [State.FOLLOW, State.RUN, State.PLAY]
+	if walking and _glance_hold <= 0.0 and _glance_cd > 0.0:
+		_glance_cd -= delta
 		return
 	if _glance_hold > 0.0:
 		_glance_hold -= delta
-		_watch(_glance_at, 0.85)
+		_watch(_glance_at, 0.25 if walking else 0.85)
 		return
 	_glance_cd -= delta
 	if _glance_cd > 0.0:
@@ -2001,8 +2020,20 @@ func _idle_attention(delta: float, ppos: Vector3, d: float) -> void:
 		var a: float = rotation.y + _rng.randf_range(-2.2, 2.2)
 		_glance_at = global_position + Vector3(sin(a), 0, cos(a)) * _rng.randf_range(3.0, 9.0) \
 			+ Vector3(0, _rng.randf_range(-0.1, 1.1), 0)
-	_glance_hold = _rng.randf_range(0.7, 2.6)
-	_glance_cd = _rng.randf_range(1.1, 4.5)
+	# A settled cat studies a thing; a walking one flicks at it and looks back. Short holds
+	# and long gaps are what keep straight-ahead the head's resting state.
+	if walking:
+		# RARE AND SHALLOW, and the numbers are chosen against the gate rather than by
+		# taste: CatReviewProbe measures the head's rms yaw off the travel line at 3.5 deg,
+		# which IS the owner's "straight by default" written down. A glance at weight 0.25
+		# of the 1.05 rad look clamp is ~15 deg, so the duty cycle has to stay near 3% for
+		# the rms to stay under the bar — 0.45 s of glancing in every 14 is exactly that,
+		# and it still gives roughly four looks a minute while walking.
+		_glance_hold = _rng.randf_range(0.30, 0.60)
+		_glance_cd = _rng.randf_range(9.0, 20.0)
+	else:
+		_glance_hold = _rng.randf_range(0.7, 2.6)
+		_glance_cd = _rng.randf_range(1.1, 4.5)
 
 ## A WASH IS A BOUT, NOT A LOOP. It runs for a few seconds in ONE style and stops, and the
 ## next one is a different style — which is the difference between a cat grooming and an

@@ -226,9 +226,38 @@ static func sphl_grey() -> StandardMaterial3D:
 	## look of a lifeboat that has ridden a lot of sea.
 	return _pbr("sphl_grey", "PaintedMetal013", Color(0.62, 0.66, 0.7), 0.32, 1.0, 0.05, Color(0.5, 0.54, 0.58))
 
+## THE HI-VIS BAND, AND WHY IT GLOWED.
+##
+## Owner report: "remove red lines" — bright neon-red strips seen from inside the pod in
+## the cold open. It is the only saturated geometry in that room: the two `_sphl_bench`
+## nosings wear it, and so does the hull band the player walks past on the way out.
+##
+## PaintedMetal004 is the RED paint set: it is what `red_paint()` above is built from, and
+## its colour map measures linear (0.932, 0.072, 0.071) mean with a 99.9th percentile of
+## (1.000, 0.666, 0.673). Tinting THAT by (1.3, 0.6, 0.2) to reach "orange" multiplies an
+## already-saturated red by 1.3, so peak albedo was (1.30, 0.40, 0.13). An albedo over 1.0
+## returns more light than falls on it; the pod's red emergency lamp (rig_builder
+## `_build_sphl`, Color(0.9, 0.15, 0.1) at energy 1.6, 5 m range) sits two metres from the
+## nosings, so the 60 x 40 mm strips clipped to pure red and bloomed. Nothing else in that
+## room is saturated, which is why they read as neon piping stuck to grey walls.
+##
+## `sphl_orange()` above already records the same finding one line at a time ("the red
+## paint set reads fire-red") and solves it by boosting a NEUTRAL base. That cannot be done
+## on a red base at any tint: the green a hi-vis orange needs is not in the map to scale.
+## So the base moves to PaintedMetal013 — the grey paint `sphl_grey()` is already made of,
+## which keeps hull and band in one paint family — and the tint is SOLVED, not eyeballed:
+## base linear mean (0.4292, 0.3983, 0.3861) x this tint lands on (0.440, 0.165, 0.028), a
+## real international-orange a shade brighter than sphl_orange's (0.313, 0.140, 0.036), and
+## the map's 99.9th percentile x this tint peaks at (0.964, 0.389, 0.068) — under 1.0 on
+## every channel, so no pixel of it can bloom under any light on the rig.
+##
+## uv 0.32 is `sphl_grey()`'s, not the 0.4 that came off the old base. Both materials are now
+## the same map under world-space triplanar, and the band is painted straight onto the hull:
+## at matching scale the grain runs continuously across the joint, and at 0.4 the 0.5 m band
+## would have carried a fifth of a tile against the hull's third of one.
 static func sphl_hi_vis() -> StandardMaterial3D:
 	## The one bright band a grey hull still needs by law — retro-orange accent.
-	return _pbr("sphl_hivis", "PaintedMetal004", Color(1.3, 0.6, 0.2), 0.4, 1.0, 0.0, Color(0.85, 0.42, 0.12))
+	return _pbr("sphl_hivis", "PaintedMetal013", Color(1.025, 0.414, 0.072), 0.32, 1.0, 0.0, Color(0.69, 0.44, 0.20))
 
 # ---------- mineral & organic ----------
 

@@ -1027,7 +1027,20 @@ func _build_stair_tower() -> void:
 	# Machinery room (y=6) off landing 1 — holds the cable spool. Outer (far) edge grows
 	# with the shell; near edge (door side) is untouched so nothing inside it moves.
 	_room_north(Vector3(24, 6.0, 2), Vector3(TOWER_X1, 6.0, 8.8), MatLib.concrete(), 0.75)
-	_box(Vector3(27, 6.0 + 0.5, 6), Vector3(2.2, 1.0, 1.2), MatLib.dark_metal()) # dead machinery
+	# The dead machinery, declared rather than repeated: the spanner below rests on its top
+	# face, so the two cannot drift apart.
+	var mach_c := Vector3(27, 6.0 + 0.5, 6)
+	var mach_size := Vector3(2.2, 1.0, 1.2)
+	_box(mach_c, mach_size, MatLib.dark_metal())
+	# THE SPANNER, off the machine-shop bench (owner: spread the tools out). A machine space
+	# is where a combination wrench is put down, and this room is on the stair-tower climb
+	# every player makes from the wet deck to topside, so it is found on the way rather than
+	# hunted for. Top face is derived from the box above (centre 6.5, 1.0 thick -> y 7.0);
+	# footprint x 25.9..28.1, z 5.4..6.6. This lands 0.40 m in from the west edge and 0.50 m
+	# from the south, 1.10 m from interior_props' oil tin at (27.4, 6.2) and 1.10 m from the
+	# dead gauge _decorate_electrical() stands off the south face at (27, 7.1, 5.35).
+	_takeable_model("spanner", "combination_wrench", "Spanner",
+		Vector3(26.3, mach_c.y + mach_size.y * 0.5 + 0.05, 6.1), 100)
 	# (The cable spool no longer lives here — moved to the PUMP ROOM on the wet deck, so
 	# the player finds the cable down low near spawn and carries it UP to the breaker,
 	# instead of it sitting one landing below the panel. Placed in _wet_deck-side dressing.)
@@ -2665,6 +2678,17 @@ func _decorate_galley() -> void:
 	galley_line.global_position = Vector3(9.5, y + 2.35, 17.4)
 	for i in range(3):
 		_cyl_nc(Vector3(8.3 + i * 1.1, y + 1.95, 17.4), 0.22, 0.04, MatLib.dark_metal())
+	# THE SCREWDRIVER, off the machine-shop bench (owner: spread the tools out, and a rig is a
+	# lived-in place — one tool should be somewhere slightly wrong). Somebody carried it up to
+	# the mess to get the boombox open and left it on the servery, which is a joke the world
+	# already supports: interior_props stands that boombox at (9.0, y+1.2, 17.1) and
+	# SalvageTable makes it an "electrical" station whose stated gate is a screwdriver.
+	# The servery counter is `_box(Vector3(6, y + 0.5, 17), Vector3(10, 1.0, 1.2))`, so its top
+	# is y+1.0 (x 1..11, z 16.4..17.6) — the same datum the hob rings above use. x 8.3 / z 16.85
+	# is the one clear patch left on a very stocked counter: 0.74 m to the boombox, 0.74 m to
+	# the carved plate at (7.6, 17.1), 1.12 m to the enamel pot at (9.4, 16.6), and the pan
+	# rail overhead is 1.2 m clear.
+	_takeable_model("screwdriver", "screwdriver", "Screwdriver", Vector3(8.3, y + 1.02, 16.85), 60)
 
 func _decorate_rec_room() -> void:
 	var y: float = DECK_Y
@@ -2738,15 +2762,22 @@ func _decorate_machine_shop() -> void:
 	_box(Vector3(-19.85, y + 0.82, -12.85), Vector3(2.5, 0.07, 0.07), MatLib.dark_metal(), self, false)
 	_box(Vector3(-19.85, y + 0.82, -11.25), Vector3(2.5, 0.07, 0.07), MatLib.dark_metal(), self, false)
 
-	# Six hand tools you can actually pocket, left lying where the last shift put
-	# them. The glTF shop models carry the look; the item ids are the inventory.
-	_takeable_model("wrench", "pipe_wrench", "Pipe Wrench", Vector3(-19.2, bench_top, -12.3), 130)
-	_takeable_model("hammer_tool", "cross_pein_hammer", "Hammer", Vector3(-20.0, bench_top, -11.45), 20)
-	_takeable_model("spanner", "combination_wrench", "Spanner", Vector3(-19.45, bench_top, -12.62), 100)
-	_takeable_model("screwdriver", "screwdriver", "Screwdriver", Vector3(-20.45, bench_top, -12.05), 60)
+	# TWO pocketable hand tools, not six. Owner: "all the tools shouldnt just be in the
+	# machine shop, maybe have 2-3 in there." This 2.7 x 1.7 m top carried the entire
+	# pocketable set (wrench, hammer, spanner, screwdriver, file, saw) plus the crowbar, the
+	# bolt cutters and the vice — ten tool objects on one bench, and every recipe tool in the
+	# game in one room. The four that left are now in the rooms whose work they belong to:
+	#   wrench      -> the dead pump's casing, _decorate_pump_room()
+	#   spanner     -> the stair-tower machinery room, _build_stair_tower()
+	#   screwdriver -> the galley servery, _decorate_galley()
+	#   hammer      -> the mooring windlass, wet_deck_detail._mooring_station()
+	# These two stay because this room's own readable keeps them here: `raft_plan`, the
+	# drafting sketch on the shop glass at (-13.85, y+1.15, -13.5), ends "The saw is still
+	# set in the last cut" — and a file belongs at the vice that stays on this bench.
+	#
 	# No file or hacksaw in the glTF library, and ItemVisual builds both standing
 	# on end (right for a dropped item, wrong for a bench) — so these two are laid
-	# down by hand to match the tools already lying around them.
+	# down by hand to match the bench they lie on.
 	_takeable_custom("hand_file", "Hand File", Vector3(-18.8, bench_top, -12.4), _file_visual(), -30, 0.3)
 	_takeable_custom("hacksaw", "Hacksaw", Vector3(-20.9, bench_top, -11.55), _hacksaw_visual(), 12, 0.38)
 
@@ -2825,6 +2856,16 @@ func _decorate_pump_room() -> void:
 	# On the casing TOP, derived: the pump moved out of the doorway in s36 and a torch
 	# authored at its old xz would have been left hanging over open deck.
 	_takeable("flashlight", "Flashlight", Vector3(PUMP_C.x - 0.35, pump_top_y() + 0.05, PUMP_C.z))
+	# THE PIPE WRENCH, off the machine-shop bench (owner: spread the tools out). This is the
+	# one room on the rig whose whole subject is pipework, and `wrench` is the tool that gates
+	# every "plumbing" salvage station (SalvageTable.CATS) plus the workbench recipe — so it
+	# has to stay findable early, and the pump room is a wet-deck room three doors from spawn.
+	# Height is pump_top_y(), the same derived casing top the flashlight and the prybar use;
+	# both of those sit on the casing's centre line (z = PUMP_C.z), so this takes the free
+	# NORTH strip. Casing top is 1.5 x 1.5 (x 10.25..11.75, z -7.95..-6.45): +0.45 in z leaves
+	# 0.30 m to the north lip, 0.45 m to the flashlight and 0.79 m to the prybar.
+	_takeable_model("wrench", "pipe_wrench", "Pipe Wrench",
+		Vector3(PUMP_C.x - 0.30, pump_top_y() + 0.02, PUMP_C.z + 0.45), 110)
 	# Pipe runs along the north wall, one valve wheel each.
 	for py in [2.6, 3.2]:
 		var pipe := _cyl_nc(Vector3(14, y + py, -6.5), 0.12, 7.0, MatLib.rusty_metal())

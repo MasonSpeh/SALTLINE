@@ -320,3 +320,33 @@ landed and nobody updated the file.
   distance — and that wants a level-cruise reel, which no harness films today (CatFilm's
   hunt reel only ever catches the flush). If it does want replacing, the fix is a better
   planform (a 3-4 segment tapered strip with a wrist bend), not a different rotation.
+
+## Open after s49 — CatReviewProbe was calibrated against a constant, and now measures
+
+- **CatReviewProbe's gates have never been meaningful, and 13 now fail honestly for the first
+  time.** Two instrument faults, both found by the same tell this repo keeps re-learning — a
+  number that will not move is not a measurement:
+  * it re-enabled the cat's engine `_process` after calibration and ALSO hand-fed it a fixed
+    dt, so every scenario DOUBLE-TICKED (the identical bug s44 found in CatJointProbe, fixed
+    there and not in its sibling);
+  * `_calibrate` posed the skeleton with `reset_bone_poses()`, which restores the SKELETON's
+    rest — but cat_rig corrects the stand mesh's turned head in its OWN `_rest` dict and never
+    writes it back, so the forward axis was wrong by exactly HEAD_MESH_YAW. `head_yaw_rms_deg`
+    printed 19.0534 / 19.0534 / 19.0537 across three runs with materially different gait,
+    glance and clock settings. Fixed: 19.05 -> 0.03 deg, and the run row 0.17.
+  With the instrument honest, these remain and are REAL, not artefacts of the old inflation —
+  they were simply invisible underneath it:
+      [walk] slide_frame 15.3 mm/frame (gate 10)      [walk] joint_step 0.68 rad (gate 0.35)
+      [run] joint_step 0.96                            [stalk] slide_frame 10.4, window 20.8
+      [stalk] joint_step 1.47                          [carry] joint_step 0.79
+      [lookwalk] slide_frame 16.6, joint_step 0.65     [transitions] joint_step 0.67
+      [bigdt] summed joint_step 1.09, turn equivalence 6.0 deg
+      [lookwalk] head_yaw_toward_target 0.00 (the glance no longer fires while walking by
+        design — this gate encodes the OLD full-weight stare and needs rewriting, not the
+        animal changing)
+  The joint_step cluster is one cause, not eight: the s49 paw curl and deeper swing fold add
+  fast terms to the distal joints, and the slew limiter that bounds `_solve_leg` does not see
+  layers applied after it. The slide cluster is the stub right hind at the edge of its
+  reachable set. DO NOT widen these thresholds — they were set against the inflated numbers
+  and are if anything too generous. Next session starts here, with the paw-curl rate and the
+  limiter's coverage.

@@ -725,6 +725,22 @@ func _prep_ik() -> void:
 			# hinds by different amounts and put the limp straight back.
 			# 0.94: +-28 deg of swing (s45c raised it from +-25 for the owner's longer stride;
 			# the out-of-reach vertical give absorbs the extremes the same way it always has).
+			# 1.05 rather than 0.94: the owner asked for a "wider, slower gait", and at a
+			# fixed speed those are ONE request — stride is `sweep / duty`, so more ground
+			# per cycle IS fewer steps per second. 0.94*c0 is 2*c0*sin(28 deg); 1.05 is
+			# sin(31.7), still inside a cat's hip excursion, and it takes the walk stride
+			# from 0.29 m to 0.33 m — about an 11% drop in cadence at WALK_SPEED, which is
+			# what reads as unhurried rather than mincing.
+			# 0.94 IS THIS RIG'S CEILING, AND THE OWNER'S "wider gait" CANNOT HAVE MORE.
+			# Stride is `sweep / duty`, so a wider stride is genuinely what was asked for —
+			# but the sweep is set by the SHORTEST chain, and this rig's right hind is a stub
+			# whose rest reach (0.192 m) IS its full bone length: it is already at the edge of
+			# its reachable set standing still. Pushing to 1.05*c0 asked that leg for ground
+			# it does not have, the solve clamped, and foot-lock went with it — measured at
+			# 14.7 mm/frame of in-stance paw drift against a 10 mm gate, i.e. visible skating,
+			# which is a worse gait than a slightly quick one. The width the owner can have
+			# comes from the paw curl, the deeper fold and the bob instead; the rest needs the
+			# re-rig (docs/CAT_RIG_CEILING.md).
 			"sweep_max": 0.94 * c0,
 			# Which side of the chain line the knee sits on, so the thigh's own rotation adds
 			# or subtracts the triangle's apex angle.
@@ -1269,7 +1285,11 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		# Walk amplitude is the spec's ±2% of shoulder height (~±6 mm) — bigger reads well
 		# but pushes the straight-bound left hind past its reach at every bob peak, and the
 		# clamp pops the knee. The out-of-reach vertical give below scales with the same mix.
-		var bob_amp: float = lerpf(0.010, 0.045, mix)
+		# "Very slightly bouncy like a real cat" — the walk end was the spec's +-2% of
+		# shoulder height (~6 mm each way) and read as a glide. 18 mm is nearer a real cat's
+		# step, and still small enough not to push the straight-bound left hind past its
+		# reach at the bob peaks, which is what pops that knee.
+		var bob_amp: float = lerpf(0.018, 0.045, mix)
 		bob_amp += maxf(1.0 - absf(mix - 0.5) * 2.0, 0.0) * 0.010
 		var bob_min_ph: float = lerpf(0.125, 0.15, mix)
 		_reach_give = 0.018 + 0.04 * mix
@@ -1394,10 +1414,36 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# the legs for real.
 			if ph > duty:
 				var s_sw: float = (ph - duty) / maxf(1.0 - duty, 1e-4)
-				var fold_amp: float = (0.42 if fore else 0.36) * lerpf(1.0, 0.45, mix)
+				# DEEPER THAN THE FIRST CUT (0.42/0.36). The owner watched the s48 walk and
+				# asked for more bend, and the reference agrees: a cat's stifle cycles about
+				# 37 degrees through a walk and the elbow folds hard as the paw comes
+				# through. 0.62 fore is ~36 deg of authored fold on top of whatever the IK
+				# already needs, and still well inside ROM_DIST_FOLD's 1.35.
+				var fold_amp: float = (0.62 if fore else 0.52) * lerpf(1.0, 0.45, mix)
 				var kn: float = float(_ik.get(limb_key, {}).get("knee", 1.0))
 				_mul(L["dist"], Quaternion(_hinge_of(L["dist"]),
 					kn * sin(PI * s_sw) * fold_amp * step_w))
+				# THE PAW CURLS AS IT LEAVES THE GROUND AND OPENS FOR THE PLANT — the owner's
+				# "curled paw when raised/knee bent, then straightening out with leg on
+				# forward movement". It reads at game distance because a folded paw has an
+				# unmistakable silhouette. Peaked EARLY in swing (the curl happens at
+				# toe-off, not mid-air — hence the 0.65 power on the phase) and driven back
+				# to zero before touchdown, because a paw still curled at the plant is
+				# exactly the toy-horse read the toe roll exists to avoid.
+				# THE PROFILE MUST HAVE A FINITE DERIVATIVE AT TOE-OFF. The first cut used
+				# `sin(PI * pow(s_sw, 0.65))` to bias the peak early, and pow(x, 0.65)
+				# differentiates to 0.65*x^-0.35 — INFINITE at x = 0, i.e. exactly at the
+				# instant the paw leaves the ground. Measured: worst joint step 0.646
+				# rad/frame against a 0.35 gate, a pop once per stride per paw. Compressing
+				# the sine's own argument moves the peak to 36% of swing with the same early
+				# bias and a bounded slope everywhere, and it closes itself by 71% — so the
+				# separate open-out term is gone too.
+				var curl: float = sin(PI * clampf(s_sw * 1.4, 0.0, 1.0))
+				var curl_open: float = 1.0
+				_mul(L["paw"], Quaternion(_hinge_of(L["paw"]),
+					kn * curl * curl_open * (0.34 if fore else 0.28) * step_w))
+				_mul(L["toe"], Quaternion(_hinge_of(L["toe"]),
+					kn * curl * curl_open * 0.22 * step_w))
 			_mul(L["paw"], Quaternion(_hinge_of(L["paw"]), paw))
 			# THE TOE. A paw that never rolls through the plant is the other half of the toy
 			# horse: contact is heel-ish down, roll forward, push off the toes.

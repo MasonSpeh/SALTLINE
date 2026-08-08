@@ -142,8 +142,25 @@ func _pin() -> void:
 		float(GameClock.phase_durations_minutes[GameClock.Phase.DAY]) * 60.0 * 0.45
 
 func _calibrate() -> void:
+	# CALIBRATE AGAINST THE RIG'S REST, NOT THE SKELETON'S — they are not the same pose, and
+	# the difference is a constant this probe has been reporting as a defect.
+	#
+	# cat_rig corrects the stand mesh's turned head at load by rotating its OWN `_rest` entry
+	# for the Head bone (HEAD_MESH_YAW); it never writes that back to the Skeleton3D's bone
+	# rest. So `reset_bone_poses()` restores the UNCORRECTED head, and a forward axis
+	# calibrated from it is wrong by exactly the correction — 0.3325 rad = 19.05 degrees.
+	# The tell was that `head_yaw_rms_deg` printed 19.0534, 19.0534 and 19.0537 across three
+	# runs with materially different gait, glance and clock settings: a quantity that cannot
+	# change is not a measurement (this repo's own lesson, from the film that printed
+	# up_y = 1.00 on every frame of every run). Posing the skeleton from the rig's rest makes
+	# the zero the same zero the animal is actually built around.
 	_cat.set_process(false)
-	_skel.reset_bone_poses()
+	var rig_rest: Dictionary = _rig.get("_rest")
+	if rig_rest != null and not rig_rest.is_empty():
+		for bi in rig_rest:
+			_skel.set_bone_pose_rotation(int(bi), rig_rest[bi] as Quaternion)
+	else:
+		_skel.reset_bone_poses()
 	_skel.force_update_all_bone_transforms()
 	var fwd: Vector3 = -_cat.global_transform.basis.z
 	var bb: Basis = (_skel.global_transform * _skel.get_bone_global_pose(_head_i)).basis
@@ -158,7 +175,17 @@ func _calibrate() -> void:
 		var nm: String = _skel.get_bone_name(i)
 		if nm.contains("Twist") and nm != "R_ThighTwist01" and nm != "NeckTwist01":
 			_twist_bones.append(i)
-	_cat.set_process(true)
+	# THE PROBE OWNS THE CLOCK EXCLUSIVELY — the identical bug s44 found in CatJointProbe,
+	# still sitting here because that fix was applied to one file and not to its sibling.
+	# This line used to be `set_process(true)`, so every scenario DOUBLE-TICKED the animal:
+	# the engine's own `_process` (with a headless world's 30-80 ms deltas) ran on top of
+	# `_step()`'s hand-fed 1/60. The tell was unmistakable once looked for — two runs with
+	# materially different gait and glance settings printed head_yaw_rms 19.0534 and
+	# 19.0534, identical to four decimals, because the numbers were dominated by an
+	# uncontrolled engine tick this file cannot see. Every figure this probe has ever
+	# printed carries that inflation; the gate values below were themselves set against it,
+	# so treat any threshold that now looks generous as unverified rather than earned.
+	_cat.set_process(false)
 
 ## One controlled think: hand the cat exactly `dt`, then flush the skeleton.
 func _step(dt: float) -> void:

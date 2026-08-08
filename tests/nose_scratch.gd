@@ -104,7 +104,7 @@ func _ready() -> void:
 
 	# 2. SWEEP. Rebuild the rig at each candidate and read the drawn nose while walking.
 	print("[nose] %-10s %14s" % ["HEAD_YAW", "nose yaw vs +X"])
-	for cand in [0.0, -0.3325, -0.30, -0.36]:
+	for cand in [-0.3325, -0.36, -0.40, -0.44, -0.48]:
 		RIG.HEAD_MESH_YAW = cand
 		var rig = RIG.new(sk, "")
 		rig.set_pose("walk", 10.0)

@@ -287,6 +287,16 @@ func _mooring_station() -> void:
 	var rust: Material = MatLib.rusty_metal()
 	# Walkable grating platform + support knees.
 	_box(Vector3(10, y - 0.06, -23.5), Vector3(3.6, 0.12, 3.0), MatLib.grating())
+	# THE HAMMER, off the machine-shop bench (owner: spread the tools out). A chain windlass
+	# is rigging work and this is where a hammer gets put down; it also keeps `hammer_tool` —
+	# the gate on the "timber" salvage category and six recipes — down at wet-deck level near
+	# spawn instead of a storey up. Height is the platform's own top: the slab is centred
+	# y-0.06 and 0.12 thick, so its walking surface IS y, and +0.05 is this file's deck idiom
+	# (driftwood, flashlight, prybar all use it) with "settle_me" doing the last centimetre.
+	# NW quadrant, against the west rail line and out of the lane from the deck to the brake:
+	# the rail kick plate stands at x 8.235..8.265 (0.49 m clear) and the windlass bedplate
+	# starts at x 9.2 / z -23.2 (0.15 m and 0.40 m clear).
+	_takeable("hammer_tool", "Hammer", Vector3(8.90, y + 0.05, -22.80))
 	for kx in [8.6, 11.4]:
 		var knee := _dbox(Vector3(kx, y - 0.55, -22.55), Vector3(0.14, 0.14, 1.6), rust)
 		knee.rotation.x = deg_to_rad(-42)
