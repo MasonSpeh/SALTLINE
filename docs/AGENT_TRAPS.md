@@ -14,6 +14,21 @@ was set for months and did nothing — the real property is `shadow_normal_bias`
 land", boot headless and *read the property back off the live node* before
 touching anything else.
 
+**…and when it DOES warn, the warning is one line in a 2000-line boot log.**
+Second instance, found s53: `salvage.gd:_strip()` set `soot.specular = 0.05` on a
+`StandardMaterial3D`, which has no `specular` — the name survives only as a Godot
+3.x SpatialMaterial remap, so the engine *did* print `remapped parameter not
+found: specular` with a GDScript backtrace, every single time anything on the rig
+was salvaged. Nobody read it. Every stripped prop kept its full highlight for
+months while the comment directly above the material said "the killed specular
+does the 'gutted' work". **A comment asserting an effect is not evidence the
+effect happens** — and the loudest tell that a line is dead is usually already in
+the log you are not grepping. Two cheap habits close this whole class:
+`grep -i "not found\|remapped\|WARNING" ` the headless boot output as a matter of
+course, and grep the tree for the correct spelling — the other six call sites in
+this repo all said `metallic_specular`, so one `grep -rn specular scripts/` would
+have shown line 252 as the only odd one out.
+
 **On `gl_compatibility`, several shadow settings are inert.** Measured, not
 assumed: `Light3D.shadow_blur` at 0.0 vs 4.0 renders byte-identical frames.
 Both `soft_shadow_filter_quality` keys change nothing for the *sun* — GLES3

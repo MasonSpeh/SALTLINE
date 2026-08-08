@@ -2299,3 +2299,38 @@ the old `clampi(count, 1, cap)` would have silently deleted four of five stacked
 Suite at close: TestRunner FAILURES 0, CatProbe 0, SpearProbe 0, MusselProbe 0, HarvestGrowthProbe 0.
 Playtest holds 4 failures — PROVEN pre-existing by stashing the whole session and re-running at HEAD,
 which gave the identical four.
+
+## s53 — the killed specular was never killed, and the A/B had to build its own harness
+
+**`soot.specular = 0.05` had been a no-op since the soot overlay was written.**
+`StandardMaterial3D` has no `specular`; the name only survives as a Godot 3.x SpatialMaterial
+remap, so every salvage on the rig printed `remapped parameter not found: specular` with a
+backtrace through `_strip` (reproduce: `godot --headless --path . res://tests/AV2Focus.tscn`,
+grep it — 2 hits before, 0 after). The comment above the material claimed "the killed specular
+does the 'gutted' work"; it never did, and every stripped prop on the rig kept its full
+highlight under the grime. One word: `metallic_specular`. The other six call sites in the repo
+had it right, so `grep -rn specular scripts/` alone would have found the odd one out.
+
+**The A/B could not be two CampShot runs.** CampShot scouts its camp site at a fixed 2.5 s after
+boot, so the site moves with machine load — the two runs taken for this came back with camp
+centres (13.0, 2.0, −14.0) and (20.0, 2.0, −17.0), a different frame and a different scout score
+(−1.00 vs −0.75), and the second run exited before taking a single shot. Comparing those two
+would have been comparing two different photographs. **tests/SootShot.tscn** instead strips one
+prop through the real interact path and photographs *the same instance from the same camera*
+twice in one run, changing only the number under test — 0.5 (Godot's default, what the broken
+line left) then 0.05 — at day and at night. It reads the value back after each set, because the
+whole bug was an assignment that silently did not take.
+
+**Judged on the render, at the ratio it ships.** Stripped Jerrycan at (11.6, 2.0, −21.4), with an
+un-stripped jerrycan in the same frame as a control. An amplified difference image puts the
+entire change inside the stripped can's silhouette — control can max delta 5/255, wall 13, deck
+4, against 65 on the can — so the fix touches the prop and nothing else. On its lit top ribs
+mean luminance falls **−10.5% by day and −33.4% by night**, concentrated on the upward faces
+that were catching the sky; the bright p95 is untouched (81.15 -> 80.94). It still reads as a
+sooty red can with its form and its lamp response intact — grime, not the flat matte film that
+`SHADING_MODE_UNSHADED` gave and that the comment warns about. `shading_mode` stays PER_PIXEL.
+
+Honest limit: the overlay is 46% opaque, so killing its specular can only touch that 46% — the
+base glTF material's highlight still comes through by design (it is an overlay so duplicates of
+the prop elsewhere on the rig are not darkened). The effect is a dulling, not a gutting. AV2Focus
+holds at 11 OK, 0 failures, before and after.

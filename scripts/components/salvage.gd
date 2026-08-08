@@ -249,7 +249,12 @@ func _strip() -> void:
 	soot.shading_mode = BaseMaterial3D.SHADING_MODE_PER_PIXEL
 	soot.roughness = 0.96
 	soot.metallic = 0.0
-	soot.specular = 0.05
+	# metallic_specular, NOT specular. StandardMaterial3D has no `specular` — the name
+	# only survives as a Godot 3.x SpatialMaterial remap, so from 0d2fed8 (2026-07-18)
+	# until s53 this line did nothing but print a warning, and the "killed specular"
+	# the comment above promises never happened on a single stripped prop. Measured on
+	# tests/SootShot.tscn: the fix drops lit-rib luminance 10.5% by day, 33.4% by night.
+	soot.metallic_specular = 0.05
 	soot.cull_mode = BaseMaterial3D.CULL_BACK
 	for mi in meshes:
 		if not (mi as MeshInstance3D).visible:
