@@ -351,6 +351,7 @@ func _ready() -> void:
 			"turn": await _reel_turn(sim_per_frame)
 			"above": await _reel_above(sim_per_frame)
 			"topdown": await _reel_topdown(sim_per_frame)
+			"headsweep": await _reel_headsweep(sim_per_frame)
 			"rear": await _reel_rear(sim_per_frame)
 			"wash": await _reel_wash(sim_per_frame)
 			"jump": await _reel_jump(sim_per_frame)
@@ -519,6 +520,51 @@ func _reel_topdown(sim_per_frame: int) -> void:
 				print("[film] topdown/%s frame %d at %s"
 					% [label, f, str(_cat.global_position.snappedf(0.1))])
 	_cat.set("_carry", "")
+
+## THE HEAD-ON OFFSET SWEEP — pick the straight one BY EYE, because the eye is the customer.
+##
+## Ten owner reports, and every one of my answers has been a measurement. The bare rig reads
+## 0.00 deg off the travel line at the shipped constant and the owner still sees the head
+## turned right, which means the quantity I keep measuring is not the quantity they are
+## looking at — most likely the muzzle's vertex axis is not where the FACE reads (eyes, ears
+## and the white bib all sit on a head whose geometry the generator made asymmetric). The
+## owner's instruction is the correct engineering answer and it is the one this reel serves:
+## offset it until it looks right, and stop arguing with the mesh.
+##
+## One run, six values, camera dead ahead on the travel line. Read the strip and pick.
+##   godot --path . --fixed-fps 60 tests/CatFilm.tscn -- /tmp/sweep fps=6 reels=headsweep
+func _reel_headsweep(sim_per_frame: int) -> void:
+	var dir := Vector3(1, 0, 0)
+	var travel: float = _bearing(dir)
+	var rig = _cat.get("_rig")
+	for cand in [-0.3325, -0.45, -0.55, -0.65, -0.75, -0.90]:
+		rig.set("HEAD_MESH_YAW", cand)
+		# The bake reads HEAD_MESH_YAW at load, so re-apply it to the LIVE rest the blend
+		# actually uses — otherwise the sweep films six identical frames.
+		if rig.has_method("rebake_head"):
+			rig.call("rebake_head")
+		_cat.global_position = Vector3(3.0, 18.0, -3.0) - dir * 5.0
+		if _cat.has_method("_reseat"):
+			_cat.call("_reseat")
+		_cat.rotation.y = deg_to_rad(travel) + PI
+		for i in range(12):
+			_player.global_position = _cat.global_position + dir * 5.0
+			await get_tree().physics_frame
+		for f in range(int(1.6 * _fps)):
+			var place := func() -> void:
+				_cat.set("_hunt_cd", 999.0)
+				_cat.set("_zoom_cd", 999.0)
+				_cat.set("_play_cd", 999.0)
+				_cat.set("_chatter_cd", 999.0)
+				_cat.set("_glance_cd", 999.0)
+				_player.global_position = _cat.global_position + dir * 5.0
+				# Dead ahead, ON the travel line, at the cat's own head height — the only
+				# view in which "is the face straight" is a question about the face and not
+				# about perspective.
+				_cam.global_position = _cat.global_position + dir * 1.05 + Vector3(0, 0.20, 0)
+				_cam.look_at(_cat.global_position + Vector3(0, 0.20, 0), Vector3.UP)
+			await _shoot("headsweep", "%+.2f" % cand, travel, sim_per_frame, place)
+		print("[film] headsweep %+.3f done" % cand)
 
 ## TURN IN PLACE — flaw 4. The player is swung around the cat at a fixed radius just inside
 ## FOLLOW_NEAR, so the cat wants to face a moving bearing without having anywhere to walk.

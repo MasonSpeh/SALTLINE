@@ -204,6 +204,16 @@ func _sample(scn: String, row: Dictionary) -> void:
 			if float(sp[1]) > float(J["off_max"]):
 				J["off_max"] = float(sp[1])
 				J["off_scn"] = scn
+	# DO THE PAWS REACH THE DECK, OR GO THROUGH IT? The owner reports the cat sitting a few
+	# inches low with its paws sunk into the plating, standing AND walking. Nothing else in
+	# this file measures the animal against the ground it stands on — every other gate is
+	# internal to the skeleton, which is exactly how a whole-body height error hides under a
+	# green suite. World space, against the cat's own node origin, which `_reseat` puts on
+	# the deck surface: a paw below that is a paw in the floor.
+	for k in PAWS:
+		var pw: Vector3 = _bone_w(_skel.find_bone(PAWS[k])).origin
+		row["paw_below_deck_max_mm"] = maxf(float(row.get("paw_below_deck_max_mm", -1e9)),
+			(_cat.global_position.y - pw.y) * 1000.0)
 	for k in PAWS:
 		var p: Vector3 = _skel.get_bone_global_pose(_skel.find_bone(PAWS[k])).origin
 		# ABSOLUTE clearance from the trunk, in metres — not a fraction of the rest
@@ -255,6 +265,11 @@ func _scn(scn: String, seconds: float, drive: Callable) -> void:
 	_metrics[scn] = row
 	_gate(scn, "paw_axis_clearance_min_m", float(row.get("axis_dist_min_m", 1.0)),
 		0.050, false, "m")
+	# 25 mm of tolerance: the paw BONE sits a little inside the paw mesh, and a real paw
+	# flattens on contact, so a few millimetres under the node origin is correct. Inches are
+	# not — the owner can see 50 mm and so can this.
+	_gate(scn, "paw_below_deck_max_mm", float(row.get("paw_below_deck_max_mm", 0.0)),
+		25.0, true, "mm")
 	_gate(scn, "paw_splay_max_m", float(row.get("splay_max", 0.0)), 0.10, true, "m")
 	_gate(scn, "body_node_rot_max_deg", float(row.get("body_rot_max_deg", 0.0)), 1.0, true, "deg")
 	_gate(scn, "body_node_pos_max_mm", float(row.get("body_pos_max_mm", 0.0)), 5.0, true, "mm")
@@ -313,7 +328,7 @@ func _scn_head_bias() -> void:
 	# mesh now (-0.3325, tests/nose_scratch.gd), so this proxy is 0.4105 by the same
 	# relation (proxy = 0.078 - bake). Re-derive it whenever that solve moves. This gate catches DRIFT from the
 	# film-verified state; it cannot bless the state itself — only the head-on reel can.)
-	const NOSE_OFF_Y: float = 0.4105
+	const NOSE_OFF_Y: float = 0.628
 	var yaws: Array[float] = []
 	var pos_prev: Vector3 = _cat.global_position
 	for f in range(int(5.0 / DT)):

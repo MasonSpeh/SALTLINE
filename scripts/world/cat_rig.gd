@@ -87,6 +87,28 @@ const TAIL_MAX: float = 0.30
 ## angle between the head's own mirror-symmetry plane and the torso's, measured off the
 ## GLB's vertices rather than off its joint frames — which is the only way to see it,
 ## because every joint-frame instrument in this repo calibrates the rest pose to zero.
+## SET BY EYE, ON A HEAD-ON FILM — because the eye is the customer and the measurement was
+## answering a different question. TENTH owner report; read this before touching the number.
+##
+## The mesh-derived solve (tests/NoseScratch.tscn) says -0.3325 puts the drawn muzzle EXACTLY
+## 0.00 deg off the travel line, and it is not lying about what it measures: the mean
+## direction of the head-weighted vertices farthest from the neck joint. That axis simply is
+## not where the FACE reads. This head is generator-made and asymmetric — the jaw, the ruff
+## and the white bib do not sit symmetrically about the muzzle's vertex axis — so the
+## geometric long axis and the visual facing differ by about 12 degrees, and every instrument
+## I built measured the former while the owner watched the latter. Nine answers of the form
+## "the numbers say it is straight" were all true and all useless.
+##
+## tests/CatFilm's `headsweep` reel settles it the only way that counts: six values, one run,
+## camera dead ahead on the travel line, pick the frame whose face is square. Read off that
+## strip — -0.33 is visibly turned to the cat's left, -0.65 and -0.75 over-rotate the other
+## way, and -0.55 lands with both eyes level, ears even and the muzzle centred.
+##
+## If the asset is re-rolled, re-run the SWEEP and pick again by eye. Do not re-derive it, do
+## not trust a gate whose forward axis comes from this same skeleton, and do not "correct"
+## this back toward the computed value — that is the loop this comment exists to break.
+## (The old derivation note is kept below for the record.)
+##
 ## SOLVED OFF THE MESH, AFTER NINE OWNER REPORTS AND FOUR WRONG VALUES. The whole history,
 ## because the failure mode repeated four times and the cure is a method, not a number.
 ##
@@ -114,7 +136,7 @@ const TAIL_MAX: float = 0.30
 ## If the asset is ever re-rolled, re-run tests/NoseScratch.tscn and read the zero off the
 ## table. Do not eyeball it, and do not trust any gate whose definition of forward comes from
 ## the skeleton this constant edits.
-static var HEAD_MESH_YAW: float = -0.3325
+static var HEAD_MESH_YAW: float = -0.55
 
 ## Footfall phase offsets per limb, in cycles. The gait MODE is not a switch: the active
 ## offsets are themselves eased between these tables as speed crosses the bands, so a cat
@@ -350,6 +372,21 @@ func _init(skel: Skeleton3D, pose_json_path: String = "") -> void:
 	_measure_gains()
 	_build_poses()
 	_prep_ik()
+
+## RE-APPLY THE HEAD CORRECTION TO A LIVE RIG. The bake runs once at load, so a harness that
+## changes HEAD_MESH_YAW afterwards would film the old value on every beat. Rebuilds the head's
+## rest entry from the SKELETON's untouched bone rest, so repeated calls cannot compound.
+func rebake_head() -> void:
+	if _sk == null or _head < 0:
+		return
+	var base: Quaternion = _sk.get_bone_rest(_head).basis.get_rotation_quaternion()
+	var gb: Basis = _rest_gb.get(_head, Basis.IDENTITY)
+	var ax: Vector3 = (gb.inverse() * BODY_UP).normalized()
+	_rest[_head] = (base * Quaternion(ax, HEAD_MESH_YAW)).normalized()
+	for nm in _poses:
+		var e: Dictionary = _poses[nm]
+		(e["q"] as Dictionary)[_head] = _rest[_head]
+	_cur_q[_head] = _rest[_head]
 
 func _b(nm: String) -> int:
 	return int(_idx.get(nm, -1))
@@ -1413,37 +1450,21 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# sign; magnitude eases off toward the gallop, whose 125 mm lift already folds
 			# the legs for real.
 			if ph > duty:
+				# BACK TO THE SHALLOWER FOLD, AND THE PAW CURL IS GONE. The s49 pass took the
+				# fold to 0.62/0.52 and added a toe-off paw curl, and the owner's verdict was
+				# that the legs "flap up unnaturally" — worse than what it replaced. Both
+				# terms were authored ON TOP of a solve that had already put the paw where
+				# the path wanted it, so they did not deepen a bend, they ADDED a second
+				# motion to a limb that was already articulating: the visible result is a
+				# flick, not a fold. A deeper knee has to come from the PATH (a higher swing
+				# arc the IK must fold to reach), not from a layer bolted onto the solution —
+				# that is the same lesson `_foot_path`'s header records about authoring where
+				# the paw goes rather than what the joints do. Filed for the next pass.
 				var s_sw: float = (ph - duty) / maxf(1.0 - duty, 1e-4)
-				# DEEPER THAN THE FIRST CUT (0.42/0.36). The owner watched the s48 walk and
-				# asked for more bend, and the reference agrees: a cat's stifle cycles about
-				# 37 degrees through a walk and the elbow folds hard as the paw comes
-				# through. 0.62 fore is ~36 deg of authored fold on top of whatever the IK
-				# already needs, and still well inside ROM_DIST_FOLD's 1.35.
-				var fold_amp: float = (0.62 if fore else 0.52) * lerpf(1.0, 0.45, mix)
+				var fold_amp: float = (0.42 if fore else 0.36) * lerpf(1.0, 0.45, mix)
 				var kn: float = float(_ik.get(limb_key, {}).get("knee", 1.0))
 				_mul(L["dist"], Quaternion(_hinge_of(L["dist"]),
 					kn * sin(PI * s_sw) * fold_amp * step_w))
-				# THE PAW CURLS AS IT LEAVES THE GROUND AND OPENS FOR THE PLANT — the owner's
-				# "curled paw when raised/knee bent, then straightening out with leg on
-				# forward movement". It reads at game distance because a folded paw has an
-				# unmistakable silhouette. Peaked EARLY in swing (the curl happens at
-				# toe-off, not mid-air — hence the 0.65 power on the phase) and driven back
-				# to zero before touchdown, because a paw still curled at the plant is
-				# exactly the toy-horse read the toe roll exists to avoid.
-				# THE PROFILE MUST HAVE A FINITE DERIVATIVE AT TOE-OFF. The first cut used
-				# `sin(PI * pow(s_sw, 0.65))` to bias the peak early, and pow(x, 0.65)
-				# differentiates to 0.65*x^-0.35 — INFINITE at x = 0, i.e. exactly at the
-				# instant the paw leaves the ground. Measured: worst joint step 0.646
-				# rad/frame against a 0.35 gate, a pop once per stride per paw. Compressing
-				# the sine's own argument moves the peak to 36% of swing with the same early
-				# bias and a bounded slope everywhere, and it closes itself by 71% — so the
-				# separate open-out term is gone too.
-				var curl: float = sin(PI * clampf(s_sw * 1.4, 0.0, 1.0))
-				var curl_open: float = 1.0
-				_mul(L["paw"], Quaternion(_hinge_of(L["paw"]),
-					kn * curl * curl_open * (0.34 if fore else 0.28) * step_w))
-				_mul(L["toe"], Quaternion(_hinge_of(L["toe"]),
-					kn * curl * curl_open * 0.22 * step_w))
 			_mul(L["paw"], Quaternion(_hinge_of(L["paw"]), paw))
 			# THE TOE. A paw that never rolls through the plant is the other half of the toy
 			# horse: contact is heel-ish down, roll forward, push off the toes.
