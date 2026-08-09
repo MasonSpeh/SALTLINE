@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://rig_field_probe"]
+
+[ext_resource type="Script" path="res://tests/rig_field_probe.gd" id="1"]
+
+[node name="RigFieldProbe" type="Node"]
+script = ExtResource("1")

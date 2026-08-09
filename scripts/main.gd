@@ -27,6 +27,11 @@ func _ready() -> void:
 	add_child(preload("res://scripts/components/item_effects.gd").new())
 	rig = RigBuilder.new()
 	add_child(rig)
+	# THE FIELD: the three neighbouring rigs and the bridges that chain them. Built after
+	# rig 1 and entirely beside it — rig_field.gd owns every world coordinate the new
+	# platforms occupy and rig_builder.gd is not touched by any of it. See rig_kit.gd for
+	# why three whole rigs cost tens of draw calls rather than thousands.
+	add_child(preload("res://scripts/world/rig_field.gd").new())
 	add_child(jelly)
 	add_child(BloomFauna.new())   # gulls, jellies, barnacles, eel, shoal, ray, worms
 	add_child(Gyre.new())         # the turning water south of the rig, and what it collects
