@@ -44,10 +44,15 @@ Design it first, build it before the second rig exists, and prove it on the EXIS
 before any new geometry is authored. Two precedents in this codebase already do exactly this
 and both are measured and working — copy their shape, do not invent:
 
-- **`leg_reef.REEF_DRAW_M = 55.0`** with an 18 m fade, over 70 MultiMeshes. This is what makes
-  a 12.55 M-tri reef affordable: a diver pays for the slice around them, not the column.
+- **`leg_reef.REEF_DRAW_M = 55.0`** (`leg_reef.gd:1905`) with an 18 m fade, over 70 MultiMeshes.
+  This is what makes a 12.55 M-tri reef affordable: a diver pays for the slice around them, not
+  the column. **Read `leg_reef.gd:1938` — it does the work with Godot's own
+  `VisualInstance3D.visibility_range_end`, which is engine-side and costs no per-frame GDScript.
+  That is almost certainly the right mechanism for the HORIZON and NEIGHBOUR tiers too**, paired
+  with `visibility_range_begin` on the impostor so a rig and its own impostor never draw at once.
 - **`underwater_world._cull_topside()` / `TOPSIDE_MARGIN = 2.8`** — a whole subtree flipped by
-  a height test.
+  a height test. The right model for RESIDENT vs NEIGHBOUR: one boolean per rig root, evaluated
+  when the player crosses a bridge, not per frame per object.
 
 **Three tiers, minimum:**
 
@@ -335,45 +340,148 @@ Do **not** try to build three rigs in one session.
 
 ---
 
+## 9. WHAT s52 AND s53 COST, SO YOU DO NOT PAY IT AGAIN
+
+Two consecutive sessions were spent almost entirely on defects that **an instrument had been
+reporting correctly and nobody believed**. This chapter builds four times as much world as
+exists today; if you carry one habit over from those sessions, carry this one.
+
+**THE PATTERN: a number that will not move is not a measurement, and a gate that passes on an
+empty window is worse than a gate that fails.** Every one of these was found the expensive way:
+
+| what looked fine | what was actually true |
+|---|---|
+| `CatReviewProbe` slide gates green for sessions | `stance_pairs = 0` on run/stalk/carry — **passing on nothing** |
+| `[sit] paw_below_deck` "a flaky wash bout", twice | A permanent 7.91° pitch. The gate was a **max of one sign**, so a floating paw made the number *smaller* |
+| `beta1_shot`'s `sphl_interior` | Photographed an **exterior wall** for months; a twice-reported visual bug had never been in a frame anyone checked |
+| A cat behaviour test passing first try | **Vacuous** — a settled cat calls `_face` nowhere, so nothing was driving the thing under test |
+| `_clamp_joint` bounding every baked pose | `_rom` was **empty** for the whole bake (init order) — a silent no-op for the life of the project |
+| Four authored kelp positions | **Three were in mid-air**, the fourth sealed under a deck slab. All hand-typed |
+| s49 "fixed" the pod's red lines | Recoloured within the warm family. Under a red-only lamp **no warm albedo can survive** — reflected colour is albedo × light |
+| Eleven fish "don't need decimating" (judged on file size) | 109 k–198 k tris each. And the worst asset in the game, `herring_gull` at **453,620**, was on nobody's list — while `sea_gull`, the same bird, is 30,087 |
+
+**Four rules that fall out of that, and they matter more here than anywhere:**
+
+1. **Every new gate needs an anti-vacuity assertion.** If a probe computes a max/mean over a
+   window, it must also assert the window had samples. A rig-placement probe that finds zero
+   props to check will pass forever.
+2. **Baseline before you claim.** `git stash` the session, run the probe at HEAD, compare. That
+   is how the CatReviewProbe and Playtest questions were both settled in minutes.
+3. **Probe the seat, never type the Y.** This will bite hardest in this chapter — you are about
+   to place thousands of props across three new platforms.
+4. **Look at the frame.** Render windowed, read the PNG back, iterate, *then* report.
+
+## 10. TOOLS THAT NOW EXIST — use them, do not rebuild them
+
+| tool | what it does |
+|---|---|
+| `tools/survey_tris.py` | Counts real triangles off glTF index accessors for every GLB, plus materials/images/attributes/AABB/skinning. **Run this on every Tripo asset before wiring it in.** |
+| `tests/WorldTriCensus.tscn` | Walks the live tree and reports `tris × instances = world triangles` per mesh resource. This is the number that ranks things — a 200 k mesh spawned once is cheaper than a 30 k mesh spawned 400×. |
+| `tools/decimate_overbudget.sh` | Scripted, re-runnable headless Blender decimation. Uses `decimate_inplace.py` deliberately — **not** `decimate_fish.py`/`decimate_reef.py`, which re-bake orientation and would silently invalidate `FACING_OVERRIDES`. |
+| `tools/measure_facing.py --calibrate` | Verifies mesh facing against the pinned table. Calibrated 19/19. Run after ANY mesh operation. |
+| `tools/export_rig.sh` | Headless capture → sonar re-ingest → new atlas/deck plans. **The new rigs must be added to it** or the spatial oracle silently goes stale. |
+| `docs/FISHING_BALANCE.md` | Every species, size range, gate and real computed roll share. Read before placing a fishing spot. |
+
+## 11. THE PERFORMANCE PICTURE, AS OF s53
+
+**All of these predate the new rigs. Re-measure before trusting them.**
+
+| | value | note |
+|---|---|---|
+| world triangles | **62.62 M** | was 71.38 M before s53's decimation |
+| pelagic schools | **31.09 M** | was 37.09 M |
+| the existing rig | 855,644 tris / 715 props | one rig |
+| worst topside vantage (`wet_deck_stand`) | 30.56 ms / 32.7 fps / **2,861 draws** / 3.42 M prims | **MEASURED BEFORE DECIMATION — re-measure as step zero** |
+| worst underwater vantage | 38.1–39.4 ms / 14.1–14.3 M prims | same caveat |
+
+Note the census counts **spawned**, not **submitted** — frustum and distance culling sit in
+between, so do not expect triangle savings to map one-for-one onto the primitive counter.
+
+Still uncut and available if you need headroom later: `wooden_candlestick` 212,992 × 1 and
+`fir_sapling` 433,021 × 1 (both `.gltf` with external buffers, so they need a different exporter
+path — ~0.65 M combined), and the cat pose GLBs at 501,378 each.
+
+---
+
 ## OPENING PROMPT — paste this into the new session
 
-> Read `docs/SESSION_BRIEF_RIGS.md` FIRST — it is the complete work order for this chapter.
-> Then read `CLAUDE.md`, the last ~200 lines of `DEVLOG.md` (entries append at the BOTTOM),
-> `docs/AGENT_TRAPS.md`, and `KNOWN_ISSUES.md`.
+> **THE FIELD — build three new rigs. Start by reading `docs/SESSION_BRIEF_RIGS.md` in full; it
+> is the complete work order and carries every number you need.** Then `CLAUDE.md`, the last
+> ~250 lines of `DEVLOG.md` (entries append at the BOTTOM — the s52 and s53 entries are the
+> immediately preceding sessions), `docs/AGENT_TRAPS.md`, and `KNOWN_ISSUES.md`.
 >
-> The project is the Godot 4 game at **`~/SALTLINE`** (NOT `~/Desktop/SALTLINE` — a macOS TCC
-> denial blocks shell access to Desktop). GitHub remote is **MasonSpeh/SALTLINE**, already
-> authenticated via `gh`; push after each verified commit.
+> The project is the Godot 4.7 game at **`~/SALTLINE`** — NOT `~/Desktop/SALTLINE`, where a
+> macOS TCC denial blocks shell access. Remote is **MasonSpeh/SALTLINE**, authenticated via
+> `gh`. HEAD is `1e7f144`, tree clean, `TestRunner FAILURES: 0`.
 >
-> **We are adding three rigs to the one that exists, turning the world into a bridge-linked
-> field of four, evenly spaced at ~180-220 m.** Rig 2 is industrial/farming with a rooftop
-> ex-vegetable garden the player can tend. Rig 3 is a residential/luxury platform — no
-> drilling, big helipad, and a two-storey aquarium in the lunch hall that the player powers up,
-> filters, and stocks with fish they catch. Rig 4 is the huge drill standing over the Bloom
-> fissure — in full view from everywhere and reached LAST because its bridge span is the
-> longest and worst-wrecked, not because it is far away.
+> **WHAT WE ARE BUILDING.** SALTLINE has one rig. Add three more, turning the world into a
+> bridge-linked field of four evenly spaced at ~180–220 m:
+> - **Rig 2 MARROW** — industrial/farming. Hero feature: a rooftop ex-vegetable garden the
+>   player can clear, till and water. Growing crops is a LATER update; build the soil substrate
+>   and the interaction now, and design for it.
+> - **Rig 3 THE ANCHORAGE** — residential/luxury, no drilling, large helipad, guest cabins,
+>   captain's suite. Hero feature: a **two-storey aquarium in the lunch hall** the player powers
+>   up, filters, and stocks with fish they catch.
+> - **Rig 4 DEEPWELL** — the huge drill over the Bloom fissure. In full view from everywhere;
+>   reached LAST because its bridge span is the longest and worst-wrecked, not because it is far.
 >
 > **THREE OWNER DECISIONS ARE SETTLED — do not re-open them:** bridges rather than boats;
-> **RIG 1 STAYS EXACTLY AS IT IS** (do not improve, rebalance or refactor it); and rig 4 is
-> evenly spaced with the rest rather than a distant outlier.
+> **RIG 1 STAYS EXACTLY AS IT IS** (do not improve it, do not rebalance it, and do NOT refactor
+> `rig_builder.gd` while adding rigs); rig 4 is evenly spaced, not a distant outlier.
 >
-> **START WITH PHASE A, AND DO NOT SKIP IT.** The binding constraint on this entire chapter is
-> DRAW CALLS, not art: the game already runs at 30.56 ms / 2,861 draws / 32.7 fps at its worst
-> topside vantage with ONE rig. Build the three-tier rig LOD system (RESIDENT / NEIGHBOUR /
-> HORIZON) and prove it on the EXISTING rig with a stub neighbour placed, before authoring any
-> new geometry. Copy the shape of the two culling systems that already work and are measured:
-> `leg_reef.REEF_DRAW_M` (55 m + 18 m fade over 70 MultiMeshes) and
-> `underwater_world._cull_topside()`. If draws rise more than ~15% over baseline, stop and
-> redesign — no amount of art recovers from getting this wrong.
+> **START WITH PHASE A AND DO NOT SKIP IT — this decides whether the chapter is possible.**
+> The binding constraint is DRAW CALLS, not art. The game already runs at **30.56 ms / 2,861
+> draws / 32.7 fps** at its worst topside vantage with ONE rig, and with four rigs at 200 m
+> **three neighbours can be in frame at once from a high deck** — that, not a comfortable
+> deck-level view, is the frame to measure. Build the three-tier LOD system first
+> (RESIDENT = full interiors and props / NEIGHBOUR = exterior shell and silhouette only /
+> HORIZON = one batched impostor) and prove it on the EXISTING rig with a stub neighbour placed,
+> before authoring a single piece of new geometry. Copy the shape of the two culling systems
+> that already work and are measured — `leg_reef.REEF_DRAW_M` (55 m + 18 m fade over 70
+> MultiMeshes) and `underwater_world._cull_topside()`. **If draws rise more than ~15% over
+> baseline, stop and redesign.** No amount of art recovers from getting this wrong, and it
+> cannot be retrofitted after three rigs exist.
 >
-> Do NOT write a procedural rig generator, and do NOT refactor `rig_builder.gd` while adding
-> rigs. Extract a module kit ADDITIVELY and give each new rig its own hand-authored
-> composition script in LOCAL coordinates under a placed rig root.
+> **FIRST THREE COMMANDS**, in this order, before you change anything:
+> ```
+> godot --headless --path . res://tests/TestRunner.tscn        # expect FAILURES: 0
+> godot --headless --path . res://tests/WorldTriCensus.tscn     # the live triangle ranking
+> godot --path . tests/VantagePerf.tscn                         # WINDOWED — the draw-call baseline
+> ```
+> The 2,861-draw figure predates s53's decimation, so **re-establish the baseline yourself** —
+> every Phase A judgement is measured against it.
 >
-> Probe every coordinate — in s52 three of four kelp stands were found growing in mid-air
-> because someone hand-typed a Y. Lead with sonar (`scene_brief`, then `props_find` /
-> `spatial_probe`), and add the new rigs to `tools/export_rig.sh` so the scan does not go
-> stale. Render windowed and READ THE FRAME BACK before claiming any visual result.
+> **ARCHITECTURE.** Do NOT write a procedural rig generator (it yields four identical boring
+> platforms and throws away the hand-placed quality that makes rig 1 read as real), and do NOT
+> refactor `rig_builder.gd`. Extract a module kit **additively** from `structure_lib.gd`,
+> `stair_kit.gd` and `prop_lib.gd` — leg, deck slab, accommodation block, stair tower, catwalk,
+> flare boom, helipad, **bridge span** — and give each new rig its own hand-authored composition
+> script in **LOCAL** coordinates under a placed rig root. Local coordinates are what make a rig
+> movable, LOD-able and independently scannable. Rig origins must be fixed constants, never
+> runtime-placed: `save_manager._harvest_key()` keys harvest state by absolute position, so a
+> moved rig silently loses its save state.
 >
-> Run `godot --headless --path . res://tests/TestRunner.tscn` before each commit and keep it at
-> FAILURES: 0.
+> **THE HABIT THAT MATTERS MOST HERE.** Two consecutive sessions were spent on defects an
+> instrument had been reporting correctly and nobody believed — three probe gates that passed
+> because `stance_pairs = 0`, a screenshot harness that photographed an exterior wall for
+> months, and three of four kelp stands found growing in mid-air because someone hand-typed a Y.
+> You are about to place thousands of props across three platforms. **Probe every coordinate.
+> Give every new gate an anti-vacuity assertion. Baseline with `git stash` before claiming a
+> regression. Render windowed and READ THE FRAME BACK before claiming any visual result** —
+> `--headless` never draws, and note `_place()` moves the PLAYER whose eye rides ~1.6 m above
+> its feet, so a camera argument is a FLOOR position.
+>
+> **TRIPO.** Available for hero props only — the wrecked helicopter, aquarium rockwork, the
+> drill crown block, garden beds, captain's furniture. Rig structure (decks, rails, stairs,
+> pipework) is better and cheaper as authored CSG. Tripo returns ~500 k triangles per mesh
+> against a 31 k median here, so **run `tools/survey_tris.py` on every candidate and decimate
+> before wiring it in**, judge it through `tests/CandShot.tscn` first, and re-run
+> `tools/measure_facing.py --calibrate` after — one Tripo batch once came back in three
+> different orientation conventions.
+>
+> **Work Phase A → F in order (§8). Batch verification — one import and one render pass per
+> batch of changes, because relaunching Godot repeatedly lags and crashes the owner's machine.
+> Add the new rigs to `tools/export_rig.sh`. Run
+> `godot --headless --path . res://tests/TestRunner.tscn` before every commit and keep it at
+> FAILURES: 0. Commit verified work immediately — sessions have been lost to crashes. Report
+> honestly: blocked, partial and skipped work gets said out loud in the same message.**
