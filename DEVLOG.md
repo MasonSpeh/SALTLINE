@@ -2334,3 +2334,65 @@ Honest limit: the overlay is 46% opaque, so killing its specular can only touch 
 base glTF material's highlight still comes through by design (it is an overlay so duplicates of
 the prop elsewhere on the rig are not darkened). The effect is a dulling, not a gutting. AV2Focus
 holds at 11 OK, 0 failures, before and after.
+
+### s53 — the cat sat wrong for a reason, and three gates were passing on nothing
+
+**THE SEATED CAT WAS PITCHED 7.91 DEGREES NOSE-UP, AND THE PROBE HAD BEEN SAYING SO FOR TWO
+SESSIONS.** Owner: "when cat is sitting, game angled him backwards, causing front paws to float
+an inch above, and back paws to be sinking an inch." Measured, live, each paw against its own
+rest height: lf +20.6, rf +11.8, lh -21.8, rh -18.5 mm — a 42 mm fore/hind spread, 7.91 deg.
+That is the owner's inch, to the millimetre, on both signs. `[sit] paw_below_deck_max_mm` had
+been failing 2 runs in 3 at 39-66 mm and was written off as a wash bout BOTH times. Now
++0.1 / +1.7 / -8.5 / -4.5 mm, 1.2 deg.
+
+Two causes, and the first is the larger story. **`_build_poses()` ran before `_prep_ik()`, which
+is where `_rom` is built — so `_rom` was EMPTY for the entire bake and `_clamp_joint` was a
+silent no-op. No pose in this library has ever been solved inside the animal's joint limits.**
+`tick` clamps every frame, so the authored library and the drawn animal were two different cats;
+on a perfectly still sit the runtime clamp was taking 12.31 deg off L_Forearm, 8.14 off R_Calf,
+3.09 off L_Calf. Second: the bake never checked whether its IK arrived — one `_ik_leg` is 8 CCD
+sweeps that stop wherever they stop. Added a per-leg retarget loop and a body trim (mean vertical
+miss -> hip height, fore-minus-hind -> pitch over the measured wheelbase, re-solved 10x). 253 ms
+at load for 20 poses.
+
+**THE LEAP REGRESSION WAS NOT THE LEAP.** CatProbe reported the cat ending on the deck instead of
+the crate; the hypothesis was s52's jump-down firing on the landing frame. It did not survive
+measurement — `tests/PerchScratch` ran the scenario 6/6 clean and `_try_descend` never fires,
+because the player stands ABOVE the crate and the gate needs `target.y < y - STEP_UP`. The real
+fault was the row after it: `_perch_spot()` drops ONE ray on a random ring point and takes what
+it hits, so a candidate 0.13 m in from a crate edge passed every existing gate — high enough,
+reachable, dry, unobstructed — because **nothing asked whether the surface continues under the
+animal.** Fixed with `_perch_footing()`: eight rays at 1.6 body-radii, all must find the same top
+within 60 mm. No gate widened; a gate added.
+
+**A SEATED CAT NO LONGER SPINS.** Body yaw is locked in SIT/GROOM/PET/PERCH/SLEEP at `_face`,
+the single choke point, and the declined head demand is handed to `_watch` in the same place —
+that mattered, because `_idle_attention` returns early while `_pet_t` is up and declining the
+yaw alone would have made the cat ignore the hand stroking it. Past SEAT_ARC 1.05 rad it stands,
+turns and re-sits through the rig's own grammar. Note for the next behaviour test: the FIRST
+version of this test passed vacuously, because a settled friendly cat calls `_face` nowhere at
+all — only the greeting, `_on_touched` and the PET branch do.
+
+**THE CAT SPAWNED IN THE DARK.** Owner asked for a lit interior. Old HOME measured irradiance
+**0.000** — completely unlit. Now the store room at (14.8, 2.0, -17.4) under the lantern: 0.297
+at 1.15 m, saturation 0.45, probed floor, clear of the door lane. The SPHL pod was rejected on
+measurement — its only lamp is (0.9, 0.15, 0.1) and a cat in it reads at saturation 0.89, i.e. a
+red silhouette, which is the same s52 lesson that produced the red-lines fix.
+
+**8.75 M WORLD TRIANGLES CUT, and the biggest one was not on the list.** The known target was the
+eleven undecimated s31 fish. The third-largest asset in the game turned out to be `herring_gull`
+at **453,620 tris x 7 = 3.18 M** — decisive evidence being that `sea_gull`, the same bird in the
+same sky, imports at 30,087. Twelve assets recut (fish to ~31 k, gull to 60 k, deliberately double
+its peer because thin legs and beak are what a collapse decimator eats first). World 71.38 M ->
+62.62 M, schools 37.09 -> 31.09 M, disk 67.4 -> 18.6 MB. Verified per asset: textures
+byte-identical, worst AABB deviation 0.179%, `measure_facing --calibrate` still 19 correct / 0
+wrong, live swim dots unchanged to 3 dp. FishSpreadProbe OVER BUDGET 11 of 34 -> 0 of 34.
+New instruments: `tools/survey_tris.py`, `tests/WorldTriCensus.tscn`, `tools/decimate_overbudget.sh`.
+
+**CatReviewProbe went 3 -> 10 and that is the instrument getting HONEST.** Verified by stashing
+the session and re-running at HEAD: `[run]`, `[stalk]` and `[carry]` all reported
+`stance_pairs = 0` and `slide_frame_mm = 0.0000` and PASSED. Three gates were green because they
+measured nothing. See KNOWN_ISSUES. Gait numbers held: joint_step 0.3167 vs 0.35 unchanged, walk
+slide 6.51 -> 7.33 vs a gate of 10, bigdt summed_joint_step IMPROVED 1.2613 -> 1.0860.
+
+Suite at close: TestRunner 0, CatProbe 0, CatJointProbe 0 five times running, CatSpawnProbe 0.

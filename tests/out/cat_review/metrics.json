@@ -14,13 +14,13 @@
     "summed_joint_step_max": {
       "cmp": "logged",
       "pass": true,
-      "value": 1.261
+      "value": 1.086
     },
     "summed_joint_step_max_rad": {
       "cmp": "<",
       "pass": false,
       "threshold": 1.0,
-      "value": 1.26128804683685
+      "value": 1.08598792552948
     },
     "turn_equivalence_deg": {
       "cmp": "<",
@@ -44,24 +44,24 @@
       "cmp": ">",
       "pass": true,
       "threshold": 0.3,
-      "value": 0.999999943276912
+      "value": 0.999999999999758
     },
     "head_roll_max_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 3.0,
-      "value": 2.66234254837036
+      "value": 2.51537823677063
     },
     "joint_step_max_rad": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.35,
-      "value": 0.316669911146164
+      "value": 0.316669136285782
     },
     "moved_m": {
       "cmp": "logged",
       "pass": true,
-      "value": 8.04
+      "value": 10.08
     },
     "pose_seen": {
       "cmp": "logged",
@@ -70,20 +70,20 @@
     },
     "slide_frame_mm": {
       "cmp": "<",
-      "pass": true,
+      "pass": false,
       "threshold": 10.0,
-      "value": 0.0
+      "value": 23.2759136706591
     },
     "slide_window_mm": {
       "cmp": "<",
-      "pass": true,
+      "pass": false,
       "threshold": 20.0,
-      "value": 0.0
+      "value": 54.5353405177593
     },
     "stance_pairs": {
       "cmp": "logged",
       "pass": true,
-      "value": 0
+      "value": 26
     },
     "worst_step_bone": {
       "cmp": "logged",
@@ -96,35 +96,35 @@
       "cmp": ">",
       "pass": true,
       "threshold": 6.0,
-      "value": 19.0663738250732
+      "value": 17.270809173584
     },
     "pitch_response_ypr_deg": {
       "cmp": "logged",
       "pass": true,
-      "value": "(0.01, 19.07, 0.02)"
+      "value": "(0.01, 17.27, 0.03)"
     },
     "pitch_roll_leak_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 3.0,
-      "value": 0.0246219635009766
+      "value": 0.0251966714859009
     },
     "yaw_gain_deg": {
       "cmp": ">",
       "pass": true,
       "threshold": 14.0,
-      "value": 33.5035858154297
+      "value": 33.5123291015625
     },
     "yaw_response_ypr_deg": {
       "cmp": "logged",
       "pass": true,
-      "value": "(33.5, 2.38, 0.04)"
+      "value": "(33.51, 0.35, 0.04)"
     },
     "yaw_roll_leak_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 3.0,
-      "value": 0.0354580879211426
+      "value": 0.0389585494995117
     }
   },
   "lookwalk": {
@@ -132,30 +132,30 @@
       "cmp": "<",
       "pass": true,
       "threshold": 3.0,
-      "value": 0.214037150144577
+      "value": 0.115742318332195
     },
     "head_yaw_mean_deg": {
       "cmp": "logged",
       "pass": true,
-      "value": 0.0
+      "value": -0.02
     },
     "head_yaw_toward_target_deg": {
       "cmp": ">",
       "pass": false,
       "threshold": 4.0,
-      "value": 0.000243841379220352
+      "value": -0.0153073778550914
     },
     "joint_step_max_rad": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.35,
-      "value": 0.316669911146164
+      "value": 0.316670686006546
     },
     "slide_frame_mm": {
       "cmp": "<",
       "pass": true,
       "threshold": 10.0,
-      "value": 5.94061659649014
+      "value": 7.61615391820669
     },
     "worst_step_bone": {
       "cmp": "logged",
@@ -174,67 +174,67 @@
       "cmp": "<",
       "pass": true,
       "threshold": 12.0,
-      "value": 6.5780336856842
+      "value": 6.46501612663269
     },
     "head_roll_max_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 3.0,
-      "value": 0.34155535697937
+      "value": 0.341209530830383
     },
     "head_yaw_rms_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 3.5,
-      "value": 0.168242957301091
+      "value": 0.167798586263874
     },
     "hip_y_span_mm": {
       "cmp": "logged",
       "pass": true,
-      "value": 29.6
+      "value": 29.7
     },
     "joint_step_max_rad": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.35,
-      "value": 0.316672205924988
+      "value": 0.316670686006546
     },
     "moved_m": {
       "cmp": "logged",
       "pass": true,
-      "value": 7.51
+      "value": 7.16
     },
     "pelvis_lock_std_cycles": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.1,
-      "value": 0.011689307783525
+      "value": 0.00960748884568047
     },
     "phase_lock": {
       "cmp": "logged",
       "pass": true,
       "value": {
-        "mean_phase": 0.075547050132462,
+        "mean_phase": 0.0766417134896628,
         "n": 8,
-        "std": 0.011689307783525
+        "std": 0.00960748884568047
       }
     },
     "slide_frame_mm": {
       "cmp": "<",
-      "pass": true,
+      "pass": false,
       "threshold": 10.0,
-      "value": 0.0
+      "value": 29.7954343259335
     },
     "slide_window_mm": {
       "cmp": "<",
-      "pass": true,
+      "pass": false,
       "threshold": 20.0,
-      "value": 0.0
+      "value": 29.7954343259335
     },
     "stance_pairs": {
       "cmp": "logged",
       "pass": true,
-      "value": 0
+      "value": 5
     },
     "still_frames": {
       "cmp": "logged",
@@ -245,12 +245,12 @@
       "cmp": "<",
       "pass": true,
       "threshold": 0.35,
-      "value": 0.280283838510513
+      "value": 0.00617633340880275
     },
     "worst_step_bone": {
       "cmp": "logged",
       "pass": true,
-      "value": "R_Forearm"
+      "value": "L_Forearm"
     }
   },
   "sanity": {
@@ -270,7 +270,7 @@
       "cmp": "<",
       "pass": true,
       "threshold": 0.001,
-      "value": 0.00000268220901489258
+      "value": 0.00000274181365966797
     },
     "twist_bone_dev_max_rad": {
       "cmp": "<",
@@ -302,7 +302,7 @@
       "cmp": ">",
       "pass": true,
       "threshold": 0.3,
-      "value": 0.935196792515973
+      "value": 0.955780427092698
     },
     "hunt_beat_reached": {
       "cmp": "logged",
@@ -313,12 +313,12 @@
       "cmp": "<",
       "pass": true,
       "threshold": 0.35,
-      "value": 0.316677570343018
+      "value": 0.316681027412415
     },
     "moved_m": {
       "cmp": "logged",
       "pass": true,
-      "value": 2.7
+      "value": 2.51
     },
     "prey_is_stub": {
       "cmp": "logged",
@@ -327,25 +327,25 @@
     },
     "slide_frame_mm": {
       "cmp": "<",
-      "pass": true,
+      "pass": false,
       "threshold": 10.0,
-      "value": 0.0
+      "value": 20.1661624014378
     },
     "slide_window_mm": {
       "cmp": "<",
-      "pass": true,
+      "pass": false,
       "threshold": 20.0,
-      "value": 0.0
+      "value": 33.4291046019644
     },
     "stalk_frames": {
       "cmp": "logged",
       "pass": true,
-      "value": 386
+      "value": 328
     },
     "stance_pairs": {
       "cmp": "logged",
       "pass": true,
-      "value": 0
+      "value": 25
     },
     "worst_step_bone": {
       "cmp": "logged",
@@ -363,7 +363,7 @@
       "cmp": "<",
       "pass": true,
       "threshold": 0.35,
-      "value": 0.316669911146164
+      "value": 0.316670686006546
     },
     "worst_step_bone": {
       "cmp": "logged",
@@ -376,73 +376,73 @@
       "cmp": ">",
       "pass": true,
       "threshold": 0.3,
-      "value": 0.999999996394513
+      "value": 0.999999995146998
     },
     "head_pitch_span_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 12.0,
-      "value": 3.00587594509125
+      "value": 2.93410384654999
     },
     "head_roll_max_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 3.0,
-      "value": 0.24384368956089
+      "value": 0.11502879858017
     },
     "head_yaw_rms_deg": {
       "cmp": "<",
       "pass": true,
       "threshold": 3.5,
-      "value": 0.0343312037041758
+      "value": 0.0338095376946285
     },
     "hip_y_span_mm": {
       "cmp": "logged",
       "pass": true,
-      "value": 25.1
+      "value": 9.2
     },
     "joint_step_max_rad": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.35,
-      "value": 0.31667298078537
+      "value": 0.316670686006546
     },
     "moved_m": {
       "cmp": "logged",
       "pass": true,
-      "value": 3.98
+      "value": 4.42
     },
     "pelvis_lock_std_cycles": {
       "cmp": "<",
       "pass": true,
       "threshold": 0.1,
-      "value": 0.00502439694987923
+      "value": 0.00705230274890526
     },
     "phase_lock": {
       "cmp": "logged",
       "pass": true,
       "value": {
-        "mean_phase": 0.0612325411716155,
-        "n": 18,
-        "std": 0.00502439694987923
+        "mean_phase": 0.06320154659809,
+        "n": 20,
+        "std": 0.00705230274890526
       }
     },
     "slide_frame_mm": {
       "cmp": "<",
       "pass": true,
       "threshold": 10.0,
-      "value": 6.51094922795892
+      "value": 7.33380485326052
     },
     "slide_window_mm": {
       "cmp": "<",
-      "pass": true,
+      "pass": false,
       "threshold": 20.0,
-      "value": 6.51094922795892
+      "value": 70.9319487214088
     },
     "stance_pairs": {
       "cmp": "logged",
       "pass": true,
-      "value": 6
+      "value": 89
     },
     "still_frames": {
       "cmp": "logged",
@@ -453,12 +453,12 @@
       "cmp": "<",
       "pass": true,
       "threshold": 0.35,
-      "value": 0.29255798459053
+      "value": 0.00768947973847389
     },
     "worst_step_bone": {
       "cmp": "logged",
       "pass": true,
-      "value": "R_Forearm"
+      "value": "R_Thigh"
     }
   }
 }

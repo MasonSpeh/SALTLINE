@@ -41,13 +41,126 @@ const BODY_SIDE := Vector3(0, 0, 1)
 ## about 0.06 the paw visibly detaches from the leg.
 const DRAG: float = 0.045   ## s45c: a touch more overlap down the limb — "smoother"
 
-## Metres the paw rises at the two ends of its stance sweep — see `_foot_path`.
-## A VAR rather than a const so tests/gait_scratch.gd can sweep it against the stride in one
-## run; `_prep_ik` DERIVES the shipped value from the binding leg's own geometry (a straight
-## chain of reach c0 sweeping s of ground traces an arc of c0*(1-cos(asin(s/2c0))), and asking
-## it for a flatter path than that is asking it to shorten a chain that is already at full
-## stretch). 0.012 is the pre-s52 hand-set value, kept as the floor.
-static var STANCE_ARC: float = 0.012
+## WHERE IN THE SWING THE PAW TOPS OUT, as a fraction of the swing. Well before the middle on
+## purpose, and MEASURED rather than chosen: the paw's whole lift has to be traversed in about
+## eleven frames at this cadence, so where the apex sits decides how that budget is split
+## between LEAVING the deck and ARRIVING at it. An early apex snaps the paw up and then gives
+## it the long back half of the swing to settle — which is both what a cat does and what the
+## brief asks for ("touchdown is quiet"; a fast toe-off is "less objectionable").
+##
+## Measured (tests/GaitScratch block 9, drawn paw, mm of one-frame step at each transition):
+##     apex   step@toe-off lf/rf   step@touchdown lf/rf/rh   vertical speed into contact
+##     0.26        22.1  27.4          5.7   4.4  14.9         17.6  14.1   5.5
+##     0.32        14.9  18.3         13.9   5.3  18.9         20.3  20.7   9.4
+##     0.42         8.4  10.7         25.7  19.7  22.8         27.2  27.1  14.4
+## The total is roughly conserved and the apex decides which end pays it. 0.30 puts the
+## quieter end at the plant.
+##
+## STAYS AT 0.30 (s54), AND HERE IS WHY THE OBVIOUS MOVE IS WRONG. A design pass this session
+## argued 0.30 -> 0.15 on a real measurement: the DRAWN apex trails the commanded one by about
+## 0.20 of the swing (commanded 0.15 -> drawn 0.325, 0.22 -> 0.375, 0.30 -> 0.425, 0.40 ->
+## 0.625), so 0.15 is the commanded value that puts the drawn peak where this header wants it,
+## and it does halve the touchdown step (lf 7.52 -> 2.95 mm).
+##
+## IT WAS SCORED ON ONE END OF THE SWING. Measured on BOTH, at the same speed, drawn:
+##     apex   toe-off step lf/rf/lh/rh        touchdown step lf/rf/lh/rh      seam total
+##     0.30    14.9  17.7   8.6   5.7          7.5   4.8   3.1  17.5           79.8 mm
+##     0.15    39.1  43.4  29.2   8.2          3.0   2.7   1.6  12.2          139.3 mm
+## The apex is bounded from below BY THE FRAME RATE, and no amount of C1 continuity fixes it:
+## the swing is ~11.4 frames, so an apex at 0.15 is 1.7 frames, and `_swing_bump` is already at
+## 63% of full lift one frame after toe-off — 54 mm of commanded paw in a single frame. The
+## zero rate at s=0 is true and irrelevant at a scale four times finer than a frame. Trading a
+## 7 mm slap at the plant for a 39 mm snap at the lift is not a fix, it is a relocation.
+##
+## What DID survive from that pass is the half of it that costs nothing: the authored knee fold
+## does not move an IK target, so it can have its own, earlier apex (`FOLD_APEX`) and the paw
+## does not have to pay for it. With `FOLD_FORE/HIND` down to 0.18/0.15 and `FOLD_APEX` 0.18,
+## at 0.30 the plant improves on every limb and the lift does not move:
+##     toe-off   14.9 -> 14.8   17.7 -> 17.8   8.6 -> 8.6   5.7 -> 5.8 mm
+##     touchdown  7.5 ->  4.0    4.8 ->  3.7   3.1 -> 2.4  17.5 -> 12.2 mm
+##     arrival   18.5 -> 10.6   14.0 -> 10.5   9.6 -> 7.6   9.7 ->  6.7 mm/frame
+##
+## See `_swing_bump` — the profile is C1 at both ends AND at the apex, so a zero rate here is
+## a real maximum rather than the per-segment ease this repo has a trap about (`0.5-0.5*cos`
+## applied to every segment stops the value dead at every key).
+static var SWING_APEX: float = 0.30
+## HOW MUCH OF THE DERIVED BODY DROP IS ACTUALLY PAID (see `_body_drop`), and HOW BIG THE
+## WALK'S HIP BOB IS. These two are ONE decision, not two, because they are the only things
+## that move a socket vertically at a walk — and on this rig three of the four chains sit at
+## 98-100% of their own reach cap, so a socket that rises carries a PLANTED PAW up with it
+## however hard the solve tries to hold it. The bob is therefore a term in the foot-slap
+## budget, not a style knob, and the pair has to be measured together.
+##
+## Measured (tests/GaitScratch block 8, live walk at 1.125 m/s, paw rise scored over the
+## middle 70% of each phase-gated contact so touchdown and toe-off do not count; lh omitted —
+## it cannot span its own stance at any body height and is the re-rig, see `_body_drop`):
+##
+##   crouch  bob | hip below rest | PLANTED PAW RISE lf/rf/rh |  IN-STANCE SLIDE lf/rf/rh
+##     0.00   38 |      -19 mm    |   54.2   27.1   31.6 mm   |  4.26  2.57  3.70 mm/frame
+##     0.55   14 |       14.7     |   15.9    5.0    7.4      |  1.23  2.49  0.78
+##     0.65   14 |       18.6     |   12.3    5.0    4.7      |  1.09  0.20  0.78
+##     0.75   10 |       24.6     |    6.0    4.9    6.2      |  0.19  0.19  1.91
+##     0.75   14 |       22.6     |    8.6    5.0    4.3      |  0.51  0.20  2.53
+##     0.85   14 |       26.5     |    6.0    4.9    5.8      |  0.20  0.19  5.24
+##     1.20   38 |       28.4     |   13.3    5.1   13.9      |  1.07  0.35  8.91
+##
+## There is a WINDOW, and it is about twelve millimetres wide. Above ~19 mm of drop the
+## saturated chains stop riding their sockets and the paws go quiet; below ~31 mm the binding
+## hind's hip is still inside ROM_PROX. A 38 mm bob is three times that window, which is why
+## the s52 walk lifted its planted paws 27-54 mm — the bob was doing it, and the stance arc
+## was doing the rest. 0.75 of the derived drop with a 14 mm bob sits in the middle of the
+## window: every payable paw travels 4-9 mm while it is on the deck and slides 0.2-2.5 mm a
+## frame, against 27-54 mm and 2.6-4.3 before.
+##
+## THE BOB IS SMALLER AND THAT IS THE POINT, not a regression. s52 raised it to 38 mm for
+## "little bounces"; this brief asks for the opposite and is right — "the trunk stays level
+## and quiet; the visible motion is in the limbs". A walking cat's trunk barely rises. If the
+## owner wants the bounce back the cost is now a number rather than an argument: at 38 mm the
+## planted left fore rides 34 mm and the right hind 25 mm (crouch 0.60 row of the same grid).
+static var CROUCH_K: float = 0.75
+static var BOB_WALK: float = 0.014
+## HOW MUCH OF EACH LIMB'S REST FORE-AFT OFFSET IS TAKEN OUT OF ITS STANCE SWEEP — see
+## `_centre_off`. 0 = sweep centred on the rest paw (every session up to s52), 1 = centred
+## under the socket. A VAR because it moves where the animal plants its feet.
+static var STANCE_CENTRE: float = 1.0
+## THE AUTHORED SWING FOLD, radians of elbow / stifle on top of whatever the IK already had to
+## bend to reach the path — the knee half of the owner's "knee and wrist bends back... then
+## knee straightens and paw sticks back out to catch".
+##
+## 0.42/0.36 -> 0.18/0.15 (s54), AND THE TOP HALF OF THE OLD AMPLITUDE WAS NEVER DRAWN. The
+## elbow/stifle bound is `ROM_DIST_FOLD` = 1.35 rad = 77.35 deg, and measured at the shipped
+## walk lf, rf and rh all sat at EXACTLY 77.35 for three to four consecutive frames — a flat
+## top, which is the same clamp artefact s50 found on ROM_BLADE and which draws as a stutter
+## at the top of the fold rather than as a deeper bend. A/B at 0.21/0.18: drawn peak LIFT
+## unchanged (lf 92.9, rf 113.4 mm) and drawn peak elbow unchanged, because the surplus was
+## being clamped away — it existed only as a touchdown penalty on the way back down.
+##
+## Measured at the shipped walk, fraction of swing frames with the elbow/stifle sitting exactly
+## on ROM_DIST_FOLD — i.e. how much of the fold is a clamp rather than a bend:
+##     0.42/0.36   lf 21.5%   rf 18.9%   rh 23.7%
+##     0.18/0.15   lf 11.5%   rf 11.9%   rh 21.2%
+## and the drawn early-swing elbow is UNCHANGED (s 0.05/0.15/0.25: 19.9/39.5/58.7 deg before,
+## 20.0/39.6/58.8 after) — the bend the owner sees comes from the path the IK has to reach, not
+## from this layer, which is the lesson the s49 revert paid for. rh does not improve because
+## its IK demand alone saturates: that is the rig (docs/CAT_RIG_CEILING.md §3).
+##
+## It is ALSO a rate decision. The fold rides `_swing_bump`, whose peak slope on the rise is
+## `PI/(2*FOLD_APEX)` per unit s; over an 11.4-frame swing that is 22.09 deg/frame for a 0.42
+## fold at an 0.18 apex, against a `LIMB_MAX_RATE` ceiling of 18.14 — i.e. the old amplitude at
+## the new timing would ask for MORE THAN THE LIMITER WILL PASS and be smeared as well as
+## clamped. At 0.18 it is 9.47. Kept as vars so tests/gait_scratch.gd can sweep them in one run.
+static var FOLD_FORE: float = 0.18
+static var FOLD_HIND: float = 0.15
+## ...AND THE FOLD KEEPS ITS OWN APEX, because it is not paying the same bill as the lift.
+## `SWING_APEX` moves the PATH, and the path's apex is bounded from below by the frame rate:
+## the paw has to traverse its whole 85 mm inside `apex * 11.4` frames, so an apex at 0.15 is
+## 1.7 frames and snaps the foot off the deck (measured: drawn toe-off step 14.9 -> 39.1 mm on
+## lf). The authored fold moves no target — it is composed onto the solved bone — so its only
+## cost is its own joint rate, and 0.18 rad over 2 frames is 5.2 deg/frame against an 18.14
+## ceiling. So the KNEE can lead and the PAW does not have to: the fold peaks early (the
+## owner's "leg goes up, forward, knee and wrist bends back") while the lift keeps the
+## gentler apex that keeps both ends of the swing quiet.
+static var FOLD_APEX: float = 0.18
 ## HOW MUCH OF THE LIMB'S SWING THE SHOULDER BLADE TAKES — and the old 0.34 is why the owner
 ## could not see it. A cat has no functional clavicle: the scapula floats on muscle and IS the
 ## proximal foreleg segment, travelling further than almost any other mammal's, and it riding
@@ -87,12 +200,52 @@ const BLADE_TRAVEL: float = 0.85
 ## without a re-rig. The thoracic lever is real (71-91 mm/rad) and the fore girdle earns
 ## 19-24 mm. Both are in; neither is where the stride came from. See the s52 DEVLOG.
 ##
-## Amplitudes are anatomical rather than fitted: a walking quadruped's pelvis rotates about its
-## long axis by ~10-15 degrees and its shoulder girdle a little less. Walk-only — the gallop's
-## footfall order (GALLOP_OFF: lh 0.00, rh 0.12) lands the hinds nearly together, so there is
-## no differential for a yaw to express, which is also why real cats stop doing it at speed.
-const PELVIS_YAW: float = 0.22   ## rad, +/- — the pelvis counter-rotating with each hind step
-const CHEST_YAW: float = 0.16    ## rad, +/- — the shoulder girdle doing the same at the front
+## THE YAWS ARE OFF (s53), AND THIS IS THE OWNER'S "SHE WOBBLES SIDE TO SIDE WHEN SHE WALKS".
+##
+## Two things make it a defect rather than a taste call, and the second is the one that settles
+## it. First the axis: the paragraph above justifies the amplitude by citing a walking
+## quadruped's pelvis rotating "about its LONG AXIS by ~10-15 degrees" — a quadruped's long
+## axis is the fore-aft one, so that citation describes ROLL (pelvic list), and the code
+## applied YAW, about the vertical. The anatomy never supported the axis that shipped.
+##
+## Then the ledger, measured on this rig rather than argued (tests/GaitScratch block 7,
+## a live walk at each amplitude, reading the DRAWN bones):
+##
+##     pelv  chest | rump lateral  head lateral  Spine02 lateral | walk sweep   stride
+##     0.22   0.16 |    77.69 mm      46.65 mm         27.41 mm  |   0.2316    0.4453
+##     0.00   0.16 |     1.61            37.69          3.65     |   0.2233    0.4293
+##     0.22   0.00 |    77.69            27.36         27.41     |   0.2316    0.4453
+##     0.00   0.00 |     1.61             2.66          3.65     |   0.2233    0.4293
+##     0.08   0.00 |    28.49            10.36         10.58     |   0.2263    0.4352
+##
+## The two yaws own 76.1 of the 77.7 mm of rump swing and 44.0 of the 46.6 mm at the head; the
+## pelvis and chest ROLLS and the spine bend together own 1.6-3.7 mm. There is no other lateral
+## contributor of any size — the bob is vertical and `ship_cat._face` is a monotone exponential
+## toward the heading with nothing per-stride in it. That 77.7 mm of rump, at 2.5 strides a
+## second, IS the report.
+##
+## And what it bought: CHEST_YAW buys EXACTLY NOTHING. The stride is set by the shortest limb
+## and that is rh, a hind — the fores' envelopes (0.369 and 0.401 m) are not remotely binding,
+## so the thoracic girdle's real 71-91 mm/rad of socket travel never reaches the stride at all.
+## PELVIS_YAW buys 8.3 mm of the binding limb's 232 mm sweep, i.e. 16 mm of stride (3.6%), for
+## 25.2 degrees of visible rump swing. Even at 0.08 rad it is 28.5 mm of waddle for 3 mm of
+## sweep. That is not a trade, and the honest thing is to take the 16 mm back — see
+## `ship_cat.WALK_SPEED`, which is re-derived against the shorter stride so the CADENCE the
+## owner asked for is what is preserved.
+##
+## Kept as VARS at zero rather than deleted: `_prep_ik` still measures the levers and still
+## budgets whatever amplitude it is handed, so a re-rig that moves the hind sockets off the
+## centreline can turn this back on and be paid for it. tests/GaitScratch block 7 is the A/B.
+static var PELVIS_YAW: float = 0.0    ## rad, +/- — was 0.22; 25.2 deg of rump swing for 16 mm
+static var CHEST_YAW: float = 0.0     ## rad, +/- — was 0.16; bought no stride at all
+## ...AND THE ROLL THE ANATOMY ACTUALLY DESCRIBES STAYS, which is where a walking cat's
+## sinuousness really lives: the pelvis lists toward the supporting side and the thorax
+## counter-rolls, so the trunk reads as a spine working rather than a rump swinging. These
+## were inline literals; they are named so the lateral budget can price them too. At these
+## amplitudes the whole trunk moves 1.6-3.7 mm side to side, which is the difference between
+## "sinuous" and "wobbling".
+static var PELVIS_ROLL: float = 0.050   ## rad, +/- — pelvic list, phase-locked to the footfall
+static var CHEST_ROLL: float = 0.038    ## rad, +/- — the thorax counter-rolling against it
 
 ## THE TAIL, AND IT IS NOT WHERE ANY NAMING CONVENTION WOULD PUT IT.
 ##
@@ -209,12 +362,62 @@ const GALLOP_OFF := {"lh": 0.00, "rh": 0.12, "rf": 0.55, "lf": 0.67}
 ##
 ## The hind carries less of it than the fore on purpose: the hock is a much stiffer joint than
 ## the carpus, and a hind foot that flicks like a wrist reads as a limp.
+##
+## THE PAW COLUMN IS RETIMED AND THERE IS A KEY AT TOE-OFF NOW (s54) — the owner's "the paw
+## doesnt draw down like it should when leg lifts up... then when leg reaches final velocity
+## and starts to go down, knee straightens and paw sticks back out like normal to catch".
+##
+## WHY IT COULD NOT BE FIXED BY CHANGING NUMBERS: the carpus is read at `ph - DRAG`, and with
+## a duty of 0.52 and `DRAG` 0.045 the swing occupies table t 0.475..0.955. Only THREE of the
+## six shipped keys fell inside it (0.62 -> swing s 0.302, 0.72 -> 0.510, 0.86 -> 0.802).
+## There was no key at toe-off and none in the carry, so the wrist's "trail" could not fire
+## until a quarter of the way into the swing and there was nothing to hold it folded. Measured
+## before: peak extension -10.24 deg at s 0.225, peak flexion +14.82 at s 0.53 — the wrist
+## tucking SIMULTANEOUSLY with the elbow's plateau instead of following it. One key had to be
+## INSERTED; the numbers alone could never reach it.
+##
+## THE KEY IS AT t = 0.49 AND THE DUTY IS WHY. A table time maps to swing progress as
+## `s = (t + DRAG - duty) / (1 - duty)`, so where a key lands depends on the DUTY IN USE — and
+## the shipped walk now runs at duty 0.466 (mix 0.17), not 0.52. The first cut of this put the
+## key at 0.52, which is s 0.094 at duty 0.52 and s 0.185 at 0.466: measured, the drawn trough
+## fell from -12.8 deg to -7.3, i.e. SHALLOWER THAN THE COLUMN IT REPLACED, because the toe-off
+## key had drifted a fifth of a swing late. 0.49 lands at s 0.031 / 0.129 across that range and
+## works at both ends; a key any earlier goes into late stance at the walk duty.
+##
+## The inserted key's `reach` is read off the SHIPPED curve at that t (fore -0.1968, hind
+## -0.1976) so adding it does not move the scapula or the hip drive: measured residual
+## perturbation of the `reach` column over the whole cycle is under 0.01 rad, and `reach` only
+## reaches the animal through `reach_lead * BLADE_TRAVEL`, i.e. under half a degree of scapula
+## against ROM_BLADE's 29.79. (`flex`, column 2, is not read by anything and is carried for
+## readability only.)
+##
+## What it draws, measured through the shipped cyclic Catmull-Rom at the real frame rate, deg
+## of carpus by swing s (0 = toe-off, 1 = touchdown):
+##            s ->   .05    .15    .25    .35    .45    .55    .65    .75    .85    .95
+##   fore was       -8.2   -9.7  -10.2   -4.2   13.2   14.8   11.9    7.8    5.0    1.8
+##   fore now      -12.8  -10.1    1.1   13.7   21.2   20.3   16.2   11.3    7.4    2.5
+##   hind was       -5.0   -6.2   -6.7   -3.2    8.2   11.9   10.6    7.5    4.6    2.4
+##   hind now       -8.5   -8.1   -1.2    7.7   14.2   15.5   13.7   10.4    7.1    3.7
+## i.e. the wrist now breaks back AT the lift, folds under through the first third, CARRIES
+## folded, and opens flat into the plant — and it still ends within 2.5 / 3.7 deg of neutral
+## at touchdown, which is what "sticks back out to catch" means for a paw that has to land.
+##
+## NOTHING WAS WIDENED TO PAY FOR IT. Peak |carpus| 21.2 deg fore / 15.6 hind against
+## ROM_PAW's 28.65 (74% / 54%), and the worst one-frame step FALLS — 0.2140 -> 0.1957 rad fore
+## and 0.1464 -> 0.1215 hind against the 0.3167 limiter — because inserting a key removes a
+## steep Catmull-Rom transient between two distant ones. The range came off the elbow (see
+## `FOLD_FORE`) and went onto the carpus, which is the joint that had 13.6 deg of unused
+## flexion at a walk. The GALLOP tables are untouched: the two are blended by `mix`, so
+## deepening the walk alone cannot reach the run, where the fore carpus already draws 26.0 of
+## the 28.65.
 const CYC_WALK_FORE := [
-	[0.00, 0.30, 0.08, -0.06], [0.30, 0.02, 0.03, 0.00], [0.62, -0.30, 0.06, -0.20],
-	[0.72, -0.12, 0.60, 0.30], [0.86, 0.24, 0.42, 0.12], [1.00, 0.30, 0.08, -0.06]]
+	[0.00, 0.30, 0.08, -0.10], [0.30, 0.02, 0.03, 0.00], [0.49, -0.1968, -0.0027, -0.32],
+	[0.62, -0.30, 0.06, 0.20], [0.72, -0.12, 0.60, 0.44], [0.86, 0.24, 0.42, 0.18],
+	[1.00, 0.30, 0.08, -0.10]]
 const CYC_WALK_HIND := [
-	[0.00, 0.34, 0.06, -0.03], [0.34, 0.02, 0.03, 0.00], [0.62, -0.34, 0.09, -0.13],
-	[0.74, -0.12, 0.72, 0.24], [0.88, 0.28, 0.48, 0.09], [1.00, 0.34, 0.06, -0.03]]
+	[0.00, 0.34, 0.06, -0.06], [0.34, 0.02, 0.03, 0.00], [0.49, -0.1976, 0.0117, -0.23],
+	[0.62, -0.34, 0.09, 0.10], [0.74, -0.12, 0.72, 0.32], [0.88, 0.28, 0.48, 0.14],
+	[1.00, 0.34, 0.06, -0.06]]
 ## Gallop: shorter stance (duty ~0.38), far bigger reach and fold. The legs GATHER under
 ## the body and EXTEND — but half of a real gallop lives in the spine engine below.
 const CYC_GAL_FORE := [
@@ -225,8 +428,52 @@ const CYC_GAL_HIND := [
 	[0.56, -0.25, 0.95, 0.35], [0.82, 0.42, 0.55, 0.05], [1.00, 0.50, 0.08, 0.00]]
 ## Speed bands (m/s): below WALK_V pure walk offsets; between, eased; above TROT_V pure
 ## bound. Chosen against WALK_SPEED 1.55 / TROT 2.6 / RUN 4.4 in ship_cat.gd.
-const WALK_V: float = 1.8
-const TROT_V: float = 3.4
+##
+## RE-SITED ON REAL FELINE TRANSITION SPEEDS (s54), which is the fix KNOWN_ISSUES asked for and
+## the honest half of the owner's "the cat speed needs to increase by ~25%".
+##
+## They were two sessions stale: 1.8 / 3.4 were chosen against WALK_SPEED 1.55 and TROT 2.6,
+## and those constants have been 1.084 and 1.9 since s52. At TROT_SPEED the mix computed to
+## 0.06 — the "trot" was a walk cycle at 1.9 m/s, 4.16 strides a second, and it measured as the
+## worst-behaved band in the animal (phase-gated slide rf 33.7, lh 47.2 mm/frame).
+##
+## `mix` is not a style dial. It sets the footfall order (WALK_OFF at 0, TROT_OFF at 0.5,
+## GALLOP_OFF at 1), the duty (WALK_DUTY -> GALLOP_DUTY) and therefore the stride, the sweep
+## envelope, the bob and the swing lift. So a band is a claim about WHICH GAIT the animal uses
+## at a given ground speed, and that claim is checkable against the animal: a domestic cat
+## walks up to about 1.0-1.3 m/s, trots from there to about 2.4-3.0, and gallops above it
+## (Blaszczyk & Loeb's treadmill cats change gait in those two windows). So:
+##     WALK_V 1.30  — the walk -> trot transition; below it the lateral-sequence walk
+##     TROT_V 2.90  — the trot -> gallop transition; above it the full bound
+## which puts ship_cat's three speeds at mix 0.038 / 0.675 / 1.000 instead of 0.000 / 0.063 /
+## 1.000. THE MIDDLE ONE IS THE POINT: TROT_SPEED now actually draws a trot, at duty 0.304 and
+## a 0.640 m stride, instead of a walk cycle flogged at 1.9 m/s.
+##
+## AND 1.30 RATHER THAN 1.05, WHICH IS A GATE DECISION AND IS WRITTEN DOWN AS ONE. 1.05 is the
+## more central figure for an animal this size and it was tried first: it puts the shipped walk
+## at mix 0.168, buying a longer stride (0.463 m vs 0.436) and a slower step (2.94/s vs 3.12).
+## It also takes CatReviewProbe's `[walk] slide_frame` from 9.16 to 12.45 mm/frame against a
+## 10 mm gate, and `[lookwalk]` from 8.07 to 11.34. Decomposed by running the probe with the
+## mix pinned:
+##     1.084 m/s, mix 0  ->  6.99 mm/frame        (the pre-s54 build)
+##     1.360 m/s, mix 0  ->  8.76                 (pure speed: it scales 1:1 with ground speed)
+##     1.360 m/s, mix 0.168 -> 12.45              (the band)
+## So the speed rise costs 1.8 mm/frame and is unavoidable if the animal is to go faster; the
+## deeper band costs another 3.7 and is a CHOICE. This repo does not widen a gate to make a
+## change fit, so the band stops where the gate does. If a future session ports GaitScratch's
+## phase gate into cat_review_probe.gd (KNOWN_ISSUES names this as the fix) and the 10 mm bar
+## then means what it says, 1.05 is the better number and this line is the only edit.
+##
+## THIS IS ALSO WHERE THE OWNER'S EXTRA GROUND SPEED COMES FROM, and the arithmetic says it
+## could not have come from anywhere else. `stride = sweep / duty`; the walk's sweep is capped
+## by the binding hind's `2*c0*sin(ROM_PROX)` (0.2233 m — and ROM_PROX must not be widened, see
+## KNOWN_ISSUES) and WALK_DUTY 0.52 is already at the definitional floor of a walk (four limbs
+## at duty d average 4d feet down, so 0.50 IS the walk/trot boundary). A pure walk on this rig
+## therefore tops out at a 0.429 m stride, so +25% ground speed on a pure walk IS +25% cadence.
+## At mix 0.038 the stride grows 1.7% and the cadence rises 23% rather than 25%: honest, small,
+## and the reason the number is stated in ship_cat rather than hidden.
+const WALK_V: float = 1.30
+const TROT_V: float = 2.90
 
 ## THE STANCE FRACTION AT EACH END OF THE GAIT, and the second half of `stride = sweep/duty`.
 ##
@@ -347,6 +594,13 @@ var _tail_yaw_v: float = 0.0
 var _flick_side: float = 1.0
 var _tail_pitch: float = 0.0
 var _tail_pitch_v: float = 0.0
+## The tail's absolute world target for this frame, and the world orientation it actually drew
+## last frame — see TAIL_MAX_RATE and the re-solve at the end of `tick`.
+var _tail_gwant: Quaternion = Quaternion.IDENTITY
+var _tail_prev_g: Quaternion = Quaternion.IDENTITY
+## Every bone's FINAL local rotation this frame, after the ROM clamp and the rate ceiling — the
+## only buffer from which a bone posed absolutely can be solved honestly.
+var _fin: Dictionary = {}
 ## TRANSITION TIMELINE (P6): a short queue of [pose, hold_sec, rate] sub-poses played before
 ## the blend settles on `_target`. This is what turns "melt between two statics" into
 ## anticipation -> extreme -> settle: a cat shifts its weight BACK before it sits, sinks a
@@ -435,10 +689,40 @@ func _init(skel: Skeleton3D, pose_json_path: String = "") -> void:
 	# GAINS BEFORE POSES: _measure_gains derives each limb's hinge from the rest skeleton,
 	# and _build_poses may author on those hinges (axis code 6). The reverse order would
 	# hand code-6 poses the local-X fallback — the exact wrong axis the code exists to end.
+	# ...AND IK BEFORE POSES, WHICH IS THE OWNER'S "SITTING CAT ANGLED BACKWARDS".
+	#
+	# `_prep_ik` is where `_rom` is built — the joint limits, derived here because this is
+	# where each knee's fold DIRECTION is already a measured fact. `_build_poses` ran BEFORE
+	# it for every session the bake has existed, so `_rom` was an empty dictionary throughout
+	# the bake and `_clamp_joint` was a silent no-op: **not one pose in the library has ever
+	# been solved inside the animal's own joint limits.** `tick`'s write loop then clamps
+	# every frame, so what the library believed it had planted and what the skeleton drew were
+	# two different animals. Measured on the sit before this line moved: the runtime clamp
+	# took 12.31 deg off `L_Forearm`, 8.14 off `R_Calf` and 3.09 off `L_Calf` against the
+	# baked pose, standing perfectly still, which put the forepaws ~9 mm further off the deck
+	# and the hind ~13 mm further through it than the pose library said.
+	#
+	# `_prep_ik` reads only the rest skeleton and `_limb`, never `_poses`, so the swap is
+	# free — and with it the bake's CCD solves in range and the trim below can see the true
+	# residual instead of one the clamp will change later.
 	_cache_rest_bases()
 	_measure_gains()
-	_build_poses()
 	_prep_ik()
+	var bake_t0: int = Time.get_ticks_msec()
+	_build_poses()
+	# THE BAKE REPORTS WHAT IT ACHIEVED. The library is solved, not authored, so "the paws are
+	# planted" is a claim with a number behind it — the worst VERTICAL miss across every
+	# planted paw of every pose, in millimetres, and what the whole thing cost at load.
+	var worst_mm: float = 0.0
+	var worst_where: String = ""
+	for nm in _poses:
+		for k in ((_poses[nm] as Dictionary).get("paw_dy_mm", {}) as Dictionary):
+			var v: float = absf(float(_poses[nm]["paw_dy_mm"][k]))
+			if v > worst_mm:
+				worst_mm = v
+				worst_where = "%s/%s" % [nm, k]
+	print("[cat_rig] %d poses baked in %d ms — worst planted-paw miss %.1f mm (%s)"
+		% [_poses.size(), Time.get_ticks_msec() - bake_t0, worst_mm, worst_where])
 
 ## RE-APPLY THE HEAD CORRECTION TO A LIVE RIG. The bake runs once at load, so a harness that
 ## changes HEAD_MESH_YAW afterwards would film the old value on every beat. Rebuilds the head's
@@ -789,6 +1073,35 @@ const HEAD_MAX_RATE: float = 2.4
 ## measures, and only to bones that carry a ROM entry — the limbs. The torso, neck, head and
 ## tail have their own governors.
 const LIMB_MAX_RATE: float = 19.0
+## ...AND THE THIRD GOVERNOR, WHICH IS THE COVERAGE GAP KNOWN_ISSUES LEFT OPEN.
+##
+## `LIMB_MAX_RATE` is applied `if _rom.has(i)` — i.e. only to bones that carry a joint limit,
+## which `_prep_ik` builds for the four limbs and nothing else. `R_ThighTwist01` has no ROM
+## entry, so the one bone that carries the tail AND the rump (docs/CAT_RIG_CEILING.md §1) has
+## never had a rate ceiling of any kind. CatReviewProbe knows to gate its WORLD orientation
+## rather than its local pose — a bone posed absolutely against a moving parent legitimately
+## steps locally as fast as that parent does — and that world gate WAS ALREADY FAILING at
+## HEAD, in a band nothing routinely measures:
+##     tail world step, rad/frame, gate 0.35:   HEAD walk 0.3317   HEAD trot 0.3662  ✗
+##                                              s53 walk 0.3343    s53 trot 0.3675   ✗
+##                                              s53 run  0.4608 ✗
+## and re-siting the speed bands takes the walk over it too (0.4237).
+##
+## AND THE CAUSE IS NOT THE TAIL. 5d solves this bone's LOCAL rotation so that its WORLD basis
+## equals a smooth spring target: `_out[tail] = _live_basis(parent).inverse() * g_want`. But
+## `_live_basis` composes the frame's `_out` buffer, which is the PRE-CLAMP, PRE-LIMITER value,
+## and the parent is `R_Thigh` — the binding hind's own hip, which is ROM-clamped 37% of its
+## stance and sits on the limiter every swing. So the whole clamp-and-limiter residue of the
+## worst-conditioned chain on the rig leaked straight out of the tail, at frame rate. That is
+## the "capping any one layer cannot bound a sum" argument one more time, from the other side:
+## the tail was cancelling a parent motion THAT NEVER HAPPENED.
+##
+## Both halves are fixed at the write (see the end of `tick`): the tail is re-solved against
+## the parent's FINAL drawn basis, and then bounded in world space exactly the way the head is.
+## 16 rad/s = 0.267 rad/frame at 60 Hz, chosen against the measured distribution rather than
+## the gate — after the re-solve the gait's own 95th percentile is 0.09 rad/frame, so this is
+## six times what healthy motion asks for and only the leak is clipped.
+const TAIL_MAX_RATE: float = 16.0
 ## How much of the trunk's own pitch and roll the neck cancels. Cats are among the best
 ## head-stabilisers in the animal kingdom — the eyes hold a near-constant horizon while
 ## the body does whatever the gait demands — and the gait's spine engine pitches the chest
@@ -845,31 +1158,99 @@ func _yaw_gain(driver: int, target: int, rest_q: Dictionary) -> float:
 	_set_chain(rest_q)
 	return (out[1] - out[0]) / (2.0 * d)
 
-## HOW HIGH THE PAW MUST RIDE AT THE ENDS OF ITS STANCE, in metres, for this limb to cover
-## `sweep` of ground without the two-bone solve having to shorten the chain.
+## HOW FAR THE BODY MUST SIT BELOW ITS REST HEIGHT, in metres, for every payable limb to cover
+## `sweep` of ground on a FLAT stance without the two-bone solve having to shorten the chain.
 ##
-## This is the change that let the stride grow. The old path carried a hand-set 12 mm of rise
-## for every limb at every stride; the geometry wants what the triangle wants. Take the rest
-## vector's components in the limb's own sagittal plane (`d_fw` forward, `d_up` down), push the
-## paw `sweep/2` to the worse end, and ask what height puts the target back on the reach
-## sphere:  h = -d_up - sqrt(cmax^2 - (d_fw +- sweep/2)^2).  Below that the solve clamps, the
-## stance path is silently shortened, and a shortened stance path IS a skate — which is why
-## every previous attempt at a wider stride measured as sliding paws.
+## SAME TRIANGLE, DIFFERENT PAYER (s53). s52 derived this quantity per limb and spent it as
+## paw LIFT during contact, which bought the stride and cost the plant: a paw that rides 38-59
+## mm up and down while it is bearing weight is the slap the owner reported, and the two ends
+## of that parabola do not meet the swing curve, so it teleported as well (see `_foot_path`).
+## The solve only ever sees the socket-to-target VECTOR, so lowering the socket by h and
+## raising the paw by h are the same number to every limb — and only one of them is what an
+## animal does. Take the rest vector's components in the limb's own sagittal plane (`d_fw`
+## forward, `d_up` down), push the paw `sweep/2` to the worse end, and ask what socket height
+## puts the target back on the reach sphere:  h = -d_up - sqrt(cmax^2 - (d_fw +- sweep/2)^2).
 ##
-## It is a floor, never a ceiling on the animator: `STANCE_ARC` still applies when the geometry
-## asks for less (a real paw lands toe-first and rolls flat whatever the maths says), and the
-## caller caps it against the swing lift so a leg that cannot pay simply carries on clamping
-## rather than turning the walk into a tiptoe.
-func _stance_arc(k: String, sweep: float) -> float:
+## A LIMB THAT CANNOT SPAN ITS STANCE AT ANY HEIGHT GETS NO VOTE. `rad <= 0` means the worst
+## end is outside the reach sphere however low the body goes — this rig's LEFT HIND, whose
+## socket the auto-rig put 0.169 m forward and whose paw sits 0.364 m behind it (its demand
+## computes as 170 mm, i.e. the animal on its belly, for a limb that would still clamp).
+## That leg clamps and slides today and will keep doing so until the re-rig
+## (docs/CAT_RIG_CEILING.md §3, KNOWN_ISSUES); crouching the whole animal for it would buy
+## nothing and cost everything. The payable maximum on this fit is 48.7 mm, set by rh.
+##
+## AND IT IS NOT A PURE REACH SUM, WHICH IS THE TRAP THIS FUNCTION FELL INTO FIRST. Dropping
+## the body shortens the chain the leg needs, and it also STEEPENS the hip: covering the same
+## ground from a lower socket takes a bigger swing angle, and `ROM_PROX` is a real clamp. The
+## first cut asked only "what height puts the target inside cmax" and answered 45.2 mm, at
+## which the binding limb's hip pinned on ROM_PROX instead and its in-stance slide went 5.4 ->
+## 16.6 mm/frame — a fix that traded one clamp for another. Measured, tests/GaitScratch block 8.
+##
+## Both constraints, per limb, for a half-sweep of x:
+##     reach:  h <= sqrt(cmax^2 - x^2)         the chain must span it
+##     hip:    h >= x / tan(ROM_PROX)          the swing angle must stay legal
+## Any h between them works and the HIGHEST one is the least crouch, so take the reach bound —
+## unless the two have crossed (x > cmax*sin(ROM_PROX), i.e. the sweep is wider than this limb
+## can cover at any height), where the best compromise is exactly where they meet,
+## h = cmax*cos(ROM_PROX). On this fit the three payable limbs then ask for 36.1 / 38.4 / 38.0
+## mm and the fourth (lh, whose paw sits 0.364 m behind a socket 0.156 m up) asks for none:
+## they AGREE, which is why one body height can serve four chains this mismatched.
+##
+## Recomputed per frame from the sweep actually in use, so a pose that shortens its stride
+## (the stalk's `sweep_k`) automatically stands taller: a few flops and a sqrt per limb.
+## HOW FAR THIS LIMB'S STANCE SWEEP IS SHIFTED BACK so it straddles the ground under its own
+## socket instead of the ground under its REST PAW.
+##
+## A symmetric sweep about a paw that does not sit under its own socket is not symmetric in
+## REACH: the far end costs `|fw_off| + sweep/2` of horizontal span and the near end
+## `|fw_off| - sweep/2`. On this fit the left fore's rest paw is 45 mm AHEAD of its shoulder
+## and that chain is 99.7% extended at rest, so its touchdown target sat 163 mm forward of a
+## socket 285 mm up — 0.3276 m of span against 0.319 m of chain. The solve then held the paw
+## ~25 mm high through the last frames of swing and dropped it in one, which is a slap that no
+## amount of path smoothing can reach because the path was never the problem there.
+##
+## Centring costs NOTHING: the paw covers the same ground, foot-lock is unchanged (it is a
+## constant offset, not a rate), and the shift itself fades with `step_w` because the solve's
+## output does. It moves where the animal puts its feet, which is a real visual change and is
+## why it is a knob rather than a silent constant.
+##
+## A LIMB WHOSE PAW IS FURTHER FROM ITS SOCKET THAN HALF ITS OWN REACH IS NOT A LEG in the
+## two-bone sense and gets no shift — the left hind again, whose "thigh" is largely the tail
+## root (docs/CAT_RIG_CEILING.md §3): its paw is 364 mm behind a socket with 440 mm of chain,
+## and centring it would walk that foot 364 mm forward of where the pose puts it. Same
+## exclusion rule, and the same limb, as `_body_drop`.
+func _centre_off(k: String) -> float:
 	var S: Dictionary = _ik.get(k, {})
 	if S.is_empty():
-		return STANCE_ARC
-	var cmax: float = float(S["cmax"])
-	var worst: float = maxf(absf(float(S["d_fw"]) + sweep * 0.5), absf(float(S["d_fw"]) - sweep * 0.5))
-	var rad: float = cmax * cmax - worst * worst
-	if rad <= 0.0:
-		return STANCE_ARC          # cannot be covered at any height — the solve clamps, as before
-	return maxf(STANCE_ARC, -float(S["d_up"]) - sqrt(rad))
+		return 0.0
+	var fw: float = float(S["fw_off"])
+	if absf(fw) > float(S["cmax"]) * 0.5:
+		return 0.0
+	return fw * STANCE_CENTRE
+
+## ...AND IT IS PRICED AT THE SWEEP THE ANIMAL ACTUALLY WALKS (s54). This function and
+## `_centre_off` disagreed about where the stance sits: the path plants the sweep about the
+## SOCKET (`STANCE_CENTRE` 1.0 subtracts each limb's `fw_off`), while the demand here was still
+## measured about the REST PAW, `d_fw ± sweep/2`. On a rig whose rest paws sit 45-82 mm off
+## their own sockets that is a different triangle, and it over-charged the two forelegs and
+## under-read which limb was binding: the ledger said rf asked for 38.4 mm and set the crouch,
+## when rf centred asks for ~0 and the real payer is rh at 37.7 mm. The crouch itself barely
+## moves (0.5 mm at CROUCH_K 0.75) — what moves is that the number is now about the leg that
+## is actually in trouble, which is the leg any future tuning has to be aimed at.
+func _body_drop(sweep: float) -> float:
+	var h: float = 0.0
+	for k in _ik:
+		var S: Dictionary = _ik[k]
+		var cmax: float = float(S["cmax"])
+		# Where this limb's stance is centred, socket-relative, after `_centre_off`. (The two
+		# are measured on slightly different axes — `d_fw` in the limb's own sagittal plane,
+		# `fw_off` along BODY_FWD — which on this fit differ by under a millimetre.)
+		var mid: float = float(S["d_fw"]) - _centre_off(k)
+		var x: float = maxf(absf(mid + sweep * 0.5), absf(mid - sweep * 0.5))
+		var reach: float = cmax * cmax - x * x
+		var want: float = maxf(sqrt(reach) if reach > 0.0 else 0.0, cmax * cos(ROM_PROX))
+		h = maxf(h, -float(S["d_up"]) - want)
+	return h
 
 func _prep_ik() -> void:
 	if not valid():
@@ -913,7 +1294,7 @@ func _prep_ik() -> void:
 		if _hip >= 0:
 			_sk.set_bone_pose_position(_hip, _rest_t[_hip])
 		# THE STANCE PATH IS AN ARC, AND HOW DEEP AN ARC IS THE CHAIN'S OWN BUSINESS —
-		# cached here so `tick` can ask for it in three flops and a sqrt (see `_stance_arc`):
+		# cached here so `tick` can ask for it in a few flops and a sqrt (see `_body_drop`):
 		# the rest vector's components along the sagittal plane's forward and up, plus the
 		# reach cap the solve clamps against.
 		var e_up: Vector3 = _flat(BODY_UP, n)
@@ -930,6 +1311,10 @@ func _prep_ik() -> void:
 			"g_gain": g_gain,
 			"g_amp": g_amp,
 			"girdle": 0.0,
+			# HOW FAR THIS LIMB'S REST PAW SITS AHEAD OF ITS OWN SOCKET, in the body's frame
+			# — the thing that makes one end of a symmetric sweep far harder than the other.
+			# See `_centre_off`. Measured, like everything else in this dict.
+			"fw_off": (W0 - P).dot(BODY_FWD),
 			"alpha0": _tri_angle(a, c0, b), "beta0": _tri_angle(a, b, c0),
 			# +1 when a positive rotation at the knee FOLDS the leg.
 			"knee": -1.0 if c_test > c0 else 1.0,
@@ -955,7 +1340,7 @@ func _prep_ik() -> void:
 			# for a flat stance with a hand-set 12 mm of rise at the ends; the geometry wanted
 			# 25.6 mm at the old sweep and 39 at 1.05*c0. The difference came out of
 			# `_reach_give`, and past ~1.0*c0 the give ran out, the solve fell back to SHORTENING
-			# the reach, and a shortened stance path is exactly what a skate is. `_stance_arc`
+			# the reach, and a shortened stance path is exactly what a skate is. `_body_drop`
 			# now derives that rise per limb from the limb's own triangle, so the clamp stops
 			# firing and the envelope can go to the joint limit this file already enforces.
 			#
@@ -1142,30 +1527,74 @@ func _solve_leg(k: String, target: Vector3) -> Array:
 ## stride: the body covers `stride` in a whole cycle, so a paw down for `duty` of that cycle
 ## must travel `stride * duty` backwards to stay put. Getting that product right is the whole
 ## of foot-lock.
-func _foot_path(t: float, duty: float, sweep: float, lift: float, arc: float) -> Vector2:
+## THE WHOLE CYCLE IS ONE CONTINUOUS CURVE NOW (s53), and the three defects it had were all
+## in the seams rather than in the shapes:
+##
+##   * THE PAW TELEPORTED VERTICALLY BY `arc` AT BOTH TRANSITIONS. Stance height was
+##     `arc*e^2`, which is `arc` at BOTH ends of the contact; swing height was `lift*sin(PI*s)`,
+##     which is ZERO at both ends of the swing. So the drawn paw jumped DOWN by arc at toe-off
+##     and UP by arc at touchdown, every footfall, on every limb. Measured before the fix
+##     (tests/GaitScratch block 5): 39.6 / 41.2 / 12.0 / 41.1 mm — a four-centimetre vertical
+##     teleport at every plant. Two continuous shapes joined at a discontinuity is still a
+##     discontinuity, and it is the owner's "feet slap".
+##   * THE PLANTED PAW ROSE 38-59 mm WHILE BEARING WEIGHT. Foot-lock in this engine is
+##     HORIZONTAL: the paw sweeps backward at body speed, and `arc*e^2` then moved it up and
+##     down through the contact. A real paw does not travel six centimetres vertically while
+##     it is on the ground.
+##   * IT ARRIVED AT MAXIMUM DOWNWARD SPEED. d/ds of `lift*sin(PI*s)` is `lift*PI*cos(PI*s)`,
+##     i.e. `-lift*PI` at s=1 — the fastest descent of the whole swing, at the exact instant
+##     of contact, under a comment claiming the opposite. Vertical speed at touchdown must go
+##     to ZERO; that is the entire difference between a step and a slap.
+##
+## THE ARC ITSELF WAS RIGHT ABOUT THE GEOMETRY AND WRONG ABOUT WHO PAYS. A chain of reach c0
+## covering s of ground cannot stay level — this rig's binding limb (rh) is 0.192 m of bone
+## covering 0.232 m of deck — so SOMETHING has to give by ~40-49 mm. A real quadruped whose
+## leg reaches full extension DROPS ITS HIP; it does not lift its planted paw. The same
+## millimetres are now taken out of the BODY (`_body_drop`, applied to the hip in `tick`),
+## which is exactly equivalent for every limb's reach — the solve only ever sees the socket-
+## to-target vector — and leaves the paw flat, planted and continuous. Verified: with the
+## drop in, saturation and in-stance slide are unchanged or better, and the paw's whole
+## vertical is one C1 curve.
+##
+## `duty` is the fraction of the cycle the paw spends on the deck. `sweep` is how far the paw
+## travels during stance, and it is NOT the stride: the body covers `stride` in a whole cycle,
+## so a paw down for `duty` of that cycle must travel `stride * duty` backwards to stay put.
+## Getting that product right is the whole of foot-lock.
+func _foot_path(t: float, duty: float, sweep: float, lift: float) -> Vector2:
 	if t < duty:
-		# STANCE — a straight line backwards at body speed, on a very shallow arc.
-		#
-		# The arc is not decoration. This rig's left hind leg is DEAD STRAIGHT in its bind
-		# pose (hip-to-paw 0.214 m against bones of 0.144 + 0.070), so the paw sits exactly on
-		# the edge of its own reachable set and cannot move horizontally at all without
-		# shortening the chain. A flat stance therefore asks for a target the leg cannot hit,
-		# the solve clamps it, and — because the two hinds clamp by different amounts — the
-		# limp comes back at speed. A rise at the ends of the sweep buys the headroom, and it
-		# is what a real paw does anyway: it lands toe-first, rolls flat through mid-stance,
-		# and pushes off the toes. HOW MUCH rise is `_stance_arc`'s answer now, derived per
-		# limb from that limb's own triangle and the sweep it is being asked for, rather than
-		# the one hand-set 12 mm that capped the stride for five sessions.
-		var u: float = t / maxf(duty, 1e-4)
-		var e: float = 2.0 * u - 1.0
-		return Vector2(sweep * (0.5 - u), arc * e * e)
-	# SWING — up fast, forward, and DOWN INTO THE PLANT rather than dropping onto it. The
-	# forward travel is eased at both ends (the paw is momentarily still relative to the body
-	# at toe-off and at touchdown, which is what a real limb does) while the lift runs on a
-	# sine, so the peak of the arc sits mid-swing where it belongs.
+		# STANCE — flat, and a straight line backwards at body speed. The paw is on the deck;
+		# it stays on the deck; the headroom the chain needs comes out of the body.
+		return Vector2(sweep * (0.5 - t / maxf(duty, 1e-4)), 0.0)
 	var s: float = (t - duty) / maxf(1.0 - duty, 1e-4)
-	var se: float = s * s * (3.0 - 2.0 * s)
-	return Vector2(sweep * (se - 0.5), lift * sin(PI * s))
+	# SWING, FORE-AFT — the end SLOPES MATCH THE STANCE'S, so the paw is stationary IN THE
+	# WORLD at toe-off and at touchdown rather than stationary relative to the BODY. The old
+	# smoothstep did the latter (its comment said "what a real limb does"; it is the opposite):
+	# zero body-relative velocity at contact means the paw is travelling FORWARD at body speed
+	# the instant it lands and must stop dead in one frame, which is a horizontal scuff on top
+	# of the vertical one. A cubic Hermite with both end slopes set to the stance rate
+	# `-sweep*(1-duty)/duty` fixes it and costs one extra term. It also produces SWING-LEG
+	# RETRACTION for free — the paw reaches ~4% of the sweep past its landing point and comes
+	# back to meet the ground — which is what real animals do and why their touchdowns are quiet.
+	var m: float = -sweep * (1.0 - duty) / maxf(duty, 1e-4)
+	var x: float = sweep * (s * s * (3.0 - 2.0 * s) - 0.5) + m * s * (2.0 * s - 1.0) * (s - 1.0)
+	return Vector2(x, lift * _swing_bump(s))
+
+## THE SHAPE OF EVERYTHING THAT HAPPENS DURING A SWING AND MUST BE OVER BY THE PLANT — the
+## paw's lift and the authored knee fold both ride this, because they are the same event
+## (the leg folds in order to lift the paw) and because both had the same defect.
+##
+## Zero VALUE and zero RATE at both ends, apex before the middle. Two raised cosines meeting
+## at the apex, so it is C1 at 0, at the apex and at 1 with no flat top to punctuate it. The
+## `sin(PI*s)` this replaces is zero at both ends and moving FASTEST there: at s=1 its rate is
+## -PI x amplitude, i.e. the whole layer unwinds at maximum speed at the exact instant of
+## contact. That was true of the paw's lift AND of the swing fold, and the fold is the larger
+## of the two on this rig — 0.42 rad of elbow at ~0.145 m of forearm is ~17 mm of paw in the
+## last frame before touchdown, on top of the lift's own.
+func _swing_bump(s: float, apex: float = -1.0) -> float:
+	var p: float = SWING_APEX if apex < 0.0 else apex
+	if s < p:
+		return 0.5 - 0.5 * cos(PI * s / maxf(p, 1e-4))
+	return 0.5 + 0.5 * cos(PI * (s - p) / maxf(1.0 - p, 1e-4))
 
 func _round_d(d: Dictionary) -> Dictionary:
 	var o := {}
@@ -1543,7 +1972,7 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			var bend: float = sway * 0.055 * walk_w
 			_mul_body(_spine, BODY_UP, bend)
 			_mul_body(_spine2, BODY_UP, -bend)
-			_mul_body(_hip, BODY_FWD, sway * 0.050 * walk_w)
+			_mul_body(_hip, BODY_FWD, sway * PELVIS_ROLL * walk_w)
 			# THE SHOULDER GIRDLE ROLLS AGAINST THE PELVIS. In a walking quadruped the chest
 			# and the hips counter-rotate — the girdle settling weight onto the stance
 			# foreleg while the pelvis rolls the other way — and this rig had the pelvis half
@@ -1551,7 +1980,7 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# stayed flat. Antiphase and a little smaller, because a cat's thorax is the
 			# stiffer end. The head stabiliser cancels it at the neck (5e), so putting roll
 			# into the chest cannot tip the face.
-			_mul_body(_spine2, BODY_FWD, -sway * 0.038 * walk_w)
+			_mul_body(_spine2, BODY_FWD, -sway * CHEST_ROLL * walk_w)
 			# THE GIRDLES SWING, AND THE LEGS SOLVE AGAINST THEM (s52). This is the owner's
 			# "legs should articulate more to move the body forward": in a real quadruped a
 			# slice of every stride is the pelvis rotating about its long axis and the shoulder
@@ -1609,12 +2038,42 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		# RATE as much as its size, so the amplitude that read as a bounce at 2.9 reads as a
 		# glide at 2.5 unless it grows with the step. Measured at the write: see the s52
 		# DEVLOG table.
-		var bob_amp: float = lerpf(0.038, 0.045, mix)
+		# 0.014 AT A WALK (s53), and the argument above was measuring the wrong thing. Every
+		# session judged this number against how the TRUNK reads and none against how the FEET
+		# read — but three of the four chains sit at 98-100% of their reach cap, so a hip that
+		# rises 38 mm drags a PLANTED PAW up with it, and the planted paw is the thing the
+		# owner is reporting. See BOB_WALK for the grid. The gallop end is untouched: its
+		# stance is 20% of a much longer cycle and no instrument here can see it yet.
+		# ...AND THE RAMP BETWEEN THE TWO ENDS IS HELD OFF UNTIL THE GALLOP (s54). Both
+		# endpoints are unchanged and both were measured; the INTERPOLATION between them never
+		# was, because until this session `mix` was 0.00 at the shipped walk and 0.06 at the
+		# shipped trot — every instrument that has ever looked at this line was looking at the
+		# walk end of it. Re-siting the speed bands on the animal's real transitions (see
+		# WALK_V) puts the shipped walk at mix 0.17 and the shipped trot at 0.72, and a straight
+		# lerp then quietly hands the WALK a 22.6 mm bob and 24.7 mm of reach-give. Measured
+		# cost of that: right hind planted-paw travel 7.6 -> 18.1 mm and its in-stance slide
+		# 0.60 -> 6.49 mm/frame — which is exactly the 38 mm-bob regression BOB_WALK's own grid
+		# documents, arriving through the back door of a constant nobody edited.
+		# `maxf(mix*2-1, 0)` holds both at their measured walk values across the whole walk-and-
+		# trot band and ramps them into the gallop, which is the only place the larger numbers
+		# were ever wanted and the one band no instrument here can see.
+		var gal_ramp: float = maxf(mix * 2.0 - 1.0, 0.0)
+		var bob_amp: float = lerpf(BOB_WALK, 0.045, gal_ramp)
 		bob_amp += maxf(1.0 - absf(mix - 0.5) * 2.0, 0.0) * 0.010
 		var bob_min_ph: float = lerpf(0.125, 0.15, mix)
-		_reach_give = 0.018 + 0.04 * mix
+		_reach_give = 0.018 + 0.04 * gal_ramp
+		# ...AND THE CROUCH, which is the OTHER half of the s53 foot fix and rides this same
+		# channel. A chain of reach c0 covering `sweep` of ground has to give somewhere; s52
+		# gave at the PAW, and the paw is the one part of the animal that must not move while
+		# it is on the ground. `_body_drop` is the same triangle spent at the BODY — the animal
+		# settles onto its legs as the gait engages and stands back up when it stops, which is
+		# what a quadruped at full extension actually does. DERIVED from the sweep in use, so a
+		# shorter-strided pose (the stalk's `sweep_k`) stands taller without a second constant,
+		# and eased by `step_w` like the bob so there is no step at the engage.
+		var crouch: float = _body_drop(sweep_env * sweep_k * reach_k) * CROUCH_K
 		_out_hip += Vector3(0,
-			(0.5 - 0.5 * cos((base_ph - bob_min_ph) * 2.0 * TAU)) * bob_amp * step_w, 0)
+			(0.5 - 0.5 * cos((base_ph - bob_min_ph) * 2.0 * TAU)) * bob_amp * step_w
+				- crouch * step_w, 0)
 		for limb_key in WALK_OFF:
 			# Offsets ease walk -> trot -> gallop so the footfall order re-times
 			# continuously as the animal changes pace.
@@ -1672,18 +2131,16 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 			# where an authored fold on top of the solve is the flick s49 was reverted for.
 			var lift_m: float = lerpf(0.085, 0.125, mix) * (1.0 if fore else 0.88) * lift_k
 			var sweep_m: float = sweep_env * reach_k * sweep_k
-			# The stance arc this limb's own triangle needs at this sweep, capped against the
-			# swing lift: a leg that cannot pay for the ground it is asked to cover goes back
-			# to clamping, as it always did, rather than turning the walk into a tiptoe.
-			var arc_m: float = minf(_stance_arc(limb_key, sweep_m), lift_m * 0.55)
-			var pth: Vector2 = _foot_path(ph, duty, sweep_m, lift_m, arc_m)
+			# The stance is FLAT (s53) — the headroom this limb's triangle needs at this
+			# sweep was taken out of the body above, not out of the planted paw.
+			var pth: Vector2 = _foot_path(ph, duty, sweep_m, lift_m)
 			# +12 mm of stance width per side (s45c, "wider"): the rest anchors carry the
 			# bind pose's narrow track, and widening at the TARGET keeps foot-lock exact —
 			# the paw plants and stays planted, just a whisker further out from the
 			# centreline, which is what keeps a slower stride from reading tightrope.
 			var w0: Vector3 = _ik.get(limb_key, {}).get("W0", Vector3.ZERO) as Vector3
-			var target: Vector3 = w0 + BODY_FWD * pth.x + BODY_UP * pth.y \
-				+ BODY_SIDE * signf(w0.z) * 0.012
+			var target: Vector3 = w0 + BODY_FWD * (pth.x - _centre_off(limb_key)) \
+				+ BODY_UP * pth.y + BODY_SIDE * signf(w0.z) * 0.012
 			# THE SHOULDER BLADE WRITES BEFORE THE SOLVE, because the solve compensates
 			# through the LIVE parent chain and the blade IS the fore leg's parent: written
 			# after (as it was), its swing rode on top of solved angles and carried the paw
@@ -1758,15 +2215,39 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 				# arc the IK must fold to reach), not from a layer bolted onto the solution —
 				# that is the same lesson `_foot_path`'s header records about authoring where
 				# the paw goes rather than what the joints do. Filed for the next pass.
+				# ...AND IT RIDES `_swing_bump`, NOT `sin(PI*s)` (s53). The sine is zero at the
+				# plant and moving at its maximum rate there, so this layer unwound 0.42 rad of
+				# elbow in the last frame or two before contact — about 17 mm of paw on a
+				# 0.145 m forearm, arriving downward at full speed. Measured: it was the LARGEST
+				# single contributor to the drawn touchdown step once the path itself was made
+				# continuous (lf 44.1 mm with the sine, against a commanded 5.1).
+				# ...AND IT IS 0.18/0.15 NOW, NOT 0.42/0.36 (s54). See FOLD_FORE: the elbow was
+				# sitting on ROM_DIST_FOLD for three to four consecutive frames of every swing,
+				# so the surplus drew as a flat top and a touchdown penalty rather than as a
+				# deeper bend. The visible fold is unchanged and the plant is quiet.
 				var s_sw: float = (ph - duty) / maxf(1.0 - duty, 1e-4)
-				var fold_amp: float = (0.42 if fore else 0.36) * lerpf(1.0, 0.45, mix)
+				var fold_amp: float = (FOLD_FORE if fore else FOLD_HIND) * lerpf(1.0, 0.45, mix)
 				var kn: float = float(_ik.get(limb_key, {}).get("knee", 1.0))
 				_mul(L["dist"], Quaternion(_hinge_of(L["dist"]),
-					kn * sin(PI * s_sw) * fold_amp * step_w))
+					kn * _swing_bump(s_sw, FOLD_APEX) * fold_amp * step_w))
 			_mul(L["paw"], Quaternion(_hinge_of(L["paw"]), paw))
 			# THE TOE. A paw that never rolls through the plant is the other half of the toy
 			# horse: contact is heel-ish down, roll forward, push off the toes.
-			_mul(L["toe"], Quaternion(_hinge_of(L["toe"]), paw * 0.5))
+			#
+			# ...AND IT IS READ A SECOND DRAG LATER (s54). The file's stated overlapping-action
+			# sequence is blade, shoulder, knee, paw, TOE — blade at `ph + DRAG`, shoulder at
+			# `ph`, knee/paw at `ph - DRAG` — and the toe was reading at the SAME instant as the
+			# carpus, so the ripple down the limb stopped one segment short and the last joint
+			# in the chain moved in lockstep with its parent. One more table read; the toe's own
+			# amplitude is 6 deg of ROM_TOE's 22.92 and its worst step 24% of the limiter, so
+			# there is no rate or range cost to pay for it.
+			if int(L["toe"]) >= 0:
+				var ph_t2: float = fposmod(ph - DRAG * 2.0, 1.0)
+				var paw_toe: float = lerpf(
+					float(_cyc_eval(CYC_WALK_FORE if fore else CYC_WALK_HIND, ph_t2)[2]),
+					float(_cyc_eval(CYC_GAL_FORE if fore else CYC_GAL_HIND, ph_t2)[2]),
+					mix) * amp
+				_mul(L["toe"], Quaternion(_hinge_of(L["toe"]), paw_toe * 0.5))
 	# 5. Idle life on top of ANY pose: slow breath always; it is what stops a still pose
 	# reading as a freeze-frame. Softer while asleep.
 	#
@@ -1989,6 +2470,9 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		var g_want: Basis = Basis(BODY_UP, _tail_yaw) * Basis(BODY_SIDE, _tail_pitch) \
 			* (_rest_gb.get(_tail, Basis.IDENTITY) as Basis)
 		_out[_tail] = (p_live.inverse() * g_want).get_rotation_quaternion().normalized()
+		# ...and the same target is kept for the RE-SOLVE at the end of the write, where the
+		# parent's clamped, rate-limited value is finally known. See TAIL_MAX_RATE.
+		_tail_gwant = g_want.get_rotation_quaternion().normalized()
 	# 5e. THE HEAD IS STABILISED AGAINST THE TRUNK — the vestibular reflex, which is most
 	# of why a cat's face reads as calm while its body is doing something violent.
 	#
@@ -2089,6 +2573,7 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 	# the strokes, the look, the shake, anything a future session adds — passes through
 	# here, so no writer can produce a joint the animal does not have. Cheap: a quaternion
 	# decomposition on ~16 limb bones, and only the ones actually out of range rebuild.
+	_fin.clear()
 	for i in _cur_q:
 		var q_out: Quaternion = _out.get(i, _cur_q[i])
 		if _rom.has(i):
@@ -2125,10 +2610,44 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 					g_want = _head_prev_g.slerp(g_want, allow / step_g).normalized()
 					q_out = (gp.get_rotation_quaternion().inverse() * g_want).normalized()
 			_head_prev_g = g_want
+		_fin[i] = q_out
 		_sk.set_bone_pose_rotation(i, q_out)
+	# 7b. THE TAIL, RE-SOLVED AGAINST THE PARENT THAT ACTUALLY DREW — and then bounded in world
+	# space, which is the third governor and the coverage gap KNOWN_ISSUES left open. See
+	# TAIL_MAX_RATE for the measurement; the short version is that 5d cancels its parent through
+	# `_live_basis`, which is the PRE-clamp, PRE-limiter buffer, and its parent is the binding
+	# hind's hip — the most clamped and most rate-limited joint on the animal. The tail was
+	# subtracting a thigh motion that never happened, at frame rate, and CatReviewProbe's
+	# tail_world_step gate has been failing on it since before this session.
+	if _tail >= 0 and _rest_gb.has(_tail):
+		var par_t2: int = _sk.get_bone_parent(_tail)
+		var gp_t: Basis = _fin_basis(par_t2) if par_t2 >= 0 else Basis.IDENTITY
+		var gw: Quaternion = _tail_gwant
+		if _tail_prev_g != Quaternion.IDENTITY:
+			var st_t: float = _tail_prev_g.angle_to(gw)
+			var allow_t: float = TAIL_MAX_RATE * dt
+			if st_t > allow_t and st_t > 1e-5:
+				gw = _tail_prev_g.slerp(gw, allow_t / st_t).normalized()
+		_tail_prev_g = gw
+		_fin[_tail] = (gp_t.get_rotation_quaternion().inverse() * gw).normalized()
+		_sk.set_bone_pose_rotation(_tail, _fin[_tail])
 	if _hip >= 0:
 		# Through the parent-frame conversion — see _hip_pose_pos for why raw was fore-aft.
 		_sk.set_bone_pose_position(_hip, _hip_pose_pos(_out_hip - (_rest_t[_hip] as Vector3)))
+
+## `_live_basis`, but composed from the FINAL rotations — after the ROM clamp and both rate
+## ceilings. The difference between the two is exactly the residue a bone posed absolutely has
+## to cancel, and reading the pre-clamp buffer instead is what leaked it into the tail.
+func _fin_basis(bone: int) -> Basis:
+	var chain: Array[int] = []
+	var i: int = bone
+	while i >= 0:
+		chain.push_front(i)
+		i = _sk.get_bone_parent(i)
+	var b := Basis.IDENTITY
+	for j in chain:
+		b = b * Basis(_fin.get(j, _out.get(j, _cur_q.get(j, Quaternion.IDENTITY))) as Quaternion)
+	return b
 
 ## Evaluate a limb cycle table at cycle position `t` (0..1). Returns [reach, flex, paw].
 ##
@@ -2328,6 +2847,16 @@ func _paw_pos(paw: int) -> Vector3:
 ## The runtime gait was moved onto derived hinges in s38 and the bake was not; they have
 ## been solving in different planes ever since. `_measure_gains` now runs before
 ## `_build_poses` precisely so this can use the same axis the gait does.
+## HOW HARD THE BAKE ARGUES WITH ITSELF. Build-time only — six two-joint CCD solves per limb
+## per pose is free at load and buys the paws being where the pose says they are. 1 mm is well
+## under the mesh's own paw thickness and an order of magnitude under what an eye reads.
+const PAW_PASSES: int = 6
+const PAW_TOL: float = 0.001
+## ...and how many times the TORSO is allowed to answer back. Four is enough for a converging
+## fixed point on a geometry this smooth, and the best pass is kept regardless, so the only
+## cost of a pose that does not respond is build time.
+const TRIM_PASSES: int = 10
+
 func _ik_leg(q: Dictionary, chain: Array, paw: int, target: Vector3, iters: int = 8) -> void:
 	# THE TARGET IS PROJECTED INTO THE LIMB'S OWN SWING PLANE FIRST, and this is the rest
 	# of "his arms go so wide when he sits".
@@ -2366,6 +2895,22 @@ func _ik_leg(q: Dictionary, chain: Array, paw: int, target: Vector3, iters: int 
 			# Rotating a bone about a local axis moves the world exactly about that axis's
 			# world image, so the signed world angle maps 1:1 onto the local hinge.
 			q[j] = (q[j] as Quaternion) * Quaternion(hinge, clampf(ang, -0.6, 0.6))
+			# ...AND INSIDE THE SAME ROM THE RUNTIME ENFORCES, which the bake has never been.
+			#
+			# `tick`'s write loop passes every bone that carries a `_rom` entry through
+			# `_clamp_joint` — the "anatomy choke point" that stops any layer producing a joint
+			# the animal does not have. The bake ran outside it, so a pose could be SOLVED at
+			# an angle that is then CLAMPED the instant it is drawn, and the paw the library
+			# believed it had planted is not the paw on screen. Measured on the sit: the static
+			# pose put the left forepaw 18.2 mm above the deck and the LIVE animal wearing that
+			# same pose put it 30.4 mm above, with nothing moving — 12 mm of pure disagreement
+			# between the two, in a pose the player looks at more than any other.
+			#
+			# Clamping here makes the solve honest about the animal it is solving: CCD simply
+			# converges to the best in-range answer, and whatever it cannot buy is left as a
+			# residual for the body trim below to take up.
+			if _rom.has(j):
+				q[j] = _clamp_joint(j, q[j])
 
 ## Build a pose: torso offsets first, then IK every leg to its target. Targets default to
 ## the paws' REST positions — "the feet stay where they stand" — with optional shifts.
@@ -2378,6 +2923,7 @@ func _ik_leg(q: Dictionary, chain: Array, paw: int, target: Vector3, iters: int 
 ## twitch. Default "" matches no limb key, so every existing caller bakes as it always did.
 func _bake(torso: Dictionary, hip_drop: float, paw_shift: Dictionary = {},
 		seed_fold: float = 0.0, arms_too: bool = true, free_leg: String = "") -> Dictionary:
+	var paw_err := {}
 	# Rest paw anchors, measured once per bake from the skeleton itself.
 	var rest_q := {}
 	for i in _rest:
@@ -2388,14 +2934,124 @@ func _bake(torso: Dictionary, hip_drop: float, paw_shift: Dictionary = {},
 	var anchors := {}
 	for k in _limb:
 		anchors[k] = _paw_pos(_limb[k]["paw"])
-	# Start from rest + torso, with the hip dropped — GENUINELY dropped: this write went
-	# raw into the parent frame for every session the bake has existed, so "hip_drop" slid
-	# the pelvis fore-aft and the crouch depth lived entirely in the Hip pitch.
-	var e: Dictionary = _pose_from(torso, hip_drop)
-	var q: Dictionary = e["q"]
+	# THE BODY TRIM, and this is the half the leg solve cannot buy.
+	#
+	# The legs are hinges of fixed length inside a ROM this rig measured off its own bones.
+	# When a pose drops the pelvis 118 mm and pitches it 0.58 rad, the four sockets go where
+	# the torso sends them, and the reachable set of a two-bone chain in its own swing plane
+	# simply may not contain the deck anchor any more. Then the paw stops at its closest
+	# approach and the animal is DRAWN with a foot in the air or through the plating — which
+	# is precisely the owner's report, and precisely what the pose library has been shipping.
+	#
+	# The classical answer is the one a rigger would give: if the feet are planted and the
+	# legs cannot lie, the BODY is the free variable. So the bake iterates the torso against
+	# the paws it actually lands — the mean vertical error becomes hip height, the fore-minus-
+	# hind difference becomes a pitch trim over the animal's own measured wheelbase — and
+	# re-solves. It is the same feedback shape as the per-leg loop, one level up.
+	#
+	# DERIVED, KEPT ONLY IF IT HELPS, AND REPORTED. The best pass wins on measured error, so a
+	# pose whose geometry does not respond (or an axis sign that turned out the other way) ends
+	# at the untrimmed bake rather than being walked somewhere worse; and the trim it settled
+	# on is written onto the entry as `trim` so a probe can see what the bake had to spend.
+	var fore_n: int = 0
+	var hind_n: int = 0
+	var fore_x: float = 0.0
+	var hind_x: float = 0.0
+	for k in _limb:
+		if k == free_leg or (not k.ends_with("h") and not arms_too):
+			continue
+		var a: Vector3 = anchors[k]
+		if k.ends_with("h"):
+			hind_n += 1
+			hind_x += a.dot(BODY_FWD)
+		else:
+			fore_n += 1
+			fore_x += a.dot(BODY_FWD)
+	# The lever the pitch trim works over: the fore-to-hind span of the planted anchors, off
+	# this skeleton. Never a typed number — a re-rig changes it and nothing here has to know.
+	var wheel: float = 0.0
+	if fore_n > 0 and hind_n > 0:
+		wheel = absf(fore_x / float(fore_n) - hind_x / float(hind_n))
+	var trim_y: float = 0.0
+	var trim_pitch: float = 0.0
+	var best_trim := Vector2.ZERO
+	var best_worst: float = 1e9
+	var best_e: Dictionary = {}
+	var best_perr: Dictionary = {}
+	var best_dy: Dictionary = {}
+	var e: Dictionary = {}
+	var q: Dictionary = {}
+	for _trim_pass in range(TRIM_PASSES):
+		paw_err = {}
+		var dy := {}
+		var torso2: Dictionary = torso.duplicate(true)
+		if absf(trim_pitch) > 1e-6:
+			var hp: Array = (torso2.get("Hip", []) as Array).duplicate()
+			hp.append([3, trim_pitch])
+			torso2["Hip"] = hp
+		# Start from rest + torso, with the hip dropped — GENUINELY dropped: this write went
+		# raw into the parent frame for every session the bake has existed, so "hip_drop" slid
+		# the pelvis fore-aft and the crouch depth lived entirely in the Hip pitch.
+		e = _pose_from(torso2, hip_drop - trim_y)
+		q = e["q"]
+		if _hip >= 0:
+			_sk.set_bone_pose_position(_hip,
+				_hip_pose_pos((e["hip_t"] as Vector3) - (_rest_t[_hip] as Vector3)))
+		_bake_legs(q, anchors, paw_shift, seed_fold, arms_too, free_leg, paw_err, dy)
+		var worst: float = 0.0
+		for k in dy:
+			worst = maxf(worst, absf(float(dy[k])))
+		if worst < best_worst:
+			best_worst = worst
+			best_trim = Vector2(trim_y, trim_pitch)
+			best_e = e
+			best_perr = paw_err.duplicate()
+			best_dy = {}
+			for k2 in dy:
+				best_dy[k2] = float(dy[k2]) * 1000.0
+		if worst < PAW_TOL:
+			break
+		var f_sum: float = 0.0
+		var h_sum: float = 0.0
+		var n_all: int = 0
+		var all_sum: float = 0.0
+		for k in dy:
+			var v: float = float(dy[k])
+			all_sum += v
+			n_all += 1
+			if k.ends_with("h"):
+				h_sum += v
+			else:
+				f_sum += v
+		if n_all == 0:
+			break
+		# Vertical: the mean error is height the body owes the deck. `hip_drop` is a DROP, so a
+		# paw stranded ABOVE its anchor (dy < 0) has to become a LARGER drop.
+		trim_y += all_sum / float(n_all)
+		# Pitch: [3, θ] is the measured body pitch and +θ is nose-UP (the sit's +0.58, the
+		# stretch's -0.26 with its chest on the floor). A nose-up θ raises the fore anchors by
+		# wheel/2 and lowers the hind by the same, so the θ that closes the difference is
+		# (dy_fore - dy_hind) / wheel.
+		if fore_n > 0 and hind_n > 0 and wheel > 0.02:
+			trim_pitch += (f_sum / float(fore_n) - h_sum / float(hind_n)) / wheel
+	if not best_e.is_empty() and (best_trim.x != trim_y or best_trim.y != trim_pitch):
+		e = best_e
+		q = e["q"]
+		paw_err = best_perr
+	e["trim"] = [best_trim.x, best_trim.y]
+	e["paw_err_mm"] = paw_err
+	e["paw_dy_mm"] = best_dy
+	# Skeleton back to rest so nothing leaks out of the bake.
+	_set_chain(rest_q)
 	if _hip >= 0:
-		_sk.set_bone_pose_position(_hip,
-			_hip_pose_pos((e["hip_t"] as Vector3) - (_rest_t[_hip] as Vector3)))
+		_sk.set_bone_pose_position(_hip, _rest_t[_hip])
+	return e
+
+## One full four-leg solve for `_bake`, filling `paw_err` (3D residual, mm) and `dy` (the
+## SIGNED vertical residual in metres — target minus paw, so negative is a floating paw).
+## Split out so the body-trim loop above can run it more than once without duplicating it.
+func _bake_legs(q: Dictionary, anchors: Dictionary, paw_shift: Dictionary, seed_fold: float,
+		arms_too: bool, free_leg: String, paw_err: Dictionary, dy: Dictionary) -> void:
 	# Seed the legs folded so CCD converges to the anatomical branch (knees fold, never
 	# hyperextend), then solve each leg to its (possibly shifted) anchor.
 	for k in _limb:
@@ -2414,12 +3070,49 @@ func _bake(torso: Dictionary, hip_drop: float, paw_shift: Dictionary = {},
 			q[L["dist"]] = (q[L["dist"]] as Quaternion) \
 				* Quaternion(_hinge_of(L["dist"]), seed_fold)
 		var target: Vector3 = anchors[k] + paw_shift.get(k, Vector3.ZERO)
-		_ik_leg(q, [L["prox"], L["dist"]], L["paw"], target)
-	# Skeleton back to rest so nothing leaks out of the bake.
-	_set_chain(rest_q)
-	if _hip >= 0:
-		_sk.set_bone_pose_position(_hip, _rest_t[_hip])
-	return e
+		# CLOSE THE LOOP ON THE PAW THAT IS ACTUALLY DRAWN. This is the owner's "when the cat
+		# is sitting the game angled him backwards, causing front paws to float an inch above
+		# and back paws to be sinking an inch" — and it was never a pitch layer leaking. It
+		# was THIS function quietly not arriving.
+		#
+		# One `_ik_leg` call is eight sweeps of a two-joint chain with a +/-0.6 rad per-step
+		# clamp, run against a target first PROJECTED into that limb's own swing plane. Every
+		# one of those is right and none of them guarantees arrival: the solve converges toward
+		# the projected point and stops wherever eight passes leave it. Measured on the shipped
+		# sit (tests/SitScratch), against the same paw bones in `stand`: fore +18.6 / +8.8 mm
+		# ABOVE the deck, hind -14.2 / -7.2 mm THROUGH it. That is 24 mm of fore-to-hind
+		# difference over a 0.348 m wheelbase — 4.0 degrees of nose-up pitch, baked into the
+		# pose library itself, with the runtime layers adding ~12 mm more on top.
+		#
+		# So the bake measures its own result and asks again. The residual is fed back into the
+		# AIM (target plus accumulated error) while the residual is always judged against the
+		# REAL target — the standard retarget loop — and the best pass is kept, so a limb that
+		# genuinely cannot reach ends at its closest approach instead of being driven to an
+		# extreme by a runaway aim. The per-limb residual is recorded on the pose entry
+		# (`paw_err_mm`) so a probe can read what the bake ACHIEVED rather than trusting that
+		# it did; an IK loop that reports no residual is the same class of
+		# instrument-that-cannot-fail this file keeps having to dismantle.
+		var aim: Vector3 = target
+		var best_q: Dictionary = {}
+		var best_err: float = 1e9
+		for _pass in range(PAW_PASSES):
+			_ik_leg(q, [L["prox"], L["dist"]], L["paw"], aim)
+			_set_chain(q)
+			var err: Vector3 = target - _paw_pos(L["paw"])
+			if err.length() < best_err:
+				best_err = err.length()
+				best_q = {L["prox"]: q[L["prox"]], L["dist"]: q[L["dist"]]}
+			if err.length() < PAW_TOL:
+				break
+			aim += err
+		for bi in best_q:
+			q[bi] = best_q[bi]
+		paw_err[k] = best_err * 1000.0
+		# The VERTICAL residual, signed and kept separate: the 3D number above is the honest
+		# report of the solve, but the trim can only spend height and pitch, so it needs the
+		# component it can actually pay. Skeleton space IS body space here (see BODY_UP), and
+		# a settled cat's node carries no pitch or roll, so this is the deck normal.
+		dy[k] = (target - _paw_pos(L["paw"])).dot(BODY_UP)
 
 func _build_poses() -> void:
 	if not valid():

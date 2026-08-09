@@ -1,0 +1,4 @@
+[gd_scene load_steps=2 format=3 uid="uid://world_tri_census"]
+[ext_resource type="Script" path="res://tests/world_tri_census.gd" id="1"]
+[node name="WorldTriCensus" type="Node3D"]
+script = ExtResource("1")

@@ -66,11 +66,17 @@ landed and nobody updated the file.
   13 cm micro-step tier that fires on losing 8% of a frame's travel — retest the
   switchback against those before more geometry work.
 
-- **The cat's ear-scratch grooming style was written and cut.** It is the most recognisable
-  grooming action a cat has and it wants a hind foot up behind the ear; driven from the sit
-  the `groom` pose is built on, the hind leg is already folded under a dropped hip and it
-  filmed as a twitch. It needs its own authored pose with the hind leg free. The other three
-  washes (paw, flank, chest) ship.
+- ~~**The cat's ear-scratch grooming style was written and cut.**~~ **CLOSED s54, and it had
+  been half-closed for some time without anyone updating this file.** The authored pose the
+  entry asks for exists — `cat_rig._build_poses` builds `groom_scratch` with the LEFT HIND
+  handed to `_bake` as a `free_leg` (measured choice: that chain is 0.447 m against a
+  0.424 m socket-to-ear, and is the only one of the four whose reach envelope contains the
+  head at all), and `_GROOM_POSE` maps wash style 3 onto it. What was still missing was any
+  way to REACH style 3: it was one face of a seven-sided die rolled inside `_maybe_wash`'s
+  three-second window (see the entry below), so in most sessions it never played once. It is
+  a first-class weighted action in the instinct layer now, and CatProbe asserts the whole
+  chain — action -> style 3 -> State.GROOM -> the rig's own `groom_scratch` target — rather
+  than trusting that `set_pose` found the name (it no-ops silently when it does not).
 
 - **The cat's LEAP has still never been filmed, and there is a reason it may be close to
   unreachable.** `tests/CatFilm`'s `jump` reel now probes for a ledge in the 0.66-1.20 m band
@@ -391,6 +397,57 @@ landed and nobody updated the file.
   recorded rather than dismissed because the baseline's 7/7 was clean. Re-run it a dozen
   times before and after any further gait change.
 
+## Open after s54 — the cat cannot climb its own "step" band
+
+- **THE CAT GETS ONTO NOTHING BETWEEN 0.20 m AND CLIMB_UP (0.62). The entire step band is
+  unclimbable against a vertical face, and it always has been.** Found by the s54 perch
+  action stalling 0.9 m short of a 0.45 m crate; measured properly by a new instrument,
+  `tests/CatStepScratch.tscn`, which builds a box, stands the player ON it 2.6 m from the cat,
+  watches for 13 s and sweeps the height:
+
+      height   0.20   0.35   0.45   0.55   0.62  |  0.70   0.85   1.00   1.15
+      got up    no     no     no     no     no   |  YES    YES    YES    YES
+      max rise 0.000  0.000  0.000  0.000  0.000 | 0.801  0.949  1.097  1.246   (m off the deck)
+
+  It never leaves the deck by a millimetre below CLIMB_UP, and it gets onto everything above
+  it by LEAPING. So `CLIMB_UP`'s comment — "a rig stair tread is well inside this, so it climbs
+  one tread at a time" — is true only for ground that RISES GRADUALLY; against any vertical
+  face the step band does not exist and the leap band is doing all the work.
+
+  CAUSE, and it is two probes disagreeing about where they look rather than a tuning error.
+  `_walk_toward`'s footfall ray probes `want`, ONE STEP ahead — 18 mm at a walk — so it can
+  only report a rise once the cat's ORIGIN is within a step of the obstacle's footprint. But
+  `_step_clear`'s nose sphere refuses any origin whose nose is inside the face, and the nose
+  reaches `_body_len()/2` = 0.33 m ahead. The origin therefore can never get close enough for
+  the footfall ray to see a vertical face at all. The only probe that looks a body-length
+  ahead is the LEDGE probe, and it is gated `lift > CLIMB_UP` — i.e. it declines precisely the
+  band the animal is allowed to step onto. It is the exact mirror of the s38 leap bug recorded
+  above, one band down.
+
+  CANDIDATE FIX, deliberately NOT taken in s54 (that was a behaviour session, the gait was
+  being changed in the same hour by another builder, and opening the step band changes how the
+  animal follows you past every coaming on the rig): let the ledge probe claim a lookahead top
+  whose `lift` is inside CLIMB_UP as a STEP — set `want`/`ground`/`rise` from it and fall
+  through to the ordinary step path — and apply `_reachable_up` to it as well. The
+  reachability rule is the thing s38's reverted attempt lacked, and note the band being opened
+  (0.3-0.62 m) is strictly BELOW what the leap already reaches, so it cannot put the cat
+  anywhere it could not already get. Re-run `tests/CatStepScratch` and CatProbe's burial sweep
+  after.
+
+  WHAT SHIPPED INSTEAD: `ship_cat.PERCH_MIN` is derived as `CLIMB_UP + 0.08`, so the perch
+  behaviour only ever wants a vantage the animal is measurably able to reach.
+
+- **CatProbe check 5d ("it ends up ON the crate") went intermittent when WALK_SPEED went
+  1.10 -> 1.36 and TROT 1.9 -> 2.38, and the cause is not found.** Tally on this machine:
+  at the OLD speeds, 4 runs / 4 passes (one baseline plus three with the s54 instinct layer
+  in). At the new speeds, **2 failures in 5 runs** — and three of those five had the instinct
+  layer pinned off (`_idle_cd` / `_roam_cd` at 999) for the whole 5d window, so it is not the
+  new behaviour. The shape is always the same: the leap fires and `leap_top` records the full
+  1.10 m rise, then the animal is back at y 18.00 by the end of the 600-frame window, and the
+  descent check that follows reports "18.00 -> 18.00" with a flight having fired. So it gets
+  up and comes back down inside the window. Recorded rather than dismissed; re-run it a dozen
+  times before and after any further speed change.
+
 ## Open after s52 — the red lines, half-answered
 
 - **The pod's two red lines: the hi-vis nosings are fixed, the two READABLES are the same physics
@@ -418,3 +475,53 @@ landed and nobody updated the file.
   kelp pipefish is nearly invisible in hand because six of the small species clamp to the 0.18 m
   hand floor (`hand = max(0.18, body * 0.5)`), so a pipefish and a copper sprat are the same size
   in the pack.
+
+## Open after s53 — three instruments that were passing on nothing
+
+- **CatReviewProbe's slide gates were VACUOUS at HEAD and are now honest — the 30 mm/frame left
+  hind is REAL and PRE-EXISTING, not an s53 regression.** Measured by stashing the whole session
+  and re-running at 609fc0c:
+      [run]   stance_pairs = 0  ->  slide_frame_mm = 0.0000  ->  PASS
+      [stalk] stance_pairs = 0  ->  slide_frame_mm = 0.0000  ->  PASS
+      [carry] stance_pairs = 0  ->  slide_frame_mm = 0.0000  ->  PASS
+  Three gates were green because the height-band stance detector emptied its own window. With
+  the detector fixed the probe reads FAILURES 3 -> 10, and the seven new rows are EXPOSURE, not
+  breakage. The underlying defect is the one docs/CAT_RIG_CEILING.md §3 describes: the left hind
+  is dead straight in bind (L_Thigh->L_Calf 0.336 m against R at 0.086), its lever is 0.214 m/rad
+  so ROM_PROX clamps its hip, and the slide hides under its own 41 mm of stance lift. It needs
+  the re-rig. DO NOT widen these gates and DO NOT "fix" them by restoring the vacuum.
+
+- **No pose in the library had EVER been solved inside the animal's joint limits.**
+  `_build_poses()` ran before `_prep_ik()`, and `_prep_ik` is where `_rom` is built — so `_rom`
+  was an empty dictionary for the whole bake and `_clamp_joint` was a silent no-op. `tick` clamps
+  every frame, so the authored library and the drawn animal were two different cats: on a still
+  sit the runtime clamp took 12.31 deg off L_Forearm, 8.14 off R_Calf, 3.09 off L_Calf. Fixed by
+  swapping the call order (`_prep_ik` reads only the rest skeleton, never `_poses`). Every pose in
+  the library shifted slightly when this landed; that is the fix, not a regression.
+
+- **`paw_below_deck_max_mm` could not see half the defect it was named for.** The owner reported
+  the seated cat pitched backwards — forepaws floating ~1 inch, hind paws sunk ~1 inch — and this
+  gate had been failing 2 runs in 3 at 39-66 mm for two sessions, dismissed both times as a wash
+  bout landing in the sit window. It was right all along. Three blind spots, all now documented in
+  the probe: it is a MAX OF ONE SIGN (a floating paw makes the number SMALLER, so the fore half of
+  the report was invisible by construction); it is UN-BASELINED (one flat 25 mm allowance against
+  four paw bones that rest 14.6 mm apart, so the hind pair started with half the budget spent);
+  and it is a MAX OVER A MIXED WINDOW (the sit scenario never restages, so its 7 s contain a walk,
+  sit_pre, sit_deep and sit, and which one the max lands on depends on machine load). A permanent
+  defect reported intermittently. Replaced by `[sit_paws]`, which measures each paw against its
+  own rest height, gates float / sink / pitch separately, and carries an anti-vacuity sample gate.
+
+- **A settled friendly cat calls `_face` nowhere at all**, so the first version of the seated
+  no-spin test passed VACUOUSLY (body yaw 0.0 deg, head 0.0 deg — nothing was driving either).
+  Only three seated callers exist: the pre-friend greeting, `_on_touched`, and the PET branch. The
+  test now drives the PETTED sit, which is the path that actually spun. Worth remembering the next
+  time a behaviour test passes first try.
+
+- **Still not decimated, with numbers.** `wooden_candlestick` 212,992 tris x 1 and `fir_sapling`
+  433,021 x 1 are the most absurd densities in the repo (213 k for a 22 cm object) but are `.gltf`
+  with EXTERNAL BUFFERS, and `tools/decimate_inplace.py` writes GLB to the given path, which would
+  corrupt the dependency graph — needs a different exporter path, ~0.65 M combined. The cat pose
+  GLBs are 501,378 tris each and are read as pose SOURCES by `tools/extract_cat_poses.py`, so
+  re-cutting them could invalidate pose extraction silently — do the rig work first.
+  `ultra_hammerhead` 151,098 x 3 declined on fidelity: 0.6% of the world for real risk to a
+  set-piece whose facing already reads UNCERTAIN.

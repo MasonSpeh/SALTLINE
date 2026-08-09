@@ -148,10 +148,30 @@ const PLAY_CD: float = 38.0
 const PLAY_SEC: float = 6.0
 
 
-## Where it is found. The bunkhouse floor, in the aisle at the west end — off the walking line
-## between the door and the bunks, so it reads as a thing that lives here rather than a prop
-## dropped in the doorway. The Y is PROBED at spawn, never trusted from this constant.
-const HOME := Vector3(-24.6, 18.0, 11.4)
+## Where it is found. THE STORE ROOM, under the lantern — owner: "Have the cat spawn in the
+## 2nd internal room near a light so it is illuminated in the dark."
+##
+## WHICH ROOM, AND WHY. The player starts inside the SPHL pod at (20.0, 2.2, −24.7) facing its
+## hatch; the store room (zone x[10,16] z[−22,−16]) is the next enclosed space along the wet
+## deck, entered through the east archway at x 16, z −17.8..−19.2 — so it is the second
+## interior the player is ever inside, and they walk into it rather than having to look for it.
+## The pod itself was rejected on measurement, not taste: its only lamp is Color(0.9, 0.15,
+## 0.1) at energy 1.6, and no albedo survives a single-channel light (s52) — the spawn probe
+## measures that seat at saturation 0.89 and a cat in it is a red silhouette. The pump ready
+## room, one further north, is the third interior and reads slightly brighter (0.241) but it
+## is the RESPAWN room, which is a different job.
+##
+## THE SEAT IS THE BRIGHTEST STANDABLE SQUARE OF DECK IN THAT ROOM, and it was gridded, not
+## chosen: `tests/CatSpawnProbe` sweeps a 5x5 grid of the floor at night and reports floor
+## height, the cat's own `_step_clear`, ceiling height and sampled irradiance with a
+## line-of-sight test. Most of the room reads 0.000 — the lantern stands ON the barrels at
+## (15.3, −16.7) and the barrels shadow the floor behind them. This point takes 0.297 from it
+## at 1.15 m, on real deck (y 2.000, not a crate top — several brighter grid points were
+## standing on the stores), under a 3.07 m ceiling, clear of the north door lane
+## (x 12.39..13.61) and of the archway.
+##
+## The Y is PROBED at spawn, never trusted from this constant.
+const HOME := Vector3(14.8, 2.0, -17.4)
 
 ## THE LEGS LOOKED QUICK BECAUSE THEY WERE, AND THE CAUSE IS ARITHMETIC, NOT ANIMATION.
 ##
@@ -175,12 +195,48 @@ const HOME := Vector3(-24.6, 18.0, 11.4)
 ## is 2.47 strides/s — 15% FEWER steps per second than at 0.95, while covering 16% more ground.
 ## Raising this constant alone would have done the opposite; it is only safe after the stride.
 ##
+## 1.084 m/s (s53), AND IT IS THE SAME CADENCE, NOT A SLOWER CAT. The girdle yaws came out
+## this session — 25.2 degrees of drawn rump swing for 16 mm of stride, which is the owner's
+## "wobbles side to side" (cat_rig.PELVIS_YAW has the ledger) — and the pelvic one was in the
+## sweep budget, so removing it took the walk envelope 0.2316 -> 0.2233 m and the stride
+## 0.4453 -> 0.4293 m. Cadence is `speed / stride`, so holding this constant at 1.125 would
+## have quietly RAISED the step rate to 2.62/s. 1.084 keeps it at 2.525 — the number the
+## previous session set and the owner signed off.
+##   stride 0.4293 m   cadence 2.525 /s   (was 0.4453 m, 2.526 /s at 1.125)
+## If the owner would rather have the 3.6% of ground speed back than the cadence, this line
+## alone is the choice: 1.125 costs 0.10 strides a second and nothing else.
+##
 ## The cat is genuinely slower on its feet than the player, which is correct and is what
 ## TROT_SPEED and RUN_SPEED are for — it ambles when it is beside you and trots or runs when
 ## it has ground to make up. That is the animal; a companion that matches your pace at all
 ## times is a camera on a stick.
-const WALK_SPEED: float = 1.10
-const TROT_SPEED: float = 1.9        ## when it has fallen behind, or there is fish
+##
+## 1.36 m/s (s54) — the owner's "+25% at least", and the extra ground came from the GAIT BAND,
+## not from the step rate. A pure walk on this rig cannot deliver it: stride = sweep / duty,
+## the walk sweep is capped at 0.2233 m by the binding hind's own ROM and WALK_DUTY 0.52 is
+## already at the walk's definitional floor, so 0.4293 m is the longest walking stride there
+## is and +25% speed on a PURE walk is +25% cadence — the exact thing s51 and s52 removed.
+##
+## THE HONEST SPLIT, AND IT IS NOT ALL FREE. cat_rig's speed bands were two sessions stale
+## (WALK_V 1.8 / TROT_V 3.4 against constants of 1.084 / 1.9) and are re-sited on the animal's
+## real gait transitions, 1.30 and 2.90 — which is what finally makes TROT_SPEED draw a trot
+## instead of a walk cycle flogged at 1.9 m/s. At 1.36 the walk sits just inside that band:
+##   WALK 1.36  mix 0.038  duty 0.508  stride 0.4364 m  cadence 3.12 /s   (+25.5% ground)
+##   TROT 2.38  mix 0.675  duty 0.304  stride 0.6397 m  cadence 3.72 /s   (+25.3% ground)
+##   RUN  4.40  mix 1.000  duty 0.200  stride 0.9030 m  cadence 4.87 /s   (unchanged)
+## So 2.5 points of the 25 come from a longer stride and the rest is step rate: the cadence goes
+## 2.53 -> 3.12 /s, +23%. That is the part the owner should know about, because two turns ago the
+## ask was for SLOWER legs. It cannot be had both ways on this rig — the sweep is capped by the
+## binding hind's ROM and the duty by the definition of a walk — and the lever is one constant:
+## cat_rig.WALK_V at 1.05 instead of 1.30 gives 2.94 /s and a 0.4635 m stride for the same
+## 1.36 m/s, at the cost of taking CatReviewProbe's [walk] slide_frame from 9.16 to 12.45
+## mm/frame against a 10 mm gate. Its note carries the full decomposition.
+##
+## Against a real cat: 3.1 strides/s at 1.36 m/s is at the top of the published range for an
+## animal this size (2.6-3.1) and 3.7 at 2.38 is inside it; 4.87 at the gallop is NOT (a real
+## cat gallops at three to four), which is why RUN_SPEED is left alone — see its note.
+const WALK_SPEED: float = 1.36
+const TROT_SPEED: float = 2.38       ## when it has fallen behind, or there is fish
 const FOLLOW_NEAR: float = 2.2       ## closer than this and it stops walking
 const FOLLOW_FAR: float = 14.0       ## further than this and it trots
 ## (LOST_M is gone: no distance gives up the follow — see the note above the follow
@@ -190,6 +246,12 @@ const FISH_M: float = 9.0            ## it can smell a fish in your hands from h
 const TURN_RATE: float = 6.0
 ## Further behind than this and the walk becomes a run.
 const RUN_M: float = 8.0
+## NOT RAISED WITH THE OTHER TWO (s54), and the reason is measured. `stride = sweep / duty` at
+## GALLOP_DUTY 0.20 gives 0.903 m, so 4.4 m/s is already 4.87 strides a second — a real cat
+## gallops at three to four. The run is the one band that is too FAST for its cycle rather
+## than too slow, and +25% here would take it to 6.1 strides/s, which is the 7.5-strides bug
+## s45 fixed coming back. Fixing it properly means a longer gallop stride, which means the
+## sweep, which means the re-rig (docs/CAT_RIG_CEILING.md §3). Filed, not papered over.
 const RUN_SPEED: float = 4.4
 ## How long the head-bump lean lasts when you pet it.
 const PET_SEC: float = 1.1
@@ -326,6 +388,8 @@ var _stayed: bool = false
 var _stay_spot: Vector3 = Vector3.ZERO
 ## THE HUNT. `_hunt` is the beat of the predatory sequence, not a boolean: 0 idle, 1 stalking,
 ## 2 treading (the wiggle), 3 in the air, 4 the aftermath.
+## (There are THREE beats, not five. "4 the aftermath" above was never assigned anywhere in the
+## file and `_hunt_step`'s match had no arm for 3 either — see the `_:` arm there.)
 var _prey: Node3D = null
 var _hunt: int = 0
 var _wiggle_t: float = 0.0
@@ -397,6 +461,15 @@ var _jump_to: Vector3 = Vector3.ZERO
 ## i.e. the animal teleported a fifth of the way along its own leap on the first airborne
 ## frame. One duration, set wherever the flight is armed, read in exactly one place.
 var _jump_dur: float = JUMP_SEC
+
+## THE GET-UP-AND-TURN BEAT (see `_begin_restand`). `_restand_t` counts the whole thing down
+## and owns the animal while it is positive; `_restand_sit` is the seat it will drop back into,
+## so a grooming cat re-grooms and a perched one re-perches instead of everything becoming a
+## plain sit.
+var _restand_t: float = 0.0
+var _restand_yaw: float = 0.0
+var _restand_sit: int = State.SIT
+var _restand_cd: float = 0.0
 ## Seconds spent refused while standing above what it is trying to reach — see DROP_STALL.
 var _drop_stall: float = 0.0
 ## The fall. Non-zero only while the cat is off the world with nothing under it.
@@ -427,6 +500,8 @@ var _turn_slow: float = 1.0
 
 func _ready() -> void:
 	_rng.seed = 5150
+	# THE DECISION STREAM IS ITS OWN STREAM — see BEHAVIOUR_SEED, down with the instinct layer.
+	_brng.seed = BEHAVIOUR_SEED
 	add_to_group("ship_cat")
 	_body = Node3D.new()
 	add_child(_body)
@@ -731,6 +806,14 @@ func _process(delta: float) -> void:
 	if _fall_step(delta):
 		_drive_rig(delta)
 		return
+	# GETTING UP TO TURN ROUND OWNS THE ANIMAL, exactly as the wind-up and the flight do, and
+	# it is placed with them — above the state machine — so nothing downstream can re-enter
+	# the sit and cancel the beat on its own first frame.
+	_restand_cd = maxf(0.0, _restand_cd - delta)
+	if _restand_t > 0.0:
+		_restand_step(delta)
+		_drive_rig(delta)
+		return
 	var player: Node3D = get_tree().get_first_node_in_group("player")
 	if player == null:
 		return
@@ -867,14 +950,35 @@ func _fly_jump(delta: float) -> void:
 			_resolve_pounce()
 
 ## Before you find it: sitting where it lives, washing a paw, looking up when you get close.
+##
+## ...AND UNTIL NOW THAT SENTENCE WAS A PROMISE THE CODE DID NOT KEEP. `_process` hands the whole
+## pre-friend path to this function and returns, so `_tick_energy`, `_idle_attention`, the wash,
+## the shake, the seated weight-shift and every cooldown decay were unreachable BEFORE the player
+## says hello — i.e. for the one stretch of the game the file's opening paragraph is actually
+## about ("It is in the bunkhouse from the first minute of a run, sitting on the deck washing a
+## paw, and it stays there until somebody says hello"). What shipped was a statue in the groom
+## pose that turned its head. The instinct layer runs here too now, with the two actions that
+## would carry it off its spot withheld: a cat that has not decided about you does not get up
+## and follow you round the room, but it does wash, scratch, stretch, shake, stare at gulls and
+## doze off.
 func _groom(delta: float, player: Node3D) -> void:
+	var d: float = global_position.distance_to(player.global_position)
+	# The drives the companion path decays every frame. Spelled out here rather than hoisted
+	# into `_process` so there is no chance of a double decrement on the friend path.
+	_wash_cd = maxf(0.0, _wash_cd - delta)
+	_shake_cd = maxf(0.0, _shake_cd - delta)
+	_tick_energy(delta)
+	_idle_attention(delta, player.global_position, d)
+	# Anchored on ITSELF: a stranger has no leash to be at the end of, and `allow_roam` false
+	# keeps both of the actions that could take it anywhere off the menu.
+	if _idle_step(delta, global_position, 99.0, true):
+		return
 	_enter(State.GROOM)
 	# It has not moved, so it must still be on the deck — the seat ray is the only thing
 	# that grounds a cat that never walks, and before s35 it ran exactly once, at spawn,
 	# against its own collider.
 	_reseat()
 	_last_speed = 0.0
-	var d: float = global_position.distance_to(player.global_position)
 	if d < GREET_M * 2.5:
 		_face(player.global_position, delta)   # it has noticed you
 		_watch(player.global_position + Vector3(0, 1.2, 0), 1.0)
@@ -885,6 +989,7 @@ func _groom(delta: float, player: Node3D) -> void:
 	# The wash itself is entirely skeletal (cat_rig's groom layer drives the neck, head and
 	# forepaw); the node sway that used to ride on top of it was the whole animal rocking
 	# on its own origin with four paws welded flat, which is what made grooming read oddly.
+	_idle_tick(delta, false)
 
 ## After: it comes with you, at its own pace, and settles when you do.
 func _companion(delta: float, player: Node3D) -> void:
@@ -1043,9 +1148,18 @@ func _companion(delta: float, player: Node3D) -> void:
 	# failed and washes, with enormous dignity, as though that had been the plan. Held above
 	# everything except being petted and being offered a fish, because a cat interrupted
 	# mid-excuse is not a cat.
+	#
+	# AND IT NAMES ITS STYLE. `groom_style` had exactly one caller (`_self_groom`), so the most
+	# characterful wash in the design played whatever body the LAST bout happened to leave
+	# behind — for a session in which no bout had ever fired, that is style 0's raised forepaw
+	# by accident rather than by choice, and after a flank wash it was a cat covering its
+	# embarrassment by washing its shoulder. Style 0 is the right one and is now said out loud:
+	# a miss is answered with a brisk paw-lick, not a leisurely flank.
 	if _after_t > 0.0:
 		_after_t -= delta
 		_enter(State.GROOM)
+		if _rig != null:
+			_rig.call("groom_style", 0)
 		_last_speed = 0.0
 		_reseat()
 		return
@@ -1081,6 +1195,18 @@ func _companion(delta: float, player: Node3D) -> void:
 			and _energy > 0.34):
 		if _play(delta):
 			return
+
+	# THE INSTINCT LAYER, MID-ACTION — the only rung whose CONTENT is chosen by a weighted draw
+	# rather than by a situation (see the section at the bottom of the file). It sits ABOVE the
+	# follow for one reason: a perched cat is by definition more than `near_gap` from a player
+	# standing on the deck, so with this below the follow the animal would climb onto a crate
+	# and be walked straight back off it on the next frame. The leash inside `_idle_holds` is
+	# what keeps that from becoming an instinct that outranks the companion contract — the
+	# instant the player moves, or opens five metres of ground, the action ends and the follow
+	# takes this frame. Actions can only START from the settled branches below, i.e. only when
+	# the follow had already declared the cat arrived.
+	if _idle_step(delta, ppos, IDLE_LEASH, resting):
+		return
 
 	# NO DISTANCE GIVES UP THE FOLLOW ANY MORE. LOST_M (26 m) used to park the animal the
 	# moment the player crossed the rig — the owner's ask is the opposite: it knows where
@@ -1138,11 +1264,11 @@ func _companion(delta: float, player: Node3D) -> void:
 		_walk_toward(aim, (RUN_SPEED if running else (TROT_SPEED if d > FOLLOW_FAR else WALK_SPEED))
 			* _pace * _ease_turn(aim, delta), delta, 0.05 if _trail_live else near_gap)
 		return
-	# A WASH IN PROGRESS FINISHES. Below the hunt on purpose — a bird interrupts a wash, which
-	# is exactly what happens — but above settling, so the cat is not yanked out of it by its
-	# own idle timer.
-	if _self_groom(delta):
-		return
+	# (The `_self_groom` rung that used to sit here is gone, and it is gone because it became
+	# unreachable rather than because the wash moved: `_idle_step` above takes any frame with
+	# `_wash_t > 0` and, on the one branch where it declines, clears the claim itself. A wash
+	# is still interrupted by the hunt above and still finishes before the settle below — the
+	# order it always had. `_self_groom` remains the executor, called from there.)
 
 	# Within arm's reach of a player who is not going anywhere.
 	if _still > SETTLE_SEC:
@@ -1150,15 +1276,13 @@ func _companion(delta: float, player: Node3D) -> void:
 	else:
 		_enter(State.SIT)
 		_pose_sit(delta)
-		# ...and a settled, unbothered cat washes. This is where most of the animal's screen
-		# time actually is, so it is where the variety matters most.
-		_maybe_wash(delta)
-		# The shake: on waking, and otherwise rarely and at random. It is a whole-body event
-		# that costs one line and reads from right across the deck.
-		if _shake_cd <= 0.0 and _rng.randf() < delta * 0.25:
-			if _rig != null:
-				_rig.call("shake", 1.0)
-			_shake_cd = _rng.randf_range(40.0, 140.0)
+	# ...AND THEN IT DECIDES WHAT TO DO WITH ITSELF. Called from OUTSIDE the if/else, which is
+	# the whole of the wash-window fix: the two lines that used to be in the `else` (a wash roll
+	# and a shake roll) were reachable only while `3 < _still <= 6`. This runs for the whole of
+	# "settled", dozing and asleep included — a sleeping cat's only option is `rouse`, which is
+	# the edge that was missing from the sit -> doze -> sleep ladder and the reason a player who
+	# stood still for half a minute got a cat that never moved again.
+	_idle_tick(delta, true)
 
 ## A STAYED CAT'S OWN LIFE. Everything here already existed as companion behaviour — the
 ## hunt, the zoomies, the play pounce, the washes, the sit -> doze -> sleep ladder — the
@@ -1185,6 +1309,8 @@ func _stay_behaviour(delta: float, ppos: Vector3, d: float) -> void:
 	if _after_t > 0.0:
 		_after_t -= delta
 		_enter(State.GROOM)
+		if _rig != null:
+			_rig.call("groom_style", 0)   # named, not inherited — see the companion's copy
 		_last_speed = 0.0
 		_reseat()
 		return
@@ -1198,24 +1324,27 @@ func _stay_behaviour(delta: float, ppos: Vector3, d: float) -> void:
 	if _play_t > 0.0 or (_play_cd <= 0.0 and _still > SETTLE_SEC * 0.5 and _energy > 0.34):
 		if _play(delta):
 			return
+	# THE INSTINCT LAYER — and a stayed cat is who it was most missing. `resting` is
+	# unconditionally true for one (its calm is its own), so its `_still` never resets and the
+	# old three-second wash window could open exactly ONCE per STAY, ever. It anchors on the
+	# patch rather than on the player, like every other game here, and the 4 m leash is the same
+	# patch radius the stroll-home rung below uses — so an instinct can never carry it off the
+	# spot it was told to keep.
+	if _idle_step(delta, _stay_spot, 4.0, true):
+		return
 	# Wandered off the patch? Stroll home. 4 m of slack, because a cat told to stay in a
 	# spot understands the spot to be roughly the size of a room.
 	if global_position.distance_to(_stay_spot) > 4.0:
 		_enter(State.FOLLOW)
 		_walk_toward(_stay_spot, WALK_SPEED, delta, 1.0)
 		return
-	if _self_groom(delta):
-		return
+	# (`_self_groom` moved up into `_idle_step`, as in the companion — see the note there.)
 	if _still > SETTLE_SEC:
 		_settle(delta)
 	else:
 		_enter(State.SIT)
 		_pose_sit(delta)
-		_maybe_wash(delta)
-		if _shake_cd <= 0.0 and _rng.randf() < delta * 0.25:
-			if _rig != null:
-				_rig.call("shake", 1.0)
-			_shake_cd = _rng.randf_range(40.0, 140.0)
+	_idle_tick(delta, true)
 
 ## THE PLAYER HAS TURNED IN. A cat does not wait out a night standing up: it comes over, finds
 ## a spot NEAR the bed rather than on the walking line, and curls up there. The spot is PROBED
@@ -2462,16 +2591,122 @@ func _walk_skip() -> Array[RID]:
 		skip.append(body.get_rid())
 	return skip
 
+## THE STATES IN WHICH THE BODY YAW IS LOCKED. Owner, verbatim: "Dont have cat spin when
+## sitting, has to look around, or get up to turn."
+##
+## `_face` is the ONE place this file turns the whole animal, and it did it in every state —
+## so a seated cat tracked you by rotating on the spot at TURN_RATE, four paws welded to the
+## deck, which is the same turntable defect the walk was cured of two sessions ago wearing a
+## different hat. Chosen per state, and the reasoning is worth keeping:
+##   * SIT    — the owner's case, and the one the player sees most.
+##   * GROOM  — a washing cat is a sitting cat. It is also the pose whose whole read is the
+##              head working over the body, which a rotating body destroys.
+##   * PET    — seated, and being stroked. It presses its head into the hand (cat_rig.pet);
+##              it does not swing its hindquarters round.
+##   * PERCH  — a sit on top of something 0.9 m up. Turning on a crate top is worse than
+##              turning on a deck, not better.
+##   * SLEEP  — locked, and it does not even get the stand-turn-sit escape below: a sleeping
+##              cat that stands up to re-aim itself at you is not asleep.
+## STRETCH is deliberately NOT here — it is a standing pose and a transitional beat, and
+## locking a transition is how a cat ends up facing the wrong way for the walk that follows.
+const SEATED_STATES := [State.SIT, State.GROOM, State.PET, State.PERCH, State.SLEEP]
+## How far off the body line the animal will track something with its HEAD alone before it
+## decides the answer is to get up. 1.05 rad = 60 degrees, which is about where a real cat
+## stops being comfortable looking over its own shoulder; the look layer's own share of that
+## is split neck/head in cat_rig, so nothing here has to know about it.
+const SEAT_ARC: float = 1.05
+## ...and the whole get-up-turn-sit-down beat, plus how long before it may happen again. The
+## cooldown is what stops a player circling the animal from turning it into a metronome.
+const RESTAND_RISE: float = 0.34
+const RESTAND_TURN_MAX: float = 1.6
+const RESTAND_SETTLE: float = 0.30
+const RESTAND_CD: float = 3.5
+
+## Is the body yaw locked right now? Also true for the whole get-up-and-turn beat, because
+## that beat owns the yaw itself and a behaviour calling `_face` underneath it would fight it.
+func _seated() -> bool:
+	return _state in SEATED_STATES
+
 func _face(target: Vector3, delta: float) -> void:
 	var to: Vector3 = target - global_position
 	to.y = 0.0
 	if to.length_squared() < 0.0004:
 		return
 	var want: float = atan2(to.x, to.z) + PI
+	# A SEATED CAT TURNS ITS HEAD, OR IT GETS UP. It does not rotate.
+	#
+	# The head is already doing the tracking: every seated caller of this function calls
+	# `_watch` on the same frame with the same target, and the look layer (cat_rig's neck/head
+	# channel, rate-capped by HEAD_MAX_RATE) carries it. So the honest thing here is simply to
+	# decline the yaw — and then, when the bearing has gone past what a neck can pay, to spend
+	# the ONE thing a real cat spends on it: getting up.
+	if _seated():
+		# THE HEAD TAKES THE DEMAND THE BODY JUST REFUSED, and it is done HERE rather than left
+		# to each caller for the reason this whole block exists: `_face` is the one choke point,
+		# so hanging the substitute off it means no seated caller can silently lose its
+		# attention. It matters most where it is least obvious — the PET branch calls `_face`
+		# and `_idle_attention` returns early while `_pet_t` is up, so simply declining the yaw
+		# there would have produced a cat that ignores the hand stroking it. 0.9 is below the
+		# deliberate stare `_idle_step`'s survey claims (0.95) and above a wandering glance, and
+		# `_watch` gives the frame to the strongest claim rather than the latest.
+		_watch(target + Vector3(0, 0.9, 0), 0.9)
+		var off: float = angle_difference(rotation.y, want)
+		if absf(off) > SEAT_ARC and _restand_cd <= 0.0 and _state != State.SLEEP:
+			_begin_restand(want)
+		return
 	# `1 - exp` rather than `clampf(k * delta)`: under an AiBudget-summed 0.15 s think the
 	# clamped form covered 90% of a commanded half-turn in ONE frame (measured: the summed
 	# path snapped the full 90 deg while the fixed path read 80.6 over the same sim time).
 	rotation.y = lerp_angle(rotation.y, want, 1.0 - exp(-TURN_RATE * delta))
+
+## STAND UP, TURN, SIT BACK DOWN — the only way a seated cat changes which way it points.
+##
+## Nothing here authors a pose timeline: `cat_rig.set_pose` already carries the transition
+## grammar (sit family -> move family plays `rise`; move family -> sit family plays `sit_pre`
+## then `sit_deep`), so wearing "stand" and then wearing the sit again IS the sequence the
+## brief asks for, and it stays correct if that grammar is ever re-authored. Both pose names
+## are checked against the library before the beat is allowed to start, because `set_pose`
+## no-ops SILENTLY on a name it does not have and a beat built on a missing pose would look
+## exactly like the spin it replaced.
+func _begin_restand(yaw: float) -> void:
+	if _rig != null and not bool(_rig.call("has_pose", "rise")):
+		return
+	_restand_yaw = yaw
+	_restand_t = RESTAND_RISE + RESTAND_TURN_MAX + RESTAND_SETTLE
+	_restand_sit = _state
+	_restand_cd = RESTAND_CD
+	_wear("stand")
+	_act_note("restand")
+
+func _restand_step(delta: float) -> void:
+	_restand_t -= delta
+	_last_speed = 0.0
+	_reseat()
+	# It keeps LOOKING at the thing the whole time — the head led, the body follows, which is
+	# the order a cat actually does this in.
+	_watch(global_position + Vector3(sin(_restand_yaw + PI), 0.35, cos(_restand_yaw + PI)) * 2.0,
+		0.8)
+	var turn_left: float = _restand_t - RESTAND_SETTLE
+	if turn_left <= 0.0:
+		# Settled: back into whatever seat it got up from, and the grammar plays the sit down.
+		#
+		# UNCONDITIONALLY, and the guard that used to be here (`if _state != _restand_sit`) was
+		# a real bug: `_state` never LEFT the seat — only the worn POSE did, because that is how
+		# the beat borrows the animal — so the guard was false every time and the cat finished
+		# the turn standing up in a `stand` pose that nothing would ever clear. `_enter` is
+		# idempotent (`set_pose` returns early on a name it is already wearing).
+		_enter(_restand_sit)
+		if _restand_t <= 0.0:
+			_restand_t = 0.0
+		return
+	if _restand_t > RESTAND_TURN_MAX + RESTAND_SETTLE:
+		return           # still rising — the rear lifts before anything turns
+	# THE TURN ITSELF, and it goes through `rotation.y` directly rather than through `_face`,
+	# because `_face` is exactly what is locked. Standing, so this is a cat turning on its
+	# feet, not a seated body swinging round.
+	rotation.y = lerp_angle(rotation.y, _restand_yaw, 1.0 - exp(-TURN_RATE * delta))
+	if absf(angle_difference(rotation.y, _restand_yaw)) < 0.10:
+		_restand_t = minf(_restand_t, RESTAND_SETTLE)
 
 ## Is there a fish in the player's hand right now? Reads the hotbar the same way the spear
 ## prompt does, so "holding a fish" means exactly what it means everywhere else.
@@ -2498,15 +2733,21 @@ func _tick_energy(delta: float) -> void:
 	match _state:
 		State.SWIM:
 			spend = 0.120
-		State.RUN, State.POUNCE, State.PLAY:
+		State.RUN, State.POUNCE, State.JUMP, State.PLAY:
 			spend = 0.085
-		State.STALK, State.FOLLOW, State.GIFT:
+		State.STALK, State.FOLLOW, State.FISH, State.GIFT:
 			spend = 0.030
 		State.SLEEP:
 			spend = -0.075
-		State.SIT, State.GROOM, State.PERCH, State.STRETCH:
+		State.SIT, State.GROOM, State.PERCH, State.STRETCH, State.PET:
 			spend = -0.030
 		_:
+			# EVERY STATE IS NAMED ABOVE, and the enum is checked against this match whenever one
+			# is added — because this arm RECOVERS, so a state left out of it is a cat that rests
+			# while it works. JUMP and FISH were both falling through here (a leap and a trot at
+			# TROT_SPEED, both quietly restful) until the instinct layer went in and the list was
+			# audited; PET is a hand on the animal, which is rest and is now said rather than
+			# defaulted. Nothing reaches this line today.
 			spend = -0.010
 	# The crepuscular pull. GameClock's phase is the cheapest honest source for it, and the
 	# push is toward a HIGH target rather than a flat add so a tired cat still needs its rest.
@@ -2616,37 +2857,630 @@ func _self_groom(delta: float) -> bool:
 		_wash_cd = _rng.randf_range(14.0, 48.0)
 	return true
 
-## Start one, if the mood is right. Cats groom when settled and unbothered, and after
-## anything that ruffled them.
-## A WASH IS A RANDOM EVENT, NOT A GREETING — the owner's "it shouldn't lick itself EVERY
-## time right after stopping".
+## `_maybe_wash` USED TO LIVE HERE, AND ITS WINDOW WAS THREE SECONDS WIDE.
 ##
-## `_wash_cd` counts down in `_companion` on EVERY frame, whatever the animal is doing — so
-## it runs out while the cat is walking, and this function was then reached, ready, on the
-## first settled frame after the player stopped. The cooldown was doing its job perfectly and
-## the job was the wrong one: it made a wash *inevitable on arrival* rather than occasional.
-## Two gates fix it without touching the pacing:
-##   * a SETTLING DELAY — a cat that has just stopped looks around first; it does not sit
-##     down and immediately start washing. `_still` is already the seconds-since-the-player-
-##     moved counter the settle ladder uses;
-##   * a POISSON ROLL rather than a threshold, so once eligible a bout starts at a rate
-##     (about one in seven seconds) instead of the instant the clock allows it. Two stops in
-##     a row now look different from each other, which is the whole point.
-const WASH_SETTLE_S: float = 3.0     ## seconds settled before a wash is even considered
-const WASH_RATE: float = 0.145       ## per second, once eligible — about one in seven
-func _maybe_wash(delta: float) -> void:
-	if _wash_cd > 0.0 or _wash_t > 0.0:
-		return
-	if _still < WASH_SETTLE_S:
-		return
-	if _rng.randf() > WASH_RATE * maxf(delta, 0.0):
-		return
+## s48 made the wash a random event rather than a greeting — the owner's "it shouldn't lick
+## itself EVERY time right after stopping" — with a settling delay (WASH_SETTLE_S 3.0) and a
+## Poisson roll (WASH_RATE 0.145/s). Both were right and neither was the problem. The function
+## was called from exactly two sites, both inside the `else` of `if _still > SETTLE_SEC`, so a
+## bout could only ever START in the band `3.0 < _still <= 6.0`: about a one-in-three chance
+## per settle and then structurally impossible, because `_still` only goes up. `_wash_cd`'s own
+## re-arm is 14-48 s, i.e. ALWAYS longer than the window it had to land inside, so most
+## re-arms expired into a state where this function was not even being called. A STAYED cat
+## was worse still: `resting` is unconditionally true for one, so its `_still` never resets and
+## after the first window it could not wash again for the session.
+##
+## The rate and the styles survive, in `_action_weights` and `_start_wash`; what is gone is the
+## window. The chooser runs from BOTH branches of the settle ladder and from the pre-friend
+## path, so the whole of "awake and unbothered" is eligible.
+
+## ARM A WASH BOUT IN A NAMED STYLE. One writer for `_wash_t` and `_wash_style`, because the
+## style and the length of the bout are the same decision — the ear scratch is short and
+## furious, the flank wash is long and unhurried, and a caller that picks one and forgets the
+## other gets a two-second flank wash or a nine-second scratch.
+func _start_wash(style: int) -> void:
 	if _rig != null:
 		_rig.call("tail_flick", 0.45)   # the small settling flick as it starts a wash
-	_wash_style = [0, 0, 0, 1, 1, 2, 3][_rng.randi_range(0, 6)]
-	# The ear scratch is short and furious; a flank wash is long and unhurried.
-	# The ear scratch is short and furious — 2.8 s against the flank wash's seven.
+	_wash_style = clampi(style, 0, 3)
 	_wash_t = {0: 4.5, 1: 7.0, 2: 5.0, 3: 2.8}.get(_wash_style, 4.0) * _rng.randf_range(0.7, 1.4)
+
+# ============================================================ THE INSTINCT LAYER
+#
+## WHAT A CAT DOES WHEN NOTHING IS HAPPENING, AND WHY IT IS A DISTRIBUTION RATHER THAN A RUNG.
+##
+## Everything above this line is a PRIORITY LADDER: a fixed order of situations (a hand on it,
+## a fish in your hand, a bird on the deck, you going to bed) each of which has exactly one
+## right answer. That shape is correct for situations and wrong for the other 90% of the
+## animal's screen time, where there is no situation at all and the honest answer is "one of a
+## dozen things, and which one is the point". A ladder cannot say that: whatever sits highest
+## wins every time, so the bottom of a ladder is a loop. That is precisely what was there —
+## `_maybe_wash` plus a shake roll, and nothing else, in ONE branch.
+##
+## So the bottom of the ladder is a WEIGHTED DRAW instead. The weights are built from the
+## drives that already exist in this file — `_energy`, `_still`, the wash and shake cooldowns,
+## GameClock's phase — so the same code is a different animal at 06:00 with a full tank and at
+## 14:00 after a run, without a second behaviour tree to keep in sync. Nothing here invents a
+## drive; if a behaviour wants to know something, it asks a variable that was already there.
+##
+## THREE THINGS THIS WIRES UP THAT WERE WRITTEN AND NEVER RAN:
+##   * PERCH (State 12) had a pose row, a `_tick_energy` arm and a tail line, and NO `_enter`
+##     anywhere in the file. `perch` below is its first caller in the state's existence.
+##   * STRETCH had exactly one setter — waking up. A cat also stretches after a long sit,
+##     which is what `stretch` is; it re-uses `_stretch_t` so the existing rung 2 owns it and
+##     no new executor was needed.
+##   * The EAR SCRATCH (wash style 3, cat_rig's `groom_scratch`) was reachable only as 1 of 7
+##     faces of a die rolled inside a three-second window that most cooldowns expired outside
+##     of. It is a first-class action here.
+##
+## AND THE WINDOW ITSELF, which is the largest of the lot. `_maybe_wash` was called from inside
+## the `else` of `if _still > SETTLE_SEC`, so a wash could only ever START while
+## WASH_SETTLE_S (3.0) < `_still` <= SETTLE_SEC (6.0) — three seconds per settle, at 0.145/s,
+## i.e. about a 1-in-3 chance and then never again. A STAYED cat was worse: its `_still` never
+## resets, so after the first window it could not wash for the rest of the session. `_idle_tick`
+## is called from BOTH branches (and from the pre-friend path, which had no behaviour at all),
+## so the whole time the animal is awake and settled is eligible.
+##
+## EVERY ACTION IS A COMPOSITION, NOT A NEW STATE. The State enum is untouched — the probes
+## assert on its integers and the header says APPENDED NEVER INSERTED — and every action drives
+## states and poses that already exist and are already in `_tick_energy`'s match.
+
+## The seed for the DECISION stream, and it is deliberately not `_rng`'s.
+##
+## `_rng` is drawn on by tail flicks, pace jitter, stalk freezes and a dozen other things at
+## rates that depend on how many gulls happened to fly past, so "the Nth draw" is not a
+## reproducible quantity even though the generator is seeded. A stochastic selector sharing it
+## is untestable by construction, and this repo has two flaky-probe entries on file already.
+## `_brng` is drawn EXACTLY ONCE PER DECISION and by nothing else, so reseeding it and taking N
+## decisions is reproducible to the count — which is what `tests/cat_probe.gd` asserts on.
+## Durations, targets and jitter still come from `_rng`, so they cannot shift the decision
+## stream either.
+const BEHAVIOUR_SEED: int = 20260808
+var _brng := RandomNumberGenerator.new()
+## The action that owns the animal right now ("" for none) and how long it has left.
+var _idle_act: String = ""
+var _idle_t: float = 0.0
+## Where the current action is aimed — a survey mark, a mosey spot, a perch top.
+var _idle_at: Vector3 = Vector3.ZERO
+## Seconds until the next decision may be taken at all. Re-armed at the END of every action, so
+## back-to-back behaviours are impossible and the gaps read as an animal rather than a playlist.
+var _idle_cd: float = 6.0
+## ...and a much longer one for the two actions that MOVE the animal off the spot it is on.
+## Separate because "get up and go somewhere" is a rarer decision than "wash", and because a
+## harness that needs the cat to hold still then has ONE number to pin — which is why the mosey
+## and the perch share it rather than having one each.
+##
+## 35-95 s, and the number is a measurement rather than a taste. At the first cut's 55-150 s,
+## tests/CatBehaviourProbe counted FIVE roam decisions across 1200 s of sim in four scenarios,
+## all five of which happened to land on the mosey — i.e. the perch, which is the whole of
+## wiring up State 12, was drawing about two chances a run at a coin flip. Halving the gap
+## roughly doubles the sample without making the animal fidget: one decision to get up and go
+## somewhere per minute or so, of which about half are a climb.
+var _roam_cd: float = 40.0
+## How long a perched cat has been up on its thing — kept apart from `_idle_t` so the approach
+## and the sit are one action with two phases.
+var _perch_on: float = 0.0
+## ...and the approach's escape hatch: the closest it has got, and how long it has been failing
+## to beat that. `_perch_spot` proves the TOP is standable and inside the reachability ceiling;
+## it cannot prove the animal can get up there FROM WHERE IT IS STANDING, and the first live run
+## of this caught exactly that — it picked a bunk frame 0.97 m up and 2.4 m away, walked to the
+## bunk's side, and pressed at it for twenty seconds (tests/CatProbe's perch trace). Every other
+## wedge in this file has a progress check for the same reason (`_bed_stall` 2.5, `_detour_stall`
+## 0.35, `_drop_stall` 1.1, `_trail_stall` 0.9): a goal that is not getting closer is not a goal.
+var _perch_stall: float = 0.0
+var _perch_best: float = 1e9
+const PERCH_STALL: float = 2.5
+## THE ACTION LOG — how many of each, and when the last one was, on the sim clock. Not debug
+## scaffolding: "the distribution is varied" is a claim about counts, and this file has been
+## bitten before by behaviours that were argued rather than measured (the wash window above
+## shipped for five sessions). `tests/cat_behaviour_probe.gd` reads these.
+var _act_hist: Dictionary = {}
+var _act_last: Dictionary = {}
+var _act_gaps: Dictionary = {}
+
+## Rate at which a settled, eligible cat starts SOMETHING, per second. With `_idle_cd`'s 4-14 s
+## re-arm on top, an action lands roughly every six to sixteen seconds of settled time.
+const IDLE_RATE: float = 0.55
+## A sleeping cat's only decision is whether to wake up, and it takes it far more slowly.
+const IDLE_SLEEP_SCALE: float = 0.22
+## How far from its anchor (you, or the patch it was told to stay on) an action may carry the
+## animal before the ladder above takes the frame back. This is the leash that keeps an instinct
+## from outranking the follow: it is measured FLAT, because a cat on a crate above you has not
+## gone anywhere.
+const IDLE_LEASH: float = 5.0
+## A perch has to be one the animal can actually get onto, and that band is NARROWER than this
+## file's own documentation says. MEASURED (tests/CatStepScratch.tscn — build a box, stand the
+## player on top of it, watch for 13 s, sweep the height):
+##
+##     height  0.20  0.35  0.45  0.55  0.62 | 0.70  0.85  1.00  1.15
+##     got up   no    no    no    no    no  | YES   YES   YES   YES
+##     max rise 0.000 0.000 0.000 0.000 0.000| 0.801 0.949 1.097 1.246   (metres off the deck)
+##
+## The cat cannot climb ANYTHING with a vertical face inside the "step" band it is supposedly
+## allowed (rise <= CLIMB_UP 0.62) — it never leaves the deck by a millimetre — and it gets onto
+## everything above that by LEAPING. Cause, and it is two constants disagreeing about where they
+## look rather than a tuning error: `_walk_toward`'s footfall ray probes `want`, ONE STEP ahead
+## (18 mm at a walk), so it can only see a rise once the origin is within a step of the
+## obstacle's footprint — while `_step_clear`'s nose sphere refuses any origin whose nose is in
+## the face, which is `_body_len()/2` = 0.33 m out. The origin can therefore never get close
+## enough for the footfall ray to see a vertical face at all, and the only probe that looks a
+## body-length ahead — the ledge probe — is gated `lift > CLIMB_UP` and so declines precisely
+## the band the animal is allowed to step onto. It is the exact mirror of the s38 leap bug in
+## KNOWN_ISSUES, one band down.
+##
+## That is a locomotion fault and it is NOT fixed here: this is a behaviour session, another
+## builder is in the gait this hour, and opening the step band changes how the animal follows
+## you past every coaming on the rig. Filed instead, with the instrument. What the perch does
+## about it is refuse to want what the animal cannot have — derived from CLIMB_UP so the band
+## moves if that constant ever does, rather than hand-typed at the 0.70 the sweep happened to
+## test.
+const PERCH_MIN: float = CLIMB_UP + 0.08
+
+## THE MENU, AND WHAT EACH ITEM IS WORTH RIGHT NOW.
+##
+## Returns action name -> relative weight; `_pick_action` normalises. A weight of zero (or an
+## absent key) means "not available", which is how the cooldowns are expressed — there is no
+## second gate anywhere, so reading this dictionary tells you the whole truth about what the
+## animal might do next. That is deliberate: it makes the selector testable as a pure function
+## of the drives (see CatProbe), which a scatter of `if` statements would not be.
+func _action_weights(allow_roam: bool = true) -> Dictionary:
+	# ASLEEP: the only thing on the menu is waking up. Without this a dozing cat would keep
+	# choosing washes it cannot perform, and — worse — `_settle`'s ladder means a player who
+	# stands still for half a minute gets a cat that is asleep for the REST OF THE SESSION,
+	# because nothing in this file ever reduced `_still`. `rouse` is that missing edge.
+	if _state == State.SLEEP:
+		return {"rouse": 1.0}
+	var w: Dictionary = {}
+	var lively: float = clampf(_energy, 0.0, 1.0)
+	var tired: float = 1.0 - lively
+	## How long past "settled" it has been sitting — a cat that has held one position for half a
+	## minute is the one that gets up and stretches.
+	var long_sat: float = clampf((_still - SETTLE_SEC) / 30.0, 0.0, 1.0)
+	var ph: int = GameClock.current_phase
+	var crepuscular: bool = ph == GameClock.Phase.DAWN or ph == GameClock.Phase.DUSK
+	# THE FOUR WASHES, which is most of what a cat does with its day and is weighted like it.
+	# They share ONE cooldown (`_wash_cd`, 14-48 s) so a bout is followed by a gap whatever
+	# style it was, and the styles are ranked the way a cat ranks them: the paw-lick is the
+	# default, the ear scratch is the rare one you notice.
+	if _wash_cd <= 0.0 and _wash_t <= 0.0:
+		w["wash_paw"] = 1.30
+		w["wash_flank"] = 0.85
+		w["wash_chest"] = 0.70
+		w["scratch_ear"] = 0.60 + 0.50 * lively
+	# LOOKING AT SOMETHING, at length. The cheapest action here and the one that most reads as
+	# an animal minding its own business; a lively cat does more of it.
+	w["survey"] = 0.85 + 1.15 * lively
+	w["stretch"] = 0.30 + 0.95 * long_sat
+	if _shake_cd <= 0.0:
+		w["shake"] = 0.65
+	if _meow_cd <= 0.0 and friend:
+		w["chirp"] = 0.35
+	# THE NAP. Weighted almost entirely on how tired it is, and OFF at dawn and dusk, which is
+	# the same crepuscular fact `_tick_energy` uses from the other side: the hours a cat is
+	# least likely to lie down are exactly the hours its tank is being topped up.
+	if not crepuscular:
+		w["loaf"] = 0.15 + 1.55 * tired
+	# THE TWO THAT MOVE IT. Gated on their own long cooldown AND on the player having been
+	# still long enough that getting up is not abandoning them mid-walk.
+	if allow_roam and _roam_cd <= 0.0 and _still > SETTLE_SEC:
+		w["mosey"] = 0.55 + 0.45 * lively
+		w["perch"] = 0.50 + 0.70 * lively
+	return w
+
+## ONE DRAW, ONE DECISION. Roulette over the weights; returns "" only if the menu is empty,
+## which `_action_weights` cannot produce (survey is unconditional) but a caller might.
+##
+## THE KEYS ARE SORTED, and that is not cosmetic. A roulette wheel maps a uniform draw onto
+## whichever slot the iteration order happens to put under it, so an unsorted dictionary makes
+## the ANSWER depend on insertion order — i.e. on the order the branches above happen to be
+## written in. Sorting means a future session can re-order that function freely and the seeded
+## stream still produces the same decisions, which is the difference between a reproducible
+## test and one that has to be re-baselined after every edit.
+func _pick_action(w: Dictionary) -> String:
+	var keys: Array = w.keys()
+	keys.sort()
+	var total: float = 0.0
+	for k in keys:
+		total += maxf(float(w[k]), 0.0)
+	if total <= 0.0:
+		return ""
+	var r: float = _brng.randf() * total
+	for k in keys:
+		r -= maxf(float(w[k]), 0.0)
+		if r <= 0.0:
+			return String(k)
+	return String(keys[keys.size() - 1])
+
+## Count it, and remember when — the mean interval between two of the same action is the number
+## that says whether a behaviour is an event or a tic.
+func _act_note(nm: String) -> void:
+	_act_hist[nm] = int(_act_hist.get(nm, 0)) + 1
+	if _act_last.has(nm):
+		var g: Array = _act_gaps.get(nm, [0, 0.0])
+		_act_gaps[nm] = [int(g[0]) + 1, float(g[1]) + (_t - float(_act_last[nm]))]
+	_act_last[nm] = _t
+
+## The histogram, for harnesses: name -> {n, share, mean_gap_s}. `share` is of all actions taken.
+func behaviour_histogram() -> Dictionary:
+	var total: int = 0
+	for k in _act_hist:
+		total += int(_act_hist[k])
+	var out: Dictionary = {}
+	for k in _act_hist:
+		var g: Array = _act_gaps.get(k, [0, 0.0])
+		out[k] = {
+			"n": int(_act_hist[k]),
+			"share": float(_act_hist[k]) / maxf(float(total), 1.0),
+			"mean_gap_s": (float(g[1]) / float(g[0])) if int(g[0]) > 0 else 0.0,
+		}
+	return out
+
+func behaviour_reset_log() -> void:
+	_act_hist = {}
+	_act_last = {}
+	_act_gaps = {}
+
+## Reseed the DECISION stream. For probes only — the game never calls it.
+func set_behaviour_seed(s: int) -> void:
+	_brng.seed = s
+
+## Arm an action. Durations and targets come from `_rng`, never `_brng` — see BEHAVIOUR_SEED.
+func _begin_action(nm: String) -> void:
+	if nm == "":
+		return
+	_idle_act = nm
+	_idle_t = 0.0
+	_perch_on = 0.0
+	_perch_stall = 0.0
+	_perch_best = 1e9
+	match nm:
+		"wash_paw":
+			_start_wash(0)
+		"wash_flank":
+			_start_wash(1)
+		"wash_chest":
+			_start_wash(2)
+		"scratch_ear":
+			_start_wash(3)
+		"stretch":
+			# HANDED TO THE EXISTING RUNG, not re-implemented. `_stretch_t` already has an owner
+			# two rungs from the top of `_companion` — it was simply never set by anything but
+			# waking up. One assignment gives the pose a second, commoner cause.
+			_stretch_t = _rng.randf_range(1.1, 2.2)
+		"shake":
+			if _rig != null:
+				_rig.call("shake", 1.0)
+			_shake_cd = _rng.randf_range(40.0, 140.0)
+		"chirp":
+			_idle_t = _rng.randf_range(1.0, 1.6)
+			AudioDirector.play_one_shot("cat_chirp", global_position, -24.0)
+			_meow_cd = _rng.randf_range(9.0, 22.0)
+			if _rig != null:
+				_rig.call("tail_flick", 0.6)
+		"survey":
+			_idle_t = _rng.randf_range(2.4, 6.0)
+			_idle_at = _survey_mark()
+		"loaf":
+			_idle_t = _rng.randf_range(7.0, 22.0)
+		"rouse":
+			# Out of the sleep band and back into the sit one. `_still` is the ONLY thing holding
+			# the animal asleep (see `_settle`), so this is the whole of waking up — the existing
+			# `_was_asleep` beat in `_companion` then supplies the stretch and the shake for free.
+			_still = minf(_still, SETTLE_SEC + 2.0)
+			_idle_cd = _rng.randf_range(20.0, 60.0)
+			_act_note("rouse")
+			_idle_act = ""
+			return
+		"mosey":
+			# A cat gets up, walks a metre and a half, and sits down again for no reason anyone
+			# has ever established. Short, probed, and it re-arms the long cooldown.
+			_idle_at = _mosey_spot()
+			_idle_t = _rng.randf_range(2.5, 6.0)
+			_roam_cd = _rng.randf_range(35.0, 95.0)
+			if _idle_at == Vector3.INF:
+				_act_note("mosey_none")
+				_end_idle()
+				return
+		"perch":
+			_idle_at = _perch_spot()
+			_idle_t = _rng.randf_range(16.0, 44.0)
+			_roam_cd = _rng.randf_range(35.0, 95.0)
+			if _idle_at == Vector3.INF:
+				# NOTHING TO GET ONTO — logged under its own name rather than silently retried,
+				# because "the cat never perches" and "there is nothing on this deck to perch on"
+				# are different findings and a histogram that merges them cannot tell you which.
+				_act_note("perch_none")
+				_end_idle()
+				return
+		_:
+			_idle_act = ""
+			return
+	# AN ANIMAL THAT IS DOING THINGS IS NOT HALF A MINUTE INTO A NAP, and this line is the
+	# difference between an instinct layer that runs and one that is asleep.
+	#
+	# `_still` is the ONLY clock `_settle`'s sit -> doze -> sleep ladder runs on, and nothing in
+	# this file has ever reduced it. So a player who stands still for SETTLE_SEC + DOZE_SEC —
+	# 28 seconds, i.e. one go at the fishing rod — gets a cat that is asleep for as long as they
+	# stay there, and everything below this comment is unreachable. MEASURED before this line
+	# existed (tests/CatBehaviourProbe, 60 s of a stationary player): FOUR actions, of which one
+	# was the wake-up, and three states ever visited. Doing something pushes the doze clock back,
+	# and HOW FAR is the energy — a lively cat's own behaviour keeps it awake, a tired cat's does
+	# not, so the same code drifts off in the afternoon and holds court at dusk.
+	_still = minf(_still, SETTLE_SEC
+		+ DOZE_SEC * (0.20 + 0.50 * (1.0 - clampf(_energy, 0.0, 1.0))))
+	_act_note(nm)
+	# The instantaneous ones own no frames; the gap is the cooldown's job.
+	if _idle_t <= 0.0 and _wash_t <= 0.0:
+		_end_idle()
+
+func _end_idle() -> void:
+	_idle_act = ""
+	_idle_t = 0.0
+	_perch_on = 0.0
+	_perch_stall = 0.0
+	_perch_best = 1e9
+	_idle_cd = _rng.randf_range(4.0, 14.0)
+
+## May the current action keep the frame? An instinct never outranks the companion contract:
+## the moment the player moves, or opens more than IDLE_LEASH of flat ground, the action ends
+## and the follow below takes over. That is the same order the wash always had — it just used
+## to be expressed by sitting below the follow rung, which a perch cannot do (a perched cat is
+## by definition more than `near_gap` from a player standing on the deck, so the follow rung
+## would walk it straight back off again).
+func _idle_holds(anchor: Vector3, leash: float, resting: bool) -> bool:
+	if _over_water(global_position):
+		return false
+	var flat: float = Vector2(global_position.x - anchor.x,
+		global_position.z - anchor.z).length()
+	if flat > leash:
+		return false
+	# A MOVING PLAYER SHORTENS THE LEASH TO THE COMPANIONABLE GAP, and this line is the whole
+	# of "an instinct never outranks the follow". While you are still, an action may range out
+	# to `leash` — onto a crate, a metre and a half down the deck. The moment you move, anything
+	# that has taken the animal further than FOLLOW_NEAR ends and the follow rung below gets the
+	# frame. What the second clause preserves is the wash's ORIGINAL behaviour: sitting below the
+	# follow rung, a bout within `near_gap` was never interrupted, because the follow rung did
+	# not fire that close — so a cat at your feet does not abandon its paw because you shifted
+	# your weight. Bare `not resting` was the first cut of this and it did exactly that.
+	return resting or flat <= FOLLOW_NEAR
+
+## Run the action that owns the animal, if one does. True while it holds the frame.
+func _idle_step(delta: float, anchor: Vector3, leash: float, resting: bool) -> bool:
+	# A WASH IS AN ACTION LIKE THE REST, and `_self_groom` stays its executor so anything that
+	# arms `_wash_t` from outside (a harness, a future behaviour) still plays.
+	if _wash_t > 0.0:
+		if not _idle_holds(anchor, leash, resting):
+			# `_wash_t` is LEFT ARMED, deliberately: "a wash in progress finishes" has been the
+			# rule since the bout was written, and an interrupted one resumes when the animal
+			# settles again rather than being thrown away. Only `_idle_act` is released, so the
+			# chooser cannot start something else on top of it.
+			_end_idle()
+			return false
+		return _self_groom(delta)
+	if _idle_act == "":
+		return false
+	if not _idle_holds(anchor, leash, resting):
+		_end_idle()
+		return false
+	_idle_t -= delta
+	if _idle_t <= 0.0:
+		_end_idle()
+		return false
+	match _idle_act:
+		"survey":
+			_enter(State.SIT)
+			_pose_sit(delta)
+			# Outranks the idle glance layer's 0.85 by design — `_watch` gives the frame to the
+			# strongest claim, so a deliberate stare is not sawn in half by a wandering one.
+			_watch(_idle_at, 0.95)
+		"chirp":
+			_enter(State.SIT)
+			_pose_sit(delta)
+			_watch(anchor + Vector3(0, 1.2, 0), 0.9)
+		"loaf":
+			_enter(State.SLEEP)
+			_last_speed = 0.0
+			_reseat()
+		"mosey":
+			if global_position.distance_to(_idle_at) < 0.35:
+				_enter(State.SIT)
+				_pose_sit(delta)
+				_end_idle()
+				return false
+			_enter(State.FOLLOW)
+			_walk_toward(_idle_at, WALK_SPEED * 0.75 * _ease_turn(_idle_at, delta), delta, 0.25)
+		"perch":
+			var flat: float = Vector2(global_position.x - _idle_at.x,
+				global_position.z - _idle_at.z).length()
+			# UP AND ON IT? Height AND footprint, because a cat standing at the foot of a crate
+			# is exactly `flat` away from a point on top of it in plan view.
+			if flat < 0.45 and global_position.y > _idle_at.y - 0.20:
+				_perch_on += delta
+				_enter(State.PERCH)
+				_pose_sit(delta)
+				# The whole point of being up there. It watches YOU, from above, which is the
+				# single most cat thing this file does not otherwise say.
+				_watch(anchor + Vector3(0, 1.2, 0), 0.6)
+			else:
+				_enter(State.FOLLOW)
+				# `_walk_toward` owns the climb: a rise inside CLIMB_UP is a step, one between
+				# CLIMB_UP and JUMP_UP arms the leap, and `_reachable_up` refuses anything that
+				# would strand the animal. Nothing about the perch needs its own movement code.
+				_walk_toward(_idle_at, WALK_SPEED * _ease_turn(_idle_at, delta), delta, 0.20)
+				# PROGRESS IS MEASURED, NOT ASSUMED — see `_perch_stall`. Only closing the gap
+				# counts as getting there; a couple of seconds of not closing it and the animal
+				# gives the frame back rather than pressing at a face for the rest of the night.
+				if flat < _perch_best - 0.02:
+					_perch_best = flat
+					_perch_stall = 0.0
+				else:
+					_perch_stall += delta
+				if _perch_stall > PERCH_STALL:
+					_act_note("perch_stall")
+					_end_idle()
+					return false
+		_:
+			_end_idle()
+			return false
+	return true
+
+## Decide whether to start something. Called from the settled branches of both behaviours and
+## from the pre-friend path — i.e. everywhere the animal has nothing it must be doing.
+func _idle_tick(delta: float, allow_roam: bool) -> void:
+	_idle_cd = maxf(0.0, _idle_cd - delta)
+	_roam_cd = maxf(0.0, _roam_cd - delta)
+	if _idle_act != "" or _wash_t > 0.0 or _stretch_t > 0.0 or _idle_cd > 0.0:
+		return
+	# A POISSON GATE IN ITS EXACT FORM. `rate * dt` is the approximation, and this animal is
+	# handed AiBudget-summed deltas up to MAX_STEP 0.15 s where it is a percent light; the
+	# closed form is the same arithmetic every ease in this file already uses and costs nothing.
+	var rate: float = IDLE_RATE * (IDLE_SLEEP_SCALE if _state == State.SLEEP else 1.0)
+	if _rng.randf() > 1.0 - exp(-rate * maxf(delta, 0.0)):
+		return
+	_begin_action(_pick_action(_action_weights(allow_roam)))
+
+## Something worth staring at: a bird if there is one, otherwise you, otherwise a bearing off
+## to one side. Same preference order as the glance layer, held ten times as long.
+func _survey_mark() -> Vector3:
+	var best: Node3D = null
+	var best_d: float = HUNT_M * 1.8
+	for g in get_tree().get_nodes_in_group("deck_gull"):
+		var n: Node3D = g as Node3D
+		if n == null or not is_instance_valid(n):
+			continue
+		var gd: float = global_position.distance_to(n.global_position)
+		if gd < best_d:
+			best_d = gd
+			best = n
+	if best != null:
+		return best.global_position + Vector3(0, 0.1, 0)
+	var player: Node3D = AIB.player(self)
+	if player != null and is_instance_valid(player) \
+			and global_position.distance_to(player.global_position) < FISH_M:
+		return player.global_position + Vector3(0, 1.2, 0)
+	var a: float = rotation.y + _rng.randf_range(-2.4, 2.4)
+	return global_position + Vector3(sin(a), 0, cos(a)) * _rng.randf_range(4.0, 11.0) \
+		+ Vector3(0, _rng.randf_range(-0.1, 1.2), 0)
+
+## A metre or so of deck to move to, PROBED — the same `_deck_at` + `_step_clear` pair the play
+## spot and the zoomie heading learned to use, and for the same reason: a named position that
+## was not probed is how this animal ended up over the water.
+func _mosey_spot() -> Vector3:
+	for _try in range(6):
+		var a: float = _rng.randf() * TAU
+		var cand: Vector3 = global_position \
+			+ Vector3(cos(a), 0.0, sin(a)) * _rng.randf_range(0.8, 1.8)
+		cand.y = global_position.y
+		var g: Vector3 = _deck_at(cand)
+		if g == Vector3.INF:
+			continue
+		if absf(g.y - global_position.y) > STEP_UP:
+			continue
+		if _step_clear(g, (g - global_position).normalized()):
+			return g
+	return Vector3.INF
+
+## SOMEWHERE HIGHER TO SIT. The first thing in this file's history to look for one.
+##
+## Probed on a ring, never typed, and every candidate has to survive the same three questions
+## the walk asks: is it out of the sea, does the BODY fit up there, and — the one that matters —
+## `_reachable_up`, which caps the height at the player's own deck plus one leap. That is the
+## rule s38's reverted ledge fix lacked, and it is why this cannot build the staircase of
+## legal-one-at-a-time hops that stranded the cat at y 20.26.
+##
+## The ray starts a whisker above JUMP_UP so it cannot see, and therefore cannot be blinded by,
+## a beam or a deckhead over the candidate: anything above one leap is not a perch. The honest
+## limit of that is a low crate UNDER an overhang, which this will miss.
+## Does the surface at `top` hold a cat's whole footprint, or is `top` a lip? Eight rays on a
+## ring of 1.6 body-radii, each of which must find the same surface within 60 mm — an edge, a
+## bevel, a grating gap or the far side of a narrow pipe all fail it. See `_perch_spot`.
+func _perch_footing(top: Vector3, skip: Array[RID]) -> bool:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return false
+	var r: float = _body_r() * 1.6
+	for i in range(8):
+		var a: float = TAU * float(i) / 8.0
+		var at: Vector3 = top + Vector3(cos(a) * r, 0.30, sin(a) * r)
+		var q := PhysicsRayQueryParameters3D.create(at, at - Vector3(0, 0.60, 0))
+		q.collision_mask = 1
+		q.collide_with_areas = false
+		q.exclude = skip
+		var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+		if hit.is_empty():
+			return false
+		if absf((hit["position"] as Vector3).y - top.y) > 0.06:
+			return false
+	return true
+
+func _perch_spot() -> Vector3:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return Vector3.INF
+	var player: Node3D = AIB.player(self)
+	var aim: Vector3 = player.global_position if player != null and is_instance_valid(player) \
+		else global_position
+	var best: Vector3 = Vector3.INF
+	var best_score: float = -1e9
+	# Built ONCE for all 24 candidates — `_walk_skip` is three group walks and a subtree scan,
+	# and nothing it lists can appear or vanish inside one frame.
+	var skip: Array[RID] = _walk_skip()
+	for r in [1.5, 2.4, 3.4]:
+		for i in range(8):
+			var a: float = TAU * float(i) / 8.0 + _rng.randf_range(-0.2, 0.2)
+			var at: Vector3 = global_position + Vector3(cos(a) * r, 0.0, sin(a) * r)
+			var from: Vector3 = at + Vector3(0, JUMP_UP + 0.05, 0)
+			var q := PhysicsRayQueryParameters3D.create(from, at + Vector3(0, PERCH_MIN, 0))
+			q.collision_mask = 1
+			q.collide_with_areas = false
+			q.exclude = skip
+			var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+			if hit.is_empty():
+				continue
+			var top: Vector3 = hit["position"]
+			var lift: float = top.y - global_position.y
+			if lift < PERCH_MIN or lift > JUMP_UP:
+				continue
+			if not _reachable_up(top.y):
+				continue
+			if _over_water(top):
+				continue
+			var dir: Vector3 = top - global_position
+			dir.y = 0.0
+			if dir.length() < 0.05:
+				continue
+			if not _step_clear(top, dir.normalized()):
+				continue
+			# ...AND THE SURFACE HAS TO CONTINUE UNDER THE ANIMAL. This is the perch flake.
+			#
+			# Every test above asks about the POINT: is it high enough, reachable, dry, and is
+			# anything standing in the way. None of them asks whether there is anything to
+			# stand ON around it — and the candidate is wherever a single downward ray on a
+			# random ring point happened to land, which on a crate is as often the lip as the
+			# middle. Reproduced (tests/PerchScratch, 6 trials against the same 1.8 m crate
+			# CatProbe builds): five runs aimed at (4.48..4.50, −2.76..−3.22), well inside the
+			# top face, and reached State.PERCH; the sixth aimed at (4.23, −2.14) — 0.13 m in
+			# from the x edge and 0.04 m from the z edge — and the animal walked to the foot of
+			# the corner, could not get its body onto a landing that small, stopped closing the
+			# gap, and `_perch_stall` correctly gave up 2.5 s later. It then sat on the deck for
+			# the rest of the window. That is one CatProbe row failing one run in six with no
+			# bug in the leap, the climb or the stall detector: the AIM was never standable.
+			#
+			# Eight rays at 1.6 body-radii, which is the footprint a sitting cat actually needs
+			# under it, and all eight must find the SAME top. Cheap — this only runs on the
+			# handful of candidates that have already passed every other gate.
+			if not _perch_footing(top, skip):
+				continue
+			# NEARNESS OUTWEIGHS HEIGHT, and that is the correction the first live run bought.
+			# Scoring on height alone (`lift * 2.0 - dist * 0.25`) sent the animal at a bunk
+			# frame 0.97 m up and 2.4 m away in preference to a crate half the distance off —
+			# and the further a perch is, the more geometry there is between the cat and the
+			# lip for the approach to founder on. A cat picks the vantage over the thing it is
+			# watching, not the tallest object in the room.
+			var score: float = lift * 1.2 - top.distance_to(aim) * 0.30
+			if score > best_score:
+				best_score = score
+				best = top
+	return best
 
 # ------------------------------------------------------------------ the predatory sequence
 
@@ -2751,7 +3585,17 @@ func _hunt_step(delta: float) -> bool:
 			if _wiggle_t <= 0.0:
 				_launch_pounce(target)
 		_:
-			pass
+			# BEAT 3 IS "IN THE AIR", AND REACHING IT HERE MEANS THE AIR RAN OUT WITHOUT ANYONE
+			# RESOLVING THE POUNCE. `_process` hands the animal to `_fly_jump` above the state
+			# machine for the whole flight, so this arm is only reachable on an arc that ABORTED
+			# (`_arc_clear` failing mid-flight) down a path that left `_pouncing` false. The old
+			# body was `pass` — which still `return true`s, i.e. the hunt keeps owning the animal
+			# and eats every frame while doing nothing at all, for ever. The var's own comment
+			# also documents a beat 4 ("the aftermath") that is assigned nowhere in the file;
+			# there are three beats, and this is the end of the last one.
+			if _jump_t <= 0.0 and _jump_wind <= 0.0:
+				_end_hunt(false)
+				return false
 	return true
 
 func _launch_pounce(target: Vector3) -> void:

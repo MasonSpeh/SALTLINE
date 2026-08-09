@@ -42,9 +42,15 @@ var _player: Node3D
 var _skel: Skeleton3D
 var _rig = null
 var _hinge: Dictionary = {}       ## bone index -> its measured sagittal hinge (rig-derived)
+## Last frame's WORLD orientation per bone (key -2 is the tail) — see the world-step block in
+## `_sample`. Cleared at the top of every scenario, because a scenario boundary teleports the
+## animal and a continuity baseline carried across one measures the teleport.
+var _world_prev: Dictionary = {}
 var _rest: Dictionary = {}        ## bone index -> rest quaternion
 var _rest_paw_axis: Dictionary = {}   ## limb -> rest distance from paw to the torso axis
 var _rest_paw_side: Dictionary = {}   ## limb -> rest lateral (BODY_SIDE) coordinate
+## limb -> mm the paw BONE sits above the node origin in the rest pose. Zero of the deck scale.
+var _rest_paw_y: Dictionary = {}
 var _metrics: Dictionary = {}
 ## Per-joint accumulators across the whole run: bone name -> {min, max, off_max, scn}
 var _joint: Dictionary = {}
@@ -102,6 +108,15 @@ func _ready() -> void:
 		var p: Vector3 = _skel.get_bone_global_pose(_skel.find_bone(PAWS[k])).origin
 		_rest_paw_axis[k] = _axis_dist(p)
 		_rest_paw_side[k] = p.z          # BODY_SIDE is skeleton Z on this rig (BoneDump)
+		# THE HEIGHT AT WHICH THIS PARTICULAR PAW IS TOUCHING THE DECK, which no gate in this
+		# file has ever had. The paw BONE is not the sole: on this fit the four rest at
+		# 25.9 / 27.5 / 12.9 / 16.5 mm above the node origin, a 14.6 mm spread between fore and
+		# hind. `paw_below_deck_max_mm` compares all four against the origin with one flat
+		# 25 mm allowance, so it hands the hind pair 13 mm of free sink and the fore pair none
+		# — before anything has moved. Per-limb, off the rest skeleton, is the only baseline
+		# under which "this paw is on the deck" means the same thing on all four legs.
+		_rest_paw_y[k] = (_bone_w(_skel.find_bone(PAWS[k])).origin.y - _cat.global_position.y) \
+			* 1000.0
 	# THE CAT STAYS OFF THE ENGINE'S CLOCK FOR THE WHOLE RUN. This line used to be
 	# `set_process(true)`, which meant every scenario DOUBLE-TICKED the animal: the
 	# engine's own _process (with a headless world's 30-80 ms frame deltas) ran on top of
@@ -121,6 +136,7 @@ func _ready() -> void:
 		_cat.set("_wash_cd", 0.0))
 	await _scn("run", 4.0, func(f): _player.global_position = _cat.global_position \
 		+ Vector3(12.0, 0.1, 0.0))
+	await _scn_sit_paws()
 	await _scn_head_bias()
 
 	_report_joints()
@@ -146,6 +162,12 @@ func _hold() -> void:
 	_cat.set("_zoom_cd", 999.0)
 	_cat.set("_play_cd", 999.0)
 	_cat.set("_chatter_cd", 999.0)
+	# THE INSTINCT LAYER (s54) IS AN IDLER LIKE THE REST. Its actions can put a settled cat
+	# into GROOM, STRETCH, SLEEP or PERCH of its own accord, which is exactly what this
+	# harness must not have happening in the middle of a per-state measurement. `_idle_cd`
+	# holds every action off; `_roam_cd` is the subset that would also MOVE the animal.
+	_cat.set("_idle_cd", 999.0)
+	_cat.set("_roam_cd", 999.0)
 
 func _step() -> void:
 	_pin()
@@ -225,6 +247,43 @@ func _sample(scn: String, row: Dictionary) -> void:
 		row["axis_dist_min_m"] = minf(float(row.get("axis_dist_min_m", 1e9)), _axis_dist(p))
 		var splay: float = absf(p.z - float(_rest_paw_side[k]))
 		row["splay_max"] = maxf(float(row.get("splay_max", 0.0)), splay)
+	# THE RATE CEILING'S BLIND SIDE, WHICH IS WHERE KNOWN_ISSUES SAID TO LOOK.
+	#
+	# `cat_rig.LIMB_MAX_RATE` bounds each limb bone's LOCAL pose rotation, and CatReviewProbe's
+	# `joint_step_max_rad` gate measures the same local quantity — so both are blind to the one
+	# thing an eye actually sees at the end of a chain: the bone's WORLD orientation, which is
+	# the SUM of every parent's motion plus its own. Measured on the shipped walk, the worst
+	# local step is 0.3167 rad/frame (the cap, saturated) while the worst WORLD step on the same
+	# frames is 0.56-0.68 — two to three times it, on `L_Hand`/`R_Hand`, i.e. exactly the distal
+	# joints a deeper carpal schedule moves. That is the coverage gap, and it is measured here
+	# rather than argued.
+	#
+	# Reported per scenario with a POP gate rather than a quality bar: 1.0 rad/frame is 57
+	# degrees in one frame, about 1.5x the current worst, so it catches a discontinuity without
+	# encoding today's numbers as a target. Calibrating it into a real bar wants a session that
+	# judges the render, and the honest first step is to make the number visible.
+	for k in LIMBS:
+		for bn2 in LIMBS[k]:
+			var b2: int = _skel.find_bone(bn2)
+			if b2 < 0:
+				continue
+			var gq: Quaternion = _bone_w(b2).basis.get_rotation_quaternion().normalized()
+			if _world_prev.has(b2):
+				var ws: float = (_world_prev[b2] as Quaternion).angle_to(gq)
+				if ws > float(row.get("distal_world_step_max_rad", 0.0)):
+					row["distal_world_step_max_rad"] = ws
+					row["distal_world_step_bone"] = bn2
+			_world_prev[b2] = gq
+	# ...and the TAIL, which had no ceiling at all until s54 and whose world step is the only
+	# quantity that ever meant anything on that bone (it is posed absolutely against a moving
+	# parent, so its local step is its parent's by construction).
+	var ti: int = _skel.find_bone("R_ThighTwist01")
+	if ti >= 0:
+		var tq: Quaternion = _bone_w(ti).basis.get_rotation_quaternion().normalized()
+		if _world_prev.has(-2):
+			row["tail_world_step_max_rad"] = maxf(float(row.get("tail_world_step_max_rad", 0.0)),
+				(_world_prev[-2] as Quaternion).angle_to(tq))
+		_world_prev[-2] = tq
 	# Whole-animal node motion: after the owner's "the game rotates the entire cat" is
 	# fixed, everything except the steering yaw must be flat zero.
 	var body: Node3D = _cat.get("_body")
@@ -238,6 +297,7 @@ func _scn(scn: String, seconds: float, drive: Callable) -> void:
 		_cat.global_position = STAGE - Vector3(6.0, 0.0, 0.0)
 		_cat.call("_reseat")
 	var row := {}
+	_world_prev.clear()
 	var head_prev := Vector3.ZERO
 	var head_spd: Array[float] = []
 	var hi: int = _skel.find_bone("Head")
@@ -277,6 +337,102 @@ func _scn(scn: String, seconds: float, drive: Callable) -> void:
 	# walking animal's head should not exceed a brisk turn. 200 deg/s is already fast.
 	_gate(scn, "head_speed_p99_deg_s", float(row.get("head_speed_p99_deg_s", 0.0)),
 		200.0, true, "deg/s")
+	_note(scn, "distal_world_step_bone", String(row.get("distal_world_step_bone", "")))
+	_gate(scn, "distal_world_step_max_rad", float(row.get("distal_world_step_max_rad", 0.0)),
+		1.0, true, "rad/frame")
+	_gate(scn, "tail_world_step_max_rad", float(row.get("tail_world_step_max_rad", 0.0)),
+		0.35, true, "rad/frame")
+
+## ALL FOUR PAWS, SIGNED, IN THE SIT — the owner's "when cat is sitting, game angled him
+## backwards, causing front paws to float an inch above, and back paws to be sinking an inch".
+##
+## WHY THE EXISTING GATE COULD NOT SEE THIS, and why it looked like a flake for two sessions.
+## `paw_below_deck_max_mm` is one number with three separate blind spots:
+##   * it is a MAX OF ONE SIGN. `deck - paw`, maximised: a paw an inch IN THE AIR makes it
+##     smaller, not larger. Half of the owner's report — the floating forepaws — is invisible
+##     to it by construction, and always was.
+##   * it is UN-BASELINED. All four paw bones are compared against the node origin with one
+##     flat 25 mm allowance, while the four rest 25.9 / 27.5 / 12.9 / 16.5 mm above it. The
+##     hind pair therefore start with ~13 mm of the budget already spent and the fore pair
+##     with none.
+##   * it is a MAX OVER A MIXED WINDOW. The `sit` scenario does not restage the animal, so
+##     its seven seconds contain a walk, a `sit_pre`, a `sit_deep` and a `sit` — poses that
+##     measured -2.9, -9.3 and -8.4 mm on the hind. Which of them the max lands on depends on
+##     how much of the window the walk ate, i.e. on machine load. A gate whose value is set by
+##     scheduling reports a PERMANENT defect intermittently, and that is exactly the "known
+##     flake" the s52 notes blamed on a stray wash bout. The probe was right the whole time.
+##
+## So: this scenario stages the animal, drives it until the rig is genuinely WEARING the sit
+## (name checked, not assumed — `set_pose` no-ops silently on a name it does not have), and
+## then measures each paw against ITS OWN rest height. It reports all four signed, and it
+## cannot go vacuous: the sample count is asserted, and so is the pose it was sampled under.
+func _scn_sit_paws() -> void:
+	var scn := "sit_paws"
+	_cat.global_position = STAGE
+	_cat.call("_reseat")
+	_cat.call("_end_idle")
+	_cat.set("_wash_t", 0.0)
+	var settled: int = 0
+	var acc := {}
+	for k in PAWS:
+		acc[k] = []
+	for f in range(int(9.0 / DT)):
+		_hold()
+		_cat.set("_wash_cd", 999.0)
+		_player.global_position = STAGE + Vector3(1.5, 0.1, 0.0)
+		_step()
+		# Only frames the animal is actually SITTING count, and "sitting" is read off the rig's
+		# own target rather than off the state machine — a state that asked for a pose the
+		# library does not carry would otherwise be measured wearing `stand`.
+		if int(_cat.get("_state")) == 3 and String(_rig.get("_target")) == "sit":
+			settled += 1
+			if settled > 90:      # 1.5 s for the blend to land before anything is judged
+				for k in PAWS:
+					(acc[k] as Array).append(
+						(_bone_w(_skel.find_bone(PAWS[k])).origin.y - _cat.global_position.y)
+							* 1000.0 - float(_rest_paw_y[k]))
+		await get_tree().physics_frame
+	var n: int = (acc["lf"] as Array).size()
+	# THE ANTI-VACUITY CLAUSE. Every other number below is a max over `acc`, and a max over an
+	# empty array is whatever default it is given — which is how a gate certifies an animal it
+	# never looked at. If the cat did not sit, this scenario has no opinion and says so.
+	_gate(scn, "frames_measured_sitting", float(n), 120.0, false, "frames")
+	if n == 0:
+		return
+	var mean := {}
+	var float_max: float = -1e9
+	var sink_max: float = -1e9
+	for k in ["lf", "rf", "lh", "rh"]:
+		var s: float = 0.0
+		for v in acc[k]:
+			s += v
+			float_max = maxf(float_max, v)
+			sink_max = maxf(sink_max, -v)
+		mean[k] = s / float(n)
+		_note(scn, "paw_%s_mean_mm" % k, snappedf(float(mean[k]), 0.1))
+	var fore: float = (float(mean["lf"]) + float(mean["rf"])) * 0.5
+	var hind: float = (float(mean["lh"]) + float(mean["rh"])) * 0.5
+	# The wheelbase, measured off the rest skeleton — the lever the owner's "angled backwards"
+	# is an angle over. Never typed: a re-rig changes it.
+	_skel.reset_bone_poses()
+	_skel.force_update_all_bone_transforms()
+	var pf: Vector3 = _bone_w(_skel.find_bone("L_Hand")).origin
+	var ph: Vector3 = _bone_w(_skel.find_bone("L_Foot")).origin
+	var wb: float = maxf(Vector2(pf.x - ph.x, pf.z - ph.z).length(), 0.05)
+	_note(scn, "wheelbase_m", snappedf(wb, 0.001))
+	_note(scn, "fore_minus_hind_mm", snappedf(fore - hind, 0.1))
+	# BOTH SIGNS, SEPARATELY. 15 mm is under two thirds of the smallest thing the owner has
+	# ever reported on this animal (an inch = 25.4) and above the 8.5 mm of hind sink this
+	# rig's short right femur and dead-straight left hind cannot pay off
+	# (docs/CAT_RIG_CEILING.md §3) — it catches the defect and does not encode the asset.
+	_gate(scn, "sit_paw_float_max_mm", float_max, 15.0, true, "mm")
+	_gate(scn, "sit_paw_sink_max_mm", sink_max, 15.0, true, "mm")
+	# ...AND THE PITCH ITSELF, which is what the owner actually SEES: not one paw wrong but the
+	# whole body rotated nose-up about its lateral axis. A pair of single-paw gates can both
+	# pass on an animal tilted by half their allowance each way, so the differential is its own
+	# gate. 3 degrees over this wheelbase is 18 mm end to end.
+	_gate(scn, "sit_body_pitch_deg", absf(rad_to_deg(atan2((fore - hind) * 0.001, wb))),
+		3.0, true, "deg")
 
 ## THE HEAD BIAS, MEASURED AGAINST THE WORLD — never against the rest pose.
 ##

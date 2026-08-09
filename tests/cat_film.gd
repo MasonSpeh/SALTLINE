@@ -414,6 +414,8 @@ func _reel_line(reel: String, dir: Vector3, lead: float, seconds: float,
 			_cat.set("_hunt_cd", 999.0)
 			_cat.set("_zoom_cd", 999.0)
 			_cat.set("_play_cd", 999.0)
+			_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+			_cat.set("_roam_cd", 999.0)
 			_player.global_position = _cat.global_position + dir * lead
 			if head_on:
 				_cam.global_position = _cat.global_position + dir * 1.35 + Vector3(0, 0.20, 0)
@@ -501,6 +503,8 @@ func _reel_topdown(sim_per_frame: int) -> void:
 				_cat.set("_hunt_cd", 999.0)
 				_cat.set("_zoom_cd", 999.0)
 				_cat.set("_play_cd", 999.0)
+				_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+				_cat.set("_roam_cd", 999.0)
 				_cat.set("_wash_cd", 999.0)
 				if label != "walk_chat":
 					_cat.set("_chatter_cd", 999.0)
@@ -555,6 +559,8 @@ func _reel_headsweep(sim_per_frame: int) -> void:
 				_cat.set("_hunt_cd", 999.0)
 				_cat.set("_zoom_cd", 999.0)
 				_cat.set("_play_cd", 999.0)
+				_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+				_cat.set("_roam_cd", 999.0)
 				_cat.set("_chatter_cd", 999.0)
 				_cat.set("_glance_cd", 999.0)
 				_player.global_position = _cat.global_position + dir * 5.0
@@ -848,6 +854,8 @@ func _reel_gift(sim_per_frame: int) -> void:
 			_cat.set("_hunt_cd", 999.0)
 			_cat.set("_zoom_cd", 999.0)
 			_cat.set("_play_cd", 999.0)
+			_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+			_cat.set("_roam_cd", 999.0)
 			# Retreat for the first two thirds, then stand for the drop.
 			if f < int(3.6 * _fps):
 				_player.global_position = _cat.global_position + dir * 5.0 + Vector3(0, 0.1, 0)
@@ -881,6 +889,8 @@ func _reel_lookwalk(sim_per_frame: int) -> void:
 			_cat.set("_hunt_cd", 999.0)
 			_cat.set("_zoom_cd", 999.0)
 			_cat.set("_play_cd", 999.0)
+			_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+			_cat.set("_roam_cd", 999.0)
 			_player.global_position = _cat.global_position + dir * 5.0
 			_cat.call("_watch", _cat.global_position + mark_dir * 4.0 + Vector3(0, 1.0, 0), 1.0)
 			_cam.global_position = _cat.global_position + dir * 1.6 + mark_dir * 0.8 \
@@ -905,6 +915,8 @@ func _reel_idle(sim_per_frame: int) -> void:
 			_cat.set("_hunt_cd", 999.0)
 			_cat.set("_zoom_cd", 999.0)
 			_cat.set("_play_cd", 999.0)
+			_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+			_cat.set("_roam_cd", 999.0)
 			var fwd: Vector3 = -_cat.global_transform.basis.z
 			_cam.global_position = _cat.global_position + fwd.rotated(Vector3.UP, 0.8) * 1.5 \
 				+ Vector3(0, 0.42, 0)
@@ -933,6 +945,8 @@ func _reel_tail(sim_per_frame: int) -> void:
 			_cat.set("_hunt_cd", 999.0)
 			_cat.set("_zoom_cd", 999.0)
 			_cat.set("_play_cd", 999.0)
+			_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+			_cat.set("_roam_cd", 999.0)
 			if f < walk_frames:
 				_player.global_position = _cat.global_position + dir * 5.0
 			else:
@@ -1008,6 +1022,8 @@ func _reel_routine(sim_per_frame: int) -> void:
 				_cat.set("_hunt_cd", 999.0)
 				_cat.set("_zoom_cd", 999.0)
 				_cat.set("_play_cd", 999.0)
+				_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+				_cat.set("_roam_cd", 999.0)
 				_player.global_position = stage + (beat[0] as Vector3)
 				if label == "grooming":
 					_cat.set("_wash_cd", 0.0)

@@ -212,6 +212,12 @@ func _hold_idlers() -> void:
 	# the +/-PI seam — so it is held off like every other idler in scenarios that measure
 	# something else. Its own motion is covered by the smoothed look layer.
 	_cat.set("_chatter_cd", 999.0)
+	# THE INSTINCT LAYER (s54) IS AN IDLER LIKE THE REST. Its actions can put a settled cat
+	# into GROOM, STRETCH, SLEEP or PERCH of its own accord, which is exactly what this
+	# harness must not have happening in the middle of a per-state measurement. `_idle_cd`
+	# holds every action off; `_roam_cd` is the subset that would also MOVE the animal.
+	_cat.set("_idle_cd", 999.0)
+	_cat.set("_roam_cd", 999.0)
 
 func _bone_w(b: int) -> Transform3D:
 	return _skel.global_transform * _skel.get_bone_global_pose(b)

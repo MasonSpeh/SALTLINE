@@ -52,6 +52,8 @@ func _ready() -> void:
 	cat.set("_hunt_cd", 999.0)
 	cat.set("_zoom_cd", 999.0)
 	cat.set("_play_cd", 999.0)
+	cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+	cat.set("_roam_cd", 999.0)
 	player.global_position = ledge + Vector3(0, 0.2, 0)
 	for i in range(20):
 		await get_tree().physics_frame
@@ -121,6 +123,8 @@ func _ready() -> void:
 		cat.set("_hunt_cd", 999.0)
 		cat.set("_zoom_cd", 999.0)
 		cat.set("_play_cd", 999.0)
+		cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+		cat.set("_roam_cd", 999.0)
 		cat.call("_process", 1.0 / 60.0)
 		if float(cat.get("_jump_wind")) > 0.0:
 			wind_seen = true

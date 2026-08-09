@@ -142,6 +142,8 @@ func _run() -> void:
 	_cat.set("_hunt_cd", 0.0)
 	_cat.set("_play_cd", 999.0)      # so a PLAY pounce cannot be mistaken for a hunt one
 	_cat.set("_zoom_cd", 999.0)
+	_cat.set("_idle_cd", 999.0)      # ...nor an instinct-layer wash for the aftermath one (s54)
+	_cat.set("_roam_cd", 999.0)
 	var seen := {}
 	var worst_bury: float = 0.0
 	var worst_at: String = "-"
@@ -234,6 +236,8 @@ func _run() -> void:
 	_cat.set("_still", 9.0)
 	_cat.set("_hunt_cd", 999.0)
 	_cat.set("_play_cd", 999.0)
+	_cat.set("_idle_cd", 999.0)   # the instinct layer is an idler too (s54)
+	_cat.set("_roam_cd", 999.0)
 	var far: float = 0.0
 	for i in range(600):
 		await get_tree().physics_frame
