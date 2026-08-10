@@ -115,7 +115,13 @@ func _ready() -> void:
 	# ---- THE ANCHORAGE, and the atrium it is built around.
 	await _look(Vector3(20.0, 60.0, 200.0), W["a_deck"] + Vector3(0, 16, 0), "anchorage_approach_air")
 	await _look(W["a_in"] + Vector3(0, 0, -10.0), W["a_deck"] + Vector3(0, 14, 8), "anchorage_bridge_landing")
-	await _look(W["a_lobby"], W["a_tank_low"], "anchorage_lobby")
+	await _look(_world(a_o, a_y, Vector3(-10, 22, -26)), _world(a_o, a_y, Vector3(6, 23, -18)), "anchorage_entrance_salon")
+	await _look(_world(a_o, a_y, Vector3(-20, 22, -6)), _world(a_o, a_y, Vector3(-20, 23.5, 14)), "anchorage_west_hall")
+	await _look(_world(a_o, a_y, Vector3(-33, 22, 3.7)), _world(a_o, a_y, Vector3(-27, 23, 3.7)), "anchorage_suite")
+	await _look(_world(a_o, a_y, Vector3(35, 22, 4)), _world(a_o, a_y, Vector3(4, 27, 4)), "dining_hall_tank_view")
+	await _look(_world(a_o, a_y, Vector3(22, 22, -6)), _world(a_o, a_y, Vector3(34, 24, 10)), "dining_hall_length")
+	await _look(_world(a_o, a_y, Vector3(24, 22, -20)), _world(a_o, a_y, Vector3(34, 23, -21)), "anchorage_kitchen")
+	await _look(_world(a_o, a_y, Vector3(0, 26.2, -20)), _world(a_o, a_y, Vector3(0, 32, 4)), "anchorage_terrace")
 	# THE TANK, from every level it passes through.
 	await _look(_world(a_o, a_y, Vector3(0, 22, -4.5)), W["a_tank_mid"], "atrium_from_floor")
 	await _look(_world(a_o, a_y, Vector3(0, 22, -2.2)), _world(a_o, a_y, Vector3(0, 40, 4)), "atrium_tank_base_looking_up")
@@ -127,6 +133,7 @@ func _ready() -> void:
 	await _look(W["a_spa"], W["a_pool"], "anchorage_pool_hall")
 	await _look(W["a_plant"], W["a_plant"] + Vector3(20, 2, 8), "anchorage_plant_deck")
 	await _look(W["a_prom"], W["a_deck"] + Vector3(0, 10, 0), "anchorage_promenade")
+	await _look(_world(a_o, a_y, Vector3(5, 22.7, -6)), _world(a_o, a_y, Vector3(-9, 26.5, 10)), "atrium_chord_stairs")
 	await _look(W["a_pad"] + Vector3(0, 0, -8.0), W["a_deck"] + Vector3(0, 14, 6), "anchorage_helideck")
 	await _look(W["a_wingroof"], W["a_deck"] + Vector3(0, 20, 4), "anchorage_wing_roof")
 

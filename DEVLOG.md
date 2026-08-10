@@ -2535,3 +2535,40 @@ ray start began INSIDE the slab overhead now that decks are slung 6 m under othe
 Field totals: 12,544 primitives (was 5,852), 198,696 triangles (was 80,064), 153 draw chunks
 (was 108), 40 lamp chunks + 43 lights, 183 ms at load. TestRunner 0, RigFieldProbe 0 across
 36 probed floors, 107 bridge samples and both lighting states.
+
+
+## s54c — the floorplan pass: an indoor main level, and a probe that climbs every stair
+
+Owner: *"all the stairs need to be correct, attached to platforms/floors, with openings in
+floors where needed... most of the main level should be indoors... a properly divided
+floorplan for residential corridors, lots of rooms... sitting areas around the fish tank,
+a fancy dining hall with high ceilings and tank visibility, kitchens behind that, the
+residential areas horseshoe around."*
+
+**THE ANCHORAGE'S MAIN LEVEL IS A BUILDING NOW.** A one-storey PODIUM (80 x 50 m, window
+band all round, six doors) covers the deck; its roof is a furnished TERRACE the two towers
+rise from. Inside: entrance vestibule and salon off the bridge, an L-shaped hall hugging
+the drum glass, NINE FURNISHED SUITES in a horseshoe (six west, three south — bed,
+wardrobe, desk, rug, cove light each), the DINING HALL in the east wing at 7.4 m with an
+open colonnade aligned to two open drum bays (every table sees the tank; a probe ray
+proves the first thing it hits is tank glass 20.7 m away), the KITCHEN behind it as a
+stainless galley, a private dining/bar room, and the spa block beyond the north portals.
+Sofas, low tables and planters ring the tank saucer on four arcs. The drum is PIERCED:
+eight of twelve ground bays are portals, two more at G1 for the dining arch. Circulation
+in the atrium is four CHORD STAIRS spanning the void — floor to G1 to G2 to G3 to G4 —
+replacing the outside core whose bridges ran through the drum glazing.
+
+**EVERY STAIR ON THE FIELD NOW SURVIVES A CLIMB AUDIT.** Flights register their [foot,
+head] pairs; the probe seats both ends and casts rays 0.75/1.6 m above the walking line.
+It convicted, among others: stair_tower itself (single-lane switchbacks stack flight i+1
+over flight i — clearance is 2*rise*(1-t), under a metre near every landing; two lanes
+now), three towers standing their first flight on open air (base slab in the kit), level
+rails whose gap coords were on the wrong axis (exit ends silently fenced everywhere),
+stairs arriving at railed walkway centrelines (new railed_walk lays gapped rails; heads
+land at slab edges), MARROW vessels inside a stair tower, a lookout floor capping the
+flight beneath it, a stair into sawtooth glazing, and the ANCHORAGE helideck — whose disc
+overhangs its ENTIRE support deck, so the old route climbed beneath the pad the whole way;
+a switchback tower beside the south rim now pierces it with an apron.
+
+RigFieldProbe 24/24: 47 seats, 104 stair endpoints, 52 climb lines, the dining view, both
+light states. TestRunner FAILURES: 0.

@@ -539,7 +539,10 @@ that pass did NOT do, and it is still accurate.
   OmniLights off rig 1's existing `topside_floodlights` circuit. There are no per-rig
   breakers, so the field cannot be lit rig by rig and nothing on rigs 2-4 can be switched
   independently.
-- **Rooms are volumes, not rooms.** The ANCHORAGE's wings, lobby, spa hall and leisure deck
+- **Wing tower interiors are empty shells** (the ground-level program is real now: suites,
+  dining, kitchen, salon are walled and furnished as of s54c). The towers above the terrace
+  and the spa block still have no interior fit-out, and no doors that open anywhere.
+- **(superseded s54c)** Rooms are volumes, not rooms. The ANCHORAGE's wings, lobby, spa hall and leisure deck
   have real walls, floors, window bands, doorways and partitions — and no furniture, no
   props, no readables, no doors that open.
 - **The aquarium's rockwork and kelp are boxes.** Deliberate massing; the hero-prop pass
