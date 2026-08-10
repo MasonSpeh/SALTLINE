@@ -564,10 +564,12 @@ and the hero-feature shells. Everything below is known-absent, not broken.
 - **Soil tending is not built.** MARROW's twelve raised beds exist as geometry on a constant
   grid (`RigTwo.BED_COLS/BED_ROWS/BED/BED_GAP`) so the state machine has something honest to
   bind to. There is no till/water state and no persistence.
-- **Aquarium stock does not persist.** As of s55 the tank ACCEPTS fish (aquarium_stock.gd:
-  5 ft per fish, 50 ft total, real lengths, circling visuals) but the stock is lost on
-  save/load — it needs the loot_container items+item_meta round-trip. Also the cat's
-  doggy-paddle swim home is unbuilt (the rescue teleport covers it).
+- **(fixed s56)** Aquarium stock persists — SaveManager "aquarium" key, proven by
+  AquariumSaveProbe against the slot file re-read off disk. Found while proving it: 36
+  species carry no size_kg, so their instance length read 0.0 and the 5/50 ft limits
+  were VACUOUS for most of the roster; aquarium_stock._len_of falls back to the authored
+  species length. Still open from this area: the cat's doggy-paddle swim home is unbuilt
+  (the rescue teleport covers it).
 - **(superseded s55)** The aquarium holds no fish. As of s54b it is a CYLINDER: the node in group `aquarium`
   carries `shape` "cylinder", `radius` 5.25, `height` 16.60 (1,437 m³) and `circuit`
   "anchorage_aquarium". There is no PowerGrid circuit of that name, no filter consumable, no
@@ -592,3 +594,21 @@ and the hero-feature shells. Everything below is known-absent, not broken.
 - **Rockwork in the aquarium is boxes.** Deliberate — hero props (the rockwork, a wrecked
   helicopter for the ANCHORAGE's pad, the crown block, garden beds, captain's furniture) are
   the Tripo pass, and `tools/survey_tris.py` must run on every candidate first.
+
+## Open after s56 — the luxury pass
+
+- **The ANCHORAGE loungers and planters are massing, not furniture.** The leisure-deck
+  loungers are single tilted canvas boxes and the palms are two stacked cones; they read
+  at room scale but not up close. They are the natural Tripo hero-prop batch (loungers,
+  potted palms, the billiard table, spa benches) — run tools/survey_tris.py on every
+  candidate first.
+- **The salon chart's route line reads faint at room distance.** The four rig markers
+  carry the piece; the connecting line is 24 mm glowing members that wash out under the
+  downlight. If the owner wants the route legible, thicken to ~40 mm or raise its energy
+  — but check it against the night pass first, where every lamp reads hotter.
+- **The upper tower storeys (west k1/k2, east k1) are still empty shells.** s56 fitted
+  the two GROUND lounges (library, games room). The balcony-band storeys above have
+  floors, windows and doors and nothing inside.
+- **The sonar oracle still knows only SALTLINE-0.** Unchanged from s54; every
+  props_find/spatial_probe about rigs 2-4 silently returns nothing. tools/export_rig.sh
+  --field exists; the re-ingest has still not been run.
