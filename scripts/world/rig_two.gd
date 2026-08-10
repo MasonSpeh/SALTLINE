@@ -333,6 +333,8 @@ static func _tower(b: KIT.Bake) -> void:
 	b.cyl(Vector3(c.x + 3.4, STACK_TIP + 0.4, c.y - 2.6), 1.35, 0.8, MatLib.rust_steel(), "detail", Vector3.ZERO, 1.1)
 	for i in range(3):
 		b.cyl(Vector3(c.x + 3.4, TOWER_TOP + 2.4 + i * 2.6, c.y - 2.6), 1.3, 0.2, MatLib.rust_steel(), "detail")
+	# Obstruction light on the stack head — MARROW's one night marker above deck level.
+	KIT.lamp_lens(b, Vector3(c.x + 3.4, STACK_TIP + 1.1, c.y - 2.6), Color(0.95, 0.22, 0.16), 0.45, 6.0)
 	# Guys off the stack head to the deck — the lines that read from 160 m away.
 	for a in [40.0, 160.0, 280.0]:
 		var r: float = deg_to_rad(a)
@@ -397,6 +399,7 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 	for p in mast_pts:
 		b.cyl(p + Vector3(0, 4.0, 0), 0.16, 8.0, MatLib.galvanized(), "detail")
 		b.box(p + Vector3(0, 8.3, 0), Vector3(1.4, 0.5, 0.6), MatLib.dark_metal(), "detail")
+		KIT.lamp_lens(b, p + Vector3(0, 8.05, 0), Color(1.0, 0.72, 0.34), 0.62, 5.5)
 		var l := OmniLight3D.new()
 		l.light_color = Color(1.0, 0.78, 0.46)     # sodium
 		l.light_energy = 2.2

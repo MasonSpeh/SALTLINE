@@ -67,7 +67,9 @@ const HELI_C := Vector3(30.0, HELI_Y, -4.0)
 const HELI_R: float = 12.00                          ## 24 m across. A real S-92 pad is 22.2.
 
 const MESS := Rect2(-8.0, -6.0, 14.0, 20.0)          ## the double-height lunch hall
-const MEZZ := Rect2(-4.0, -2.0, 5.4, 13.0)           ## gallery balcony facing the tank
+## Runs right up to the tank's viewing face (x 1.6) — at 5.4 wide it stopped 0.2 m short
+## and left a slot between the balcony edge and the glass.
+const MEZZ := Rect2(-4.0, -2.0, 5.6, 13.0)           ## gallery balcony facing the tank
 const MEZZ_N := Rect2(-4.0, 11.0, 10.0, 2.7)         ## the leg that reaches the stair
 
 const BRIDGE_IN := Vector3(-8.0, MAIN_Y, -21.0)      ## from MARROW
@@ -293,16 +295,22 @@ static func _aquarium(b: KIT.Bake, host: Node3D) -> void:
 	# A maintenance gantry over the tank top at y 28.55, reached off the gallery's north leg.
 	KIT.catwalk(b, Vector3(cx, AQ_WATER_HI + 0.55, AQ_Z0 - 0.9), Vector3(cx, AQ_WATER_HI + 0.55, AQ_Z1 + 0.9), 1.2, true)
 	b.box(Vector3(cx, AQ_WATER_HI + 0.42, AQ_Z1 - 1.6), Vector3(1.4, 0.1, 1.4), MatLib.grating(), "detail")
-	# Filter house and pump skid against the east wall, plumbed to the tank.
-	b.box(Vector3(MESS.end.x - 1.6, MAIN_Y + 1.3, AQ_Z0 + 2.0), Vector3(2.0, 2.6, 3.2), MatLib.galvanized(), "hull", Vector3.ZERO, true)
+	# Filter house and pump skid NORTH of the tank, plumbed back into it.
+	#
+	# It used to sit at `MESS.end.x - 1.6` — x 4.4, which is INSIDE the tank's x span of
+	# 1.6..5.6. The first render of the gallery shot showed three filter cartridges standing
+	# in the water like drums. The mess hall only leaves 0.4 m east of the tank, so the plant
+	# goes to its north end, where there is 5 m of room.
+	var plant_z: float = AQ_Z1 + 2.2
+	b.box(Vector3(3.6, MAIN_Y + 1.3, plant_z), Vector3(3.4, 2.6, 2.0), MatLib.galvanized(), "hull", Vector3.ZERO, true)
 	for i in range(3):
-		b.cyl(Vector3(MESS.end.x - 1.6, MAIN_Y + 3.6, AQ_Z0 + 0.8 + i * 1.2), 0.42, 1.9, MatLib.dark_metal(), "detail")
-	KIT.pipe_run(b, [Vector3(MESS.end.x - 1.6, MAIN_Y + 2.6, AQ_Z0 + 0.4), Vector3(AQ_X1 + 0.5, MAIN_Y + 2.6, AQ_Z0 + 0.4),
-		Vector3(AQ_X1 + 0.5, AQ_WATER_HI + 0.2, AQ_Z0 + 0.4), Vector3(AQ_X1 - 0.2, AQ_WATER_HI + 0.2, AQ_Z0 + 0.4)], 0.14)
-	KIT.pipe_run(b, [Vector3(AQ_X1 + 0.5, AQ_WATER_LO + 0.3, AQ_Z1 - 0.6), Vector3(MESS.end.x - 1.6, AQ_WATER_LO + 0.3, AQ_Z1 - 0.6),
-		Vector3(MESS.end.x - 1.6, MAIN_Y + 2.0, AQ_Z1 - 0.6)], 0.18)
-	# The breaker panel the player has to find a fuse for, on the plinth's north end.
-	b.box(Vector3(AQ_X1 + 0.35, MAIN_Y + 1.5, AQ_Z1 - 0.4), Vector3(0.22, 0.9, 0.7), MatLib.painted_steel(), "detail")
+		b.cyl(Vector3(2.4 + i * 1.2, MAIN_Y + 3.6, plant_z), 0.42, 1.9, MatLib.dark_metal(), "detail")
+	KIT.pipe_run(b, [Vector3(3.6, MAIN_Y + 2.6, plant_z - 1.1), Vector3(3.6, AQ_WATER_HI + 0.2, AQ_Z1 + 0.6),
+		Vector3(3.6, AQ_WATER_HI + 0.2, AQ_Z1 - 0.4)], 0.14)
+	KIT.pipe_run(b, [Vector3(AQ_X1 + 0.4, AQ_WATER_LO + 0.3, AQ_Z1 - 0.6), Vector3(AQ_X1 + 0.4, AQ_WATER_LO + 0.3, plant_z),
+		Vector3(AQ_X1 + 0.4, MAIN_Y + 2.0, plant_z)], 0.18)
+	# The breaker panel the player has to find a fuse for, beside the plant.
+	b.box(Vector3(1.4, MAIN_Y + 1.5, plant_z - 1.15), Vector3(0.8, 0.9, 0.22), MatLib.painted_steel(), "detail")
 	# Tank lighting: the one light in the game that shines DOWN through water. Shadowless.
 	var l := OmniLight3D.new()
 	l.light_color = Color(0.55, 0.92, 0.95)
@@ -392,6 +400,7 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		Vector3(HOTEL.get_center().x, ROOF_Y + 1.4, HOTEL.get_center().y),
 	]
 	for p in pts:
+		KIT.lamp_lens(b, p, Color(0.92, 0.96, 1.0), 0.6, 5.5)
 		var l := OmniLight3D.new()
 		l.light_color = Color(0.86, 0.92, 1.0)
 		l.light_energy = 1.9
@@ -400,3 +409,7 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		l.add_to_group("rig_field_floods")
 		host.add_child(l)
 		l.position = b.to_world(p)
+	# Navigation lights up the mast, so the ANCHORAGE is a shape at night from both sides.
+	for y in [ROOF_Y + 3.0, ROOF_Y + 6.0, MAST_TOP - 1.0]:
+		KIT.lamp_lens(b, Vector3(HOTEL.get_center().x + 6.0, y, HOTEL.get_center().y - 4.0),
+			Color(0.95, 0.25, 0.18), 0.4, 6.0)

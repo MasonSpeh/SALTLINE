@@ -121,10 +121,18 @@ class Bake extends RefCounted:
 	# ------------------------------------------------------------------ emitters
 
 	## A box. `rot` is local euler radians. `collide` adds a matching BoxShape3D.
+	##
+	## NOTE `scaled_local`, NOT `scaled`. Godot's `Basis.scaled()` pre-multiplies — it scales
+	## along the PARENT's axes — so a rotated box came out stretched along world Y instead of
+	## along its own length. Every diagonal in the field was affected and the frames showed it
+	## exactly: the collapsed polytunnel's arches rendered as a forest of vertical poles, and
+	## the derrick's X-bracing as sticks. Colliders were unaffected (a BoxShape3D carries its
+	## own size and only needs a pure rotation), which is why the probe passed a world that
+	## LOOKED wrong. Judged on the render, not on the log.
 	func box(pos: Vector3, size: Vector3, mat: Material, group: String = "hull",
 			rot: Vector3 = Vector3.ZERO, collide: bool = false) -> void:
 		var b: Basis = Basis.from_euler(rot)
-		_write(RigKit._unit_box(), Transform3D(b.scaled(size), pos), mat, group)
+		_write(RigKit._unit_box(), Transform3D(b.scaled_local(size), pos), mat, group)
 		if collide:
 			_shapes.append({"xf": Transform3D(b, pos), "size": size})
 
@@ -134,7 +142,7 @@ class Bake extends RefCounted:
 			collide: bool = false) -> void:
 		var taper: float = 1.0 if top_r < 0.0 else clampf(top_r / maxf(radius, 0.0001), 0.0, 8.0)
 		var b: Basis = Basis.from_euler(rot)
-		_write(RigKit._unit_cyl(segs, taper), Transform3D(b.scaled(Vector3(radius, height, radius)), pos), mat, group)
+		_write(RigKit._unit_cyl(segs, taper), Transform3D(b.scaled_local(Vector3(radius, height, radius)), pos), mat, group)
 		if collide:
 			# Box proxy: cylinder colliders are rare here and a square proxy on a round leg
 			# is invisible at the 6 m scale these are used at.
@@ -151,7 +159,7 @@ class Bake extends RefCounted:
 		var ref: Vector3 = Vector3.UP if absf(dir.dot(Vector3.UP)) < 0.98 else Vector3.RIGHT
 		var xa: Vector3 = ref.cross(dir).normalized()
 		var za: Vector3 = dir.cross(xa).normalized()
-		var basis := Basis(xa, dir, za).scaled(Vector3(thick, span, thick))
+		var basis := Basis(xa, dir, za).scaled_local(Vector3(thick, span, thick))
 		_write(RigKit._unit_box(), Transform3D(basis, (a + c) * 0.5), mat, group)
 
 	## A pure collider with no geometry — the smooth walking slab under a stepped stair, the
@@ -663,8 +671,12 @@ static func lattice(b: Bake, cx: float, cz: float, base_y: float, top_y: float,
 		for i in range(4):
 			var p: Vector2 = corners[i]
 			var q: Vector2 = corners[(i + 1) % 4]
+			# The girts and braces carry the CALLER'S group. They used to be hard-coded
+			# "detail", which meant that past DETAIL_DRAW_M a derrick lost everything except
+			# its four corner legs — DEEPWELL read as four thin sticks from SALTLINE-0, which
+			# is the exact opposite of "the tallest thing in the world by a clear margin".
 			b.member(Vector3(cx + p.x * half, y, cz + p.y * half),
-				Vector3(cx + q.x * half, y, cz + q.y * half), leg_t * 0.62, m, "detail")
+				Vector3(cx + q.x * half, y, cz + q.y * half), leg_t * 0.62, m, group)
 		if k == bays:
 			continue
 		# X-brace each face of this bay.
@@ -675,9 +687,9 @@ static func lattice(b: Bake, cx: float, cz: float, base_y: float, top_y: float,
 			var p2: Vector2 = corners[i]
 			var q2: Vector2 = corners[(i + 1) % 4]
 			b.member(Vector3(cx + p2.x * half, y, cz + p2.y * half),
-				Vector3(cx + q2.x * half2, y2, cz + q2.y * half2), leg_t * 0.5, m, "detail")
+				Vector3(cx + q2.x * half2, y2, cz + q2.y * half2), leg_t * 0.5, m, group)
 			b.member(Vector3(cx + q2.x * half, y, cz + q2.y * half),
-				Vector3(cx + p2.x * half2, y2, cz + p2.y * half2), leg_t * 0.5, m, "detail")
+				Vector3(cx + p2.x * half2, y2, cz + p2.y * half2), leg_t * 0.5, m, group)
 
 ## A pedestal crane: column, house, and a lattice boom laid out at `boom_yaw` / `boom_pitch`.
 static func crane(b: Bake, base: Vector3, column_h: float, boom_len: float,
@@ -700,8 +712,9 @@ static func crane(b: Bake, base: Vector3, column_h: float, boom_len: float,
 	var up := Vector3(0, 1, 0)
 	for sx in [-1.0, 1.0]:
 		for sy in [-1.0, 1.0]:
+			# Chords are "hull": a crane boom is a silhouette element from a neighbouring rig.
 			b.member(root + side * (sx * 0.8) + up * (sy * 0.7),
-				tip + side * (sx * 0.32) + up * (sy * 0.3), 0.17, steel, "detail")
+				tip + side * (sx * 0.32) + up * (sy * 0.3), 0.2, steel, "hull")
 	var bays: int = maxi(3, int(boom_len / 4.0))
 	for i in range(bays + 1):
 		var t: float = float(i) / float(bays)
@@ -728,7 +741,7 @@ static func flare_boom(b: Bake, base: Vector3, yaw_deg: float, length: float,
 	for sx in [-1.0, 1.0]:
 		for sy in [-1.0, 1.0]:
 			b.member(base + side * (sx * 1.4) + Vector3(0, sy * 1.2, 0),
-				tip + side * (sx * 0.5) + Vector3(0, sy * 0.45, 0), 0.2, steel, "detail")
+				tip + side * (sx * 0.5) + Vector3(0, sy * 0.45, 0), 0.24, steel, "hull")
 	var bays: int = maxi(4, int(length / 4.5))
 	for i in range(bays + 1):
 		var t: float = float(i) / float(bays)
@@ -894,6 +907,15 @@ static func containers(b: Bake, base: Vector3, cols: int, rows: int, yaw_deg: fl
 			var tint: Color = palette[(c * 3 + r * 5) % palette.size()]
 			b.box(p, Vector3(cw, ch, cd), MatLib.container(tint), "hull",
 				Vector3(0, yaw + (0.0 if r == 0 else deg_to_rad(2.5 * (1 if c % 2 else -1))), 0), true)
+
+## A LIT FIXTURE THAT READS FROM THE NEXT RIG. An OmniLight3D at 22 m range lights nothing a
+## neighbour can see — at 160-415 m what reads is EMISSIVE GEOMETRY, and the first night
+## skyline came back with three completely dark platforms because there was none. So every
+## lamp gets a small unshaded emissive lens in the "hull" group, which is never range-culled.
+## The light itself still does the local work; this is the part the horizon sees.
+static func lamp_lens(b: Bake, pos: Vector3, colour: Color, size: float = 0.55,
+		energy: float = 5.0) -> void:
+	b.box(pos, Vector3(size * 2.2, size * 0.7, size), MatLib.glowing(colour, energy), "hull")
 
 # --------------------------------------------------------------------------------- bridge
 

@@ -213,7 +213,13 @@ static func _derrick(b: KIT.Bake) -> void:
 	b.box(Vector3(0.0, CROWN_Y + 0.6, 0.0), Vector3(th * 1.6, 0.5, th * 1.6), MatLib.rust_steel(), "hull")
 	# Aircraft warning light mast — the highest point in the world.
 	b.cyl(Vector3(0.0, CROWN_Y + 2.4, 0.0), 0.18, 3.2, steel, "detail")
-	b.cyl(Vector3(0.0, CROWN_Y + 4.2, 0.0), 0.38, 0.5, MatLib.glowing(Color(0.9, 0.12, 0.1), 3.0), "detail")
+	b.cyl(Vector3(0.0, CROWN_Y + 4.2, 0.0), 0.38, 0.5, MatLib.glowing(Color(0.9, 0.12, 0.1), 3.0), "hull")
+	# Obstruction lights up the derrick. Emissive, "hull", never range-culled: at 415 m these
+	# and the Bloom are the only things that say DEEPWELL is still switched on.
+	for y in [DRILL_Y + 14.0, MONKEY_Y, MONKEY_Y + 16.0, CROWN_Y - 2.0]:
+		var hh: float = lerpf(DERRICK_BASE_HALF, DERRICK_TOP_HALF, clampf((y - DRILL_Y) / (CROWN_Y - DRILL_Y), 0.0, 1.0))
+		for sx in [-1.0, 1.0]:
+			KIT.lamp_lens(b, Vector3(sx * hh, y, 0.0), Color(0.95, 0.20, 0.14), 0.42, 6.5)
 	# THE TRAVELLING BLOCK, hung 40 m up on its fall. The last shift left it in the derrick.
 	var tb_y: float = DRILL_Y + 34.0
 	for i in range(6):
@@ -347,6 +353,7 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		[Vector3(0.0, MAIN_Y + 4.0, -30.0), Color(0.90, 0.88, 0.82), 1.6, 18.0],
 	]
 	for p in pts:
+		KIT.lamp_lens(b, p[0], p[1], 0.7, 6.0)
 		var l := OmniLight3D.new()
 		l.light_color = p[1]
 		l.light_energy = float(p[2])
