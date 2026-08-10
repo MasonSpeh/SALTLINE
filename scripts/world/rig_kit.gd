@@ -497,7 +497,8 @@ static func stair_tower(b: Bake, rect: Rect2, base_y: float, top_y: float,
 ## beams, rails both sides, and hangers up to whatever is above. This is the "overpass" the
 ## brief asks for — the thing that makes a rig read as irregular.
 static func catwalk(b: Bake, a: Vector3, c: Vector3, width: float = 1.8,
-		rails: bool = true, hangers_to: float = -1000.0) -> void:
+		rails: bool = true, hangers_to: float = -1000.0,
+		deck_mat: Material = null, beam_mat: Material = null) -> void:
 	var d: Vector3 = c - a
 	var span: float = d.length()
 	if span < 0.5:
@@ -507,11 +508,13 @@ static func catwalk(b: Bake, a: Vector3, c: Vector3, width: float = 1.8,
 	var pitch: float = -atan2(d.y, flat.length())
 	var mid: Vector3 = (a + c) * 0.5
 	var rot := Vector3(pitch, yaw, 0)
-	b.box(mid + Vector3(0, -0.09, 0), Vector3(width, 0.14, span), MatLib.grating(), "hull", rot)
+	var dm: Material = deck_mat if deck_mat != null else MatLib.grating()
+	var bm: Material = beam_mat if beam_mat != null else MatLib.rust_steel()
+	b.box(mid + Vector3(0, -0.09, 0), Vector3(width, 0.14, span), dm, "hull", rot)
 	b.collider(mid + Vector3(0, -0.09, 0), Vector3(width, 0.16, span), rot)
 	for sgn in [-1.0, 1.0]:
 		var off: Vector3 = Vector3(cos(yaw), 0, -sin(yaw)) * (sgn * width * 0.5)
-		b.box(mid + off + Vector3(0, -0.24, 0), Vector3(0.09, 0.32, span), MatLib.rust_steel(), "detail", rot)
+		b.box(mid + off + Vector3(0, -0.24, 0), Vector3(0.09, 0.32, span), bm, "detail", rot)
 		if rails:
 			b.box(mid + off + Vector3(0, RAIL_H, 0), Vector3(0.06, 0.06, span), MatLib.galvanized(), "detail", rot)
 			b.box(mid + off + Vector3(0, RAIL_H * 0.55, 0), Vector3(0.06, 0.06, span), MatLib.galvanized(), "detail", rot)
@@ -1027,15 +1030,17 @@ static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y
 	b.cyl(Vector3(cx, y1 - 0.25, cz), radius + 0.4, 0.7, MatLib.dark_metal(), "hull", Vector3.ZERO, -1.0, segs)
 	# Reef bed and a kelp column, so the tank is never an empty cylinder of blue.
 	b.cyl(Vector3(cx, y0 + 0.6, cz), radius - 0.5, 1.0, MatLib.flat(Color(0.52, 0.50, 0.42)), "hull", Vector3.ZERO, -1.0, segs)
-	var rock: Material = MatLib.flat(Color(0.20, 0.30, 0.28))
-	var weed: Material = MatLib.flat(Color(0.16, 0.36, 0.26))
+	var rock: Material = MatLib.flat(Color(0.26, 0.24, 0.21))
+	var weed: Material = MatLib.flat(Color(0.14, 0.34, 0.24))
 	for i in range(14):
 		var a: float = TAU * float(i) / 14.0
 		var rr: float = radius * (0.30 + fmod(float(i) * 0.37, 1.0) * 0.55)
 		var rh: float = 1.2 + fmod(float(i) * 0.71, 1.0) * 3.4
+		# Tilted hard and irregularly sized: an upright box reads as a crate, a leaning one
+		# reads as rock. Cheap massing until the Tripo rockwork pass replaces it.
 		b.box(Vector3(cx + cos(a) * rr, y0 + 1.0 + rh * 0.5, cz + sin(a) * rr),
-			Vector3(1.1 + 0.5 * (i % 3), rh, 1.3), rock, "hull",
-			Vector3(deg_to_rad(5.0 * (i % 4)), a, deg_to_rad(4.0)))
+			Vector3(0.9 + 0.7 * float(i % 3), rh, 1.1 + 0.5 * float(i % 2)), rock, "hull",
+			Vector3(deg_to_rad(9.0 + 7.0 * float(i % 4)), a + float(i) * 0.7, deg_to_rad(6.0 + 5.0 * float(i % 3))))
 		var kh: float = h * (0.35 + fmod(float(i) * 0.53, 1.0) * 0.5)
 		b.member(Vector3(cx + cos(a) * rr * 1.05, y0 + 1.4, cz + sin(a) * rr * 1.05),
 			Vector3(cx + cos(a + 0.4) * rr * 0.8, y0 + 1.4 + kh, cz + sin(a + 0.4) * rr * 0.8),

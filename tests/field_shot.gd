@@ -117,8 +117,8 @@ func _ready() -> void:
 	await _look(W["a_in"] + Vector3(0, 0, -10.0), W["a_deck"] + Vector3(0, 14, 8), "anchorage_bridge_landing")
 	await _look(W["a_lobby"], W["a_tank_low"], "anchorage_lobby")
 	# THE TANK, from every level it passes through.
-	await _look(_world(a_o, a_y, Vector3(0, 22, -7)), W["a_tank_mid"], "atrium_from_floor")
-	await _look(_world(a_o, a_y, Vector3(0, 22, -1.5)), _world(a_o, a_y, Vector3(0, 40, 4)), "atrium_tank_base_looking_up")
+	await _look(_world(a_o, a_y, Vector3(0, 22, -4.5)), W["a_tank_mid"], "atrium_from_floor")
+	await _look(_world(a_o, a_y, Vector3(0, 22, -2.2)), _world(a_o, a_y, Vector3(0, 40, 4)), "atrium_tank_base_looking_up")
 	await _look(W["a_atrium"] + Vector3(0, 0, -3.0), W["a_roof_apex"], "atrium_looking_up")
 	await _look(_world(a_o, a_y, Vector3(0, 29.4, -2.6)), _world(a_o, a_y, Vector3(0, 30.5, 4)), "atrium_tank_from_spur")
 	await _look(W["a_g3"], W["a_tank_mid"], "atrium_tank_from_g3")

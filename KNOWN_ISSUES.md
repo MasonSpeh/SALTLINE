@@ -526,6 +526,25 @@ landed and nobody updated the file.
   `ultra_hammerhead` 151,098 x 3 declined on fidelity: 0.6% of the world for real risk to a
   set-piece whose facing already reads UNCERTAIN.
 
+## THE FIELD (s54b) — the second pass, and what is still absent
+
+s54b answered the owner's "beef this all up": THE ANCHORAGE was rebuilt at 84 x 60 m with a
+circular atrium drum and a 16.9 m column aquarium, and MARROW and DEEPWELL each gained a
+full extra occupied deck plus an outboard catwalk ring. Field totals went 5,852 -> 12,544
+primitives and 80 k -> 199 k triangles for 108 -> 153 draw chunks. The list below is what
+that pass did NOT do, and it is still accurate.
+
+- **The lights work but the switch is shared.** Every emissive fixture is in RigKit's "lamp"
+  group and starts hidden; `rig_field._wire_power()` flips all 40 lamp chunks and all 43
+  OmniLights off rig 1's existing `topside_floodlights` circuit. There are no per-rig
+  breakers, so the field cannot be lit rig by rig and nothing on rigs 2-4 can be switched
+  independently.
+- **Rooms are volumes, not rooms.** The ANCHORAGE's wings, lobby, spa hall and leisure deck
+  have real walls, floors, window bands, doorways and partitions — and no furniture, no
+  props, no readables, no doors that open.
+- **The aquarium's rockwork and kelp are boxes.** Deliberate massing; the hero-prop pass
+  (Tripo) replaces it, and `tools/survey_tris.py` must run on every candidate first.
+
 ## THE FIELD (s54) — what is structure only, and what is not there yet
 
 The three new rigs are a STRUCTURAL pass: masses, elevations, decks, stairs, rails, bridges,
@@ -542,10 +561,12 @@ and the hero-feature shells. Everything below is known-absent, not broken.
 - **Soil tending is not built.** MARROW's twelve raised beds exist as geometry on a constant
   grid (`RigTwo.BED_COLS/BED_ROWS/BED/BED_GAP`) so the state machine has something honest to
   bind to. There is no till/water state and no persistence.
-- **The aquarium holds no fish.** The tank, plinth, gallery, gantry, filter plant and breaker
-  panel are built, and the water volume is published on a node in group `aquarium`
-  (`water_size` 3.72 x 5.80 x 8.72 = 188.1 m³, `circuit` "anchorage_aquarium"). There is no
-  `PowerGrid` circuit, no filter consumable, no stocking, and no container storage wired.
+- **The aquarium holds no fish.** As of s54b it is a CYLINDER: the node in group `aquarium`
+  carries `shape` "cylinder", `radius` 5.25, `height` 16.60 (1,437 m³) and `circuit`
+  "anchorage_aquarium". There is no PowerGrid circuit of that name, no filter consumable, no
+  stocking and no container storage wired. A stocking pass must read `shape` — the old
+  `water_size` box is still published but it now INSCRIBES the cylinder rather than equalling
+  it, so a spawner that trusts the box alone will put fish in the corners, outside the glass.
 - **Bridges are cosmetically damaged only.** All three ship CONNECTED and walkable (owner's
   call, so the field is explorable now). `RigField.SPAN_DAMAGE` drops web members near the far
   end, worst on the final span. There is no repair cost, no gate and no progression lock.

@@ -2476,3 +2476,62 @@ gating are all designed-for and unbuilt; the sonar oracle still knows only SALTL
 single-session A/B and has not been run. All of it is itemised in KNOWN_ISSUES.
 
 Gates at close: TestRunner FAILURES 0, RigFieldProbe FAILURES 0.
+
+
+## s54b — the field, beefed up: an atrium with a column of water in it, and two more decks under everything
+
+Owner, on the s54 build: *"substantially bigger, detailed futuristic oceanic vibe inside...
+huge circular fishtank centred in the main gathering area. All of the other rigs should be
+thicker, shouldn't just be one story flat platform with 1-2 buildings... proper RIGS, fully
+decked out architecturally, lots of machinery, pipes, lookouts, rooms, and many lights."*
+
+**THE ANCHORAGE IS A DIFFERENT BUILDING.** 84 x 60 m on six caissons (rig 1 is 60 x 40), with
+TWO OCCUPIED DECKS UNDER the main one — an open plant deck at y 8.8 carrying gensets,
+treatment vessels, an exchanger bank and surge drums, and an enclosed leisure deck at 15.4
+with a swimming pool — and five levels above it. At the centre is a circular glazed drum
+32 m across on twelve curved white ribs, and standing in the middle of that, a **column
+aquarium 10.8 m across and 16.9 m tall: 1,437 m³, running past four ring galleries to a
+glass roof.** Two accommodation wings flank the drum, an arrival hall takes the bridge from
+MARROW, a pool hall closes the north end, and the helideck went to 26 m across.
+
+**THE ONE REAL DESIGN ERROR WAS FOUND BY LOOKING.** The first build wrapped a solid 3.5 m
+collar round the tank at G1, 3.7 m over the atrium floor. Every gate passed. The render
+showed what that actually does: from the floor the collar IS a ceiling, and 16.9 m of water
+photographed as a 3 m drum with a dark deck-plate sky over it. Galleries are now all held
+back to r 11, leaving a clear 22 m cylinder of air to the roof, and the close-up is
+delivered by two VIEWING SPURS that reach across the void to touch the glass at G2 and G4.
+The same frame also condemned the surfaces: rusted grating walkways and rust-steel edge
+beams inside a white luxury drum. `catwalk()` takes materials now, the galleries are white
+panel, and every gallery carries a finished white SOFFIT, because the underside of a balcony
+is a ceiling to whoever is standing below it.
+
+**EVERY RIG IS THICKER, AND THE ELEVATIONS ARE DERIVED.** MARROW gained a full PROCESS DECK
+at y 6.80 — separator train, pump hall, exchanger bank, manifolds, three pipe galleries,
+cable trays, an overhead catwalk route — plus an outboard catwalk ring at 17.8 with four
+stairs onto it and a glazed control cabin on its tower head. DEEPWELL gained a PRODUCTION
+DECK at y 11.30 wrapped round the moon pool (three mud-pump skids, bulk cement silos,
+horizontal tanks, manifolds), an outboard ring at 23.6, and a glazed control room on the lab
+roof. Neither number is typed: `PLANT_Y = LOW_Y + TOWER_RISE` and
+`CELLAR_LOW = LOW_Y + TOWER_RISE * 3` are landings of the access towers already built under
+them, so the way down exists by construction and the deck cannot drift off its own stair.
+
+**MANY LIGHTS, AND A SWITCH THAT IS GATED.** RigKit gained `led_cove` / `led_ring` /
+`lamp_lens`, all emitting into a new "lamp" group that `flush()` gives its own chunks. That
+is GEOMETRY, not Light3D — a hundred metres of cove strip costs nothing per frame, and from
+165 m it is what the rig looks like. `rig_field._wire_power()` starts all 40 lamp chunks
+hidden and all 43 OmniLights at zero energy, then flips the lot on rig 1's existing
+`topside_floodlights` circuit: throwing Breaker 4-A lights the whole horizon. The probe
+gates BOTH states by reading the nodes back, not by trusting the call.
+
+**THE ANNULUS BUILDER SHIPPED WITH A HOLE IN IT.** `ring_deck` cut its wedges to the MID
+radius, so an annulus opens triangular gaps toward its rim — and the probe caught it by
+dropping a ray through the G3 gallery at r 13 and hitting nothing at all. Sized for r_out
+now, with alternate wedges sunk 4 mm so the resulting inner overlap cannot z-fight. Three
+more found the same way: MARROW's first mezzanine ring drove its west leg straight through
+the stair tower (caught by landing on the tower's own landing rail, 1.02 m above where the
+walkway claimed to be); the ANCHORAGE spawned on its own lobby stair; and the probe's 3 m
+ray start began INSIDE the slab overhead now that decks are slung 6 m under other decks.
+
+Field totals: 12,544 primitives (was 5,852), 198,696 triangles (was 80,064), 153 draw chunks
+(was 108), 40 lamp chunks + 43 lights, 183 ms at load. TestRunner 0, RigFieldProbe 0 across
+36 probed floors, 107 bridge samples and both lighting states.

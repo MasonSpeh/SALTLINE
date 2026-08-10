@@ -87,6 +87,9 @@ const BRIDGE_IN := Vector3(-10.0, MAIN_Y, -30.0)  ## from MARROW
 const BRIDGE_OUT := Vector3(8.0, MAIN_Y, 30.0)    ## to DEEPWELL
 
 ## The one palette decision that separates this rig from the other three.
+## The atrium's own surfaces. A rusted grating walkway inside a white drum was the loudest
+## wrong note in the first render of this room; every deck and beam in here is named here.
+const ATRIUM_DECK_TINT := Color(0.86, 0.88, 0.90)
 const COVE := Color(0.42, 0.78, 1.00)
 const COVE_WARM := Color(1.00, 0.88, 0.72)
 
@@ -303,6 +306,7 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	# ---- THE TANK, and the stepped saucer at its foot.
 	KIT.column_tank(b, TANK_C, TANK_R, TANK_Y0, TANK_Y1, 40)
 	b.cyl(Vector3(TANK_C.x, MAIN_Y + 0.16, TANK_C.y), 11.4, 0.32, MatLib.lino_floor(), "hull", Vector3.ZERO, -1.0, 32, true)
+	KIT.ring_deck(b, Vector3(c.x, MAIN_Y + 0.04, c.z), 11.4, DRUM_R - 0.8, 0.16, MatLib.lino_floor(), 32)
 	b.cyl(Vector3(TANK_C.x, MAIN_Y + 0.62, TANK_C.y), 8.6, 0.6, white, "hull", Vector3.ZERO, -1.0, 32, true)
 	KIT.led_ring(b, Vector3(TANK_C.x, MAIN_Y + 0.36, TANK_C.y), 11.1, COVE, 32, 0.12, 3.6)
 	KIT.led_ring(b, Vector3(TANK_C.x, MAIN_Y + 1.0, TANK_C.y), 8.8, COVE, 32, 0.1, 2.6)
@@ -311,10 +315,13 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	for spec in [[G1, GAL_IN + 0.8], [G2, GAL_IN], [G3, GAL_IN], [G4, GAL_IN + 0.8]]:
 		var y: float = spec[0]
 		var r_in: float = spec[1]
-		KIT.ring_deck(b, Vector3(c.x, y, c.z), r_in, GAL_OUT, 0.3, MatLib.checker_plate(), 32)
+		KIT.ring_deck(b, Vector3(c.x, y, c.z), r_in, GAL_OUT, 0.3, MatLib.dirty_white_panel(), 32)
 		KIT.ring_rail(b, Vector3(c.x, y, c.z), r_in + 0.14, 32)
 		KIT.led_ring(b, Vector3(c.x, y - 0.36, c.z), r_in + 0.24, COVE, 32, 0.1, 3.2)
 		KIT.led_ring(b, Vector3(c.x, y - 0.36, c.z), GAL_OUT - 0.35, COVE, 32, 0.1, 2.4)
+		# Finished soffit: the underside of a gallery is a CEILING to whoever is below it.
+		KIT.ring_deck(b, Vector3(c.x, y - 0.44, c.z), r_in + 0.1, GAL_OUT - 0.1, 0.12,
+			MatLib.dirty_white_panel(), 32)
 	# THE VIEWING SPURS: G2 from the south, G4 from the north, each a walkway out across the
 	# void ending in a curved platform hard against the glass. This is where the player's eye
 	# is at the tank's own middle, and it is the shot the whole room exists for.
@@ -322,9 +329,10 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 		var sy: float = spur[0]
 		var sa: float = spur[1]
 		KIT.catwalk(b, Vector3(c.x + cos(sa) * (GAL_IN + 0.3), sy, c.z + sin(sa) * (GAL_IN + 0.3)),
-			Vector3(TANK_C.x + cos(sa) * (SPUR_IN + 1.2), sy, TANK_C.y + sin(sa) * (SPUR_IN + 1.2)), 2.6, true)
+			Vector3(TANK_C.x + cos(sa) * (SPUR_IN + 1.2), sy, TANK_C.y + sin(sa) * (SPUR_IN + 1.2)), 2.6, true,
+			-1000.0, MatLib.dirty_white_panel(), MatLib.galvanized())
 		KIT.ring_deck(b, Vector3(TANK_C.x, sy, TANK_C.y), SPUR_IN - 0.6, SPUR_IN + 1.6, 0.3,
-			MatLib.checker_plate(), 32, sa - SPUR_HALF, sa + SPUR_HALF)
+			MatLib.dirty_white_panel(), 32, sa - SPUR_HALF, sa + SPUR_HALF)
 		KIT.ring_rail(b, Vector3(TANK_C.x, sy, TANK_C.y), SPUR_IN + 1.5, 32, true, sa - SPUR_HALF, sa + SPUR_HALF)
 		KIT.led_ring(b, Vector3(TANK_C.x, sy - 0.36, TANK_C.y), SPUR_IN + 1.5, COVE, 32, 0.1, 3.4)
 		KIT.led_ring(b, Vector3(TANK_C.x, sy - 0.36, TANK_C.y), SPUR_IN - 0.5, COVE, 32, 0.1, 3.4)
@@ -332,7 +340,8 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	KIT.stair_tower(b, CORE, MAIN_Y, ATRIUM_ROOF, STOREY, true)
 	for y2 in [G1, G2, G3, G4]:
 		KIT.catwalk(b, Vector3(CORE.position.x - 0.2, y2, CORE.get_center().y),
-			Vector3(c.x + cos(deg_to_rad(24.0)) * (GAL_OUT - 0.4), y2, c.z + sin(deg_to_rad(24.0)) * (GAL_OUT - 0.4)), 2.2, true)
+			Vector3(c.x + cos(deg_to_rad(24.0)) * (GAL_OUT - 0.4), y2, c.z + sin(deg_to_rad(24.0)) * (GAL_OUT - 0.4)), 2.2, true,
+			-1000.0, MatLib.dirty_white_panel(), MatLib.galvanized())
 	# A sweeping open stair curving round the tank from the atrium floor to the collar.
 	for i5 in range(3):
 		var s0: float = deg_to_rad(198.0 + i5 * 27.0)
@@ -408,7 +417,8 @@ static func _wings(b: KIT.Bake) -> void:
 		var link_x: float = wing.end.x if outward else wing.position.x
 		var drum_x: float = -DRUM_R + 0.4 if outward else DRUM_R - 0.4
 		for y2 in [MAIN_Y, G1, G2, G3]:
-			KIT.catwalk(b, Vector3(link_x, y2, 4.0), Vector3(drum_x, y2, 4.0), 2.6, true)
+			KIT.catwalk(b, Vector3(link_x, y2, 4.0), Vector3(drum_x, y2, 4.0), 2.6, true, -1000.0,
+				MatLib.dirty_white_panel(), MatLib.galvanized())
 		# Roof: an observation deck with a glazed lookout cabin.
 		var look := Rect2(wing.get_center().x - 4.0, wing.position.y + 2.0, 8.0, 7.0)
 		KIT.lookout(b, look, WING_ROOF, 3.2)
@@ -433,7 +443,8 @@ static func _lobby_and_spa(b: KIT.Bake) -> void:
 		"roof_deck": true,
 		"roof_gaps": [["n", -4.0, 4.0]],
 	})
-	KIT.catwalk(b, Vector3(0.0, MAIN_Y, LOBBY.end.y - 0.2), Vector3(0.0, MAIN_Y, -DRUM_R + 4.8), 4.0, false)
+	KIT.catwalk(b, Vector3(0.0, MAIN_Y, LOBBY.end.y - 0.2), Vector3(0.0, MAIN_Y, -DRUM_R + 4.8), 4.0, false, -1000.0,
+		MatLib.lino_floor(), MatLib.galvanized())
 	KIT.led_cove(b, Vector3(LOBBY.position.x + 1.0, MAIN_Y + STOREY - 0.5, LOBBY.position.y + 0.6),
 		Vector3(LOBBY.end.x - 1.0, MAIN_Y + STOREY - 0.5, LOBBY.position.y + 0.6), COVE)
 	KIT.led_cove(b, Vector3(LOBBY.position.x + 1.0, MAIN_Y + STOREY * 2.0 - 0.5, LOBBY.position.y + 0.6),
@@ -447,7 +458,8 @@ static func _lobby_and_spa(b: KIT.Bake) -> void:
 		"roof_deck": true,
 		"roof_gaps": [["s", -4.0, 4.0]],
 	})
-	KIT.catwalk(b, Vector3(0.0, MAIN_Y, SPA_BLOCK.position.y + 0.2), Vector3(0.0, MAIN_Y, DRUM_R - 4.8), 4.0, false)
+	KIT.catwalk(b, Vector3(0.0, MAIN_Y, SPA_BLOCK.position.y + 0.2), Vector3(0.0, MAIN_Y, DRUM_R - 4.8), 4.0, false, -1000.0,
+		MatLib.lino_floor(), MatLib.galvanized())
 	for i in range(2):
 		var yy: float = MAIN_Y + STOREY * float(i + 1) - 0.5
 		KIT.led_cove(b, Vector3(SPA_BLOCK.position.x + 1.0, yy, SPA_BLOCK.position.y + 1.5),
