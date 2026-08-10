@@ -171,7 +171,22 @@ const PLAY_SEC: float = 6.0
 ## (x 12.39..13.61) and of the archway.
 ##
 ## The Y is PROBED at spawn, never trusted from this constant.
-const HOME := Vector3(14.8, 2.0, -17.4)
+##
+## s55, owner's call: FOUND ASLEEP ON A BUNK. Cabin 1 of the bunkhouse north row
+## (bunk_layout.bed_pos(1, false) = x -18.0, z 16.8), Y started above the mattress so the
+## spawn probe seats her ON the bed, not the floor beside it. The hop down is the perch
+## grammar the cat already owns.
+const HOME := Vector3(-18.0, 18.7, 16.8)
+
+## WATER RESCUE. The cat got washed out to sea: anything that puts her below the wet-deck
+## walking band (a fall through a gap, a shove, a moved deck) ends with her treading water
+## the session. Below RESCUE_Y for RESCUE_AFTER seconds -> teleported to the main deck by
+## the bunkhouse door, reseated, states reset. The doggy-paddle swim home is a later pass;
+## this is the safety net that makes losing her impossible.
+const RESCUE_Y: float = 1.2
+const RESCUE_AFTER: float = 0.9
+const RESCUE_SPOT := Vector3(-6.0, 18.6, 10.0)
+var _wet_t: float = 0.0
 
 ## THE LEGS LOOKED QUICK BECAUSE THEY WERE, AND THE CAUSE IS ARITHMETIC, NOT ANIMATION.
 ##
@@ -684,7 +699,7 @@ func _on_touched(verb: String) -> void:
 		if _rig != null:
 			_rig.call("delight", 0.7)      # the perk-up: ears would go up if it had them
 			_rig.call("tail_flick", 0.8)
-		AudioDirector.play_one_shot("cat_chirp", global_position, -16.0)
+		AudioDirector.play_one_shot("meow", global_position, -14.0)
 		if hud and hud.has_method("toast"):
 			hud.toast("The cat perks up and falls in beside you.")
 		_meow_cd = 4.0
@@ -727,6 +742,16 @@ func _process(delta: float) -> void:
 	delta = _ai_acc
 	_ai_acc = 0.0
 	_t += delta
+	# Water rescue watchdog — see RESCUE_Y above. Cheap: one float compare a think.
+	if global_position.y < RESCUE_Y:
+		_wet_t += delta
+		if _wet_t > RESCUE_AFTER:
+			_wet_t = 0.0
+			global_position = RESCUE_SPOT
+			velocity = Vector3.ZERO
+			_reseat()
+	else:
+		_wet_t = 0.0
 	if _meow_cd > 0.0:
 		_meow_cd -= delta
 	if _pet_t > 0.0:

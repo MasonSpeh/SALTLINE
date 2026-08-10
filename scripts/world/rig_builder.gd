@@ -35,7 +35,10 @@ func _ready() -> void:
 	_build_topside()
 	_build_high_iron()
 	_build_sphl()
-	_build_imposters()
+	# s55: the six grey imposter hulls are GONE — THE FIELD's three real rigs replaced the
+	# receding fake line, which stretched the wrong way and read as a seventh..twelfth rig.
+	# (Owner: "remove the 7 old rig shapes.") The function is kept below, uncalled.
+	#_build_imposters()
 	_build_spill_lights()
 	_build_access()
 	_decorate_interiors()

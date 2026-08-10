@@ -58,6 +58,7 @@ const ONE_SHOTS: Dictionary = {
 	# tools/gen_cat_audio.py synthesises both of these.
 	"purr": "res://audio/purr.wav",
 	"cat_chirp": "res://audio/cat_chirp.wav",
+	"meow": "res://audio/meow.wav",
 	# Ambience events (scripts/world/ambience.gd schedules these).
 	"deep_groan": "res://audio/deep_groan.wav",
 	"sheet_bang": "res://audio/sheet_bang.wav",

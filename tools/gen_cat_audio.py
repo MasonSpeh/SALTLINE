@@ -57,22 +57,63 @@ def one_pole(samples, cut_hz):
     return out
 
 
-def purr(dur=2.4):
+def purr(dur=3.6):
+    """Two-phase purr: exhale (stronger, ~24 Hz) and inhale (softer, ~27 Hz, slightly
+    brighter) alternating on a ~1.5 s breath cycle. That alternation is what a real purr
+    has and a motor loop does not."""
     n = int(SR * dur)
-    noise = one_pole([random.uniform(-1.0, 1.0) for _ in range(n)], 480.0)
+    noise = one_pole([random.uniform(-1.0, 1.0) for _ in range(n)], 420.0)
     out = []
+    breath_s = 1.5
     for i in range(n):
         t = i / SR
-        # The laryngeal cycle. Not a clean sine — a real purr is closer to a soft pulse,
-        # so the modulator is skewed toward the "closed" half.
-        m = 0.5 + 0.5 * math.sin(2.0 * math.pi * 25.0 * t)
-        m = m ** 1.6
-        # A little body under the buzz, or it reads as filtered static.
-        body = 0.30 * math.sin(2.0 * math.pi * 65.0 * t)
-        # Slow swell in and out across the whole shot, so repeated triggers overlap kindly.
-        swell = math.sin(math.pi * min(1.0, t / dur)) ** 0.7
-        out.append((noise[i] * 3.2 + body) * m * swell * 0.42)
-    return env_fade(out, 60)
+        ph = (t % breath_s) / breath_s
+        exhale = ph < 0.58
+        rate = 24.0 if exhale else 27.5
+        amp = 1.0 if exhale else 0.62
+        # Phase-continuous enough at these rates; the pulse is skewed toward "closed".
+        m = 0.5 + 0.5 * math.sin(2.0 * math.pi * rate * t)
+        m = m ** 1.9
+        # Chest under the buzz: 52 Hz fundamental + a fifth, both very soft.
+        body = 0.26 * math.sin(2.0 * math.pi * 52.0 * t) + 0.10 * math.sin(2.0 * math.pi * 78.0 * t)
+        # Micro-turbulence between pulses so the floor is breath, never silence.
+        floor_amt = 0.06 * noise[i]
+        # Swell across the shot + a small dip at each breath turnover.
+        swell = math.sin(math.pi * min(1.0, t / dur)) ** 0.6
+        turn = 0.75 + 0.25 * math.sin(math.pi * ph)
+        out.append(((noise[i] * 3.0 + body) * m * amp + floor_amt) * swell * turn * 0.44)
+    return env_fade(out, 80)
+
+
+def meow(dur=0.85):
+    """A real meow: pitch rises 340->640 Hz then falls to 300, mouth opening and closing
+    tracked by two formants (the vowel slides ee-ah-oo), light vibrato, breath under it."""
+    n = int(SR * dur)
+    out = []
+    phase = 0.0
+    for i in range(n):
+        t = i / SR
+        u = t / dur
+        # Pitch contour with vibrato.
+        if u < 0.35:
+            f0 = 340.0 + (640.0 - 340.0) * (u / 0.35) ** 0.8
+        else:
+            f0 = 640.0 - (640.0 - 300.0) * ((u - 0.35) / 0.65) ** 1.3
+        f0 *= 1.0 + 0.018 * math.sin(2.0 * math.pi * 6.2 * t)
+        phase += 2.0 * math.pi * f0 / SR
+        # Glottal-ish source: fundamental + shaped harmonics.
+        src = (math.sin(phase) + 0.55 * math.sin(2 * phase) + 0.30 * math.sin(3 * phase)
+               + 0.16 * math.sin(4 * phase) + 0.08 * math.sin(5 * phase))
+        # Mouth: formants slide ee(2600) -> ah(1100) -> oo(500); approximate by tilting
+        # harmonic weights with a resonant emphasis via ring on the source.
+        mouth = math.sin(math.pi * min(1.0, u * 1.35)) ** 1.2   # opens then closes
+        formant = 500.0 + 2100.0 * (1.0 - abs(2.0 * u - 0.7)) * mouth
+        res = 0.35 * math.sin(phase * max(1.0, formant / max(f0, 1.0)))
+        # Amplitude: fast attack, held, tapering tail; slight roughness at the peak.
+        env = min(1.0, u / 0.08) * (1.0 - max(0.0, (u - 0.62)) / 0.38) ** 1.4
+        rough = 1.0 + 0.05 * math.sin(2.0 * math.pi * 31.0 * t) * (mouth)
+        out.append((src * 0.62 + res) * env * rough * mouth * 0.34)
+    return env_fade(out, 18)
 
 
 def chirp(dur=0.35):
@@ -95,4 +136,5 @@ def chirp(dur=0.35):
 if __name__ == "__main__":
     print("cat audio ->")
     write_wav("purr", purr())
+    write_wav("meow", meow())
     write_wav("cat_chirp", chirp())
