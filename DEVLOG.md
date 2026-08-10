@@ -2396,3 +2396,83 @@ measured nothing. See KNOWN_ISSUES. Gait numbers held: joint_step 0.3167 vs 0.35
 slide 6.51 -> 7.33 vs a gate of 10, bigdt summed_joint_step IMPROVED 1.2613 -> 1.0860.
 
 Suite at close: TestRunner 0, CatProbe 0, CatJointProbe 0 five times running, CatSpawnProbe 0.
+
+## s54 — THE FIELD: SALTLINE has four platforms, and the kit that made that affordable
+
+**THREE RIGS, THREE BRIDGES, AND RIG 1 NEVER OPENED.** `rig_builder.gd` was not edited this
+session — not one line. Bridge 1 leaves through the NORTH-WEST CORNER GAP that rig 1's own deck
+rail already leaves open by design ("gaps at corners — the sea is reachable, deliberately"), so
+nothing on the shipping rig had to be cut to let the field attach to it.
+
+    SALTLINE-0 ──B1 103 m──▶ MARROW ──B2 100 m──▶ THE ANCHORAGE ──B3 111 m──▶ DEEPWELL
+    (0,0,0)                  (-62,148) yaw -16    (58,262) yaw +10          (0,415) yaw -6
+                    160.5 m            165.5 m               163.6 m
+
+Origins are fixed constants in `rig_field.gd` and must stay that way: `save_manager._harvest_key()`
+keys harvest state by absolute `global_position`, so a runtime-placed rig loses its own save state.
+Each rig is authored in LOCAL coordinates with a named constant per elevation, and a per-rig bearing
+so the skyline is not four squares in a row.
+
+**THE DRAW-CALL DECISION IS THE WHOLE CHAPTER, AND THE ANSWER WAS NOT AN LOD TIER.** Authoring
+three more rigs the way rig 1 is authored — one MeshInstance3D per bolt, welded back at runtime by
+`rig_batcher` — is on the order of 11,000 draw calls against a measured 2,861 baseline. So
+`rig_kit.gd` **batches by construction**: every module writes triangles into a `Bake` keyed by
+(material, group, cell) and one `flush()` emits the meshes. Not authoring 2,000 draw calls is
+strictly better than authoring them and then paying an impostor to hide them, and it cannot
+desynchronise from the real thing. What survives of the tier idea is one honest knob: `"detail"`
+chunks carry `visibility_range_end` 210 m — the same engine-side mechanism as
+`leg_reef.REEF_DRAW_M`, no per-frame GDScript.
+
+**Result: 108 draw chunks for three rigs and three bridges, 77 of them submitted from SALTLINE-0.
+5,851 primitives, 80,052 triangles, 91 ms at load.** Chunking took three tries and each wrong one
+looked cheaper. Keying the cell on y as well as x/z tripled the count (272) for a culling win that
+never happens — nothing ever sees a rig's deck without its legs. Keying on WORLD position put the
+grid wherever the rig happened to land and split platforms across boundaries (217). LOCAL, offset
+by half a cell, at 160 m gives 108: one mesh per (material, group) per rig, while the 400 m bridge
+bake still splits into three.
+
+**WHAT EACH RIG IS.** MARROW: industrial/farming, six caissons in a 3x2 grid, deck at y 14 against
+rig 1's 18 — broad and low. Hero feature is the 26 x 18 m rooftop ex-vegetable garden at y 21.2:
+twelve raised beds on a constant grid, a dead irrigation ring, a polytunnel that collapses from
+south to north. Pump-intake deck at y 3.2, a pipe-rack cantilever 23 m past the nearest leg at a
+deliberate HALF level (13.2), three feed silos, cargo crane, and the overview at y 28.4.
+— THE ANCHORAGE: residential/luxury, no drilling, four storeys of cream superstructure on a 3.3 m
+module (22.0 / 25.3 / 28.6 / 31.9 / roof 35.2, mast 44). Hero feature is the **two-storey aquarium**:
+188.1 m³ of water, 5.8 m tall, in a 6.6 m double-height lunch hall, with a gallery balcony at 25.3
+that puts the eye at its MIDDLE — you see it from the floor looking up and from the gallery looking
+in. 24 m helideck cantilevered 19 m past the rim, railed promenade over open water, luxury boat
+landing with a davit. — DEEPWELL: eight caissons, a 66 m square deck, a 12 x 12 m moon pool open to
+the sea through every level, and a derrick whose **crown block sits at y 96** against rig 1's 52.
+The Bloom comes up through the pool.
+
+**FOUR REAL DEFECTS, ALL FOUND BY THE PROBE, NONE BY READING THE CODE.** The ANCHORAGE's spawn point
+was inside its own stairwell hole, and the hole sat in the bridge's walk lane; DEEPWELL's overview
+stood 2 m off the edge of the drill floor; the monkey-board sample was inside the fingerboard void;
+a promenade bench was under a probe point. `tests/RigFieldProbe.tscn` trusts no authored Y — 23
+claimed floors are settled by dropping a ray, 111 samples walk the bridges end to end, and every
+set-wise check carries an anti-vacuity assertion. The draw budget has a LOWER bound as well as an
+upper one, because a field that failed to build has zero chunks and would sail through "chunks < 150"
+for ever.
+
+**AND THEN THE RENDER FOUND WHAT THE PROBE COULD NOT.** `Basis.scaled()` PRE-multiplies — it scales
+along the parent's axes — so every rotated member in the field was stretched along world Y instead
+of along its own length. Colliders were unaffected (a `BoxShape3D` carries its own size and needs
+only a pure rotation), so the probe was green on a world that photographed as a forest of vertical
+poles where the polytunnel should be. One word per emitter: `scaled_local`. Two more, same pass:
+`RigKit.lattice()` hard-coded its bracing to `"detail"`, so past 210 m DEEPWELL lost everything but
+four corner legs — the exact opposite of its brief; and the night skyline came back with three
+totally dark platforms, because an `OmniLight3D` at 22 m range is invisible from 415 m and what
+reads at that distance is EMISSIVE GEOMETRY. `RigKit.lamp_lens()` fixes that class outright.
+`tests/FieldShot.tscn` is the new visual harness and carries its own scar: the first version
+hand-typed yaws, and since `rotation.y = 0` faces −Z, all thirty frames pointed SOUTH, away from a
+field that runs north. Empty sea looks exactly like three rigs that failed to build. It aims at
+world targets now and there is no yaw literal in the file.
+
+**HONEST SCOPE.** This is a STRUCTURAL pass. Interiors are empty shells; the nine fishing spots are
+markers with metadata that nothing reads yet; soil tending, aquarium stocking, and bridge-repair
+gating are all designed-for and unbuilt; the sonar oracle still knows only SALTLINE-0
+(`tools/export_rig.sh --field` exists and the Godot side runs, but the re-ingest has not); and the
+108-chunk figure is what is BUILT, not a live frame — `tests/VantagePerf.tscn -- --nofield` gives a
+single-session A/B and has not been run. All of it is itemised in KNOWN_ISSUES.
+
+Gates at close: TestRunner FAILURES 0, RigFieldProbe FAILURES 0.

@@ -10,9 +10,23 @@ extends Node3D
 const OUT_PATH := "res://rig_capture.glb"
 
 func _ready() -> void:
-	print("[capture] building RigBuilder…")
+	# THE FIELD IS OPT-IN, and deliberately so. `--field` captures SALTLINE-0 *and* rigs 2-4
+	# under one root, which is what the sonar oracle needs once the new platforms exist; the
+	# default stays rig 1 alone so an existing scan and every coordinate in RIG_ATLAS.md
+	# reproduce byte for byte. RigBuilder sits at identity under the wrapper either way, so
+	# rig 1's coordinates are unchanged in both modes.
+	#   godot --headless --path . res://tools/RigCapture.tscn -- --field
+	var with_field: bool = false
+	for a in OS.get_cmdline_user_args() + OS.get_cmdline_args():
+		if a == "--field":
+			with_field = true
+	print("[capture] building RigBuilder…", "  (+ THE FIELD)" if with_field else "")
+	var root := Node3D.new()
+	add_child(root)
 	var rig := RigBuilder.new()
-	add_child(rig)
+	root.add_child(rig)
+	if with_field:
+		root.add_child(preload("res://scripts/world/rig_field.gd").new())
 	# interior_props settles props across frames; wait until the node count
 	# holds still for three samples (hard cap 20 s so CI can't hang).
 	var last := -1
@@ -21,7 +35,7 @@ func _ready() -> void:
 	while stable < 3 and waited < 20.0:
 		await get_tree().create_timer(0.5).timeout
 		waited += 0.5
-		var count := _count(rig)
+		var count := _count(root)
 		print("[capture] t=%.1fs nodes=%d" % [waited, count])
 		stable = stable + 1 if count == last else 0
 		last = count
@@ -31,7 +45,7 @@ func _ready() -> void:
 	# floor plans read clean, and multi-MB prop textures never embed. All
 	# authored primitives (decks, walls, pipes, girders) keep exact geometry.
 	var boxed := 0
-	for mi: MeshInstance3D in _mesh_instances(rig):
+	for mi: MeshInstance3D in _mesh_instances(root):
 		var mesh := mi.mesh
 		if mesh == null:
 			continue
@@ -48,14 +62,14 @@ func _ready() -> void:
 			# while their parent carries the meaning ("Bunkhouse/bed_frame").
 			var label := mi.name
 			var par := mi.get_parent()
-			if par != null and par != rig:
+			if par != null and par != root:
 				label = par.name + "." + label
 			mi.name = ("PROP__" + label).validate_node_name()
 			boxed += 1
 	print("[capture] boxed %d high-poly props — exporting…" % boxed)
 	var doc := GLTFDocument.new()
 	var state := GLTFState.new()
-	var err := doc.append_from_scene(rig, state)
+	var err := doc.append_from_scene(root, state)
 	if err != OK:
 		push_error("[capture] append_from_scene failed: error %d" % err)
 		get_tree().quit(1)

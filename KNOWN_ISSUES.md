@@ -525,3 +525,42 @@ landed and nobody updated the file.
   re-cutting them could invalidate pose extraction silently — do the rig work first.
   `ultra_hammerhead` 151,098 x 3 declined on fidelity: 0.6% of the world for real risk to a
   set-piece whose facing already reads UNCERTAIN.
+
+## THE FIELD (s54) — what is structure only, and what is not there yet
+
+The three new rigs are a STRUCTURAL pass: masses, elevations, decks, stairs, rails, bridges,
+and the hero-feature shells. Everything below is known-absent, not broken.
+
+- **Interiors are empty shells.** MARROW's mess/plant/hydroponics blocks, the ANCHORAGE's
+  hotel and annexe, DEEPWELL's lab and control room all have walls, floors, windows, doorways
+  and roofs — and nothing inside. No `interior_props`, no readables, no items, no lighting
+  beyond the deck floods.
+- **Nine fishing spots are MARKERS ONLY.** They are `Node3D`s in group `field_fishing_spot`
+  carrying `spot_id` / `water` / `rig_id` metadata, at probed heights spanning y 1.8 to 22.0.
+  Nothing in `fish_table.gd` reads them yet, so fishing at a new rig behaves as open water.
+  `docs/FISHING_BALANCE.md` is unchanged; DEEPWELL's own deep species set is not written.
+- **Soil tending is not built.** MARROW's twelve raised beds exist as geometry on a constant
+  grid (`RigTwo.BED_COLS/BED_ROWS/BED/BED_GAP`) so the state machine has something honest to
+  bind to. There is no till/water state and no persistence.
+- **The aquarium holds no fish.** The tank, plinth, gallery, gantry, filter plant and breaker
+  panel are built, and the water volume is published on a node in group `aquarium`
+  (`water_size` 3.72 x 5.80 x 8.72 = 188.1 m³, `circuit` "anchorage_aquarium"). There is no
+  `PowerGrid` circuit, no filter consumable, no stocking, and no container storage wired.
+- **Bridges are cosmetically damaged only.** All three ship CONNECTED and walkable (owner's
+  call, so the field is explorable now). `RigField.SPAN_DAMAGE` drops web members near the far
+  end, worst on the final span. There is no repair cost, no gate and no progression lock.
+- **The sonar oracle does not know the field exists.** `tools/rig_capture.gd` takes a new
+  `--field` flag and `tools/export_rig.sh --field` passes it, and the Godot side has been run —
+  but the sonar re-ingest has NOT, so `scene_brief` / `props_find` / `spatial_probe` still
+  describe SALTLINE-0 alone. Any spatial query about rigs 2-4 will silently return nothing.
+- **No underwater world at the new rigs.** `leg_reef`, `mussel_beds` and the pelagic schools are
+  all keyed to `Seabed.LEGS` (rig 1). `rig_field._field_seabed()` extends the floor over the
+  corridor as one coarse mesh so a diver does not find the world's edge, but there is no reef,
+  no kelp and no fauna on the new caissons.
+- **The draw-call figure has not been measured against a live frame.** The field costs 108 draw
+  chunks (77 of them submitted from SALTLINE-0's deck) by construction, and 80,052 triangles.
+  That is a count of what is BUILT. `godot --path . tests/VantagePerf.tscn -- --nofield` builds
+  the identical session without the field for a single-session A/B; it has not been run.
+- **Rockwork in the aquarium is boxes.** Deliberate — hero props (the rockwork, a wrecked
+  helicopter for the ANCHORAGE's pad, the crown block, garden beds, captain's furniture) are
+  the Tripo pass, and `tools/survey_tris.py` must run on every candidate first.

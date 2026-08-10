@@ -283,11 +283,20 @@ static func _garden(b: KIT.Bake) -> void:
 			var p0 := Vector3(c.x - cos(a0) * r, GARDEN_Y + sin(a0) * h, hz + sin(a0) * lean)
 			var p1 := Vector3(c.x - cos(a1) * r, GARDEN_Y + sin(a1) * h, hz + sin(a1) * lean)
 			b.member(p0, p1, 0.075, MatLib.galvanized(), "detail")
-	# Torn sheeting still lashed to the standing end.
-	for i in range(3):
-		b.box(Vector3(c.x - 4.0 + i * 4.2, GARDEN_Y + 2.6 - i * 0.35, t_z0 - 0.2 + i * 1.4),
-			Vector3(3.8, 0.05, 2.4), MatLib.canvas(Color(0.70, 0.69, 0.62)), "detail",
-			Vector3(deg_to_rad(12.0 + i * 9.0), deg_to_rad(4.0 * i), 0))
+	# Torn sheeting still lashed to the standing end. It must lie ON the hoops: the first
+	# version floated three flat panels inside the arch, which read as sheet metal hanging in
+	# mid air. Each panel is placed on the arch curve at its own angle and rolled to match
+	# the tangent there, so the cloth follows the frame it is still tied to.
+	var arch_r: float = span_x * 0.5 + 0.6
+	for i in range(4):
+		var ang: float = deg_to_rad(38.0 + i * 27.0)         # up one flank and over the crown
+		var side: float = -1.0 if i % 2 == 0 else 1.0
+		var px: float = c.x + side * cos(ang) * arch_r * 0.86
+		var py: float = GARDEN_Y + sin(ang) * 3.1 - 0.12
+		var pz: float = t_z0 + 0.4 + i * 1.55
+		b.box(Vector3(px, py, pz), Vector3(3.4, 0.05, 2.5),
+			MatLib.canvas(Color(0.70, 0.69, 0.62)), "detail",
+			Vector3(deg_to_rad(6.0 * i), 0, side * (PI * 0.5 - ang) * 0.8))
 	# Compost bays and a water butt in the lee of the stair head.
 	for i in range(3):
 		b.box(Vector3(MESS.position.x + 2.6 + i * 2.4, GARDEN_Y + 0.6, MESS.end.y - 2.0),

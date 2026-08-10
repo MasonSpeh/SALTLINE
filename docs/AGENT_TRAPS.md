@@ -1287,3 +1287,48 @@ The general shape, and this repo keeps re-learning it: **a gate whose sample set
 quantity under test can be silenced by the change it is meant to catch.** Choose the sample set
 from something the change cannot move — here the gait's own clock — and check the SAMPLE COUNT
 next to every measurement. `pairs = 0` is not a pass, it is a missing measurement.
+
+## `Basis.scaled()` is a PARENT-space scale, and the colliders will not tell you
+
+s54 built three rigs through one emitter that did
+`Basis.from_euler(rot).scaled(size)`. Godot's `Basis.scaled()` **pre-multiplies** — it scales
+along the parent's axes, not the object's own — so every rotated primitive in the field came
+out stretched along world Y instead of along its own length. The collapsed polytunnel on
+MARROW rendered as a forest of vertical poles; DEEPWELL's derrick bracing as loose sticks.
+
+**The probe was green the whole time**, and that is the part worth remembering. A collider is
+a `BoxShape3D` that carries its own `size` and needs only a pure rotation from its transform,
+so the physics world was correct while the drawn world was not: 23 seat rays, 111 bridge
+samples, zero failures, on geometry that looked broken in every frame. Anything that emits
+geometry and collision from one call can diverge exactly this way. **Render it, read the PNG
+back.** The fix is one word per emitter: `scaled_local`.
+
+## A screenshot harness that hand-types yaw will photograph the wrong half of the world
+
+`rotation.y = 0` faces **−Z**. The first version of `tests/FieldShot.tscn` hand-typed yaws for
+a field that runs due north, so all thirty frames pointed SOUTH — and empty grey sea looks
+exactly like three rigs that failed to build. It cost a full windowed pass to find, on a build
+that was already correct.
+
+Aim at a **world target** and derive the yaw (`atan2(-dx, -dz)`) and pitch. `field_shot.gd`
+has no yaw literal anywhere in it and should never acquire one. This compounds with the older
+trap in the same family: `_place` moves the PLAYER, whose eye rides ~1.6 m above its feet, so
+every camera argument is a FLOOR position.
+
+## A light is not visible from the next rig; an EMISSIVE SURFACE is
+
+The first night skyline of the field came back with three completely dark platforms. Each
+carried five `OmniLight3D`s — but an omni with `omni_range = 22` lights a 22 m bubble, and
+from 160-415 m away the lit geometry is a few pixels of very slightly brighter grey. What
+reads at that distance is emissive geometry with its own pixels. `RigKit.lamp_lens()` now hangs
+a small unshaded emissive lens on every fixture, in the never-range-culled group, and the same
+applies to any beacon meant to be seen from another rig.
+
+## A distance-culled GROUP will quietly hollow out a silhouette
+
+`RigKit.lattice()` put its corner legs in the caller's group and hard-coded its girts and
+X-bracing to `"detail"`, which carries `visibility_range_end`. Past that range a derrick
+therefore lost everything except four thin legs — so DEEPWELL, the platform whose entire brief
+is "the tallest thing in the world by a clear margin", read from SALTLINE-0 as four sticks.
+When a helper splits geometry across LOD groups, the SILHOUETTE-bearing members belong in the
+group the caller asked for, and only lacing and hardware belong in `"detail"`.
