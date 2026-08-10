@@ -748,7 +748,6 @@ func _process(delta: float) -> void:
 		if _wet_t > RESCUE_AFTER:
 			_wet_t = 0.0
 			global_position = RESCUE_SPOT
-			velocity = Vector3.ZERO
 			_reseat()
 	else:
 		_wet_t = 0.0

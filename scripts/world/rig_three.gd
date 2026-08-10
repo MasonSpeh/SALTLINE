@@ -114,6 +114,8 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 	_spa(b)
 	_helideck(b)
 	_marina(b)
+	_decor(b)
+	_marina_tower(b)
 	_lights(b, host)
 	return {
 		"name": "THE ANCHORAGE",
@@ -206,7 +208,7 @@ static func _substructure(b: KIT.Bake) -> void:
 
 static func _plant_deck(b: KIT.Bake) -> void:
 	KIT.deck(b, LOWER, PLANT_Y, 0.32, MatLib.grating())
-	KIT.rail_rect(b, LOWER, PLANT_Y, [["e", -6.0, 3.0], ["w", -6.0, 6.0]], 0.3)
+	KIT.rail_rect(b, LOWER, PLANT_Y, [["e", -6.0, 3.0], ["w", -6.0, 6.0], ["s", 6.5, 10.5]], 0.3)
 	# Apron from the (relocated) stair tower's 8.8 landing onto the deck edge.
 	KIT.catwalk(b, Vector3(34.9, PLANT_Y, -1.5), Vector3(33.6, PLANT_Y, -1.5), 2.6, false)
 	for i in range(3):
@@ -610,16 +612,42 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 			MatLib.dirty_white_panel(), 32)
 	# Inner-edge rails, with ARC GAPS where the chord stairs and spurs arrive/depart — a
 	# full circle of balustrade at every level is a fence across every one of them.
-	_gapped_rail(b, c, GAL_IN + 0.8 + 0.14, G1, [[234.0, 258.0], [279.0, 304.0]])
-	_gapped_rail(b, c, GAL_IN + 0.14, G2, [[329.0, 353.0], [354.0, 19.0], [263.0, 277.0]])
-	_gapped_rail(b, c, GAL_IN + 0.14, G3, [[44.0, 68.0], [99.0, 124.0]])
-	_gapped_rail(b, c, GAL_IN + 0.8 + 0.14, G4, [[149.0, 173.0], [83.0, 97.0]])
-	# THE CHORD STAIRS: floor -> G1 -> G2 -> G3 -> G4, each spanning the void from deck
-	# edge to deck edge, hanging beside the tank.
+	_gapped_rail(b, c, GAL_IN + 0.8 + 0.14, G1, [[234.0, 258.0], [279.0, 304.0], [54.0, 77.0], [99.0, 123.0]])
+	_gapped_rail(b, c, GAL_IN + 0.14, G2, [[329.0, 353.0], [354.0, 19.0], [263.0, 277.0], [149.0, 172.0], [184.0, 208.0]])
+	_gapped_rail(b, c, GAL_IN + 0.14, G3, [[44.0, 68.0], [99.0, 124.0], [234.0, 257.0], [279.0, 303.0]])
+	_gapped_rail(b, c, GAL_IN + 0.8 + 0.14, G4, [[149.0, 173.0], [83.0, 97.0], [329.0, 352.0], [49.0, 73.0]])
+	# THE CHORD STAIRS, a DOUBLE HELIX: two full runs floor -> G4 on opposite sides of the
+	# tank, stacked pairs 7.4 m apart. Every landing gets a widened TONGUE — a wedge of deck
+	# flaring out of the ring at the arrival, so the junction reads swept, not butted.
 	_chord_stair(b, c, MAIN_Y, G1, 190.0, 250.0, 11.3, GAL_IN + 1.1)
 	_chord_stair(b, c, G1, G2, 285.0, 345.0, GAL_IN + 1.1, GAL_IN + 0.3)
 	_chord_stair(b, c, G2, G3, 0.0, 60.0, GAL_IN + 0.3, GAL_IN + 0.3)
 	_chord_stair(b, c, G3, G4, 105.0, 165.0, GAL_IN + 0.3, GAL_IN + 1.1)
+	_chord_stair(b, c, MAIN_Y, G1, 10.0, 70.0, 11.3, GAL_IN + 1.1)
+	_chord_stair(b, c, G1, G2, 105.0, 165.0, GAL_IN + 1.1, GAL_IN + 0.3)
+	_chord_stair(b, c, G2, G3, 190.0, 250.0, GAL_IN + 0.3, GAL_IN + 0.3)
+	_chord_stair(b, c, G3, G4, 285.0, 345.0, GAL_IN + 0.3, GAL_IN + 1.1)
+	# DEPARTURE tongues only. An arrival tongue flares into the void exactly where the
+	# flight climbs in — a slab overhanging the last metre of every stair, which is the
+	# same defect this session has now fixed five times in five shapes. At departures the
+	# flight rises AWAY above the tongue, so those are safe.
+	for pad in [[G1, 285.0, GAL_IN + 0.8], [G1, 105.0, GAL_IN + 0.8],
+			[G2, 0.0, GAL_IN], [G2, 190.0, GAL_IN],
+			[G3, 105.0, GAL_IN], [G3, 285.0, GAL_IN], [G4, 55.0, GAL_IN + 0.8]]:
+		var pa: float = deg_to_rad(float(pad[1]))
+		KIT.ring_deck(b, Vector3(c.x, float(pad[0]) - 0.005, c.z), float(pad[2]) - 1.0, float(pad[2]) + 0.6,
+			0.28, MatLib.dirty_white_panel(), 32, pa - 0.16, pa + 0.16)
+	# TANK-TOP ACCESS: a flight from G4 up to an arc platform ringing the crown at 39.45,
+	# with the feeding hatch — this is where caught fish go in.
+	_chord_stair(b, c, G4, 39.45, 55.0, 20.0, GAL_IN + 1.1, 7.0)
+	KIT.ring_deck(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.65, 8.2, 0.3, MatLib.dirty_white_panel(),
+		32, deg_to_rad(-10.0), deg_to_rad(24.0))
+	KIT.ring_deck(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.65, 8.2, 0.3, MatLib.dirty_white_panel(),
+		32, deg_to_rad(46.0), deg_to_rad(52.0))
+	KIT.ring_rail(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 8.1, 32, true, deg_to_rad(-10.0), deg_to_rad(26.0))
+	KIT.ring_rail(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 8.1, 32, true, deg_to_rad(46.0), deg_to_rad(52.0))
+	KIT.ring_rail(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.78, 32, true, deg_to_rad(-10.0), deg_to_rad(52.0))
+	KIT.led_ring(b, Vector3(TANK_C.x, 39.1, TANK_C.y), 8.1, COVE, 32, 0.1, COVE_E)
 	# THE VIEWING SPURS at G2 (south) and G4 (north), reaching across to the glass.
 	for spur in [[G2, deg_to_rad(270.0), GAL_IN], [G4, deg_to_rad(90.0), GAL_IN + 0.8]]:
 		var sy: float = spur[0]
@@ -665,6 +693,20 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	marker.set_meta("water_size", Vector3((TANK_R - 0.15) * 2.0, TANK_Y1 - TANK_Y0 - 0.3, (TANK_R - 0.15) * 2.0))
 	marker.set_meta("circuit", "anchorage_aquarium")
 	marker.set_meta("rig", "anchorage")
+	# THE STOCKING HATCH, on the tank-top platform. Owner's rules live in aquarium_stock.gd:
+	# nothing over 5 ft, 50 ft of fish total, "This Un's too big to fit."
+	var stock: Node = preload("res://scripts/world/aquarium_stock.gd").new()
+	stock.tank_centre = b.to_world(Vector3(TANK_C.x, 0, TANK_C.y))
+	stock.tank_r = TANK_R - 0.4
+	stock.water_y0 = TANK_Y0 + 0.4
+	stock.water_y1 = TANK_Y1 - 0.4
+	host.add_child(stock)
+	stock.global_position = b.to_world(Vector3(TANK_C.x + cos(deg_to_rad(20.0)) * 6.6, 39.7,
+		TANK_C.y + sin(deg_to_rad(20.0)) * 6.6))
+	# EAST TOWER LINK: its ground floor sits at G2 height, so it bridges straight into the
+	# gallery through an opened G2 bay (the door moved to the bridge line, z 8.1).
+	KIT.catwalk(b, Vector3(18.0, G2, 8.1), Vector3(15.0, G2, 8.1), 2.0, true, -1000.0,
+		MatLib.dirty_white_panel(), MatLib.galvanized())
 
 ## Which drum bays are open portals at which level. Bays are indexed by rib: bay i spans
 ## angles i*30 .. (i+1)*30 degrees. East pair 11/0, north 2/3, west 5/6, south 8/9.
@@ -673,6 +715,8 @@ static func _is_portal(lvl: float, bay: int) -> bool:
 		return bay in [0, 2, 3, 5, 6, 8, 9, 11]
 	if absf(lvl - G1) < 0.01:
 		return bay in [0, 11]
+	if absf(lvl - G2) < 0.01:
+		return bay == 0
 	return false
 
 ## One chord stair across the atrium void: foot on the lower deck's inner edge, head on the
@@ -765,7 +809,7 @@ static func _towers(b: KIT.Bake) -> void:
 	# EAST TOWER: two storeys off the dining roof.
 	KIT.block(b, EAST_WING, DINE_ROOF, 2, STOREY, white, {
 		"windows": true, "glass_tint": frost,
-		"doors": [["w", 4.0, 0]],
+		"doors": [["w", 8.1, 0]],
 		"roof_deck": true,
 		"roof_gaps": [],
 	})
@@ -832,6 +876,65 @@ static func _marina(b: KIT.Bake) -> void:
 	b.box(Vector3(0.0, LOW_Y + 2.5, -36.4), Vector3(5.6, 0.3, 1.6), MatLib.weathered_wood(), "detail")
 	for i in range(6):
 		KIT.lamp_lens(b, Vector3(0.0 + i * 6.5, LOW_Y + 2.6, -26.0), WARM, 0.3, 4.5)
+
+# ------------------------------------------------------------------- DECOR / FENG SHUI
+
+## The layer that separates a floor plan from a place: paired thresholds, a centrepiece on
+## the entrance axis, water in the hall, screens dividing the salon, a ring of light over
+## the dais. Ocean-research-luxury: white, chrome, teal glass, warm brass.
+static func _decor(b: KIT.Bake) -> void:
+	var white: Material = MatLib.dirty_white_panel()
+	# THE ENTRANCE CENTREPIECE: two interlocked glowing rings on a plinth, dead on the
+	# axis from the south door to the tank (the reference's ring sculpture, made ours).
+	var cp := Vector3(-10.0, MAIN_Y, -15.5)
+	b.cyl(cp + Vector3(0, 0.3, 0), 1.1, 0.6, MatLib.dark_metal(), "hull", Vector3.ZERO, -1.0, 16, true)
+	KIT.led_ring(b, cp + Vector3(0, 1.9, 0), 1.05, COVE, 20, 0.09, 3.6)
+	KIT.led_ring(b, cp + Vector3(0, 2.1, 0), 0.78, Color(0.88, 0.96, 1.0), 20, 0.08, 4.2)
+	b.cyl(cp + Vector3(0, 1.35, 0), 0.14, 1.5, MatLib.galvanized(), "detail")
+	# PAIRED PLANTERS at the four portal thresholds — feng shui gates into the atrium.
+	for ga in [255.0, 285.0, 165.0, 195.0, 75.0, 105.0, 345.0, 15.0]:
+		var ra: float = deg_to_rad(ga)
+		var pp := Vector3(DRUM_C.x + cos(ra) * (DRUM_R + 1.3), MAIN_Y, DRUM_C.y + sin(ra) * (DRUM_R + 1.3))
+		b.cyl(pp + Vector3(0, 0.42, 0), 0.42, 0.84, MatLib.flat(Color(0.30, 0.30, 0.32)), "detail", Vector3.ZERO, -1.0, 10, true)
+		b.cyl(pp + Vector3(0, 1.35, 0), 0.7, 1.1, MatLib.flat(Color(0.18, 0.34, 0.24)), "detail", Vector3.ZERO, 0.3, 10)
+	# THE KOI BASIN: a still-water trough down the west hall's drum side, teal-lit.
+	b.box(Vector3(-17.2, MAIN_Y + 0.19, 1.0), Vector3(1.5, 0.38, 15.0), MatLib.kitchen_tile(), "hull", Vector3.ZERO, true)
+	var kw := StandardMaterial3D.new()
+	kw.albedo_color = Color(0.20, 0.55, 0.60, 0.55)
+	kw.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	kw.roughness = 0.08
+	kw.emission_enabled = true
+	kw.emission = Color(0.15, 0.48, 0.52)
+	kw.emission_energy_multiplier = 0.7
+	b.box(Vector3(-17.2, MAIN_Y + 0.34, 1.0), Vector3(1.3, 0.04, 14.8), kw, "glass")
+	for i in range(4):
+		KIT.lamp_lens(b, Vector3(-17.2, MAIN_Y + 0.6, -5.0 + i * 4.0), COVE, 0.16, 3.0)
+	# SLAT SCREENS dividing the salon from the service side and framing the lounge.
+	for spec in [[Vector3(16.0, 0, -20.5), 0.0, 7.0], [Vector3(6.0, 0, -13.6), 90.0, 8.0]]:
+		var yaw: float = deg_to_rad(float(spec[1]))
+		var side := Vector3(cos(yaw), 0, -sin(yaw))
+		var base: Vector3 = spec[0]
+		var slats: int = int(float(spec[2]) / 0.7)
+		for k in range(slats):
+			var sp: Vector3 = base + side * ((float(k) - float(slats - 1) * 0.5) * 0.7)
+			b.box(Vector3(sp.x, MAIN_Y + 1.5, sp.z), Vector3(0.12, 3.0, 0.34), MatLib.wood(), "hull",
+				Vector3(0, yaw, 0), true)
+	# THE DAIS RING: a suspended halo over the head table, on drop wires.
+	var dais := Vector3(36.6, MAIN_Y, 4.0)
+	KIT.led_ring(b, dais + Vector3(0, 5.2, 0), 1.7, WARM, 20, 0.1, 3.4)
+	for a2 in [0.0, 2.1, 4.2]:
+		b.member(dais + Vector3(cos(a2) * 1.7, 5.2, sin(a2) * 1.7), Vector3(dais.x, MAIN_Y + DINE_H - 0.2, dais.z),
+			0.03, MatLib.dark_metal(), "detail")
+
+## MARINA -> PLANT DECK service tower off the south edge: the missing lower-walkway link.
+## Its base apron lands on the marina catwalk line; its head aprons onto the plant deck.
+static func _marina_tower(b: KIT.Bake) -> void:
+	KIT.stair_tower(b, Rect2(6.5, -33.5, 7.0, 7.0), LOW_Y, PLANT_Y, 3.3, true)
+	KIT.catwalk(b, Vector3(10.0, LOW_Y, -33.6), Vector3(10.0, LOW_Y, -26.6), 1.8, true)
+	KIT.catwalk(b, Vector3(8.5, PLANT_Y, -26.8), Vector3(8.5, PLANT_Y, -23.4), 2.0, false)
+	var steel: Material = MatLib.rust_steel()
+	for sx in [7.0, 13.0]:
+		b.member(Vector3(sx, LOW_Y - 0.6, -30.0), Vector3(sx, 19.9, -24.5), 0.3, steel, "hull")
 
 static func _lights(b: KIT.Bake, host: Node3D) -> void:
 	# Drum exterior rings above the terrace (the stacked halos seen from the sea).

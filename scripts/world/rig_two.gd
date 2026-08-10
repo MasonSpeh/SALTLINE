@@ -1,5 +1,5 @@
 class_name RigTwo extends RefCounted
-## RIG 2 — "MARROW" · industrial / farming.
+## RIG 2 — "MARROW" · experimental / heavy-lab support platform.
 ##
 ## The working platform: the one that kept the field alive. Broad and low, six caissons in a
 ## 3x2 grid instead of four in a square, so its silhouette is a long horizontal slab where
@@ -93,10 +93,12 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 	_cantilever(b)
 	_buildings(b)
 	_garden(b)
-	_silos(b)
+	_tank_farm(b)
+	_labs(b)
 	_tower(b)
 	_machinery(b)
 	_links(b)
+	_labels(host, b)
 	_lights(b, host)
 	return {
 		"name": "MARROW",
@@ -232,14 +234,8 @@ static func _buildings(b: KIT.Bake) -> void:
 		"roof_deck": true,
 		"glass_tint": Color(0.58, 0.70, 0.60),
 	})
-	# North-light glazing on the hydroponics roof — a sawtooth of glass, which is what makes
-	# it read as a grow house from the bridge rather than another shed.
-	for i in range(5):
-		var z: float = -18.6 + i * 2.6
-		b.box(Vector3(-14.0, HYDRO_ROOF + 0.55, z), Vector3(19.0, 1.4, 0.16),
-			MatLib.glass(Color(0.6, 0.72, 0.64)), "glass", Vector3(deg_to_rad(28.0), 0, 0))
-		b.box(Vector3(-14.0, HYDRO_ROOF + 0.2, z + 0.6), Vector3(19.0, 0.5, 0.14),
-			MatLib.rust_steel(), "detail")
+	# (s55: the sawtooth grow-house glazing is gone with the farm read — this block is the
+	# BIO LAB now, fitted out in _labs(). Its roof is a plain walkable slab again.)
 
 static func _garden(b: KIT.Bake) -> void:
 	# THE ROOFTOP EX-VEGETABLE GARDEN — 26 x 18 m on the mess roof at y 21.2.
@@ -312,30 +308,6 @@ static func _garden(b: KIT.Bake) -> void:
 			Vector3(2.2, 1.2, 2.2), MatLib.weathered_wood(), "hull", Vector3.ZERO, true)
 	b.cyl(Vector3(MESS.end.x - 3.0, GARDEN_Y + 1.35, MESS.end.y - 3.0), 1.3, 2.7,
 		MatLib.rust_steel(), "hull", Vector3.ZERO, -1.0, 12, true)
-
-static func _silos(b: KIT.Bake) -> void:
-	# Three feed / grain silos, 10 m of barrel with a conical roof, tied by a gantry.
-	var shell: Material = MatLib.galvanized()
-	for z in SILO_Z:
-		b.cyl(Vector3(SILO_X, (MAIN_Y + SILO_TOP) * 0.5, z), SILO_R, SILO_TOP - MAIN_Y, shell,
-			"hull", Vector3.ZERO, -1.0, 14, true)
-		b.cyl(Vector3(SILO_X, SILO_TOP + 0.9, z), SILO_R, 1.8, MatLib.rust_steel(), "hull",
-			Vector3.ZERO, 0.35, 14)
-		# Hopper cone at the bottom and the discharge chute onto the deck.
-		b.cyl(Vector3(SILO_X, MAIN_Y + 1.2, z), SILO_R * 0.98, 2.4, shell, "hull", Vector3.ZERO, 0.5, 14)
-		b.cyl(Vector3(SILO_X, MAIN_Y + 0.45, z), 0.45, 1.0, MatLib.rust_steel(), "detail")
-		# Ring stiffeners — the detail that makes a cylinder read as a tank.
-		for k in range(4):
-			b.cyl(Vector3(SILO_X, MAIN_Y + 3.0 + k * 2.2, z), SILO_R + 0.07, 0.16, MatLib.rust_steel(), "detail", Vector3.ZERO, -1.0, 14)
-	# The gantry over the tops, and the fill line running to it from the plant hall.
-	# Gapped WEST rail where the plant-roof stair lands (z 5 = 22.4 m along a south->north
-	# run; the run's right side faces west).
-	KIT.railed_walk(b, Vector3(SILO_X, GANTRY_Y, SILO_Z[0] - 3.4), Vector3(SILO_X, GANTRY_Y, SILO_Z[2] + 3.4), 1.6,
-		[[21.0, 23.8]], [])
-	KIT.pipe_run(b, [Vector3(20.0, PLANT_ROOF + 1.2, 10.0), Vector3(SILO_X, PLANT_ROOF + 1.2, 10.0),
-		Vector3(SILO_X, GANTRY_Y + 1.6, 10.0), Vector3(SILO_X, GANTRY_Y + 1.6, SILO_Z[2])], 0.26)
-	# Stair up from the plant roof to the gantry: 8 m of run for 3 m of rise, 20.6 deg.
-	KIT.stair(b, Vector3(26.6, PLANT_ROOF, SILO_Z[2] + 3.0), Vector3(33.4, GANTRY_Y, SILO_Z[2] + 3.0), 1.6, true, true)
 
 static func _tower(b: KIT.Bake) -> void:
 	# THE OVERVIEW. A stair tower on the west shoulder from the main deck to y 28.4, with the
@@ -573,3 +545,96 @@ static func _more_plant(b: KIT.Bake) -> void:
 	# door onto the head platform rim.
 	KIT.lookout(b, Rect2(-37.6, -9.2, 8.9, 9.4), TOWER_TOP, 3.0,
 		{"floor": false, "door": "e", "door_at": -4.5})
+
+
+# ------------------------------------------------------- s55: THE LAB / PROCESS PROGRAM
+
+## THE TANK FARM — three crude storage tanks inside a bund wall where the feed silos stood,
+## with a transfer manifold, the export line and its PIG LAUNCHER at the east rim, and the
+## subsea line running down into the dark.
+static func _tank_farm(b: KIT.Bake) -> void:
+	var dark: Material = MatLib.dark_metal()
+	var steel: Material = MatLib.rust_steel()
+	# East of the stairwell (which ends at x 30.4) — the first bund wall stood straight
+	# across the tower's exit landing.
+	var bund := Rect2(30.8, -15.5, 7.2, 21.0)
+	for w in [[Vector3(bund.get_center().x, MAIN_Y + 0.55, bund.position.y), Vector3(bund.size.x, 1.1, 0.3)],
+			[Vector3(bund.get_center().x, MAIN_Y + 0.55, bund.end.y), Vector3(bund.size.x, 1.1, 0.3)],
+			[Vector3(bund.position.x, MAIN_Y + 0.55, bund.get_center().y), Vector3(0.3, 1.1, bund.size.y)],
+			[Vector3(bund.end.x, MAIN_Y + 0.55, bund.get_center().y), Vector3(0.3, 1.1, bund.size.y)]]:
+		b.box(w[0], w[1], steel, "hull", Vector3.ZERO, true)
+	for i in range(3):
+		var z: float = -10.5 + i * 7.2
+		b.cyl(Vector3(34.4, MAIN_Y + 3.75, z), 2.9, 7.5, dark, "hull", Vector3.ZERO, -1.0, 16, true)
+		b.cyl(Vector3(34.4, MAIN_Y + 7.8, z), 2.95, 0.6, steel, "hull", Vector3.ZERO, 0.4, 16)
+		for k in range(2):
+			b.cyl(Vector3(34.4, MAIN_Y + 2.4 + k * 3.0, z), 2.97, 0.16, steel, "detail", Vector3.ZERO, -1.0, 16)
+		KIT.ladder(b, Vector3(31.6, MAIN_Y, z), MAIN_Y + 7.4, 90.0)
+	KIT.manifold(b, Vector3(34.4, MAIN_Y, 6.5), 6.0, 2.8, 0.0)
+	KIT.pipe_run(b, [Vector3(34.4, MAIN_Y + 1.2, 6.5), Vector3(35.5, MAIN_Y + 1.2, 9.0),
+		Vector3(35.5, MAIN_Y + 1.2, 10.0)], 0.3)
+	# THE PIG LAUNCHER: barrel, hinged door flange, kicker valve — then the export line over
+	# the rim and down.
+	b.cyl(Vector3(35.5, MAIN_Y + 1.2, 12.0), 0.5, 4.0, dark, "hull", Vector3(deg_to_rad(90.0), 0, 0), -1.0, 12, true)
+	b.cyl(Vector3(35.5, MAIN_Y + 1.2, 9.9), 0.62, 0.3, MatLib.red_paint(), "detail", Vector3(deg_to_rad(90.0), 0, 0), -1.0, 12)
+	b.cyl(Vector3(35.5, MAIN_Y + 2.0, 13.2), 0.24, 0.14, MatLib.red_paint(), "detail", Vector3(deg_to_rad(90.0), 0, 0), -1.0, 10)
+	KIT.pipe_run(b, [Vector3(35.5, MAIN_Y + 1.2, 14.0), Vector3(37.6, MAIN_Y + 1.2, 16.0)], 0.3)
+	b.member(Vector3(37.6, MAIN_Y + 1.2, 16.0), Vector3(38.6, -2.0, 17.0), 0.55, dark, "hull")
+	b.member(Vector3(38.6, -2.0, 17.0), Vector3(40.0, -80.0, 18.0), 0.55, dark, "hull")
+
+## THE LABS. Bio lab in the old grow house: benches, glowing specimen cylinders, sample
+## racks. Desalination pair on the process deck; chemical-injection skid and the firewater
+## house on the main deck with the red main along the south edge.
+static func _labs(b: KIT.Bake) -> void:
+	var galv: Material = MatLib.galvanized()
+	# Bio lab interior (HYDRO block: x -24..-4, z -20..-8, floor MAIN_Y).
+	for z in [-18.0, -10.5]:
+		b.box(Vector3(-14.0, MAIN_Y + 0.48, z), Vector3(16.0, 0.96, 0.8), galv, "hull", Vector3.ZERO, true)
+		b.box(Vector3(-14.0, MAIN_Y + 0.99, z), Vector3(16.2, 0.06, 0.9), MatLib.dark_metal(), "detail")
+	for i in range(3):
+		var x: float = -19.0 + i * 5.0
+		b.cyl(Vector3(x, MAIN_Y + 1.3, -14.2), 0.72, 2.6, MatLib.glass(Color(0.7, 0.86, 0.88)), "glass", Vector3.ZERO, -1.0, 14)
+		KIT.ring_collider(b, Vector3(x, 0, -14.2), 0.76, MAIN_Y, MAIN_Y + 2.6, 8)
+		b.cyl(Vector3(x, MAIN_Y + 1.25, -14.2), 0.6, 2.2, MatLib.glowing(Color(0.30, 0.85, 0.78), 0.9), "lamp", Vector3.ZERO, -1.0, 12)
+		b.cyl(Vector3(x, MAIN_Y + 0.25, -14.2), 0.82, 0.5, MatLib.dark_metal(), "hull", Vector3.ZERO, -1.0, 14, true)
+	for k in range(3):
+		b.box(Vector3(-6.0, MAIN_Y + 0.7 + k * 0.8, -12.5), Vector3(0.5, 0.06, 5.0), MatLib.wood(), "detail")
+	KIT.lamp_lens(b, Vector3(-14.0, MAIN_Y + HYDRO_H - 0.7, -14.0), Color(0.88, 0.96, 1.0), 0.4, 4.2)
+	# Desalination pair, process deck.
+	KIT.vessel(b, Vector3(15.0, PLANT_Y, -14.5), 1.5, 5.0, true)
+	KIT.vessel(b, Vector3(18.8, PLANT_Y, -14.5), 1.5, 5.0, true)
+	KIT.pipe_run(b, [Vector3(15.0, PLANT_Y + 5.9, -14.5), Vector3(18.8, PLANT_Y + 5.9, -14.5)], 0.16)
+	# Chemical injection: skid and a rank of dosing drums.
+	KIT.skid(b, Vector3(14.0, MAIN_Y, 16.0), Vector3(3.6, 2.0, 2.6), 0.0)
+	for i2 in range(3):
+		b.cyl(Vector3(12.6 + i2 * 1.4, MAIN_Y + 0.6, 18.2), 0.45, 1.2, MatLib.teal_paint(), "hull", Vector3.ZERO, -1.0, 10, true)
+	# Firewater: red pump house, the red main along the south deck edge, two monitors.
+	b.box(Vector3(-12.0, MAIN_Y + 1.25, -21.8), Vector3(2.6, 2.5, 2.2), MatLib.red_paint(), "hull", Vector3.ZERO, true)
+	KIT.pipe_run(b, [Vector3(-20.0, MAIN_Y + 0.5, -23.0), Vector3(20.0, MAIN_Y + 0.5, -23.0)], 0.16, MatLib.red_paint())
+	for mx in [-18.0, 18.0]:
+		b.cyl(Vector3(mx, MAIN_Y + 1.0, -23.0), 0.14, 1.2, MatLib.red_paint(), "detail")
+		b.cyl(Vector3(mx, MAIN_Y + 1.65, -23.0), 0.1, 0.7, MatLib.red_paint(), "detail", Vector3(deg_to_rad(55.0), 0, 0))
+
+## PAINTED EQUIPMENT NUMBERS — Label3D plates on the machines, the detail that says
+## somebody maintains this place. Unbatched nodes on the host: eleven tiny labels.
+static func _labels(host: Node3D, b: KIT.Bake) -> void:
+	var tags: Array = [
+		["T-301", Vector3(31.3, 19.5, -10.5), 90.0], ["T-302", Vector3(31.3, 19.5, -3.3), 90.0],
+		["T-303", Vector3(31.3, 19.5, 3.9), 90.0], ["EXP-01", Vector3(35.5, 16.2, 12.0), 90.0],
+		["SEP-101", Vector3(-24.0, 11.6, -7.6), 180.0], ["SEP-102", Vector3(-17.0, 11.6, -7.6), 180.0],
+		["P-201", Vector3(-22.0, 9.6, 11.8), 180.0], ["P-202", Vector3(-14.6, 9.6, 11.8), 180.0],
+		["FW-MAIN", Vector3(-12.0, 16.0, -20.6), 180.0], ["DESAL-01", Vector3(16.9, 12.4, -12.9), 180.0],
+		["LAB-A", Vector3(-14.0, 17.2, -7.7), 180.0],
+	]
+	for t in tags:
+		var l := Label3D.new()
+		l.text = t[0]
+		l.font_size = 96
+		l.pixel_size = 0.006
+		l.modulate = Color(0.92, 0.90, 0.82)
+		l.outline_modulate = Color(0.08, 0.08, 0.08)
+		l.outline_size = 14
+		l.shaded = false
+		host.add_child(l)
+		l.position = b.to_world(t[1])
+		l.rotation.y = b.xform.basis.get_euler().y + deg_to_rad(float(t[2]))

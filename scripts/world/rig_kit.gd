@@ -1084,23 +1084,55 @@ static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y
 	b.cyl(Vector3(cx, y0 - 0.35, cz), radius + 0.55, 0.9, MatLib.dark_metal(), "hull", Vector3.ZERO, -1.0, segs, true)
 	b.cyl(Vector3(cx, y0 + 0.3, cz), radius + 0.18, 0.5, MatLib.galvanized(), "hull", Vector3.ZERO, -1.0, segs)
 	b.cyl(Vector3(cx, y1 - 0.25, cz), radius + 0.4, 0.7, MatLib.dark_metal(), "hull", Vector3.ZERO, -1.0, segs)
-	# Reef bed and a kelp column, so the tank is never an empty cylinder of blue.
+	# THE CORAL CORE. A single organic rock column rises the height of the tank — stacked,
+	# offset, rotated drums so no two silhouettes repeat — and the coral grows OFF it in
+	# clusters: fans, fingers and dome heads in reef colours, denser near the lit top. The
+	# owner's call, replacing the loose rod forest: one strong vertical the eye can follow
+	# from any gallery. Sand bed below, three kelp strands at the rim for movement.
 	b.cyl(Vector3(cx, y0 + 0.6, cz), radius - 0.5, 1.0, MatLib.flat(Color(0.52, 0.50, 0.42)), "hull", Vector3.ZERO, -1.0, segs)
-	var rock: Material = MatLib.flat(Color(0.26, 0.24, 0.21))
+	var rock: Material = MatLib.flat(Color(0.30, 0.28, 0.25))
+	var seg_n: int = 8
+	var core_h: float = h - 1.8
+	for i in range(seg_n):
+		var t0: float = float(i) / float(seg_n)
+		var sh: float = core_h / float(seg_n) + 0.25
+		var sr: float = lerpf(1.55, 0.75, t0) * (1.0 + 0.14 * float(i % 2))
+		var off := Vector3(cos(float(i) * 2.1) * 0.28, 0, sin(float(i) * 2.1) * 0.28)
+		b.cyl(Vector3(cx, y0 + 1.0 + core_h * t0 + sh * 0.5, cz) + off, sr, sh, rock, "hull",
+			Vector3(deg_to_rad(4.0 * float(i % 3) - 4.0), float(i) * 0.8, 0), sr * lerpf(0.8, 1.1, fmod(float(i) * 0.61, 1.0)), 10)
+	# Coral clusters on the core: colour, form and height vary; two of the five glow faintly.
+	var corals: Array = [
+		MatLib.flat(Color(0.92, 0.44, 0.50)), MatLib.flat(Color(0.95, 0.58, 0.25)),
+		MatLib.glowing(Color(0.30, 0.85, 0.78), 0.9), MatLib.flat(Color(0.62, 0.42, 0.82)),
+		MatLib.glowing(Color(0.85, 0.55, 0.75), 0.7)]
+	for i in range(22):
+		var t: float = 0.08 + 0.86 * pow(fmod(float(i) * 0.618, 1.0), 0.7)
+		var a: float = float(i) * 2.4
+		var cr: float = lerpf(1.7, 0.95, t)
+		var cp := Vector3(cx + cos(a) * cr, y0 + 1.0 + core_h * t, cz + sin(a) * cr)
+		var m: Material = corals[i % corals.size()]
+		match i % 3:
+			0:  # fan — a thin tilted plate
+				b.box(cp, Vector3(0.9 + 0.4 * float(i % 2), 0.7, 0.08), m, "hull",
+					Vector3(deg_to_rad(18.0), a, deg_to_rad(10.0 * float(i % 3))))
+			1:  # finger cluster — three small tapers
+				for k in range(3):
+					b.cyl(cp + Vector3(cos(a + k) * 0.16, 0.12 * k, sin(a + k) * 0.16),
+						0.10, 0.55 + 0.15 * k, m, "hull", Vector3(deg_to_rad(12.0 * k - 12.0), a, 0), 0.02, 6)
+			2:  # dome head
+				b.cyl(cp, 0.34 + 0.1 * float(i % 2), 0.30, m, "hull", Vector3.ZERO, 0.22, 8)
+	# Floor coral ring and the three kelp strands.
+	for i2 in range(6):
+		var fa: float = TAU * float(i2) / 6.0 + 0.5
+		var fr: float = radius * 0.62
+		b.cyl(Vector3(cx + cos(fa) * fr, y0 + 1.25, cz + sin(fa) * fr), 0.4, 0.5,
+			corals[i2 % corals.size()], "hull", Vector3.ZERO, 0.26, 8)
 	var weed: Material = MatLib.flat(Color(0.14, 0.34, 0.24))
-	for i in range(14):
-		var a: float = TAU * float(i) / 14.0
-		var rr: float = radius * (0.30 + fmod(float(i) * 0.37, 1.0) * 0.55)
-		var rh: float = 1.2 + fmod(float(i) * 0.71, 1.0) * 3.4
-		# Tilted hard and irregularly sized: an upright box reads as a crate, a leaning one
-		# reads as rock. Cheap massing until the Tripo rockwork pass replaces it.
-		b.box(Vector3(cx + cos(a) * rr, y0 + 1.0 + rh * 0.5, cz + sin(a) * rr),
-			Vector3(0.9 + 0.7 * float(i % 3), rh, 1.1 + 0.5 * float(i % 2)), rock, "hull",
-			Vector3(deg_to_rad(9.0 + 7.0 * float(i % 4)), a + float(i) * 0.7, deg_to_rad(6.0 + 5.0 * float(i % 3))))
-		var kh: float = h * (0.35 + fmod(float(i) * 0.53, 1.0) * 0.5)
-		b.member(Vector3(cx + cos(a) * rr * 1.05, y0 + 1.4, cz + sin(a) * rr * 1.05),
-			Vector3(cx + cos(a + 0.4) * rr * 0.8, y0 + 1.4 + kh, cz + sin(a + 0.4) * rr * 0.8),
-			0.28, weed, "hull")
+	for i3 in range(3):
+		var ka: float = TAU * float(i3) / 3.0 + 1.1
+		b.member(Vector3(cx + cos(ka) * (radius - 1.0), y0 + 1.2, cz + sin(ka) * (radius - 1.0)),
+			Vector3(cx + cos(ka + 0.5) * (radius - 1.6), y0 + 1.2 + h * 0.55, cz + sin(ka + 0.5) * (radius - 1.6)),
+			0.24, weed, "hull")
 
 ## A GLAZED LOOKOUT CABIN — the room you climb to. Solid sill, glass band, capped roof.
 ## opts:

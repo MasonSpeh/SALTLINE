@@ -237,6 +237,13 @@ static func _derrick(b: KIT.Bake) -> void:
 		b.member(Vector3(-0.9 + i * 0.36, CROWN_Y - 1.6, 0.0), Vector3(-0.9 + i * 0.36, tb_y + 1.6, 0.0), 0.05, MatLib.dark_metal(), "detail")
 	b.box(Vector3(0.0, tb_y, 0.0), Vector3(2.4, 3.2, 1.6), MatLib.dark_metal(), "hull")
 	b.cyl(Vector3(0.0, tb_y - 2.4, 0.0), 0.5, 2.2, steel, "detail")
+	# THE DRILL STRING — the central core, from the travelling block through the rotary and
+	# the moon pool, into the water and on down toward the fissure like the conductor stands
+	# do. Kelly above the floor, string below, a slow teal collar where the Bloom takes it.
+	b.cyl(Vector3(0.0, (tb_y - 2.4 + DRILL_Y) * 0.5, 0.0), 0.32, tb_y - 2.4 - DRILL_Y, MatLib.dark_metal(), "hull")
+	b.cyl(Vector3(0.0, (DRILL_Y + 1.0) * 0.5, 0.0), 0.24, DRILL_Y - 1.0, MatLib.rust_steel(), "hull")
+	b.cyl(Vector3(0.0, -42.5, 0.0), 0.24, 87.0, MatLib.dark_metal(), "hull")
+	b.cyl(Vector3(0.0, -30.0, 0.0), 0.34, 4.0, MatLib.glowing(BLOOM_TEAL, 1.2), "lamp")
 	# Standpipe and the kelly hose running up the derrick's south face.
 	KIT.pipe_run(b, [Vector3(0.0, DRILL_Y + 1.0, -DERRICK_BASE_HALF + 0.6),
 		Vector3(0.0, MONKEY_Y - 4.0, -DERRICK_TOP_HALF - 2.6)], 0.3)
