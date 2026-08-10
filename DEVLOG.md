@@ -2572,3 +2572,44 @@ a switchback tower beside the south rim now pierces it with an apron.
 
 RigFieldProbe 24/24: 47 seats, 104 stair endpoints, 52 climb lines, the dining view, both
 light states. TestRunner FAILURES: 0.
+
+
+## s55 — the cat comes home, the field connects, MARROW becomes the lab, and the tank takes fish
+
+**CAT.** Found asleep on bunkhouse cabin 1's north bed (bunk_layout.bed_pos, Y probed onto
+the mattress); a water-rescue watchdog teleports her to the main deck if she is ever below
+y 1.2 for a second, so she cannot be lost overboard again (the doggy-paddle swim home is a
+later pass, filed). The purr is a two-phase breath cycle now (24 Hz exhale / 27.5 Hz inhale
+on a 1.5 s cycle — the alternation is what a motor loop lacks) and she has a real MEOW
+(340->640->300 Hz glide with sliding formants), wired to the greeting.
+
+**FIELD.** The six grey imposter hulls from the pre-field skyline are no longer built.
+Bridge aprons overlap their decks by 1.5 m and sit 8 mm below the surface — the rim gap and
+the meeting-point flicker were an apron ending exactly at the rim while coplanar with what
+it touched. The deck-edge cove is SEGMENTED on all three rigs (an unbroken strip was a
+glowing waist-high bar across every opening). And the bridge to DEEPWELL was genuinely
+sealed: podium and spa stand back to back and each had a door where the other had wall —
+aligned at x 0 now, so the route reads atrium -> north portals -> spa -> bridge.
+
+**THE ANCHORAGE.** Double-helix chord stairs (two full runs floor->G4, stacked pairs 7.4 m
+apart) with departure tongues; the tank's rod forest replaced by a single CORAL CORE — an
+organic rock column the full height of the water with 22 coral clusters, two of them
+faintly glowing; a G4 flight up to an arc platform at the crown (39.45) carrying the
+FEEDING HATCH: aquarium_stock.gd enforces 5 ft per fish ("This Un's too big to fit.") and
+50 ft total, takes the held fish off the hotbar, and swims it around the core at its real
+landed length. Feng shui pass: ring sculpture on the entrance axis, paired planters at all
+four portals, a koi basin down the west hall, timber screens in the salon, a halo over the
+dais. East tower now bridges into the gallery through an opened G2 bay; a marina->plant
+service tower closes the lower-walkway gap.
+
+**MARROW** is the experimental/lab platform, not a farm: silos gone; bunded crude tank farm
+(T-301..303) with pig launcher and subsea export line; the grow house is the BIO LAB with
+glowing specimen cylinders; desalination, chemical injection, firewater with the red main;
+eleven painted equipment numbers as Label3D plates. Only the rooftop garden keeps the
+growing story. **DEEPWELL** gains the drill string — kelly, rotary, moon pool, 87 m of core
+into the dark with a Bloom collar at -30.
+
+The climb probe convicted THIS session's own work twice before it shipped: arrival tongues
+overhanging the flights they served (the fifth shape of the slab-over-arrival defect), and
+the tank-farm bund wall standing across the stairwell exit. RigFieldProbe 24/24 — 49
+seats, 116 stair endpoints, 58 climb lines. TestRunner 0.
