@@ -421,13 +421,19 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 	# Deck-edge and under-deck cove: sodium, so MARROW reads WARM at night against the
 	# ANCHORAGE's cold white. Geometry, not lights — see rig_kit.led_cove.
 	var warm := Color(1.0, 0.72, 0.34)
-	for run in [[Vector3(DECK.position.x + 0.6, MAIN_Y + 0.85, DECK.position.y + 0.6), Vector3(DECK.end.x - 0.6, MAIN_Y + 0.85, DECK.position.y + 0.6)],
-			[Vector3(DECK.position.x + 0.6, MAIN_Y + 0.85, DECK.end.y - 0.6), Vector3(DECK.end.x - 0.6, MAIN_Y + 0.85, DECK.end.y - 0.6)],
-			[Vector3(DECK.position.x + 0.6, MAIN_Y + 0.85, DECK.position.y + 0.6), Vector3(DECK.position.x + 0.6, MAIN_Y + 0.85, DECK.end.y - 0.6)],
-			[Vector3(DECK.end.x - 0.6, MAIN_Y + 0.85, DECK.position.y + 0.6), Vector3(DECK.end.x - 0.6, MAIN_Y + 0.85, DECK.end.y - 0.6)],
+	# Segmented around every rail gap — an unbroken strip is a bar across each opening.
+	var cy2: float = MAIN_Y + 0.85
+	var s0: float = DECK.position.y + 0.6
+	var n0: float = DECK.end.y - 0.6
+	var w0: float = DECK.position.x + 0.6
+	var e0: float = DECK.end.x - 0.6
+	for seg in [[Vector3(w0, cy2, s0), Vector3(-7.0, cy2, s0)], [Vector3(3.0, cy2, s0), Vector3(10.0, cy2, s0)],
+			[Vector3(w0, cy2, n0), Vector3(-17.0, cy2, n0)], [Vector3(-9.0, cy2, n0), Vector3(26.0, cy2, n0)],
+			[Vector3(w0, cy2, s0), Vector3(w0, cy2, -19.0)], [Vector3(w0, cy2, -9.0), Vector3(w0, cy2, n0)],
+			[Vector3(e0, cy2, s0), Vector3(e0, cy2, 7.0)], [Vector3(e0, cy2, 17.0), Vector3(e0, cy2, n0)],
 			[Vector3(DECK.position.x + 2.0, 12.7, DECK.position.y + 1.5), Vector3(DECK.end.x - 2.0, 12.7, DECK.position.y + 1.5)],
 			[Vector3(DECK.position.x + 2.0, 12.7, DECK.end.y - 1.5), Vector3(DECK.end.x - 2.0, 12.7, DECK.end.y - 1.5)]]:
-		KIT.led_cove(b, run[0], run[1], warm, 0.11, 2.6)
+		KIT.led_cove(b, seg[0], seg[1], warm, 0.11, 2.6)
 	for z in [MESS.position.y + 1.0, MESS.end.y - 1.0]:
 		KIT.led_cove(b, Vector3(MESS.position.x + 0.4, MAIN_Y + BLOCK_H - 0.4, z),
 			Vector3(MESS.end.x - 0.4, MAIN_Y + BLOCK_H - 0.4, z), warm, 0.09, 2.4)

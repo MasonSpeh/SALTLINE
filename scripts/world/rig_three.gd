@@ -326,6 +326,9 @@ static func _podium(b: KIT.Bake) -> void:
 		["e", -20.0, 0],   # kitchen service door
 		["n", -30.0, 0],   # west rim
 		["n", 30.0, 0],    # east rim / back corridor
+		["n", 0.0, 0],     # ALIGNED WITH THE SPA'S SOUTH DOOR. Without this the spa (and so
+		                   # the bridge to DEEPWELL behind it) was sealed off: the two blocks
+		                   # stand back to back and each had a door where the other had wall.
 	]
 	for side in ["s", "n", "w", "e"]:
 		KIT._block_wall(b, PODIUM, side, MAIN_Y, POD_H, 0.3, white, glass_mat, true, doors, 0)
@@ -836,12 +839,17 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		KIT.led_ring(b, Vector3(DRUM_C.x, lvl - 0.95, DRUM_C.y), DRUM_R + 0.4, COVE, 36, 0.13, COVE_E)
 	KIT.led_ring(b, Vector3(DRUM_C.x, ATRIUM_ROOF + 0.3, DRUM_C.y), DRUM_R + 0.55, COVE, 36, 0.15, 4.0)
 	# Deck-edge cove and under-deck cove.
+	# Segmented: an unbroken strip is a glowing bar at waist height across every opening.
 	var y: float = MAIN_Y + 0.9
-	for run in [[Vector3(DECK.position.x + 0.5, y, DECK.position.y + 0.5), Vector3(DECK.end.x - 0.5, y, DECK.position.y + 0.5)],
-			[Vector3(DECK.position.x + 0.5, y, DECK.end.y - 0.5), Vector3(DECK.end.x - 0.5, y, DECK.end.y - 0.5)],
-			[Vector3(DECK.position.x + 0.5, y, DECK.position.y + 0.5), Vector3(DECK.position.x + 0.5, y, DECK.end.y - 0.5)],
-			[Vector3(DECK.end.x - 0.5, y, DECK.position.y + 0.5), Vector3(DECK.end.x - 0.5, y, DECK.end.y - 0.5)]]:
-		KIT.led_cove(b, run[0], run[1], COVE, 0.1, 2.8)
+	var zs: float = DECK.position.y + 0.5
+	var zn: float = DECK.end.y - 0.5
+	var xw: float = DECK.position.x + 0.5
+	var xe: float = DECK.end.x - 0.5
+	for seg in [[Vector3(xw, y, zs), Vector3(-15.0, y, zs)], [Vector3(-5.0, y, zs), Vector3(xe, y, zs)],
+			[Vector3(xw, y, zn), Vector3(3.0, y, zn)], [Vector3(13.0, y, zn), Vector3(xe, y, zn)],
+			[Vector3(xw, y, zs), Vector3(xw, y, -14.0)], [Vector3(xw, y, 14.0), Vector3(xw, y, zn)],
+			[Vector3(xe, y, zs), Vector3(xe, y, -20.0)], [Vector3(xe, y, 4.0), Vector3(xe, y, zn)]]:
+		KIT.led_cove(b, seg[0], seg[1], COVE, 0.1, 2.8)
 	for z in [DECK.position.y + 1.5, DECK.end.y - 1.5]:
 		KIT.led_cove(b, Vector3(DECK.position.x + 2.0, MAIN_Y - 1.6, z), Vector3(DECK.end.x - 2.0, MAIN_Y - 1.6, z), COVE, 0.14, 2.2)
 	# Tower facade cove.

@@ -1349,8 +1349,13 @@ static func bridge_span(b: Bake, a: Vector3, c: Vector3, width: float = 5.0,
 static func bridge_apron(b: Bake, at: Vector3, yaw_deg: float, width: float, reach: float) -> void:
 	var yaw: float = deg_to_rad(yaw_deg)
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
-	var mid: Vector3 = at + fwd * (reach * 0.5)
-	b.box(mid + Vector3(0, -0.12, 0), Vector3(width, 0.24, reach), MatLib.checker_plate(), "hull",
+	# The apron OVERLAPS the deck by 1.5 m and sits 8 mm BELOW its surface: the owner-visible
+	# "gap at the rim + flicker where it meets" was this plate ending exactly at the rim line
+	# (any placement error reads as a slot) while running exactly coplanar with whatever it
+	# did touch. 8 mm below deck, 12 mm above the truss deck: continuous underfoot, coplanar
+	# with nothing.
+	var mid: Vector3 = at + fwd * ((reach - 1.5) * 0.5)
+	b.box(mid + Vector3(0, -0.128, 0), Vector3(width, 0.24, reach + 1.5), MatLib.checker_plate(), "hull",
 		Vector3(0, yaw, 0), true)
 	var side := Vector3(cos(yaw), 0, -sin(yaw))
 	for sgn in [-1.0, 1.0]:

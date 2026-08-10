@@ -373,11 +373,19 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 	# Deck-edge and under-deck cove — cold white, and sparse: DEEPWELL is a machine, not a
 	# home, and the contrast against MARROW's sodium is legible from a bridge at night.
 	var cold := Color(0.72, 0.86, 1.0)
-	for run in [[Vector3(DECK.position.x + 0.8, MAIN_Y + 0.85, DECK.position.y + 0.8), Vector3(DECK.end.x - 0.8, MAIN_Y + 0.85, DECK.position.y + 0.8)],
-			[Vector3(DECK.position.x + 0.8, MAIN_Y + 0.85, DECK.end.y - 0.8), Vector3(DECK.end.x - 0.8, MAIN_Y + 0.85, DECK.end.y - 0.8)],
-			[Vector3(DECK.position.x + 0.8, MAIN_Y + 0.85, DECK.position.y + 0.8), Vector3(DECK.position.x + 0.8, MAIN_Y + 0.85, DECK.end.y - 0.8)],
-			[Vector3(DECK.end.x - 0.8, MAIN_Y + 0.85, DECK.position.y + 0.8), Vector3(DECK.end.x - 0.8, MAIN_Y + 0.85, DECK.end.y - 0.8)]]:
-		KIT.led_cove(b, run[0], run[1], cold, 0.12, 2.6)
+	# Segmented around every rail gap — no glowing bar across the bridge or the stairs.
+	var cy2: float = MAIN_Y + 0.85
+	var s0: float = DECK.position.y + 0.8
+	var n0: float = DECK.end.y - 0.8
+	var w0: float = DECK.position.x + 0.8
+	var e0: float = DECK.end.x - 0.8
+	for seg in [[Vector3(w0, cy2, s0), Vector3(-6.0, cy2, s0)], [Vector3(2.0, cy2, s0), Vector3(3.0, cy2, s0)],
+			[Vector3(13.0, cy2, s0), Vector3(18.0, cy2, s0)], [Vector3(25.0, cy2, s0), Vector3(e0, cy2, s0)],
+			[Vector3(w0, cy2, n0), Vector3(-28.0, cy2, n0)], [Vector3(-18.0, cy2, n0), Vector3(18.0, cy2, n0)],
+			[Vector3(w0, cy2, s0), Vector3(w0, cy2, -25.0)], [Vector3(w0, cy2, -17.0), Vector3(w0, cy2, -12.0)],
+			[Vector3(w0, cy2, 0.0), Vector3(w0, cy2, n0)],
+			[Vector3(e0, cy2, s0), Vector3(e0, cy2, 17.0)], [Vector3(e0, cy2, 24.0), Vector3(e0, cy2, n0)]]:
+		KIT.led_cove(b, seg[0], seg[1], cold, 0.12, 2.6)
 	# The moon-pool rim, lit from the deck so the shaft reads as a lit hole rather than a void.
 	KIT.led_cove(b, Vector3(MOON.position.x - 0.4, MAIN_Y + 0.5, MOON.position.y - 0.4), Vector3(MOON.end.x + 0.4, MAIN_Y + 0.5, MOON.position.y - 0.4), cold, 0.1, 3.0)
 	KIT.led_cove(b, Vector3(MOON.position.x - 0.4, MAIN_Y + 0.5, MOON.end.y + 0.4), Vector3(MOON.end.x + 0.4, MAIN_Y + 0.5, MOON.end.y + 0.4), cold, 0.1, 3.0)
