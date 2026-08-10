@@ -59,7 +59,7 @@ func restore_stock(arr: Array) -> void:
 		if not id.begins_with("fish_"):
 			continue
 		var kg: float = float((e as Dictionary).get("kg", 0.0))
-		var len_m: float = IV.fish_instance_length_m(id, kg)
+		var len_m: float = _len_of(id, kg)
 		if len_m > MAX_ONE_M or _total_m + len_m > MAX_TOTAL_M:
 			continue
 		_stock.append({"id": id, "kg": kg, "len": len_m})
@@ -82,7 +82,7 @@ func interact(_verb: String, _player: Node3D) -> void:
 			hud.toast("Only fish go in the tank.")
 		return
 	var kg: float = float(PlayerState.as_meta(PlayerState.hotbar_meta[idx]).get("kg", 0.0))
-	var len_m: float = IV.fish_instance_length_m(id, kg)
+	var len_m: float = _len_of(id, kg)
 	if len_m > MAX_ONE_M:
 		if hud != null:
 			hud.toast("This Un's too big to fit.")
@@ -100,6 +100,15 @@ func interact(_verb: String, _player: Node3D) -> void:
 	if hud != null:
 		hud.toast("She slips in and circles the coral. (%.0f/%.0f ft)" % [_total_m * 3.281, MAX_TOTAL_M * 3.281])
 	interacted.emit("ADD FISH")
+
+## The length a fish OCCUPIES in the tank. fish_instance_length_m needs a size_kg range
+## and 36 of the roster's species do not carry one — for those it returns 0.0, which made
+## the 5 ft / 50 ft limits VACUOUS for most of the roster: a zero-length fish always fits
+## and never spends budget (found by the s56 save probe writing "len": 0.0 to disk).
+## Fall back to the authored species length, which every species has.
+func _len_of(id: String, kg: float) -> float:
+	var l: float = IV.fish_instance_length_m(id, kg)
+	return l if l > 0.0 else IV.fish_length_m(id)
 
 func _spawn_swimmer(item_id: String, len_m: float) -> void:
 	var species: String = FISH_MODEL.species_of(item_id)

@@ -2613,3 +2613,63 @@ The climb probe convicted THIS session's own work twice before it shipped: arriv
 overhanging the flights they served (the fifth shape of the slab-over-arrival defect), and
 the tank-farm bund wall standing across the stairwell exit. RigFieldProbe 24/24 — 49
 seats, 116 stair endpoints, 58 climb lines. TestRunner 0.
+
+
+## s56 — the cat is really on the bunk, the stairs really meet the galleries, and the hotel gets its ceilings
+
+**CAT.** Three regressions, one root each. HOME was hand-typed as "bed_pos(1,false) =
+x -18.0" and the real derivation is x -20.685 — she spawned standing in the middle of the
+cabin floor, 2.7 m from the bunk, in the same commit that wrote the never-hand-type warning.
+Derived from bunk_layout now, plus a first-meeting NAP: State.SLEEP held on the mattress
+until the player comes within notice range, waking through the existing stretch beat
+(restored saves skip it). "Sunken into the floor" was the three room floor coverings being
+solid=false — every down-ray (cat seat, player capsule) landed on the structural deck 5 cm
+under the visible lino. Solid now. And her light followed her: a lantern on her own bunk's
+locker lid, at the lid's BUNK-SIDE corner, because from the centre the locker eclipses its
+own lamp (measured: 0.000 lux, then 0.242). CatSpawnProbe 8/8.
+
+**THE ATRIUM ARRIVALS.** The owner's "top of the stairs don't meet well": chord stairs
+arrive 0.3 m INSIDE the gallery rings, and against a full-circle slab the last two treads,
+both stringers and the outboard rail rose THROUGH the slab body (y-0.3..y, soffit to
+y-0.5). The climb probe could never see it — its rays look 0.75/1.6 m ABOVE the walking
+line, and the burial is below. Every ring is two bands now: full outer circle (circulation
+never severed), inner band with a wedge opening [head-13, head+0.5] degrees at each
+arrival, soffit and inner cove following the same arcs, a sunken tongue just FORWARD of
+each head closing the cut-edge sliver (forward is the safe side; approach-side tongues are
+the s55 lesson). Crown arc ends at 20.5 deg for the same reason. Atrium flights are
+white/galvanized — rust stringers in the white drum were condemned by the same argument as
+s54b's rusted galleries.
+
+**PAINTED TAGS.** painted_tag.gd replaces the Label3D plates: each tag rays itself onto
+the surface it names and lies flat against the measured face, 8 mm proud, shaded, no
+outline, alpha-cut — paint, not UI. It probes BOTH directions because four of eleven
+authored facings were 180 degrees wrong and the old double-sided quads had hidden that for
+a session. EXP-01 was authored 2 m off its launcher barrel (above it, where an x-ray
+misses a 0.5 m cylinder); re-sited beside the barrel. 11/11 snap.
+
+**THE LUXURY PASS.** The first render pass photographed every interior with the structural
+slab's raw treadplate underside as its ceiling — the single-material-box trap at hotel
+scale — and it flattened everything into a bunker. Public rooms (vestibule, salon, both
+halls, dining, private dining, kitchen, spa, pool hall, both tower lounges) now carry
+white soffits with recessed downlights, and lino/timber floors over the plate (SOLID — the
+cat fix is the precedent). Art on the windowless partitions only, since every exterior
+band is window: a backlit FIELD CHART with the four rigs as lit markers at true relative
+positions (salon + freestanding totems in the towers), wave triptychs, rig-silhouette
+prints. A suspended school of lit glass fish climbs the west hall; a compass rose is inlaid
+on the entrance axis; bubble columns flank the dining colonnade. The leisure deck gained
+loungers, palms and a poolside bar; the spa a treatment room and cedar sauna; the towers a
+library and a games room with their own light.
+
+**THE RENDER CAUGHT A VESSEL IN THE SWIMMING POOL.** All three of the plant deck's
+vertical vessels were taller than the 8.1 m clear height under the leisure deck: one stood
+with its dome IN the pool water, dead centre. Lengths now solve base+skirt+shell+cap under
+the slab; the fat one moved clear of the pool cut and the z 8 catwalk. (MARROW's deck-
+piercing separators were inspected and LEFT — vessels through decks read as intended
+industry on that platform.)
+
+**AQUARIUM STOCK PERSISTS.** SaveManager carries an "aquarium" key on the cat's contract
+(stock_payload/restore_stock on the hatch); restore re-derives lengths and limits through
+the hatch's own bookkeeping rather than trusting the file. AquariumSaveProbe asserts the
+round-trip against the slot file re-read off disk.
+
+Gates: TestRunner 0, RigFieldProbe 0 (58 flights, 116 endpoints, 58 climb lines).

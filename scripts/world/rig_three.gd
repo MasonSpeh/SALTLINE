@@ -199,7 +199,11 @@ static func _substructure(b: KIT.Bake) -> void:
 		for seg2 in [[-28.0, 0.0], [0.0, 28.0]]:
 			b.member(Vector3(seg2[0], 1.4, z), Vector3(seg2[1], 7.6, z), 0.5, steel, "hull")
 			b.member(Vector3(seg2[1], 1.4, z), Vector3(seg2[0], 7.6, z), 0.5, steel, "hull")
-			b.member(Vector3(seg2[0], 16.6, z), Vector3(seg2[1], 20.4, z), 0.42, steel, "hull")
+			# This tier crosses the ENCLOSED leisure hall (z +-22 is inside the pool
+			# room): painted structure, not rust — exposed white bracing reads as
+			# architecture where a rusty diagonal behind the bar reads as neglect.
+			b.member(Vector3(seg2[0], 16.6, z), Vector3(seg2[1], 20.4, z), 0.42,
+				MatLib.dirty_white_panel(), "hull")
 	for z in [-22.0, 0.0, 22.0]:
 		b.box(Vector3(0.0, 20.0, z), Vector3(78.0, 1.5, 1.4), steel, "hull")
 	for x in LEG_X:
@@ -216,8 +220,11 @@ static func _plant_deck(b: KIT.Bake) -> void:
 	for i in range(3):
 		var x: float = -26.0 + i * 9.0
 		KIT.skid(b, Vector3(x, PLANT_Y, -16.0), Vector3(7.0, 3.2, 4.4), 0.0)
-		b.cyl(Vector3(x + 2.6, PLANT_Y + 6.4, -16.0), 0.55, 12.0, MatLib.dark_metal(), "hull")
-		b.cyl(Vector3(x + 2.6, PLANT_Y + 12.8, -16.0), 0.7, 0.8, MatLib.rust_steel(), "detail")
+		# Exhaust trunks END IN THE SLAB overhead (top 15.1, inside the 14.9..15.4 leisure
+		# floor) — at 12 m they carried on through the pool hall and stood in the room as
+		# three rusty pillars (caught by the s56 render). Ducted into the deck reads right
+		# from below and does not exist from above.
+		b.cyl(Vector3(x + 2.6, PLANT_Y + 4.35, -16.0), 0.55, 7.9, MatLib.dark_metal(), "hull")
 	# VESSEL HEIGHTS ARE A CEILING PROBLEM, NOT A TASTE ONE. The leisure deck's slab sits
 	# 14.9..15.4 over this hall — 8.1 m clear — and all three vertical vessels shipped
 	# taller than that: the (6, 6) one stood with its DOME IN THE SWIMMING POOL (caught by
@@ -291,7 +298,9 @@ static func _leisure_deck(b: KIT.Bake) -> void:
 		var x2: float = 15.0 + i * 4.4
 		b.box(Vector3(x2, SPA_Y + head * 0.5, -13.0), Vector3(0.22, head, 10.0), shell, "hull", Vector3.ZERO, true)
 	b.box(Vector3(21.6, SPA_Y + head * 0.5, -8.0), Vector3(13.2, head, 0.22), shell, "hull", Vector3.ZERO, true)
-	var cy: float = SPA_Y + head - 0.5
+	# Cove line sits under the s56 soffit (19.1), which itself sits under the y 20 girder
+	# grid — the ceiling must clear the structure or the structure IS the ceiling.
+	var cy: float = 18.75
 	for run in [[Vector3(LOWER.position.x + 0.8, cy, LOWER.position.y + 0.8), Vector3(LOWER.end.x - 0.8, cy, LOWER.position.y + 0.8)],
 			[Vector3(LOWER.position.x + 0.8, cy, LOWER.end.y - 0.8), Vector3(LOWER.end.x - 0.8, cy, LOWER.end.y - 0.8)],
 			[Vector3(LOWER.position.x + 0.8, cy, LOWER.position.y + 0.8), Vector3(LOWER.position.x + 0.8, cy, LOWER.end.y - 0.8)],
@@ -1022,8 +1031,11 @@ static func _decor(b: KIT.Bake) -> void:
 	b.box(Vector3(-17.2, MAIN_Y + 0.34, 1.0), Vector3(1.3, 0.04, 14.8), kw, "glass")
 	for i in range(4):
 		KIT.lamp_lens(b, Vector3(-17.2, MAIN_Y + 0.6, -5.0 + i * 4.0), COVE, 0.16, 3.0)
-	# SLAT SCREENS dividing the salon from the service side and framing the lounge.
-	for spec in [[Vector3(16.0, 0, -20.5), 0.0, 7.0], [Vector3(6.0, 0, -13.6), 90.0, 8.0]]:
+	# SLAT SCREEN framing the lounge from the atrium side. (The second screen that stood
+	# on the x 16 line was REMOVED s56: the s54c floorplan built a real wall there, so the
+	# screen was a row of planks clipping through plaster — one slat stood beside the
+	# salon chart like a stray totem.)
+	for spec in [[Vector3(6.0, 0, -13.6), 90.0, 8.0]]:
 		var yaw: float = deg_to_rad(float(spec[1]))
 		var side := Vector3(cos(yaw), 0, -sin(yaw))
 		var base: Vector3 = spec[0]
@@ -1057,7 +1069,7 @@ static func _ceilings(b: KIT.Bake) -> void:
 			[Vector3(30.0, soff_y, -21.0), Vector3(19.6, 0.08, 13.6)],   # kitchen
 			[Vector3(0.0, MAIN_Y + 3.32, 26.0), Vector3(27.4, 0.08, 7.4)],  # spa ground
 			[Vector3(29.0, DINE_ROOF - 0.45, 1.1), Vector3(21.2, 0.10, 21.4)],  # dining hall
-			[Vector3(0.0, SPA_Y + 4.9, 0.0), Vector3(66.0, 0.10, 46.0)]]:   # pool hall
+			[Vector3(0.0, 19.1, 0.0), Vector3(66.0, 0.10, 46.0)]]:   # pool hall — under the girders
 		b.box(spec[0], spec[1], white, "hull", Vector3.ZERO)
 	# Recessed downlight dots where there are no pendants.
 	for dl in [Vector3(-10.0, soff_y - 0.05, -20.0), Vector3(-10.0, soff_y - 0.05, -15.5),
@@ -1067,8 +1079,8 @@ static func _ceilings(b: KIT.Bake) -> void:
 			Vector3(-32.0, soff_y - 0.05, -11.0), Vector3(-22.0, soff_y - 0.05, -11.0),
 			Vector3(-6.0, MAIN_Y + 3.24, 26.0), Vector3(6.0, MAIN_Y + 3.24, 26.0)]:
 		KIT.lamp_lens(b, dl, WARM, 0.15, 3.0)
-	for dp in [Vector3(-8.0, SPA_Y + 4.82, -12.0), Vector3(-8.0, SPA_Y + 4.82, 11.0),
-			Vector3(25.0, SPA_Y + 4.82, 19.0), Vector3(-25.0, SPA_Y + 4.82, 0.0)]:
+	for dp in [Vector3(-8.0, 19.02, -12.0), Vector3(-8.0, 19.02, 11.0),
+			Vector3(25.0, 19.02, 19.0), Vector3(-25.0, 19.02, 0.0)]:
 		KIT.lamp_lens(b, dp, Color(0.88, 0.96, 1.0), 0.2, 3.0)
 	# The floors.
 	b.box(Vector3(0.0, MAIN_Y + 0.02, -20.5), Vector3(31.7, 0.04, 14.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
@@ -1101,7 +1113,9 @@ static func _wall_art(b: KIT.Bake, pos: Vector3, yaw_deg: float, w: float, h: fl
 		b.box(pos + side * (sgn * w * 0.5) + fwd * 0.05, Vector3(0.07, h + 0.10, 0.07), dark, "detail", rot)
 	match kind:
 		"chart":
-			b.box(pos + fwd * 0.03, Vector3(w, h, 0.04), MatLib.flat(Color(0.07, 0.16, 0.20)), "detail", rot)
+			# Backlit, not matte: a soft self-lit ground under the glow threshold reads as
+			# an edge-lit display panel; matte navy read as a dark hole on the wall.
+			b.box(pos + fwd * 0.03, Vector3(w, h, 0.04), MatLib.glowing(Color(0.07, 0.17, 0.21), 0.55), "lamp", rot)
 			# Faint graticule.
 			for gy in [-h * 0.25, h * 0.25]:
 				b.box(pos + Vector3(0, gy, 0) + fwd * 0.055, Vector3(w * 0.92, 0.015, 0.01),
@@ -1207,6 +1221,7 @@ static func _gallery(b: KIT.Bake) -> void:
 	# WEST TOWER ground floor — the library lounge. Shelves on the party wall side (the
 	# only windowless run), reading circle in the middle, a chart totem by the door.
 	var wt := Vector3(-29.0, TERRACE, 4.0)
+	b.box(Vector3(-29.0, TERRACE + 0.02, 4.0), Vector3(21.2, 0.04, 27.2), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
 	for sz in [-2.2, 0.6, 3.4]:
 		b.box(Vector3(-39.45, TERRACE + 1.15, sz + 3.0), Vector3(0.42, 2.3, 2.5), MatLib.wood(), "hull", Vector3.ZERO, true)
 		for r5 in range(3):
@@ -1221,6 +1236,7 @@ static func _gallery(b: KIT.Bake) -> void:
 	# EAST TOWER ground floor — the games room. Billiard table under its own low light,
 	# sofas against the south end, a small bar shelf on the party wall.
 	var et := Vector3(29.0, DINE_ROOF, 4.0)
+	b.box(Vector3(29.0, DINE_ROOF + 0.02, 4.0), Vector3(21.2, 0.04, 27.2), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
 	b.box(et + Vector3(0, 0.78, 0), Vector3(2.7, 0.16, 1.5), MatLib.wood(), "hull", Vector3.ZERO, true)
 	b.box(et + Vector3(0, 0.88, 0), Vector3(2.4, 0.05, 1.2), MatLib.canvas(Color(0.12, 0.34, 0.22)), "detail")
 	for lx2 in [-1.05, 1.05]:
@@ -1314,8 +1330,8 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		[Vector3(14.0, PLANT_Y + 3.0, -8.0), 1.6, 22.0],
 		[Vector3(0.0, LOW_Y + 2.4, -32.0), 1.4, 18.0],
 		[Vector3(0.0, MAIN_Y + 3.0, 26.0), 1.7, 22.0],          # spa ground
-		[Vector3(-29.0, TERRACE + 2.6, 4.0), 1.6, 20.0],        # west tower library
-		[Vector3(29.0, DINE_ROOF + 2.6, 4.0), 1.6, 20.0],       # east tower games room
+		[Vector3(-29.0, TERRACE + 2.6, 4.0), 2.4, 22.0],        # west tower library
+		[Vector3(29.0, DINE_ROOF + 2.6, 4.0), 2.4, 22.0],       # east tower games room
 	]
 	for p2 in omni_pts:
 		var l := OmniLight3D.new()
