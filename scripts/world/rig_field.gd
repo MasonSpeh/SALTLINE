@@ -58,6 +58,9 @@ const BRIDGE_DEPTH: float = 4.6
 const SPAN_DAMAGE := [0.10, 0.16, 0.34]
 
 var stats: Dictionary = {}
+## WORLD-space [foot, head] pairs for every stair flight in the field, straight out of the
+## bakes. tests/rig_field_probe.gd walks this list: seats at both ends, clear line of climb.
+var stair_pairs: Array = []
 
 ## THE FIELD IS DARK UNTIL THE RIG HAS POWER. Every emissive fixture across the three new
 ## platforms — cove strips, lamp lenses, mast beacons, the aquarium's tank light — is built
@@ -156,6 +159,7 @@ func _ready() -> void:
 		meta["id"] = id
 		total_tris += bake.tris()
 		total_prims += bake.prims()
+		stair_pairs.append_array(bake.stairs)
 		total_chunks += bake.flush(host)
 		built.append(meta)
 		# Publish each rig so probes, the sonar export and the fishing pass can find it

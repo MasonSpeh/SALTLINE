@@ -104,7 +104,7 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 		"bridge_out": BRIDGE_OUT,
 		"deck_y": MAIN_Y,
 		"spawn": Vector3(-2.0, MAIN_Y, -20.0),
-		"overview": Vector3(-32.0, TOWER_TOP, -4.5),
+		"overview": Vector3(-32.0, TOWER_TOP, -8.6),   ## on the head platform rim, clear of the stairwell hole
 		"fishing": [
 			{"id": "marrow_intake", "at": Vector3(29.0, LOW_Y, -23.0), "water": "near"},
 			{"id": "marrow_pipe_rack", "at": Vector3(-50.0, CANTI_Y, -14.0), "water": "open"},
@@ -140,6 +140,8 @@ static func _main_deck(b: KIT.Bake) -> void:
 	# purpose and MARROW keeps that grammar.
 	KIT.rail_rect(b, DECK, MAIN_Y, [
 		["s", -7.0, 3.0],          # bridge from SALTLINE-0
+		["s", 10.0, 17.0],         # mezzanine ring stair
+		["n", -17.0, -9.0],        # mezzanine ring stair
 		["e", 7.0, 17.0],          # bridge to THE ANCHORAGE
 		["w", -19.0, -9.0],        # mouth of the pipe-rack cantilever
 		["s", 20.0, 38.0],         # over the low deck / stairwell head
@@ -196,7 +198,7 @@ static func _cantilever(b: KIT.Bake) -> void:
 	# The rack itself, running the length of the cantilever and on into the plant hall.
 	KIT.pipe_rack(b, Vector3(-51.0, CANTI_Y + 1.4, -14.0), Vector3(-6.0, MAIN_Y + 1.6, -14.0), 5, 3.2)
 	# Three steps up from the cantilever to the main deck — an 0.8 m half level.
-	KIT.stair(b, Vector3(-39.6, CANTI_Y, -14.0), Vector3(-36.4, MAIN_Y, -14.0), 2.4, true, true)
+	KIT.stair(b, Vector3(-39.6, CANTI_Y, -17.0), Vector3(-36.4, MAIN_Y, -17.0), 2.2, true, true)
 
 # ------------------------------------------------------------------------- superstructure
 
@@ -208,7 +210,7 @@ static func _buildings(b: KIT.Bake) -> void:
 	KIT.block(b, MESS, MAIN_Y, 2, BLOCK_H, hull, {
 		"doors": [["e", 11.0, 0], ["e", 11.0, 1], ["s", -22.0, 0], ["n", -14.0, 0]],
 		"roof_deck": true,
-		"roof_gaps": [["e", 8.0, 13.0]],   # where the roof catwalk lands
+		"roof_gaps": [["e", 8.0, 13.0], ["w", 5.0, 10.0]],   # roof catwalk + garden stair
 		"glass_tint": Color(0.55, 0.66, 0.62),
 	})
 	# 2. THE PLANT HALL. One 7.2 m storey — pump hall, machine shop (bigger than rig 1's),
@@ -217,7 +219,7 @@ static func _buildings(b: KIT.Bake) -> void:
 		"windows": false,
 		"doors": [["w", 11.0, 0], ["s", 8.0, 0], ["e", 11.0, 0]],
 		"roof_deck": true,
-		"roof_gaps": [["w", 8.0, 13.0], ["n", 12.0, 17.0]],
+		"roof_gaps": [["w", 8.0, 13.0], ["n", 12.0, 17.0], ["e", 3.0, 7.0]],
 	})
 	# The roller-door openings read as openings, so they get a lintel band and a track.
 	for d in [[Vector2(2.0, 11.0), 90.0], [Vector2(8.0, 4.0), 0.0], [Vector2(26.0, 11.0), 90.0]]:
@@ -326,11 +328,14 @@ static func _silos(b: KIT.Bake) -> void:
 		for k in range(4):
 			b.cyl(Vector3(SILO_X, MAIN_Y + 3.0 + k * 2.2, z), SILO_R + 0.07, 0.16, MatLib.rust_steel(), "detail", Vector3.ZERO, -1.0, 14)
 	# The gantry over the tops, and the fill line running to it from the plant hall.
-	KIT.catwalk(b, Vector3(SILO_X, GANTRY_Y, SILO_Z[0] - 3.4), Vector3(SILO_X, GANTRY_Y, SILO_Z[2] + 3.4), 1.6, true)
+	# Gapped WEST rail where the plant-roof stair lands (z 5 = 22.4 m along a south->north
+	# run; the run's right side faces west).
+	KIT.railed_walk(b, Vector3(SILO_X, GANTRY_Y, SILO_Z[0] - 3.4), Vector3(SILO_X, GANTRY_Y, SILO_Z[2] + 3.4), 1.6,
+		[[21.0, 23.8]], [])
 	KIT.pipe_run(b, [Vector3(20.0, PLANT_ROOF + 1.2, 10.0), Vector3(SILO_X, PLANT_ROOF + 1.2, 10.0),
 		Vector3(SILO_X, GANTRY_Y + 1.6, 10.0), Vector3(SILO_X, GANTRY_Y + 1.6, SILO_Z[2])], 0.26)
 	# Stair up from the plant roof to the gantry: 8 m of run for 3 m of rise, 20.6 deg.
-	KIT.stair(b, Vector3(26.0, PLANT_ROOF, SILO_Z[2] + 3.0), Vector3(33.0, GANTRY_Y, SILO_Z[2] + 3.0), 1.6, true, true)
+	KIT.stair(b, Vector3(26.6, PLANT_ROOF, SILO_Z[2] + 3.0), Vector3(33.4, GANTRY_Y, SILO_Z[2] + 3.0), 1.6, true, true)
 
 static func _tower(b: KIT.Bake) -> void:
 	# THE OVERVIEW. A stair tower on the west shoulder from the main deck to y 28.4, with the
@@ -341,7 +346,8 @@ static func _tower(b: KIT.Bake) -> void:
 	# Head platform, one metre wider than the tower on every side.
 	var head := Rect2(TOWER_HI.position.x - 1.0, TOWER_HI.position.y - 1.0,
 		TOWER_HI.size.x + 2.0, TOWER_HI.size.y + 2.0)
-	KIT.deck(b, head, TOWER_TOP, 0.24, MatLib.grating())
+	# HOLE over the flight lanes: a full slab here capped the tower's own final flight.
+	KIT.deck_hole(b, head, Rect2(-35.1, -7.25, 6.2, 5.5), TOWER_TOP, 0.24, MatLib.grating())
 	KIT.rail_rect(b, head, TOWER_TOP, [], 0.2)
 	# The vent stack, offset so it never stands in the view it exists to frame.
 	b.cyl(Vector3(c.x + 3.4, (TOWER_TOP + STACK_TIP) * 0.5, c.y - 2.6), 1.15, STACK_TIP - TOWER_TOP,
@@ -358,9 +364,14 @@ static func _tower(b: KIT.Bake) -> void:
 			Vector3(c.x + 3.4 + cos(r) * 14.0, MAIN_Y + 0.4, c.y - 2.6 + sin(r) * 14.0), 0.06,
 			MatLib.dark_metal(), "detail")
 	# Garden stair: main deck to the roof, two flights on the mess block's west face.
-	KIT.stair_tower(b, GARDEN_STAIR, MAIN_Y, GARDEN_Y, 3.6, true)
+	# THREE flights of 2.4, not two of 3.6 — flight parity decides which END the head
+	# landing sits at, and with two flights it sat at the WEST end, four metres of open air
+	# from the roof it serves. Odd count puts the head EAST, against the mess roof edge.
+	KIT.stair_tower(b, GARDEN_STAIR, MAIN_Y, GARDEN_Y, 2.4, true)
 	# Plant-hall roof stair, on its north face.
-	KIT.stair_tower(b, PLANT_STAIR, MAIN_Y, PLANT_ROOF, 3.6, true)
+	KIT.stair_tower(b, PLANT_STAIR, MAIN_Y, PLANT_ROOF, 2.4, true)
+	# Apron across the 0.4 m gap between the plant-stair tower and the plant roof edge.
+	KIT.catwalk(b, Vector3(15.5, PLANT_ROOF, 20.2), Vector3(15.5, PLANT_ROOF, 18.6), 2.0, false)
 
 static func _machinery(b: KIT.Bake) -> void:
 	# Cargo crane on the north-east shoulder, slewed out over the sea.
@@ -397,11 +408,11 @@ static func _links(b: KIT.Bake) -> void:
 	# 2. The long diagonal: garden roof to the crane pedestal, 36 m across the north bay,
 	#    hung from nothing and standing on posts to the deck.
 	KIT.catwalk(b, Vector3(-4.0, GARDEN_Y, 17.0), Vector3(29.0, PLANT_ROOF, 21.5), 1.8, true, MAIN_Y)
-	# 3. Hydroponics roof to the main deck, a short flight rather than a catwalk.
-	KIT.stair(b, Vector3(-4.0, MAIN_Y, -18.0), Vector3(-4.0, HYDRO_ROOF, -12.0), 1.8, true, true)
-	KIT.catwalk(b, Vector3(-5.0, HYDRO_ROOF, -14.0), Vector3(-14.0, HYDRO_ROOF, -14.0), 1.6, true)
+	# (The old link stair onto the hydroponics roof is gone: that roof carries sawtooth
+	# glazing rows every 2.6 m and was never walkable — a stair onto it was a stair into
+	# glass, which is exactly what the line-of-climb probe reported.)
 	# 4. Plant roof to the mess block's upper storey door — the "half level" link.
-	KIT.catwalk(b, Vector3(2.0, PLANT_ROOF, 6.5), Vector3(-3.72, MAIN_Y + BLOCK_H + 0.0, 6.5), 1.6, true, MAIN_Y)
+	KIT.catwalk(b, Vector3(2.0, PLANT_ROOF, 11.0), Vector3(-3.72, MAIN_Y + BLOCK_H + 0.0, 11.0), 1.6, true, MAIN_Y)
 
 static func _lights(b: KIT.Bake, host: Node3D) -> void:
 	# Sodium floodlight masts. Shadows OFF, deliberately: render_budget caps the whole game
@@ -478,10 +489,13 @@ static func _process_deck(b: KIT.Bake) -> void:
 		KIT.pipe_rack(b, Vector3(-29.0, PLANT_Y + 4.4, z2), Vector3(20.0, PLANT_Y + 4.4, z2), 6, 3.2)
 	KIT.cable_tray(b, Vector3(-29.0, PLANT_Y + 5.4, -6.0), Vector3(29.0, PLANT_Y + 5.4, -6.0))
 	KIT.cable_tray(b, Vector3(-29.0, PLANT_Y + 5.4, 6.0), Vector3(29.0, PLANT_Y + 5.4, 6.0))
-	KIT.catwalk(b, Vector3(-28.0, PLANT_Y + 3.2, -6.0), Vector3(22.0, PLANT_Y + 3.2, -6.0), 1.6, true, PLANT_Y)
+	KIT.railed_walk(b, Vector3(-28.0, PLANT_Y + 3.2, -6.0), Vector3(22.0, PLANT_Y + 3.2, -6.0), 1.6,
+		[[44.4, 47.6]], [])
 	KIT.catwalk(b, Vector3(-28.0, PLANT_Y + 3.2, 8.0), Vector3(22.0, PLANT_Y + 3.2, 8.0), 1.6, true, PLANT_Y)
 	KIT.catwalk(b, Vector3(-28.0, PLANT_Y + 3.2, -6.0), Vector3(-28.0, PLANT_Y + 3.2, 8.0), 1.6, true, PLANT_Y)
-	KIT.stair(b, Vector3(21.0, PLANT_Y, -6.0), Vector3(21.0, PLANT_Y + 3.2, 0.0), 1.6, true, true)
+	# From the NORTH at x 18 — the first retarget put the foot inside the tower stairwell
+	# hole. Head at the walkway's near edge; its rail is gapped there.
+	KIT.stair(b, Vector3(18.0, PLANT_Y, -2.4), Vector3(18.0, PLANT_Y + 3.2, -5.35), 1.5, true, true)
 	# Risers up through the main slab to the deck plant above.
 	for x2 in [-24.0, -17.0, -10.0, 10.0]:
 		KIT.pipe_run(b, [Vector3(x2, PLANT_Y + 8.0, -10.0 if x2 < 0.0 else 8.0),
@@ -504,16 +518,19 @@ static func _mezzanine(b: KIT.Bake) -> void:
 	var x1: float = DECK.end.x + o
 	var z0: float = DECK.position.y - o
 	var z1: float = DECK.end.y + o
-	for run in [[Vector3(x0, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z0)],
-			[Vector3(x0, MEZZ_Y, z1), Vector3(x1, MEZZ_Y, z1)],
-			[Vector3(x0, MEZZ_Y, z0), Vector3(x0, MEZZ_Y, z1)],
-			[Vector3(x1, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z1)]]:
-		KIT.catwalk(b, run[0], run[1], 1.8, true, MAIN_Y)
-	# Four stairs up from the deck onto the ring, plus the hangers that carry it.
-	for spec in [[Vector3(DECK.position.x + 1.0, MAIN_Y, -12.0), Vector3(x0, MEZZ_Y, -18.0)],
-			[Vector3(DECK.end.x - 1.0, MAIN_Y, 12.0), Vector3(x1, MEZZ_Y, 18.0)],
-			[Vector3(-12.0, MAIN_Y, DECK.end.y - 1.0), Vector3(-18.0, MEZZ_Y, z1)],
-			[Vector3(12.0, MAIN_Y, DECK.position.y + 1.0), Vector3(18.0, MEZZ_Y, z0)]]:
+	# railed_walk, not catwalk: outer rails solid, INNER rail gapped where each stair
+	# arrives — a stair head into a fully-railed walkway tops out against balustrade.
+	# Gap distances are metres along each run from its `a` end.
+	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z0), 1.8, [[55.4, 58.6]], [])
+	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z1), Vector3(x1, MEZZ_Y, z1), 1.8, [], [[20.6, 23.8]])
+	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z0), Vector3(x0, MEZZ_Y, z1), 1.8, [], [[6.6, 9.8]])
+	KIT.railed_walk(b, Vector3(x1, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z1), 1.8, [[41.4, 44.6]], [])
+	# Four stairs up from the deck, heads at the ring's INNER (deck-side) edge — a
+	# centreline head runs its last metre of climb under the walkway slab.
+	for spec in [[Vector3(DECK.position.x + 1.4, MAIN_Y, -12.6), Vector3(x0 + 0.85, MEZZ_Y, -17.4)],
+			[Vector3(DECK.end.x - 1.4, MAIN_Y, 12.6), Vector3(x1 - 0.85, MEZZ_Y, 17.4)],
+			[Vector3(-12.6, MAIN_Y, DECK.end.y - 1.4), Vector3(-17.4, MEZZ_Y, z1 - 0.85)],
+			[Vector3(12.6, MAIN_Y, DECK.position.y + 1.4), Vector3(17.4, MEZZ_Y, z0 + 0.85)]]:
 		KIT.stair(b, spec[0], spec[1], 1.6, true, true)
 	var steel: Material = MatLib.rust_steel()
 	for t in [-30.0, -15.0, 0.0, 15.0, 30.0]:
@@ -531,15 +548,22 @@ static func _mezzanine(b: KIT.Bake) -> void:
 
 ## Main-deck process: what a working platform actually carries between its buildings.
 static func _more_plant(b: KIT.Bake) -> void:
-	KIT.vessel(b, Vector3(-33.0, MAIN_Y, -4.0), 2.2, 8.6, true)
-	KIT.vessel(b, Vector3(-33.0, MAIN_Y, 4.0), 2.2, 8.6, true)
+	# South of the stair tower, NOT at z -4/+4 — those stood inside TOWER_HI's footprint,
+	# directly in the path of its flights (found by the probe's line-of-climb rays).
+	KIT.vessel(b, Vector3(-33.0, MAIN_Y, -15.0), 2.2, 8.6, true)
+	KIT.vessel(b, Vector3(-33.0, MAIN_Y, -20.5), 2.2, 8.6, true)
 	KIT.vessel(b, Vector3(30.0, MAIN_Y, 8.0), 2.4, 9.0, true)
-	KIT.exchanger_bank(b, Vector3(-8.0, MAIN_Y, 22.0), 3, 10.0, 0.0)
+	# At z 18, not 22 — its tube bank sat across the mezz north stair's approach.
+	KIT.exchanger_bank(b, Vector3(-8.0, MAIN_Y, 18.0), 3, 10.0, 0.0)
 	KIT.manifold(b, Vector3(14.0, MAIN_Y, -18.0), 9.0, 3.4, 0.0)
 	KIT.manifold(b, Vector3(-16.0, MAIN_Y, 1.0), 7.0, 3.2, 90.0)
 	for i in range(4):
 		KIT.skid(b, Vector3(20.0 + i * 4.6, MAIN_Y, 22.0), Vector3(4.0, 2.4, 3.0), 0.0)
 	KIT.cable_tray(b, Vector3(-36.0, MAIN_Y + 4.4, -22.0), Vector3(36.0, MAIN_Y + 4.4, -22.0), MAIN_Y)
 	KIT.cable_tray(b, Vector3(-36.0, MAIN_Y + 4.4, 22.6), Vector3(36.0, MAIN_Y + 4.4, 22.6), MAIN_Y)
-	# The glazed control cabin on the tower head — MARROW's lookout, and its one warm room.
-	KIT.lookout(b, Rect2(TOWER_HI.position.x - 0.4, TOWER_HI.position.y + 0.4, 7.0, 6.0), TOWER_TOP, 3.0)
+	# The glazed control cabin on the tower head. FLOORLESS — its floor slab used to cap the
+	# stair tower's final flight — and sized so the vent stack (at c.x+3.4) stays outside its
+	# east wall. The player emerges from the stairs INSIDE the cab and steps out of its east
+	# door onto the head platform rim.
+	KIT.lookout(b, Rect2(-37.6, -9.2, 8.9, 9.4), TOWER_TOP, 3.0,
+		{"floor": false, "door": "e", "door_at": -4.5})

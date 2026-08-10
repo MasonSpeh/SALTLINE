@@ -158,13 +158,23 @@ func _run() -> void:
 			["gallery_G3", Vector3(-13.0, 33.1, 4.0)],
 			["gallery_G4", Vector3(0.0, 36.8, -8.5)],
 			["tank_spur_G4", Vector3(0.0, 36.8, 11.0)],
+			["dining_hall", Vector3(28.0, 22.0, 2.0)],
+			["kitchen", Vector3(30.0, 22.0, -18.0)],
+			["private_dining", Vector3(29.0, 22.0, 14.5)],
+			["suite_west", Vector3(-34.0, 22.0, 3.0)],
+			["suite_south", Vector3(-29.0, 22.0, -22.0)],
+			["west_hall", Vector3(-20.0, 22.0, 4.0)],
+			["salon", Vector3(6.0, 22.0, -20.0)],
+			["entrance", Vector3(-10.0, 22.0, -24.0)],
+			["back_corridor", Vector3(22.0, 22.0, 19.0)],
+			["terrace", Vector3(0.0, 26.2, -20.0)],
 			["plant_deck", Vector3(-28.0, 8.8, -8.0)],
 			["leisure_deck", Vector3(-24.0, 15.4, 0.0)],
-			["lobby", Vector3(0.0, 22.0, -24.0)],
 			["helideck_centre", Vector3(48.0, 30.0, -8.0)],
 			["under_helideck", Vector3(46.0, 22.0, -8.0)],
 			["promenade", Vector3(-46.0, 22.0, 2.5)],
-			["west_wing_roof", Vector3(-29.0, 36.8, 12.0)],
+			["west_tower_roof", Vector3(-29.0, 37.3, 12.0)],
+			["spa_ground", Vector3(0.0, 22.0, 26.0)],
 			["marina", Vector3(0.0, 2.2, -29.0)]],
 		"deepwell": [["production_deck", Vector3(-22.0, 11.3, 8.0)],
 			["production_catwalk", Vector3(0.0, 14.6, 14.0)],
@@ -232,6 +242,65 @@ func _run() -> void:
 		var vol: float = PI * r * r * hgt
 		_check("the column aquarium runs through four galleries", hgt >= 14.0 and r >= 4.5,
 			"r=%.2f h=%.2f -> %.0f m3" % [r, hgt, vol])
+
+	# ---------------------------------------------------------------- the stair audit
+	# Every flight the field builds registers its [foot, head] pair. Three checks per flight,
+	# none of which trusts the geometry that claimed to build it:
+	#   1. floor within 0.5 m under a point just BEHIND the foot;
+	#   2. floor within 0.5 m under a point just BEYOND the head — a stair to nowhere, a
+	#      head under a slab, or a landing beside a void all fail here;
+	#   3. a clear LINE OF CLIMB: rays 0.75 m and 1.6 m above the walking line from 15% of
+	#      the way up to half a metre past the head. A rail crossing the flight, a slab
+	#      sealing the top, or another flight stacked too low overhead all hit.
+	var pairs: Array = field.get("stair_pairs")
+	_check("stairs registered (anti-vacuity)", pairs.size() >= 40, "flights=%d" % pairs.size())
+	var bad_ends: Array = []
+	var blocked: Array = []
+	for pi in range(pairs.size()):
+		var a: Vector3 = pairs[pi][0]
+		var cc: Vector3 = pairs[pi][1]
+		if a.y > cc.y:
+			var tv: Vector3 = a
+			a = cc
+			cc = tv
+		var flat := Vector2(cc.x - a.x, cc.z - a.z)
+		if flat.length() < 0.05:
+			continue
+		var dir3 := Vector3(flat.normalized().x, 0.0, flat.normalized().y)
+		var tag: String = "#%d (%.1f,%.1f,%.1f)->(%.1f,%.1f,%.1f)" % [pi, a.x, a.y, a.z, cc.x, cc.y, cc.z]
+		var fy: float = _seat(a - dir3 * 0.6, 1.8, 4.0)
+		if is_nan(fy) or absf(fy - a.y) > 0.5:
+			bad_ends.append("foot %s got %s" % [tag, "MISS" if is_nan(fy) else "%.2f" % fy])
+		var hy2: float = _seat(cc + dir3 * 0.6, 1.8, 4.0)
+		if is_nan(hy2) or absf(hy2 - cc.y) > 0.5:
+			bad_ends.append("head %s got %s" % [tag, "MISS" if is_nan(hy2) else "%.2f" % hy2])
+		for hh in [0.75, 1.6]:
+			var from_p: Vector3 = a.lerp(cc, 0.15) + Vector3(0, hh, 0)
+			var to_p: Vector3 = cc + dir3 * 0.5 + Vector3(0, hh, 0)
+			var q := PhysicsRayQueryParameters3D.create(from_p, to_p)
+			var hit: Dictionary = _space.intersect_ray(q)
+			if not hit.is_empty():
+				blocked.append("h%.2f %s at (%.1f,%.1f,%.1f)" % [hh, tag,
+					hit["position"].x, hit["position"].y, hit["position"].z])
+				break
+	_check("every stair foot and head lands on real floor", bad_ends.is_empty(),
+		"%d/%d bad: %s" % [bad_ends.size(), pairs.size() * 2, ", ".join(PackedStringArray(bad_ends)).left(600)])
+	_check("every stair has a clear line of climb", blocked.is_empty(),
+		"%d blocked: %s" % [blocked.size(), ", ".join(PackedStringArray(blocked)).left(600)])
+
+	# ---------------------------------------------------------------- the dining view
+	# From the dining hall toward the tank: the first thing a ray hits must be the TANK
+	# GLASS, ~20 m away, through the drum's open east bay — not a pane, not a rib.
+	var anch: Node3D = _rig_named(rigs, "anchorage")
+	if anch != null:
+		var from_w: Vector3 = anch.global_transform * Vector3(26.0, 23.6, 8.0)
+		var to_w: Vector3 = anch.global_transform * Vector3(0.0, 25.0, 4.0)
+		var q2 := PhysicsRayQueryParameters3D.create(from_w, to_w)
+		var hit2: Dictionary = _space.intersect_ray(q2)
+		var d2: float = (hit2["position"] - from_w).length() if not hit2.is_empty() else -1.0
+		_check("the dining hall sees the tank through an open bay",
+			not hit2.is_empty() and d2 > 15.0,
+			"first hit at %.1f m (want >15 = the tank itself, not the drum wall at ~9)" % d2)
 
 	# ---------------------------------------------------------------- the light switch
 	# "Many lights once they are turned on" is a real claim, so it gets a real gate: the

@@ -98,6 +98,10 @@ class Bake extends RefCounted:
 
 	var _acc: Dictionary = {}      ## key -> {mat, group, v, n, i}
 	var _shapes: Array = []        ## [{xf: Transform3D (LOCAL), size: Vector3}]
+	## Every stair flight built through this bake, as WORLD-space [foot, head] pairs.
+	## The probe walks this list and refuses any flight whose ends are not on real floor
+	## or whose line of climb is obstructed — a stair is a CLAIM, and claims get measured.
+	var stairs: Array = []
 	var _tri_count: int = 0
 	var _prim_count: int = 0
 
@@ -168,6 +172,10 @@ class Bake extends RefCounted:
 	## smooth slab, so a capsule can never catch at the waist while its feet slide under.
 	func collider(pos: Vector3, size: Vector3, rot: Vector3 = Vector3.ZERO) -> void:
 		_shapes.append({"xf": Transform3D(Basis.from_euler(rot), pos), "size": size})
+
+	## Register one flight (LOCAL coords; stored in world space) for the stair probe.
+	func stair_link(foot: Vector3, head: Vector3) -> void:
+		stairs.append([xform * foot, xform * head])
 
 	func _write(prim: Array, local_xf: Transform3D, mat: Material, group: String) -> void:
 		var xf: Transform3D = xform * local_xf
@@ -412,6 +420,7 @@ static func stair(b: Bake, from_p: Vector3, to_p: Vector3, width: float,
 	var run: float = Vector2(d.x, d.z).length()
 	if rise < 0.05 or run < 0.1:
 		return
+	b.stair_link(from_p, to_p)
 	var steps: int = maxi(2, roundi(rise / RISER_TARGET))
 	var riser: float = rise / steps
 	var tread_d: float = run / steps
@@ -465,15 +474,28 @@ static func stair_tower(b: Bake, rect: Rect2, base_y: float, top_y: float,
 	var x0: float = rect.position.x
 	var x1: float = rect.end.x
 	var zc: float = rect.get_center().y
-	var width: float = minf(rect.size.y - 0.6, 2.0)
+	# TWO LANES, NOT ONE. A single-lane switchback stacks flight i+1 directly over flight i,
+	# and the clearance between them is 2*rise*(1-t): approaching any landing a climber has
+	# less than a metre of headroom, and the flight above's ramp collider physically stops
+	# the capsule. Alternating flights between a north and a south lane means no flight is
+	# ever directly over the one below it — the same reason rig 1's tower has STAIR_ZS and
+	# STAIR_ZN lanes. Landings span both lanes, so the turn at each end is a real turn.
+	var lane_w: float = clampf((rect.size.y - 1.0) * 0.5, 1.2, 2.2)
+	var lane_off: float = lane_w * 0.5 + 0.12
 	var landing_d: float = 2.0
+	# BASE SLAB, always, top 15 mm below base_y: three towers stood their first flight on
+	# open air (the tower rect is not part of any deck), and on towers that DO sit on a deck
+	# the sunken slab hides under the plating instead of z-fighting it.
+	b.box(Vector3(rect.get_center().x, base_y - 0.105, zc),
+		Vector3(rect.size.x, 0.18, rect.size.y), MatLib.grating(), "hull", Vector3.ZERO, true)
 	for i in range(n):
 		var y0: float = base_y + rise * i
 		var y1: float = y0 + rise
 		var west_up: bool = (i % 2) == 0
-		var a := Vector3(x0 + landing_d if west_up else x1 - landing_d, y0, zc)
-		var c := Vector3(x1 - landing_d if west_up else x0 + landing_d, y1, zc)
-		stair(b, a, c, width, true, true)
+		var lz: float = zc + (lane_off if i % 2 == 0 else -lane_off)
+		var a := Vector3(x0 + landing_d if west_up else x1 - landing_d, y0, lz)
+		var c := Vector3(x1 - landing_d if west_up else x0 + landing_d, y1, lz)
+		stair(b, a, c, lane_w, true, true)
 		# Landing slab at the top of each flight.
 		var lx: float = c.x + (landing_d * 0.5 if west_up else -landing_d * 0.5)
 		b.box(Vector3(lx, y1 - 0.09, zc), Vector3(landing_d + 0.4, 0.18, rect.size.y - 0.4),
@@ -487,8 +509,12 @@ static func stair_tower(b: Bake, rect: Rect2, base_y: float, top_y: float,
 			for sz in [rect.position.y, rect.end.y]:
 				b.box(Vector3(sx, (base_y + top_y) * 0.5, sz),
 					Vector3(0.34, top_y - base_y, 0.34), steel, "hull", Vector3.ZERO, true)
+		# N and S sides only. The old w/e gap specs passed X-ranges where rail_rect expects
+		# Z-ranges, so they never matched and both TURN/EXIT ends were silently fenced at
+		# every level. The ends stay fully open: they are where the landings turn and where
+		# the head walks off.
 		for y in levels:
-			rail_rect(b, rect, y, [["w", x0, x0 + landing_d + 0.5], ["e", x1 - landing_d - 0.5, x1]], 0.05)
+			rail_rect(b, rect, y, [["w", rect.position.y, rect.end.y], ["e", rect.position.y, rect.end.y]], 0.05)
 	return levels
 
 # ------------------------------------------------------------------------------- catwalk
@@ -530,6 +556,36 @@ static func catwalk(b: Bake, a: Vector3, c: Vector3, width: float = 1.8,
 			var t: float = float(i) / float(n)
 			var p: Vector3 = a.lerp(c, t)
 			b.member(p + Vector3(0, -0.1, 0), Vector3(p.x, hangers_to, p.z), 0.09, MatLib.rust_steel())
+
+## A CATWALK WITH RAIL GAPS: same deck and edge beams as catwalk(), but the rails on each
+## side are laid in segments, skipping [d0, d1] distance ranges (metres from `a`). This is
+## how a stair head arrives at a walkway without a balustrade across its top step.
+static func railed_walk(b: Bake, a: Vector3, c: Vector3, width: float,
+		gaps_left: Array = [], gaps_right: Array = []) -> void:
+	catwalk(b, a, c, width, false)
+	var d: Vector3 = c - a
+	var span: float = d.length()
+	if span < 0.5:
+		return
+	var yaw: float = atan2(d.x, d.z)
+	var side := Vector3(cos(yaw), 0, -sin(yaw))
+	for pair in [[-1.0, gaps_left], [1.0, gaps_right]]:
+		var sgn: float = pair[0]
+		var gaps: Array = (pair[1] as Array).duplicate()
+		gaps.sort_custom(func(p, q): return p[0] < q[0])
+		var off: Vector3 = side * (sgn * width * 0.5)
+		var cursor: float = 0.0
+		for g in gaps:
+			if g[0] - cursor > 0.5:
+				_walk_rail_seg(b, a + off, c + off, span, cursor, g[0])
+			cursor = maxf(cursor, g[1])
+		if span - cursor > 0.5:
+			_walk_rail_seg(b, a + off, c + off, span, cursor, span)
+
+static func _walk_rail_seg(b: Bake, a: Vector3, c: Vector3, span: float, d0: float, d1: float) -> void:
+	var p0: Vector3 = a.lerp(c, d0 / span)
+	var p1: Vector3 = a.lerp(c, d1 / span)
+	rail_run(b, Vector2(p0.x, p0.z), Vector2(p1.x, p1.z), (p0.y + p1.y) * 0.5)
 
 # ---------------------------------------------------------------------------- superstructure
 
@@ -1047,11 +1103,37 @@ static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y
 			0.28, weed, "hull")
 
 ## A GLAZED LOOKOUT CABIN — the room you climb to. Solid sill, glass band, capped roof.
-static func lookout(b: Bake, rect: Rect2, y: float, h: float = 3.0) -> void:
-	deck(b, rect, y, 0.24, MatLib.checker_plate())
+## opts:
+##   "door":  side ("s"/"n"/"w"/"e") that gets a 1.2 m opening — without one the cabin is a
+##            sealed glass box, which is exactly what the first three of these were.
+##   "door_at": absolute coordinate of the door centre along that side (defaults to centre).
+##   "floor": false when the cabin sits OVER a stair head — a floor slab there caps the
+##            climb (MARROW's tower cab did precisely this).
+static func lookout(b: Bake, rect: Rect2, y: float, h: float = 3.0, opts: Dictionary = {}) -> void:
+	if bool(opts.get("floor", true)):
+		deck(b, rect, y, 0.24, MatLib.checker_plate())
 	var shell: Material = MatLib.painted_steel()
 	var pane: Material = MatLib.glass(Color(0.58, 0.70, 0.74))
+	var door: String = str(opts.get("door", ""))
 	for side in ["s", "n", "w", "e"]:
+		if side == door:
+			var horiz: bool = side == "s" or side == "n"
+			var c: float = float(opts.get("door_at", rect.get_center().x if horiz else rect.get_center().y))
+			var lo: float = (rect.position.x if horiz else rect.position.y)
+			var hi: float = (rect.end.x if horiz else rect.end.y)
+			for seg in [[lo, c - 0.6], [c + 0.6, hi]]:
+				if seg[1] - seg[0] < 0.05:
+					continue
+				var sub: Rect2 = Rect2(seg[0], rect.position.y, seg[1] - seg[0], rect.size.y) if horiz \
+					else Rect2(rect.position.x, seg[0], rect.size.x, seg[1] - seg[0])
+				_wall_band(b, sub, side, y, 0.0, 0.85, 0.2, shell)
+				_wall_band(b, sub, side, y, 0.85, h - 0.35, 0.1, pane)
+			# Header over the doorway, so the opening reads cut rather than missing.
+			var hd: Rect2 = Rect2(c - 0.6, rect.position.y, 1.2, rect.size.y) if horiz \
+				else Rect2(rect.position.x, c - 0.6, rect.size.x, 1.2)
+			_wall_band(b, hd, side, y, 2.25, h - 0.35, 0.14, shell)
+			_wall_band(b, rect, side, y, h - 0.35, h, 0.24, shell)
+			continue
 		_wall_band(b, rect, side, y, 0.0, 0.85, 0.2, shell)
 		_wall_band(b, rect, side, y, 0.85, h - 0.35, 0.1, pane)
 		_wall_band(b, rect, side, y, h - 0.35, h, 0.24, shell)

@@ -129,8 +129,12 @@ static func _main_deck(b: KIT.Bake) -> void:
 	KIT.rail_rect(b, DECK, MAIN_Y, [
 		["s", 3.0, 13.0],      # the bridge landing — the only way on
 		["s", -6.0, 2.0],      # the decon stair head
+		["s", 18.0, 25.0],     # mezzanine ring stair
 		["w", -12.0, 0.0],     # west rim fishing gap
+		["w", -25.0, -17.0],   # mezzanine ring stair
+		["e", 17.0, 24.0],     # mezzanine ring stair
 		["n", 18.0, 33.0],     # crane slew arc
+		["n", -28.0, -18.0],   # mezzanine ring stair
 	], 0.4)
 	# THE MOON POOL RIM. Heavy guard rail all the way round with ONE deliberate gap at the
 	# south face, which is where the player fishes the fissure from.
@@ -188,7 +192,7 @@ static func _drill_substructure(b: KIT.Bake) -> void:
 	b.box(Vector3(8.2, DRILL_Y + 1.5, -6.0), Vector3(3.6, 3.0, 3.0), MatLib.painted_steel(), "hull", Vector3.ZERO, true)
 	b.box(Vector3(6.35, DRILL_Y + 1.7, -6.0), Vector3(0.1, 1.6, 2.4), MatLib.glass(Color(0.5, 0.62, 0.62)), "glass")
 	# Pipe ramp / V-door down to the main deck, and the racked stands beside it.
-	KIT.stair(b, Vector3(0.0, MAIN_Y, -20.0), Vector3(0.0, DRILL_Y, -13.0), 2.4, true, true)
+	KIT.stair(b, Vector3(0.0, MAIN_Y, -19.9), Vector3(0.0, DRILL_Y, -12.35), 2.4, true, true)
 	for i in range(9):
 		b.member(Vector3(-10.0 + i * 1.1, MAIN_Y + 0.6, -24.0), Vector3(-10.0 + i * 1.1, DRILL_Y - 0.4, -12.6), 0.28, MatLib.rust_steel(), "detail")
 
@@ -277,7 +281,7 @@ static func _buildings(b: KIT.Bake) -> void:
 		"glass_tint": Color(0.52, 0.62, 0.60),
 		"doors": [["w", -19.0, 0], ["w", -19.0, 1], ["n", 20.0, 0]],
 		"roof_deck": true,
-		"roof_gaps": [["w", -22.0, -16.0]],
+		"roof_gaps": [["w", -23.0, -16.0]],
 	})
 	# Containment / decon airlock at the stair head: a small hard box with one door each side.
 	KIT.block(b, AIRLOCK, MAIN_Y, 1, 3.20, MatLib.dark_metal(), {
@@ -291,10 +295,18 @@ static func _buildings(b: KIT.Bake) -> void:
 	# Stair from the main deck to the lab roof and on to the mud-house roof.
 	# THE CONTROL ROOM. Glazed, on the lab roof, looking straight at the drill floor — this
 	# is where the last shift's readouts are frozen mid-alarm.
-	KIT.lookout(b, Rect2(LAB.position.x + 3.0, LAB.position.y + 3.0, 11.0, 8.0), LAB_ROOF, 3.2)
-	KIT.stair(b, Vector3(8.0, MAIN_Y, -10.4), Vector3(8.0, 23.3, -15.4), 1.6, true, true)
-	KIT.stair(b, Vector3(10.4, 23.3, -15.4), Vector3(10.4, LAB_ROOF, -20.4), 1.6, true, true)
-	b.box(Vector3(9.2, 23.18, -15.4), Vector3(4.4, 0.24, 2.0), MatLib.grating(), "hull", Vector3.ZERO, true)
+	KIT.lookout(b, Rect2(LAB.position.x + 3.0, LAB.position.y + 3.0, 11.0, 8.0), LAB_ROOF, 3.2,
+		{"door": "w", "door_at": -19.0})
+	KIT.stair(b, Vector3(8.0, MAIN_Y, -10.4), Vector3(8.0, 23.3, -14.85), 1.6, true, true)
+	# The second flight climbs OUTSIDE the lab's west wall (x 8.6) — at x 10.4 it ascended
+	# underneath the very roof slab it serves and popped through it — then aprons in through
+	# the roof rail's west gap.
+	KIT.stair(b, Vector3(8.6, 23.3, -16.75), Vector3(8.6, LAB_ROOF, -21.75), 1.6, true, true)
+	# Landing platform BEYOND the first flight's head, not centred on it — centred, its
+	# slab edge overhung the arriving climb.
+	b.box(Vector3(8.3, 23.18, -16.1), Vector3(2.6, 0.24, 2.5), MatLib.grating(), "hull", Vector3.ZERO, true)
+	# BEYOND the head (z -22.3), not centred on it — centred, its slab overhung the climb.
+	KIT.catwalk(b, Vector3(8.6, LAB_ROOF, -22.3), Vector3(10.6, LAB_ROOF, -22.3), 1.2, false)
 
 static func _access(b: KIT.Bake) -> void:
 	# The ONLY way onto DEEPWELL that is not the bridge: a decon landing 2.6 m over the water
@@ -311,8 +323,11 @@ static func _access(b: KIT.Bake) -> void:
 			b.member(Vector3(sx, LOW_Y - 1.0, sz), Vector3(sx * 0.55, 1.2, minf(sz + 8.0, -25.0)), 0.42, steel, "hull")
 	# Perimeter walkway hung outside the deck rim on the west face — an "overpass" that lets
 	# the player walk the outside of the platform and look up at the derrick.
-	KIT.catwalk(b, Vector3(-34.6, MAIN_Y - 2.6, -24.0), Vector3(-34.6, MAIN_Y - 2.6, 24.0), 1.6, true)
-	KIT.stair(b, Vector3(-32.4, MAIN_Y, -22.0), Vector3(-34.6, MAIN_Y - 2.6, -18.0), 1.5, true, true)
+	KIT.railed_walk(b, Vector3(-34.6, MAIN_Y - 2.6, -24.0), Vector3(-34.6, MAIN_Y - 2.6, 24.0), 1.6,
+		[], [[18.4, 21.6]])
+	# Deck-side end flush AT the slab edge (x -32.9): half a metre inboard, the flight's
+	# final stretch collided with the deck slab's own side face.
+	KIT.stair(b, Vector3(-32.9, MAIN_Y, -8.0), Vector3(-34.6, MAIN_Y - 2.6, -4.0), 1.5, true, true)
 	for z in [-22.0, -10.0, 2.0, 14.0, 22.0]:
 		b.member(Vector3(-34.6, MAIN_Y - 2.6, z), Vector3(-33.2, MAIN_Y - 0.4, z), 0.18, steel, "detail")
 
@@ -435,11 +450,13 @@ static func _production_deck(b: KIT.Bake) -> void:
 		KIT.pipe_rack(b, Vector3(-25.0, CELLAR_LOW + 4.6, z2), Vector3(25.0, CELLAR_LOW + 4.6, z2), 6, 3.4)
 	KIT.cable_tray(b, Vector3(-25.0, CELLAR_LOW + 5.6, -11.0), Vector3(25.0, CELLAR_LOW + 5.6, -11.0))
 	KIT.cable_tray(b, Vector3(-25.0, CELLAR_LOW + 5.6, 9.0), Vector3(25.0, CELLAR_LOW + 5.6, 9.0))
-	for z3 in [-16.0, 14.0]:
-		KIT.catwalk(b, Vector3(-24.0, CELLAR_LOW + 3.3, z3), Vector3(24.0, CELLAR_LOW + 3.3, z3), 1.6, true, CELLAR_LOW)
+	KIT.railed_walk(b, Vector3(-24.0, CELLAR_LOW + 3.3, -16.0), Vector3(24.0, CELLAR_LOW + 3.3, -16.0), 1.6,
+		[[4.4, 7.6]], [])
+	KIT.catwalk(b, Vector3(-24.0, CELLAR_LOW + 3.3, 14.0), Vector3(24.0, CELLAR_LOW + 3.3, 14.0), 1.6, true, CELLAR_LOW)
 	KIT.catwalk(b, Vector3(-24.0, CELLAR_LOW + 3.3, -16.0), Vector3(-24.0, CELLAR_LOW + 3.3, 14.0), 1.6, true, CELLAR_LOW)
 	KIT.catwalk(b, Vector3(24.0, CELLAR_LOW + 3.3, -16.0), Vector3(24.0, CELLAR_LOW + 3.3, 14.0), 1.6, true, CELLAR_LOW)
-	KIT.stair(b, Vector3(-18.0, CELLAR_LOW, -16.0), Vector3(-18.0, CELLAR_LOW + 3.3, -10.0), 1.6, true, true)
+	# Head ON the z -16 catwalk — the old flight ended at z -10, in mid-air.
+	KIT.stair(b, Vector3(-18.0, CELLAR_LOW, -9.0), Vector3(-18.0, CELLAR_LOW + 3.3, -15.4), 1.5, true, true)
 	# The link from the access tower's fourth landing onto this deck.
 	KIT.catwalk(b, Vector3(0.0, CELLAR_LOW, -32.0), Vector3(0.0, CELLAR_LOW, -26.6), 2.6, true)
 	# Standpipe risers up to the drill floor.
@@ -458,11 +475,11 @@ static func _mezzanine(b: KIT.Bake) -> void:
 	var x1: float = DECK.end.x + o
 	var z0: float = DECK.position.y - o
 	var z1: float = DECK.end.y + o
-	for run in [[Vector3(x0, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z0)],
-			[Vector3(x0, MEZZ_Y, z1), Vector3(x1, MEZZ_Y, z1)],
-			[Vector3(x0, MEZZ_Y, z0), Vector3(x0, MEZZ_Y, z1)],
-			[Vector3(x1, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z1)]]:
-		KIT.catwalk(b, run[0], run[1], 1.8, true)
+	# railed_walk with inner-rail gaps at the four stair arrivals (outer rails solid).
+	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z0), 1.8, [[59.8, 63.0]], [])
+	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z1), Vector3(x1, MEZZ_Y, z1), 1.8, [], [[7.8, 11.0]])
+	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z0), Vector3(x0, MEZZ_Y, z1), 1.8, [], [[7.8, 11.0]])
+	KIT.railed_walk(b, Vector3(x1, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z1), 1.8, [[59.8, 63.0]], [])
 	var steel: Material = MatLib.rust_steel()
 	for t in [-28.0, -14.0, 0.0, 14.0, 28.0]:
 		for side in [[Vector3(x0, MEZZ_Y, t), Vector3(DECK.position.x + 0.6, MAIN_Y + 0.2, t)],
@@ -470,10 +487,10 @@ static func _mezzanine(b: KIT.Bake) -> void:
 				[Vector3(t, MEZZ_Y, z0), Vector3(t, MAIN_Y + 0.2, DECK.position.y + 0.6)],
 				[Vector3(t, MEZZ_Y, z1), Vector3(t, MAIN_Y + 0.2, DECK.end.y - 0.6)]]:
 			b.member(side[0], side[1], 0.2, steel, "detail")
-	for spec in [[Vector3(DECK.position.x + 1.0, MAIN_Y, -20.0), Vector3(x0, MEZZ_Y, -26.0)],
-			[Vector3(DECK.end.x - 1.0, MAIN_Y, 20.0), Vector3(x1, MEZZ_Y, 26.0)],
-			[Vector3(-20.0, MAIN_Y, DECK.end.y - 1.0), Vector3(-26.0, MEZZ_Y, z1)],
-			[Vector3(20.0, MAIN_Y, DECK.position.y + 1.0), Vector3(26.0, MEZZ_Y, z0)]]:
+	for spec in [[Vector3(DECK.position.x + 1.4, MAIN_Y, -20.0), Vector3(x0 + 0.85, MEZZ_Y, -26.0)],
+			[Vector3(DECK.end.x - 1.4, MAIN_Y, 20.0), Vector3(x1 - 0.85, MEZZ_Y, 26.0)],
+			[Vector3(-20.0, MAIN_Y, DECK.end.y - 1.4), Vector3(-26.0, MEZZ_Y, z1 - 0.85)],
+			[Vector3(20.0, MAIN_Y, DECK.position.y + 1.4), Vector3(26.0, MEZZ_Y, z0 + 0.85)]]:
 		KIT.stair(b, spec[0], spec[1], 1.6, true, true)
 	for i in range(16):
 		var t2: float = float(i) / 15.0
