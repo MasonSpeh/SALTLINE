@@ -172,11 +172,18 @@ const PLAY_SEC: float = 6.0
 ##
 ## The Y is PROBED at spawn, never trusted from this constant.
 ##
-## s55, owner's call: FOUND ASLEEP ON A BUNK. Cabin 1 of the bunkhouse north row
-## (bunk_layout.bed_pos(1, false) = x -18.0, z 16.8), Y started above the mattress so the
-## spawn probe seats her ON the bed, not the floor beside it. The hop down is the perch
-## grammar the cat already owns.
-const HOME := Vector3(-18.0, 18.7, 16.8)
+## s55, owner's call: FOUND ASLEEP ON A BUNK. Cabin 1 of the bunkhouse north row.
+##
+## s56: DERIVED, NOT TYPED — the s55 constant hand-typed "bed_pos(1, false) = x -18.0" and
+## the real answer is x -20.685 (CABIN_X[1] + wall half + bed half + clearance), so the cat
+## spawned standing in the MIDDLE OF THE CABIN FLOOR, 2.7 m from the bunk she was supposed
+## to be asleep on. The exact trap the line above this constant warns about, committed in
+## the same commit that wrote the warning. The bed collider (bed.gd: 1.0 x 0.56 x 2.1, top
+## at +0.56) is an Interactable on the default layer, so the seat ray lands ON the mattress
+## as long as the X is actually over the bed. Y starts above the mattress top; the seat
+## probe does the rest.
+const BUNKS := preload("res://scripts/world/bunk_layout.gd")
+var HOME: Vector3 = BUNKS.bed_pos(1, false) + Vector3(0, 0.7, 0)
 
 ## WATER RESCUE. The cat got washed out to sea: anything that puts her below the wet-deck
 ## walking band (a fall through a gap, a shove, a moved deck) ends with her treading water
@@ -187,6 +194,13 @@ const RESCUE_Y: float = 1.2
 const RESCUE_AFTER: float = 0.9
 const RESCUE_SPOT := Vector3(-6.0, 18.6, 10.0)
 var _wet_t: float = 0.0
+
+## FOUND ASLEEP means ASLEEP — the pose, not just the place. Until the player comes close
+## enough to be noticed (or says hello), the stranger loop holds State.SLEEP on the bunk
+## instead of grooming. Cleared once, never re-set: waking flows through the existing
+## `_was_asleep` stretch beat, and a restored save skips the nap entirely (the cat only
+## sleeps in on the morning you first find her).
+var _spawn_nap: bool = true
 
 ## THE LEGS LOOKED QUICK BECAUSE THEY WERE, AND THE CAUSE IS ARITHMETIC, NOT ANIMATION.
 ##
@@ -987,6 +1001,17 @@ func _fly_jump(delta: float) -> void:
 ## doze off.
 func _groom(delta: float, player: Node3D) -> void:
 	var d: float = global_position.distance_to(player.global_position)
+	# The first-meeting nap — see _spawn_nap. Curled on the bunk until the player is close
+	# enough that a real cat would have clocked them; then the ordinary groom/greet path
+	# resumes and the SLEEP -> anything edge plays the wake-up stretch.
+	if _spawn_nap:
+		if d < GREET_M * 2.5:
+			_spawn_nap = false
+		else:
+			_enter(State.SLEEP)
+			_reseat()
+			_last_speed = 0.0
+			return
 	# The drives the companion path decays every frame. Spelled out here rather than hoisted
 	# into `_process` so there is no chance of a double decrement on the friend path.
 	_wash_cd = maxf(0.0, _wash_cd - delta)
@@ -1972,6 +1997,8 @@ func restore_state(d: Variant) -> void:
 	if _touch != null:
 		_sync_verbs()
 	# A cat restored as a friend is a companion, not the stranger `_ready` left grooming.
+	# And a restored cat of ANY standing has already been met — no first-meeting nap.
+	_spawn_nap = false
 	_enter(State.SIT if _stayed else State.FOLLOW) if friend else _enter(State.GROOM)
 
 ## ONE POINT ON THE LEAP ARC — used by BOTH the flight and the clearance check, because

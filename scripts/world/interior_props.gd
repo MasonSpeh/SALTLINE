@@ -769,6 +769,19 @@ func _bunkhouse() -> void:
 	_lamp(Vector3(-21.80, y + 0.95, 14.58), Color(1.0, 0.85, 0.55), 0.5, 4.0)
 
 	# --- B-N · the radio op: the set squared on a table against the east divider. ---
+	# ...and the ship's cat asleep on this cabin's bunk (ship_cat.HOME, derived from
+	# bunk_layout). "Found near a light so she is illuminated in the dark" moved rooms with
+	# her in s55 and nothing brought a light along: the reader's lantern next door is
+	# BEHIND the cabin divider (CatSpawnProbe measured 0.000 lux at the mattress). A second
+	# lantern on this bunk's own locker lid gives the sleeping cat her glow — locker centre
+	# from bunk_layout, lamp INSIDE the lantern body like the reader's (source visible).
+	# At the lid's BUNK-SIDE CORNER, not its centre: from the centre the sight line to the
+	# mattress dips under the lid edge while still over the locker's own footprint, so the
+	# locker eclipses its own lamp (measured — lux 0.000 on the first try).
+	var cat_bed: Vector3 = BUNKS.bed_pos(1, false)
+	var cat_lock: Vector3 = BUNKS.locker_top(cat_bed)
+	_p("Lantern_01", Vector3(cat_lock.x - 0.14, cat_lock.y + 0.01, cat_lock.z - 0.14), 0)
+	_lamp(Vector3(cat_lock.x - 0.14, cat_lock.y + 0.26, cat_lock.z - 0.14), Color(1.0, 0.85, 0.55), 0.5, 4.5)
 	_pc("small_wooden_table_01", Vector3(-15.15, y, 15.0), -90)
 	_pc("WoodenChair_01", Vector3(-16.3, y, 15.0), 90)
 	_p("vintage_radio_transceiver", Vector3(-15.1, y + 0.5, 15.0), 200)

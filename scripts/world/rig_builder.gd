@@ -1480,7 +1480,10 @@ func _build_bunkhouse() -> void:
 	_corner_posts([Vector3(-28, 0, 4), Vector3(-8, 0, 4), Vector3(-28, 0, 18), Vector3(-8, 0, 18)],
 		y, WALL_H, mat)
 	_box(Vector3(-18, y + WALL_H, 11), Vector3(20.5, 0.25, 14.5), mat)
-	_box(Vector3(-18, y + 0.035, 11), Vector3(19.5, 0.03, 13.5), MatLib.lino_floor(), self, false)
+	# SOLID (s56): with `false` the covering was scenery — every down-ray (the cat's seat,
+	# the player's capsule) landed on the structural deck 5 cm BELOW the visible lino, so
+	# anything standing in a finished room stood sunk to the ankles in its own floor.
+	_box(Vector3(-18, y + 0.035, 11), Vector3(19.5, 0.03, 13.5), MatLib.lino_floor(), self, true)
 	# Cabin dividers: south row (z 4..10), north row (z 12..18), corridor between.
 	# The divider lines and everything derived from them (bunks, lockers, and the personal
 	# items interior_props stands on those lockers) come from BUNKS — see bunk_layout.gd for
@@ -1544,7 +1547,7 @@ func _build_galley() -> void:
 	_corner_posts([Vector3(-2, 0, 8), Vector3(14, 0, 8), Vector3(-2, 0, 18), Vector3(14, 0, 18)],
 		y, WALL_H, mat)
 	_box(Vector3(6, y + WALL_H, 13), Vector3(16.5, 0.25, 10.5), mat)
-	_box(Vector3(6, y + 0.035, 13), Vector3(15.5, 0.03, 9.5), MatLib.kitchen_tile(), self, false)
+	_box(Vector3(6, y + 0.035, 13), Vector3(15.5, 0.03, 9.5), MatLib.kitchen_tile(), self, true)   # solid — see the lino note
 	# Counter along the north wall with food — brushed galley steel, not weather-peel.
 	_box(Vector3(6, y + 0.5, 17), Vector3(10, 1.0, 1.2), MatLib.galvanized())
 	_takeable("canned_food", "Canned Food", Vector3(3, y + 1.01, 17), Vector3(0.25, 0.3, 0.25))
@@ -1577,7 +1580,7 @@ func _build_rec_room() -> void:
 	_corner_posts([Vector3(18, 0, 8), Vector3(28, 0, 8), Vector3(18, 0, 18), Vector3(28, 0, 18)],
 		y, WALL_H, mat)
 	_box(Vector3(23, y + WALL_H, 13), Vector3(10.5, 0.25, 10.5), mat)
-	_box(Vector3(23, y + 0.035, 13), Vector3(9.5, 0.03, 9.5), MatLib.rubber_floor(), self, false)
+	_box(Vector3(23, y + 0.035, 13), Vector3(9.5, 0.03, 9.5), MatLib.rubber_floor(), self, true)   # solid — see the lino note
 	# Dead TV, couch. (The dartboard is the real glTF one, hung flush on the east
 	# bulkhead in interior_props — the flat CSG disc that used to sit here was a
 	# second, cruder board competing with it.)
