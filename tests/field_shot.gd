@@ -137,6 +137,25 @@ func _ready() -> void:
 	await _look(W["a_pad"] + Vector3(0, 0, -8.0), W["a_deck"] + Vector3(0, 14, 6), "anchorage_helideck")
 	await _look(W["a_wingroof"], W["a_deck"] + Vector3(0, 20, 4), "anchorage_wing_roof")
 
+	# ---- s56: the interior-design pass and the stair-arrival openings, framed tight.
+	await _look(_world(a_o, a_y, Vector3(10.19, 29.4, -4.55)), _world(a_o, a_y, Vector3(10.91, 29.9, 1.08)), "s56_stairhead_g2")
+	await _look(_world(a_o, a_y, Vector3(8.36, 33.1, -5.96)), _world(a_o, a_y, Vector3(11.35, 37.0, 0.96)), "s56_stairhead_g4_from_g3")
+	await _look(_world(a_o, a_y, Vector3(1.18, 25.7, -9.45)), _world(a_o, a_y, Vector3(-4.14, 26.2, -7.37)), "s56_stairhead_g1")
+	await _look(_world(a_o, a_y, Vector3(2.34, 36.8, 17.3)), _world(a_o, a_y, Vector3(6.58, 39.45, 6.39)), "s56_crown_landing")
+	await _look(_world(a_o, a_y, Vector3(0, 22, -2.2)), _world(a_o, a_y, Vector3(0, 40, 4)), "s56_atrium_openings_up")
+	await _look(_world(a_o, a_y, Vector3(6.0, 22, -21.5)), _world(a_o, a_y, Vector3(15.8, 24.0, -21.0)), "s56_salon_chart")
+	await _look(_world(a_o, a_y, Vector3(-20.0, 22, -11.0)), _world(a_o, a_y, Vector3(-20.0, 24.8, 4.0)), "s56_west_hall_current")
+	await _look(_world(a_o, a_y, Vector3(-10.0, 22, -24.5)), _world(a_o, a_y, Vector3(-10.0, 22.8, -14.0)), "s56_vestibule_compass")
+	await _look(_world(a_o, a_y, Vector3(28.0, 22, 4.0)), _world(a_o, a_y, Vector3(18.5, 24.2, 4.0)), "s56_colonnade_columns")
+	await _look(_world(a_o, a_y, Vector3(29.0, 22, -2.0)), _world(a_o, a_y, Vector3(29.0, 24.4, 11.8)), "s56_dining_north_wall")
+	await _look(_world(a_o, a_y, Vector3(-16.0, 15.4, -16.0)), _world(a_o, a_y, Vector3(12.0, 16.6, 12.0)), "s56_leisure_pool")
+	await _look(_world(a_o, a_y, Vector3(2.5, 22, 23.2)), _world(a_o, a_y, Vector3(-9.5, 23.0, 26.5)), "s56_spa_treatment")
+	await _look(_world(a_o, a_y, Vector3(0.5, 22, 23.0)), _world(a_o, a_y, Vector3(9.5, 23.2, 27.0)), "s56_spa_sauna")
+	await _look(_world(a_o, a_y, Vector3(-22.0, 26.2, -4.0)), _world(a_o, a_y, Vector3(-33.0, 27.4, 6.0)), "s56_tower_library")
+	await _look(_world(a_o, a_y, Vector3(23.0, 29.4, -3.0)), _world(a_o, a_y, Vector3(33.0, 30.4, 9.0)), "s56_tower_games")
+	await _look(_world(m_o, m_y, Vector3(-20.0, 11.6, -4.0)), _world(m_o, m_y, Vector3(-24.0, 11.6, -7.6)), "s56_marrow_painted_tag")
+	await _look(_world(m_o, m_y, Vector3(31.3, 19.5, -6.9)), _world(m_o, m_y, Vector3(34.5, 19.5, -10.5)), "s56_marrow_tank_tag")
+
 	# ---- DEEPWELL. The tallest thing in the world, now with a production level under it.
 	await _look(Vector3(0.0, 30.0, 320.0), W["d_crown"], "deepwell_from_the_south")
 	await _look(W["d_prod"], W["d_prod"] + Vector3(20, 2, 10), "deepwell_production_deck")

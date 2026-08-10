@@ -115,6 +115,8 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 	_helideck(b)
 	_marina(b)
 	_decor(b)
+	_gallery(b)
+	_ceilings(b)
 	_marina_tower(b)
 	_lights(b, host)
 	return {
@@ -216,10 +218,17 @@ static func _plant_deck(b: KIT.Bake) -> void:
 		KIT.skid(b, Vector3(x, PLANT_Y, -16.0), Vector3(7.0, 3.2, 4.4), 0.0)
 		b.cyl(Vector3(x + 2.6, PLANT_Y + 6.4, -16.0), 0.55, 12.0, MatLib.dark_metal(), "hull")
 		b.cyl(Vector3(x + 2.6, PLANT_Y + 12.8, -16.0), 0.7, 0.8, MatLib.rust_steel(), "detail")
-	KIT.vessel(b, Vector3(-28.0, PLANT_Y, 2.0), 2.1, 7.4, true)
-	KIT.vessel(b, Vector3(-21.0, PLANT_Y, 2.0), 2.1, 7.4, true)
+	# VESSEL HEIGHTS ARE A CEILING PROBLEM, NOT A TASTE ONE. The leisure deck's slab sits
+	# 14.9..15.4 over this hall — 8.1 m clear — and all three vertical vessels shipped
+	# taller than that: the (6, 6) one stood with its DOME IN THE SWIMMING POOL (caught by
+	# the s56 render — a silver dome dead centre of the water) and the two at (-28/-21, 2)
+	# pierced the leisure floor by a metre. Lengths now solve base + skirt + shell + cap
+	# under 14.7, and the tallest one moved to (14, 2) — clear of the pool's x -11..11,
+	# z -8..8 cut and of the z 8 overhead catwalk.
+	KIT.vessel(b, Vector3(-28.0, PLANT_Y, 2.0), 2.1, 5.4, true)
+	KIT.vessel(b, Vector3(-21.0, PLANT_Y, 2.0), 2.1, 5.4, true)
 	KIT.exchanger_bank(b, Vector3(-13.0, PLANT_Y, 2.0), 3, 8.0, 0.0)
-	KIT.vessel(b, Vector3(6.0, PLANT_Y, 6.0), 2.6, 8.6, true)
+	KIT.vessel(b, Vector3(14.0, PLANT_Y, 2.0), 2.6, 5.0, true)
 	for i in range(2):
 		KIT.vessel(b, Vector3(16.0 + i * 9.0, PLANT_Y, 16.0), 1.7, 11.0, false, 0.0)
 	KIT.manifold(b, Vector3(-2.0, PLANT_Y, -21.0), 9.0, 3.6, 0.0)
@@ -289,6 +298,36 @@ static func _leisure_deck(b: KIT.Bake) -> void:
 			[Vector3(LOWER.end.x - 0.8, cy, LOWER.position.y + 0.8), Vector3(LOWER.end.x - 0.8, cy, LOWER.end.y - 0.8)]]:
 		KIT.led_cove(b, run[0], run[1], WARM, 0.11, WARM_E)
 	KIT.led_ring(b, Vector3(0.0, cy, 0.0), 13.0, COVE, 28, 0.1, COVE_E)
+	# FIT-OUT (s56): the pool had a hall and nothing to sit on. Lounger rows down both
+	# long sides, side tables between, palms at the corners, and a poolside bar in the
+	# north-east corner — kept off the east doorway lane (z -6..3) and the pool apron.
+	for i4 in range(5):
+		var lx: float = -14.0 + float(i4) * 4.0
+		b.box(Vector3(lx, SPA_Y + 0.30, -12.0), Vector3(1.9, 0.34, 0.8),
+			MatLib.canvas(Color(0.70, 0.72, 0.68)), "detail", Vector3(0, 0, deg_to_rad(6.0)), true)
+		if i4 < 4:
+			b.cyl(Vector3(lx + 2.0, SPA_Y + 0.24, -12.0), 0.28, 0.48, MatLib.dark_metal(), "detail", Vector3.ZERO, -1.0, 10, true)
+	for i5 in range(4):
+		var lx2: float = -12.0 + float(i5) * 4.0
+		b.box(Vector3(lx2, SPA_Y + 0.30, 11.0), Vector3(1.9, 0.34, 0.8),
+			MatLib.canvas(Color(0.70, 0.72, 0.68)), "detail", Vector3(0, deg_to_rad(180.0), deg_to_rad(6.0)), true)
+	for pc in [Vector3(-13.0, 0, -9.5), Vector3(-13.0, 0, 9.5), Vector3(13.0, 0, 9.5)]:
+		b.cyl(Vector3(pc.x, SPA_Y + 0.45, pc.z), 0.50, 0.9, MatLib.flat(Color(0.30, 0.30, 0.32)), "detail", Vector3.ZERO, -1.0, 10, true)
+		b.cyl(Vector3(pc.x, SPA_Y + 1.55, pc.z), 0.85, 1.3, MatLib.flat(Color(0.18, 0.34, 0.24)), "detail", Vector3.ZERO, 0.3, 10)
+	# The bar: counter, brass top, stools, and a lit backbar against the north wall.
+	b.box(Vector3(25.0, SPA_Y + 0.55, 20.0), Vector3(7.0, 1.1, 0.8), MatLib.wood(), "hull", Vector3.ZERO, true)
+	b.box(Vector3(25.0, SPA_Y + 1.13, 20.0), Vector3(7.2, 0.06, 0.9), MatLib.flat(BRASS), "detail")
+	for s6 in range(4):
+		b.cyl(Vector3(22.6 + float(s6) * 1.6, SPA_Y + 0.38, 18.6), 0.20, 0.76, MatLib.dark_metal(), "detail", Vector3.ZERO, -1.0, 10, true)
+	b.box(Vector3(25.0, SPA_Y + 1.1, 23.3), Vector3(6.4, 2.2, 0.4), MatLib.wood(), "hull", Vector3.ZERO, true)
+	for r7 in range(2):
+		b.box(Vector3(25.0, SPA_Y + 0.85 + 0.75 * float(r7), 23.12), Vector3(6.1, 0.4, 0.24),
+			MatLib.flat(Color(0.16, 0.13, 0.10)), "detail")
+	for g8 in range(5):
+		KIT.lamp_lens(b, Vector3(22.8 + float(g8) * 1.1, SPA_Y + 1.75, 23.10), WARM, 0.05, 1.2)
+	# Wave prints on the west wall, over the lounger row.
+	_wall_art(b, Vector3(-33.80, SPA_Y + 2.2, -6.0), 90.0, 1.7, 1.2, "waves")
+	_wall_art(b, Vector3(-33.80, SPA_Y + 2.2, 6.0), 90.0, 1.7, 1.2, "waves")
 
 static func _main_deck(b: KIT.Bake) -> void:
 	KIT.deck_hole(b, DECK, STAIRWELL, MAIN_Y, MAIN_T)
@@ -387,7 +426,8 @@ static func _floorplan(b: KIT.Bake) -> void:
 
 static func _salon(b: KIT.Bake) -> void:
 	var rug: Material = MatLib.canvas(Color(0.30, 0.34, 0.42))
-	b.box(Vector3(6.0, MAIN_Y + 0.02, -20.5), Vector3(14.0, 0.04, 9.0), rug, "detail")
+	# Above the s56 lino overlay (top +0.04), not coplanar with it.
+	b.box(Vector3(6.0, MAIN_Y + 0.055, -20.5), Vector3(14.0, 0.03, 9.0), rug, "detail")
 	_sofa(b, Vector3(2.0, MAIN_Y, -17.5), 180.0, 2.6)
 	_sofa(b, Vector3(10.0, MAIN_Y, -17.5), 180.0, 2.6)
 	_sofa(b, Vector3(2.0, MAIN_Y, -23.5), 0.0, 2.6)
@@ -601,15 +641,11 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 		b.cyl(Vector3(pa.x, MAIN_Y + 0.95, pa.z), 0.45, 0.7, MatLib.flat(Color(0.30, 0.30, 0.32)), "detail", Vector3.ZERO, -1.0, 10, true)
 		b.cyl(Vector3(pa.x, MAIN_Y + 1.75, pa.z), 0.75, 0.9, MatLib.flat(Color(0.18, 0.34, 0.24)), "detail", Vector3.ZERO, 0.25, 10)
 	# THE GALLERIES: rings held back to GAL_IN so the void stays open, plus finished soffits.
-	var ring_specs: Array = [[G1, GAL_IN + 0.8], [G2, GAL_IN], [G3, GAL_IN], [G4, GAL_IN + 0.8]]
-	for spec in ring_specs:
-		var y: float = spec[0]
-		var r_in: float = spec[1]
-		KIT.ring_deck(b, Vector3(c.x, y, c.z), r_in, GAL_OUT, 0.3, MatLib.dirty_white_panel(), 32)
-		KIT.led_ring(b, Vector3(c.x, y - 0.36, c.z), r_in + 0.24, COVE, 32, 0.1, COVE_E)
-		KIT.led_ring(b, Vector3(c.x, y - 0.36, c.z), GAL_OUT - 0.35, COVE, 32, 0.1, COVE_E)
-		KIT.ring_deck(b, Vector3(c.x, y - 0.44, c.z), r_in + 0.1, GAL_OUT - 0.1, 0.12,
-			MatLib.dirty_white_panel(), 32)
+	# Each ring now carries STAIR OPENINGS at its arrivals — see _gallery_ring.
+	_gallery_ring(b, c, G1, GAL_IN + 0.8, [250.0, 70.0])
+	_gallery_ring(b, c, G2, GAL_IN, [345.0, 165.0])
+	_gallery_ring(b, c, G3, GAL_IN, [60.0, 250.0])
+	_gallery_ring(b, c, G4, GAL_IN + 0.8, [165.0, 345.0])
 	# Inner-edge rails, with ARC GAPS where the chord stairs and spurs arrive/depart — a
 	# full circle of balustrade at every level is a fence across every one of them.
 	_gapped_rail(b, c, GAL_IN + 0.8 + 0.14, G1, [[234.0, 258.0], [279.0, 304.0], [54.0, 77.0], [99.0, 123.0]])
@@ -640,8 +676,10 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	# TANK-TOP ACCESS: a flight from G4 up to an arc platform ringing the crown at 39.45,
 	# with the feeding hatch — this is where caught fish go in.
 	_chord_stair(b, c, G4, 39.45, 55.0, 20.0, GAL_IN + 1.1, 7.0)
+	# The arc ends at 20.5, not 24: the flight's approach runs through angles 24 -> 20, and
+	# a slab there swallowed its last 2.4 m of treads (same defect as the gallery arrivals).
 	KIT.ring_deck(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.65, 8.2, 0.3, MatLib.dirty_white_panel(),
-		32, deg_to_rad(-10.0), deg_to_rad(24.0))
+		32, deg_to_rad(-10.0), deg_to_rad(20.5))
 	KIT.ring_deck(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.65, 8.2, 0.3, MatLib.dirty_white_panel(),
 		32, deg_to_rad(46.0), deg_to_rad(52.0))
 	KIT.ring_rail(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 8.1, 32, true, deg_to_rad(-10.0), deg_to_rad(26.0))
@@ -725,8 +763,58 @@ static func _chord_stair(b: KIT.Bake, c: Vector3, y0: float, y1: float,
 		a0_deg: float, a1_deg: float, r0: float, r1: float) -> void:
 	var a0: float = deg_to_rad(a0_deg)
 	var a1: float = deg_to_rad(a1_deg)
+	# White flight for a white drum — rust stringers inside the atrium condemned every
+	# arrival frame the same way the rusted galleries did in s54b.
 	KIT.stair(b, Vector3(c.x + cos(a0) * r0, y0, c.z + sin(a0) * r0),
-		Vector3(c.x + cos(a1) * r1, y1, c.z + sin(a1) * r1), 1.7, true, true)
+		Vector3(c.x + cos(a1) * r1, y1, c.z + sin(a1) * r1), 1.7, true, true,
+		MatLib.galvanized(), MatLib.dirty_white_panel())
+
+## One gallery ring with STAIR OPENINGS. The chord stairs arrive 0.3 m INSIDE the ring's
+## inner rim, and against a full-circle slab that means the last two treads, both
+## stringers and the outboard rail rose THROUGH the slab body (y-0.3..y, soffit to
+## y-0.5): every arrival photographed as a flight vanishing into the rim edge and
+## re-emerging on top — the owner's "the top of the stairs don't meet well" (s56).
+##
+## The slab is two bands now. The OUTER band (r_in+1.25 .. GAL_OUT) is a full circle, so
+## ring circulation is never severed. The INNER band skips a wedge [head-13, head+0.5]
+## degrees wherever a flight climbs in — the opening a real slab has around a real stair
+## — and the soffit and inner cove strip follow the same arcs, because the stringers hang
+## 0.42 below the walking line and were clipping both. A sunken tongue just FORWARD of
+## each head closes the cut-edge sliver where the straight radial cut meets the angled
+## top tread. Forward is the safe side: the flight occupies angles BEHIND its head — it
+## is tongues on the APPROACH side that overhang the climb (the s55 lesson, five shapes).
+static func _gallery_ring(b: KIT.Bake, c: Vector3, y: float, r_in: float, arrivals: Array) -> void:
+	var r_split: float = r_in + 1.25
+	var white: Material = MatLib.dirty_white_panel()
+	KIT.ring_deck(b, Vector3(c.x, y, c.z), r_split, GAL_OUT, 0.3, white, 32)
+	KIT.ring_deck(b, Vector3(c.x, y - 0.44, c.z), r_split, GAL_OUT - 0.1, 0.12, white, 32)
+	KIT.led_ring(b, Vector3(c.x, y - 0.36, c.z), GAL_OUT - 0.35, COVE, 32, 0.1, COVE_E)
+	for s in _arcs_between(arrivals):
+		KIT.ring_deck(b, Vector3(c.x, y, c.z), r_in, r_split, 0.3, white, 32, s[0], s[1])
+		KIT.ring_deck(b, Vector3(c.x, y - 0.44, c.z), r_in + 0.1, r_split, 0.12, white, 32, s[0], s[1])
+		KIT.led_ring(b, Vector3(c.x, y - 0.36, c.z), r_in + 0.24, COVE, 32, 0.1, COVE_E, s[0], s[1])
+	for a in arrivals:
+		var ar: float = deg_to_rad(float(a))
+		KIT.ring_deck(b, Vector3(c.x, y - 0.006, c.z), r_in - 0.9, r_split - 0.02, 0.28,
+			white, 32, ar + 0.005, ar + 0.19)
+
+## The complement of the stair openings: the full circle minus [a-13, a+0.5] degrees at
+## each arrival. Assumes arrivals are far enough apart that openings never overlap or
+## straddle 0 degrees — true of every gallery (they are 90+ degrees apart, none near 0).
+static func _arcs_between(arrivals: Array) -> Array:
+	var gaps: Array = []
+	for a in arrivals:
+		gaps.append([fposmod(deg_to_rad(float(a) - 13.0), TAU),
+			fposmod(deg_to_rad(float(a) + 0.5), TAU)])
+	gaps.sort_custom(func(p, q): return p[0] < q[0])
+	var out: Array = []
+	for i in range(gaps.size()):
+		var a0: float = gaps[i][1]
+		var a1: float = gaps[(i + 1) % gaps.size()][0]
+		if i == gaps.size() - 1:
+			a1 += TAU
+		out.append([a0, a1])
+	return out
 
 ## Inner-edge gallery rail with arc gaps (degrees, [from, to], wrap-aware).
 static func _gapped_rail(b: KIT.Bake, c: Vector3, radius: float, y: float, gaps: Array) -> void:
@@ -837,6 +925,31 @@ static func _spa(b: KIT.Bake) -> void:
 		var yy: float = MAIN_Y + STOREY * float(i + 1) - 0.5
 		KIT.led_cove(b, Vector3(SPA_BLOCK.position.x + 1.0, yy, SPA_BLOCK.position.y + 1.5),
 			Vector3(SPA_BLOCK.end.x - 1.0, yy, SPA_BLOCK.position.y + 1.5), WARM, 0.09, WARM_E)
+	# FIT-OUT (s56). The spa is the route to bridge 3 (south door x 0 -> north door x 6),
+	# so the treatment room lives WEST of that lane and the cedar sauna EAST of it, with a
+	# slat screen holding the walking line. West: two massage benches and the hot-stone
+	# basin. East: the sauna cabin with a lit stone bowl by its door.
+	var wood: Material = MatLib.wood()
+	for mz in [24.3, 27.6]:
+		b.box(Vector3(-9.5, MAIN_Y + 0.35, mz), Vector3(0.85, 0.62, 2.0), MatLib.dirty_white_panel(), "hull", Vector3.ZERO, true)
+		b.box(Vector3(-9.5, MAIN_Y + 0.70, mz), Vector3(0.80, 0.10, 1.95), MatLib.canvas(Color(0.82, 0.80, 0.74)), "detail")
+		b.cyl(Vector3(-9.5, MAIN_Y + 0.80, mz - 0.75), 0.10, 0.42, MatLib.canvas(Color(0.90, 0.89, 0.85)), "detail", Vector3(0, 0, deg_to_rad(90.0)))
+	b.box(Vector3(-4.5, MAIN_Y + 0.24, 26.0), Vector3(1.3, 0.48, 1.3), MatLib.kitchen_tile(), "hull", Vector3.ZERO, true)
+	for st7 in range(5):
+		var sa7: float = float(st7) * 1.256
+		KIT.lamp_lens(b, Vector3(-4.5 + cos(sa7) * 0.34, MAIN_Y + 0.52, 26.0 + sin(sa7) * 0.34), WARM, 0.07, 1.6)
+	# The sauna: a cedar cabin against the east end, door gap facing the lane.
+	b.box(Vector3(11.2, MAIN_Y + 1.3, 26.0), Vector3(4.4, 2.6, 6.4), wood, "hull", Vector3.ZERO, true)
+	b.box(Vector3(8.92, MAIN_Y + 1.15, 26.0), Vector3(0.18, 2.1, 0.9), MatLib.flat(Color(0.10, 0.08, 0.06)), "detail")
+	b.cyl(Vector3(8.6, MAIN_Y + 0.30, 23.4), 0.30, 0.6, MatLib.dark_metal(), "detail", Vector3.ZERO, -1.0, 10, true)
+	KIT.lamp_lens(b, Vector3(8.6, MAIN_Y + 0.66, 23.4), WARM, 0.10, 2.0)
+	# The screen holding the lane's east side.
+	for k8 in range(8):
+		b.box(Vector3(7.8, MAIN_Y + 1.4, 22.8 + float(k8) * 0.75), Vector3(0.10, 2.8, 0.30), wood, "hull", Vector3.ZERO, true)
+	# Towel shelf inside the south door, and a wave print on the sauna's own face — every
+	# spa wall is exterior window band, so the cabin is the one honest hanging surface.
+	b.box(Vector3(-12.9, MAIN_Y + 0.9, 23.2), Vector3(1.8, 1.8, 0.4), wood, "hull", Vector3.ZERO, true)
+	_wall_art(b, Vector3(8.96, MAIN_Y + 1.7, 28.1), 270.0, 1.3, 0.95, "waves")
 
 static func _helideck(b: KIT.Bake) -> void:
 	KIT.deck(b, HELI_BASE, MAIN_Y, 0.5, MatLib.checker_plate())
@@ -926,6 +1039,211 @@ static func _decor(b: KIT.Bake) -> void:
 		b.member(dais + Vector3(cos(a2) * 1.7, 5.2, sin(a2) * 1.7), Vector3(dais.x, MAIN_Y + DINE_H - 0.2, dais.z),
 			0.03, MatLib.dark_metal(), "detail")
 
+## FINISHED CEILINGS AND WARM FLOORS (s56). Every luxury interior photographed with the
+## structural slab's raw treadplate underside as its ceiling and bare deck as its floor —
+## the single-material-box trap, at hotel scale. Each public room now carries a white
+## soffit panel under the structure (the cove strips stay visible below it) and a floor
+## covering over the plate: lino through the halls and vestibule, timber in the spa.
+## Floor overlays are SOLID — the s56 cat fix is the precedent: a walkable surface that
+## exists only visually seats every down-ray 4 cm under the visible floor.
+static func _ceilings(b: KIT.Bake) -> void:
+	var white: Material = MatLib.dirty_white_panel()
+	var soff_y: float = MAIN_Y + POD_H - 0.58
+	for spec in [
+			[Vector3(0.0, soff_y, -20.5), Vector3(31.8, 0.08, 14.8)],    # vestibule + salon
+			[Vector3(-20.0, soff_y, 4.5), Vector3(7.8, 0.08, 34.8)],     # west hall
+			[Vector3(-28.0, soff_y, -11.0), Vector3(23.8, 0.08, 3.8)],   # south hall
+			[Vector3(29.0, soff_y, 14.9), Vector3(21.2, 0.08, 5.4)],     # private dining
+			[Vector3(30.0, soff_y, -21.0), Vector3(19.6, 0.08, 13.6)],   # kitchen
+			[Vector3(0.0, MAIN_Y + 3.32, 26.0), Vector3(27.4, 0.08, 7.4)],  # spa ground
+			[Vector3(29.0, DINE_ROOF - 0.45, 1.1), Vector3(21.2, 0.10, 21.4)],  # dining hall
+			[Vector3(0.0, SPA_Y + 4.9, 0.0), Vector3(66.0, 0.10, 46.0)]]:   # pool hall
+		b.box(spec[0], spec[1], white, "hull", Vector3.ZERO)
+	# Recessed downlight dots where there are no pendants.
+	for dl in [Vector3(-10.0, soff_y - 0.05, -20.0), Vector3(-10.0, soff_y - 0.05, -15.5),
+			Vector3(2.0, soff_y - 0.05, -20.5), Vector3(10.0, soff_y - 0.05, -20.5),
+			Vector3(-20.0, soff_y - 0.05, -8.0), Vector3(-20.0, soff_y - 0.05, 0.0),
+			Vector3(-20.0, soff_y - 0.05, 8.0), Vector3(-20.0, soff_y - 0.05, 16.0),
+			Vector3(-32.0, soff_y - 0.05, -11.0), Vector3(-22.0, soff_y - 0.05, -11.0),
+			Vector3(-6.0, MAIN_Y + 3.24, 26.0), Vector3(6.0, MAIN_Y + 3.24, 26.0)]:
+		KIT.lamp_lens(b, dl, WARM, 0.15, 3.0)
+	for dp in [Vector3(-8.0, SPA_Y + 4.82, -12.0), Vector3(-8.0, SPA_Y + 4.82, 11.0),
+			Vector3(25.0, SPA_Y + 4.82, 19.0), Vector3(-25.0, SPA_Y + 4.82, 0.0)]:
+		KIT.lamp_lens(b, dp, Color(0.88, 0.96, 1.0), 0.2, 3.0)
+	# The floors.
+	b.box(Vector3(0.0, MAIN_Y + 0.02, -20.5), Vector3(31.7, 0.04, 14.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
+	b.box(Vector3(-20.0, MAIN_Y + 0.02, 4.5), Vector3(7.7, 0.04, 34.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
+	b.box(Vector3(-28.0, MAIN_Y + 0.02, -11.0), Vector3(23.7, 0.04, 3.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
+	b.box(Vector3(0.0, MAIN_Y + 0.02, 26.0), Vector3(27.5, 0.04, 7.5), MatLib.wood(), "hull", Vector3.ZERO, true)
+
+# ------------------------------------------------------------------- art and centrepieces
+
+## FRAMED WALL ART, flush on an interior partition. `yaw_deg` is the direction the piece
+## faces (0 = +Z, matching every other yaw in this file); the panel sits proud of the wall
+## by its frame depth. Three kinds:
+##   "chart"  — a backlit bathymetric chart of THE FIELD itself: the four rigs as lit
+##              markers at their true relative positions, the bridge line between them,
+##              DEEPWELL's marker in Bloom teal. The map on the wall is the world you are
+##              standing in, which is worth more than any invented coastline.
+##   "waves"  — three layered swell bands in the cove palette, matte. Quiet corridor art.
+##   "rig"    — a dark platform silhouette on a pale ground: legs, deck, derrick. Heritage.
+static func _wall_art(b: KIT.Bake, pos: Vector3, yaw_deg: float, w: float, h: float, kind: String) -> void:
+	var yaw: float = deg_to_rad(yaw_deg)
+	var rot := Vector3(0, yaw, 0)
+	var fwd := Vector3(sin(yaw), 0, cos(yaw))
+	var side := Vector3(cos(yaw), 0, -sin(yaw))
+	var dark: Material = MatLib.dark_metal()
+	# Frame rails, then the backing panel a hair proud of the wall.
+	for e in [[Vector3(0, h * 0.5, 0), Vector3(w + 0.10, 0.07, 0.07)],
+			[Vector3(0, -h * 0.5, 0), Vector3(w + 0.10, 0.07, 0.07)]]:
+		b.box(pos + (e[0] as Vector3).y * Vector3.UP + fwd * 0.05, e[1], dark, "detail", rot)
+	for sgn in [-1.0, 1.0]:
+		b.box(pos + side * (sgn * w * 0.5) + fwd * 0.05, Vector3(0.07, h + 0.10, 0.07), dark, "detail", rot)
+	match kind:
+		"chart":
+			b.box(pos + fwd * 0.03, Vector3(w, h, 0.04), MatLib.flat(Color(0.07, 0.16, 0.20)), "detail", rot)
+			# Faint graticule.
+			for gy in [-h * 0.25, h * 0.25]:
+				b.box(pos + Vector3(0, gy, 0) + fwd * 0.055, Vector3(w * 0.92, 0.015, 0.01),
+					MatLib.flat(Color(0.12, 0.26, 0.30)), "detail", rot)
+			for gx in [-w * 0.25, w * 0.25]:
+				b.box(pos + side * gx + fwd * 0.055, Vector3(0.015, h * 0.92, 0.01),
+					MatLib.flat(Color(0.12, 0.26, 0.30)), "detail", rot)
+			# THE FIELD, to scale: rig1 (0,0), MARROW (-62,148), ANCHORAGE (58,262),
+			# DEEPWELL (0,415). North up, centred on the line's midpoint.
+			var s: float = h * 0.82 / 430.0
+			var rigs: Array = [Vector2(0, 0), Vector2(-62, 148), Vector2(58, 262), Vector2(0, 415)]
+			for i in range(rigs.size()):
+				var rp: Vector2 = rigs[i]
+				var mx: float = rp.x * s
+				var my: float = (rp.y - 207.0) * s
+				var col: Color = Color(0.30, 0.95, 0.85) if i == 3 else Color(1.0, 0.85, 0.55)
+				b.box(pos + side * mx + Vector3(0, my, 0) + fwd * 0.06, Vector3(0.09, 0.09, 0.02),
+					MatLib.glowing(col, 3.2), "lamp", rot)
+				if i > 0:
+					var pp: Vector2 = rigs[i - 1]
+					var a3: Vector3 = pos + side * (pp.x * s) + Vector3(0, (pp.y - 207.0) * s, 0) + fwd * 0.052
+					var b3: Vector3 = pos + side * mx + Vector3(0, my, 0) + fwd * 0.052
+					b.member(a3, b3, 0.024, MatLib.glowing(Color(0.42, 0.78, 1.0), 2.0), "lamp")
+		"waves":
+			b.box(pos + fwd * 0.03, Vector3(w, h, 0.04), MatLib.flat(Color(0.10, 0.15, 0.21)), "detail", rot)
+			for k in range(3):
+				var wy: float = h * (0.28 - 0.28 * float(k))
+				var tint := Color(0.18 + 0.10 * float(k), 0.38 + 0.12 * float(k), 0.46 + 0.12 * float(k))
+				b.box(pos + Vector3(0, wy, 0) + fwd * (0.045 + 0.006 * float(k)),
+					Vector3(w * 0.88, h * 0.16, 0.012), MatLib.flat(tint), "detail", rot)
+		"rig":
+			b.box(pos + fwd * 0.03, Vector3(w, h, 0.04), MatLib.flat(Color(0.70, 0.74, 0.73)), "detail", rot)
+			var ink: Material = MatLib.flat(Color(0.10, 0.11, 0.13))
+			b.box(pos + Vector3(0, -h * 0.05, 0) + fwd * 0.055, Vector3(w * 0.62, h * 0.10, 0.012), ink, "detail", rot)
+			for lx in [-w * 0.22, w * 0.22]:
+				b.box(pos + side * lx + Vector3(0, -h * 0.28, 0) + fwd * 0.055,
+					Vector3(w * 0.05, h * 0.36, 0.012), ink, "detail", rot)
+			b.box(pos + side * (w * 0.10) + Vector3(0, h * 0.22, 0) + fwd * 0.055,
+				Vector3(w * 0.06, h * 0.44, 0.012), ink, "detail", rot)
+			b.box(pos + Vector3(0, -h * 0.44, 0) + fwd * 0.055, Vector3(w * 0.86, h * 0.03, 0.012),
+				MatLib.flat(Color(0.25, 0.42, 0.48)), "detail", rot)
+
+## A freestanding backlit chart on a plinth — for rooms whose exterior walls are all
+## window band (the towers), where hanging art would cover the glass.
+static func _chart_totem(b: KIT.Bake, pos: Vector3, yaw_deg: float) -> void:
+	var yaw: float = deg_to_rad(yaw_deg)
+	var rot := Vector3(0, yaw, 0)
+	b.box(pos + Vector3(0, 0.10, 0), Vector3(1.5, 0.20, 0.55), MatLib.dark_metal(), "hull", rot, true)
+	b.box(pos + Vector3(0, 1.35, 0), Vector3(1.3, 2.1, 0.10), MatLib.dark_metal(), "hull", rot, true)
+	_wall_art(b, pos + Vector3(0, 1.35, 0), yaw_deg, 1.1, 1.8, "chart")
+
+## THE INTERIOR ART PASS (s56): wall pieces on the windowless partitions, the suspended
+## school over the west hall, the compass rose in the vestibule, bubble columns at the
+## dining colonnade, and lounges fitted out inside both towers. Placement rules: art on
+## INTERIOR partitions only (every exterior band carries windows); nothing inside a
+## doorway span; nothing inside the vestibule->atrium walking axis.
+static func _gallery(b: KIT.Bake) -> void:
+	# WEST HALL (x -24..-16): wave prints on the suite front wall, facing the koi basin,
+	# centred between the six suite doorways.
+	for z in [-6.3, 7.1, 13.15]:
+		_wall_art(b, Vector3(-23.80, MAIN_Y + 1.9, z), 90.0, 1.6, 1.15, "waves")
+	# SOUTH HALL: two platform-heritage prints on the suite front wall, between doorways.
+	for x in [-32.0, -24.0]:
+		_wall_art(b, Vector3(x, MAIN_Y + 1.9, -12.82), 0.0, 1.5, 1.15, "rig")
+	# THE SALON CHART: the field, backlit, on the salon's east partition — the room where
+	# guests were briefed gets the map of where they actually are.
+	_wall_art(b, Vector3(15.82, MAIN_Y + 2.0, -21.0), 270.0, 2.4, 1.8, "chart")
+	# DINING HALL north partition: a long wave triptych over the room, clear of both
+	# doorways (x 24 and 34).
+	_wall_art(b, Vector3(29.0, MAIN_Y + 2.1, 11.82), 180.0, 2.6, 1.5, "waves")
+	_wall_art(b, Vector3(20.8, MAIN_Y + 2.0, 11.82), 180.0, 1.4, 1.1, "rig")
+	_wall_art(b, Vector3(37.2, MAIN_Y + 2.0, 11.82), 180.0, 1.4, 1.1, "rig")
+	# BUBBLE COLUMNS flanking the colonnade: glass cylinders with a rising string of lit
+	# beads, one beside each structural column, inboard where they frame the tank arch.
+	for z2 in [-4.0, 12.0]:
+		var bc := Vector3(20.2, MAIN_Y, z2)
+		b.cyl(bc + Vector3(0, 0.14, 0), 0.52, 0.28, MatLib.dark_metal(), "hull", Vector3.ZERO, -1.0, 12, true)
+		b.cyl(bc + Vector3(0, 1.85, 0), 0.38, 3.15, MatLib.glass(Color(0.55, 0.78, 0.84)), "glass", Vector3.ZERO, -1.0, 12)
+		for k in range(5):
+			KIT.lamp_lens(b, bc + Vector3(0.09 * sin(float(k) * 2.1), 0.55 + 0.62 * float(k), 0.09 * cos(float(k) * 2.1)), COVE, 0.07, 2.6)
+		b.cyl(bc + Vector3(0, 3.52, 0), 0.46, 0.14, MatLib.dark_metal(), "detail", Vector3.ZERO, -1.0, 12)
+	# THE CURRENT — a suspended school of lit glass fish climbing the west hall on drop
+	# wires, swimming the same direction the hall walks you: toward the north vestibule.
+	for k2 in range(12):
+		var t: float = float(k2) / 11.0
+		var fp := Vector3(-20.0 + sin(t * 9.4) * 1.3, MAIN_Y + 2.45 + t * 0.95, -4.5 + t * 12.0)
+		var fyaw: float = deg_to_rad(8.0 + sin(t * 12.0) * 22.0)
+		b.box(fp, Vector3(0.13, 0.14, 0.46), MatLib.glowing(Color(0.55, 0.85, 0.95), 2.6), "lamp", Vector3(0, fyaw, 0))
+		b.box(fp + Vector3(sin(fyaw) * -0.31, 0.02, cos(fyaw) * -0.31), Vector3(0.04, 0.20, 0.16),
+			MatLib.glowing(Color(0.45, 0.75, 0.88), 2.0), "lamp", Vector3(0, fyaw, 0))
+		b.member(fp + Vector3(0, 0.08, 0), Vector3(fp.x, MAIN_Y + POD_H - 0.60, fp.z), 0.012, MatLib.dark_metal(), "detail")
+	# COMPASS ROSE floor inlay on the entrance axis, between the reception desk and the
+	# ring sculpture — brass ring, four points, a thin lit rim that wakes with the power.
+	var cr := Vector3(-10.0, MAIN_Y + 0.048, -19.0)   # on the lino overlay, not under it
+	b.cyl(cr, 1.35, 0.016, MatLib.flat(Color(0.16, 0.18, 0.22)), "detail", Vector3.ZERO, -1.0, 24)
+	b.cyl(cr + Vector3(0, 0.004, 0), 1.05, 0.014, MatLib.flat(BRASS), "detail", Vector3.ZERO, -1.0, 24)
+	b.cyl(cr + Vector3(0, 0.008, 0), 0.82, 0.012, MatLib.flat(Color(0.16, 0.18, 0.22)), "detail", Vector3.ZERO, -1.0, 24)
+	for a4 in [0.0, 90.0, 180.0, 270.0]:
+		var ar4: float = deg_to_rad(a4)
+		b.box(cr + Vector3(sin(ar4) * 0.62, 0.014, cos(ar4) * 0.62), Vector3(0.10, 0.008, 1.05),
+			MatLib.flat(BRASS), "detail", Vector3(0, ar4, 0))
+	KIT.led_ring(b, cr + Vector3(0, 0.012, 0), 1.32, COVE, 24, 0.03, 1.8)
+	# WEST TOWER ground floor — the library lounge. Shelves on the party wall side (the
+	# only windowless run), reading circle in the middle, a chart totem by the door.
+	var wt := Vector3(-29.0, TERRACE, 4.0)
+	for sz in [-2.2, 0.6, 3.4]:
+		b.box(Vector3(-39.45, TERRACE + 1.15, sz + 3.0), Vector3(0.42, 2.3, 2.5), MatLib.wood(), "hull", Vector3.ZERO, true)
+		for r5 in range(3):
+			b.box(Vector3(-39.32, TERRACE + 0.55 + 0.62 * float(r5), sz + 3.0), Vector3(0.30, 0.42, 2.26),
+				MatLib.flat(Color(0.16, 0.13, 0.10)), "detail")
+	b.box(wt + Vector3(0, 0.02, 0), Vector3(6.5, 0.04, 5.5), MatLib.canvas(Color(0.30, 0.34, 0.42)), "detail")
+	_sofa(b, wt + Vector3(0, 0, -2.2), 0.0, 2.4)
+	_sofa(b, wt + Vector3(0, 0, 2.2), 180.0, 2.4)
+	_low_table(b, wt, 1.2)
+	_chart_totem(b, Vector3(-21.5, TERRACE, 13.0), 225.0)
+	KIT.led_cove(b, Vector3(-39.0, TERRACE + 2.9, -8.0), Vector3(-39.0, TERRACE + 2.9, 16.0), WARM, 0.09, WARM_E)
+	# EAST TOWER ground floor — the games room. Billiard table under its own low light,
+	# sofas against the south end, a small bar shelf on the party wall.
+	var et := Vector3(29.0, DINE_ROOF, 4.0)
+	b.box(et + Vector3(0, 0.78, 0), Vector3(2.7, 0.16, 1.5), MatLib.wood(), "hull", Vector3.ZERO, true)
+	b.box(et + Vector3(0, 0.88, 0), Vector3(2.4, 0.05, 1.2), MatLib.canvas(Color(0.12, 0.34, 0.22)), "detail")
+	for lx2 in [-1.05, 1.05]:
+		for lz2 in [-0.55, 0.55]:
+			b.box(et + Vector3(lx2, 0.36, lz2), Vector3(0.14, 0.72, 0.14), MatLib.dark_metal(), "detail")
+	b.member(et + Vector3(0, 2.6, 0), et + Vector3(0, 1.75, 0), 0.03, MatLib.dark_metal(), "detail")
+	KIT.lamp_lens(b, et + Vector3(0, 1.72, 0), WARM, 0.30, 4.0)
+	_sofa(b, et + Vector3(-4.5, 0, -6.0), 0.0, 2.4)
+	_sofa(b, et + Vector3(0.5, 0, -6.0), 0.0, 2.4)
+	b.box(Vector3(39.45, DINE_ROOF + 1.0, 10.0), Vector3(0.4, 2.0, 3.2), MatLib.wood(), "hull", Vector3.ZERO, true)
+	for r6 in range(2):
+		b.box(Vector3(39.30, DINE_ROOF + 0.65 + 0.7 * float(r6), 10.0), Vector3(0.26, 0.4, 3.0),
+			MatLib.flat(Color(0.16, 0.13, 0.10)), "detail")
+	for g7 in range(4):
+		KIT.lamp_lens(b, Vector3(39.28, DINE_ROOF + 1.55, 8.9 + 0.75 * float(g7)), WARM, 0.05, 1.2)
+	# Both lounges get the same finished ceiling the public rooms got — the tower storey's
+	# raw slab underside was the last dark-treadplate sky left indoors.
+	b.box(Vector3(-29.0, TERRACE + 3.25, 4.0), Vector3(21.4, 0.08, 27.4), MatLib.dirty_white_panel(), "hull", Vector3.ZERO)
+	b.box(Vector3(29.0, DINE_ROOF + 3.25, 4.0), Vector3(21.4, 0.08, 27.4), MatLib.dirty_white_panel(), "hull", Vector3.ZERO)
+	for dl2 in [Vector3(-29.0, TERRACE + 3.18, 4.0), Vector3(-29.0, TERRACE + 3.18, -3.0),
+			Vector3(29.0, DINE_ROOF + 3.18, 4.0), Vector3(29.0, DINE_ROOF + 3.18, -4.0)]:
+		KIT.lamp_lens(b, dl2, WARM, 0.15, 3.0)
+
 ## MARINA -> PLANT DECK service tower off the south edge: the missing lower-walkway link.
 ## Its base apron lands on the marina catwalk line; its head aprons onto the plant deck.
 static func _marina_tower(b: KIT.Bake) -> void:
@@ -996,6 +1314,8 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		[Vector3(14.0, PLANT_Y + 3.0, -8.0), 1.6, 22.0],
 		[Vector3(0.0, LOW_Y + 2.4, -32.0), 1.4, 18.0],
 		[Vector3(0.0, MAIN_Y + 3.0, 26.0), 1.7, 22.0],          # spa ground
+		[Vector3(-29.0, TERRACE + 2.6, 4.0), 1.6, 20.0],        # west tower library
+		[Vector3(29.0, DINE_ROOF + 2.6, 4.0), 1.6, 20.0],       # east tower games room
 	]
 	for p2 in omni_pts:
 		var l := OmniLight3D.new()

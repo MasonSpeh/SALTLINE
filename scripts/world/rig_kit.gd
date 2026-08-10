@@ -407,7 +407,8 @@ const RISER_TARGET: float = 0.19
 const RAMP_HALF: float = 0.06
 
 static func stair(b: Bake, from_p: Vector3, to_p: Vector3, width: float,
-		rail_left: bool = true, rail_right: bool = true) -> void:
+		rail_left: bool = true, rail_right: bool = true,
+		tread_mat: Material = null, steel_mat: Material = null) -> void:
 	if to_p.y < from_p.y:
 		var t: Vector3 = from_p
 		from_p = to_p
@@ -426,8 +427,10 @@ static func stair(b: Bake, from_p: Vector3, to_p: Vector3, width: float,
 	var tread_d: float = run / steps
 	var angle: float = atan2(rise, run)
 	var yaw: float = atan2(d.x, d.z)
-	var tread: Material = MatLib.checker_plate()
-	var steel: Material = MatLib.rust_steel()
+	# Rust is the default; a luxury interior passes its own finishes (the s54b lesson —
+	# rusted steel inside a white drum condemns the whole room).
+	var tread: Material = tread_mat if tread_mat != null else MatLib.checker_plate()
+	var steel: Material = steel_mat if steel_mat != null else MatLib.rust_steel()
 	# Local frame of the flight: +Z is the direction of climb.
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
 	var side := Vector3(cos(yaw), 0, -sin(yaw))
@@ -991,10 +994,13 @@ static func led_cove(b: Bake, a: Vector3, c: Vector3, colour: Color = Color(0.55
 
 ## A ring of LED cove — the halo under a balcony edge or around a column.
 static func led_ring(b: Bake, centre: Vector3, radius: float, colour: Color = Color(0.55, 0.82, 1.0),
-		segs: int = 32, thick: float = 0.09, energy: float = 3.2) -> void:
-	for i in range(segs):
-		var a0: float = TAU * float(i) / float(segs)
-		var a1: float = TAU * float(i + 1) / float(segs)
+		segs: int = 32, thick: float = 0.09, energy: float = 3.2,
+		arc_from: float = 0.0, arc_to: float = TAU) -> void:
+	var arc_span: float = arc_to - arc_from
+	var arc_n: int = maxi(2, int(round(float(segs) * arc_span / TAU)))
+	for i in range(arc_n):
+		var a0: float = arc_from + arc_span * float(i) / float(arc_n)
+		var a1: float = arc_from + arc_span * float(i + 1) / float(arc_n)
 		b.member(centre + Vector3(cos(a0) * radius, 0, sin(a0) * radius),
 			centre + Vector3(cos(a1) * radius, 0, sin(a1) * radius), thick,
 			MatLib.glowing(colour, energy), "lamp")

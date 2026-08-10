@@ -10,8 +10,9 @@ extends Interactable
 ## Lengths come from ItemVisual.fish_instance_length_m — the same weight->length relation
 ## the dropped-fish renderer uses, so the fish in the tank is exactly the fish you caught.
 ##
-## HONEST LIMIT: stock does not persist through a save yet (filed in KNOWN_ISSUES). The
-## marker node in group "aquarium" carries the geometry; this node carries the rules.
+## Stock PERSISTS: SaveManager carries an "aquarium" key (stock_payload / restore_stock,
+## the cat's save contract). The marker node in group "aquarium" carries the geometry;
+## this node carries the rules.
 
 const FISH_MODEL := preload("res://scripts/world/fish_model_lib.gd")
 const IV := preload("res://scripts/world/item_visual.gd")
@@ -32,7 +33,38 @@ var _total_m: float = 0.0
 func _ready() -> void:
 	display_name = "Aquarium Hatch"
 	verbs = ["ADD FISH"] as Array[String]
+	add_to_group("aquarium_hatch")
 	build_box_visual(Vector3(0.9, 0.5, 0.9), COLOR_OPERABLE, false, false, MatLib.dark_metal())
+
+## ---- save round-trip (SaveManager's "aquarium" key) -------------------------------
+
+func stock_payload() -> Array:
+	return _stock.duplicate(true)
+
+## Idempotent full replace: clears the live tank, then re-adds every remembered fish
+## through the same bookkeeping the hatch uses, so limits, totals and swimmer lanes are
+## re-derived rather than trusted from the file.
+func restore_stock(arr: Array) -> void:
+	for s in _swimmers:
+		var n: Node3D = s.get("node")
+		if is_instance_valid(n):
+			n.queue_free()
+	_swimmers.clear()
+	_stock.clear()
+	_total_m = 0.0
+	for e in arr:
+		if typeof(e) != TYPE_DICTIONARY:
+			continue
+		var id: String = String((e as Dictionary).get("id", ""))
+		if not id.begins_with("fish_"):
+			continue
+		var kg: float = float((e as Dictionary).get("kg", 0.0))
+		var len_m: float = IV.fish_instance_length_m(id, kg)
+		if len_m > MAX_ONE_M or _total_m + len_m > MAX_TOTAL_M:
+			continue
+		_stock.append({"id": id, "kg": kg, "len": len_m})
+		_total_m += len_m
+		_spawn_swimmer(id, len_m)
 
 func get_prompt() -> String:
 	return "ADD FISH  Aquarium  (%.0f/%.0f ft stocked)" % [_total_m * 3.281, MAX_TOTAL_M * 3.281]

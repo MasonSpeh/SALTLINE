@@ -620,21 +620,18 @@ static func _labs(b: KIT.Bake) -> void:
 static func _labels(host: Node3D, b: KIT.Bake) -> void:
 	var tags: Array = [
 		["T-301", Vector3(31.3, 19.5, -10.5), 90.0], ["T-302", Vector3(31.3, 19.5, -3.3), 90.0],
-		["T-303", Vector3(31.3, 19.5, 3.9), 90.0], ["EXP-01", Vector3(35.5, 16.2, 12.0), 90.0],
+		["T-303", Vector3(31.3, 19.5, 3.9), 90.0], ["EXP-01", Vector3(36.2, 15.35, 12.0), 90.0],
 		["SEP-101", Vector3(-24.0, 11.6, -7.6), 180.0], ["SEP-102", Vector3(-17.0, 11.6, -7.6), 180.0],
 		["P-201", Vector3(-22.0, 9.6, 11.8), 180.0], ["P-202", Vector3(-14.6, 9.6, 11.8), 180.0],
 		["FW-MAIN", Vector3(-12.0, 16.0, -20.6), 180.0], ["DESAL-01", Vector3(16.9, 12.4, -12.9), 180.0],
 		["LAB-A", Vector3(-14.0, 17.2, -7.7), 180.0],
 	]
+	# Painted, not floating: each tag rays itself back onto the vessel face it names and
+	# lies flat against the measured surface — see painted_tag.gd.
 	for t in tags:
-		var l := Label3D.new()
-		l.text = t[0]
-		l.font_size = 96
-		l.pixel_size = 0.006
-		l.modulate = Color(0.92, 0.90, 0.82)
-		l.outline_modulate = Color(0.08, 0.08, 0.08)
-		l.outline_size = 14
-		l.shaded = false
-		host.add_child(l)
-		l.position = b.to_world(t[1])
-		l.rotation.y = b.xform.basis.get_euler().y + deg_to_rad(float(t[2]))
+		var tag: Node3D = (load("res://scripts/world/painted_tag.gd") as GDScript).new()
+		tag.set("text", t[0])
+		var yaw: float = b.xform.basis.get_euler().y + deg_to_rad(float(t[2]))
+		tag.set("face_dir", Vector3(sin(yaw), 0.0, cos(yaw)))
+		host.add_child(tag)
+		tag.position = b.to_world(t[1])

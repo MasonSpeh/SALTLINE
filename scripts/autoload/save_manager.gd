@@ -211,6 +211,10 @@ func save_game() -> bool:
 		# session. Additive like the rest: an older reader ignores it, and a save without
 		# it restores the cat exactly as it spawns.
 		"cat": _cat_payload(),
+		# THE ANCHORAGE AQUARIUM'S STOCK — the fish the player carried up the tower and
+		# slipped into the tank. Additive: an older reader ignores it, and a save without
+		# it restores an empty tank, which is how every tank starts.
+		"aquarium": _aquarium_payload(),
 	}
 	# Where the player stood at save time, so Continue resumes them there rather than
 	# back at the pod. Only written when a player is actually in the tree.
@@ -307,6 +311,7 @@ func load_game() -> bool:
 	_pending_containers = data.get("containers", {}) if typeof(data.get("containers")) == TYPE_DICTIONARY else {}
 	restore_harvest(data.get("harvest", {}))
 	_restore_cat(data.get("cat", {}))
+	_restore_aquarium(data.get("aquarium", []))
 	restore_structures(data.get("structures", []))
 	_apply_pending_to_existing()
 	restore_dropped(data.get("dropped", []))
@@ -725,6 +730,23 @@ func _restore_cat(d: Variant) -> void:
 	if cat == null or not cat.has_method("restore_state"):
 		return
 	cat.call("restore_state", d)
+
+## The ANCHORAGE aquarium's stock — same contract as the cat: asked of the hatch, applied
+## to the hatch, so the remembered fields live beside the code that owns them
+## (aquarium_stock.stock_payload / restore_stock).
+func _aquarium_payload() -> Array:
+	var h: Node = get_tree().get_first_node_in_group("aquarium_hatch")
+	if h == null or not h.has_method("stock_payload"):
+		return []
+	return h.call("stock_payload")
+
+func _restore_aquarium(d: Variant) -> void:
+	if typeof(d) != TYPE_ARRAY:
+		return
+	var h: Node = get_tree().get_first_node_in_group("aquarium_hatch")
+	if h == null or not h.has_method("restore_stock"):
+		return
+	h.call("restore_stock", d)
 
 func _harvest_payload() -> Dictionary:
 	var out: Dictionary = {}
