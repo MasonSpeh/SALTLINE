@@ -228,6 +228,12 @@ class Bake extends RefCounted:
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_ON
 			else:
 				mi.cast_shadow = GeometryInstance3D.SHADOW_CASTING_SETTING_OFF
+			if group == "lamp":
+				# Emissive fixtures live in their own chunks so the power grid has exactly one
+				# boolean per chunk to flip. They are never range-culled: from a neighbouring
+				# rig the lit lenses ARE the building. See rig_field._wire_power().
+				mi.set_meta("field_lamp", true)
+				mi.visible = false
 			if group == "detail":
 				mi.visibility_range_end = DETAIL_DRAW_M
 				mi.visibility_range_end_margin = DETAIL_FADE_M
@@ -915,7 +921,261 @@ static func containers(b: Bake, base: Vector3, cols: int, rows: int, yaw_deg: fl
 ## The light itself still does the local work; this is the part the horizon sees.
 static func lamp_lens(b: Bake, pos: Vector3, colour: Color, size: float = 0.55,
 		energy: float = 5.0) -> void:
-	b.box(pos, Vector3(size * 2.2, size * 0.7, size), MatLib.glowing(colour, energy), "hull")
+	b.box(pos, Vector3(size * 2.2, size * 0.7, size), MatLib.glowing(colour, energy), "lamp")
+
+## A CONTINUOUS LED COVE — the strip lighting that does most of the work in a modern
+## interior and costs nothing per frame, because it is geometry and not a Light3D. Runs
+## between two local points at `thick` square. Use these liberally; use OmniLight3D sparingly.
+static func led_cove(b: Bake, a: Vector3, c: Vector3, colour: Color = Color(0.55, 0.82, 1.0),
+		thick: float = 0.09, energy: float = 3.2) -> void:
+	b.member(a, c, thick, MatLib.glowing(colour, energy), "lamp")
+
+## A ring of LED cove — the halo under a balcony edge or around a column.
+static func led_ring(b: Bake, centre: Vector3, radius: float, colour: Color = Color(0.55, 0.82, 1.0),
+		segs: int = 32, thick: float = 0.09, energy: float = 3.2) -> void:
+	for i in range(segs):
+		var a0: float = TAU * float(i) / float(segs)
+		var a1: float = TAU * float(i + 1) / float(segs)
+		b.member(centre + Vector3(cos(a0) * radius, 0, sin(a0) * radius),
+			centre + Vector3(cos(a1) * radius, 0, sin(a1) * radius), thick,
+			MatLib.glowing(colour, energy), "lamp")
+
+# ------------------------------------------------------------------------- round geometry
+
+## AN ANNULAR DECK — the mezzanine ring that wraps an atrium. Built from wedge boxes so it
+## has real box colliders rather than a cylinder proxy the player would slide off.
+static func ring_deck(b: Bake, centre: Vector3, r_in: float, r_out: float, thick: float = 0.28,
+		mat: Material = null, segs: int = 32, arc_from: float = 0.0, arc_to: float = TAU) -> void:
+	var m: Material = mat if mat != null else MatLib.checker_plate()
+	var span: float = arc_to - arc_from
+	var n: int = maxi(3, int(round(float(segs) * span / TAU)))
+	var mid_r: float = (r_in + r_out) * 0.5
+	var width: float = r_out - r_in
+	# SIZED FOR THE OUTER RADIUS, NOT THE MIDDLE. A wedge cut to the mid-radius chord is too
+	# SHORT everywhere outside mid_r, so the ring develops triangular gaps toward its rim —
+	# and the probe found exactly that by dropping a ray through the G3 gallery at r 13 and
+	# hitting nothing. Sizing for r_out closes them and instead OVERLAPS toward r_in, where
+	# two coplanar tops would z-fight; alternate wedges are dropped 4 mm so one always wins.
+	# 4 mm is a quarter of a shoe sole and the capsule never notices it.
+	for i in range(n):
+		var a: float = arc_from + span * (float(i) + 0.5) / float(n)
+		var seg_len: float = 2.0 * r_out * tan(span / float(n) * 0.5) + 0.08
+		var sink: float = 0.0 if i % 2 == 0 else 0.004
+		var p: Vector3 = centre + Vector3(cos(a) * mid_r, -thick * 0.5 - sink, sin(a) * mid_r)
+		b.box(p, Vector3(width, thick, seg_len), m, "hull", Vector3(0, -a, 0), true)
+
+## A RING RAIL — glass balustrade with a capped top rail, the balcony edge of an atrium.
+static func ring_rail(b: Bake, centre: Vector3, radius: float, segs: int = 32,
+		glassy: bool = true, arc_from: float = 0.0, arc_to: float = TAU) -> void:
+	var span: float = arc_to - arc_from
+	var n: int = maxi(3, int(round(float(segs) * span / TAU)))
+	var cap: Material = MatLib.galvanized()
+	var pane: Material = MatLib.glass(Color(0.66, 0.82, 0.88))
+	for i in range(n):
+		var a0: float = arc_from + span * float(i) / float(n)
+		var a1: float = arc_from + span * float(i + 1) / float(n)
+		var p0: Vector3 = centre + Vector3(cos(a0) * radius, 0, sin(a0) * radius)
+		var p1: Vector3 = centre + Vector3(cos(a1) * radius, 0, sin(a1) * radius)
+		var mid: Vector3 = (p0 + p1) * 0.5
+		var seg_len: float = (p1 - p0).length() + 0.03
+		var yaw: float = atan2(p1.x - p0.x, p1.z - p0.z)
+		if glassy:
+			b.box(mid + Vector3(0, RAIL_H * 0.5, 0), Vector3(0.05, RAIL_H - 0.08, seg_len),
+				pane, "glass", Vector3(0, yaw, 0))
+		b.box(mid + Vector3(0, RAIL_H, 0), Vector3(0.12, 0.09, seg_len), cap, "detail", Vector3(0, yaw, 0))
+		b.box(mid + Vector3(0, 0.06, 0), Vector3(0.14, 0.12, seg_len), cap, "detail", Vector3(0, yaw, 0))
+		b.collider(mid + Vector3(0, RAIL_H * 0.5 + 0.05, 0), Vector3(0.16, RAIL_H + 0.1, seg_len),
+			Vector3(0, yaw, 0))
+
+## A ring of box colliders standing in for a cylinder the player must not walk through.
+static func ring_collider(b: Bake, centre: Vector3, radius: float, y0: float, y1: float,
+		segs: int = 16) -> void:
+	var h: float = y1 - y0
+	for i in range(segs):
+		var a: float = TAU * (float(i) + 0.5) / float(segs)
+		var seg_len: float = 2.0 * radius * tan(PI / float(segs)) + 0.05
+		b.collider(centre + Vector3(cos(a) * radius, y0 + h * 0.5 - centre.y, sin(a) * radius),
+			Vector3(0.4, h, seg_len), Vector3(0, -a, 0))
+
+## THE COLUMN AQUARIUM. A glass cylinder of `radius` running from y0 to y1 — floor-to-roof
+## through every gallery of an atrium — with still water inside, a reef bed on the floor, a
+## kelp column, a steel base ring and a crown ring. This is a HERO piece: 40 radial segments,
+## because a 12-sided "cylinder" 10 m across reads as a hexagonal prism from the balcony.
+static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y1: float,
+		segs: int = 40) -> void:
+	var cx: float = centre_xz.x
+	var cz: float = centre_xz.y
+	var h: float = y1 - y0
+	var mid: float = (y0 + y1) * 0.5
+	var glass: Material = MatLib.glass(Color(0.74, 0.88, 0.92))
+	# Water first (inside), then the glass shell over it.
+	var water := StandardMaterial3D.new()
+	water.albedo_color = Color(0.18, 0.55, 0.62, 0.52)
+	water.transparency = BaseMaterial3D.TRANSPARENCY_ALPHA
+	water.roughness = 0.1
+	water.metallic = 0.05
+	water.emission_enabled = true
+	water.emission = Color(0.16, 0.52, 0.58)
+	water.emission_energy_multiplier = 0.5
+	water.cull_mode = BaseMaterial3D.CULL_DISABLED
+	b.cyl(Vector3(cx, mid, cz), radius - 0.13, h - 0.3, water, "glass", Vector3.ZERO, -1.0, segs)
+	b.cyl(Vector3(cx, mid, cz), radius, h, glass, "glass", Vector3.ZERO, -1.0, segs)
+	ring_collider(b, Vector3(cx, 0, cz), radius + 0.05, y0, y1, 20)
+	# Base plinth and crown ring — the steel that says this holds a thousand tonnes of water.
+	b.cyl(Vector3(cx, y0 - 0.35, cz), radius + 0.55, 0.9, MatLib.dark_metal(), "hull", Vector3.ZERO, -1.0, segs, true)
+	b.cyl(Vector3(cx, y0 + 0.3, cz), radius + 0.18, 0.5, MatLib.galvanized(), "hull", Vector3.ZERO, -1.0, segs)
+	b.cyl(Vector3(cx, y1 - 0.25, cz), radius + 0.4, 0.7, MatLib.dark_metal(), "hull", Vector3.ZERO, -1.0, segs)
+	# Reef bed and a kelp column, so the tank is never an empty cylinder of blue.
+	b.cyl(Vector3(cx, y0 + 0.6, cz), radius - 0.5, 1.0, MatLib.flat(Color(0.52, 0.50, 0.42)), "hull", Vector3.ZERO, -1.0, segs)
+	var rock: Material = MatLib.flat(Color(0.20, 0.30, 0.28))
+	var weed: Material = MatLib.flat(Color(0.16, 0.36, 0.26))
+	for i in range(14):
+		var a: float = TAU * float(i) / 14.0
+		var rr: float = radius * (0.30 + fmod(float(i) * 0.37, 1.0) * 0.55)
+		var rh: float = 1.2 + fmod(float(i) * 0.71, 1.0) * 3.4
+		b.box(Vector3(cx + cos(a) * rr, y0 + 1.0 + rh * 0.5, cz + sin(a) * rr),
+			Vector3(1.1 + 0.5 * (i % 3), rh, 1.3), rock, "hull",
+			Vector3(deg_to_rad(5.0 * (i % 4)), a, deg_to_rad(4.0)))
+		var kh: float = h * (0.35 + fmod(float(i) * 0.53, 1.0) * 0.5)
+		b.member(Vector3(cx + cos(a) * rr * 1.05, y0 + 1.4, cz + sin(a) * rr * 1.05),
+			Vector3(cx + cos(a + 0.4) * rr * 0.8, y0 + 1.4 + kh, cz + sin(a + 0.4) * rr * 0.8),
+			0.28, weed, "hull")
+
+## A GLAZED LOOKOUT CABIN — the room you climb to. Solid sill, glass band, capped roof.
+static func lookout(b: Bake, rect: Rect2, y: float, h: float = 3.0) -> void:
+	deck(b, rect, y, 0.24, MatLib.checker_plate())
+	var shell: Material = MatLib.painted_steel()
+	var pane: Material = MatLib.glass(Color(0.58, 0.70, 0.74))
+	for side in ["s", "n", "w", "e"]:
+		_wall_band(b, rect, side, y, 0.0, 0.85, 0.2, shell)
+		_wall_band(b, rect, side, y, 0.85, h - 0.35, 0.1, pane)
+		_wall_band(b, rect, side, y, h - 0.35, h, 0.24, shell)
+	deck(b, rect.grow(0.35), y + h + 0.16, 0.32, MatLib.deck_plate())
+	led_cove(b, Vector3(rect.position.x + 0.2, y + h - 0.45, rect.position.y + 0.2),
+		Vector3(rect.end.x - 0.2, y + h - 0.45, rect.position.y + 0.2), Color(0.60, 0.85, 1.0))
+	led_cove(b, Vector3(rect.position.x + 0.2, y + h - 0.45, rect.end.y - 0.2),
+		Vector3(rect.end.x - 0.2, y + h - 0.45, rect.end.y - 0.2), Color(0.60, 0.85, 1.0))
+
+static func _wall_band(b: Bake, rect: Rect2, side: String, y: float, b0: float, b1: float,
+		t: float, mat: Material) -> void:
+	var solid: bool = not (mat is StandardMaterial3D and (mat as StandardMaterial3D).transparency != BaseMaterial3D.TRANSPARENCY_DISABLED)
+	var c: Vector2 = rect.get_center()
+	var hh: float = b1 - b0
+	var yc: float = y + (b0 + b1) * 0.5
+	var grp: String = "hull" if solid else "glass"
+	match side:
+		"s": b.box(Vector3(c.x, yc, rect.position.y + t * 0.5), Vector3(rect.size.x, hh, t), mat, grp, Vector3.ZERO, solid)
+		"n": b.box(Vector3(c.x, yc, rect.end.y - t * 0.5), Vector3(rect.size.x, hh, t), mat, grp, Vector3.ZERO, solid)
+		"w": b.box(Vector3(rect.position.x + t * 0.5, yc, c.y), Vector3(t, hh, rect.size.y), mat, grp, Vector3.ZERO, solid)
+		"e": b.box(Vector3(rect.end.x - t * 0.5, yc, c.y), Vector3(t, hh, rect.size.y), mat, grp, Vector3.ZERO, solid)
+	if not solid:
+		match side:
+			"s": b.collider(Vector3(c.x, yc, rect.position.y + t * 0.5), Vector3(rect.size.x, hh, t))
+			"n": b.collider(Vector3(c.x, yc, rect.end.y - t * 0.5), Vector3(rect.size.x, hh, t))
+			"w": b.collider(Vector3(rect.position.x + t * 0.5, yc, c.y), Vector3(t, hh, rect.size.y))
+			"e": b.collider(Vector3(rect.end.x - t * 0.5, yc, c.y), Vector3(t, hh, rect.size.y))
+
+# ------------------------------------------------------------------------ process plant
+
+## A PRESSURE VESSEL — separator, scrubber, surge drum. Dished ends, a skirt or saddles, a
+## ladder up the side and a nozzle set. These are the objects that make a deck read as
+## PROCESS rather than as a warehouse, and a rig needs a lot of them.
+static func vessel(b: Bake, base: Vector3, radius: float, length: float,
+		vertical: bool = true, yaw_deg: float = 0.0) -> void:
+	var shell: Material = MatLib.galvanized()
+	var steel: Material = MatLib.rust_steel()
+	var yaw: float = deg_to_rad(yaw_deg)
+	if vertical:
+		b.cyl(base + Vector3(0, length * 0.5 + 0.9, 0), radius, length, shell, "hull", Vector3.ZERO, -1.0, 16, true)
+		b.cyl(base + Vector3(0, length + 0.9 + radius * 0.35, 0), radius, radius * 0.7, shell, "hull", Vector3.ZERO, radius * 0.45, 16)
+		# Skirt.
+		b.cyl(base + Vector3(0, 0.45, 0), radius * 0.92, 0.9, steel, "hull", Vector3.ZERO, -1.0, 16, true)
+		for i in range(4):
+			var a: float = TAU * float(i) / 4.0 + yaw
+			b.cyl(base + Vector3(cos(a) * (radius + 0.15), length * 0.35 + 0.9, sin(a) * (radius + 0.15)),
+				0.16, 0.9, steel, "detail", Vector3(0, 0, deg_to_rad(90.0)))
+		ladder(b, base + Vector3(radius + 0.35, 0.9, 0), base.y + length + 0.9, 90.0)
+		b.cyl(base + Vector3(0, length + 0.9 + radius * 0.9, 0), 0.14, 1.4, steel, "detail")
+	else:
+		var side := Vector3(cos(yaw), 0, -sin(yaw))
+		b.cyl(base + Vector3(0, radius + 0.9, 0), radius, length, shell, "hull",
+			Vector3(0, yaw, deg_to_rad(90.0)), -1.0, 16, true)
+		for sgn in [-1.0, 1.0]:
+			var p: Vector3 = base + side * (sgn * length * 0.42) + Vector3(0, 0.45, 0)
+			b.box(p, Vector3(radius * 1.6, 0.9, radius * 0.9), steel, "hull", Vector3(0, yaw, 0), true)
+		for i in range(3):
+			b.cyl(base + side * ((float(i) - 1.0) * length * 0.28) + Vector3(0, radius * 2.0 + 0.9, 0),
+				0.14, 0.7, steel, "detail")
+
+## A MACHINERY SKID — pump/compressor set on a base frame with a motor, guard and pipework.
+static func skid(b: Bake, base: Vector3, size: Vector3, yaw_deg: float = 0.0) -> void:
+	var yaw: float = deg_to_rad(yaw_deg)
+	var rot := Vector3(0, yaw, 0)
+	var steel: Material = MatLib.rust_steel()
+	b.box(base + Vector3(0, 0.16, 0), Vector3(size.x, 0.32, size.z), MatLib.checker_plate(), "hull", rot, true)
+	b.box(base + Vector3(0, 0.32 + size.y * 0.45, 0), Vector3(size.x * 0.6, size.y * 0.9, size.z * 0.7),
+		MatLib.dark_metal(), "hull", rot, true)
+	var side := Vector3(cos(yaw), 0, -sin(yaw))
+	b.cyl(base + side * (size.x * 0.33) + Vector3(0, 0.32 + size.y * 0.42, 0), size.y * 0.34, size.x * 0.34,
+		MatLib.galvanized(), "hull", Vector3(0, yaw, deg_to_rad(90.0)), -1.0, 14)
+	b.cyl(base + side * (-size.x * 0.36) + Vector3(0, 0.32 + size.y * 0.5, 0), size.y * 0.26, size.z * 0.5,
+		steel, "detail", Vector3(deg_to_rad(90.0), yaw, 0))
+	for sgn in [-1.0, 1.0]:
+		b.member(base + side * (sgn * size.x * 0.5) + Vector3(0, 0.32, 0),
+			base + side * (sgn * size.x * 0.5) + Vector3(0, size.y + 0.6, 0), 0.08, MatLib.galvanized(), "detail")
+
+## A HEAT EXCHANGER BANK — stacked tube bundles with headers. Cheap, and instantly legible.
+static func exchanger_bank(b: Bake, base: Vector3, count: int, length: float, yaw_deg: float = 0.0) -> void:
+	var yaw: float = deg_to_rad(yaw_deg)
+	var side := Vector3(cos(yaw), 0, -sin(yaw))
+	for i in range(count):
+		var y: float = base.y + 0.9 + i * 1.35
+		b.cyl(Vector3(base.x, y, base.z), 0.55, length, MatLib.galvanized(), "hull",
+			Vector3(0, yaw, deg_to_rad(90.0)), -1.0, 14, true)
+		for sgn in [-1.0, 1.0]:
+			b.cyl(Vector3(base.x, y, base.z) + side * (sgn * length * 0.5), 0.68, 0.5, MatLib.dark_metal(), "detail",
+				Vector3(0, yaw, deg_to_rad(90.0)), -1.0, 14)
+	for sgn in [-1.0, 1.0]:
+		b.member(Vector3(base.x, base.y, base.z) + side * (sgn * length * 0.42),
+			Vector3(base.x, base.y + 0.9 + count * 1.35, base.z) + side * (sgn * length * 0.42),
+			0.24, MatLib.rust_steel(), "hull")
+
+## A VALVE MANIFOLD wall — the christmas tree of handwheels and gauges every rig has.
+static func manifold(b: Bake, base: Vector3, width: float, height: float, yaw_deg: float = 0.0) -> void:
+	var yaw: float = deg_to_rad(yaw_deg)
+	var side := Vector3(cos(yaw), 0, -sin(yaw))
+	var steel: Material = MatLib.galvanized()
+	b.box(base + Vector3(0, height * 0.5, 0), Vector3(width, height, 0.3), MatLib.dark_metal(), "hull",
+		Vector3(0, yaw, 0), true)
+	var cols: int = maxi(2, int(width / 1.1))
+	var rows: int = maxi(2, int(height / 1.2))
+	for i in range(cols):
+		for j in range(rows):
+			var p: Vector3 = base + side * ((float(i) - float(cols - 1) * 0.5) * (width / float(cols))) \
+				+ Vector3(0, 0.7 + j * (height - 1.0) / float(maxi(rows - 1, 1)), 0)
+			b.cyl(p, 0.26, 0.16, MatLib.red_paint(), "detail", Vector3(deg_to_rad(90.0), yaw, 0), -1.0, 10)
+			b.cyl(p, 0.06, 0.4, steel, "detail", Vector3(deg_to_rad(90.0), yaw, 0))
+			if (i + j) % 3 == 0:
+				b.cyl(p + Vector3(0, 0.45, 0), 0.17, 0.1, MatLib.flat(Color(0.86, 0.86, 0.8)), "detail",
+					Vector3(deg_to_rad(90.0), yaw, 0), -1.0, 10)
+
+## CABLE TRAY / conduit bank along a wall or under a deck — five parallel runs plus hangers.
+static func cable_tray(b: Bake, a: Vector3, c: Vector3, hangers_to: float = -1000.0) -> void:
+	var d: Vector3 = c - a
+	var yaw: float = atan2(d.x, d.z)
+	var side := Vector3(cos(yaw), 0, -sin(yaw))
+	var m: Material = MatLib.galvanized()
+	b.member(a, c, 0.5, MatLib.dark_metal(), "detail")
+	for i in range(4):
+		var off: Vector3 = side * (-0.16 + i * 0.105) + Vector3(0, 0.16, 0)
+		b.member(a + off, c + off, 0.07, m, "detail")
+	if hangers_to > -999.0:
+		var n: int = maxi(1, int(d.length() / 4.0))
+		for i in range(n + 1):
+			var p: Vector3 = a.lerp(c, float(i) / float(n))
+			b.member(p, Vector3(p.x, hangers_to, p.z), 0.06, m, "detail")
+
+# --------------------------------------------------------------------------------- bridge
 
 # --------------------------------------------------------------------------------- bridge
 

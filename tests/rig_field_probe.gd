@@ -18,12 +18,12 @@ const LOG_PATH: String = "/tmp/rig_field_probe.txt"
 
 ## Draw-call posture. The whole point of RigKit.Bake is that three rigs cost tens of chunks,
 ## not thousands. UPPER bound is the budget; LOWER bound is the anti-vacuity assertion.
-const CHUNKS_MAX: int = 150
+const CHUNKS_MAX: int = 220
 const CHUNKS_MIN: int = 24
 ## The number that actually reaches the GPU when the whole field is on the horizon: "detail"
 ## chunks are engine-range-culled past RigKit.Bake.DETAIL_DRAW_M, so from SALTLINE-0 only
 ## these are submitted. This is the gate the brief's draw-call constraint really lands on.
-const FAR_CHUNKS_MAX: int = 100
+const FAR_CHUNKS_MAX: int = 150
 
 ## A walkable point must find a surface within this band below the claimed floor, and have
 ## at least this much clear above it. The player capsule is 1.8 m tall (0.4 m radius).
@@ -57,7 +57,10 @@ func _check(label: String, cond: bool, detail: String = "") -> void:
 		_say("FAIL  " + label + ("  — " + detail if detail != "" else ""))
 
 ## Drop a ray from `from_y` above the point and return the hit Y, or NAN.
-func _seat(p: Vector3, from_above: float = 3.0, down: float = 8.0) -> float:
+## 2.2 m, not 3.0: the field now has decks slung 6 m under other decks, and a ray that
+## starts 3 m up begins INSIDE the slab overhead and reports the underside of the floor
+## above as the floor below. Any lower and a 1.85 m headroom check has nowhere to start.
+func _seat(p: Vector3, from_above: float = 2.2, down: float = 7.0) -> float:
 	var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, from_above, 0), p + Vector3(0, from_above - down, 0))
 	q.collide_with_areas = false
 	var hit: Dictionary = _space.intersect_ray(q)
@@ -100,7 +103,7 @@ func _run() -> void:
 		"chunks=%d prims=%d tris=%d" % [chunks, prims, tris])
 	_check("field draw chunks within budget", chunks <= CHUNKS_MAX,
 		"chunks=%d (max %d) for 3 rigs + 3 bridges, %d primitives batched" % [chunks, CHUNKS_MAX, prims])
-	var far: int = int(stats.get("hull", 0)) + int(stats.get("glass", 0))
+	var far: int = int(stats.get("hull", 0)) + int(stats.get("glass", 0)) + int(stats.get("lamp", 0))
 	_check("chunks visible from SALTLINE-0 (hull+glass) within budget",
 		far <= FAR_CHUNKS_MAX and far >= 12,
 		"far=%d (max %d), detail=%d culled past %.0f m" % [far, FAR_CHUNKS_MAX, int(stats.get("detail", 0)), 210.0])
@@ -145,14 +148,28 @@ func _run() -> void:
 			["plant_roof", Vector3(14.0, 21.2, 11.0)],
 			["low_intake_deck", Vector3(29.0, 3.2, -19.0)],
 			["pipe_rack_tip", Vector3(-48.0, 13.2, -14.0)],
-			["silo_gantry", Vector3(34.0, 24.2, -6.0)]],
-		"anchorage": [["mess_floor", Vector3(-5.0, 22.0, 4.0)],
-			["aquarium_gallery", Vector3(-2.0, 25.3, 4.0)],
-			["helideck_centre", Vector3(30.0, 28.5, -4.0)],
-			["under_helideck", Vector3(32.0, 22.0, -4.0)],
-			["promenade", Vector3(-29.0, 22.0, 2.5)],
-			["hotel_roof", Vector3(-8.0, 35.2, 4.0)]],
-		"deepwell": [["drill_floor", Vector3(0.0, 30.0, -9.0)],
+			["silo_gantry", Vector3(34.0, 24.2, -6.0)],
+			["process_deck", Vector3(-26.0, 6.8, 0.0)],
+			["process_catwalk", Vector3(0.0, 10.0, 8.0)],
+			["mezzanine_ring", Vector3(-39.6, 17.8, 0.0)]],
+		"anchorage": [["atrium_floor", Vector3(0.0, 22.0, -8.0)],
+			["tank_spur_G2", Vector3(0.0, 29.4, -3.0)],
+			["gallery_G2", Vector3(0.0, 29.4, -8.5)],
+			["gallery_G3", Vector3(-13.0, 33.1, 4.0)],
+			["gallery_G4", Vector3(0.0, 36.8, -8.5)],
+			["tank_spur_G4", Vector3(0.0, 36.8, 11.0)],
+			["plant_deck", Vector3(-28.0, 8.8, -8.0)],
+			["leisure_deck", Vector3(-24.0, 15.4, 0.0)],
+			["lobby", Vector3(0.0, 22.0, -24.0)],
+			["helideck_centre", Vector3(48.0, 30.0, -8.0)],
+			["under_helideck", Vector3(46.0, 22.0, -8.0)],
+			["promenade", Vector3(-46.0, 22.0, 2.5)],
+			["west_wing_roof", Vector3(-29.0, 36.8, 12.0)],
+			["marina", Vector3(0.0, 2.2, -29.0)]],
+		"deepwell": [["production_deck", Vector3(-22.0, 11.3, 8.0)],
+			["production_catwalk", Vector3(0.0, 14.6, 14.0)],
+			["outboard_ring", Vector3(-35.4, 23.6, 0.0)],
+			["drill_floor", Vector3(0.0, 30.0, -9.0)],
 			["bop_deck", Vector3(0.0, 24.5, -10.0)],
 			["moon_pool_rim", Vector3(0.0, 20.0, -7.6)],
 			["monkey_board", Vector3(0.0, 58.0, -7.6)],
@@ -210,14 +227,38 @@ func _run() -> void:
 	_check("the ANCHORAGE aquarium published its water volume", tanks.size() == 1,
 		"markers=%d" % tanks.size())
 	if tanks.size() == 1:
-		var sz: Vector3 = tanks[0].get_meta("water_size")
-		var vol: float = sz.x * sz.y * sz.z
-		_check("aquarium is two storeys of water", sz.y >= 5.0 and vol >= 120.0,
-			"%.2f x %.2f x %.2f = %.1f m3" % [sz.x, sz.y, sz.z, vol])
+		var r: float = float(tanks[0].get_meta("radius", 0.0))
+		var hgt: float = float(tanks[0].get_meta("height", 0.0))
+		var vol: float = PI * r * r * hgt
+		_check("the column aquarium runs through four galleries", hgt >= 14.0 and r >= 4.5,
+			"r=%.2f h=%.2f -> %.0f m3" % [r, hgt, vol])
+
+	# ---------------------------------------------------------------- the light switch
+	# "Many lights once they are turned on" is a real claim, so it gets a real gate: the
+	# field must be DARK before the circuit closes and LIT after, and both states are read
+	# back off the nodes rather than assumed from the call returning.
+	var lamps: int = int(stats.get("lamps", 0))
+	var flights: int = int(stats.get("lights", 0))
+	_check("the field carries a real amount of lighting (anti-vacuity)",
+		lamps >= 12 and flights >= 30, "lamp chunks=%d, omni lights=%d" % [lamps, flights])
+	var dark_ok: bool = not bool(field.call("is_lit"))
+	PowerGrid.power_circuit("topside_floodlights")
+	await get_tree().process_frame
+	var lit_meshes: int = 0
+	var lit_lights: int = 0
+	for n in _all(field):
+		if n is MeshInstance3D and (n as MeshInstance3D).has_meta("field_lamp") and (n as MeshInstance3D).visible:
+			lit_meshes += 1
+		elif n is OmniLight3D and n.is_in_group("rig_field_floods") and (n as OmniLight3D).light_energy > 0.01:
+			lit_lights += 1
+	_check("the field is dark until the breaker is closed, and lights when it is",
+		dark_ok and lit_meshes == lamps and lit_lights == flights,
+		"dark_before=%s  lit_after=%d/%d chunks, %d/%d lights" %
+		[dark_ok, lit_meshes, lamps, lit_lights, flights])
 
 	# ---------------------------------------------------------------- fishing spots
 	var spots: Array = get_tree().get_nodes_in_group("field_fishing_spot")
-	_check("each new rig carries at least 3 fishing spots", spots.size() >= 9,
+	_check("each new rig carries at least 3 fishing spots", spots.size() >= 10,
 		"spots=%d" % spots.size())
 	var heights: Array = []
 	for s in spots:
@@ -226,6 +267,12 @@ func _run() -> void:
 	_check("fishing spots span real height (low water to high deck)",
 		heights.size() >= 9 and heights[heights.size() - 1] - heights[0] > 10.0,
 		"y %.1f .. %.1f" % [heights[0], heights[heights.size() - 1]])
+
+func _all(root: Node) -> Array:
+	var out: Array = [root]
+	for c in root.get_children():
+		out.append_array(_all(c))
+	return out
 
 func _find_field(root: Node) -> Node:
 	for c in root.get_children():

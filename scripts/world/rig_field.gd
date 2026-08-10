@@ -59,6 +59,54 @@ const SPAN_DAMAGE := [0.10, 0.16, 0.34]
 
 var stats: Dictionary = {}
 
+## THE FIELD IS DARK UNTIL THE RIG HAS POWER. Every emissive fixture across the three new
+## platforms — cove strips, lamp lenses, mast beacons, the aquarium's tank light — is built
+## into RigKit's "lamp" group, which flush() emits as its own chunks and starts hidden. This
+## node flips them, all at once, off rig 1's existing main breaker.
+##
+## That is deliberate wiring, not a shortcut: `topside_floodlights` is the circuit Breaker
+## 4-A closes at the end of the cold open, so the moment the player restores power to
+## SALTLINE-0 the whole field comes up on the horizon. Per-rig breakers are a later pass —
+## filed in KNOWN_ISSUES rather than faked here.
+const LIGHT_CIRCUIT: String = "topside_floodlights"
+
+var _lamp_meshes: Array[MeshInstance3D] = []
+var _field_lights: Array[OmniLight3D] = []
+var _lit: bool = false
+
+func _wire_power() -> void:
+	_collect_lamps(self)
+	# Bloom lights are NOT in this set: the fissure is a phenomenon, not a fixture, and it
+	# glows whether or not anybody has thrown a breaker.
+	for l in _field_lights:
+		l.set_meta("field_energy", l.light_energy)
+	_set_lit(PowerGrid.is_powered(LIGHT_CIRCUIT))
+	PowerGrid.circuit_powered.connect(func(id: String) -> void:
+		if id == LIGHT_CIRCUIT:
+			_set_lit(true))
+	PowerGrid.circuit_lost.connect(func(id: String) -> void:
+		if id == LIGHT_CIRCUIT:
+			_set_lit(false))
+
+func _collect_lamps(n: Node) -> void:
+	for c in n.get_children():
+		if c is MeshInstance3D and c.has_meta("field_lamp"):
+			_lamp_meshes.append(c)
+		elif c is OmniLight3D and c.is_in_group("rig_field_floods"):
+			_field_lights.append(c)
+		_collect_lamps(c)
+
+func _set_lit(on: bool) -> void:
+	_lit = on
+	for m in _lamp_meshes:
+		m.visible = on
+	for l in _field_lights:
+		l.light_energy = float(l.get_meta("field_energy", 1.8)) if on else 0.0
+
+## True when the field's lighting circuit is live. Read by the probe.
+func is_lit() -> bool:
+	return _lit
+
 ## A/B SWITCH, for the draw-call gate. `godot --path . tests/VantagePerf.tscn -- --nofield`
 ## builds the identical session without the field, so before/after is ONE session's numbers
 ## rather than two runs on a machine that drifts several fps between them (the same reason
@@ -134,6 +182,7 @@ func _ready() -> void:
 
 	var bridge_chunks: int = _build_bridges(built)
 	_field_seabed()
+	_wire_power()
 
 	var by_group: Dictionary = _count_groups(self)
 	stats = {
@@ -141,6 +190,9 @@ func _ready() -> void:
 		"chunks": total_chunks + bridge_chunks,
 		"hull": int(by_group.get("hull", 0)),
 		"detail": int(by_group.get("detail", 0)),
+		"lamp": int(by_group.get("lamp", 0)),
+		"lamps": _lamp_meshes.size(),
+		"lights": _field_lights.size(),
 		"glass": int(by_group.get("glass", 0)),
 		"tris": total_tris,
 		"prims": total_prims,
@@ -149,9 +201,10 @@ func _ready() -> void:
 	# The number that decides whether this chapter is affordable is not the total: "detail"
 	# chunks carry visibility_range_end, so from SALTLINE-0's deck — 161 to 415 m away — only
 	# hull and glass are submitted at all. Both are printed so neither can hide.
-	print("[field] %d rigs + 3 bridges | %d draw chunks (hull %d / glass %d always, detail %d under %.0f m) | %d tris from %d primitives | %d ms" %
-		[built.size(), stats["chunks"], stats["hull"], stats["glass"], stats["detail"],
-		KIT.Bake.DETAIL_DRAW_M, total_tris, total_prims, stats["ms"]])
+	print("[field] %d rigs + 3 bridges | %d draw chunks (hull %d / glass %d / lamp %d always, detail %d under %.0f m) | %d tris from %d primitives | %d lamp chunks + %d lights on '%s' | %d ms" %
+		[built.size(), stats["chunks"], stats["hull"], stats["glass"], stats["lamp"], stats["detail"],
+		KIT.Bake.DETAIL_DRAW_M, total_tris, total_prims, _lamp_meshes.size(), _field_lights.size(),
+		LIGHT_CIRCUIT, stats["ms"]])
 
 ## Count the emitted chunks by RigKit group. Walks the built tree rather than trusting a
 ## running total: if flush ever stopped emitting something, a counter would not notice.

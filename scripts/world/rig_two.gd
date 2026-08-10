@@ -26,6 +26,9 @@ const SUB_TOP: float = 12.90      ## caisson tops — BELOW the deck slab's unde
 const MAIN_Y: float = 14.00       ## main deck walking surface. Rig 1's is 18.0: MARROW sits low.
 const MAIN_T: float = 1.00        ## main deck slab thickness -> slab occupies 13.0 .. 14.0
 const LOW_Y: float = 3.20         ## pump-intake working deck, near the waterline
+const TOWER_RISE: float = 3.60    ## the low tower's flight rise — every landing derives from it
+const PLANT_Y: float = LOW_Y + TOWER_RISE          ## 6.80 — THE PROCESS DECK, a full level
+const MEZZ_Y: float = 17.80       ## perimeter catwalk ring, half a storey over the main deck
 const CANTI_Y: float = 13.20      ## the pipe-rack cantilever — a deliberate HALF LEVEL
 const BLOCK_H: float = 3.60       ## storey height, mess/accommodation block
 const GARDEN_Y: float = 21.20     ## mess block roof = the garden. MAIN_Y + 2 * BLOCK_H
@@ -55,6 +58,7 @@ const TOWER_LOW := Rect2(23.0, -14.0, 7.0, 8.0)
 
 const LOW_DECK := Rect2(20.0, -24.0, 18.0, 10.0)    ## pump intakes, waterline fishing
 const CANTI := Rect2(-53.0, -19.0, 15.0, 10.0)      ## 15 m past the deck rim, 23 m past the legs
+const PLANT_DECK := Rect2(-30.0, -20.0, 60.0, 40.0) ## the process level slung under the main slab
 
 const MESS := Rect2(-30.0, 2.0, 26.0, 18.0)         ## 2 storeys -> the garden roof
 const PLANT := Rect2(2.0, 4.0, 24.0, 15.0)          ## one 7.2 m hall: pumps, workshop, treatment
@@ -83,6 +87,9 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 	_substructure(b)
 	_main_deck(b)
 	_low_deck(b)
+	_process_deck(b)
+	_mezzanine(b)
+	_more_plant(b)
 	_cantilever(b)
 	_buildings(b)
 	_garden(b)
@@ -172,7 +179,7 @@ static func _low_deck(b: KIT.Bake) -> void:
 	KIT.boat_landing(b, Vector3(36.0, 0.0, -30.0), 0.0, LOW_Y, 1.4, 8.0, 4.0)
 	KIT.ladder(b, Vector3(36.0, 1.4, -27.6), LOW_Y, 0.0)
 	# Tower down the stair well, low deck to main deck: 3 flights of 3.6.
-	KIT.stair_tower(b, TOWER_LOW, LOW_Y, MAIN_Y, 3.6, true)
+	KIT.stair_tower(b, TOWER_LOW, LOW_Y, MAIN_Y, TOWER_RISE, true)
 
 static func _cantilever(b: KIT.Bake) -> void:
 	# THE PIPE RACK. 15 m of deck cantilevered west past the rim, 23 m past the nearest leg,
@@ -400,14 +407,32 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 	# Sodium floodlight masts. Shadows OFF, deliberately: render_budget caps the whole game
 	# at two shadow-casting positional lights and those slots belong to wherever the player
 	# actually is. A neighbour rig's floods are silhouette and glow, not shadow.
+	# Deck-edge and under-deck cove: sodium, so MARROW reads WARM at night against the
+	# ANCHORAGE's cold white. Geometry, not lights — see rig_kit.led_cove.
+	var warm := Color(1.0, 0.72, 0.34)
+	for run in [[Vector3(DECK.position.x + 0.6, MAIN_Y + 0.85, DECK.position.y + 0.6), Vector3(DECK.end.x - 0.6, MAIN_Y + 0.85, DECK.position.y + 0.6)],
+			[Vector3(DECK.position.x + 0.6, MAIN_Y + 0.85, DECK.end.y - 0.6), Vector3(DECK.end.x - 0.6, MAIN_Y + 0.85, DECK.end.y - 0.6)],
+			[Vector3(DECK.position.x + 0.6, MAIN_Y + 0.85, DECK.position.y + 0.6), Vector3(DECK.position.x + 0.6, MAIN_Y + 0.85, DECK.end.y - 0.6)],
+			[Vector3(DECK.end.x - 0.6, MAIN_Y + 0.85, DECK.position.y + 0.6), Vector3(DECK.end.x - 0.6, MAIN_Y + 0.85, DECK.end.y - 0.6)],
+			[Vector3(DECK.position.x + 2.0, 12.7, DECK.position.y + 1.5), Vector3(DECK.end.x - 2.0, 12.7, DECK.position.y + 1.5)],
+			[Vector3(DECK.position.x + 2.0, 12.7, DECK.end.y - 1.5), Vector3(DECK.end.x - 2.0, 12.7, DECK.end.y - 1.5)]]:
+		KIT.led_cove(b, run[0], run[1], warm, 0.11, 2.6)
+	for z in [MESS.position.y + 1.0, MESS.end.y - 1.0]:
+		KIT.led_cove(b, Vector3(MESS.position.x + 0.4, MAIN_Y + BLOCK_H - 0.4, z),
+			Vector3(MESS.end.x - 0.4, MAIN_Y + BLOCK_H - 0.4, z), warm, 0.09, 2.4)
+		KIT.led_cove(b, Vector3(MESS.position.x + 0.4, GARDEN_Y - 0.4, z),
+			Vector3(MESS.end.x - 0.4, GARDEN_Y - 0.4, z), warm, 0.09, 2.4)
 	var mast_pts: Array = [
 		Vector3(-36.0, MAIN_Y, 22.0), Vector3(36.0, MAIN_Y, -22.0),
 		Vector3(-36.0, MAIN_Y, -22.0), Vector3(0.0, GARDEN_Y, 1.0),
-		Vector3(20.0, MAIN_Y, -22.0),
+		Vector3(20.0, MAIN_Y, -22.0), Vector3(-20.0, MAIN_Y, 22.0),
+		Vector3(30.0, MAIN_Y, 0.0), Vector3(-16.0, PLANT_Y, 0.0),
+		Vector3(12.0, PLANT_Y, 0.0), Vector3(-32.0, TOWER_TOP, -4.5),
 	]
 	for p in mast_pts:
 		b.cyl(p + Vector3(0, 4.0, 0), 0.16, 8.0, MatLib.galvanized(), "detail")
 		b.box(p + Vector3(0, 8.3, 0), Vector3(1.4, 0.5, 0.6), MatLib.dark_metal(), "detail")
+		KIT.lamp_lens(b, p + Vector3(0, 8.05, 0), Color(1.0, 0.72, 0.34), 0.62, 5.5)
 		KIT.lamp_lens(b, p + Vector3(0, 8.05, 0), Color(1.0, 0.72, 0.34), 0.62, 5.5)
 		var l := OmniLight3D.new()
 		l.light_color = Color(1.0, 0.78, 0.46)     # sodium
@@ -417,3 +442,104 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		l.add_to_group("rig_field_floods")
 		host.add_child(l)
 		l.position = b.to_world(p + Vector3(0, 8.1, 0))
+
+
+# ------------------------------------------------------------------- THE PROCESS DECK
+
+## y 6.80 — a FULL SECOND LEVEL slung under the main slab, and the single biggest reason
+## MARROW now reads as a rig rather than as a table with sheds on it. Its elevation is not
+## typed: it is the third landing of the low stair tower (LOW_Y + TOWER_RISE), so the way
+## down to it already exists and cannot drift out from under the deck.
+static func _process_deck(b: KIT.Bake) -> void:
+	KIT.deck_hole(b, PLANT_DECK, TOWER_LOW.grow(0.45), PLANT_Y, 0.34, MatLib.grating())
+	KIT.rail_rect(b, PLANT_DECK, PLANT_Y, [["s", 20.0, 30.0], ["w", -6.0, 6.0]], 0.3)
+	KIT.rail_rect(b, TOWER_LOW.grow(0.45), PLANT_Y, [["w", -14.4, -9.4]], -0.1)
+	var steel: Material = MatLib.rust_steel()
+	# Hung off the main deck's girders, not stood on its own legs.
+	for x in [-26.0, -13.0, 0.0, 13.0, 26.0]:
+		for z in [-18.0, 18.0]:
+			b.member(Vector3(x, PLANT_Y, z), Vector3(x, 12.6, z), 0.26, steel, "hull")
+	# THE SEPARATOR TRAIN. Three vertical vessels and a horizontal knock-out drum, plumbed
+	# together, with the exchanger bank behind them.
+	KIT.vessel(b, Vector3(-24.0, PLANT_Y, -10.0), 2.3, 8.0, true)
+	KIT.vessel(b, Vector3(-17.0, PLANT_Y, -10.0), 2.3, 8.0, true)
+	KIT.vessel(b, Vector3(-10.0, PLANT_Y, -10.0), 1.9, 6.4, true)
+	KIT.vessel(b, Vector3(-17.0, PLANT_Y, 2.0), 2.0, 13.0, false, 0.0)
+	KIT.exchanger_bank(b, Vector3(-2.0, PLANT_Y, 4.0), 4, 9.0, 0.0)
+	KIT.vessel(b, Vector3(10.0, PLANT_Y, 8.0), 2.8, 9.4, true)
+	# Pump hall: five skids in a row with a service lane between them.
+	for i in range(5):
+		KIT.skid(b, Vector3(-22.0 + i * 7.4, PLANT_Y, 14.0), Vector3(5.6, 2.8, 3.6), 0.0)
+	# Valve manifolds, the wall of handwheels every rig has.
+	KIT.manifold(b, Vector3(6.0, PLANT_Y, -17.5), 11.0, 3.4, 0.0)
+	KIT.manifold(b, Vector3(24.0, PLANT_Y, 6.0), 8.0, 3.4, 90.0)
+	# Pipe galleries and cable trays down the length of it, plus an overhead catwalk route.
+	for z2 in [-14.0, -2.0, 10.0]:
+		KIT.pipe_rack(b, Vector3(-29.0, PLANT_Y + 4.4, z2), Vector3(20.0, PLANT_Y + 4.4, z2), 6, 3.2)
+	KIT.cable_tray(b, Vector3(-29.0, PLANT_Y + 5.4, -6.0), Vector3(29.0, PLANT_Y + 5.4, -6.0))
+	KIT.cable_tray(b, Vector3(-29.0, PLANT_Y + 5.4, 6.0), Vector3(29.0, PLANT_Y + 5.4, 6.0))
+	KIT.catwalk(b, Vector3(-28.0, PLANT_Y + 3.2, -6.0), Vector3(22.0, PLANT_Y + 3.2, -6.0), 1.6, true, PLANT_Y)
+	KIT.catwalk(b, Vector3(-28.0, PLANT_Y + 3.2, 8.0), Vector3(22.0, PLANT_Y + 3.2, 8.0), 1.6, true, PLANT_Y)
+	KIT.catwalk(b, Vector3(-28.0, PLANT_Y + 3.2, -6.0), Vector3(-28.0, PLANT_Y + 3.2, 8.0), 1.6, true, PLANT_Y)
+	KIT.stair(b, Vector3(21.0, PLANT_Y, -6.0), Vector3(21.0, PLANT_Y + 3.2, 0.0), 1.6, true, true)
+	# Risers up through the main slab to the deck plant above.
+	for x2 in [-24.0, -17.0, -10.0, 10.0]:
+		KIT.pipe_run(b, [Vector3(x2, PLANT_Y + 8.0, -10.0 if x2 < 0.0 else 8.0),
+			Vector3(x2, 12.6, -10.0 if x2 < 0.0 else 8.0)], 0.26)
+	for i2 in range(10):
+		KIT.lamp_lens(b, Vector3(-27.0 + i2 * 6.0, PLANT_Y + 5.0, -6.0), Color(1.0, 0.82, 0.5), 0.4, 4.5)
+		KIT.lamp_lens(b, Vector3(-27.0 + i2 * 6.0, PLANT_Y + 5.0, 8.0), Color(1.0, 0.82, 0.5), 0.4, 4.5)
+
+## A CATWALK RING at y 17.8 all the way round the main deck, half a storey up, with four
+## stairs onto it. The brief asked for overviews and overpasses; this is the one that lets
+## the player walk the whole rig at height and look down into the plant.
+static func _mezzanine(b: KIT.Bake) -> void:
+	# OUTBOARD of the rim, not inboard. Run inside the deck edge it drove its west leg
+	# straight through the stair tower at x -37..-27, and the probe caught it by landing on
+	# the tower's own landing rail 1.02 m above where the walkway claimed to be. Hung outside
+	# the deck it clears every structure on the platform, and it is a better shape anyway:
+	# you walk the OUTSIDE of the rig and look back in at it.
+	var o: float = 1.6
+	var x0: float = DECK.position.x - o
+	var x1: float = DECK.end.x + o
+	var z0: float = DECK.position.y - o
+	var z1: float = DECK.end.y + o
+	for run in [[Vector3(x0, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z0)],
+			[Vector3(x0, MEZZ_Y, z1), Vector3(x1, MEZZ_Y, z1)],
+			[Vector3(x0, MEZZ_Y, z0), Vector3(x0, MEZZ_Y, z1)],
+			[Vector3(x1, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z1)]]:
+		KIT.catwalk(b, run[0], run[1], 1.8, true, MAIN_Y)
+	# Four stairs up from the deck onto the ring, plus the hangers that carry it.
+	for spec in [[Vector3(DECK.position.x + 1.0, MAIN_Y, -12.0), Vector3(x0, MEZZ_Y, -18.0)],
+			[Vector3(DECK.end.x - 1.0, MAIN_Y, 12.0), Vector3(x1, MEZZ_Y, 18.0)],
+			[Vector3(-12.0, MAIN_Y, DECK.end.y - 1.0), Vector3(-18.0, MEZZ_Y, z1)],
+			[Vector3(12.0, MAIN_Y, DECK.position.y + 1.0), Vector3(18.0, MEZZ_Y, z0)]]:
+		KIT.stair(b, spec[0], spec[1], 1.6, true, true)
+	var steel: Material = MatLib.rust_steel()
+	for t in [-30.0, -15.0, 0.0, 15.0, 30.0]:
+		for side in [[Vector3(x0, MEZZ_Y, t), Vector3(DECK.position.x + 0.6, MAIN_Y + 0.2, t)],
+				[Vector3(x1, MEZZ_Y, t), Vector3(DECK.end.x - 0.6, MAIN_Y + 0.2, t)]]:
+			b.member(side[0], side[1], 0.2, steel, "detail")
+	for t2 in [-20.0, 0.0, 20.0]:
+		for side2 in [[Vector3(t2, MEZZ_Y, z0), Vector3(t2, MAIN_Y + 0.2, DECK.position.y + 0.6)],
+				[Vector3(t2, MEZZ_Y, z1), Vector3(t2, MAIN_Y + 0.2, DECK.end.y - 0.6)]]:
+			b.member(side2[0], side2[1], 0.2, steel, "detail")
+	for i2 in range(14):
+		var t: float = float(i2) / 13.0
+		KIT.lamp_lens(b, Vector3(lerpf(x0, x1, t), MEZZ_Y + 1.5, z0), Color(1.0, 0.78, 0.42), 0.34, 4.5)
+		KIT.lamp_lens(b, Vector3(lerpf(x0, x1, t), MEZZ_Y + 1.5, z1), Color(1.0, 0.78, 0.42), 0.34, 4.5)
+
+## Main-deck process: what a working platform actually carries between its buildings.
+static func _more_plant(b: KIT.Bake) -> void:
+	KIT.vessel(b, Vector3(-33.0, MAIN_Y, -4.0), 2.2, 8.6, true)
+	KIT.vessel(b, Vector3(-33.0, MAIN_Y, 4.0), 2.2, 8.6, true)
+	KIT.vessel(b, Vector3(30.0, MAIN_Y, 8.0), 2.4, 9.0, true)
+	KIT.exchanger_bank(b, Vector3(-8.0, MAIN_Y, 22.0), 3, 10.0, 0.0)
+	KIT.manifold(b, Vector3(14.0, MAIN_Y, -18.0), 9.0, 3.4, 0.0)
+	KIT.manifold(b, Vector3(-16.0, MAIN_Y, 1.0), 7.0, 3.2, 90.0)
+	for i in range(4):
+		KIT.skid(b, Vector3(20.0 + i * 4.6, MAIN_Y, 22.0), Vector3(4.0, 2.4, 3.0), 0.0)
+	KIT.cable_tray(b, Vector3(-36.0, MAIN_Y + 4.4, -22.0), Vector3(36.0, MAIN_Y + 4.4, -22.0), MAIN_Y)
+	KIT.cable_tray(b, Vector3(-36.0, MAIN_Y + 4.4, 22.6), Vector3(36.0, MAIN_Y + 4.4, 22.6), MAIN_Y)
+	# The glazed control cabin on the tower head — MARROW's lookout, and its one warm room.
+	KIT.lookout(b, Rect2(TOWER_HI.position.x - 0.4, TOWER_HI.position.y + 0.4, 7.0, 6.0), TOWER_TOP, 3.0)

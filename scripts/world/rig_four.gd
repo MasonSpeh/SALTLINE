@@ -30,6 +30,9 @@ const CROWN_Y: float = 96.00      ## crown block. The number the whole field is 
 const MUD_ROOF: float = 26.00     ## mud pits and shaker house
 const LAB_ROOF: float = 26.60     ## core lab + control room, two storeys
 const LOW_Y: float = 2.60         ## boat landing / decon deck
+const TOWER_RISE: float = 2.90    ## the access tower's flight rise; every landing derives from it
+const CELLAR_LOW: float = LOW_Y + TOWER_RISE * 3.0   ## 11.30 — THE PRODUCTION DECK
+const MEZZ_Y: float = 23.60       ## outboard catwalk ring, one level over the main deck
 const FLARE_ROOT: float = 26.00
 
 # ---------------------------------------------------------------------- plan (metres)
@@ -42,6 +45,7 @@ const LEG_SPAN: float = 24.00
 const DECK := Rect2(-33.0, -33.0, 66.0, 66.0)
 const MOON := Rect2(-6.0, -6.0, 12.0, 12.0)        ## open to the fissure, through every deck
 const SUB := Rect2(-12.0, -12.0, 24.0, 24.0)       ## drill substructure footprint
+const CELLAR := Rect2(-27.0, -27.0, 54.0, 54.0)    ## the production level under the main slab
 
 const MUD := Rect2(-31.0, 10.0, 22.0, 14.0)        ## mud pits, shaker house, pump room
 const LAB := Rect2(10.0, -26.0, 20.0, 14.0)        ## core sample lab + control room
@@ -60,6 +64,8 @@ const BLOOM_TEAL := Color(0.24, 0.92, 0.82)
 static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 	_substructure(b)
 	_main_deck(b)
+	_production_deck(b)
+	_mezzanine(b)
 	_drill_substructure(b)
 	_derrick(b)
 	_process(b)
@@ -78,6 +84,7 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 			{"id": "deepwell_moon_pool", "at": Vector3(0.0, MAIN_Y, -7.6), "water": "open"},
 			{"id": "deepwell_decon", "at": Vector3(0.0, LOW_Y, -44.0), "water": "near"},
 			{"id": "deepwell_west_rim", "at": Vector3(-32.0, MAIN_Y, -6.0), "water": "open"},
+			{"id": "deepwell_production", "at": Vector3(-26.0, CELLAR_LOW, 10.0), "water": "near"},
 		],
 	}
 
@@ -282,6 +289,9 @@ static func _buildings(b: KIT.Bake) -> void:
 		b.cyl(Vector3(AIRLOCK.end.x - 1.2, MAIN_Y + 1.1, AIRLOCK.position.y + 1.4 + i * 1.9), 0.5, 2.2,
 			MatLib.hazard_stripe(), "hull", Vector3.ZERO, -1.0, 12, true)
 	# Stair from the main deck to the lab roof and on to the mud-house roof.
+	# THE CONTROL ROOM. Glazed, on the lab roof, looking straight at the drill floor — this
+	# is where the last shift's readouts are frozen mid-alarm.
+	KIT.lookout(b, Rect2(LAB.position.x + 3.0, LAB.position.y + 3.0, 11.0, 8.0), LAB_ROOF, 3.2)
 	KIT.stair(b, Vector3(8.0, MAIN_Y, -10.4), Vector3(8.0, 23.3, -15.4), 1.6, true, true)
 	KIT.stair(b, Vector3(10.4, 23.3, -15.4), Vector3(10.4, LAB_ROOF, -20.4), 1.6, true, true)
 	b.box(Vector3(9.2, 23.18, -15.4), Vector3(4.4, 0.24, 2.0), MatLib.grating(), "hull", Vector3.ZERO, true)
@@ -291,7 +301,7 @@ static func _access(b: KIT.Bake) -> void:
 	# on the south face, and a stair tower standing OUTSIDE the deck footprint. It is outside
 	# because the main slab has one hole in it and that hole is the moon pool.
 	KIT.boat_landing(b, Vector3(0.0, 0.0, -46.0), 180.0, MAIN_Y, LOW_Y, 10.0, 6.0)
-	KIT.stair_tower(b, STAIR_TOWER, LOW_Y, MAIN_Y, 3.48, true)
+	KIT.stair_tower(b, STAIR_TOWER, LOW_Y, MAIN_Y, TOWER_RISE, true)
 	KIT.catwalk(b, Vector3(0.0, LOW_Y, -43.4), Vector3(0.0, LOW_Y, -41.6), 2.4, true)
 	KIT.catwalk(b, Vector3(0.0, MAIN_Y, -32.2), Vector3(0.0, MAIN_Y, -31.6), 3.0, false)
 	var steel: Material = MatLib.rust_steel()
@@ -345,12 +355,38 @@ static func _bloom(b: KIT.Bake, host: Node3D) -> void:
 static func _lights(b: KIT.Bake, host: Node3D) -> void:
 	# DEEPWELL's own lighting is cold and sparse — it is a machine, not a home. The derrick
 	# gets the only real brightness, because that is where the eye must go from 415 m.
+	# Deck-edge and under-deck cove — cold white, and sparse: DEEPWELL is a machine, not a
+	# home, and the contrast against MARROW's sodium is legible from a bridge at night.
+	var cold := Color(0.72, 0.86, 1.0)
+	for run in [[Vector3(DECK.position.x + 0.8, MAIN_Y + 0.85, DECK.position.y + 0.8), Vector3(DECK.end.x - 0.8, MAIN_Y + 0.85, DECK.position.y + 0.8)],
+			[Vector3(DECK.position.x + 0.8, MAIN_Y + 0.85, DECK.end.y - 0.8), Vector3(DECK.end.x - 0.8, MAIN_Y + 0.85, DECK.end.y - 0.8)],
+			[Vector3(DECK.position.x + 0.8, MAIN_Y + 0.85, DECK.position.y + 0.8), Vector3(DECK.position.x + 0.8, MAIN_Y + 0.85, DECK.end.y - 0.8)],
+			[Vector3(DECK.end.x - 0.8, MAIN_Y + 0.85, DECK.position.y + 0.8), Vector3(DECK.end.x - 0.8, MAIN_Y + 0.85, DECK.end.y - 0.8)]]:
+		KIT.led_cove(b, run[0], run[1], cold, 0.12, 2.6)
+	# The moon-pool rim, lit from the deck so the shaft reads as a lit hole rather than a void.
+	KIT.led_cove(b, Vector3(MOON.position.x - 0.4, MAIN_Y + 0.5, MOON.position.y - 0.4), Vector3(MOON.end.x + 0.4, MAIN_Y + 0.5, MOON.position.y - 0.4), cold, 0.1, 3.0)
+	KIT.led_cove(b, Vector3(MOON.position.x - 0.4, MAIN_Y + 0.5, MOON.end.y + 0.4), Vector3(MOON.end.x + 0.4, MAIN_Y + 0.5, MOON.end.y + 0.4), cold, 0.1, 3.0)
+	KIT.led_cove(b, Vector3(MOON.position.x - 0.4, MAIN_Y + 0.5, MOON.position.y - 0.4), Vector3(MOON.position.x - 0.4, MAIN_Y + 0.5, MOON.end.y + 0.4), cold, 0.1, 3.0)
+	KIT.led_cove(b, Vector3(MOON.end.x + 0.4, MAIN_Y + 0.5, MOON.position.y - 0.4), Vector3(MOON.end.x + 0.4, MAIN_Y + 0.5, MOON.end.y + 0.4), cold, 0.1, 3.0)
+	# The derrick, lit up its own legs so it is a lit tower and not a black one.
+	for k in range(6):
+		var dy: float = DRILL_Y + 4.0 + k * 10.0
+		var hh: float = lerpf(DERRICK_BASE_HALF, DERRICK_TOP_HALF, clampf((dy - DRILL_Y) / (CROWN_Y - DRILL_Y), 0.0, 1.0))
+		for sx in [-1.0, 1.0]:
+			for sz in [-1.0, 1.0]:
+				KIT.lamp_lens(b, Vector3(sx * hh, dy, sz * hh), Color(0.90, 0.94, 1.0), 0.3, 5.0)
 	var pts: Array = [
 		[Vector3(0.0, DRILL_Y + 6.0, 0.0), Color(0.86, 0.90, 0.96), 3.0, 34.0],
 		[Vector3(0.0, MONKEY_Y + 2.0, 0.0), Color(0.86, 0.90, 0.96), 2.2, 26.0],
 		[Vector3(-20.0, MAIN_Y + 6.0, 8.0), Color(0.95, 0.86, 0.70), 1.8, 22.0],
 		[Vector3(18.0, MAIN_Y + 5.0, -18.0), Color(0.95, 0.86, 0.70), 1.8, 22.0],
 		[Vector3(0.0, MAIN_Y + 4.0, -30.0), Color(0.90, 0.88, 0.82), 1.6, 18.0],
+		[Vector3(-16.0, CELLAR_LOW + 3.4, -12.0), Color(0.96, 0.90, 0.78), 1.8, 24.0],
+		[Vector3(16.0, CELLAR_LOW + 3.4, 10.0), Color(0.96, 0.90, 0.78), 1.8, 24.0],
+		[Vector3(0.0, CELLAR_LOW + 3.4, 20.0), Color(0.96, 0.90, 0.78), 1.6, 22.0],
+		[Vector3(-30.0, MAIN_Y + 4.0, 16.0), Color(0.88, 0.90, 0.96), 1.7, 24.0],
+		[Vector3(20.0, LAB_ROOF + 2.0, -20.0), Color(0.88, 0.92, 1.0), 1.6, 22.0],
+		[Vector3(0.0, CELLAR_Y + 2.0, -10.0), Color(0.90, 0.92, 0.98), 1.8, 22.0],
 	]
 	for p in pts:
 		KIT.lamp_lens(b, p[0], p[1], 0.7, 6.0)
@@ -362,3 +398,86 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		l.add_to_group("rig_field_floods")
 		host.add_child(l)
 		l.position = b.to_world(p[0])
+
+
+# ---------------------------------------------------------------- THE PRODUCTION DECK
+
+## y 11.30 — a full level between the pontoons and the main slab, wrapped round the moon
+## pool. Its elevation is the FOURTH LANDING of the access tower (LOW_Y + 3 * TOWER_RISE),
+## so the way down already exists and the number cannot drift.
+##
+## This is where a drilling platform keeps the things that are too heavy and too loud to be
+## anywhere else: mud pumps, the cement unit, bulk tanks, the pipe galleries that feed the
+## drill floor 19 m above.
+static func _production_deck(b: KIT.Bake) -> void:
+	KIT.deck_hole(b, CELLAR, MOON.grow(2.0), CELLAR_LOW, 0.36, MatLib.grating())
+	KIT.rail_rect(b, CELLAR, CELLAR_LOW, [["s", -4.0, 4.0], ["w", -6.0, 6.0]], 0.35)
+	KIT.rail_rect(b, MOON.grow(2.0), CELLAR_LOW, [], -0.25)
+	var steel: Material = MatLib.rust_steel()
+	for x in [-24.0, -8.0, 8.0, 24.0]:
+		for z in [-24.0, 24.0]:
+			b.member(Vector3(x, CELLAR_LOW, z), Vector3(x, 18.4, z), 0.3, steel, "hull")
+	# MUD PUMPS: three enormous skids in a row, the loudest machines on any rig.
+	for i in range(3):
+		KIT.skid(b, Vector3(-22.0 + i * 8.0, CELLAR_LOW, -20.0), Vector3(7.4, 3.4, 4.6), 0.0)
+	# Bulk cement and barite silos, vertical, feeding the mixing unit.
+	for i2 in range(4):
+		KIT.vessel(b, Vector3(-24.0 + i2 * 6.4, CELLAR_LOW, 18.0), 2.4, 6.6, true)
+	KIT.skid(b, Vector3(4.0, CELLAR_LOW, 18.0), Vector3(6.0, 3.0, 4.0), 0.0)
+	# Horizontal bulk tanks and an exchanger bank on the east side.
+	for i3 in range(2):
+		KIT.vessel(b, Vector3(20.0, CELLAR_LOW, -6.0 + i3 * 10.0), 2.0, 12.0, false, 90.0)
+	KIT.exchanger_bank(b, Vector3(-20.0, CELLAR_LOW, 2.0), 3, 8.0, 90.0)
+	KIT.manifold(b, Vector3(0.0, CELLAR_LOW, -25.0), 12.0, 3.6, 0.0)
+	KIT.manifold(b, Vector3(-25.0, CELLAR_LOW, -8.0), 8.0, 3.4, 90.0)
+	# Pipe galleries and trays right round the pool, plus an overhead route.
+	for z2 in [-16.0, 14.0]:
+		KIT.pipe_rack(b, Vector3(-25.0, CELLAR_LOW + 4.6, z2), Vector3(25.0, CELLAR_LOW + 4.6, z2), 6, 3.4)
+	KIT.cable_tray(b, Vector3(-25.0, CELLAR_LOW + 5.6, -11.0), Vector3(25.0, CELLAR_LOW + 5.6, -11.0))
+	KIT.cable_tray(b, Vector3(-25.0, CELLAR_LOW + 5.6, 9.0), Vector3(25.0, CELLAR_LOW + 5.6, 9.0))
+	for z3 in [-16.0, 14.0]:
+		KIT.catwalk(b, Vector3(-24.0, CELLAR_LOW + 3.3, z3), Vector3(24.0, CELLAR_LOW + 3.3, z3), 1.6, true, CELLAR_LOW)
+	KIT.catwalk(b, Vector3(-24.0, CELLAR_LOW + 3.3, -16.0), Vector3(-24.0, CELLAR_LOW + 3.3, 14.0), 1.6, true, CELLAR_LOW)
+	KIT.catwalk(b, Vector3(24.0, CELLAR_LOW + 3.3, -16.0), Vector3(24.0, CELLAR_LOW + 3.3, 14.0), 1.6, true, CELLAR_LOW)
+	KIT.stair(b, Vector3(-18.0, CELLAR_LOW, -16.0), Vector3(-18.0, CELLAR_LOW + 3.3, -10.0), 1.6, true, true)
+	# The link from the access tower's fourth landing onto this deck.
+	KIT.catwalk(b, Vector3(0.0, CELLAR_LOW, -32.0), Vector3(0.0, CELLAR_LOW, -26.6), 2.6, true)
+	# Standpipe risers up to the drill floor.
+	for x2 in [-6.6, 6.6]:
+		KIT.pipe_run(b, [Vector3(x2, CELLAR_LOW + 1.0, -8.5), Vector3(x2, DRILL_Y - 0.8, -8.5)], 0.3)
+	for i4 in range(9):
+		KIT.lamp_lens(b, Vector3(-24.0 + i4 * 6.0, CELLAR_LOW + 5.2, -11.0), Color(0.96, 0.88, 0.72), 0.42, 4.5)
+		KIT.lamp_lens(b, Vector3(-24.0 + i4 * 6.0, CELLAR_LOW + 5.2, 9.0), Color(0.96, 0.88, 0.72), 0.42, 4.5)
+
+## An OUTBOARD CATWALK RING at y 23.6, hung off the main deck's rim all the way round, with
+## four stairs onto it. It is the route that lets a player walk the outside of the platform
+## and look up the derrick — and it is what gives DEEPWELL a second silhouette line.
+static func _mezzanine(b: KIT.Bake) -> void:
+	var o: float = 2.4
+	var x0: float = DECK.position.x - o
+	var x1: float = DECK.end.x + o
+	var z0: float = DECK.position.y - o
+	var z1: float = DECK.end.y + o
+	for run in [[Vector3(x0, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z0)],
+			[Vector3(x0, MEZZ_Y, z1), Vector3(x1, MEZZ_Y, z1)],
+			[Vector3(x0, MEZZ_Y, z0), Vector3(x0, MEZZ_Y, z1)],
+			[Vector3(x1, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z1)]]:
+		KIT.catwalk(b, run[0], run[1], 1.8, true)
+	var steel: Material = MatLib.rust_steel()
+	for t in [-28.0, -14.0, 0.0, 14.0, 28.0]:
+		for side in [[Vector3(x0, MEZZ_Y, t), Vector3(DECK.position.x + 0.6, MAIN_Y + 0.2, t)],
+				[Vector3(x1, MEZZ_Y, t), Vector3(DECK.end.x - 0.6, MAIN_Y + 0.2, t)],
+				[Vector3(t, MEZZ_Y, z0), Vector3(t, MAIN_Y + 0.2, DECK.position.y + 0.6)],
+				[Vector3(t, MEZZ_Y, z1), Vector3(t, MAIN_Y + 0.2, DECK.end.y - 0.6)]]:
+			b.member(side[0], side[1], 0.2, steel, "detail")
+	for spec in [[Vector3(DECK.position.x + 1.0, MAIN_Y, -20.0), Vector3(x0, MEZZ_Y, -26.0)],
+			[Vector3(DECK.end.x - 1.0, MAIN_Y, 20.0), Vector3(x1, MEZZ_Y, 26.0)],
+			[Vector3(-20.0, MAIN_Y, DECK.end.y - 1.0), Vector3(-26.0, MEZZ_Y, z1)],
+			[Vector3(20.0, MAIN_Y, DECK.position.y + 1.0), Vector3(26.0, MEZZ_Y, z0)]]:
+		KIT.stair(b, spec[0], spec[1], 1.6, true, true)
+	for i in range(16):
+		var t2: float = float(i) / 15.0
+		KIT.lamp_lens(b, Vector3(lerpf(x0, x1, t2), MEZZ_Y + 1.4, z0), Color(0.94, 0.90, 0.82), 0.34, 4.5)
+		KIT.lamp_lens(b, Vector3(lerpf(x0, x1, t2), MEZZ_Y + 1.4, z1), Color(0.94, 0.90, 0.82), 0.34, 4.5)
+		KIT.lamp_lens(b, Vector3(x0, MEZZ_Y + 1.4, lerpf(z0, z1, t2)), Color(0.94, 0.90, 0.82), 0.34, 4.5)
+		KIT.lamp_lens(b, Vector3(x1, MEZZ_Y + 1.4, lerpf(z0, z1, t2)), Color(0.94, 0.90, 0.82), 0.34, 4.5)
