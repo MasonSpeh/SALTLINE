@@ -792,6 +792,16 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	marker.set_meta("rig", "anchorage")
 	# THE STOCKING HATCH, on the tank-top platform. Owner's rules live in aquarium_stock.gd:
 	# nothing over 5 ft, 50 ft of fish total, "This Un's too big to fit."
+	# THE REAL CORAL (s60) — the reef library's actual GLB species, planted through the
+	# bed and up the core. See tank_reef.gd; the crude stick-trees and box-fans it
+	# replaces were cut from rig_kit.column_tank in the same pass.
+	var reef: Node3D = preload("res://scripts/world/tank_reef.gd").new()
+	reef.tank_centre = b.to_world(Vector3(TANK_C.x, 0, TANK_C.y))
+	reef.tank_r = TANK_R
+	reef.y0 = TANK_Y0
+	reef.y1 = TANK_Y1
+	host.add_child(reef)
+	reef.global_position = b.to_world(Vector3(TANK_C.x, TANK_Y0, TANK_C.y))
 	var stock: Node = preload("res://scripts/world/aquarium_stock.gd").new()
 	stock.tank_centre = b.to_world(Vector3(TANK_C.x, 0, TANK_C.y))
 	stock.tank_r = TANK_R - 0.4

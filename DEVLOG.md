@@ -2807,3 +2807,32 @@ probe's seat ray read the top of the PLAYER's own capsule at the new spawn (skip
 the standing rule, newly earned), and TestRunner's "starts at the hatch" row was
 rewritten to assert the new design rather than deleted. Gates: TestRunner 0,
 RigFieldProbe 0 (217/220 chunks, 150/150 far), AquariumSwimProbe 0, AquariumSaveProbe 0.
+
+
+## s60 — the REAL reef in the tank, the wall at the landing, and the floating-lamp root cause
+
+Owner: the reef library that already dresses rig 1's legs was never in the tank; the
+bridge-1 landing "spits you into a wall"; rig 2 carries floaters. All three run to ground:
+
+**tank_reef.gd** plants twelve of the ACTUAL reef GLB species (reefmass, brain, bubble,
+plate, fan, both branch corals, barrel/tube sponges, anemones, barnacle clusters) as one
+MultiMesh per species — 47 instances, per-instance tints, deterministic golden-angle
+placement, bases sunk into the bed and the core rock, range-culled at 90 m. The crude
+stick-trees and box-fans from s59b were cut in the same pass; the rock massing, kelp
+curtain, collars and glowing anemone beds stay as substrate. 12 extra draws, outside the
+bake so the far-chunk budget is untouched.
+
+**THE WALL WAS THREE SADDLE TANKS.** Photographed from the bridge: the fuel/fertiliser/
+brine rank at (-2.5, z -20/-15/-10) lay its 9 m barrels straight across the landing's
+exit lane. Moved to (8.5, z -13/-8/-3) — between the bio lab and the plant hall, clear of
+the lane, the lab doors and the x 8 tower route. The walk-in frame now reads canopy ->
+open deck -> lab glass.
+
+**THE FLOATING DECK LAMP WAS A MAST THROUGH A SLAB.** The sodium mast loop ran every
+mast 8 m tall; the two standing on the PROCESS deck (6.8) put their heads through the
+13..14 main slab and out the top — a glowing head hovering a metre over the main deck,
+pole swallowed by the steel, in two of the owner's three slop sightings. Masts under a
+deck are now 4.4 m (head at 11.2, honestly under-slung), lens and omni riding mast_h,
+and the duplicated lens call died with it.
+
+Gates: TestRunner 0 · RigFieldProbe 0 · [tank_reef] 12 species / 12 draws.

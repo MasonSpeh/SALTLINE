@@ -364,13 +364,18 @@ static func _machinery(b: KIT.Bake) -> void:
 			Vector3(x, MAIN_Y + 3.4, 1.0)], 0.22)
 	KIT.pipe_run(b, [Vector3(-10.0, MAIN_Y + 3.4, 1.0), Vector3(12.0, MAIN_Y + 3.4, 1.0),
 		Vector3(12.0, MAIN_Y + 3.4, 4.0)], 0.34)
-	# Horizontal storage tanks on saddles — fuel, fertiliser, brine.
+	# Horizontal storage tanks on saddles — fuel, fertiliser, brine. AT (8.5, -13/-8/-3),
+	# NOT (-2.5, -20/-15/-10): the old rank lay its 9 m barrels straight across the
+	# bridge-1 landing's exit lane — the owner's "the bridge spits you out into a wall,
+	# have to parkour around the edge", photographed and verbatim. Here they sit between
+	# the bio lab and the plant hall, clear of the landing lane (x -7..3), the lab's east
+	# doors, and the x 8 route to the outboard tower gap.
 	for i in range(3):
-		var z: float = -20.0 + i * 5.0
-		b.cyl(Vector3(-2.5, MAIN_Y + 1.8, z), 1.75, 9.0, MatLib.galvanized(), "hull",
+		var z: float = -13.0 + i * 5.0
+		b.cyl(Vector3(8.5, MAIN_Y + 1.8, z), 1.75, 9.0, MatLib.galvanized(), "hull",
 			Vector3(0, 0, deg_to_rad(90.0)), -1.0, 14, true)
 		for sx in [-3.2, 3.2]:
-			b.box(Vector3(-2.5 + sx, MAIN_Y + 0.4, z), Vector3(0.5, 0.8, 3.4), steel, "detail")
+			b.box(Vector3(8.5 + sx, MAIN_Y + 0.4, z), Vector3(0.5, 0.8, 3.4), steel, "detail")
 	# Cable trays and conduit down the plant hall's west wall.
 	KIT.pipe_run(b, [Vector3(1.5, MAIN_Y + 4.6, 5.0), Vector3(1.5, MAIN_Y + 4.6, 18.0)], 0.18)
 	KIT.pipe_run(b, [Vector3(1.5, MAIN_Y + 5.2, 5.0), Vector3(1.5, MAIN_Y + 5.2, 18.0)], 0.14)
@@ -422,10 +427,14 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		Vector3(12.0, PLANT_Y, 0.0), Vector3(-32.0, TOWER_TOP, -4.5),
 	]
 	for p in mast_pts:
-		b.cyl(p + Vector3(0, 4.0, 0), 0.16, 8.0, MatLib.galvanized(), "detail")
-		b.box(p + Vector3(0, 8.3, 0), Vector3(1.4, 0.5, 0.6), MatLib.dark_metal(), "detail")
-		KIT.lamp_lens(b, p + Vector3(0, 8.05, 0), Color(1.0, 0.72, 0.34), 0.62, 5.5)
-		KIT.lamp_lens(b, p + Vector3(0, 8.05, 0), Color(1.0, 0.72, 0.34), 0.62, 5.5)
+		# Masts under the main slab are SHORT: an 8 m pole from the process deck (6.8)
+		# ran its head straight through the 13..14 slab and out the top — a sodium lamp
+		# head hovering a metre over the main deck with its pole swallowed by the steel.
+		# The owner's "floating deck lamp", photographed, verbatim.
+		var mast_h: float = 4.4 if p.y < MAIN_Y - 0.5 else 8.0
+		b.cyl(p + Vector3(0, mast_h * 0.5, 0), 0.16, mast_h, MatLib.galvanized(), "detail")
+		b.box(p + Vector3(0, mast_h + 0.3, 0), Vector3(1.4, 0.5, 0.6), MatLib.dark_metal(), "detail")
+		KIT.lamp_lens(b, p + Vector3(0, mast_h + 0.05, 0), Color(1.0, 0.72, 0.34), 0.62, 5.5)
 		var l := OmniLight3D.new()
 		l.light_color = Color(1.0, 0.78, 0.46)     # sodium
 		l.light_energy = 2.2
@@ -433,7 +442,7 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		l.shadow_enabled = false
 		l.add_to_group("rig_field_floods")
 		host.add_child(l)
-		l.position = b.to_world(p + Vector3(0, 8.1, 0))
+		l.position = b.to_world(p + Vector3(0, mast_h + 0.1, 0))
 
 
 # ------------------------------------------------------------------- THE PROCESS DECK

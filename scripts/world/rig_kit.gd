@@ -1187,35 +1187,11 @@ static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y
 	# Materials are cache-keyed by exact colour/energy and chunks by material, and the
 	# field's far budget sat at exactly 150/150: every novel colour here was +1 far chunk
 	# (measured — the first hero cut landed at 159/150).
-	var stag: Array = corals
-	for ti in range(11):
-		var on_core: bool = ti >= 7
-		var ta: float = float(ti) * 2.39996 + 0.7
-		var tr_r: float = (lerpf(1.5, 0.95, fmod(float(ti) * 0.31, 1.0)) + 0.15) if on_core \
-			else lerpf(2.3, radius - 1.3, fmod(float(ti) * 0.618, 1.0))
-		var base_y: float = (y0 + 1.0 + (h - 3.5) * fmod(float(ti) * 0.47, 1.0)) if on_core else (y0 + 1.1)
-		var tp := Vector3(cx + cos(ta) * tr_r, base_y, cz + sin(ta) * tr_r)
-		var tm: Material = stag[ti % stag.size()]
-		var th: float = 1.1 + 1.1 * fmod(float(ti) * 0.53, 1.0)
-		b.member(tp, tp + Vector3(0.1, th * 0.55, 0.08), 0.09, tm, "hull")
-		for bi in range(6):
-			var ba: float = ta + float(bi) * 1.05
-			var bt: float = 0.35 + 0.6 * fmod(float(bi) * 0.37 + float(ti) * 0.21, 1.0)
-			var b0: Vector3 = tp + Vector3(0.1, th * 0.55, 0.08) * bt
-			b.member(b0, b0 + Vector3(cos(ba) * 0.45, th * 0.3, sin(ba) * 0.45), 0.05, tm, "hull")
-	for fi2 in range(8):
-		var fa2: float = float(fi2) * 0.785 + 0.3
-		var fr2: float = lerpf(2.2, radius - 1.2, fmod(float(fi2) * 0.618, 1.0))
-		var fm2: Material = stag[(fi2 + 1) % stag.size()]
-		b.box(Vector3(cx + cos(fa2) * fr2, y0 + 1.85, cz + sin(fa2) * fr2),
-			Vector3(1.3 + 0.5 * float(fi2 % 2), 1.5, 0.07), fm2, "hull",
-			Vector3(deg_to_rad(10.0 + 8.0 * float(fi2 % 3)), fa2 + 1.2, deg_to_rad(-8.0)))
-	for di in range(8):
-		var da: float = float(di) * 2.1 + 1.4
-		var dr: float = lerpf(2.1, radius - 1.1, fmod(float(di) * 0.71, 1.0))
-		b.cyl(Vector3(cx + cos(da) * dr, y0 + 1.35, cz + sin(da) * dr),
-			0.55 + 0.35 * fmod(float(di) * 0.43, 1.0), 0.7, stag[di % stag.size()], "hull",
-			Vector3.ZERO, 0.35, 10)
+	# (s60: the procedural stick-trees and box-fans that stood here were REPLACED by the
+	# real reef GLB species — tank_reef.gd plants coral_branch/brain/fan/plate/bubble,
+	# reefmass, sponges, anemones and barnacle clusters through the bed and up the core.
+	# The rock massing, kelp curtain, barnacle collars and glowing anemone beds below stay:
+	# they are the substrate the real coral roots into.)
 	# The kelp curtain — nine full-height strands with a slow spiral lean, between the
 	# swim lane and the glass so the fish weave inside them.
 	var weed2: Material = weed

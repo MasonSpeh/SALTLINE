@@ -163,6 +163,12 @@ func _ready() -> void:
 	await _look(_world(a_o, a_y, Vector3(7.5, 22.0, -6.0)), _world(a_o, a_y, Vector3(7.5, 23.6, -14.0)), "s59b_food_court")
 	await _look(_world(a_o, a_y, Vector3(-13.5, 25.7, 2.0)), _world(a_o, a_y, Vector3(-17.5, 26.8, -0.5)), "s59b_terrace_link")
 	await _look(_world(a_o, a_y, Vector3(-12.5, 29.4, 3.5)), _world(a_o, a_y, Vector3(-19.0, 30.4, -0.8)), "s59b_tower_link")
+	await _look(_world(m_o, m_y, Vector3(-2.0, 14.0, -27.5)), _world(m_o, m_y, Vector3(-2.0, 15.2, -16.0)), "s60_landing_walkin")
+	await _look(_world(m_o, m_y, Vector3(-2.0, 14.0, -19.0)), _world(m_o, m_y, Vector3(6.0, 15.0, -8.0)), "s60_landing_exit_ne")
+	await _look(_world(m_o, m_y, Vector3(-2.0, 14.0, -19.0)), _world(m_o, m_y, Vector3(-14.0, 15.0, -8.0)), "s60_landing_exit_nw")
+	await _look(_world(m_o, m_y, Vector3(0.0, 14.0, 6.0)), _world(m_o, m_y, Vector3(-22.0, 15.4, -14.0)), "s60_marrow_deck_sw")
+	await _look(_world(m_o, m_y, Vector3(-6.0, 14.0, 2.0)), _world(m_o, m_y, Vector3(18.0, 15.4, -16.0)), "s60_marrow_deck_se")
+	await _look(_world(m_o, m_y, Vector3(24.0, 14.0, 4.0)), _world(m_o, m_y, Vector3(2.0, 15.6, 14.0)), "s60_marrow_deck_n")
 	# ---- DEEPWELL. The tallest thing in the world, now with a production level under it.
 	await _look(Vector3(0.0, 30.0, 320.0), W["d_crown"], "deepwell_from_the_south")
 	await _look(W["d_prod"], W["d_prod"] + Vector3(20, 2, 10), "deepwell_production_deck")
