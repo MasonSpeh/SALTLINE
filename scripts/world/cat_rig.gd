@@ -526,6 +526,17 @@ var _look_w: float = 0.0
 var _look_yaw_s: float = 0.0
 var _look_pitch_s: float = 0.0
 var _look_w_s: float = 0.0
+## The runt right femur is stretched to at least this at load — see _chain_surgery. 0.15
+## keeps it the shorter femur (the left is 0.336; full mirroring is the real re-rig) while
+## lifting the chain's max reach and its share of the sweep cap out of the floor.
+static var HIND_FEMUR_MIN: float = 0.190
+## Where the left hind's paw RESTS fore/aft of its socket after the re-hang — the one free
+## choice in its Z-fold, swept empirically (GaitScratch block 4 walk slide is the judge).
+static var LH_REST_DX: float = -0.26
+## After the knee tuck, rest reach over total bone length must sit at or under this — a
+## chain at 100% of itself has no slack to stand with, let alone stride.
+static var CHAIN_SLACK_MAX: float = 0.985
+
 ## The head stabiliser's lagged view of what the trunk is doing (see section 5e).
 var _stab_pitch: float = 0.0
 var _stab_roll: float = 0.0
@@ -669,6 +680,24 @@ func _init(skel: Skeleton3D, pose_json_path: String = "") -> void:
 		_rest[_head] = (_rest[_head] * Quaternion(ax, HEAD_MESH_YAW)).normalized()
 		_cur_q[_head] = _rest[_head]
 		_sk.set_bone_pose_rotation(_head, _rest[_head])
+	# THE HIND-CHAIN SURGERY (s58) — docs/CAT_RIG_CEILING.md item 3, applied to the rest
+	# pose at load instead of waiting for an asset re-roll. Measured (GaitScratch block 1):
+	# the auto-rig stretched the LEFT hind's femur backwards to cover the tail and left
+	# the RIGHT hind a 0.086 m runt whose rest pose sits at 101.4% of its own maximum
+	# reach. A limb that cannot reach its own rest paw is clamped every frame it stands —
+	# that is the in-stance slide, the paw through the deck, and (because the shared sweep
+	# cap is the MINIMUM across limbs) the 0.18 m stride ceiling that kept the cadence
+	# frantic at every speed. The left fore sat at 99.7% for the same reason, milder.
+	#
+	# Two edits, both on the REST everything re-derives from (the HEAD_MESH_YAW pattern):
+	# the runt femur's rest offset is stretched (the tail and rump hang off R_ThighTwist01,
+	# a SIBLING child of R_Thigh, so they do not move with the calf), and the knee is
+	# folded — in the measured shortening direction — until the paw returns to its
+	# pre-surgery height, which simultaneously puts the chain back inside its reachable
+	# set. The paw bone is counter-rotated so the foot stays flat. Hinges, gains, sweep
+	# caps, plant bases and the whole pose library bake against the result; nothing
+	# downstream is hand-retuned.
+	_chain_surgery()
 	_cur_hip = _rest_t.get(_hip, Vector3.ZERO)
 	# `stand` is the base skeleton's own rest — present even with no library on disk.
 	# `loco: true` marks a pose the gait may ride (see tick: the gate is the FLAG, never a
@@ -727,6 +756,117 @@ func _init(skel: Skeleton3D, pose_json_path: String = "") -> void:
 ## RE-APPLY THE HEAD CORRECTION TO A LIVE RIG. The bake runs once at load, so a harness that
 ## changes HEAD_MESH_YAW afterwards would film the old value on every beat. Rebuilds the head's
 ## rest entry from the SKELETON's untouched bone rest, so repeated calls cannot compound.
+## The load-time chain surgery — see the call site in the constructor for the why. Each
+## treated limb: optionally stretch the distal bone's rest offset to a minimum femur
+## length, then fold the knee (shortening direction PROBED, not assumed — the rig's two
+## sides disagree about everything) until the paw is back at its pre-surgery height and
+## the chain's rest reach has real slack, then counter-rotate the paw so the foot stays
+## flat. All commits land on _rest/_rest_t/_cur_q, so every downstream derivation —
+## _prep_ik's hinges and gains, the sweep caps, the plant bases, the pose bake — measures
+## the corrected skeleton and never knows the difference.
+func _chain_surgery() -> void:
+	if _sk == null:
+		return
+	# [limb, min_femur, rest_dx]: rest_dx is where the paw should REST fore(+)/aft(-) of
+	# its own socket, or INF to leave the hang alone. The left hind CANNOT hang under its
+	# socket: the stolen-tail femur leaves a 0.402 m chain under a 0.175 m hip with a
+	# 0.236 m fold floor, so the honest rest is a deep Z-fold with the paw ~0.16 m back —
+	# which is where a real cat's hind paw stands. The runt right hind just needs its
+	# femur back and its height re-trimmed.
+	# [limb, min_femur, rest_dx, rest_c0]: rest_c0 is where the chain's rest LENGTH should
+	# sit — it must land MID-RANGE between the knee's fold floor and the reach cap, or the
+	# stance has no headroom in one direction. The first cut folded the left hind to its
+	# own floor (c0 0.236 == fold-floor 0.236) and the solve, unable to shorten through
+	# mid-stance or lift for swing, gave up and carried the paw at body speed: a
+	# full-speed skate that measured EXACTLY 19.167 mm/frame — 1.15/60 — at every
+	# geometry, the number that would not move.
+	for spec in [["rh", HIND_FEMUR_MIN, -0.05, 0.232], ["lh", 0.0, LH_REST_DX, 0.310]]:
+		var L: Dictionary = _limb.get(spec[0], {})
+		if L.is_empty():
+			continue
+		var prox: int = L["prox"]
+		var dist: int = L["dist"]
+		var paw: int = L["paw"]
+		if prox < 0 or dist < 0 or paw < 0:
+			continue
+		_sk.force_update_all_bone_transforms()
+		var target_y: float = _paw_pos(paw).y
+		var paw_b0: Basis = _sk.get_bone_global_pose(paw).basis.orthonormalized()
+		var min_a: float = float(spec[1])
+		var rest_dx: float = float(spec[2])
+		var rest_c0: float = float(spec[3])
+		var off: Vector3 = _rest_t.get(dist, Vector3.ZERO)
+		if min_a > 0.0 and off.length() > 1e-4 and off.length() < min_a:
+			off = off * (min_a / off.length())
+			_rest_t[dist] = off
+			_sk.set_bone_pose_position(dist, off)
+			_sk.force_update_all_bone_transforms()
+		var P: Vector3 = _sk.get_bone_global_pose(prox).origin
+		var n: Vector3 = (_paw_pos(paw) - P).cross(BODY_FWD)
+		n = BODY_SIDE if n.length() < 1e-5 else n.normalized()
+		var ax_d: Vector3 = (_sk.get_bone_global_pose(dist).basis.orthonormalized().inverse() * n).normalized()
+		# Which fold sign SHORTENS is probed, not assumed — the rig's sides disagree.
+		var f_sgn: float = 1.0
+		var c_pre: float = (_paw_pos(paw) - P).length()
+		_sk.set_bone_pose_rotation(dist, _rest[dist] * Quaternion(ax_d, 0.08))
+		_sk.force_update_all_bone_transforms()
+		if (_paw_pos(paw) - P).length() > c_pre:
+			f_sgn = -1.0
+		var folded: float = 0.0
+		# 1. For a re-hung limb, fold DEEP first: the chain must be short enough to stand
+		# at rest_dx with the paw near the ground before any swing can place it there.
+		if rest_dx < INF:
+			var c_tgt: float = rest_c0
+			for st in range(60):
+				if (_paw_pos(paw) - P).length() <= c_tgt:
+					break
+				folded += 0.02
+				_sk.set_bone_pose_rotation(dist, _rest[dist] * Quaternion(ax_d, f_sgn * folded))
+				_sk.force_update_all_bone_transforms()
+			# 2. Swing the whole chain at the hip until the paw is at rest_dx.
+			var ax_p: Vector3 = (_sk.get_bone_global_pose(prox).basis.orthonormalized().inverse() * n).normalized()
+			var s_sgn: float = 1.0
+			var dx0: float = (_paw_pos(paw) - P).dot(BODY_FWD)
+			_sk.set_bone_pose_rotation(prox, _rest[prox] * Quaternion(ax_p, 0.08))
+			_sk.force_update_all_bone_transforms()
+			if absf(((_paw_pos(paw) - P).dot(BODY_FWD)) - rest_dx) > absf(dx0 - rest_dx):
+				s_sgn = -1.0
+			var swung: float = 0.0
+			for st2 in range(80):
+				var dxn: float = (_paw_pos(paw) - P).dot(BODY_FWD)
+				if (s_sgn > 0.0 and dxn >= rest_dx) or (s_sgn < 0.0 and dxn <= rest_dx):
+					break
+				swung += 0.02
+				_sk.set_bone_pose_rotation(prox, _rest[prox] * Quaternion(ax_p, s_sgn * swung))
+				_sk.force_update_all_bone_transforms()
+			_rest[prox] = (_rest[prox] * Quaternion(ax_p, s_sgn * swung)).normalized()
+			_cur_q[prox] = _rest[prox]
+			_sk.set_bone_pose_rotation(prox, _rest[prox])
+			_sk.force_update_all_bone_transforms()
+		# 3. Trim the paw back to its pre-surgery height with the fold: folding raises,
+		# unfolding lowers. Runs for every treated limb; ±4 mm is a solid stand.
+		for st3 in range(80):
+			var py: float = _paw_pos(paw).y
+			if absf(py - target_y) <= 0.004:
+				break
+			folded += 0.01 if py < target_y else -0.01
+			_sk.set_bone_pose_rotation(dist, _rest[dist] * Quaternion(ax_d, f_sgn * folded))
+			_sk.force_update_all_bone_transforms()
+		_rest[dist] = (_rest[dist] * Quaternion(ax_d, f_sgn * folded)).normalized()
+		_cur_q[dist] = _rest[dist]
+		_sk.set_bone_pose_rotation(dist, _rest[dist])
+		_sk.force_update_all_bone_transforms()
+		# 4. The foot stays flat — EXACTLY: restore the paw's pre-surgery world basis
+		# through its live parent, rather than counter-rotating by an estimated angle.
+		var par: int = _sk.get_bone_parent(paw)
+		if par >= 0:
+			var pgb: Basis = _sk.get_bone_global_pose(par).basis.orthonormalized()
+			_rest[paw] = Quaternion(pgb.inverse() * paw_b0).normalized()
+			_cur_q[paw] = _rest[paw]
+			_sk.set_bone_pose_rotation(paw, _rest[paw])
+	_sk.force_update_all_bone_transforms()
+
+
 func rebake_head() -> void:
 	if _sk == null or _head < 0:
 		return
@@ -1318,6 +1458,10 @@ func _prep_ik() -> void:
 			"alpha0": _tri_angle(a, c0, b), "beta0": _tri_angle(a, b, c0),
 			# +1 when a positive rotation at the knee FOLDS the leg.
 			"knee": -1.0 if c_test > c0 else 1.0,
+			# Metres of PAW RISE per radian of knee fold, measured on this chain — the
+			# paw-floor lift's gain (see the tick tail). Floored so a degenerate hinge
+			# cannot turn the lift into a division blow-up.
+			"knee_vg": maxf(absf(_knee_vgain(L, rest_q, -1.0 if c_test > c0 else 1.0)), 0.05),
 			# HOW FAR THIS LEG CAN ACTUALLY SWING. Geometry, not a feel number: a limb of
 			# reach c0 swinging +/-theta about its socket covers 2*c0*sin(theta) of ground.
 			# The SHORTEST of the four still sets the stride for all of them — per-limb
@@ -1451,6 +1595,18 @@ func _tri_angle(s1: float, s2: float, opp: float) -> float:
 ## Solve one leg to put its paw at `target` (skeleton space). Returns [prox, dist] rotations
 ## about that limb's hinge, RELATIVE TO REST — which is exactly the form the additive layer
 ## wants, so the result composes onto the blended pose like every other layer here.
+## Vertical paw travel per radian of knee fold, probed at rest like every other gain here.
+func _knee_vgain(L: Dictionary, rest_q: Dictionary, fold_sgn: float) -> float:
+	_set_chain(rest_q)
+	_sk.force_update_all_bone_transforms()
+	var y0: float = _paw_pos(L["paw"]).y
+	_sk.set_bone_pose_rotation(L["dist"], _rest[L["dist"]] * Quaternion(_hinge_of(L["dist"]), fold_sgn * 0.06))
+	_sk.force_update_all_bone_transforms()
+	var vg: float = (_paw_pos(L["paw"]).y - y0) / 0.06
+	_set_chain(rest_q)
+	_sk.force_update_all_bone_transforms()
+	return vg
+
 func _solve_leg(k: String, target: Vector3) -> Array:
 	var S: Dictionary = _ik.get(k, {})
 	if S.is_empty():
@@ -2162,6 +2318,15 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 				float(_cyc_eval(CYC_GAL_FORE if fore else CYC_GAL_HIND, ph_lead)[0]),
 				mix) * amp * reach_k
 			_mul(L["blade"], Quaternion(_hinge_of(L["blade"]), reach_lead * BLADE_TRAVEL))
+			# THE PAW-FLOOR SERVO (s58). Block 10 measured every planted paw riding 4-12 mm
+			# BELOW its plant plane through stance — the sum of the body vertical and the
+			# solve's own reach-give, and the owner's "glitched into the ground", verbatim.
+			# No single layer owns that sum, so no single layer's fix can bound it (the
+			# HEAD_MAX_RATE argument, at the ground): instead the DRAWN error is measured
+			# after the write and fed back into the next frame's target. Lift-only (it can
+			# never press a paw into the deck), capped at 40 mm, decays in swing.
+			_srv_plane[limb_key] = target.dot(BODY_UP) - pth.y
+			_srv_stance[limb_key] = pth.y <= 0.0005
 			var sol: Array = _solve_leg(limb_key, target)
 			# SLEW-LIMITED, because two of these chains rest ON the two-bone model's
 			# singularity (the load report above prints the triangles: rf rests at 99.7% of
@@ -2648,6 +2813,39 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 	if _hip >= 0:
 		# Through the parent-frame conversion — see _hip_pose_pos for why raw was fore-aft.
 		_sk.set_bone_pose_position(_hip, _hip_pose_pos(_out_hip - (_rest_t[_hip] as Vector3)))
+	# The paw-floor servo's measurement half — the drawn paw against the plane its target
+	# asked for, one frame behind by construction (the skeleton settles on the next
+	# update); a lagged servo still converges and the steady-state sink it exists to kill
+	# IS steady state.
+	# ...and the correction is spent at the KNEE, at the WRITE — a raised solve target was
+	# tried first and the sink survived it untouched: the shortfall lives in the layers
+	# BETWEEN the solve and the skeleton (the drag, the slew limiter at touchdown, the
+	# vertical give), so only a correction applied after all of them can bound their sum —
+	# the HEAD_MAX_RATE argument, at the ground. Gain is the measured knee_vg (metres of
+	# paw rise per radian on THIS chain), lift-only, capped at 0.14 rad, held through the
+	# swing so every touchdown lands pre-compensated.
+	if _gait_w > 0.2:
+		for k_srv in _limb:
+			var cur_srv: float = float(_paw_srv.get(k_srv, 0.0))
+			var vg_srv: float = float(_ik.get(k_srv, {}).get("knee_vg", 0.12))
+			var kn_srv: float = float(_ik.get(k_srv, {}).get("knee", 1.0))
+			if bool(_srv_stance.get(k_srv, false)):
+				var err_srv: float = float(_srv_plane.get(k_srv, 0.0)) - _paw_pos(_limb[k_srv]["paw"]).y
+				# 3 mm deadband: the lift buys ground clearance with a little fore-aft
+				# skate (the knee's own lever), so paws that barely sink are left alone —
+				# without it the pristine fore pair traded 0.2 mm/f of slide for 3-7.
+				if err_srv < 0.003:
+					err_srv = 0.0
+				cur_srv = clampf(lerpf(cur_srv, cur_srv + err_srv / vg_srv, 0.35), 0.0, 0.14)
+			else:
+				cur_srv = lerpf(cur_srv, 0.0, 0.03)
+			_paw_srv[k_srv] = cur_srv
+			if cur_srv > 0.0005:
+				var d_srv: int = _limb[k_srv]["dist"]
+				_sk.set_bone_pose_rotation(d_srv,
+					_sk.get_bone_pose_rotation(d_srv) * Quaternion(_hinge_of(d_srv), kn_srv * cur_srv))
+	else:
+		_paw_srv.clear()
 
 ## `_live_basis`, but composed from the FINAL rotations — after the ROM clamp and both rate
 ## ceilings. The difference between the two is exactly the residue a bone posed absolutely has
@@ -2756,6 +2954,11 @@ func _cyc_eval(tab: Array, t: float) -> Array:
 ## what it does.
 var _out: Dictionary = {}
 var _out_hip: Vector3 = Vector3.ZERO
+## The paw-floor servo's state — per-limb upward target correction (m), its plant plane,
+## and whether the limb is in stance this frame. See the solve site and the tick tail.
+var _paw_srv := {}
+var _srv_plane := {}
+var _srv_stance := {}
 func _mul(bone: int, q: Quaternion) -> void:
 	if bone < 0:
 		return

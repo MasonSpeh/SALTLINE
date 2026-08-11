@@ -2718,3 +2718,53 @@ lower mouth. Rail gap cut for the apron; the climb audit passed it all first try
 
 Gates: TestRunner 0 · RigFieldProbe 0 · CatSpawnProbe 0 · CatCatchupProbe 0 ·
 CatProbe 0 x3 (stale store-room spawn row rewritten against bunk_layout's derivation).
+
+
+## s58 — the cat, once and for all: the chain surgery, and a floor no paw goes through
+
+Owner: an entire session on the walk — "figure this cat out once and for all". It came
+down to MEASURING THE SKELETON instead of tuning around it.
+
+**THE DIAGNOSIS OVERTURNED THE STORY.** Sessions of notes blamed "the dead-straight left
+hind". GaitScratch block 1, read fresh: the RIGHT hind is the runt — its femur is 0.086 m
+(the auto-rig spent that bone's length covering the tail), its chain rests at 101.4% OF
+ITS OWN MAXIMUM REACH (it cannot reach its own rest paw — permanently clamped, sliding,
+dipping), and its 0.18 m sweep is the MINIMUM that caps the whole animal's stride, which
+is why every speed change came out as cadence. The left hind's real defect is different:
+its paw RESTS 0.364 m behind its socket — the stretched-to-tail chain trails like a
+kickstand.
+
+**THE CHAIN SURGERY (cat_rig._chain_surgery).** docs/CAT_RIG_CEILING.md item 3, applied
+to the REST pose at load instead of waiting for an asset re-roll — the HEAD_MESH_YAW
+pattern, at the legs. The runt femur's rest offset is stretched to 0.19 m (tail and rump
+hang off a SIBLING bone and do not move); each treated knee is folded — shortening
+direction PROBED per limb — and the left hind is re-hung in a deep Z-fold with its paw
+0.26 m back (it geometrically cannot stand under a 0.175 m socket with a 0.236 m fold
+floor; behind-the-hip is where a real cat's hind paw is). The paw bone's world basis is
+restored EXACTLY through its live parent. Every hinge, gain, sweep cap, plant base and
+pose bakes against the corrected skeleton — nothing downstream is hand-retuned. Learned
+the hard way en route: a knee folded to its own FOLD FLOOR has no headroom in either
+direction, and the solve answers by carrying the paw at body speed — a full skate that
+measured EXACTLY speed/60 mm per frame at three different geometries, the number that
+would not move.
+
+**THE PAW-FLOOR SERVO.** Block 10 filmed every planted paw riding 4-12 mm BELOW its plant
+plane through stance — the sum of the body bob and the solve's own give, i.e. the
+owner's "glitched into the ground", verbatim, on all four feet. No single layer owns that
+sum, so the fix measures the DRAWN error after the write and spends it at the knee, next
+frame, with the measured knee vertical gain — lift-only, capped, deadbanded at 3 mm, held
+through the swing so touchdown lands pre-compensated.
+
+**MEASURED, before -> after (film, world frame; scratch, phase-gated):** fore slides
+0.4/0.2 mm/f; right hind 11.6 -> 4.0; sole penetration: left hind from a constant 10-25 mm
+to p05 AT the deck (worst transient 7 mm for a frame); stride 0.429 -> 0.437 with the
+fores covering 0.30; cadence 2.63/s at 1.15 m/s. Film frames read as a cat: paws seated
+on the plate, long relaxed stride, head alive (s57's nod + glance carried through).
+
+**THE HONEST RESIDUAL, precisely filed:** the left hind still slides ~22 mm/f phase-gated.
+It is NOT reach (sat 78%), NOT the hip window centring (_centre_off already exempts it),
+and NOT the demand: the two-bone solve works in a plane derived from the rest chain, and
+a chain that hangs backward gives that plane a skew that leaks vertical error and eats
+fore-aft delivery (it delivers 0.16 of a 0.23 demand). The next honest lever is solving
+the hinds in the sagittal plane — or the asset re-roll that fixes all four ceilings at
+once. Gates: TestRunner 0, CatProbe 0, CatSpawnProbe 0, CatCatchupProbe 0.
