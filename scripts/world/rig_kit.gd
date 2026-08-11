@@ -1139,6 +1139,44 @@ static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y
 		b.member(Vector3(cx + cos(ka) * (radius - 1.0), y0 + 1.2, cz + sin(ka) * (radius - 1.0)),
 			Vector3(cx + cos(ka + 0.5) * (radius - 1.6), y0 + 1.2 + h * 0.55, cz + sin(ka + 0.5) * (radius - 1.6)),
 			0.24, weed, "hull")
+	# THE PLANTED BED (s59) — the floor reads as a living reef, not a sand disc with six
+	# pucks on it. ~34 pieces scattered by golden-angle jitter (never a grid), denser
+	# toward the core, mixed forms and colours; plus encrusting patches up the rock so the
+	# core reads grown-over, not stacked; plus interior light — a warm ring under the
+	# crown that flatters the coral and a faint teal bed glow. ~120 primitives, baked
+	# into the same chunks as the rest of the tank.
+	var crust: Array = [MatLib.flat(Color(0.62, 0.55, 0.40)), MatLib.flat(Color(0.48, 0.52, 0.44)),
+		MatLib.flat(Color(0.70, 0.48, 0.42))]
+	for i4 in range(34):
+		var fa4: float = float(i4) * 2.39996
+		var t4: float = pow(fmod(float(i4) * 0.618, 1.0), 0.6)
+		var fr4: float = lerpf(1.95, radius - 1.0, t4)
+		var bp := Vector3(cx + cos(fa4) * fr4, y0 + 1.12, cz + sin(fa4) * fr4)
+		var m4: Material = corals[i4 % corals.size()] if i4 % 4 != 3 else crust[i4 % crust.size()]
+		match i4 % 4:
+			0:
+				b.cyl(bp, 0.16 + 0.14 * fmod(float(i4) * 0.41, 1.0), 0.34 + 0.3 * fmod(float(i4) * 0.77, 1.0),
+					m4, "hull", Vector3(0, fa4, deg_to_rad(8.0)), 0.05, 6)
+			1:
+				b.box(bp + Vector3(0, 0.28, 0), Vector3(0.5 + 0.3 * float(i4 % 2), 0.55, 0.07), m4, "hull",
+					Vector3(deg_to_rad(14.0), fa4 * 1.7, deg_to_rad(-9.0)))
+			2:
+				b.cyl(bp, 0.24 + 0.12 * float(i4 % 3), 0.22, m4, "hull", Vector3.ZERO, 0.16, 8)
+			3:
+				b.box(bp + Vector3(0, 0.10, 0), Vector3(0.42, 0.22, 0.36), m4, "hull",
+					Vector3(deg_to_rad(6.0), fa4, 0))
+	for i5 in range(9):
+		var ea: float = float(i5) * 2.8 + 0.4
+		var et: float = 0.1 + 0.8 * fmod(float(i5) * 0.71, 1.0)
+		var er: float = lerpf(1.6, 0.85, et) + 0.05
+		b.box(Vector3(cx + cos(ea) * er, y0 + 1.0 + (h - 1.8) * et, cz + sin(ea) * er),
+			Vector3(0.55, 0.34, 0.14), crust[i5 % crust.size()], "hull",
+			Vector3(deg_to_rad(20.0 * float(i5 % 2)), ea, deg_to_rad(75.0)))
+	for i6 in range(6):
+		var la: float = TAU * float(i6) / 6.0
+		lamp_lens(b, Vector3(cx + cos(la) * (radius - 0.9), y1 - 1.3, cz + sin(la) * (radius - 0.9)),
+			Color(1.0, 0.92, 0.78), 0.14, 2.4)
+	led_ring(b, Vector3(cx, y0 + 0.95, cz), radius - 0.6, Color(0.30, 0.85, 0.78), 28, 0.06, 1.4)
 
 ## A GLAZED LOOKOUT CABIN — the room you climb to. Solid sill, glass band, capped roof.
 ## opts:

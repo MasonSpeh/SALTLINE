@@ -321,8 +321,7 @@ static func _leisure_deck(b: KIT.Bake) -> void:
 		b.box(Vector3(lx2, SPA_Y + 0.30, 11.0), Vector3(1.9, 0.34, 0.8),
 			MatLib.canvas(Color(0.70, 0.72, 0.68)), "detail", Vector3(0, deg_to_rad(180.0), deg_to_rad(6.0)), true)
 	for pc in [Vector3(-13.0, 0, -9.5), Vector3(-13.0, 0, 9.5), Vector3(13.0, 0, 9.5)]:
-		b.cyl(Vector3(pc.x, SPA_Y + 0.45, pc.z), 0.50, 0.9, MatLib.flat(Color(0.30, 0.30, 0.32)), "detail", Vector3.ZERO, -1.0, 10, true)
-		b.cyl(Vector3(pc.x, SPA_Y + 1.55, pc.z), 0.85, 1.3, MatLib.flat(Color(0.18, 0.34, 0.24)), "detail", Vector3.ZERO, 0.3, 10)
+		_planter(b, Vector3(pc.x, SPA_Y, pc.z), 1.25)
 	# The bar: counter, brass top, stools, and a lit backbar against the north wall.
 	b.box(Vector3(25.0, SPA_Y + 0.55, 20.0), Vector3(7.0, 1.1, 0.8), MatLib.wood(), "hull", Vector3.ZERO, true)
 	b.box(Vector3(25.0, SPA_Y + 1.13, 20.0), Vector3(7.2, 0.06, 0.9), MatLib.flat(BRASS), "detail")
@@ -647,8 +646,7 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 		var ta := Vector3(TANK_C.x + cos(ka) * 7.6, 0, TANK_C.y + sin(ka) * 7.6)
 		_low_table(b, Vector3(ta.x, MAIN_Y + 0.62, ta.z), 1.2)
 		var pa := Vector3(TANK_C.x + cos(ka + 0.35) * 10.4, 0, TANK_C.y + sin(ka + 0.35) * 10.4)
-		b.cyl(Vector3(pa.x, MAIN_Y + 0.95, pa.z), 0.45, 0.7, MatLib.flat(Color(0.30, 0.30, 0.32)), "detail", Vector3.ZERO, -1.0, 10, true)
-		b.cyl(Vector3(pa.x, MAIN_Y + 1.75, pa.z), 0.75, 0.9, MatLib.flat(Color(0.18, 0.34, 0.24)), "detail", Vector3.ZERO, 0.25, 10)
+		_planter(b, Vector3(pa.x, MAIN_Y, pa.z), 0.95)
 	# THE GALLERIES: rings held back to GAL_IN so the void stays open, plus finished soffits.
 	# Each ring now carries STAIR OPENINGS at its arrivals — see _gallery_ring.
 	_gallery_ring(b, c, G1, GAL_IN + 0.8, [250.0, 70.0])
@@ -875,8 +873,7 @@ static func _terrace(b: KIT.Bake) -> void:
 	for a in [30.0, 150.0, 210.0, 330.0]:
 		var r: float = deg_to_rad(a)
 		var p := Vector3(DRUM_C.x + cos(r) * 18.6, TERRACE, DRUM_C.y + sin(r) * 18.6)
-		b.cyl(p + Vector3(0, 0.5, 0), 0.55, 1.0, MatLib.flat(Color(0.30, 0.30, 0.32)), "detail", Vector3.ZERO, -1.0, 10, true)
-		b.cyl(p + Vector3(0, 1.6, 0), 0.95, 1.4, MatLib.flat(Color(0.18, 0.34, 0.24)), "detail", Vector3.ZERO, 0.3, 10)
+		_planter(b, p, 1.15)
 	KIT.led_cove(b, Vector3(PODIUM.position.x + 0.5, TERRACE + 0.85, PODIUM.position.y + 0.5),
 		Vector3(PODIUM.end.x - 0.5, TERRACE + 0.85, PODIUM.position.y + 0.5), COVE, 0.09, COVE_E)
 	KIT.led_cove(b, Vector3(PODIUM.position.x + 0.5, TERRACE + 0.85, PODIUM.end.y - 0.5),
@@ -1017,8 +1014,7 @@ static func _decor(b: KIT.Bake) -> void:
 	for ga in [255.0, 285.0, 165.0, 195.0, 75.0, 105.0, 345.0, 15.0]:
 		var ra: float = deg_to_rad(ga)
 		var pp := Vector3(DRUM_C.x + cos(ra) * (DRUM_R + 1.3), MAIN_Y, DRUM_C.y + sin(ra) * (DRUM_R + 1.3))
-		b.cyl(pp + Vector3(0, 0.42, 0), 0.42, 0.84, MatLib.flat(Color(0.30, 0.30, 0.32)), "detail", Vector3.ZERO, -1.0, 10, true)
-		b.cyl(pp + Vector3(0, 1.35, 0), 0.7, 1.1, MatLib.flat(Color(0.18, 0.34, 0.24)), "detail", Vector3.ZERO, 0.3, 10)
+		_planter(b, pp, 0.85)
 	# THE KOI BASIN: a still-water trough down the west hall's drum side, teal-lit.
 	b.box(Vector3(-17.2, MAIN_Y + 0.19, 1.0), Vector3(1.5, 0.38, 15.0), MatLib.kitchen_tile(), "hull", Vector3.ZERO, true)
 	var kw := StandardMaterial3D.new()
@@ -1087,6 +1083,22 @@ static func _ceilings(b: KIT.Bake) -> void:
 	b.box(Vector3(-20.0, MAIN_Y + 0.02, 4.5), Vector3(7.7, 0.04, 34.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
 	b.box(Vector3(-28.0, MAIN_Y + 0.02, -11.0), Vector3(23.7, 0.04, 3.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
 	b.box(Vector3(0.0, MAIN_Y + 0.02, 26.0), Vector3(27.5, 0.04, 7.5), MatLib.wood(), "hull", Vector3.ZERO, true)
+
+## A REAL PLANTER (s59). The old ones were a pot cylinder with a big green CONE on top —
+## at close range they photographed as two-primitive "bulky lamps" (the owner's report,
+## with a photo of one filling the frame). This one is a low ribbed bowl, soil, a slim
+## trunk and a fan of individual fronds — still ~10 primitives, but it reads as a plant.
+static func _planter(b: KIT.Bake, pos: Vector3, k: float = 1.0) -> void:
+	b.cyl(pos + Vector3(0, 0.28 * k, 0), 0.52 * k, 0.56 * k, MatLib.flat(Color(0.24, 0.24, 0.27)), "detail", Vector3.ZERO, -0.12, 12, true)
+	b.cyl(pos + Vector3(0, 0.57 * k, 0), 0.44 * k, 0.06 * k, MatLib.flat(Color(0.16, 0.12, 0.09)), "detail", Vector3.ZERO, -1.0, 12)
+	b.cyl(pos + Vector3(0, 0.95 * k, 0), 0.05 * k, 0.8 * k, MatLib.flat(Color(0.35, 0.28, 0.18)), "detail")
+	for fi in range(6):
+		var fa: float = TAU * float(fi) / 6.0 + k
+		var tilt: float = deg_to_rad(38.0 + 9.0 * float(fi % 3))
+		b.box(pos + Vector3(cos(fa) * 0.34 * k, (1.42 + 0.08 * float(fi % 2)) * k, sin(fa) * 0.34 * k),
+			Vector3(0.16 * k, 0.03 * k, 1.05 * k),
+			MatLib.flat(Color(0.16 + 0.03 * float(fi % 3), 0.36, 0.22)), "detail",
+			Vector3(tilt * cos(fa), -fa, tilt * sin(fa) * 0.4))
 
 # ------------------------------------------------------------------- art and centrepieces
 

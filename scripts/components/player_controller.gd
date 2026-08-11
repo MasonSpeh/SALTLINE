@@ -266,6 +266,7 @@ var fishing: Node3D = null         ## a cast is out (FishingRod owns the line)
 var ui_locked: bool = false        ## a HUD panel (inventory/journal/help/bench) is open
 var build: BuildMode = null        ## build mode controller (B)
 var crouching: bool = false        ## true while in the CROUCH posture (fauna read this)
+var _stand_floor_y: float = -1e6   ## the floor last STOOD on — the crouch clamp's reference (s59)
 var _posture: int = POSTURE_STAND  ## resolved every frame from crouch key + _prone toggle
 var _prone: bool = false           ## Z toggle: lying flat on the deck (a comfort posture)
 var _stamina: float = STAMINA_MAX
@@ -1330,7 +1331,26 @@ func _unstick_nudge(wish: Vector3, before: Vector3, delta: float) -> void:
 			free = free.slide(flat)
 	free.y = 0.0
 	if free.length() < FREE_DIR_MIN:
-		_stuck_t = 0.0                      # pressed into a corner or a wall: stopped, not stuck
+		# Pressed into a corner or a wall: normally stopped, not stuck — UNLESS this is a
+		# true V-wedge (two opposing wall faces, s59): then walking can never leave and the
+		# only exit is along the corner's outward bisector. _wedge_escape proves headroom,
+		# occupancy and a floor at every candidate before it moves anything.
+		var flats: Array = []
+		for i2 in get_slide_collision_count():
+			var n2: Vector3 = get_slide_collision(i2).get_normal()
+			if n2.angle_to(Vector3.UP) > floor_max_angle:
+				var f2 := Vector3(n2.x, 0.0, n2.z)
+				if f2.length() > 0.01:
+					flats.append(f2.normalized())
+		var opposed: bool = false
+		for a3 in range(flats.size()):
+			for b3 in range(a3 + 1, flats.size()):
+				if flats[a3].dot(flats[b3]) < -0.05:
+					opposed = true
+		if opposed and _wedge_escape(flats):
+			_stuck_t = 0.0
+			return
+		_stuck_t = 0.0                      # stopped, not stuck
 		return
 	_stuck_t = 0.0
 	# A legal direction exists and the frame delivered nothing: push along what the player is
@@ -1344,6 +1364,31 @@ func _unstick_nudge(wish: Vector3, before: Vector3, delta: float) -> void:
 			global_position += off
 			return
 
+## THE V-WEDGE ESCAPE (s59). Given the wall faces currently pinning the body, move it to
+## the nearest proven-open standable spot along the corner's outward bisector (the sum of
+## the wall normals — each points from its face toward the player, so their sum leads out
+## of the V). Every candidate must be unoccupied at OCCUPANCY_MARGIN AND have a floor
+## within 1.4 m below it, so this can never shove the player through steel or off the rim
+## into the sea. Returns true if it moved the body.
+func _wedge_escape(flats: Array) -> bool:
+	var out := Vector3.ZERO
+	for f in flats:
+		out += f
+	out.y = 0.0
+	if out.length() < 0.05:
+		return false
+	out = out.normalized()
+	for cand in [out * 0.16, out * 0.34, out * 0.34 + Vector3.UP * 0.14, Vector3.UP * 0.28]:
+		var to := Transform3D(global_transform.basis, global_position + cand)
+		if test_move(to, Vector3.ZERO, null, OCCUPANCY_MARGIN, true):
+			continue
+		if not test_move(to, Vector3.DOWN * 1.4, null, OCCUPANCY_MARGIN, true):
+			continue    # nothing to stand on down there — off a rim, not out of a corner
+		global_position += cand
+		velocity = Vector3.ZERO
+		return true
+	return false
+
 ## Resolve the posture (crouch key + prone toggle), gate any RISE by a headroom check,
 ## then ease the capsule height, collider offset, and eye line toward it in lockstep so
 ## the feet stay planted. Writes `crouching` for creature detection to read.
@@ -1354,6 +1399,27 @@ func _update_posture(delta: float) -> void:
 		desired = _posture
 	_posture = desired
 	crouching = _posture == POSTURE_CROUCH
+	# CROUCH CAN NEVER TAKE YOU BELOW YOUR OWN FLOOR (s59). In a railing V-wedge the
+	# shrinking capsule could slip under the deck lip, the body then read as swimming in
+	# the sea band beneath, and the crouch drowned you — the owner's crouch-death. Track
+	# the floor you last STOOD on; while crouched/prone and not honestly swimming, a drop
+	# past 0.3 m below it is the wedge slip, never a walk — restore the body to that floor
+	# and take the corner's escape route if faces are still pinning it.
+	if is_on_floor() and not swimming and _posture == POSTURE_STAND:
+		_stand_floor_y = global_position.y
+	elif _posture != POSTURE_STAND and not swimming and _stand_floor_y > -1e5 \
+			and global_position.y < _stand_floor_y - 0.3:
+		global_position.y = _stand_floor_y
+		velocity.y = 0.0
+		var flats2: Array = []
+		for i4 in get_slide_collision_count():
+			var n4: Vector3 = get_slide_collision(i4).get_normal()
+			if n4.angle_to(Vector3.UP) > floor_max_angle:
+				var f4 := Vector3(n4.x, 0.0, n4.z)
+				if f4.length() > 0.01:
+					flats2.append(f4.normalized())
+		if flats2.size() > 0:
+			_wedge_escape(flats2)
 
 	# Coming up is crisp; easing DOWN onto the deck is slower and calm.
 	var rate: float = PRONE_LERP if _posture == POSTURE_PRONE else CROUCH_LERP

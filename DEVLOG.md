@@ -2768,3 +2768,22 @@ a chain that hangs backward gives that plane a skew that leaks vertical error an
 fore-aft delivery (it delivers 0.16 of a 0.23 demand). The next honest lever is solving
 the hinds in the sagittal plane — or the asset re-roll that fixes all four ceilings at
 once. Gates: TestRunner 0, CatProbe 0, CatSpawnProbe 0, CatCatchupProbe 0.
+
+
+## s59 — the oceanarium pass: fish that swim like fish, a planted tank, and the lamp-planters
+
+Owner's ULTRACODE brief on the atrium/tank. Shipped A (facing + real swimming + 100 ft /
+8 ft caps, all probe-gated with raw numbers), B at the procedural tier (34-piece scattered
+reef bed, encrusted core, interior tank light — ~120 prims), D two of three layers (V-wedge
+outward-bisector escape + the crouch floor-clamp that ends the crouch-death; the rail-post
+chamfer at source is the filed follow-up), and E (the "two bulky 2-shape lamps" were the
+s56 pot+cone PLANTERS — photo-identified; every site now builds a real bowl-and-frond
+planter). The tail-first tank fish was a facing bug by construction: models face +Z,
+look_at aims -Z. New agent swim: species-clock wander so shoals drift as one body, boids,
+size-sorted lanes, analytic glass/core avoidance — AquariumSwimProbe: facing 0.993,
+alignment 0.556, min gap 0.56 m, zero wall/water violations. Deferred honestly in
+tests/out/atrium_review/REVIEW.md: C3/C4 (exterior connections, food-court fit-out — need
+an owner layout call), the world-path species facing audit, Tripo hero rockwork, the
+dedicated wedge harness. Gates: TestRunner 0, RigFieldProbe 0, AquariumSaveProbe 0,
+AquariumSwimProbe 0. Review package + captures: tests/out/atrium_review/ — awaiting human
+review.
