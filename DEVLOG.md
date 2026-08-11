@@ -2859,3 +2859,17 @@ the tips; centres now clear the widest taper, pinned per-drum against each drum'
 offset and radius, heights sine-hashed so no two sequences form a lattice). Verified on
 a frame that finally CHANGED: colonies on every face of the core, carpeted bed, clean
 water column.
+
+## s61 — MARROW accessibility audit: the tank farm was sealed
+
+Owner: rig 2 walkways/stairs are a mess, "almost nothing is right." Screenshot audit
+(topdown + ground-level across every level) found the concrete bug: the tank-farm bund
+wall (T-301/302/303) ran FOUR SOLID WALLS with no doorway — the labelled tanks were only
+reachable by a blind 1.1 m jump. Cut two gated openings (west, the natural approach from
+the stairwell/manifold; east, the pig-launcher service side), each a 2.2 m gap with a
+0.2 m hazard-striped sill (under STEP_MAX_HEIGHT, auto-steps) — a real tank-farm curb,
+not a wall. Verified the rest of the circulation on the same audit: the roof network
+(garden roof -> plant roof -> crane diagonal) reads and connects correctly on a properly
+aimed shot; RigFieldProbe's climb-line/floor checks were already green throughout, so
+the "mess" was this one sealed enclosure plus general visual density, not broken stairs.
+Gates: TestRunner 0, RigFieldProbe 0.

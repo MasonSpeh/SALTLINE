@@ -573,10 +573,29 @@ static func _tank_farm(b: KIT.Bake) -> void:
 	# across the tower's exit landing.
 	var bund := Rect2(30.8, -15.5, 7.2, 21.0)
 	for w in [[Vector3(bund.get_center().x, MAIN_Y + 0.55, bund.position.y), Vector3(bund.size.x, 1.1, 0.3)],
-			[Vector3(bund.get_center().x, MAIN_Y + 0.55, bund.end.y), Vector3(bund.size.x, 1.1, 0.3)],
-			[Vector3(bund.position.x, MAIN_Y + 0.55, bund.get_center().y), Vector3(0.3, 1.1, bund.size.y)],
-			[Vector3(bund.end.x, MAIN_Y + 0.55, bund.get_center().y), Vector3(0.3, 1.1, bund.size.y)]]:
+			[Vector3(bund.get_center().x, MAIN_Y + 0.55, bund.end.y), Vector3(bund.size.x, 1.1, 0.3)]]:
 		b.box(w[0], w[1], steel, "hull", Vector3.ZERO, true)
+	# WEST WALL, GATED — this ran solid for two sessions, sealing T-301/302/303 behind a
+	# 1.1 m bund with no way in but a blind jump. Real tank farms gate the access side with
+	# a low drive-over curb, not a full wall: two wall segments flank a 2.2 m gap, and a
+	# 0.2 m sill (under STEP_MAX_HEIGHT, so it auto-steps) still contains a minor spill.
+	var gz: float = bund.get_center().y
+	for seg in [[bund.position.y, gz - 1.1], [gz + 1.1, bund.end.y]]:
+		var mid: float = (seg[0] + seg[1]) * 0.5
+		var len: float = seg[1] - seg[0]
+		if len > 0.1:
+			b.box(Vector3(bund.position.x, MAIN_Y + 0.55, mid), Vector3(0.3, 1.1, len), steel, "hull", Vector3.ZERO, true)
+	b.box(Vector3(bund.position.x, MAIN_Y + 0.10, gz), Vector3(0.3, 0.2, 2.2), steel, "hull", Vector3.ZERO, true)
+	b.box(Vector3(bund.position.x, MAIN_Y + 0.005, gz), Vector3(0.4, 0.01, 2.2), MatLib.hazard_stripe(), "detail")
+	# East wall too — the pig launcher's own service path skirts this side, and a second
+	# gate keeps the export line's route from also requiring a jump.
+	for seg in [[bund.position.y, gz - 1.1], [gz + 1.1, bund.end.y]]:
+		var mid2: float = (seg[0] + seg[1]) * 0.5
+		var len2: float = seg[1] - seg[0]
+		if len2 > 0.1:
+			b.box(Vector3(bund.end.x, MAIN_Y + 0.55, mid2), Vector3(0.3, 1.1, len2), steel, "hull", Vector3.ZERO, true)
+	b.box(Vector3(bund.end.x, MAIN_Y + 0.10, gz), Vector3(0.3, 0.2, 2.2), steel, "hull", Vector3.ZERO, true)
+	b.box(Vector3(bund.end.x, MAIN_Y + 0.005, gz), Vector3(0.4, 0.01, 2.2), MatLib.hazard_stripe(), "detail")
 	for i in range(3):
 		var z: float = -10.5 + i * 7.2
 		b.cyl(Vector3(34.4, MAIN_Y + 3.75, z), 2.9, 7.5, dark, "hull", Vector3.ZERO, -1.0, 16, true)
