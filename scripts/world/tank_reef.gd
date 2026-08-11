@@ -24,18 +24,18 @@ const REEF_PATH := "res://assets/models/fauna/reef/%s/%s.glb"
 
 ## [slug, count, on_core, base_scale, scale_jitter, tint_a, tint_b]
 const SET: Array = [
-	["reefmass_a", 3, false, 1.20, 0.35, Color(0.85, 0.80, 0.72), Color(0.70, 0.72, 0.66)],
-	["reefmass_b", 3, false, 1.05, 0.30, Color(0.80, 0.76, 0.70), Color(0.66, 0.70, 0.64)],
-	["coral_brain", 5, false, 0.62, 0.30, Color(0.95, 0.78, 0.55), Color(0.88, 0.60, 0.50)],
-	["coral_bubble", 4, false, 0.50, 0.30, Color(0.92, 0.88, 0.78), Color(0.80, 0.85, 0.75)],
-	["coral_plate", 3, false, 0.80, 0.30, Color(0.90, 0.62, 0.40), Color(0.85, 0.75, 0.45)],
-	["sponge_barrel", 4, false, 0.55, 0.35, Color(0.85, 0.50, 0.42), Color(0.75, 0.55, 0.60)],
+	["reefmass_a", 3, false, 1.80, 0.35, Color(0.85, 0.80, 0.72), Color(0.70, 0.72, 0.66)],
+	["reefmass_b", 3, false, 1.55, 0.30, Color(0.80, 0.76, 0.70), Color(0.66, 0.70, 0.64)],
+	["coral_brain", 5, false, 0.95, 0.30, Color(0.95, 0.78, 0.55), Color(0.88, 0.60, 0.50)],
+	["coral_bubble", 4, false, 0.75, 0.30, Color(0.92, 0.88, 0.78), Color(0.80, 0.85, 0.75)],
+	["coral_plate", 3, false, 1.20, 0.30, Color(0.90, 0.62, 0.40), Color(0.85, 0.75, 0.45)],
+	["sponge_barrel", 4, false, 0.85, 0.35, Color(0.85, 0.50, 0.42), Color(0.75, 0.55, 0.60)],
 	["bloom_anemone", 5, false, 0.42, 0.30, Color(0.55, 0.90, 0.85), Color(0.90, 0.70, 0.90)],
-	["coral_fan_a", 5, false, 1.00, 0.35, Color(0.90, 0.45, 0.50), Color(0.75, 0.55, 0.85)],
-	["coral_branch_a", 4, true, 0.70, 0.30, Color(0.95, 0.60, 0.35), Color(0.90, 0.50, 0.55)],
-	["coral_branch_b", 4, true, 0.62, 0.30, Color(0.80, 0.70, 0.40), Color(0.60, 0.80, 0.70)],
-	["barnacle_cluster_a", 4, true, 0.55, 0.30, Color(0.82, 0.80, 0.72), Color(0.70, 0.68, 0.62)],
-	["sponge_tube_cluster", 3, true, 0.55, 0.30, Color(0.70, 0.60, 0.85), Color(0.55, 0.75, 0.80)],
+	["coral_fan_a", 5, false, 1.50, 0.35, Color(0.90, 0.45, 0.50), Color(0.75, 0.55, 0.85)],
+	["coral_branch_a", 4, true, 1.10, 0.30, Color(0.95, 0.60, 0.35), Color(0.90, 0.50, 0.55)],
+	["coral_branch_b", 4, true, 1.00, 0.30, Color(0.80, 0.70, 0.40), Color(0.60, 0.80, 0.70)],
+	["barnacle_cluster_a", 4, true, 0.85, 0.30, Color(0.82, 0.80, 0.72), Color(0.70, 0.68, 0.62)],
+	["sponge_tube_cluster", 3, true, 0.85, 0.30, Color(0.70, 0.60, 0.85), Color(0.55, 0.75, 0.80)],
 ]
 
 func _ready() -> void:

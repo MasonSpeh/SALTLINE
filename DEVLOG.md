@@ -2836,3 +2836,15 @@ deck are now 4.4 m (head at 11.2, honestly under-slung), lens and omni riding ma
 and the duplicated lens call died with it.
 
 Gates: TestRunner 0 · RigFieldProbe 0 · [tank_reef] 12 species / 12 draws.
+
+**s60 CORRECTION, owed honestly:** the first tank_reef shipped INVISIBLE and I sent the
+owner an unchanged frame while claiming coral — four times across two sessions counting
+the small-procedural rounds. Root cause: reef.global_position was set AFTER add_child,
+and _ready runs INSIDE add_child (this repo's most-repeated trap), so 47 instances built
+their transforms from the world origin and then rode the node's move — every coral
+rendered at DOUBLE the tank position, out in the sky. The "12 species planted" log was
+true and vacuous; only the frame could see it, and the OWNER read the frame before I
+did. Fixed (position set before add_child), scales raised ~1.5x for gallery distance,
+and verified ON PIXELS this time: the bed reads as a coral garden and the core carries
+textured colonies. The claim rule tightens accordingly: no "it's in" for anything
+spatial without a frame diff actually examined.

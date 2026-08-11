@@ -800,8 +800,14 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	reef.tank_r = TANK_R
 	reef.y0 = TANK_Y0
 	reef.y1 = TANK_Y1
+	# POSITION BEFORE add_child — _ready() runs INSIDE add_child (docs/AGENT_TRAPS.md, the
+	# crab-roam lesson), and the first cut set global_position after: the node built its
+	# instance transforms sitting at the world origin and was then moved to the tank, so
+	# 47 corals rendered at DOUBLE the tank's position, out in the sky. The "12 species
+	# planted" log printed either way — the frame was the only instrument that could see
+	# it, and the owner read it before I did.
+	reef.position = b.to_world(Vector3(TANK_C.x, TANK_Y0, TANK_C.y))
 	host.add_child(reef)
-	reef.global_position = b.to_world(Vector3(TANK_C.x, TANK_Y0, TANK_C.y))
 	var stock: Node = preload("res://scripts/world/aquarium_stock.gd").new()
 	stock.tank_centre = b.to_world(Vector3(TANK_C.x, 0, TANK_C.y))
 	stock.tank_r = TANK_R - 0.4
