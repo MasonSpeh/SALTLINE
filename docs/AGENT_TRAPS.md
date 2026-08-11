@@ -1332,3 +1332,13 @@ therefore lost everything except four thin legs — so DEEPWELL, the platform wh
 is "the tallest thing in the world by a clear margin", read from SALTLINE-0 as four sticks.
 When a helper splits geometry across LOD groups, the SILHOUETTE-bearing members belong in the
 group the caller asked for, and only lacing and hardware belong in `"detail"`.
+
+**`python str.replace` no-ops SILENTLY on a mismatched target, and the write+success-print
+that follows is indistinguishable from a landed edit.** s60 paid five render iterations for
+this: three consecutive "fixes" to tank_reef's core placement targeted the block with the
+wrong indentation, replace() matched nothing, the script still wrote the file and printed
+its cheerful tag, and the frame stayed pixel-identical — which was blamed on rendering,
+caching, and geometry before anyone checked whether the edit EXISTED (`grep -c` of a new
+token: 0). The Edit tool ERRORS on a mismatched old_string; use it for source edits, and
+when a frame refuses to change across two different "fixes", the first check is whether
+the code being rendered contains the fix at all.

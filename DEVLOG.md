@@ -2848,3 +2848,14 @@ did. Fixed (position set before add_child), scales raised ~1.5x for gallery dist
 and verified ON PIXELS this time: the bed reads as a coral garden and the core carries
 textured colonies. The claim rule tightens accordingly: no "it's in" for anything
 spatial without a frame diff actually examined.
+
+**s60c — the core actually covered, and what it cost.** Owner: no spiral, full surface,
+kill the poles. The poles (kelp members) died easily. The spiral took FIVE identical
+frames to kill because three of the fixes never existed: python str.replace silently
+no-opped on indentation (now in AGENT_TRAPS), while the two real causes stacked
+underneath — the s55 procedural clusters' own i*2.4 helix (deleted; tank_reef owns every
+colony now), and colony centres at 0.93x of a drum radius that tapers to 1.1x (buried to
+the tips; centres now clear the widest taper, pinned per-drum against each drum's own
+offset and radius, heights sine-hashed so no two sequences form a lattice). Verified on
+a frame that finally CHANGED: colonies on every face of the core, carpeted bed, clean
+water column.

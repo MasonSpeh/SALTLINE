@@ -32,10 +32,10 @@ const SET: Array = [
 	["sponge_barrel", 4, false, 0.85, 0.35, Color(0.85, 0.50, 0.42), Color(0.75, 0.55, 0.60)],
 	["bloom_anemone", 5, false, 0.42, 0.30, Color(0.55, 0.90, 0.85), Color(0.90, 0.70, 0.90)],
 	["coral_fan_a", 5, false, 1.50, 0.35, Color(0.90, 0.45, 0.50), Color(0.75, 0.55, 0.85)],
-	["coral_branch_a", 4, true, 1.10, 0.30, Color(0.95, 0.60, 0.35), Color(0.90, 0.50, 0.55)],
-	["coral_branch_b", 4, true, 1.00, 0.30, Color(0.80, 0.70, 0.40), Color(0.60, 0.80, 0.70)],
-	["barnacle_cluster_a", 4, true, 0.85, 0.30, Color(0.82, 0.80, 0.72), Color(0.70, 0.68, 0.62)],
-	["sponge_tube_cluster", 3, true, 0.85, 0.30, Color(0.70, 0.60, 0.85), Color(0.55, 0.75, 0.80)],
+	["coral_branch_a", 12, true, 1.10, 0.30, Color(0.95, 0.60, 0.35), Color(0.90, 0.50, 0.55)],
+	["coral_branch_b", 12, true, 1.00, 0.30, Color(0.80, 0.70, 0.40), Color(0.60, 0.80, 0.70)],
+	["barnacle_cluster_a", 14, true, 0.85, 0.30, Color(0.82, 0.80, 0.72), Color(0.70, 0.68, 0.62)],
+	["sponge_tube_cluster", 10, true, 0.85, 0.30, Color(0.70, 0.60, 0.85), Color(0.55, 0.75, 0.80)],
 ]
 
 func _ready() -> void:
@@ -84,11 +84,22 @@ func _ready() -> void:
 			var pos: Vector3
 			var tilt := Basis(Vector3.UP, a)
 			if on_core:
-				# On the rock column: hug its tapering radius, tilted outward so the
-				# piece grows OFF the face rather than hovering beside it.
-				var ct: float = 0.12 + 0.75 * t
-				var cr: float = lerpf(1.62, 0.90, ct) + 0.04
-				pos = tank_centre + Vector3(cos(a) * cr, bed_y - tank_centre.y + core_h * ct, sin(a) * cr)
+				# FULL-SURFACE COVERAGE, pinned to the drum that owns each height (s60c).
+				# Three separate lessons paid for in five identical frames:
+				#  * height from the same linear sequence as the angle draws every colony
+				#    on one helix (a rank-1 lattice) — so the height is HASHED;
+				#  * the core is EIGHT WOBBLING DRUMS, each with its own radius and a
+				#    0.28 m centre offset — a ring about the tank axis buries colonies on
+				#    every bulge side, so each colony is placed relative to ITS drum;
+				#  * the drums taper up to 1.1x, so the colony CENTRE must clear that
+				#    (1.06x + 0.10), or only its tips ever leave the stone.
+				var ct: float = 0.04 + 0.92 * fmod(absf(sin(float(seq) * 12.9898)) * 43758.5453, 1.0)
+				var di: int = clampi(int(ct * 8.0), 0, 7)
+				var dt0: float = float(di) / 8.0
+				var d_sr: float = lerpf(1.55, 0.75, dt0) * (1.0 + 0.14 * float(di % 2))
+				var d_off := Vector3(cos(float(di) * 2.1) * 0.28, 0, sin(float(di) * 2.1) * 0.28)
+				var d_r: float = d_sr * 1.06 + 0.10
+				pos = tank_centre + d_off + Vector3(cos(a) * d_r, bed_y - tank_centre.y + core_h * ct, sin(a) * d_r)
 				tilt = Basis(Vector3(sin(a), 0, -cos(a)).normalized(), deg_to_rad(48.0)) * tilt
 			else:
 				# On the bed: annulus between core clearance and the kelp line, sunk in.

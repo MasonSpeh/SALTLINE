@@ -1106,39 +1106,17 @@ static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y
 		var off := Vector3(cos(float(i) * 2.1) * 0.28, 0, sin(float(i) * 2.1) * 0.28)
 		b.cyl(Vector3(cx, y0 + 1.0 + core_h * t0 + sh * 0.5, cz) + off, sr, sh, rock, "hull",
 			Vector3(deg_to_rad(4.0 * float(i % 3) - 4.0), float(i) * 0.8, 0), sr * lerpf(0.8, 1.1, fmod(float(i) * 0.61, 1.0)), 10)
-	# Coral clusters on the core: colour, form and height vary; two of the five glow faintly.
+	# (s60c: the s55 procedural core clusters and floor pucks are GONE — their i*2.4
+	# placement was itself the helix the owner photographed ("don't just make it a
+	# spiral"), and they sat proud of the rock hiding the real library colonies behind
+	# them. tank_reef.gd owns every colony now; the palette stays for the bed + beds.)
 	var corals: Array = [
 		MatLib.flat(Color(0.92, 0.44, 0.50)), MatLib.flat(Color(0.95, 0.58, 0.25)),
 		MatLib.glowing(Color(0.30, 0.85, 0.78), 0.9), MatLib.flat(Color(0.62, 0.42, 0.82)),
 		MatLib.glowing(Color(0.85, 0.55, 0.75), 0.7)]
-	for i in range(22):
-		var t: float = 0.08 + 0.86 * pow(fmod(float(i) * 0.618, 1.0), 0.7)
-		var a: float = float(i) * 2.4
-		var cr: float = lerpf(1.7, 0.95, t)
-		var cp := Vector3(cx + cos(a) * cr, y0 + 1.0 + core_h * t, cz + sin(a) * cr)
-		var m: Material = corals[i % corals.size()]
-		match i % 3:
-			0:  # fan — a thin tilted plate
-				b.box(cp, Vector3(0.9 + 0.4 * float(i % 2), 0.7, 0.08), m, "hull",
-					Vector3(deg_to_rad(18.0), a, deg_to_rad(10.0 * float(i % 3))))
-			1:  # finger cluster — three small tapers
-				for k in range(3):
-					b.cyl(cp + Vector3(cos(a + k) * 0.16, 0.12 * k, sin(a + k) * 0.16),
-						0.10, 0.55 + 0.15 * k, m, "hull", Vector3(deg_to_rad(12.0 * k - 12.0), a, 0), 0.02, 6)
-			2:  # dome head
-				b.cyl(cp, 0.34 + 0.1 * float(i % 2), 0.30, m, "hull", Vector3.ZERO, 0.22, 8)
-	# Floor coral ring and the three kelp strands.
-	for i2 in range(6):
-		var fa: float = TAU * float(i2) / 6.0 + 0.5
-		var fr: float = radius * 0.62
-		b.cyl(Vector3(cx + cos(fa) * fr, y0 + 1.25, cz + sin(fa) * fr), 0.4, 0.5,
-			corals[i2 % corals.size()], "hull", Vector3.ZERO, 0.26, 8)
-	var weed: Material = MatLib.flat(Color(0.14, 0.34, 0.24))
-	for i3 in range(3):
-		var ka: float = TAU * float(i3) / 3.0 + 1.1
-		b.member(Vector3(cx + cos(ka) * (radius - 1.0), y0 + 1.2, cz + sin(ka) * (radius - 1.0)),
-			Vector3(cx + cos(ka + 0.5) * (radius - 1.6), y0 + 1.2 + h * 0.55, cz + sin(ka + 0.5) * (radius - 1.6)),
-			0.24, weed, "hull")
+	# (s60c: the kelp "strands" — straight members bed-to-crown — read as vertical POLES
+	# from every gallery and are gone on the owner's call. The tank's verticality now
+	# belongs to the coral-covered core alone.)
 	# THE PLANTED BED (s59) — the floor reads as a living reef, not a sand disc with six
 	# pucks on it. ~34 pieces scattered by golden-angle jitter (never a grid), denser
 	# toward the core, mixed forms and colours; plus encrusting patches up the rock so the
@@ -1192,15 +1170,6 @@ static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y
 	# reefmass, sponges, anemones and barnacle clusters through the bed and up the core.
 	# The rock massing, kelp curtain, barnacle collars and glowing anemone beds below stay:
 	# they are the substrate the real coral roots into.)
-	# The kelp curtain — nine full-height strands with a slow spiral lean, between the
-	# swim lane and the glass so the fish weave inside them.
-	var weed2: Material = weed
-	for ki in range(9):
-		var ka2: float = TAU * float(ki) / 9.0 + 0.35
-		var kr2: float = radius - 0.95 - 0.25 * float(ki % 2)
-		b.member(Vector3(cx + cos(ka2) * kr2, y0 + 1.1, cz + sin(ka2) * kr2),
-			Vector3(cx + cos(ka2 + 0.7) * (kr2 - 0.5), y1 - 1.0, cz + sin(ka2 + 0.7) * (kr2 - 0.5)),
-			0.16 + 0.06 * float(ki % 2), weed2, "hull")
 	# Barnacle collars — four crusted bands around the core, studded.
 	var barn: Material = crust[0]
 	for ci in range(4):
