@@ -2558,6 +2558,20 @@ func tick(dt: float, speed: float, moved: float, yaw_rate: float = 0.0) -> void:
 		_mul_body_live(_neck, Basis(BODY_UP, yn) * BODY_SIDE, pt)
 		_mul_body_live(_head, BODY_UP, yh)
 		_mul_body_live(_head, Basis(BODY_UP, yn + yh) * BODY_SIDE, pt)
+	# THE WALKING NOD (s57). The stabiliser above holds the face LEVEL and the moving
+	# glance runs at token weight, so a walking cat's head was surgically still — the
+	# owner's "very rigid / doesn't move at all when walking". A real cat's head rides its
+	# own footfalls: a small pitch nod at the body-bob rate (two per stride, phase-locked
+	# to base_ph so it cannot drift off the steps) and a smaller lateral cast at stride
+	# rate. Applied AFTER the stabiliser on purpose, like the head press below — this is
+	# motion the animal intends, and the stabiliser must not eat it. A few degrees only
+	# ("alive", not bobble-head), fading through the trot band where the gallop's spine
+	# engine takes over the whole front end. The HEAD_MAX_RATE choke bounds the sum as
+	# always: at 2.7 strides/s the nod's own peak rate is ~0.9 rad/s, well inside.
+	if _gait_w > 0.01:
+		var nod_w: float = _gait_w * (1.0 - mix * 0.6)
+		_mul_body_live(_head, BODY_SIDE, sin(_phase * TAU * 2.0 + 0.9) * 0.055 * nod_w)
+		_mul_body_live(_head, BODY_UP, sin(_phase * TAU + 0.4) * 0.035 * nod_w)
 	# THE HEAD PRESS, after the stabiliser on purpose: a cat pushing its skull up into a
 	# hand is a deliberate act, and the stabiliser's whole job is to cancel motion the
 	# animal did not intend. Nose up, and a small roll — the head-tilt everyone who has

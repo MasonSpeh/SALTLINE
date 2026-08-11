@@ -153,6 +153,9 @@ func _ready() -> void:
 	await _look(_world(a_o, a_y, Vector3(0.5, 22, 23.0)), _world(a_o, a_y, Vector3(9.5, 23.2, 27.0)), "s56_spa_sauna")
 	await _look(_world(a_o, a_y, Vector3(-22.0, 26.2, -4.0)), _world(a_o, a_y, Vector3(-33.0, 27.4, 6.0)), "s56_tower_library")
 	await _look(_world(a_o, a_y, Vector3(23.0, 29.4, -3.0)), _world(a_o, a_y, Vector3(33.0, 30.4, 9.0)), "s56_tower_games")
+	await _look(_world(m_o, m_y, Vector3(-2.0, 14.0, -30.0)), _world(m_o, m_y, Vector3(-2.5, 15.0, -19.5)), "s57_landing_from_bridge")
+	await _look(_world(m_o, m_y, Vector3(-2.0, 14.0, -21.5)), _world(m_o, m_y, Vector3(8.0, 13.4, -27.0)), "s57_landing_tower")
+	await _look(_world(m_o, m_y, Vector3(8.0, 6.8, -18.5)), _world(m_o, m_y, Vector3(0.0, 8.6, -8.0)), "s57_plant_from_apron")
 	await _look(_world(m_o, m_y, Vector3(-24.0, 6.8, -3.2)), _world(m_o, m_y, Vector3(-24.0, 11.6, -7.7)), "s56_tag2_sep")
 	await _look(_world(m_o, m_y, Vector3(26.0, 18.2, -10.5)), _world(m_o, m_y, Vector3(31.5, 19.5, -10.5)), "s56_tag2_tank")
 

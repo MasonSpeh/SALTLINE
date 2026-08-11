@@ -2673,3 +2673,48 @@ the hatch's own bookkeeping rather than trusting the file. AquariumSaveProbe ass
 round-trip against the slot file re-read off disk.
 
 Gates: TestRunner 0, RigFieldProbe 0 (58 flights, 116 endpoints, 58 climb lines).
+
+
+## s57 — the walk gets its life back, the pop-in catch-up, and MARROW's front door
+
+**THE WALK.** The owner's "paws unnatural, slightly sunken, head rigid — something
+degraded": the degradation was s54's +25% ground speed, which the arithmetic in ship_cat
+says could only be bought as +23% CADENCE (2.53 -> 3.12 strides/s) — frantic legs. Filmed
+at HEAD before touching anything: fore paws honest (soles on deck), the LEFT HIND dipping
+10-25 mm under (the dead-straight-bind defect, re-rig territory, reads worse the faster
+the legs). WALK_SPEED 1.36 -> 1.15: pure walk band again, 2.68 strides/s, between the
+signed-off 2.53 and the frantic 3.12. The ground given back is covered by the catch-up.
+THE HEAD: the stabiliser holds the face level and the moving glance ran at weight 0.10 —
+a surgically still head by construction. Now: a WALKING NOD in cat_rig (pitch at the
+body-bob rate + a lateral cast at stride rate, phase-locked to _phase, applied AFTER the
+stabiliser like the head press, a few degrees), and the moving glance at 0.45. Film:
+pitch spread 7.9 deg, face drifting toward interest, speed 1.19.
+
+**THE CATCH-UP** (owner: "teleport close behind where the player is looking when too out
+of reach"). In FOLLOW: hard trigger at 20 m, soft trigger at 6 s of not-closing beyond
+8 m — but only while the PLAYER IS TRAVELLING ON FOOT (smoothed speed > 0.8, per-think
+steps over 1.2 m ignored as teleports), never mid-leap, never from water, and 20 s of
+suppression after any water contact. Landing candidates fan out BEHIND the player's
+facing and every one is probed (floor on the player's level, body clearance, dry).
+CatCatchupProbe: 40 m gap closed in 3.5 s behind a walking player, dot -1.00.
+
+**TWO INSTRUMENT-GRADE FINDS chasing CatProbe's flakes.** (1) The s56 spawn-nap held
+State.SLEEP every think, stomping SWIM out from under a paddling cat — a cat in the sea
+is definitionally awake now. (2) The s55 water-rescue watchdog raced the swim recovery:
+the paddle rides the swell around y 0, so any trough holding her under y 1.2 for 0.9 s
+teleported a HEALTHY swim mid-stroke — a phase lottery the slower paddle (it tracks
+WALK_SPEED) lost most runs, and the yank corrupted the next scenario's staging (the
+crate-flake cluster). While in SWIM the watchdog now waits 25 s. CatProbe 0/0/0 across
+three consecutive runs — including the crate checks KNOWN_ISSUES recorded as
+intermittent since s54.
+
+**MARROW'S FRONT DOOR.** Bridge 1 delivered the player onto bare deck with a knee-height
+firewater main across the arrival. Now: apron pad with hazard nosing, funnel rails, a
+canopy with a lamp, the FW main VAULTING the walk lane as a pipe bridge, a painted walk
+line to the bio-lab's new south-east door, and an outboard switchback tower (the
+marina-tower pattern) hanging off the south rim — landing to process deck without
+crossing the platform, with aprons at both levels and the 11 m manifold moved out of the
+lower mouth. Rail gap cut for the apron; the climb audit passed it all first try.
+
+Gates: TestRunner 0 · RigFieldProbe 0 · CatSpawnProbe 0 · CatCatchupProbe 0 ·
+CatProbe 0 x3 (stale store-room spawn row rewritten against bunk_layout's derivation).

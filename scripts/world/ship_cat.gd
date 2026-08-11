@@ -192,6 +192,13 @@ var HOME: Vector3 = BUNKS.bed_pos(1, false) + Vector3(0, 0.7, 0)
 ## this is the safety net that makes losing her impossible.
 const RESCUE_Y: float = 1.2
 const RESCUE_AFTER: float = 0.9
+## ...but a cat in State.SWIM is already rescuing HERSELF, and the paddle rides the swell
+## around y 0 — so against the 0.9 s bar the watchdog was a phase lottery: any trough that
+## held her under y 1.2 for 0.9 s yanked a healthy swim mid-stroke (CatProbe measured the
+## paddle truncated at ~24 frames on most runs once the walk — whose speed the paddle
+## tracks — slowed in s57). While she is swimming the watchdog stands back and only fires
+## if the swim itself has clearly failed to find a lip.
+const RESCUE_SWIM_AFTER: float = 25.0
 const RESCUE_SPOT := Vector3(-6.0, 18.6, 10.0)
 var _wet_t: float = 0.0
 
@@ -264,12 +271,28 @@ var _spawn_nap: bool = true
 ## Against a real cat: 3.1 strides/s at 1.36 m/s is at the top of the published range for an
 ## animal this size (2.6-3.1) and 3.7 at 2.38 is inside it; 4.87 at the gallop is NOT (a real
 ## cat gallops at three to four), which is why RUN_SPEED is left alone — see its note.
-const WALK_SPEED: float = 1.36
+## 1.15 m/s (s57) — the owner's "paws look really unnatural... take example from slightly
+## previous versions". The s54 +25% ground speed was, by the arithmetic in the paragraph
+## above, +23% CADENCE (2.53 -> 3.12 strides/s) — and the frantic legs are exactly what
+## degraded. 1.15 sits below WALK_V (pure walk, mix 0, so the s54 band cost disappears
+## too) at 2.68 strides/s — between the signed-off 2.53 and the frantic 3.12. The ground
+## speed given back is covered by the follow catch-up teleport (s57): an ambling cat that
+## can never be left behind beats a hurried one that keeps up.
+const WALK_SPEED: float = 1.15
 const TROT_SPEED: float = 2.38       ## when it has fallen behind, or there is fish
 const FOLLOW_NEAR: float = 2.2       ## closer than this and it stops walking
 const FOLLOW_FAR: float = 14.0       ## further than this and it trots
 ## (LOST_M is gone: no distance gives up the follow — see the note above the follow
 ## branch. Parking the cat is the STAY verb's job now, a decision instead of a distance.)
+## Beyond this a following cat stops trying to walk the route and pops in behind you —
+## see the catch-up in `_companion`. Well past FOLLOW_FAR, so the trot and the run get
+## their chance first and the teleport is the last resort, not the gait.
+const CATCHUP_M: float = 20.0
+var _cu_t: float = 0.0
+var _cu_prev_d: float = 999.0
+var _cu_pprev: Vector3 = Vector3.INF   ## player pos last think — feeds _cu_pmove
+var _cu_pmove: float = 0.0             ## smoothed on-foot player speed, m/s
+var _cu_wet_cd: float = 0.0            ## post-water suppression, seconds
 const GREET_M: float = 2.4           ## how close you must come to say hello
 const FISH_M: float = 9.0            ## it can smell a fish in your hands from here
 const TURN_RATE: float = 6.0
@@ -662,6 +685,49 @@ func _reseat() -> bool:
 		_last_ground = global_position
 	return true
 
+## THE CATCH-UP LANDING. Candidates fan out BEHIND the player's facing (their body's +Z —
+## rotation.y = 0 faces -Z in this project, a lesson the shot harness paid for), nearest
+## first, and every one is PROBED before it is taken: real floor within a body-height of
+## the player's own level, the cat's own `_step_clear` at the seat, and dry footing. The
+## teleport also drops the bait trail — a cat that just skipped the route must not turn
+## around and walk back along it.
+func _catch_up(player: Node3D) -> bool:
+	var world: World3D = get_world_3d()
+	if world == null:
+		return false
+	var ppos: Vector3 = player.global_position
+	var behind: Vector3 = player.global_transform.basis.z
+	behind.y = 0.0
+	if behind.length_squared() < 0.01:
+		return false
+	behind = behind.normalized()
+	for r in [2.4, 3.4]:
+		for ang in [0.0, 0.6, -0.6, 1.1, -1.1]:
+			var dir: Vector3 = behind.rotated(Vector3.UP, ang)
+			var at: Vector3 = ppos + dir * float(r)
+			var from: Vector3 = at + Vector3(0, 1.6, 0)
+			var q := PhysicsRayQueryParameters3D.create(from, from - Vector3(0, 4.5, 0))
+			q.collision_mask = 1
+			q.collide_with_areas = false
+			q.exclude = [_touch.get_rid()]
+			var hit: Dictionary = world.direct_space_state.intersect_ray(q)
+			if hit.is_empty():
+				continue
+			var seat: Vector3 = hit["position"]
+			if absf(seat.y - ppos.y) > 2.5:
+				continue
+			if _over_water(seat):
+				continue
+			if not _step_clear(seat, (ppos - seat).normalized()):
+				continue
+			global_position = seat
+			_reseat()
+			_trail.clear()
+			_trail_live = false
+			_enter(State.FOLLOW)
+			return true
+	return false
+
 ## Kept for probes and for anything that asks the CAT rather than its handle; the handle's own
 ## `verbs` is what the interaction ray reads, and both are set together in _sync_verbs.
 func available_verbs() -> Array:
@@ -759,7 +825,7 @@ func _process(delta: float) -> void:
 	# Water rescue watchdog — see RESCUE_Y above. Cheap: one float compare a think.
 	if global_position.y < RESCUE_Y:
 		_wet_t += delta
-		if _wet_t > RESCUE_AFTER:
+		if _wet_t > (RESCUE_SWIM_AFTER if _state == State.SWIM else RESCUE_AFTER):
 			_wet_t = 0.0
 			global_position = RESCUE_SPOT
 			_reseat()
@@ -1004,8 +1070,11 @@ func _groom(delta: float, player: Node3D) -> void:
 	# The first-meeting nap — see _spawn_nap. Curled on the bunk until the player is close
 	# enough that a real cat would have clocked them; then the ordinary groom/greet path
 	# resumes and the SLEEP -> anything edge plays the wake-up stretch.
+	# ...and a cat in the SEA is definitionally awake: the nap held State.SLEEP every
+	# think, which stomped the SWIM state out from under a paddling animal — CatProbe's
+	# swim scenario counted 23 SWIM frames out of a 98-frame paddle, the rest overwritten.
 	if _spawn_nap:
-		if d < GREET_M * 2.5:
+		if d < GREET_M * 2.5 or _over_water(global_position) or global_position.y < RESCUE_Y + 0.5:
 			_spawn_nap = false
 		else:
 			_enter(State.SLEEP)
@@ -1098,7 +1167,11 @@ func _companion(delta: float, player: Node3D) -> void:
 			# weight for as long as the bird stayed up, which on a 1.05 rad clamp is a
 			# standing lean of tens of degrees. A moving cat notices a bird; it does not
 			# stare at one.
-			_watch(n.global_position, 0.10 if _last_speed > 0.2 else 1.0)
+			# 0.45 while moving, not 0.10: at token weight the walking head never visibly
+			# turned at all (s57, the owner's "rigid head"). Under the full-weight stare a
+			# walking glance used to break the gait read — 0.45 is a drift of the face
+			# toward the interesting thing, which is what a walking cat actually does.
+			_watch(n.global_position, 0.45 if _last_speed > 0.2 else 1.0)
 			if _rig != null:
 				if _last_speed <= 0.2:
 					_rig.call("chatter", 1.0)
@@ -1286,6 +1359,45 @@ func _companion(delta: float, player: Node3D) -> void:
 	if absf(ppos.y - global_position.y) > CLIMB_UP:
 		near_gap = 0.35
 	if d > near_gap:
+		# THE CATCH-UP (s57, owner's ask): a follower who is hopelessly out of reach POPS
+		# to just behind the player's view instead of threading four rigs of stairs. Two
+		# triggers: a hard distance, and "not closing" — six seconds of follow that never
+		# shrinks the gap is a cat pinned behind a door or a bund wall, whatever the
+		# distance reads. The landing is BEHIND the camera on purpose (the pop-in is never
+		# in frame), probed for real floor on the player's own level, body clearance and
+		# dry footing before it is taken; if no candidate survives, nothing happens and
+		# the ordinary follow keeps trying.
+		# "LEFT BEHIND" MEANS THE PLAYER IS TRAVELLING. The pop exists for a companion who
+		# cannot keep up with someone walking the field — not for a parked player whose cat
+		# is mid-solve, mid-leap, or mid-swim. Three semantic guards, each one a scenario
+		# CatProbe convicted the first cut on:
+		#   * the player must be MOVING ON FOOT (smoothed speed; per-think displacement
+		#     over 8 m is a test-harness teleport, not walking, and is ignored);
+		#   * a swimming or just-rescued-from-water cat finishes its paddle to the lip —
+		#     the swim home is the charm, and the water watchdog backstops a lost one;
+		#   * never mid-leap.
+		if _over_water(global_position) or _state == State.SWIM:
+			_cu_wet_cd = 20.0
+		else:
+			_cu_wet_cd = maxf(0.0, _cu_wet_cd - delta)
+		if _cu_pprev == Vector3.INF:
+			_cu_pprev = ppos
+		var pstep: float = ppos.distance_to(_cu_pprev)
+		_cu_pprev = ppos
+		# 1.2 m per think is a sprint at the longest AiBudget step — anything larger is a
+		# teleport (a probe staging hop, a respawn), and one of those through the smoother
+		# read as seconds of "walking" and opened the pop window on a parked player.
+		if pstep < 1.2:
+			_cu_pmove = lerpf(_cu_pmove, pstep / maxf(delta, 1e-4), 1.0 - exp(-2.0 * delta))
+		if _jump_t <= 0.0 and _cu_wet_cd <= 0.0 and _cu_pmove > 0.8:
+			if d >= _cu_prev_d - 0.05 * delta and d > RUN_M:
+				_cu_t += delta
+			else:
+				_cu_t = 0.0
+			_cu_prev_d = d
+			if (d > CATCHUP_M or _cu_t > 6.0) and _catch_up(player):
+				_cu_t = 0.0
+				return
 		# ...and it BREAKS INTO A RUN when it has been left behind, which is the one moment a
 		# follower reads as an animal rather than a marker: same walk otherwise.
 		var running: bool = d > RUN_M

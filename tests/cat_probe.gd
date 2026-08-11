@@ -46,17 +46,15 @@ func _run() -> void:
 	player.set_physics_process(false)
 	player.set_process(false)
 
-	# 1. IT IS IN THE STORE ROOM, AND IT IS ON THE FLOOR. The store-room zone is x[10,16]
-	# z[-22,-16] at the wet deck (RIG_ATLAS / tools/rig_zones.json), and the spawn Y is probed
-	# rather than typed — so assert it landed ON something, not at the authored constant.
-	# (It used to be the bunkhouse, topside. Owner: "Have the cat spawn in the 2nd internal
-	# room near a light so it is illuminated in the dark" — see ship_cat.HOME for which room
-	# and why, and tests/CatSpawnProbe for the floor/clearance/ceiling/illumination gates. The
-	# ZONE is asserted here rather than the point, so moving the seat within the room does not
-	# break this row.)
+	# 1. SHE IS ASLEEP ON HER BUNK — cabin 1 of the bunkhouse north row, s55's owner call,
+	# with the seat DERIVED from bunk_layout since s56 (the hand-typed version put her on
+	# the cabin floor 2.7 m away). Asserted against the bed's own derived footprint rather
+	# than a literal, so a re-authored cabin moves this row with it. (Before s55 this was
+	# the wet-deck store room; the history is in ship_cat.HOME's note.)
 	var p: Vector3 = cat.global_position
-	_ok(p.x > 10.0 and p.x < 16.0 and p.z > -22.0 and p.z < -16.0,
-		"it is in the store room (%.1f, %.1f)" % [p.x, p.z])
+	var bed: Vector3 = preload("res://scripts/world/bunk_layout.gd").bed_pos(1, false)
+	_ok(absf(p.x - bed.x) < 0.7 and absf(p.z - bed.z) < 1.3,
+		"she is on her bunk (%.1f, %.1f vs bed %.1f, %.1f)" % [p.x, p.z, bed.x, bed.z])
 
 	# THE SEAT GAP, MEASURED INDEPENDENTLY — and this assertion is the one that was missing.
 	# The old check was `absf(p.y - 18.0) < 1.2` against the literal deck height, which

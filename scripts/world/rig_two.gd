@@ -142,6 +142,7 @@ static func _main_deck(b: KIT.Bake) -> void:
 	# purpose and MARROW keeps that grammar.
 	KIT.rail_rect(b, DECK, MAIN_Y, [
 		["s", -7.0, 3.0],          # bridge from SALTLINE-0
+		["s", 7.0, 9.2],           # landing -> process-deck tower apron (s57)
 		["s", 10.0, 17.0],         # mezzanine ring stair
 		["n", -17.0, -9.0],        # mezzanine ring stair
 		["e", 7.0, 17.0],          # bridge to THE ANCHORAGE
@@ -230,7 +231,9 @@ static func _buildings(b: KIT.Bake) -> void:
 			MatLib.hazard_stripe(), "detail", Vector3(0, deg_to_rad(float(d[1])), 0))
 	# 3. THE HYDROPONICS BAY. Low, glazed, its roof a third level between the other two.
 	KIT.block(b, HYDRO, MAIN_Y, 1, HYDRO_H, MatLib.dirty_white_panel(), {
-		"doors": [["n", -14.0, 0], ["e", -14.0, 0]],
+		# The second east door (z -18) faces the bridge-1 landing — the arrival used to
+		# stand on bare deck with the lab's blank corner beside it (s57, owner).
+		"doors": [["n", -14.0, 0], ["e", -14.0, 0], ["e", -18.0, 0]],
 		"roof_deck": true,
 		"glass_tint": Color(0.58, 0.70, 0.60),
 	})
@@ -460,7 +463,9 @@ static func _process_deck(b: KIT.Bake) -> void:
 	for i in range(5):
 		KIT.skid(b, Vector3(-22.0 + i * 7.4, PLANT_Y, 14.0), Vector3(5.6, 2.8, 3.6), 0.0)
 	# Valve manifolds, the wall of handwheels every rig has.
-	KIT.manifold(b, Vector3(6.0, PLANT_Y, -17.5), 11.0, 3.4, 0.0)
+	# At x -6, not 6: the s57 landing tower aprons onto the process deck at (8, -19.4) and
+	# an 11 m manifold two metres inside that mouth is a wall across the arrival.
+	KIT.manifold(b, Vector3(-6.0, PLANT_Y, -17.5), 11.0, 3.4, 0.0)
 	KIT.manifold(b, Vector3(24.0, PLANT_Y, 6.0), 8.0, 3.4, 90.0)
 	# Pipe galleries and cable trays down the length of it, plus an overhead catwalk route.
 	for z2 in [-14.0, -2.0, 10.0]:
@@ -609,8 +614,35 @@ static func _labs(b: KIT.Bake) -> void:
 	for i2 in range(3):
 		b.cyl(Vector3(12.6 + i2 * 1.4, MAIN_Y + 0.6, 18.2), 0.45, 1.2, MatLib.teal_paint(), "hull", Vector3.ZERO, -1.0, 10, true)
 	# Firewater: red pump house, the red main along the south deck edge, two monitors.
+	# THE MAIN VAULTS THE BRIDGE LANDING (s57): it used to run knee-height straight across
+	# the spot where bridge 1 delivers the player — the "arrives in a weird spot". A pipe
+	# bridge over the walk lane is what a real yard does, and it frames the arrival.
 	b.box(Vector3(-12.0, MAIN_Y + 1.25, -21.8), Vector3(2.6, 2.5, 2.2), MatLib.red_paint(), "hull", Vector3.ZERO, true)
-	KIT.pipe_run(b, [Vector3(-20.0, MAIN_Y + 0.5, -23.0), Vector3(20.0, MAIN_Y + 0.5, -23.0)], 0.16, MatLib.red_paint())
+	KIT.pipe_run(b, [Vector3(-20.0, MAIN_Y + 0.5, -23.0), Vector3(-6.5, MAIN_Y + 0.5, -23.0),
+		Vector3(-6.5, MAIN_Y + 3.1, -23.0), Vector3(3.0, MAIN_Y + 3.1, -23.0),
+		Vector3(3.0, MAIN_Y + 0.5, -23.0), Vector3(20.0, MAIN_Y + 0.5, -23.0)], 0.16, MatLib.red_paint())
+	# THE LANDING ITSELF: apron pad, hazard nosing at the deck edge, funnel rails either
+	# side of the arrival, and a lit walk line to the lab's new south-east door.
+	b.box(Vector3(-2.0, MAIN_Y + 0.025, -21.6), Vector3(7.0, 0.05, 4.6), MatLib.checker_plate(), "hull", Vector3.ZERO, true)
+	b.box(Vector3(-2.0, MAIN_Y + 0.03, -23.75), Vector3(7.0, 0.06, 0.5), MatLib.hazard_stripe(), "detail")
+	KIT.rail_run(b, Vector2(-5.6, -23.8), Vector2(-5.6, -19.6), MAIN_Y)
+	KIT.rail_run(b, Vector2(1.6, -23.8), Vector2(1.6, -19.6), MAIN_Y)
+	b.box(Vector3(-2.0, MAIN_Y + 3.35, -21.4), Vector3(7.4, 0.14, 5.2), MatLib.corrugated(), "hull")
+	for cp in [Vector3(-5.5, 0, -19.2), Vector3(1.5, 0, -19.2), Vector3(-5.5, 0, -23.6), Vector3(1.5, 0, -23.6)]:
+		b.box(Vector3(cp.x, MAIN_Y + 1.65, cp.z), Vector3(0.14, 3.3, 0.14), MatLib.galvanized(), "detail", Vector3.ZERO, true)
+	KIT.lamp_lens(b, Vector3(-2.0, MAIN_Y + 3.2, -21.4), Color(1.0, 0.9, 0.7), 0.3, 4.5)
+	var walk_mat: Material = MatLib.flat(Color(0.75, 0.72, 0.30))
+	b.box(Vector3(-3.3, MAIN_Y + 0.035, -18.6), Vector3(0.9, 0.02, 6.0), walk_mat, "detail", Vector3(0, deg_to_rad(24.0), 0))
+	# DOWN TO THE PROCESS DECK from the landing: an OUTBOARD switchback tower hung off the
+	# south rim east of the apron (the rig_three marina-tower pattern — a hole through the
+	# main slab would be a second deck_hole this kit does not cut, and the process deck
+	# below is fully occupied plant). Aprons tie it to the main deck at the landing and to
+	# the process deck's south edge; two raking struts carry it back to the slab.
+	KIT.stair_tower(b, Rect2(4.6, -31.6, 6.8, 6.6), PLANT_Y, MAIN_Y, 3.6, true)
+	KIT.catwalk(b, Vector3(8.0, MAIN_Y, -25.2), Vector3(8.0, MAIN_Y, -23.5), 1.8, false)
+	KIT.catwalk(b, Vector3(8.0, PLANT_Y, -25.2), Vector3(8.0, PLANT_Y, -19.4), 1.8, true, PLANT_Y)
+	for sx in [5.2, 10.8]:
+		b.member(Vector3(sx, MAIN_Y - 1.0, -24.2), Vector3(sx, PLANT_Y - 0.6, -30.6), 0.28, MatLib.rust_steel(), "hull")
 	for mx in [-18.0, 18.0]:
 		b.cyl(Vector3(mx, MAIN_Y + 1.0, -23.0), 0.14, 1.2, MatLib.red_paint(), "detail")
 		b.cyl(Vector3(mx, MAIN_Y + 1.65, -23.0), 0.1, 0.7, MatLib.red_paint(), "detail", Vector3(deg_to_rad(55.0), 0, 0))
