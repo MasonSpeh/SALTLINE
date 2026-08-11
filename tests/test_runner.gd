@@ -242,7 +242,15 @@ func _run() -> void:
 	# player can open it on the first E press instead of waiting out a countdown.
 	_check(rig.sphl_hatch != null and not rig.sphl_hatch.locked, "SPHL hatch starts unlocked")
 	_check(rig.countdown_label != null, "pressure readout exists")
-	_check(player.global_position.distance_to(rig.player_spawn) < 1.0, "player starts at the hatch")
+	# s59b, owner's call: the game now starts on THE ANCHORAGE's south arrival deck (main.gd
+	# overrides rig.player_spawn from the field's Anchor marker). The row asserts the NEW
+	# design: on the luxury rig, near its published spawn, with real floor under the boots.
+	var anch_spawn: Vector3 = Vector3.INF
+	for mk in get_tree().get_nodes_in_group("field_rig"):
+		if mk.get_parent() != null and mk.get_parent().name == "Anchorage":
+			anch_spawn = mk.get_meta("spawn") as Vector3
+	_check(anch_spawn != Vector3.INF and player.global_position.distance_to(anch_spawn) < 2.0,
+		"player starts on the ANCHORAGE arrival deck (d %.1f)" % (player.global_position.distance_to(anch_spawn) if anch_spawn != Vector3.INF else -1.0))
 
 	# Opening the hatch advances the intro objective (cold_open_finished beat).
 	_check(not rig.sphl_hatch.available_verbs().is_empty(), "hatch is OPEN-able immediately")

@@ -107,6 +107,7 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 	_podium(b)
 	_floorplan(b)
 	_dining(b)
+	_food_court(b)
 	_suites(b)
 	_atrium(b, host)
 	_terrace(b)
@@ -124,7 +125,9 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 		"bridge_in": BRIDGE_IN,
 		"bridge_out": BRIDGE_OUT,
 		"deck_y": MAIN_Y,
-		"spawn": Vector3(-10.0, MAIN_Y, -25.0),
+		"spawn": Vector3(-10.0, MAIN_Y, -29.5),   # the arrival mat OUTSIDE the south door —
+		# open deck, nothing to stand a probe ray on (the vestibule spot the spawn used to
+		# claim now has furniture over it, s59b)
 		"overview": Vector3(29.0, E_ROOF, 4.0),
 		"aquarium": {
 			"centre": Vector3(TANK_C.x, (TANK_Y0 + TANK_Y1) * 0.5, TANK_C.y),
@@ -577,6 +580,55 @@ static func _dining(b: KIT.Bake) -> void:
 	_dining_table(b, Vector3(34.0, MAIN_Y, 14.5), 90.0)
 	KIT.led_cove(b, Vector3(19.0, MAIN_Y + POD_H - 0.6, 17.4), Vector3(39.0, MAIN_Y + POD_H - 0.6, 17.4), WARM, 0.09, WARM_E)
 
+# ------------------------------------------------------------------------- THE FOOD COURT
+
+## The SE corner of the atrium floor, between the salon and the dining wing: three service
+## stalls, a scatter of cafe tables, and a floor pad to read it as its own zone. This corner
+## is INSIDE the drum's own r16 circle, not beside it — a stall row at z -11.5 (the naive
+## reading of "SE open floor") sits only 15.7 m from the tank at x 2.5, inside the r17.5
+## portal clearance every prop here has to respect. So the stall row drops to z -14 (at
+## z <= -13.5 the whole x 0..16 span already clears 17.5) and the cafe tables ride the
+## r17.5 curve outward toward the dining wing instead of spanning the box's full width.
+## Second half is the two LOUNGE finishing touches: a wave panel on the salon's east wall
+## and planters flanking the reception desk.
+static func _food_court(b: KIT.Bake) -> void:
+	var wood: Material = MatLib.wood()
+	var brass: Material = MatLib.flat(BRASS)
+	var dark: Material = MatLib.dark_metal()
+	# THE STALLS: counter, brass cap, cove strip at the toekick, a backlit menu panel on
+	# two posts behind, two stools out front. Backs sit near the old z -13 hall line.
+	var stall_z: float = -14.0
+	for sx in [2.0, 7.5, 13.0]:
+		b.box(Vector3(sx, MAIN_Y + 0.5, stall_z), Vector3(3.2, 1.0, 1.0), wood, "hull", Vector3.ZERO, true)
+		b.box(Vector3(sx, MAIN_Y + 1.03, stall_z), Vector3(3.3, 0.06, 1.05), brass, "detail")
+		KIT.led_cove(b, Vector3(sx - 1.5, MAIN_Y + 0.10, stall_z + 0.52), Vector3(sx + 1.5, MAIN_Y + 0.10, stall_z + 0.52), COVE, 0.07, COVE_E)
+		# Same backlit tone as the salon chart (0.07, 0.17, 0.21 @ 0.55) — draw-chunk keys
+		# are per material INSTANCE, so a one-off teal here would cost a whole extra "lamp"
+		# chunk against a far-chunk budget that the field already sits at exactly (150/150).
+		var mp := Vector3(sx, MAIN_Y + 2.2, stall_z - 0.9)
+		b.box(mp, Vector3(1.0, 0.7, 0.08), dark, "detail")
+		b.box(mp + Vector3(0, 0, 0.045), Vector3(0.9, 0.6, 0.02), MatLib.glowing(Color(0.07, 0.17, 0.21), 0.55), "lamp")
+		for px in [-0.4, 0.4]:
+			b.member(Vector3(sx + px, MAIN_Y, stall_z - 0.9), Vector3(sx + px, MAIN_Y + 1.85, stall_z - 0.9), 0.03, dark, "detail")
+		for stx in [-0.9, 0.9]:
+			b.cyl(Vector3(sx + stx, MAIN_Y + 0.38, stall_z + 0.85), 0.20, 0.76, dark, "detail", Vector3.ZERO, -1.0, 10, true)
+	# CAFE TABLES: an arc riding just outside r17.5, curling from beside the stalls toward
+	# the dining wing — the only strip of this corner clear of both the drum and its columns.
+	for tp in [Vector2(10.0, -11.0), Vector2(12.7, -9.0), Vector2(14.5, -7.0), Vector2(15.7, -5.0)]:
+		_low_table(b, Vector3(tp.x, MAIN_Y, tp.y), 0.9)
+		var rvec: Vector2 = (tp - DRUM_C).normalized()
+		var tvec := Vector2(-rvec.y, rvec.x)   # tangential, so stools don't creep inside r17.5
+		for sgn in [-1.0, 1.0]:
+			var sp: Vector2 = tp + tvec * (sgn * 0.8)
+			b.cyl(Vector3(sp.x, MAIN_Y + 0.21, sp.y), 0.28, 0.42, MatLib.canvas(VELVET), "detail", Vector3.ZERO, -1.0, 12, true)
+	# Dark floor pad reading the corner as its own zone — 5 mm above the s56 lino overlay.
+	b.box(Vector3(7.5, MAIN_Y + 0.045, -8.0), Vector3(15.0, 0.03, 13.6), MatLib.flat(Color(0.13, 0.15, 0.19)), "detail")
+	# LOUNGE finishing: a wave panel south of the existing chart on the salon's east wall,
+	# and planters at the reception desk's flanks.
+	_wall_art(b, Vector3(15.82, MAIN_Y + 2.0, -25.5), 270.0, 1.6, 1.1, "waves")
+	_planter(b, Vector3(-13.2, MAIN_Y, -22.0), 0.8)
+	_planter(b, Vector3(-6.8, MAIN_Y, -22.0), 0.8)
+
 # ---------------------------------------------------------------------------- THE ATRIUM
 
 static func _atrium(b: KIT.Bake, host: Node3D) -> void:
@@ -759,9 +811,9 @@ static func _is_portal(lvl: float, bay: int) -> bool:
 	if absf(lvl - MAIN_Y) < 0.01:
 		return bay in [0, 2, 3, 5, 6, 8, 9, 11]
 	if absf(lvl - G1) < 0.01:
-		return bay in [0, 11]
+		return bay in [0, 6, 11]     # 6: the west bay — the G1 terrace exit (s59b)
 	if absf(lvl - G2) < 0.01:
-		return bay == 0
+		return bay in [0, 6]         # 6: the west bay — the west-tower link (s59b)
 	return false
 
 ## One chord stair across the atrium void: foot on the lower deck's inner edge, head on the
@@ -854,10 +906,23 @@ static func _terrace(b: KIT.Bake) -> void:
 	# Perimeter rail, with gaps for the west rim stair and the helideck link.
 	KIT.rail_rect(b, PODIUM, TERRACE, [["w", -8.0, -4.0]], 0.25)
 	# Rail around the drum's square light-well.
-	KIT.rail_rect(b, Rect2(-16.4, -12.4, 32.8, 32.8), TERRACE, [], -0.1)
+	KIT.rail_rect(b, Rect2(-16.4, -12.4, 32.8, 32.8), TERRACE, [["w", -1.8, 1.4]], -0.1)
 	# Rails around the interior stair opening (x 26..37, z 18..22).
 	KIT.rail_run(b, Vector2(26.4, 18.1), Vector2(37.0, 18.1), TERRACE)
 	KIT.rail_run(b, Vector2(37.0, 18.1), Vector2(37.0, 21.9), TERRACE)
+	# C3 (s59b): THE SECOND-FLOOR CONNECTIONS, both through the drum's west bay (bay 6,
+	# centre 195 deg). G1 is the "2nd floor" viewing gallery — it sits 0.5 m under the
+	# terrace, so a short flight through the opened bay walks the gallery straight onto
+	# the exterior roof deck. One level up, G2 bridges through the same bay line into the
+	# WEST TOWER's first upper storey (floor 29.90, 0.5 over G2) — the mirror of s55's
+	# east-tower link, so both towers now hang off the drum.
+	KIT.stair(b, Vector3(-14.88, G1, 0.01), Vector3(-16.55, TERRACE, -0.44), 1.6, true, true,
+		MatLib.galvanized(), MatLib.dirty_white_panel())
+	KIT.deck(b, Rect2(-17.6, -1.5, 1.6, 2.6), TERRACE, 0.24, MatLib.dirty_white_panel())
+	KIT.catwalk(b, Vector3(-14.68, G2, 0.06), Vector3(-17.85, G2, -0.80), 1.7, true,
+		-1000.0, MatLib.dirty_white_panel(), MatLib.galvanized())
+	KIT.stair(b, Vector3(-18.05, G2, -0.80), Vector3(-19.30, TERRACE + STOREY, -0.80), 1.1,
+		true, true, MatLib.galvanized(), MatLib.dirty_white_panel())
 	# EXTERIOR STAIR up the west rim: main deck to terrace.
 	KIT.stair(b, Vector3(-41.0, MAIN_Y, -16.0), Vector3(-41.0, TERRACE, -6.0), 1.5, true, true)
 	KIT.catwalk(b, Vector3(-41.0, TERRACE, -6.0), Vector3(-38.6, TERRACE, -6.0), 1.8, false)
@@ -887,7 +952,7 @@ static func _towers(b: KIT.Bake) -> void:
 	# WEST TOWER: three storeys off the terrace.
 	KIT.block(b, WEST_WING, TERRACE, 3, STOREY, white, {
 		"windows": true, "glass_tint": frost,
-		"doors": [["e", 4.0, 0], ["n", -29.0, 0]],
+		"doors": [["e", 4.0, 0], ["n", -29.0, 0], ["e", -0.8, 1]],
 		"roof_deck": true,
 		"roof_gaps": [],
 	})

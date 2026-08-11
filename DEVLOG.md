@@ -2787,3 +2787,23 @@ an owner layout call), the world-path species facing audit, Tripo hero rockwork,
 dedicated wedge harness. Gates: TestRunner 0, RigFieldProbe 0, AquariumSaveProbe 0,
 AquariumSwimProbe 0. Review package + captures: tests/out/atrium_review/ — awaiting human
 review.
+
+
+## s59b — the tank you can SEE change, the food court, both west links, and spawn on the show rig
+
+Owner: "it looked as if nothing changed inside the tank... the main 2 objects of focus
+were skipped." Both fixed properly this time. THE TANK grew a hero tier sized for the
+room, not the ledger: coral trees to 2.2 m, sea fans to 1.8 m, a nine-strand full-height
+kelp curtain, barnacle collars, glowing anemone beds — and every colour reuses an
+existing material instance, because the far-chunk budget sat at exactly 150/150 and each
+novel colour measured as +1 chunk (first cut: 159/150). C3: the G1 west bay now steps up
+onto the roof terrace and the G2 west bay bridges into the WEST tower's upper storey.
+C4: a Sonnet subagent built the food court (three stalls, backlit menus, cafe arc, 70
+prims) to the owner's Trident-Retreat reference — its report also caught that the brief's
+literal stall line sat inside the drum radius rule and moved it. SPAWN: the game starts
+on THE ANCHORAGE's arrival mat now, respawn too, with twelve rig-1-style survival
+takeables spread over five levels (two fishing rods). Two instrument lessons: the field
+probe's seat ray read the top of the PLAYER's own capsule at the new spawn (skip list —
+the standing rule, newly earned), and TestRunner's "starts at the hatch" row was
+rewritten to assert the new design rather than deleted. Gates: TestRunner 0,
+RigFieldProbe 0 (217/220 chunks, 150/150 far), AquariumSwimProbe 0, AquariumSaveProbe 0.

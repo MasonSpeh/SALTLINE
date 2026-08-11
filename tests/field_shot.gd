@@ -159,6 +159,10 @@ func _ready() -> void:
 	await _look(_world(m_o, m_y, Vector3(-24.0, 6.8, -3.2)), _world(m_o, m_y, Vector3(-24.0, 11.6, -7.7)), "s56_tag2_sep")
 	await _look(_world(m_o, m_y, Vector3(26.0, 18.2, -10.5)), _world(m_o, m_y, Vector3(31.5, 19.5, -10.5)), "s56_tag2_tank")
 
+	await _look(_world(a_o, a_y, Vector3(-10.0, 22.0, -29.5)), _world(a_o, a_y, Vector3(-10.0, 23.6, -18.0)), "s59b_spawn_view")
+	await _look(_world(a_o, a_y, Vector3(7.5, 22.0, -6.0)), _world(a_o, a_y, Vector3(7.5, 23.6, -14.0)), "s59b_food_court")
+	await _look(_world(a_o, a_y, Vector3(-13.5, 25.7, 2.0)), _world(a_o, a_y, Vector3(-17.5, 26.8, -0.5)), "s59b_terrace_link")
+	await _look(_world(a_o, a_y, Vector3(-12.5, 29.4, 3.5)), _world(a_o, a_y, Vector3(-19.0, 30.4, -0.8)), "s59b_tower_link")
 	# ---- DEEPWELL. The tallest thing in the world, now with a production level under it.
 	await _look(Vector3(0.0, 30.0, 320.0), W["d_crown"], "deepwell_from_the_south")
 	await _look(W["d_prod"], W["d_prod"] + Vector3(20, 2, 10), "deepwell_production_deck")

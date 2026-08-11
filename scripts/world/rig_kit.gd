@@ -1177,6 +1177,76 @@ static func column_tank(b: Bake, centre_xz: Vector2, radius: float, y0: float, y
 		lamp_lens(b, Vector3(cx + cos(la) * (radius - 0.9), y1 - 1.3, cz + sin(la) * (radius - 0.9)),
 			Color(1.0, 0.92, 0.78), 0.14, 2.4)
 	led_ring(b, Vector3(cx, y0 + 0.95, cz), radius - 0.6, Color(0.30, 0.85, 0.78), 28, 0.06, 1.4)
+	# THE HERO TIER (s59b). The first planted pass was honest and INVISIBLE: 0.2-0.5 m
+	# pieces at the base of a 17 m water column vanish from ten metres away — the owner's
+	# "looks like nothing changed", verbatim. Everything below is sized to read from the
+	# dining bay and the galleries: branching coral TREES to 2.2 m, sea fans to 1.8 m,
+	# barrel heads to a metre, a full-height kelp curtain, barnacle collars on the core,
+	# glowing anemone beds. ~190 primitives, same bake chunks.
+	# REUSE the palettes already in this tank — `corals` and `crust` above, `weed` below.
+	# Materials are cache-keyed by exact colour/energy and chunks by material, and the
+	# field's far budget sat at exactly 150/150: every novel colour here was +1 far chunk
+	# (measured — the first hero cut landed at 159/150).
+	var stag: Array = corals
+	for ti in range(11):
+		var on_core: bool = ti >= 7
+		var ta: float = float(ti) * 2.39996 + 0.7
+		var tr_r: float = (lerpf(1.5, 0.95, fmod(float(ti) * 0.31, 1.0)) + 0.15) if on_core \
+			else lerpf(2.3, radius - 1.3, fmod(float(ti) * 0.618, 1.0))
+		var base_y: float = (y0 + 1.0 + (h - 3.5) * fmod(float(ti) * 0.47, 1.0)) if on_core else (y0 + 1.1)
+		var tp := Vector3(cx + cos(ta) * tr_r, base_y, cz + sin(ta) * tr_r)
+		var tm: Material = stag[ti % stag.size()]
+		var th: float = 1.1 + 1.1 * fmod(float(ti) * 0.53, 1.0)
+		b.member(tp, tp + Vector3(0.1, th * 0.55, 0.08), 0.09, tm, "hull")
+		for bi in range(6):
+			var ba: float = ta + float(bi) * 1.05
+			var bt: float = 0.35 + 0.6 * fmod(float(bi) * 0.37 + float(ti) * 0.21, 1.0)
+			var b0: Vector3 = tp + Vector3(0.1, th * 0.55, 0.08) * bt
+			b.member(b0, b0 + Vector3(cos(ba) * 0.45, th * 0.3, sin(ba) * 0.45), 0.05, tm, "hull")
+	for fi2 in range(8):
+		var fa2: float = float(fi2) * 0.785 + 0.3
+		var fr2: float = lerpf(2.2, radius - 1.2, fmod(float(fi2) * 0.618, 1.0))
+		var fm2: Material = stag[(fi2 + 1) % stag.size()]
+		b.box(Vector3(cx + cos(fa2) * fr2, y0 + 1.85, cz + sin(fa2) * fr2),
+			Vector3(1.3 + 0.5 * float(fi2 % 2), 1.5, 0.07), fm2, "hull",
+			Vector3(deg_to_rad(10.0 + 8.0 * float(fi2 % 3)), fa2 + 1.2, deg_to_rad(-8.0)))
+	for di in range(8):
+		var da: float = float(di) * 2.1 + 1.4
+		var dr: float = lerpf(2.1, radius - 1.1, fmod(float(di) * 0.71, 1.0))
+		b.cyl(Vector3(cx + cos(da) * dr, y0 + 1.35, cz + sin(da) * dr),
+			0.55 + 0.35 * fmod(float(di) * 0.43, 1.0), 0.7, stag[di % stag.size()], "hull",
+			Vector3.ZERO, 0.35, 10)
+	# The kelp curtain — nine full-height strands with a slow spiral lean, between the
+	# swim lane and the glass so the fish weave inside them.
+	var weed2: Material = weed
+	for ki in range(9):
+		var ka2: float = TAU * float(ki) / 9.0 + 0.35
+		var kr2: float = radius - 0.95 - 0.25 * float(ki % 2)
+		b.member(Vector3(cx + cos(ka2) * kr2, y0 + 1.1, cz + sin(ka2) * kr2),
+			Vector3(cx + cos(ka2 + 0.7) * (kr2 - 0.5), y1 - 1.0, cz + sin(ka2 + 0.7) * (kr2 - 0.5)),
+			0.16 + 0.06 * float(ki % 2), weed2, "hull")
+	# Barnacle collars — four crusted bands around the core, studded.
+	var barn: Material = crust[0]
+	for ci in range(4):
+		var cy2: float = y0 + 2.2 + (h - 4.6) * float(ci) / 3.0
+		var crr: float = lerpf(1.62, 0.92, float(ci) / 3.0)
+		b.cyl(Vector3(cx, cy2, cz), crr + 0.10, 0.5, barn, "hull", Vector3.ZERO, -0.06, 12)
+		for si in range(7):
+			var sa2: float = TAU * float(si) / 7.0 + float(ci)
+			b.cyl(Vector3(cx + cos(sa2) * (crr + 0.16), cy2 + 0.1 * float(si % 3 - 1), cz + sin(sa2) * (crr + 0.16)),
+				0.07, 0.12, crust[1], "hull",
+				Vector3(deg_to_rad(90.0) * cos(sa2), 0, deg_to_rad(90.0) * sin(sa2)), 0.02, 5)
+	# Glowing anemone beds on the floor — the reference image's cyan accents, underwater.
+	for ai in range(6):
+		var aa2: float = float(ai) * 1.9 + 0.9
+		var ar2: float = lerpf(2.4, radius - 1.4, fmod(float(ai) * 0.55, 1.0))
+		var ap := Vector3(cx + cos(aa2) * ar2, y0 + 1.16, cz + sin(aa2) * ar2)
+		b.cyl(ap, 0.34, 0.18, corals[2], "hull", Vector3.ZERO, 0.2, 8)
+		for ni in range(5):
+			var na2: float = TAU * float(ni) / 5.0 + aa2
+			b.cyl(ap + Vector3(cos(na2) * 0.16, 0.2, sin(na2) * 0.16), 0.035, 0.3,
+				corals[4], "hull",
+				Vector3(deg_to_rad(16.0) * cos(na2), 0, deg_to_rad(16.0) * sin(na2)), 0.01, 5)
 
 ## A GLAZED LOOKOUT CABIN — the room you climb to. Solid sill, glass band, capped roof.
 ## opts:

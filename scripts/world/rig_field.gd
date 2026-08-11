@@ -187,6 +187,9 @@ func _ready() -> void:
 	var bridge_chunks: int = _build_bridges(built)
 	_field_seabed()
 	_wire_power()
+	for m2 in built:
+		if String(m2["id"]) == "anchorage":
+			_anchorage_supplies(m2["xform"] as Transform3D)
 
 	var by_group: Dictionary = _count_groups(self)
 	stats = {
@@ -235,6 +238,42 @@ func chain_points(built: Array) -> Array:
 		if i < built.size() - 1:
 			pts.append(xf * (m["bridge_out"] as Vector3))
 	return pts
+
+## SURVIVAL SUPPLIES ON THE LUXURY RIG (owner, s59b) — the rig-1 style: real Takeables at
+## sensible stations, spread across the levels so exploring pays. Positions are RIG-LOCAL
+## (rig_three's frame), transformed here; every item surface-snaps like rig 1's, so no Y
+## is trusted from this table.
+func _anchorage_supplies(xf: Transform3D) -> void:
+	var T3 := preload("res://scripts/world/rig_three.gd")
+	var items: Array = [
+		# id, display, rig-local position
+		["fishing_rod", "Fishing Rod", Vector3(-46.5, T3.MAIN_Y + 0.05, 2.0)],       # promenade rail
+		["fishing_rod", "Fishing Rod", Vector3(1.5, T3.LOW_Y + 0.05, -32.0)],        # marina, by the water
+		["canned_food", "Canned Food", Vector3(24.0, T3.MAIN_Y + 1.01, -26.2)],      # kitchen counter
+		["canned_food", "Canned Food", Vector3(26.5, T3.MAIN_Y + 1.01, -26.2)],
+		["canned_peaches", "Canned Peaches", Vector3(28.5, T3.MAIN_Y + 1.01, -15.4)],
+		["water_ration", "Water Ration", Vector3(24.0, T3.SPA_Y + 1.2, 19.8)],       # poolside bar top
+		["water_ration", "Water Ration", Vector3(-12.9, T3.MAIN_Y + 1.85, 23.2)],    # spa towel shelf
+		["wrench", "Rigger's Wrench", Vector3(-26.0, T3.PLANT_Y + 0.05, -14.0)],     # plant deck skid lane
+		["rope", "Coil of Wire Rope", Vector3(-2.5, T3.LOW_Y + 0.05, -31.0)],        # marina
+		["flare", "Signal Flare", Vector3(44.0, T3.MAIN_Y + 0.05, -22.5)],           # helideck tower foot
+		["storm_lantern", "Storm Lantern", Vector3(-30.0, T3.TERRACE + 0.05, -20.8)],# terrace loungers
+		["sealed_tin", "Sealed Tin", Vector3(39.2, T3.DINE_ROOF + 1.5, 10.0)],       # games-room shelf
+	]
+	for it in items:
+		var t := Takeable.new()
+		t.item_id = String(it[0])
+		t.display_name = String(it[1])
+		add_child(t)
+		t.global_position = xf * (it[2] as Vector3)
+		var col := CollisionShape3D.new()
+		var box := BoxShape3D.new()
+		box.size = Vector3(0.4, 0.4, 0.4)
+		col.shape = box
+		t.add_child(col)
+		col.position.y = 0.2
+		t.add_child(ItemVisual.build(String(it[0])))
+		preload("res://scripts/world/surface_snap.gd").attach(t)
 
 func _build_bridges(built: Array) -> int:
 	var host := Node3D.new()

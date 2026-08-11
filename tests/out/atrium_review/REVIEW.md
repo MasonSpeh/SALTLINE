@@ -65,3 +65,25 @@ TestRunner **0** · RigFieldProbe **0** · AquariumSaveProbe **0** (stock contra
 AquariumSwimProbe **0** (all numbers above).
 
 **awaiting human review.**
+
+## s59b addendum (owner's "actually do the work" round)
+- **Spawn + kit:** game starts on THE ANCHORAGE's south arrival mat (respawn too); 12
+  survival takeables placed rig-1-style across five levels, including two fishing rods
+  (promenade + marina). TestRunner's spawn row rewritten to assert the NEW design.
+- **B for real:** hero tier in the tank — 11 branching coral trees to 2.2 m, 8 sea fans
+  to 1.8 m, 8 barrel heads, a 9-strand full-height kelp curtain, 4 barnacle collars with
+  studs, 6 glowing anemone beds (~190 prims). Every colour REUSES an existing material
+  instance: the far-chunk budget sat at exactly 150/150 and each novel colour was +1
+  chunk (measured, 159/150, fixed). Judged in field_atrium_tank_base_looking_up.png.
+- **C3 done:** G1 west bay -> terrace stair (the "2nd floor" is G1, 0.5 m under the roof
+  deck); G2 west bay -> catwalk + door into the WEST tower's upper storey (mirror of
+  s55's east link). Climb audit green.
+- **C4 done (Sonnet subagent):** three stalls + menu panels + cafe arc + lounge panel and
+  planters, 70 prims, radius rules respected. field_s59b_food_court.png.
+- **Probe lesson recorded:** the field probe's seat ray was reading the top of the
+  PLAYER's own capsule at the new spawn (23.80) — skip list added, the repo's standing
+  rule, newly earned by the spawn move.
+Gates: TestRunner 0 · RigFieldProbe 0 (chunks 217/220, far 150/150) · AquariumSwimProbe 0.
+Still deferred: Tripo hero rockwork (budget), world-path facing audit, wedge harness.
+
+**awaiting human review.**

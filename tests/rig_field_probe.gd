@@ -63,6 +63,15 @@ func _check(label: String, cond: bool, detail: String = "") -> void:
 func _seat(p: Vector3, from_above: float = 2.2, down: float = 7.0) -> float:
 	var q := PhysicsRayQueryParameters3D.create(p + Vector3(0, from_above, 0), p + Vector3(0, from_above - down, 0))
 	q.collide_with_areas = false
+	# THE SKIP LIST — the repo's standing probe rule, newly earned here: since s59b the
+	# player SPAWNS on the anchorage's spawn marker, so the seat ray was reading the top
+	# of their own capsule (23.80) and reporting the arrival deck 1.8 m high.
+	var skip: Array[RID] = []
+	for g in ["player", "ship_cat"]:
+		for n in get_tree().get_nodes_in_group(g):
+			if n is CollisionObject3D:
+				skip.append((n as CollisionObject3D).get_rid())
+	q.exclude = skip
 	var hit: Dictionary = _space.intersect_ray(q)
 	if hit.is_empty():
 		return NAN

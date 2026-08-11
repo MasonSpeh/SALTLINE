@@ -46,6 +46,19 @@ func _ready() -> void:
 	player.global_position = rig.player_spawn
 	player.rotation.y = deg_to_rad(180)   # face the hatch (+Z), so forward walks out
 	player.respawn_point = rig.wet_deck_respawn
+	# SPAWN ON THE LUXURY RIG for now (owner, s59b): the ANCHORAGE's south arrival deck,
+	# facing the podium door. The field's Anchor markers publish each rig's spawn in world
+	# space, and rig_field is already BUILT here — _ready runs inside add_child (the trap
+	# this repo documents), so the markers exist by this line. Respawn moves with it: dying
+	# on the show rig and waking three bridges away would be a punishment, not a respawn.
+	for mk in get_tree().get_nodes_in_group("field_rig"):
+		if mk.get_parent() != null and mk.get_parent().name == "Anchorage":
+			var sp: Vector3 = mk.get_meta("spawn") as Vector3
+			player.global_position = sp + Vector3(0, 0.3, 0)
+			player.respawn_point = sp + Vector3(0, 0.5, 0)
+			var fwd_d: Vector3 = (mk.get_meta("overview") as Vector3) - sp
+			player.rotation.y = atan2(-fwd_d.x, -fwd_d.z)
+			break
 	hud = HUD.new()
 	add_child(hud)
 	add_child(PauseMenu.new())
