@@ -2896,3 +2896,23 @@ tread, not a gap) from anything that would have been a true unguarded drop.
 Result: **0 true unguarded edges across 412 samples, 0 bad stairs across 62 flights,
 on all three field rigs.** Log written to tests/out/field_accessibility_log.md.
 Gates: TestRunner 0, RigFieldProbe 0.
+
+## s63 — MARROW's mess hall, actually built
+
+Owner: "continue to improve rig 2 on theme + real." Found the concrete gap by reading
+the rig's OWN header comment against what a screenshot showed: `_buildings()` has
+promised "the long steel table, galley, cold vault, seed store" since MARROW's ground
+floor was first laid out, and the room was a bare shell the whole time — four walls, a
+floor, two light strips, nothing on it. That is the "not real" the request is pointing
+at, precisely.
+
+Built `_mess_interior(b)`: the long steel table (seats ten, five bench pairs), a galley
+run along the west wall (counter, stove block, overhead shelf, four hanging pot lights),
+a seed-store shelf unit with sacks in the SE corner (ties back to the roof garden), and
+a cold-vault alcove in the NE corner lit in the bio lab's own specimen teal (same
+material instance, no new draw cost). All new geometry reuses materials already live on
+this rig (wood/galvanized/dark_metal/the bio-lab teal) — the far-chunk budget, at exactly
+217/220 and 150/150 before this pass, is UNCHANGED after it. Verified on renders of the
+table, the galley, and the seed store — all read as intended.
+
+Gates: TestRunner 0, RigFieldProbe 0 (chunks 217/220, far 150/150, unchanged).

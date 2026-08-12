@@ -92,6 +92,7 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 	_more_plant(b)
 	_cantilever(b)
 	_buildings(b)
+	_mess_interior(b)
 	_garden(b)
 	_tank_farm(b)
 	_labs(b)
@@ -239,6 +240,67 @@ static func _buildings(b: KIT.Bake) -> void:
 	})
 	# (s55: the sawtooth grow-house glazing is gone with the farm read — this block is the
 	# BIO LAB now, fitted out in _labs(). Its roof is a plain walkable slab again.)
+
+## THE MESS HALL, ACTUALLY BUILT (s63). `_buildings()` has promised "the long steel
+## table, galley, cold vault, seed store" in its own header comment since this rig was
+## laid out — and the room was an empty shell the whole time: four walls, a floor, two
+## light strips, nothing on it. That gap is the on-theme "not real" the owner is
+## pointing at. Doors are east z11 (both storeys), south x-22, north x-14 (see
+## `_buildings`); the layout below keeps clear paths from all three.
+static func _mess_interior(b: KIT.Bake) -> void:
+	var steel: Material = MatLib.dark_metal()
+	var wood: Material = MatLib.wood()
+	var galv: Material = MatLib.galvanized()
+	# THE LONG STEEL TABLE — the room's namesake. East-west, seats ten.
+	var tx0: float = -25.0
+	var tx1: float = -9.0
+	var tz: float = 8.0
+	b.box(Vector3((tx0 + tx1) * 0.5, MAIN_Y + 0.74, tz), Vector3(tx1 - tx0, 0.06, 1.3), steel, "hull", Vector3.ZERO, true)
+	for lx in [tx0 + 0.5, tx1 - 0.5]:
+		b.box(Vector3(lx, MAIN_Y + 0.37, tz), Vector3(0.1, 0.74, 1.1), steel, "detail")
+	for i in range(5):
+		var bx: float = tx0 + 1.6 + i * 3.0
+		for sgn in [-1.0, 1.0]:
+			b.box(Vector3(bx, MAIN_Y + 0.24, tz + sgn * 0.85), Vector3(1.2, 0.06, 0.34), steel, "detail", Vector3.ZERO, true)
+			for lx2 in [-0.5, 0.5]:
+				b.box(Vector3(bx + lx2, MAIN_Y + 0.12, tz + sgn * 0.85), Vector3(0.06, 0.24, 0.3), steel, "detail")
+	# THE GALLEY — counter, stove block, overhead shelf and a hanging pot rack, along the
+	# room's own far (west) wall so the smell and the noise stay off the table.
+	var gz0: float = 12.0
+	var gz1: float = 18.0
+	b.box(Vector3(MESS.position.x + 0.9, MAIN_Y + 0.5, (gz0 + gz1) * 0.5), Vector3(0.9, 1.0, gz1 - gz0), galv, "hull", Vector3.ZERO, true)
+	b.box(Vector3(MESS.position.x + 0.9, MAIN_Y + 1.02, (gz0 + gz1) * 0.5), Vector3(1.0, 0.05, gz1 - gz0 + 0.1), steel, "detail")
+	b.box(Vector3(MESS.position.x + 0.7, MAIN_Y + 1.15, gz0 + 1.0), Vector3(0.55, 0.14, 0.55), steel, "detail")
+	for cb in range(3):
+		b.cyl(Vector3(MESS.position.x + 0.6, MAIN_Y + 1.28, gz0 + 1.0 - 0.18 + float(cb) * 0.18),
+			0.08, 0.09, galv, "detail", Vector3.ZERO, -1.0, 8, true)
+	b.box(Vector3(MESS.position.x + 0.85, MAIN_Y + 2.1, (gz0 + gz1) * 0.5), Vector3(0.7, 0.06, gz1 - gz0 - 0.6), wood, "detail")
+	b.member(Vector3(MESS.position.x + 1.1, MAIN_Y + 2.35, gz0 + 0.5), Vector3(MESS.position.x + 1.1, MAIN_Y + 2.35, gz1 - 0.5), 0.03, steel, "detail")
+	for pi in range(4):
+		var pz: float = lerpf(gz0 + 0.6, gz1 - 0.6, float(pi) / 3.0)
+		b.cyl(Vector3(MESS.position.x + 1.1, MAIN_Y + 2.0, pz), 0.14, 0.22, galv, "detail", Vector3.ZERO, -1.0, 10)
+	# SEED STORE — shelving and sacks in the SE corner, clear of the south door (x-22):
+	# the roof garden's own supply room, tying the ground floor back to the hero feature.
+	var scx: float = -11.0
+	for sr in range(3):
+		b.box(Vector3(scx, MAIN_Y + 0.45 + sr * 0.7, 5.5), Vector3(2.4, 0.06, 1.0), wood, "detail")
+	b.box(Vector3(scx - 1.15, MAIN_Y + 1.05, 5.5), Vector3(0.1, 2.1, 1.0), steel, "detail", Vector3.ZERO, true)
+	b.box(Vector3(scx + 1.15, MAIN_Y + 1.05, 5.5), Vector3(0.1, 2.1, 1.0), steel, "detail", Vector3.ZERO, true)
+	for sk in range(4):
+		var sax: float = scx - 0.9 + float(sk) * 0.6
+		# Sacks read by SHAPE, not a new colour — wood() is already a live chunk on this
+		# rig, and a new flat tint here was the last chunk this rig's budget could spend.
+		b.box(Vector3(sax, MAIN_Y + 0.35, 4.8), Vector3(0.5, 0.6, 0.4), wood, "hull",
+			Vector3(0, 0, deg_to_rad(4.0 * float(sk % 3) - 4.0)), true)
+	# COLD VAULT — a doored alcove in the NE corner (clear of the north door at x-14):
+	# ridged steel, a heavy insulated door, the same specimen-teal light the bio lab uses
+	# (same material instance, no new far-chunk cost).
+	var vx: float = -7.0
+	var vz: float = 17.0
+	b.box(Vector3(vx, MAIN_Y + 1.1, vz), Vector3(2.4, 2.2, 2.0), galv, "hull", Vector3.ZERO, true)
+	b.box(Vector3(vx, MAIN_Y + 1.1, vz - 1.0), Vector3(1.4, 2.0, 0.1), steel, "detail", Vector3.ZERO, true)
+	b.box(Vector3(vx - 0.5, MAIN_Y + 1.1, vz - 1.05), Vector3(0.08, 1.9, 0.08), steel, "detail")
+	KIT.lamp_lens(b, Vector3(vx, MAIN_Y + 2.05, vz), Color(0.30, 0.85, 0.78), 0.18, 0.9)
 
 static func _garden(b: KIT.Bake) -> void:
 	# THE ROOFTOP EX-VEGETABLE GARDEN — 26 x 18 m on the mess roof at y 21.2.
