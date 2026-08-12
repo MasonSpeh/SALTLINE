@@ -2916,3 +2916,83 @@ this rig (wood/galvanized/dark_metal/the bio-lab teal) — the far-chunk budget,
 table, the galley, and the seed store — all read as intended.
 
 Gates: TestRunner 0, RigFieldProbe 0 (chunks 217/220, far 150/150, unchanged).
+
+## s64 — the field's furniture, and the one renderer setting that was hiding all of it
+
+Owner's ULTRACODE brief: get up to date and pushed, then take all three new rigs to a finish —
+"complete the designs to be perfect visually, and realistic", dressed from the downloaded CC0
+packs or generated on Tripo, and make the game beautiful to explore.
+
+**PUSHED FIRST.** The repo was 30 commits ahead of origin/main with a clean tree. Pushed
+(`82bb31c..a972e04`) before touching anything.
+
+**NO AI GENERATION THIS SESSION, AND THAT IS PARTLY MY FAULT.** Tripo held 15 credits and a
+text_to_model task costs 10 — I spent 10 of them on a "test cube" to measure the price instead
+of reading it, leaving 5, which buys nothing. Meshy (checked at the owner's suggestion) holds 4
+and its cheapest path is ~5. So the whole pass runs on the 222-model CC0 library in
+`assets/models`, which turned out to be the right tool anyway: rig 1 has used it since s20 and
+the three field rigs had **zero** GLB props between them.
+
+**THE ROOT CAUSE OF "A DIM CONCRETE CAR PARK WITH FURNITURE IN IT".** Three sessions have
+answered this complaint by adding light — s56 added white soffits and recessed downlights, this
+session added warm per-room colour and one light per suite and verified 65/65 omnis switching on
+the breaker — and the suite still photographed almost black. `gl_compatibility` applies at most
+`rendering/limits/opengl/max_lights_per_object` lights PER OBJECT, the key was never set, and the
+default is **8**. Every wall and floor in the field is a `RigKit.Bake` chunk welded per
+(material, group, 48 m cell), so one 48 m block of hotel is ONE object receiving eight of the
+~20 lights standing in it — chosen per object, not per pixel. Adding lights could not fix it;
+past eight, each new light made it likelier a given room lost its own. Set to 24. Measured on
+VantagePerf (40-frame medians, 2 visits): **+1.5 to 2 ms** on the rig-1 vantages, above the
+published noise floor on deck_floodlit (+1.69 vs 0.91) and submerged_deep (+1.58 vs 0.47).
+16 was tried as a cheaper compromise and rejected ON THE PICTURE — it lights some chunks and not
+others, so a room comes out lit on one wall and black on the opposite. That cost is real and is
+stated rather than buried. Filed in AGENT_TRAPS with the neighbouring trap that cost this
+session two render passes: **a `lamp_lens` is emissive GEOMETRY and illuminates nothing.**
+
+**THE SECOND ROOT CAUSE WAS A MATERIAL NAME.** `MatLib.dirty_white_panel()` — the wall, ceiling,
+soffit and partition finish of every "luxury" room on THE ANCHORAGE — is literally
+`Concrete012` at uv 0.55, i.e. one tile per 1.82 m. On a 3.8 m guest-room wall that is two tiles
+of board-marked cast concrete. The salon was not *like* a concrete garage; it was one. New
+`hotel_plaster()` (same texture, tiled every 0.7 m so the grain reads as plaster tooth, tinted
+warm r > g > b) and a real metallic `brass()` to replace `flat(Color(0.55,0.45,0.22))` — an
+unlit mustard fill carrying the reception desk cap, every bar top and every dining-table leg,
+which is the "blank yellow blocks" defect already in AGENT_TRAPS, in another room. Both swapped
+**1-for-1** on rig 3, so the material COUNT did not change and the chunk budget did not move a
+single chunk: 218 total / 149 far, before and after.
+
+**field_dress.gd** — the CC0 library reaches the field. It owns rig-local -> world, ADDS each
+rig's bearing to the prop's yaw (position right and facing 10 degrees off is the failure mode),
+streams 4 props a frame so the scene change does not stall, settles every loose item onto the
+visual mesh under it via SupportIndex (so no Y in the tables is hand-typed), and declares its own
+`visibility_range_end` — `rig_batcher` only owns rig 1, so field props stay loose draw calls and
+render_budget's size rule would otherwise submit every chair inside THE ANCHORAGE from 161 m
+away on MARROW.
+
+**DEEPWELL HAD NO INSIDES AT ALL.** Its shaker house, core lab, control room and decon airlock
+were four walls and a door each, and KNOWN_ISSUES has carried "interiors are empty shells" since
+s54. All four built, every surface reusing a material already live on that rig, so far chunks
+went 150 -> 149 while the total moved 217 -> 218. The alarm screens and teal readouts reuse the
+crown beacon's red and the Bloom column's teal in the LAMP group, so they are power-gated like
+every other fixture and read through the control-room glass from the drill floor.
+
+**THE SUITES ARE DERIVED, NOT HAND-TYPED.** `_suite_rows()` walks the SAME cell tables and the
+SAME offset algebra `_suites()` uses, so nine rooms' worth of furniture cannot rot when a cell
+boundary moves — the s56 cat-spawn lesson, applied before it bit. Every suite gets the same
+grammar (bed dressed, something to sit in, something growing, something on the wall) and a
+different vocabulary keyed off its index, because nine identical rooms is its own defect.
+
+**BUGS THE AUDIT AND THE CAMERAS FOUND, ALL FIXED:** the control room's floor slab and the LAB
+block's roof deck were both laid at LAB_ROOF (coplanar, guaranteed z-fight); the westernmost
+racked pipe stand ran through the V-door stair's handrail, which stands at exactly the same
+x; the four mud-pit lids were the rig's largest untextured surfaces; the first cut of the shaker
+house put both mud pits across both doorways (the s61 sealed-bund-wall defect, again — the room
+is laid out around two declared walking lanes now); and **all four terrace planters were hanging
+in mid air** over the atrium light well, at |x| 16.11 inside a 16.4 m opening with the dining
+hall four metres below.
+
+**AND ONE THE CAMERA ITSELF WAS GUILTY OF:** `anchorage_suite` has pointed at the CORRIDOR half
+of the room since s54c, with the bed and every piece of furniture behind it. Part of why the
+suites have read as empty in every review frame ever taken of them.
+
+Gates: TestRunner 0 · RigFieldProbe 0 (chunks 218/240, far 149/150, 62 flights, 50 seats, 107
+bridge samples) · field-dress 238 props placed and settled.

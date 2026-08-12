@@ -194,8 +194,174 @@ const T4 := preload("res://scripts/world/rig_four.gd")
 func MARROW() -> Array:
 	return []
 
+## THE ANCHORAGE — the luxury rig, and the one the owner cares most about.
 func ANCHORAGE() -> Array:
-	return []
+	var rows: Array = [
+		# --- atrium floor
+		["bronze_whale_statue", Vector3(9.76, 22.12, 13.76), 210.0, 2.5],
+		["bronze_shark_statue", Vector3(-9.76, 22.12, 13.76), 150.0, 2.5],
+		["bronze_ray_statue", Vector3(-9.76, 22.12, -5.76), 30.0, 2.5],
+		["book_encyclopedia_set_01", Vector3(5.37, 23.07, 9.37), 45.0, 1.0],
+		["brass_vase_01", Vector3(-5.37, 23.07, 9.37), 0.0, 1.3],
+		["throw_pillows_01", Vector3(6, 23.07, -2.9), 315.0, 1.0],
+		# --- dining hall
+		["brass_candleholders", Vector3(24, 22.78, -5), 0.0, 1.2],
+		["wine_bottles_01", Vector3(23.8, 22.78, -4.2), 40.0, 1.0],
+		["tea_set_01", Vector3(24, 22.78, 3), 200.0, 1.0],
+		["wine_bottles_01", Vector3(24.2, 22.78, 11.4), 15.0, 1.0],
+		["tea_set_01", Vector3(31, 22.78, -5), 110.0, 1.0],
+		["ceramic_vase_04", Vector3(31, 22.78, 3), 0.0, 1.1],
+		["brass_candleholders", Vector3(31, 22.78, 11), 0.0, 1.2],
+		["antique_ceramic_vase_01", Vector3(29, 23, -9.2), 0.0, 1.4],
+		["brass_pot_01", Vector3(25, 23, -9.2), 25.0, 1.2],
+		["strawberry_chocolate_cake", Vector3(36.6, 22.96, 4), 0.0, 1.2],
+		["calathea_orbifolia_01", Vector3(38.9, 22, -8.6), 0.0, 2.4],
+		# --- east tower games room
+		["small_wooden_table_01", Vector3(34, 29.44, 8), 0.0, 1.1],
+		["WoodenChair_01", Vector3(33, 29.44, 8), 90.0, 1.0],
+		["WoodenChair_01", Vector3(35, 29.44, 8), 270.0, 1.0],
+		["sungka_board", Vector3(34, 30.16, 8), 0.0, 1.0],
+		["throw_pillows_01", Vector3(24, 29.85, -2.15), 0.0, 1.0],
+		["bar_chair_round_01", Vector3(38.6, 29.44, 10), 270.0, 1.0],
+		# --- food court
+		["wicker_basket_02", Vector3(1.1, 23.06, -14), 0.0, 1.0],
+		["hamburger_buns", Vector3(7, 23.06, -14), 0.0, 1.0],
+		["bananas", Vector3(12.5, 23.06, -14), 0.0, 1.0],
+		["ceramic_vase_01", Vector3(12.7, 22.45, -9), 0.0, 1.0],
+		# --- kitchen
+		["brass_pot_02", Vector3(23.5, 23.02, -26.6), 0.0, 1.2],
+		["brass_pan_01", Vector3(26, 23.02, -26.6), 30.0, 1.0],
+		["vintage_electric_kettle", Vector3(28.5, 23.02, -26.6), 200.0, 1.0],
+		["wooden_cutting_board", Vector3(31, 23.02, -15), 0.0, 1.2],
+		["wooden_bowl_01", Vector3(29, 22.96, -20.7), 0.0, 1.0],
+		["steel_frame_shelves_01", Vector3(20.7, 22, -18), 90.0, 1.0],
+		# --- pool hall (leisure deck)
+		["lifebuoy", Vector3(-33.72, 16.1, 0), 90.0, 1.0, "wall"],
+		["fern_02", Vector3(13, 15.4, -9.5), 0.0, 2.2],
+		["wine_bottles_01", Vector3(23.2, 16.56, 20), 0.0, 1.0],
+		# --- private dining / bar
+		["bar_chair_round_01", Vector3(28, 22, 16.05), 0.0, 1.0],
+		["bar_chair_round_01", Vector3(30, 22, 16.05), 0.0, 1.0],
+		["bar_chair_round_01", Vector3(32, 22, 16.05), 0.0, 1.0],
+		["wine_bottles_01", Vector3(25, 23.16, 16.9), 0.0, 1.0],
+		# --- roof terrace
+		["WoodenTable_02", Vector3(-30, 26.2, -16), 0.0, 1.1, "", true],
+		["WoodenChair_01", Vector3(-30, 26.2, -17.1), 0.0, 1.0, "", true],
+		["WoodenChair_01", Vector3(-30, 26.2, -14.9), 180.0, 1.0, "", true],
+		["fir_sapling", Vector3(20.6, 26.2, -26.4), 0.0, 1.6, "", true],
+		# --- salon
+		["ArmChair_01", Vector3(-0.4, 22.06, -20.5), 90.0, 1.0],
+		["ArmChair_01", Vector3(4.4, 22.06, -20.5), 270.0, 1.0],
+		["ArmChair_01", Vector3(7.6, 22.06, -20.5), 90.0, 1.0],
+		["ArmChair_01", Vector3(12.4, 22.06, -20.5), 270.0, 1.0],
+		["throw_pillows_01", Vector3(1, 22.45, -17.45), 180.0, 1.0],
+		["throw_pillows_01", Vector3(9.2, 22.45, -23.6), 0.0, 1.0],
+		["tea_set_01", Vector3(2, 22.45, -20.5), 30.0, 1.0],
+		# --- south hall
+		["fancy_picture_frame_02", Vector3(-34, 23.9, -12.86), 0.0, 1.4, "wall"],
+		["korean_fire_extinguisher_01", Vector3(-26, 22.04, -12.6), 0.0, 1.0],
+		# --- spa treatment room
+		["chinese_tea_table", Vector3(-11.5, 22.04, 26), 0.0, 1.0],
+		["ceramic_vase_03", Vector3(-11.5, 22.5, 26), 0.0, 1.0],
+		["chinese_stool", Vector3(-7.6, 22.04, 24.3), 90.0, 1.0],
+		["wicker_basket_01", Vector3(-12.9, 23.8, 23.2), 0.0, 1.1],
+		["fern_02", Vector3(-13, 22.04, 29.1), 0.0, 1.6],
+		# --- vestibule / reception
+		["brass_vase_01", Vector3(-11.4, 23.15, -22), 0.0, 1.2],
+		["desk_lamp_arm_01", Vector3(-10.6, 23.15, -22.25), 200.0, 1.0],
+		["stationery_supplies", Vector3(-9.6, 23.15, -22.25), 15.0, 1.0],
+		["mantel_clock_01", Vector3(-8.6, 23.15, -22), 180.0, 1.0],
+		["calathea_orbifolia_01", Vector3(-12.6, 22.04, -27.1), 20.0, 2.2],
+		["calathea_orbifolia_01", Vector3(-7.4, 22.04, -27.1), 200.0, 2.2],
+		# --- west hall
+		["WoodenTable_03", Vector3(-23.5, 22.04, -6.3), 90.0, 1.0],
+		["antique_ceramic_vase_01", Vector3(-23.5, 22.79, -6.3), 0.0, 1.3],
+		["WoodenTable_03", Vector3(-23.5, 22.04, 7.1), 90.0, 1.0],
+		["marble_bust_01", Vector3(-23.5, 22.79, 7.1), 200.0, 1.0],
+		["calathea_orbifolia_01", Vector3(-18.7, 22.04, 9.6), 0.0, 2.0],
+		# --- west tower library
+		["book_encyclopedia_set_01", Vector3(-39.32, 26.96, 0.8), 90.0, 1.2],
+		["book_encyclopedia_set_01", Vector3(-39.32, 27.58, 3.6), 90.0, 1.2],
+		["ArmChair_01", Vector3(-26, 26.24, 4), 270.0, 1.0],
+		["ArmChair_01", Vector3(-32, 26.24, 4), 90.0, 1.0],
+		["chess_set", Vector3(-29.3, 26.65, 3.8), 20.0, 1.0],
+		["calathea_orbifolia_01", Vector3(-19.6, 26.24, 16.4), 0.0, 2.2],
+	]
+	_suite_rows(rows)
+	return rows
+
+## THE NINE SUITES, DERIVED — not hand-typed. rig_three's `_suites()` places each room from a
+## table of cell boundaries and `_suite()` puts the bed, wardrobe and desk at offsets measured
+## from the room centre in the room's OWN fwd/side frame. Hand-copying nine rooms' worth of
+## world coordinates out of that would be fifty-four numbers that silently rot the first time
+## a cell boundary moves — which is exactly the failure the s56 cat spawn paid for ("HOME was
+## hand-typed as x -18.0 and the real derivation is x -20.685", written in the same commit as
+## the never-hand-type warning). So this walks the SAME cell tables and the SAME offset
+## algebra, and every prop is positioned relative to the bed it belongs to.
+##
+## The suites are also the emptiest rooms on the rig: before this each held a bed slab, a
+## wardrobe box, a desk box and a rug, and nothing else — no nightstand, no lamp, no chair,
+## no art. NINE IDENTICAL ROOMS IS ITS OWN DEFECT, so the mix is keyed off the suite index:
+## every room gets the same furniture GRAMMAR (bed dressed, something to sit in, something
+## growing, something on the wall) and a different vocabulary.
+func _suite_rows(rows: Array) -> void:
+	var cells: Array = []
+	# NOTE THE FIRST WEST CELL IS ABSENT. rig_three's `_suites()` opens its west flank at
+	# z -13, but `_ceilings()` runs the SOUTH HALL corridor across z -12.9..-9.1 at the same
+	# x — so suite W1's cell [-13, -6.3] overlaps the corridor, and `_suite()` stands W1's
+	# BED at z -9.65, in the hall. Dressing it would only put a nightstand and a reading
+	# chair in a public corridor on top of that. Left undressed and filed in KNOWN_ISSUES
+	# rather than papered over: the fix is a floorplan call (shorten the west column or move
+	# the hall), and that is the owner's to make, not a dressing pass's.
+	for c in [[-6.3, 0.4], [0.4, 7.1], [7.1, 13.8], [13.8, 17.9], [17.9, 22.0]]:
+		cells.append([Vector3(-32.0, T3.MAIN_Y, (c[0] + c[1]) * 0.5), 90.0, Vector2(c[1] - c[0], 16.0)])
+	for c2 in [[-40.0, -32.0], [-32.0, -24.0], [-24.0, -16.0]]:
+		cells.append([Vector3((c2[0] + c2[1]) * 0.5, T3.MAIN_Y, -20.5), 0.0, Vector2(c2[1] - c2[0], 15.0)])
+	# Per-suite vocabulary. Same grammar, different words, so no two rooms read the same.
+	var lamps := ["desk_lamp_arm_01", "vintage_oil_lamp", "Lantern_01"]
+	var seats := ["ArmChair_01", "GreenChair_01", "Rockingchair_01", "Ottoman_01"]
+	var plants := ["calathea_orbifolia_01", "anthurium_botany_01", "fern_02", "ceramic_pot"]
+	var arts := ["fancy_picture_frame_01", "fancy_picture_frame_02", "hanging_picture_frame_01",
+		"standing_picture_frame_01"]
+	var nightstand_top := ["alarm_clock_01", "brass_vase_01", "ceramic_vase_02", "book_encyclopedia_set_01"]
+	var extras := ["wicker_basket_01", "throw_pillows_01", "wooden_bowl_01", "postcard_set_01",
+		"round_spectacles", "chess_set", "tea_set_01", "brass_candleholders", "wine_bottles_01"]
+	for i in range(cells.size()):
+		var centre: Vector3 = cells[i][0]
+		var yaw: float = cells[i][1]
+		var size: Vector2 = cells[i][2]
+		var r: float = deg_to_rad(yaw)
+		var fwd := Vector3(sin(r), 0, cos(r))            # toward the corridor door
+		var side := Vector3(cos(r), 0, -sin(r))
+		var half: float = size.x * 0.5
+		# The bed, exactly where _suite() puts it. Everything else hangs off this.
+		var bed: Vector3 = centre - fwd * (size.y * 0.5 - 2.2)
+		# NIGHTSTAND against the head wall beside the bed, and something on it. The bed is
+		# 1.9 across, so 1.35 clears its side by 0.4.
+		var ns_side: float = 1.0 if i % 2 == 0 else -1.0
+		var ns: Vector3 = bed + side * (1.35 * ns_side)
+		rows.append(["ClassicNightstand_01", ns, yaw, 1.0, "fix"])
+		rows.append([nightstand_top[i % nightstand_top.size()], ns + Vector3(0, 0.62, 0), yaw + 20.0, 1.0])
+		rows.append([lamps[i % lamps.size()], ns + side * (0.18 * ns_side) + Vector3(0, 0.62, 0), yaw + 200.0, 1.0])
+		# A SECOND nightstand only where the room is wide enough to carry one (the two narrow
+		# 4.1 m cells at the north end of the west flank would put it through the wall).
+		if half > 2.6:
+			rows.append(["ClassicNightstand_01", bed - side * (1.35 * ns_side), yaw, 1.0, "fix"])
+		# SOMETHING TO SIT IN, in the far corner from the wardrobe, angled into the room.
+		rows.append([seats[i % seats.size()],
+			centre - fwd * (size.y * 0.5 - 1.5) + side * ((half - 0.95) * -ns_side), yaw + 35.0 * ns_side, 1.0, "fix"])
+		# A TRUNK at the foot of the bed — the one piece of luggage that says a guest is in.
+		rows.append(["wooden_crate_01", bed + fwd * 1.75, yaw + 8.0, 1.0, "fix"])
+		# SOMETHING GROWING, by the window band on the corridor side.
+		rows.append([plants[i % plants.size()],
+			centre + fwd * (size.y * 0.5 - 1.2) + side * ((half - 0.7) * ns_side), yaw, 1.0, "fix"])
+		# ART on the head wall, flush. "wall" mode: there is nothing under it and the settle
+		# pass must not go looking for something.
+		rows.append([arts[i % arts.size()],
+			centre - fwd * (size.y * 0.5 - 0.22) + Vector3(0, 1.65, 0), yaw, 1.0, "wall"])
+		# And one personal object on the desk, which _suite() puts on the far side.
+		var desk: Vector3 = centre - side * (half - 0.95) + fwd * 1.0
+		rows.append([extras[i % extras.size()], desk + Vector3(0, 0.82, 0), yaw + 130.0, 1.0])
 
 ## DEEPWELL — the drilling rig. Every row here is a WORKING object: this platform's story is
 ## that the last shift walked out mid-alarm, so the dressing is tools set down rather than

@@ -423,6 +423,26 @@ static func dirty_white_panel() -> StandardMaterial3D:
 	return _pbr("panel", "Concrete012", Color(1.288, 1.345, 1.276), 0.55, 1.0, 0.0,
 		Color(0.76, 0.75, 0.71))
 
+## THE HOTEL FINISH (s64). `dirty_white_panel()` above is Concrete012 at uv 0.55 — ONE TILE
+## PER 1.82 m — and it was the wall, ceiling, soffit and partition material of every "luxury"
+## room on THE ANCHORAGE. On a 3.8 m guest-room wall that is two tiles of board-marked cast
+## concrete, which is the literal reason the owner's word for the salon was "a dim concrete
+## garage": it IS a concrete garage. Same texture (so no new import), but tiled every ~0.7 m
+## so the grain reads as plaster tooth instead of formwork, and tinted WARM — r > g > b —
+## against the panel's faintly green white.
+static func hotel_plaster() -> StandardMaterial3D:
+	return _pbr("hotel_plaster", "Concrete012", Color(1.42, 1.34, 1.20), 1.40, 0.92, 0.0,
+		Color(0.86, 0.81, 0.73))
+
+## A REAL BRASS, to replace flat(Color(0.55, 0.45, 0.22)) — an unlit, untextured mustard fill
+## that was carrying the reception desk cap, every bar top, every dining-table leg and every
+## sofa plinth at metre scale. docs/AGENT_TRAPS.md already records this colour family as the
+## "blank yellow blocks" defect, reported twice by the owner in another room. Metallic, with a
+## roughness map, so it picks up the cove strips instead of sitting dead.
+static func brass() -> StandardMaterial3D:
+	return _pbr("brass", "Metal032", Color(1.30, 0.98, 0.50), 0.5, 0.35, 0.9,
+		Color(0.62, 0.48, 0.22))
+
 static func kitchen_tile() -> StandardMaterial3D:
 	return _fine("tile", Color(0.78, 0.8, 0.78), 0.35, 1313, 1.8, 0.1)
 

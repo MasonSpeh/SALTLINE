@@ -118,6 +118,12 @@ func _ready() -> void:
 	await _look(_world(a_o, a_y, Vector3(-10, 22, -26)), _world(a_o, a_y, Vector3(6, 23, -18)), "anchorage_entrance_salon")
 	await _look(_world(a_o, a_y, Vector3(-20, 22, -6)), _world(a_o, a_y, Vector3(-20, 23.5, 14)), "anchorage_west_hall")
 	await _look(_world(a_o, a_y, Vector3(-33, 22, 3.7)), _world(a_o, a_y, Vector3(-27, 23, 3.7)), "anchorage_suite")
+	# s64: the suite shot above looks at the CORRIDOR half of the room — the bed, and every
+	# piece of furniture hung off it, is behind that camera. It is part of why the suites
+	# have read as empty in every review frame since s54c. These look at the bed.
+	await _look(_world(a_o, a_y, Vector3(-27.5, 22, 3.75)), _world(a_o, a_y, Vector3(-37.8, 23.0, 3.75)), "s64_suite_bed")
+	await _look(_world(a_o, a_y, Vector3(-33.0, 22, 6.6)), _world(a_o, a_y, Vector3(-37.5, 22.8, 2.2)), "s64_suite_corner")
+	await _look(_world(a_o, a_y, Vector3(-36.0, 22, -18.0)), _world(a_o, a_y, Vector3(-36.0, 23.0, -26.5)), "s64_suite_south")
 	await _look(_world(a_o, a_y, Vector3(35, 22, 4)), _world(a_o, a_y, Vector3(4, 27, 4)), "dining_hall_tank_view")
 	await _look(_world(a_o, a_y, Vector3(22, 22, -6)), _world(a_o, a_y, Vector3(34, 24, 10)), "dining_hall_length")
 	await _look(_world(a_o, a_y, Vector3(24, 22, -20)), _world(a_o, a_y, Vector3(34, 23, -21)), "anchorage_kitchen")
