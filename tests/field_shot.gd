@@ -209,6 +209,21 @@ func _ready() -> void:
 	await _look(W["d_ring"], W["d_crown"], "deepwell_outboard_ring")
 	await _look(W["d_deck"] + Vector3(0, 8.0, 0.0), W["d_pool"] + Vector3(0, -14, 0), "deepwell_moon_pool")
 	await _look(W["d_floor"], W["d_deck"] + Vector3(0, 14, 6), "deepwell_drill_floor")
+	# ---- s64: DEEPWELL's interiors, which did not exist to photograph before this session.
+	# The lab, the control room, the shaker house and the decon airlock were empty shells.
+	await _look(_world(d_o, d_y, Vector3(20.0, 26.6, -16.5)), _world(d_o, d_y, Vector3(14.0, 27.6, -21.0)), "s64_control_room")
+	await _look(_world(d_o, d_y, Vector3(22.0, 26.6, -21.0)), _world(d_o, d_y, Vector3(14.5, 28.0, -17.5)), "s64_control_racks")
+	await _look(_world(d_o, d_y, Vector3(2.0, 30.0, -8.0)), _world(d_o, d_y, Vector3(14.0, 28.2, -19.0)), "s64_control_from_drillfloor")
+	await _look(_world(d_o, d_y, Vector3(24.0, 20.0, -15.0)), _world(d_o, d_y, Vector3(16.0, 21.2, -24.5)), "s64_core_racks")
+	await _look(_world(d_o, d_y, Vector3(24.0, 20.0, -20.0)), _world(d_o, d_y, Vector3(29.0, 21.4, -18.5)), "s64_core_bench")
+	await _look(_world(d_o, d_y, Vector3(15.0, 23.3, -16.0)), _world(d_o, d_y, Vector3(20.0, 24.0, -19.5)), "s64_log_office")
+	await _look(_world(d_o, d_y, Vector3(-13.0, 20.0, 21.0)), _world(d_o, d_y, Vector3(-27.0, 21.6, 14.0)), "s64_shaker_house")
+	# Standing IN the south walking lane, looking across the pits — the first version of this
+	# shot stood the camera inside a mud pit, which is how the blocked-doorway bug was found.
+	await _look(_world(d_o, d_y, Vector3(-12.4, 20.0, 12.4)), _world(d_o, d_y, Vector3(-19.5, 21.4, 18.5)), "s64_mud_pits")
+	await _look(_world(d_o, d_y, Vector3(-10.3, 20.0, 17.0)), _world(d_o, d_y, Vector3(-10.3, 20.8, 11.5)), "s64_shaker_east_lane")
+	await _look(_world(d_o, d_y, Vector3(-1.0, 20.0, -25.2)), _world(d_o, d_y, Vector3(-5.0, 21.0, -29.5)), "s64_decon")
+	await _look(_world(d_o, d_y, Vector3(7.0, 30.25, 5.0)), _world(d_o, d_y, Vector3(-4.0, 31.0, -2.0)), "s64_drill_floor_tools")
 
 	# ---- NIGHT, WITH THE POWER ON. The field is dark until rig 1's breaker closes.
 	GameClock.force_phase(GameClock.Phase.NIGHT)

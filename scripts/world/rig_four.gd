@@ -70,6 +70,7 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 	_derrick(b)
 	_process(b)
 	_buildings(b)
+	_interiors(b)
 	_access(b)
 	_bloom(b, host)
 	_lights(b, host)
@@ -194,7 +195,7 @@ static func _drill_substructure(b: KIT.Bake) -> void:
 	# Pipe ramp / V-door down to the main deck, and the racked stands beside it.
 	KIT.stair(b, Vector3(0.0, MAIN_Y, -19.9), Vector3(0.0, DRILL_Y, -12.35), 2.4, true, true)
 	for i in range(9):
-		b.member(Vector3(-10.0 + i * 1.1, MAIN_Y + 0.6, -24.0), Vector3(-10.0 + i * 1.1, DRILL_Y - 0.4, -12.6), 0.28, MatLib.rust_steel(), "detail")
+		b.member(Vector3(-10.6 + i * 1.05, MAIN_Y + 0.6, -24.0), Vector3(-10.6 + i * 1.05, DRILL_Y - 0.4, -12.6), 0.28, MatLib.rust_steel(), "detail")
 
 static func _derrick(b: KIT.Bake) -> void:
 	# THE DRILL. 66 m of tapering lattice off the drill floor, crown at y 96.
@@ -253,7 +254,7 @@ static func _process(b: KIT.Bake) -> void:
 	for i in range(4):
 		var x: float = -28.0 + i * 5.4
 		b.box(Vector3(x, MAIN_Y + 1.9, 6.0), Vector3(4.8, 3.8, 7.0), MatLib.rust_steel(), "hull", Vector3.ZERO, true)
-		b.box(Vector3(x, MAIN_Y + 4.0, 6.0), Vector3(4.4, 0.4, 6.6), MatLib.flat(Color(0.22, 0.20, 0.16)), "hull")
+		b.box(Vector3(x, MAIN_Y + 4.0, 6.0), Vector3(4.4, 0.4, 6.6), MatLib.dark_metal(), "hull")
 		b.cyl(Vector3(x, MAIN_Y + 4.9, 6.0), 0.4, 1.6, MatLib.dark_metal(), "detail")
 		b.box(Vector3(x, MAIN_Y + 5.9, 6.0), Vector3(1.6, 0.8, 1.2), MatLib.galvanized(), "detail")
 	KIT.catwalk(b, Vector3(-30.0, MAIN_Y + 4.4, 2.2), Vector3(-10.0, MAIN_Y + 4.4, 2.2), 1.4, true, MAIN_Y)
@@ -303,7 +304,7 @@ static func _buildings(b: KIT.Bake) -> void:
 	# THE CONTROL ROOM. Glazed, on the lab roof, looking straight at the drill floor — this
 	# is where the last shift's readouts are frozen mid-alarm.
 	KIT.lookout(b, Rect2(LAB.position.x + 3.0, LAB.position.y + 3.0, 11.0, 8.0), LAB_ROOF, 3.2,
-		{"door": "w", "door_at": -19.0})
+		{"door": "w", "door_at": -19.0, "floor": false})
 	KIT.stair(b, Vector3(8.0, MAIN_Y, -10.4), Vector3(8.0, 23.3, -14.85), 1.6, true, true)
 	# The second flight climbs OUTSIDE the lab's west wall (x 8.6) — at x 10.4 it ascended
 	# underneath the very roof slab it serves and popped through it — then aprons in through
@@ -314,6 +315,259 @@ static func _buildings(b: KIT.Bake) -> void:
 	b.box(Vector3(8.3, 23.18, -16.1), Vector3(2.6, 0.24, 2.5), MatLib.grating(), "hull", Vector3.ZERO, true)
 	# BEYOND the head (z -22.3), not centred on it — centred, its slab overhung the climb.
 	KIT.catwalk(b, Vector3(8.6, LAB_ROOF, -22.3), Vector3(10.6, LAB_ROOF, -22.3), 1.2, false)
+
+## THE INSIDES OF DEEPWELL. `_buildings()` has raised the shaker house, the core lab, the
+## control room and the decon airlock since this rig was first laid out, and every one of
+## them has been an EMPTY SHELL ever since — four walls, a floor, a door, nothing on it.
+## KNOWN_ISSUES has carried "interiors are empty shells" for the whole field since s54, and
+## the control room is described in its own source comment two functions up as "where the
+## last shift's readouts are frozen mid-alarm" while containing not one readout.
+##
+## MATERIAL DISCIPLINE. Every surface below is drawn with a material ALREADY LIVE on this
+## rig — rust_steel, dark_metal, grating, painted_steel, galvanized, checker_plate,
+## hazard_stripe, red_paint, the flat(0.22,0.20,0.16) earth tint the mud tanks use, and the
+## two glowing() instances the crown beacon and the Bloom column already pay for. MatLib
+## caches by colour, so re-asking for the same tint hands back the same instance and costs
+## no new draw chunk. The field sits at 217/220 total and 150/150 FAR, and a room nobody can
+## see from another platform must not spend either. Everything here is therefore in the
+## "detail" group, which `Bake.flush` range-culls past DETAIL_DRAW_M and which the far
+## budget does not count at all.
+##
+## THE ALARM IS THE STORY. Two console screens and the mud-log board carry the same
+## glowing(0.9,0.12,0.1) red as the crown beacon: the shift left with the well shouting at
+## them. It is the only saturated colour in any of these rooms, so it is the thing the eye
+## lands on through the control-room glass from the drill floor.
+static func _interiors(b: KIT.Bake) -> void:
+	_control_room_fit(b)
+	_core_lab_fit(b)
+	_shaker_house_fit(b)
+	_decon_fit(b)
+	_drill_floor_dress(b)
+
+## THE CONTROL ROOM, on the lab roof at 26.60, glazed toward the derrick. KIT.lookout laid
+## its floor at LAB_ROOF and its door on the WEST side at z -19, so the consoles run down the
+## west glass FACING OUT at the drill floor — which is what a driller's cabin is for, and it
+## puts the lit screens where they read from outside.
+static func _control_room_fit(b: KIT.Bake) -> void:
+	var y: float = LAB_ROOF
+	var steel: Material = MatLib.dark_metal()
+	var galv: Material = MatLib.galvanized()
+	var rust: Material = MatLib.rust_steel()
+	var alarm: Material = MatLib.glowing(Color(0.95, 0.20, 0.14), 6.5)
+	var readout: Material = MatLib.glowing(BLOOM_TEAL, 1.2)
+	# The console bank: a plinth, a worktop, a raked fascia of switchgear. Split either side
+	# of the door line (z -19) so nothing stands in the doorway.
+	for seg in [[-22.4, -19.9], [-18.1, -15.6]]:
+		var z0: float = float(seg[0])
+		var z1: float = float(seg[1])
+		var zc: float = (z0 + z1) * 0.5
+		var len: float = z1 - z0
+		b.box(Vector3(14.05, y + 0.36, zc), Vector3(0.95, 0.72, len), steel, "detail", Vector3.ZERO, true)
+		b.box(Vector3(14.10, y + 0.78, zc), Vector3(1.15, 0.09, len + 0.1), galv, "detail")
+		# Raked fascia — the bank of switches, tilted back toward whoever is standing at it.
+		b.box(Vector3(14.30, y + 1.05, zc), Vector3(0.5, 0.36, len - 0.1), steel, "detail",
+			Vector3(deg_to_rad(-32.0), 0, 0))
+		var rows: int = int(len / 0.42)
+		for i in range(rows):
+			var lz: float = z0 + 0.28 + float(i) * 0.42
+			b.box(Vector3(14.18, y + 1.13, lz), Vector3(0.06, 0.05, 0.16), MatLib.red_paint(), "detail")
+	# THE SCREEN WALL, above the worktop, canted down at the operator. Two of the five are
+	# still lit — the frozen alarm — and the rest are dead glass.
+	for i in range(5):
+		var sz: float = -21.8 + float(i) * 1.45
+		if absf(sz + 19.0) < 0.7:
+			continue                        # never across the door line
+		var lit: bool = i == 1 or i == 3
+		b.box(Vector3(14.55, y + 1.72, sz), Vector3(0.09, 0.62, 1.0), steel, "detail",
+			Vector3(deg_to_rad(14.0), 0, 0))
+		b.box(Vector3(14.47, y + 1.72, sz), Vector3(0.03, 0.52, 0.88),
+			alarm if lit else readout, "lamp", Vector3(deg_to_rad(14.0), 0, 0))
+	# Equipment racks down the blind east wall, and the mud-log chart board on the north.
+	for i in range(3):
+		var rx: float = 21.4 + 0.0
+		var rz: float = -21.6 + float(i) * 2.2
+		b.box(Vector3(rx, y + 1.0, rz), Vector3(0.72, 2.0, 1.6), steel, "detail", Vector3.ZERO, true)
+		for k in range(4):
+			b.box(Vector3(rx - 0.38, y + 0.6 + float(k) * 0.36, rz), Vector3(0.03, 0.06, 1.2), galv, "detail")
+		b.box(Vector3(rx - 0.38, y + 1.86, rz), Vector3(0.03, 0.05, 0.3), alarm, "lamp")
+	b.box(Vector3(19.0, y + 1.85, -15.35), Vector3(2.6, 1.4, 0.08), steel, "detail")
+	b.box(Vector3(19.0, y + 1.85, -15.42), Vector3(2.4, 1.2, 0.03), alarm, "lamp")
+	# A chair shoved back from the desk, and the overhead cable tray feeding the racks.
+	b.cyl(Vector3(16.1, y + 0.24, -20.6), 0.28, 0.06, steel, "detail", Vector3.ZERO, -1.0, 10)
+	b.cyl(Vector3(16.1, y + 0.42, -20.6), 0.05, 0.36, galv, "detail")
+	b.box(Vector3(16.1, y + 0.64, -20.6), Vector3(0.46, 0.08, 0.46), rust, "detail", Vector3(0, deg_to_rad(24.0), 0), true)
+	KIT.cable_tray(b, Vector3(15.4, y + 2.62, -22.2), Vector3(15.4, y + 2.62, -15.8))
+
+## THE CORE SAMPLE LAB — two storeys inside LAB. Ground floor is the core store: rack after
+## rack of drilled rock, which is the one object on this platform that explains what the
+## Bloom is. Upper floor (23.30, reached by the external landing off the west wall, not by
+## an internal stair — that is how `_buildings` laid the doors) is the log office.
+static func _core_lab_fit(b: KIT.Bake) -> void:
+	var steel: Material = MatLib.dark_metal()
+	var galv: Material = MatLib.galvanized()
+	var rust: Material = MatLib.rust_steel()
+	var core_rock: Material = MatLib.flat(Color(0.22, 0.20, 0.16))
+	var teal: Material = MatLib.glowing(BLOOM_TEAL, 1.2)
+	var y: float = MAIN_Y
+	b.box(Vector3(20.0, y + 0.02, -19.0), Vector3(19.3, 0.04, 13.3), MatLib.checker_plate(), "detail", Vector3.ZERO, true)
+	b.box(Vector3(20.0, MAIN_Y + 3.32, -19.0), Vector3(19.3, 0.04, 13.3), MatLib.checker_plate(), "detail", Vector3.ZERO, true)
+	# CORE RACKS down the south wall (z -25.7 inner face), three tiers, each tier carrying
+	# split core in half-round trays. The north door is at x 20 and the west door at z -19,
+	# so the racks stop clear of both approach lanes.
+	for tier in range(3):
+		var ry: float = y + 0.55 + float(tier) * 0.72
+		b.box(Vector3(20.0, ry, -25.0), Vector3(15.0, 0.06, 0.86), galv, "detail", Vector3.ZERO, tier == 0)
+		for i in range(7):
+			var cx: float = 13.2 + float(i) * 2.3
+			b.box(Vector3(cx, ry + 0.09, -25.0), Vector3(2.0, 0.12, 0.34), rust, "detail")
+			# The core itself: a run of rock cylinders lying in the tray, broken into lengths.
+			for k in range(4):
+				b.cyl(Vector3(cx - 0.72 + float(k) * 0.48, ry + 0.16, -25.0), 0.055, 0.42,
+					core_rock, "detail", Vector3(0, 0, deg_to_rad(90.0)), -1.0, 8)
+	for px in [12.6, 20.0, 27.4]:
+		b.box(Vector3(px, y + 1.1, -25.0), Vector3(0.1, 2.2, 0.9), steel, "detail", Vector3.ZERO, true)
+	# THE PREP BENCH down the east wall: worktop, sink trough, and the specimen cylinders
+	# that tie this room to the Bloom coming up the moon pool.
+	b.box(Vector3(29.0, y + 0.45, -20.0), Vector3(0.9, 0.9, 9.0), galv, "detail", Vector3.ZERO, true)
+	b.box(Vector3(29.0, y + 0.93, -20.0), Vector3(1.0, 0.07, 9.2), steel, "detail")
+	b.box(Vector3(29.0, y + 0.86, -23.4), Vector3(0.7, 0.14, 1.2), steel, "detail")
+	for i in range(4):
+		var sz: float = -17.6 + float(i) * 1.5
+		b.cyl(Vector3(28.9, y + 1.32, sz), 0.15, 0.72, MatLib.glass(Color(0.52, 0.62, 0.60)), "glass", Vector3.ZERO, -1.0, 10)
+		b.cyl(Vector3(28.9, y + 1.14, sz), 0.13, 0.32, teal, "lamp", Vector3.ZERO, -1.0, 10)
+		b.cyl(Vector3(28.9, y + 1.70, sz), 0.16, 0.05, steel, "detail", Vector3.ZERO, -1.0, 10)
+	# Sample crates stacked by the north door, and the room's own light.
+	for i in range(3):
+		b.box(Vector3(15.0 + float(i) * 0.1, y + 0.3 + float(i) * 0.58, -13.6),
+			Vector3(1.0, 0.56, 0.8), rust, "detail", Vector3(0, deg_to_rad(6.0 * float(i)), 0), i == 0)
+	# ---- THE LOG OFFICE, upper floor at 23.30.
+	var uy: float = MAIN_Y + 3.30
+	b.box(Vector3(12.4, uy + 0.38, -20.0), Vector3(0.9, 0.76, 4.4), steel, "detail", Vector3.ZERO, true)
+	b.box(Vector3(12.4, uy + 0.78, -20.0), Vector3(1.05, 0.06, 4.6), galv, "detail")
+	# The chart table: a big raked drafting surface in the middle of the room, which is what
+	# a well-log office is actually FOR.
+	b.box(Vector3(20.0, uy + 0.42, -19.0), Vector3(2.6, 0.08, 1.5), galv, "detail",
+		Vector3(deg_to_rad(-9.0), 0, 0), true)
+	for lx in [-1.15, 1.15]:
+		for lz in [-0.6, 0.6]:
+			b.box(Vector3(20.0 + lx, uy + 0.21, -19.0 + lz), Vector3(0.07, 0.42, 0.07), steel, "detail")
+	for i in range(3):
+		b.box(Vector3(27.0, uy + 0.55, -22.0 + float(i) * 1.3), Vector3(0.6, 1.1, 1.0), galv, "detail", Vector3.ZERO, true)
+
+## THE SHAKER HOUSE. MUD is 22 x 14 m and 6 m tall with no windows — the loudest, dirtiest
+## room on the platform. Three shale shakers screen the returning mud, the pits hold what
+## comes off them, and the agitators keep it from setting. Doors are east at z 17 and south
+## at x -20, so the middle of the room stays a walking lane between them.
+static func _shaker_house_fit(b: KIT.Bake) -> void:
+	var steel: Material = MatLib.dark_metal()
+	var rust: Material = MatLib.rust_steel()
+	var galv: Material = MatLib.galvanized()
+	var grate: Material = MatLib.grating()
+	var mud: Material = MatLib.flat(Color(0.22, 0.20, 0.16))
+	var y: float = MAIN_Y
+	# TWO WALKING LANES, AND NOTHING STANDS IN EITHER. The first cut of this room put both
+	# mud pits across both doorways — the same defect as s61's sealed tank-farm bund wall,
+	# found the same way, by walking a camera in and hitting a wall of steel 2 m inside the
+	# door. Interior walls are x -30.72..-9.28 and z 10.28..23.72; the doors are EAST at
+	# z 17 and SOUTH at x -20. So:
+	#   SOUTH LANE — the full width of the room, z 10.28..14.6, clear from wall to wall.
+	#   EAST LANE  — x -11.4..-9.28, the full depth, joining the east door to the south lane.
+	# Everything below is placed north and west of those two, and the machinery order is the
+	# real one: shakers screen the returns, launders drop them into the pits, the pits feed
+	# the suction line back out to the pumps.
+	const LANE_Z: float = 14.6      ## south lane ends here
+	const LANE_X: float = -11.4     ## east lane starts here
+	# THREE SHALE SHAKERS along the west wall, decks raked down toward the pits.
+	for i in range(3):
+		var sz: float = 16.0 + float(i) * 3.2
+		b.box(Vector3(-27.6, y + 1.25, sz), Vector3(4.2, 1.1, 1.9), rust, "detail", Vector3(0, 0, deg_to_rad(-7.0)), true)
+		b.box(Vector3(-27.6, y + 1.86, sz), Vector3(4.0, 0.06, 1.7), grate, "detail", Vector3(0, 0, deg_to_rad(-7.0)))
+		# Spring mounts under each corner, and the out-of-balance motor that shakes it.
+		for lx in [-1.7, 1.7]:
+			for lz in [-0.8, 0.8]:
+				b.cyl(Vector3(-27.6 + lx, y + 0.35, sz + lz), 0.11, 0.7, galv, "detail", Vector3.ZERO, -1.0, 8)
+		b.cyl(Vector3(-27.6, y + 1.55, sz + 1.15), 0.32, 0.8, steel, "detail", Vector3(deg_to_rad(90.0), 0, 0), -1.0, 12)
+		# The launder: what comes off the screen falls into the pit.
+		b.box(Vector3(-24.6, y + 1.0, sz), Vector3(1.7, 0.4, 1.4), galv, "detail", Vector3(0, 0, deg_to_rad(-11.0)))
+	# THE MUD PITS: two open tanks north of the south lane, the surface a still dark plane a
+	# little below the rim. 5.0 x 7.6, so pit 2's east wall stops at -11.9, clear of the lane.
+	for i in range(2):
+		var px: float = -19.4 + float(i) * 6.0
+		var z0: float = 15.2
+		var z1: float = 22.8
+		var zc: float = (z0 + z1) * 0.5
+		for pz in [z0, z1]:
+			b.box(Vector3(px, y + 0.8, pz), Vector3(5.0, 1.6, 0.16), rust, "detail", Vector3.ZERO, true)
+		for sx in [px - 2.5, px + 2.5]:
+			b.box(Vector3(sx, y + 0.8, zc), Vector3(0.16, 1.6, z1 - z0), rust, "detail", Vector3.ZERO, true)
+		b.box(Vector3(px, y + 1.18, zc), Vector3(4.7, 0.04, z1 - z0 - 0.3), mud, "detail")
+		# Agitator: a motor on a bridge over the pit with its shaft down into the mud.
+		b.box(Vector3(px, y + 1.72, zc), Vector3(5.2, 0.14, 0.5), galv, "detail")
+		b.box(Vector3(px, y + 2.0, zc), Vector3(0.7, 0.5, 0.6), steel, "detail")
+		b.cyl(Vector3(px, y + 1.4, zc), 0.07, 1.2, galv, "detail")
+	# Suction line off the pits, run down the SOUTH LANE's own wall at knee height and up the
+	# east wall — along the lane, never across it.
+	KIT.pipe_run(b, [Vector3(-16.0, y + 0.42, 10.9), Vector3(LANE_X + 0.9, y + 0.42, 10.9),
+		Vector3(LANE_X + 0.9, y + 2.8, 10.9)], 0.22, rust)
+	# The mixing hopper, against the south wall west of the door, with 2 m of lane north of it.
+	b.cyl(Vector3(-26.8, y + 3.4, 11.9), 1.0, 1.6, galv, "detail", Vector3.ZERO, 0.25, 12, true)
+	b.cyl(Vector3(-26.8, y + 1.9, 11.9), 0.26, 1.5, galv, "detail")
+	# Barite sacks on a pallet in the south-east, out of both lanes.
+	for i in range(6):
+		var bx: float = -14.6 + float(i % 3) * 0.62
+		var by: float = y + 0.22 + float(i / 3) * 0.34
+		b.box(Vector3(bx, by, 12.1), Vector3(0.58, 0.3, 0.86), MatLib.corrugated(), "detail",
+			Vector3(0, deg_to_rad(3.0 * float(i)), 0), true)
+
+## THE DECON AIRLOCK at the stair head — the room the last shift would have come through.
+## Doors face each other (south and north, both at x -1), so the centre line is a walking
+## lane and everything stands against the two blind end walls.
+static func _decon_fit(b: KIT.Bake) -> void:
+	var steel: Material = MatLib.dark_metal()
+	var galv: Material = MatLib.galvanized()
+	var y: float = MAIN_Y
+	b.box(Vector3(-1.0, y + 0.02, -27.5), Vector3(11.3, 0.04, 6.3), MatLib.checker_plate(), "detail", Vector3.ZERO, true)
+	# Hazard lane between the two doors — this is a threshold, and it should read as one.
+	b.box(Vector3(-1.0, y + 0.03, -27.5), Vector3(1.6, 0.04, 6.6), MatLib.hazard_stripe(), "detail")
+	# Lockers down the west end, a bench facing them down the east.
+	for i in range(4):
+		b.box(Vector3(-5.6, y + 1.0, -29.4 + float(i) * 1.3), Vector3(0.62, 2.0, 1.2), galv, "detail", Vector3.ZERO, true)
+		b.box(Vector3(-5.28, y + 1.0, -29.4 + float(i) * 1.3), Vector3(0.03, 1.9, 0.05), steel, "detail")
+	b.box(Vector3(3.2, y + 0.44, -27.6), Vector3(0.7, 0.1, 4.4), galv, "detail", Vector3.ZERO, true)
+	for lz in [-29.4, -25.8]:
+		b.box(Vector3(3.2, y + 0.2, lz), Vector3(0.6, 0.44, 0.08), steel, "detail")
+	# The shower: a head on a dropper over a trough drain, and the hose coiled on the wall.
+	b.cyl(Vector3(3.4, y + 2.2, -24.9), 0.03, 0.9, galv, "detail")
+	b.cyl(Vector3(3.4, y + 1.72, -24.9), 0.17, 0.06, steel, "detail", Vector3.ZERO, -1.0, 10)
+	b.box(Vector3(3.4, y + 0.03, -24.9), Vector3(1.0, 0.05, 1.0), MatLib.grating(), "detail")
+	b.cyl(Vector3(-6.4, y + 1.5, -25.4), 0.26, 0.16, MatLib.rust_steel(), "detail", Vector3(0, 0, deg_to_rad(90.0)), -1.0, 12)
+
+## THE DRILL FLOOR, dressed. `_drill_substructure` laid the rotary, the drawworks and the
+## driller's cabin as MASSING and stopped there, and the frame it produces is a big empty
+## plate with a rusty disc in the middle. A drill floor is the densest working surface on a
+## rig: this adds the hand tools that live on one, all of them clear of the rotary and of
+## the two rail gaps (south and west) that are the way on and off.
+static func _drill_floor_dress(b: KIT.Bake) -> void:
+	var rust: Material = MatLib.rust_steel()
+	var steel: Material = MatLib.dark_metal()
+	var y: float = DRILL_Y + 0.25
+	# TONGS, hung on their chains off the derrick legs — the shape that says "drill floor".
+	for spec in [[-4.6, -6.2, 26.0], [4.6, -6.2, -26.0]]:
+		var tx: float = float(spec[0])
+		var tz: float = float(spec[1])
+		var yaw: float = deg_to_rad(float(spec[2]))
+		b.member(Vector3(tx, y + 4.6, tz), Vector3(tx, y + 1.35, tz), 0.035, steel, "detail")
+		b.box(Vector3(tx, y + 1.15, tz), Vector3(1.5, 0.16, 0.42), rust, "detail", Vector3(0, yaw, 0), true)
+		b.cyl(Vector3(tx + cos(yaw) * 0.62, y + 1.15, tz - sin(yaw) * 0.62), 0.3, 0.2, rust, "detail", Vector3.ZERO, -1.0, 10)
+	# Slips and the mud bucket, laid down beside the rotary where they are set aside.
+	b.cyl(Vector3(-3.9, y + 0.14, 1.9), 0.34, 0.28, steel, "detail", Vector3.ZERO, 0.6, 10, true)
+	b.cyl(Vector3(3.6, y + 0.2, 2.6), 0.32, 0.4, rust, "detail", Vector3.ZERO, -1.0, 10, true)
+	# A stand of pipe leaned into the corner, and a tool chest against the drawworks.
+	for i in range(3):
+		b.cyl(Vector3(9.4 + float(i) * 0.34, y + 2.6, 8.6), 0.09, 5.4, rust, "detail",
+			Vector3(deg_to_rad(9.0), 0, deg_to_rad(4.0 + float(i))), -1.0, 8)
+	b.box(Vector3(-9.6, y + 0.42, 0.6), Vector3(1.5, 0.84, 0.7), MatLib.red_paint(), "detail", Vector3.ZERO, true)
+	b.box(Vector3(-9.6, y + 0.86, 0.6), Vector3(1.55, 0.06, 0.75), steel, "detail")
 
 static func _access(b: KIT.Bake) -> void:
 	# The ONLY way onto DEEPWELL that is not the bridge: a decon landing 2.6 m over the water
@@ -417,6 +671,18 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		[Vector3(-30.0, MAIN_Y + 4.0, 16.0), Color(0.88, 0.90, 0.96), 1.7, 24.0],
 		[Vector3(20.0, LAB_ROOF + 2.0, -20.0), Color(0.88, 0.92, 1.0), 1.6, 22.0],
 		[Vector3(0.0, CELLAR_Y + 2.0, -10.0), Color(0.90, 0.92, 0.98), 1.8, 22.0],
+		# s64 — THE INTERIORS. Each of these rooms was an empty shell until this session and
+		# none of them contained a light: the core lab's only nearby omni sat at y 25, ABOVE
+		# its own 23.30 ceiling, which is why the first render of the core racks came back
+		# almost black. A lamp_lens is emissive geometry and illuminates nothing; it is this
+		# table, which pairs each lens with an OmniLight3D, that actually lights a room.
+		# Ranges are sized to the room rather than to the deck.
+		[Vector3(17.0, MAIN_Y + 2.9, -21.0), Color(0.88, 0.92, 1.0), 2.6, 19.0],    # core lab, west half
+		[Vector3(25.0, MAIN_Y + 2.9, -17.0), Color(0.88, 0.92, 1.0), 2.3, 18.0],    # core lab, east half
+		[Vector3(20.0, MAIN_Y + 5.9, -19.0), Color(0.88, 0.92, 1.0), 2.3, 17.0],    # the log office
+		[Vector3(-20.0, MAIN_Y + 4.2, 16.0), Color(0.95, 0.86, 0.70), 1.9, 18.0],   # shaker house
+		[Vector3(-27.0, MAIN_Y + 4.2, 13.0), Color(0.95, 0.86, 0.70), 1.5, 14.0],   # over the shakers
+		[Vector3(-1.0, MAIN_Y + 2.4, -27.5), Color(0.90, 0.88, 0.82), 1.4, 11.0],   # decon airlock
 	]
 	for p in pts:
 		KIT.lamp_lens(b, p[0], p[1], 0.7, 6.0)

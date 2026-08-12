@@ -1401,34 +1401,63 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		b.cyl(p + Vector3(0, 4.2, 0), 0.16, 8.4, MatLib.galvanized(), "detail")
 		b.box(p + Vector3(0, 8.6, 0), Vector3(1.5, 0.5, 0.6), MatLib.dark_metal(), "detail")
 		KIT.lamp_lens(b, p + Vector3(0, 8.35, 0), Color(0.92, 0.96, 1.0), 0.62, 5.5)
+	# THE COLOUR OF THE LIGHT IS THE LUXURY (s64). Every omni on this rig used to be one
+	# hard-coded Color(0.86, 0.93, 1.0) — a cold blue-white — including the nine suites, the
+	# salon, the dining hall and the spa, and it is most of why the interiors photographed as
+	# a concrete car park with furniture in it. A hotel is lit WARM; only water and machinery
+	# want the cold end. So each row carries its own colour now, and the split is by what the
+	# room is for: LAMP warm for everywhere people sit, sleep or eat, COOL kept deliberately
+	# for the atrium (it is an aquarium — the tank should read as the cold thing in a warm
+	# building), the kitchen's stainless, the plant deck, the marina and the pool.
+	#
+	# It costs NOTHING. Light colour is a property of a Light3D that already exists; this
+	# adds nine suite lights and five room lights, all shadowless, and render_budget.gd's own
+	# measurement is that the light COUNT was never the expensive part (60 interior lights
+	# off bought back 4%; it is SHADOW-casting lights that cost, and none of these cast).
+	var lamp_warm := Color(1.00, 0.87, 0.70)
+	var cool := Color(0.86, 0.93, 1.0)
 	var omni_pts: Array = [
-		[Vector3(0.0, MAIN_Y + 3.0, 4.0), 2.6, 32.0],           # atrium floor
-		[Vector3(-9.0, MAIN_Y + 3.0, 4.0), 2.0, 24.0],
-		[Vector3(9.0, MAIN_Y + 3.0, 4.0), 2.0, 24.0],
-		[Vector3(0.0, G2 + 1.4, 4.0), 2.2, 28.0],
-		[Vector3(0.0, G4 + 1.8, 4.0), 2.2, 28.0],
-		[Vector3(0.0, ATRIUM_ROOF - 1.5, 4.0), 2.4, 30.0],
-		[Vector3(27.0, MAIN_Y + 4.5, 4.0), 2.2, 26.0],          # dining hall
-		[Vector3(30.0, MAIN_Y + 3.0, -20.0), 1.8, 22.0],        # kitchen
-		[Vector3(-20.0, MAIN_Y + 3.0, 0.0), 1.8, 24.0],         # west hall
-		[Vector3(-6.0, MAIN_Y + 3.0, -20.0), 1.9, 24.0],        # vestibule/salon
-		[Vector3(-32.0, MAIN_Y + 3.0, 4.0), 1.6, 22.0],         # suites (spill)
-		[Vector3(0.0, TERRACE + 3.5, -18.0), 1.9, 26.0],        # terrace south
-		[Vector3(-46.0, MAIN_Y + 3.5, 0.0), 1.7, 22.0],         # promenade
-		[Vector3(HELI_C.x, HELI_Y - 1.8, HELI_C.z), 2.0, 26.0],
-		[Vector3(0.0, SPA_Y + 2.6, 0.0), 1.8, 26.0],            # pool hall
-		[Vector3(-20.0, SPA_Y + 2.6, 0.0), 1.5, 20.0],
-		[Vector3(20.0, SPA_Y + 2.6, 0.0), 1.5, 20.0],
-		[Vector3(-14.0, PLANT_Y + 3.0, 0.0), 1.6, 22.0],
-		[Vector3(14.0, PLANT_Y + 3.0, -8.0), 1.6, 22.0],
-		[Vector3(0.0, LOW_Y + 2.4, -32.0), 1.4, 18.0],
-		[Vector3(0.0, MAIN_Y + 3.0, 26.0), 1.7, 22.0],          # spa ground
-		[Vector3(-29.0, TERRACE + 2.6, 4.0), 2.4, 22.0],        # west tower library
-		[Vector3(29.0, DINE_ROOF + 2.6, 4.0), 2.4, 22.0],       # east tower games room
+		[Vector3(0.0, MAIN_Y + 3.0, 4.0), 2.6, 32.0, cool],           # atrium floor
+		[Vector3(-9.0, MAIN_Y + 3.0, 4.0), 2.0, 24.0, cool],
+		[Vector3(9.0, MAIN_Y + 3.0, 4.0), 2.0, 24.0, cool],
+		[Vector3(0.0, G2 + 1.4, 4.0), 2.2, 28.0, cool],
+		[Vector3(0.0, G4 + 1.8, 4.0), 2.2, 28.0, cool],
+		[Vector3(0.0, ATRIUM_ROOF - 1.5, 4.0), 2.4, 30.0, cool],
+		[Vector3(27.0, MAIN_Y + 4.5, 4.0), 2.6, 26.0, lamp_warm],     # dining hall
+		[Vector3(34.0, MAIN_Y + 4.5, 12.0), 2.0, 20.0, lamp_warm],    # dining hall, north end
+		[Vector3(30.0, MAIN_Y + 3.0, -20.0), 1.8, 22.0, cool],        # kitchen — stainless
+		[Vector3(-20.0, MAIN_Y + 3.0, 0.0), 2.0, 24.0, lamp_warm],    # west hall
+		[Vector3(-20.0, MAIN_Y + 3.0, 15.0), 1.8, 20.0, lamp_warm],   # west hall, north run
+		[Vector3(-28.0, MAIN_Y + 3.0, -11.0), 1.8, 22.0, lamp_warm],  # south hall
+		[Vector3(-6.0, MAIN_Y + 3.0, -20.0), 2.1, 24.0, lamp_warm],   # vestibule/salon
+		[Vector3(8.0, MAIN_Y + 3.0, -20.0), 1.8, 20.0, lamp_warm],    # salon, east end
+		[Vector3(29.0, MAIN_Y + 3.0, 15.0), 1.8, 20.0, lamp_warm],    # private dining / bar
+		[Vector3(7.5, MAIN_Y + 3.0, -8.0), 1.7, 18.0, lamp_warm],     # food court
+		[Vector3(0.0, TERRACE + 3.5, -18.0), 1.9, 26.0, lamp_warm],   # terrace south
+		[Vector3(-46.0, MAIN_Y + 3.5, 0.0), 1.7, 22.0, cool],         # promenade — outdoors
+		[Vector3(HELI_C.x, HELI_Y - 1.8, HELI_C.z), 2.0, 26.0, cool],
+		[Vector3(0.0, SPA_Y + 2.6, 0.0), 1.8, 26.0, cool],            # pool hall — water
+		[Vector3(-20.0, SPA_Y + 2.6, 0.0), 1.5, 20.0, cool],
+		[Vector3(20.0, SPA_Y + 2.6, 0.0), 1.5, 20.0, cool],
+		[Vector3(-14.0, PLANT_Y + 3.0, 0.0), 1.6, 22.0, cool],
+		[Vector3(14.0, PLANT_Y + 3.0, -8.0), 1.6, 22.0, cool],
+		[Vector3(0.0, LOW_Y + 2.4, -32.0), 1.4, 18.0, cool],
+		[Vector3(0.0, MAIN_Y + 3.0, 26.0), 1.7, 22.0, lamp_warm],     # spa ground
+		[Vector3(-29.0, TERRACE + 2.6, 4.0), 2.4, 22.0, lamp_warm],   # west tower library
+		[Vector3(29.0, DINE_ROOF + 2.6, 4.0), 2.4, 22.0, lamp_warm],  # east tower games room
 	]
+	# ONE LIGHT PER SUITE. All nine used to share the single "suites (spill)" omni at
+	# (-32, 25, 4) with a 22 m range, which reaches the middle of the west flank and nothing
+	# else — the south three and both ends of the west six were lit only by whatever leaked
+	# under their doors, which is why a suite photographed as a black room with a bed in it.
+	# Cell centres are read off _suites()' own tables so the two cannot drift apart.
+	for cell in [[-13.0, -6.3], [-6.3, 0.4], [0.4, 7.1], [7.1, 13.8], [13.8, 17.9], [17.9, 22.0]]:
+		omni_pts.append([Vector3(-32.0, MAIN_Y + 2.8, (cell[0] + cell[1]) * 0.5), 1.5, 11.0, lamp_warm])
+	for cell2 in [[-40.0, -32.0], [-32.0, -24.0], [-24.0, -16.0]]:
+		omni_pts.append([Vector3((cell2[0] + cell2[1]) * 0.5, MAIN_Y + 2.8, -20.5), 1.5, 11.0, lamp_warm])
 	for p2 in omni_pts:
 		var l := OmniLight3D.new()
-		l.light_color = Color(0.86, 0.93, 1.0)
+		l.light_color = p2[3] if p2.size() > 3 else cool
 		l.light_energy = float(p2[1])
 		l.omni_range = float(p2[2])
 		l.shadow_enabled = false

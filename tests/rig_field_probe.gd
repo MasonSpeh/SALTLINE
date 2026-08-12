@@ -18,7 +18,16 @@ const LOG_PATH: String = "/tmp/rig_field_probe.txt"
 
 ## Draw-call posture. The whole point of RigKit.Bake is that three rigs cost tens of chunks,
 ## not thousands. UPPER bound is the budget; LOWER bound is the anti-vacuity assertion.
-const CHUNKS_MAX: int = 220
+##
+## RAISED 220 -> 240 in s64, deliberately and with the measurement in hand. That session gave
+## DEEPWELL the four interiors it had never had (control room, core lab, shaker house, decon)
+## and dressed all three rigs, and the cost landed ENTIRELY in the "detail" group: total went
+## 217 -> 221 while FAR_CHUNKS_MAX below did not move a single chunk, because every new
+## surface reuses a material already live on its own rig. Detail chunks are engine-range-culled
+## past DETAIL_DRAW_M, so those four extra draws exist only while the player is standing on
+## the rig that owns them. This total is a DRIFT GUARD; `FAR_CHUNKS_MAX` is the real budget,
+## and it is the one to defend.
+const CHUNKS_MAX: int = 240
 const CHUNKS_MIN: int = 24
 ## The number that actually reaches the GPU when the whole field is on the horizon: "detail"
 ## chunks are engine-range-culled past RigKit.Bake.DETAIL_DRAW_M, so from SALTLINE-0 only

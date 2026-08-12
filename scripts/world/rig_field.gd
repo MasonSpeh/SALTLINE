@@ -190,6 +190,7 @@ func _ready() -> void:
 	for m2 in built:
 		if String(m2["id"]) == "anchorage":
 			_anchorage_supplies(m2["xform"] as Transform3D)
+	_dress(built)
 
 	var by_group: Dictionary = _count_groups(self)
 	stats = {
@@ -274,6 +275,25 @@ func _anchorage_supplies(xf: Transform3D) -> void:
 		col.position.y = 0.2
 		t.add_child(ItemVisual.build(String(it[0])))
 		preload("res://scripts/world/surface_snap.gd").attach(t)
+
+## THE CC0 PROP LIBRARY, IN THE FIELD. Rig 1 has had 222 real glTF models dressing its rooms
+## since s20; these three rigs were built entirely from Bake primitives, so every "sofa" and
+## "bed" on them is an untextured box and DEEPWELL's lab and control room are empty shells.
+## field_dress.gd owns the tables and the rig-local -> world conversion; all this has to do is
+## hand it every rig's transform.
+##
+## `xforms` IS ASSIGNED BEFORE add_child, DELIBERATELY. `_ready` runs INSIDE add_child (this
+## repo's most-repeated trap — it is what made s60's tank reef build 47 corals at the world
+## origin and render them out in the sky), and FieldDress reads `xforms` in its `_ready` to
+## place every row. Set after, every prop on the field would be placed against an empty
+## dictionary, i.e. at rig-local coordinates in world space, out over open water.
+func _dress(built: Array) -> void:
+	var dress := preload("res://scripts/world/field_dress.gd").new()
+	var xf: Dictionary = {}
+	for m in built:
+		xf[String(m["id"])] = m["xform"] as Transform3D
+	dress.xforms = xf
+	add_child(dress)
 
 func _build_bridges(built: Array) -> int:
 	var host := Node3D.new()
