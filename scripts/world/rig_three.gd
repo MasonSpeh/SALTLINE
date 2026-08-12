@@ -1190,11 +1190,27 @@ static func _planter(b: KIT.Bake, pos: Vector3, k: float = 1.0) -> void:
 	b.cyl(pos + Vector3(0, 0.28 * k, 0), 0.52 * k, 0.56 * k, MatLib.flat(Color(0.24, 0.24, 0.27)), "detail", Vector3.ZERO, -0.12, 12, true)
 	b.cyl(pos + Vector3(0, 0.57 * k, 0), 0.44 * k, 0.06 * k, MatLib.flat(Color(0.16, 0.12, 0.09)), "detail", Vector3.ZERO, -1.0, 12)
 	b.cyl(pos + Vector3(0, 0.95 * k, 0), 0.05 * k, 0.8 * k, MatLib.flat(Color(0.35, 0.28, 0.18)), "detail")
-	for fi in range(6):
-		var fa: float = TAU * float(fi) / 6.0 + k
-		var tilt: float = deg_to_rad(38.0 + 9.0 * float(fi % 3))
-		b.box(pos + Vector3(cos(fa) * 0.34 * k, (1.42 + 0.08 * float(fi % 2)) * k, sin(fa) * 0.34 * k),
-			Vector3(0.16 * k, 0.03 * k, 1.05 * k),
+	# THE FRONDS (s64). Six flat slabs on one radius photographed as a green asterisk — the
+	# "card-cutout palm" in every interior frame of this rig. A frond is not a plank: it
+	# ARCHES, so each one is three short segments whose tilt increases along its length, and
+	# eleven of them at two radii and two heights break the asterisk symmetry that made six
+	# read as a cross. Still flat-colour boxes in the "detail" group, still the same three
+	# green tints already live here, so this costs nothing but ~26 more primitives per pot.
+	# THE FRONDS (s64). Six slabs on ONE radius, at ONE height, evenly spaced, photographed as
+	# a green asterisk — the "card-cutout palm" in every interior frame of this rig. Eleven
+	# now, at TWO radii and two heights with an uneven angular step, which is what kills the
+	# asterisk. Each frond stays a SINGLE slab: a three-segment arching version was tried and
+	# rejected on the picture — the segments do not meet when they are rotated about their own
+	# centres, so at arm's length a pot reads as a scatter of loose green chips. Same three
+	# tints already live on this rig, so the extra density costs no draw chunk.
+	for fi in range(11):
+		var fa: float = TAU * float(fi) / 11.0 + k * 1.7 + 0.19 * float(fi % 3)
+		var inner: bool = fi % 3 == 0
+		var tilt: float = deg_to_rad(34.0 + 11.0 * float(fi % 4))
+		var rr: float = (0.28 if inner else 0.36) * k
+		var hy: float = (1.30 if inner else 1.44) * k
+		b.box(pos + Vector3(cos(fa) * rr, hy, sin(fa) * rr),
+			Vector3(0.15 * k, 0.028 * k, (0.82 if inner else 1.08) * k),
 			MatLib.flat(Color(0.16 + 0.03 * float(fi % 3), 0.36, 0.22)), "detail",
 			Vector3(tilt * cos(fa), -fa, tilt * sin(fa) * 0.4))
 

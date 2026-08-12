@@ -612,3 +612,48 @@ and the hero-feature shells. Everything below is known-absent, not broken.
 - **The sonar oracle still knows only SALTLINE-0.** Unchanged from s54; every
   props_find/spatial_probe about rigs 2-4 silently returns nothing. tools/export_rig.sh
   --field exists; the re-ingest has still not been run.
+
+## THE FIELD (s64) — what the dressing pass closed, and what it opened
+
+**CLOSED by s64:**
+- *"Interiors are empty shells"* (filed s54, for the whole field). DEEPWELL's shaker house,
+  core-sample lab, control room and decon airlock are built and dressed; THE ANCHORAGE's nine
+  suites and every public room are dressed. `scripts/world/field_dress.gd` carries the tables.
+- *"The ANCHORAGE loungers and planters are massing, not furniture"* (s54b). Real GLB furniture
+  throughout, and the four terrace planters that were **hanging over the atrium light well**
+  now stand on deck.
+
+**OPEN, and new:**
+
+- **SUITE W1's CELL OVERLAPS THE SOUTH HALL CORRIDOR.** `rig_three._suites()` opens its west
+  flank at z -13, but `_ceilings()` runs the south hall across z -12.9..-9.1 at the same x. So
+  W1's cell [-13, -6.3] overlaps the corridor and `_suite()` stands W1's BED at z -9.65, in the
+  hall. `field_dress._suite_rows()` deliberately skips W1 rather than adding a nightstand and a
+  reading chair to a public corridor. THE FIX IS A FLOORPLAN CALL — shorten the west column to
+  start at z -9.0 (and accept eight suites, or re-cut the six cells over the shorter run), or
+  move the south hall north. Both change room sizes, so it wants the owner's eye, not a patch.
+
+- **The hotel rooms are still too BIG.** A west suite is 16 m deep and a guest room is not.
+  Every suite now reads as furnished but sparse, because a bed, two nightstands, a chair, a
+  trunk and a plant do not fill 100 m². The honest fix is architectural (split the depth into
+  a room plus a bathroom pod / dressing lobby, which the s54c floorplan comment already
+  promises: "a bathroom pod"), not more props.
+
+- **`max_lights_per_object` costs 1.5-2 ms.** Raised 8 -> 24 in project.godot for the reason in
+  docs/AGENT_TRAPS.md, measured on VantagePerf. It is the right trade — it is the difference
+  between a lit hotel and a black one — but it is a real cost on a project already under its
+  own 60 fps bar at several vantages, and it is the first thing to reconsider if the frame
+  budget gets tight. 16 was tried and rejected on the picture.
+
+- **The moon pool does not read as a fissure** (s64 audit, DEEPWELL). By day the BOP disc plugs
+  the aperture and the water reflects sky; by night it is a black hole. The teal sheet at
+  y 1.15 never reads in either. Wants the glow sheet raised to ~y 6 and shrunk inside
+  MOON.grow(-1.0) so it sits between the eye and the water.
+
+- **DEEPWELL's production deck floor is black.** 18 emissive lenses and only three real
+  OmniLights across a whole occupied level; the floor measures (1,11,10) under a ceiling at
+  (9,50,46). Same root cause as the interiors this session fixed — a lens is not a light.
+
+- **The driller's cabin is a solid block with a glass sticker**, not a room
+  (`rig_four._drill_substructure`). Should be a `KIT.lookout()` on the same footprint so it can
+  be entered and dressed like the control room now is.
