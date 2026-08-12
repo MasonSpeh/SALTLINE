@@ -79,7 +79,7 @@ const BRIDGE_OUT := Vector3(38.0, MAIN_Y, 12.0)     ## to THE ANCHORAGE
 ## The garden: a 4 x 3 grid of raised beds on the mess roof.
 const BED_COLS: int = 4
 const BED_ROWS: int = 3
-const BED := Vector2(5.0, 4.2)          ## bed footprint
+const BED := Vector2(4.4, 4.2)          ## bed footprint (4.4 not 5.0: see _garden compost bays)
 const BED_GAP: Vector2 = Vector2(1.1, 1.4)
 const BED_H: float = 0.55
 
@@ -367,11 +367,14 @@ static func _garden(b: KIT.Bake) -> void:
 		b.box(Vector3(px, py, pz), Vector3(3.4, 0.05, 2.5),
 			MatLib.canvas(Color(0.70, 0.69, 0.62)), "detail",
 			Vector3(deg_to_rad(6.0 * i), 0, side * (PI * 0.5 - ang) * 0.8))
-	# Compost bays and a water butt in the lee of the stair head.
+	# Compost bays down the WEST margin and the water butt in the EAST one — both were
+	# previously built straight on top of the north row of raised beds (bays at z 16.9..19.1
+	# against a bed row spanning 14.5..18.7; the butt in the middle of bed 3,2). The margins
+	# they use now exist because BED.x is 4.4: grid x -27.45..-6.55 inside a roof of x -30..-4.
 	for i in range(3):
-		b.box(Vector3(MESS.position.x + 2.6 + i * 2.4, GARDEN_Y + 0.6, MESS.end.y - 2.0),
-			Vector3(2.2, 1.2, 2.2), MatLib.weathered_wood(), "hull", Vector3.ZERO, true)
-	b.cyl(Vector3(MESS.end.x - 3.0, GARDEN_Y + 1.35, MESS.end.y - 3.0), 1.3, 2.7,
+		b.box(Vector3(-28.8, GARDEN_Y + 0.6, 5.4 + i * 2.4),
+			Vector3(2.0, 1.2, 2.0), MatLib.weathered_wood(), "hull", Vector3.ZERO, true)
+	b.cyl(Vector3(-5.4, GARDEN_Y + 1.35, 14.0), 1.1, 2.7,
 		MatLib.rust_steel(), "hull", Vector3.ZERO, -1.0, 12, true)
 
 static func _tower(b: KIT.Bake) -> void:
@@ -505,6 +508,38 @@ static func _lights(b: KIT.Bake, host: Node3D) -> void:
 		l.add_to_group("rig_field_floods")
 		host.add_child(l)
 		l.position = b.to_world(p + Vector3(0, mast_h + 0.1, 0))
+	# INDOORS (s64). Every OmniLight on this rig was on a sodium mast, i.e. outdoors on a
+	# deck: the mess hall, the plant hall and the bio lab had cove strips and NOTHING ELSE,
+	# and a led_cove is emissive GEOMETRY that illuminates nothing (docs/AGENT_TRAPS.md).
+	# The mess hall photographed as a black room with a table in it for exactly this reason.
+	# These are Light3D nodes, not meshes, so they cost no draw chunk at all — the far budget
+	# is untouched — and none of them casts a shadow, which render_budget.gd measured as the
+	# only expensive kind. Colours follow the room: sodium-warm where the crew live, neutral
+	# in the lab.
+	var sodium := Color(1.0, 0.82, 0.56)
+	var lab_white := Color(0.88, 0.94, 1.0)
+	for spec in [
+			# the mess hall, both storeys — 26 x 18 m needs four on the ground floor
+			[Vector3(-24.0, MAIN_Y + 2.6, 8.0), 1.9, 13.0, sodium],
+			[Vector3(-12.0, MAIN_Y + 2.6, 8.0), 1.9, 13.0, sodium],
+			[Vector3(-24.0, MAIN_Y + 2.6, 15.5), 1.8, 12.0, sodium],
+			[Vector3(-12.0, MAIN_Y + 2.6, 15.5), 1.8, 12.0, sodium],
+			[Vector3(-22.0, MAIN_Y + BLOCK_H + 2.4, 8.0), 1.6, 13.0, sodium],
+			[Vector3(-12.0, MAIN_Y + BLOCK_H + 2.4, 15.0), 1.6, 13.0, sodium],
+			# the plant hall — one 7.2 m storey, so the lamp hangs high
+			[Vector3(8.0, MAIN_Y + 4.4, 8.0), 2.0, 17.0, sodium],
+			[Vector3(20.0, MAIN_Y + 4.4, 15.0), 1.9, 16.0, sodium],
+			# the bio lab
+			[Vector3(-19.0, MAIN_Y + 2.9, -14.0), 1.8, 13.0, lab_white],
+			[Vector3(-9.0, MAIN_Y + 2.9, -14.0), 1.7, 12.0, lab_white]]:
+		var il := OmniLight3D.new()
+		il.light_color = spec[3]
+		il.light_energy = float(spec[1])
+		il.omni_range = float(spec[2])
+		il.shadow_enabled = false
+		il.add_to_group("rig_field_floods")
+		host.add_child(il)
+		il.position = b.to_world(spec[0] as Vector3)
 
 
 # ------------------------------------------------------------------- THE PROCESS DECK
@@ -608,9 +643,9 @@ static func _more_plant(b: KIT.Bake) -> void:
 	KIT.vessel(b, Vector3(-33.0, MAIN_Y, -20.5), 2.2, 8.6, true)
 	KIT.vessel(b, Vector3(30.0, MAIN_Y, 8.0), 2.4, 9.0, true)
 	# At z 18, not 22 — its tube bank sat across the mezz north stair's approach.
-	KIT.exchanger_bank(b, Vector3(-8.0, MAIN_Y, 18.0), 3, 10.0, 0.0)
+	KIT.exchanger_bank(b, Vector3(-8.0, MAIN_Y, -5.0), 3, 10.0, 0.0)
 	KIT.manifold(b, Vector3(14.0, MAIN_Y, -18.0), 9.0, 3.4, 0.0)
-	KIT.manifold(b, Vector3(-16.0, MAIN_Y, 1.0), 7.0, 3.2, 90.0)
+	KIT.manifold(b, Vector3(-16.0, MAIN_Y, -2.0), 7.0, 3.2, 90.0)
 	for i in range(4):
 		KIT.skid(b, Vector3(20.0 + i * 4.6, MAIN_Y, 22.0), Vector3(4.0, 2.4, 3.0), 0.0)
 	KIT.cable_tray(b, Vector3(-36.0, MAIN_Y + 4.4, -22.0), Vector3(36.0, MAIN_Y + 4.4, -22.0), MAIN_Y)
@@ -659,7 +694,7 @@ static func _tank_farm(b: KIT.Bake) -> void:
 	b.box(Vector3(bund.end.x, MAIN_Y + 0.10, gz), Vector3(0.3, 0.2, 2.2), steel, "hull", Vector3.ZERO, true)
 	b.box(Vector3(bund.end.x, MAIN_Y + 0.005, gz), Vector3(0.4, 0.01, 2.2), MatLib.hazard_stripe(), "detail")
 	for i in range(3):
-		var z: float = -10.5 + i * 7.2
+		var z: float = -11.0 + i * 6.5
 		b.cyl(Vector3(34.4, MAIN_Y + 3.75, z), 2.9, 7.5, dark, "hull", Vector3.ZERO, -1.0, 16, true)
 		b.cyl(Vector3(34.4, MAIN_Y + 7.8, z), 2.95, 0.6, steel, "hull", Vector3.ZERO, 0.4, 16)
 		for k in range(2):
@@ -741,8 +776,8 @@ static func _labs(b: KIT.Bake) -> void:
 ## somebody maintains this place. Unbatched nodes on the host: eleven tiny labels.
 static func _labels(host: Node3D, b: KIT.Bake) -> void:
 	var tags: Array = [
-		["T-301", Vector3(31.3, 19.5, -10.5), 90.0], ["T-302", Vector3(31.3, 19.5, -3.3), 90.0],
-		["T-303", Vector3(31.3, 19.5, 3.9), 90.0], ["EXP-01", Vector3(36.2, 15.35, 12.0), 90.0],
+		["T-301", Vector3(31.3, 19.5, -11.0), 90.0], ["T-302", Vector3(31.3, 19.5, -4.5), 90.0],
+		["T-303", Vector3(31.3, 19.5, 2.0), 90.0], ["EXP-01", Vector3(36.2, 15.35, 12.0), 90.0],
 		["SEP-101", Vector3(-24.0, 11.6, -7.6), 180.0], ["SEP-102", Vector3(-17.0, 11.6, -7.6), 180.0],
 		["P-201", Vector3(-22.0, 9.6, 11.8), 180.0], ["P-202", Vector3(-14.6, 9.6, 11.8), 180.0],
 		["FW-MAIN", Vector3(-12.0, 16.0, -20.6), 180.0], ["DESAL-01", Vector3(16.9, 12.4, -12.9), 180.0],

@@ -376,7 +376,12 @@ static func _podium(b: KIT.Bake) -> void:
 		["w", 0.0, 0],     # to the promenade
 		["e", -6.0, 0],    # dining hall to the helideck rim
 		["e", -20.0, 0],   # kitchen service door
-		["n", -30.0, 0],   # west rim
+		# WAS x -30, WHICH OPENED INTO A BEDROOM (s64). The west suite column runs x -40..-24
+		# and its sixth cell is z 17.9..22 — so a door in the podium's north wall at x -30 is
+		# an exterior fire door into guest suite W6, which has no other connection to it.
+		# Moved to x -20: that is the west hall, which already runs north to z 22 and until
+		# now dead-ended on blank wall, so the same door now gives the corridor a terminus.
+		["n", -20.0, 0],   # west rim, into the head of the west hall
 		["n", 30.0, 0],    # east rim / back corridor
 		["n", 0.0, 0],     # ALIGNED WITH THE SPA'S SOUTH DOOR. Without this the spa (and so
 		                   # the bridge to DEEPWELL behind it) was sealed off: the two blocks
@@ -456,12 +461,33 @@ static func _sofa(b: KIT.Bake, pos: Vector3, yaw_deg: float, len: float = 2.4) -
 	var yaw: float = deg_to_rad(yaw_deg)
 	var rot := Vector3(0, yaw, 0)
 	var fwd := Vector3(sin(yaw), 0, cos(yaw))
-	b.box(pos + Vector3(0, 0.24, 0), Vector3(len, 0.42, 0.85), up, "hull", rot, true)
-	b.box(pos + Vector3(0, 0.62, 0) - fwd * 0.34, Vector3(len, 0.55, 0.2), up, "hull", rot)
+	# A SOFA READS BY ITS SHADOW LINE (s64). The old one was a slab, a back slab and two arm
+	# slabs sitting flat on a brass plinth — at salon range, a rectangle. It now stands on
+	# legs with a real gap under the frame, the seat is SPLIT into cushions with a groove
+	# between them, the back is raked, and the arms are rolled off a lower frame rail. Same
+	# two materials the room already pays for.
 	var side := Vector3(cos(yaw), 0, -sin(yaw))
+	var dark: Material = MatLib.dark_metal()
+	var cushions: int = maxi(2, int(round(len / 1.1)))
+	# Frame rail and four legs — the gap under them is what stops it reading as a block.
+	b.box(pos + Vector3(0, 0.30, 0), Vector3(len, 0.16, 0.86), up, "hull", rot, true)
+	for sx in [-(len * 0.5 - 0.14), len * 0.5 - 0.14]:
+		for sz in [-0.34, 0.34]:
+			b.box(pos + side * sx + fwd * sz + Vector3(0, 0.11, 0), Vector3(0.07, 0.22, 0.07), dark, "detail", rot)
+	# Seat cushions, each inset so the groove between them catches shadow.
+	for ci in range(cushions):
+		var cx: float = (float(ci) - float(cushions - 1) * 0.5) * (len / float(cushions))
+		b.box(pos + side * cx + Vector3(0, 0.45, 0),
+			Vector3(len / float(cushions) - 0.06, 0.16, 0.76), up, "detail", rot)
+	# Raked back, with a capping rail so the top edge is not a bare cut.
+	b.box(pos + Vector3(0, 0.66, 0) - fwd * 0.33, Vector3(len, 0.52, 0.18), up, "hull",
+		Vector3(rot.x + deg_to_rad(7.0) * cos(yaw), rot.y, deg_to_rad(7.0) * sin(yaw)))
+	b.box(pos + Vector3(0, 0.93, 0) - fwd * 0.36, Vector3(len, 0.09, 0.22), MatLib.brass(), "detail", rot)
+	# Rolled arms, sitting above the frame rail rather than on the floor.
 	for sgn in [-1.0, 1.0]:
-		b.box(pos + side * (sgn * (len * 0.5 - 0.09)) + Vector3(0, 0.5, 0), Vector3(0.18, 0.32, 0.8), up, "detail", rot)
-	b.box(pos + Vector3(0, 0.06, 0), Vector3(len - 0.3, 0.12, 0.7), MatLib.brass(), "detail", rot)
+		b.box(pos + side * (sgn * (len * 0.5 - 0.10)) + Vector3(0, 0.56, 0), Vector3(0.19, 0.30, 0.82), up, "detail", rot)
+		b.cyl(pos + side * (sgn * (len * 0.5 - 0.10)) + Vector3(0, 0.71, 0), 0.10, 0.80, up, "detail",
+			Vector3(deg_to_rad(90.0), -yaw, 0), -1.0, 10)
 
 static func _low_table(b: KIT.Bake, pos: Vector3, r: float = 1.0) -> void:
 	b.cyl(pos + Vector3(0, 0.42, 0), r * 0.5, 0.05, MatLib.wood(), "detail", Vector3.ZERO, -1.0, 14, true)
@@ -476,12 +502,29 @@ static func _dining_table(b: KIT.Bake, pos: Vector3, yaw_deg: float) -> void:
 	for sgn in [-1.0, 1.0]:
 		b.box(pos + side * (sgn * 0.9) + Vector3(0, 0.37, 0), Vector3(0.12, 0.74, 0.7),
 			MatLib.brass(), "detail", rot)
+	# THE CHAIRS. Two velvet boxes with no legs and no rail, thirty-six times over, is what made
+	# a double-height dining hall photograph as a works canteen (s64 audit). A chair reads as a
+	# chair because you can see UNDER it: four slim legs, a seat that overhangs them, arms, and
+	# a back with a gap between rail and seat. Still baked, still the two materials this room
+	# already pays for — 36 GLB chairs would eat a third of the prop budget for one room.
+	var dark: Material = MatLib.dark_metal()
 	for i in range(3):
 		var t: float = -0.85 + i * 0.85
 		for sgn2 in [-1.0, 1.0]:
 			var cp: Vector3 = pos + side * t + fwd * (sgn2 * 0.85)
-			b.box(cp + Vector3(0, 0.24, 0), Vector3(0.45, 0.48, 0.45), MatLib.canvas(VELVET), "detail", rot, true)
-			b.box(cp + fwd * (sgn2 * 0.2) + Vector3(0, 0.62, 0), Vector3(0.45, 0.5, 0.08), MatLib.canvas(VELVET), "detail", rot)
+			for lx in [-0.19, 0.19]:
+				for lz in [-0.19, 0.19]:
+					b.box(cp + side * lx + fwd * lz + Vector3(0, 0.21, 0),
+						Vector3(0.045, 0.42, 0.045), dark, "detail", rot)
+			b.box(cp + Vector3(0, 0.45, 0), Vector3(0.48, 0.09, 0.48), MatLib.canvas(VELVET), "detail", rot, true)
+			# Back: an upright pair and a padded rail, with daylight between rail and seat.
+			for lx2 in [-0.2, 0.2]:
+				b.box(cp + side * lx2 + fwd * (sgn2 * 0.22) + Vector3(0, 0.68, 0),
+					Vector3(0.05, 0.46, 0.05), dark, "detail", rot)
+			b.box(cp + fwd * (sgn2 * 0.22) + Vector3(0, 0.85, 0),
+				Vector3(0.46, 0.22, 0.07), MatLib.canvas(VELVET), "detail", rot)
+			b.box(cp + fwd * (sgn2 * 0.22) + Vector3(0, 0.62, 0),
+				Vector3(0.42, 0.07, 0.05), dark, "detail", rot)
 
 static func _bed(b: KIT.Bake, pos: Vector3, yaw_deg: float) -> void:
 	var yaw: float = deg_to_rad(yaw_deg)
@@ -1175,6 +1218,16 @@ static func _ceilings(b: KIT.Bake) -> void:
 	b.box(Vector3(0.0, MAIN_Y + 0.02, -20.5), Vector3(31.7, 0.04, 14.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
 	b.box(Vector3(-20.0, MAIN_Y + 0.02, 4.5), Vector3(7.7, 0.04, 34.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
 	b.box(Vector3(-28.0, MAIN_Y + 0.02, -11.0), Vector3(23.7, 0.04, 3.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
+	# THE KITCHEN was the only main-level room left standing on bare deck plate (s64 audit).
+	# A stainless galley wants a hard washable floor, and kitchen_tile is already live on this
+	# rig (the koi basin's trough is laid in it), so this is a covering and not a new chunk.
+	b.box(Vector3(30.0, MAIN_Y + 0.02, -21.0), Vector3(19.5, 0.04, 13.5), MatLib.kitchen_tile(), "hull", Vector3.ZERO, true)
+	# NO OVERLAY IN THE DINING HALL. One was added here and REVERTED in the same session: the
+	# climb probe convicted it immediately (flight #26, blocked at local ~(36.9, 22.0, -2.7)).
+	# A solid 4 cm slab laid across the whole east wing sits in the path of the flight that
+	# climbs INTO that wing — a ray 0.75 m above the walking line clears it at the head but
+	# not lower down the flight, where the line passes through 22.0. The room already carries
+	# its own carpet from _dining(), so the overlay bought nothing and cost a stair.
 	b.box(Vector3(0.0, MAIN_Y + 0.02, 26.0), Vector3(27.5, 0.04, 7.5), MatLib.wood(), "hull", Vector3.ZERO, true)
 	# And the suites' own floors — timber, the material the spa already pays for, under the
 	# whole horseshoe. SOLID, per the s56 cat lesson: a covering that exists only visually

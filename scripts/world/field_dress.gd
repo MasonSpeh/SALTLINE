@@ -191,8 +191,143 @@ const T2 := preload("res://scripts/world/rig_two.gd")
 const T3 := preload("res://scripts/world/rig_three.gd")
 const T4 := preload("res://scripts/world/rig_four.gd")
 
+## MARROW — the industrial / experimental platform. Working-crew props only: this rig's
+## exterior massing and materials already read well, so what it lacked was evidence of people.
+##
+## Every coordinate below is checked against rig_two's own constants. MESS is
+## Rect2(-30, 2, 26, 18) with 0.28 walls (interior x -29.72..-4.28, z 2.28..19.72) and doors
+## EAST at z 11, SOUTH at x -22, NORTH at x -14 — so those three lanes stay clear. The baked
+## furniture from s63's `_mess_interior` is avoided by construction: the long table runs
+## x -25..-9 at z 8, the galley counter is at x -29.1 over z 12..18, the seed-store shelves
+## stand at x -11 / z 5.5 and the cold vault fills x -8.2..-5.8 / z 16..18.
+##
+## The GARDEN grid is derived, not copied: `_garden()` lays 4 x 3 beds of BED (5.0 x 4.2) with
+## BED_GAP (1.1, 1.4) centred on MESS, which puts bed centres on x -26.15/-20.05/-13.95/-7.85
+## and z 5.4/11.0/16.6, and leaves 1.4 m aisles at z 8.2 and 13.8. Everything up there sits in
+## an aisle or on the perimeter margin, never on a bed — and nothing growing, because the beds
+## are authored dead ("frost-cracked, sea-blasted") and a lush pot plant would contradict the
+## one story that room tells.
 func MARROW() -> Array:
-	return []
+	return [
+		# --- bio lab
+		["retro_multimeter", Vector3(-21, 14.99, -18), 20.0, 1.0],
+		["magnifying_glass_01", Vector3(-20, 14.99, -17.9), 40.0, 1.0],
+		["classic_laptop", Vector3(-18.8, 14.99, -18), 180.0, 1.0],
+		["clipboard", Vector3(-17.6, 14.99, -18.1), 65.0, 1.0],
+		["binder_notebook", Vector3(-16.6, 14.99, -17.9), 105.0, 1.0],
+		["medical_box", Vector3(-13.2, 14.99, -17.9), 200.0, 1.0],
+		["old_gas_mask", Vector3(-12, 14.99, -18), 30.0, 1.0],
+		["desk_lamp_arm_01", Vector3(-10.6, 14.99, -18.15), 180.0, 1.0],
+		["metal_stool_01", Vector3(-18.8, 14, -17), 0.0, 1.0],
+		["metal_stool_02", Vector3(-14.4, 14, -17), 25.0, 1.0],
+		["cleaner_tin_01", Vector3(-20.5, 14.99, -10.5), 0.0, 1.0],
+		["office_notepads", Vector3(-18.4, 14.99, -10.6), 15.0, 1.0],
+		["metal_jug", Vector3(-12.5, 14.99, -10.5), 0.0, 1.0],
+		["Camera_01", Vector3(-10.2, 14.99, -10.55), 200.0, 1.0],
+		["can_rusted", Vector3(-6, 14.73, -14), 0.0, 1.0],
+		["russian_food_cans_01", Vector3(-6, 15.53, -11.8), 20.0, 1.0],
+		["ammo_box", Vector3(-6, 16.33, -12.8), 0.0, 1.0],
+		["steel_frame_shelves_02", Vector3(-22.6, 14, -8.9), 180.0, 1.6],
+		["drawer_cabinet", Vector3(-20.5, 14, -8.9), 180.0, 1.1],
+		["metal_trash_can", Vector3(-19, 14, -9.1), 0.0, 1.0],
+		["korean_fire_extinguisher_01", Vector3(-4.4, 15, -16.5), 270.0, 1.0, "wall"],
+		["industrial_wall_lamp", Vector3(-23.6, 16.4, -14), 90.0, 1.2, "wall"],
+		# --- bridge-1 landing
+		["wooden_crate_01", Vector3(-13.9, 14, -20.3), 10.0, 1.0, "", true],
+		["old_military_crate", Vector3(-14.7, 14, -21.3), 200.0, 1.0, "", true],
+		["lifebuoy", Vector3(-9, 15.1, -23.7), 0.0, 1.0, "wall", true],
+		# --- low deck
+		["wooden_crate_01", Vector3(24.6, 3.2, -17), 15.0, 1.0, "", true],
+		["Barrel_01", Vector3(30, 3.2, -16.4), 0.0, 1.0, "", true],
+		["wicker_basket_02", Vector3(28.6, 3.2, -22.8), 30.0, 1.0, "", true],
+		["fishermans_hat", Vector3(27.7, 3.2, -22.85), 15.0, 1.0, "", true],
+		# --- mess hall
+		["Lantern_01", Vector3(-24.3, 14.74, 8.1), 0.0, 1.0],
+		["pot_enamel_01", Vector3(-23.2, 14.74, 7.9), 20.0, 1.0],
+		["metal_jug", Vector3(-22.2, 14.74, 8.25), 200.0, 1.0],
+		["russian_food_cans_01", Vector3(-19.4, 14.74, 7.85), 15.0, 1.0],
+		["plastic_thermos", Vector3(-18.3, 14.74, 8.2), 0.0, 1.0],
+		["modified_thermos", Vector3(-17.3, 14.74, 7.85), 120.0, 1.0],
+		["carved_wooden_plate", Vector3(-16.2, 14.74, 8.2), 0.0, 1.0],
+		["chess_set", Vector3(-13.6, 14.74, 8.05), 25.0, 1.0],
+		["boombox", Vector3(-11.6, 14.74, 8.1), 200.0, 1.0],
+		["long_life_food", Vector3(-10.3, 14.74, 7.8), 45.0, 1.0],
+		["brass_pan_01", Vector3(-29.1, 15.02, 14.1), 30.0, 1.0],
+		["wooden_cutting_board", Vector3(-29.1, 15.02, 14.9), 0.0, 1.2],
+		["vintage_electric_kettle", Vector3(-29.1, 15.02, 16.1), 210.0, 1.0],
+		["brass_pot_02", Vector3(-29.1, 15.02, 16.8), 0.0, 1.0],
+		["plastic_bottle_gallon", Vector3(-29.1, 15.02, 17.5), 25.0, 1.0],
+		["all_purpose_cleaner", Vector3(-29.15, 15.02, 12.2), 0.0, 1.0],
+		["russian_food_cans_01", Vector3(-29.15, 16.13, 14.4), 20.0, 1.0],
+		["wicker_basket_02", Vector3(-11.6, 14.48, 5.5), 0.0, 1.0],
+		["plastic_container", Vector3(-11.7, 15.18, 5.5), 0.0, 1.0],
+		["garden_gloves_01", Vector3(-10.3, 15.18, 5.6), 40.0, 1.0],
+		["steel_frame_shelves_01", Vector3(-29.3, 14, 4.6), 90.0, 1.6],
+		["hand_truck", Vector3(-6.2, 14, 15.2), 180.0, 1.0],
+		["korean_fire_extinguisher_01", Vector3(-4.4, 15, 6), 270.0, 1.0, "wall"],
+		["wall_clock", Vector3(-4.4, 16.3, 8.2), 270.0, 1.0, "wall"],
+		["watering_can_metal_01", Vector3(-12.7, 14, 4.7), 30.0, 1.0],
+		# --- plant hall
+		["metal_office_desk", Vector3(25, 14, 6.5), 270.0, 1.35],
+		["metal_stool_01", Vector3(23.8, 14, 6.5), 0.0, 1.0],
+		["bench_vice_01", Vector3(25, 14.72, 7.35), 0.0, 1.3],
+		["binder_notebook", Vector3(25, 14.72, 6.2), 100.0, 1.0],
+		["steel_frame_shelves_01", Vector3(25.2, 14, 8.6), 270.0, 1.7],
+		["steel_frame_shelves_02", Vector3(25.2, 14, 13.6), 270.0, 1.7],
+		["worn_metal_rack", Vector3(25.2, 14, 15.8), 270.0, 1.8],
+		["metal_tool_chest", Vector3(2.9, 14, 6), 90.0, 1.1],
+		["metal_toolbox", Vector3(3.1, 14, 7), 100.0, 1.0],
+		["portable_welding_cart", Vector3(4.6, 14, 6.4), 90.0, 1.0],
+		["propane_tank", Vector3(5.6, 14, 5.1), 0.0, 1.4],
+		["portable_generator", Vector3(3.2, 14, 8.6), 90.0, 1.0],
+		["Barrel_01", Vector3(2.9, 14, 13.5), 0.0, 1.0],
+		["Barrel_02", Vector3(2.9, 14, 14.6), 40.0, 1.0],
+		["metal_jerrycan", Vector3(4.1, 14, 13.5), 25.0, 1.0],
+		["cement_bag", Vector3(3.4, 14, 17.6), 10.0, 1.0],
+		["hand_truck", Vector3(5.8, 14, 17.9), 180.0, 1.0],
+		["industrial_storage_cart", Vector3(9.4, 14, 17.6), 0.0, 1.1],
+		["wooden_military_crate", Vector3(21.8, 14, 17.7), 8.0, 1.0],
+		["old_military_crate", Vector3(20.4, 14, 17.8), -12.0, 1.0],
+		["korean_fire_extinguisher_01", Vector3(2.4, 15, 12.6), 90.0, 1.0, "wall"],
+		["power_box_01", Vector3(2.4, 15.4, 8.2), 90.0, 1.2, "wall"],
+		["mounted_fluorescent_lights", Vector3(10, 20.4, 8), 0.0, 1.4, "wall"],
+		["mounted_fluorescent_lights", Vector3(18, 20.4, 13.5), 0.0, 1.4, "wall"],
+		# --- process deck
+		["metal_tool_chest", Vector3(-24, 6.8, 18.6), 180.0, 1.1, "", true],
+		["portable_welding_cart", Vector3(-21.5, 6.8, 18.5), 180.0, 1.0, "", true],
+		["propane_tank", Vector3(-20.4, 6.8, 18.7), 0.0, 1.4, "", true],
+		["Barrel_01", Vector3(-18.5, 6.8, 18.7), 0.0, 1.0, "", true],
+		["Barrel_02", Vector3(-17.4, 6.8, 18.8), 40.0, 1.0, "", true],
+		["steel_frame_shelves_01", Vector3(-13, 6.8, 18.9), 180.0, 1.7, "", true],
+		["hand_truck", Vector3(-8, 6.8, 18.7), 180.0, 1.0, "", true],
+		["industrial_storage_cart", Vector3(-5.5, 6.8, 18.6), 180.0, 1.1, "", true],
+		["korean_fire_extinguisher_01", Vector3(-11, 6.8, -17), 0.0, 1.0, "", true],
+		["metal_toolbox", Vector3(-19.6, 7.12, 12.6), 20.0, 1.0, "", true],
+		["lubricant_spray", Vector3(-12.2, 7.12, 12.6), 40.0, 1.0, "", true],
+		["pipe_wrench", Vector3(-4.8, 7.12, 12.6), 70.0, 1.0, "", true],
+		["plastic_jerrycan", Vector3(16.9, 6.8, -12.4), 30.0, 1.0, "", true],
+		# --- roof garden
+		["watering_can_metal_01", Vector3(-25.2, 21.84, 4.6), 30.0, 1.2, "", true],
+		["garden_gloves_01", Vector3(-24, 21.84, 6.2), 15.0, 1.0, "", true],
+		["wicker_basket_01", Vector3(-20.5, 21.84, 5), 0.0, 1.3, "", true],
+		["wicker_basket_02", Vector3(-19, 21.84, 5.9), 40.0, 1.2, "", true],
+		["ceramic_pot", Vector3(-14.6, 21.84, 4.8), 0.0, 1.2, "", true],
+		["fern_02", Vector3(-13.2, 21.84, 6.1), 0.0, 1.6, "", true],
+		["fir_sapling", Vector3(-8.6, 21.84, 5.2), 0.0, 1.4, "", true],
+		["celandine_01", Vector3(-7, 21.84, 6), 0.0, 1.4, "", true],
+		["plastic_broom", Vector3(-29.2, 21.2, 13), 5.0, 1.0, "", true],
+		["wooden_bucket_01", Vector3(-29.2, 21.2, 12), 20.0, 1.0, "", true],
+		["wooden_bucket_02", Vector3(-29.2, 21.2, 7.9), 60.0, 1.0, "", true],
+		["cement_bag", Vector3(-27, 21.2, 2.9), 25.0, 1.0, "", true],
+		["wooden_crate_01", Vector3(-11, 21.2, 2.9), 10.0, 1.0, "", true],
+		# --- tank farm
+		["Barrel_01", Vector3(32, 14, -14.6), 0.0, 1.0, "", true],
+		["Barrel_02", Vector3(33.2, 14, -14.7), 35.0, 1.0, "", true],
+		["metal_jerrycan", Vector3(34.4, 14, -14.6), 20.0, 1.0, "", true],
+		["korean_fire_extinguisher_01", Vector3(31.3, 14, -14.9), 90.0, 1.0, "", true],
+		["metal_tool_chest", Vector3(31.6, 14, 14.4), 90.0, 1.1, "", true],
+		["old_military_crate", Vector3(32.2, 14, 15.8), 10.0, 1.0, "", true],
+	]
 
 ## THE ANCHORAGE — the luxury rig, and the one the owner cares most about.
 func ANCHORAGE() -> Array:
