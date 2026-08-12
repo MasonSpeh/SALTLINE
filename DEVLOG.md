@@ -2873,3 +2873,26 @@ not a wall. Verified the rest of the circulation on the same audit: the roof net
 aimed shot; RigFieldProbe's climb-line/floor checks were already green throughout, so
 the "mess" was this one sealed enclosure plus general visual density, not broken stairs.
 Gates: TestRunner 0, RigFieldProbe 0.
+
+## s62 — the field accessibility log: every outer edge, every stair, cross-checked
+
+Built `tests/FieldAccessibilityLog.tscn` — a durable, re-runnable report on top of
+RigFieldProbe, requested after s61's sealed-bund-wall find showed the stair/climb
+probes can't see enclosures. Two checks nothing else in the repo does:
+  1. EVERY outer-deck perimeter point (412 samples across MARROW/ANCHORAGE/DEEPWELL,
+     2 m spacing), not just declared rail gaps — if the floor doesn't continue near
+     deck height, a rail MUST be found there.
+  2. Every registered stair flight (62), re-verified and logged individually.
+
+Two real instrument bugs found and fixed en route, both worth keeping: sampling
+EXACTLY on a Rect2 deck's box face is a numeric grazing hit (flip-flops depending on
+which side of the face epsilon lands on) — insetting the floor-continuity sample 0.15 m
+inboard fixed a whole false-positive cluster. And a perimeter point can legitimately
+sit on a sloped STAIR TREAD a metre below flat-deck tolerance — cross-referencing every
+remaining flag against the 62 registered stair segments (nearest-point-on-segment
+distance) separated 8 genuine near-stair samples (1.3-1.6 m from a real flight — sloped
+tread, not a gap) from anything that would have been a true unguarded drop.
+
+Result: **0 true unguarded edges across 412 samples, 0 bad stairs across 62 flights,
+on all three field rigs.** Log written to tests/out/field_accessibility_log.md.
+Gates: TestRunner 0, RigFieldProbe 0.
