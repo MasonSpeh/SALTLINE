@@ -2996,3 +2996,52 @@ suites have read as empty in every review frame ever taken of them.
 
 Gates: TestRunner 0 · RigFieldProbe 0 (chunks 218/240, far 149/150, 62 flights, 50 seats, 107
 bridge samples) · field-dress 238 props placed and settled.
+
+### s64, second half — MARROW, and the things that were standing inside each other
+
+The audit pass ran as two workflows; three of its seven agents died mid-submit on connection
+errors and were re-run, and one result was recovered by reading the dead agent's transcript
+off disk rather than re-paying for it. What came back was worth the trouble: the manifests
+were checkable line by line (every prop id verified against `assets/models`, every coordinate
+derived against the owning rig's own constants, with the clearance actually checked written
+into the note), and between them they convicted **eight real geometry bugs that no probe in
+this repo could see**, because every one of them is an intersection between two things that
+are each individually correct.
+
+**On MARROW:** a 10 m heat-exchanger bank standing INSIDE the mess hall with both support
+columns on the room's floor and its middle tube through the cold vault built there last
+session; a 7 m valve manifold poking 2.2 m through the mess hall's south wall, solid and
+colliding; tank T-303 driven through the tank-farm bund wall, burying a 4.8 m chord of it and
+most of the transfer manifold; and the compost bays and water butt built on top of the north
+row of raised beds. **On THE ANCHORAGE:** the podium's north-west exterior door opening
+straight into guest suite W6 — a fire door onto the open north deck, into a bedroom with no
+other connection to it — and four terrace planters hanging over the atrium light well.
+**On DEEPWELL:** the control room's floor slab coplanar with the lab roof it stands on, and a
+racked pipe stand through the V-door stair's handrail.
+
+That is the lesson worth keeping from this session's tooling: **the probes here check whether
+a thing is REACHABLE, and nothing checks whether two things occupy the same cubic metre.**
+Every accessibility gate was green through all eight of these. A future pass wants an
+intersection probe — sample the interior volume of each declared room and assert nothing from
+another subsystem is inside it.
+
+**The furniture the boxes were pretending to be.** Two helpers were rebuilt rather than
+replaced with props, because 36 GLB dining chairs would have cost a third of the prop budget
+for one room: `_dining_table`'s chair (two velvet boxes with no legs and no rail — what made
+a double-height dining hall photograph as a works canteen) now has four slim legs, an
+overhanging seat, uprights and a padded back rail with daylight under it; and `_sofa` (a slab,
+a back slab and two arm slabs on a brass plinth — a rectangle at salon range) now stands on
+legs with a real gap underneath, split cushions, a raked back with a capping rail and rolled
+arms. Both still use only the materials their room already pays for.
+
+**Totals.** 278 authored prop rows plus the derived suite set — MARROW 110 across eight rooms,
+THE ANCHORAGE 75 public-room rows plus eight per suite derived from `_suites()`' own cell
+tables, DEEPWELL 93. Every id verified against the pack before it was written.
+
+**One regression, self-inflicted, caught by the gate before it shipped:** a timber floor
+overlay laid across the whole east wing blocked flight #26's line of climb. A solid 4 cm slab
+sits in the path of the flight climbing INTO the wing — a ray 0.75 m above the walking line
+clears it at the head but not lower down. Reverted, with the reason left in place.
+
+Gates: TestRunner 0 · RigFieldProbe 0 (chunks 218/240, far 149/150, 62 flights, 50 seats,
+107 bridge samples) · field-dress 348 props placed and settled.
