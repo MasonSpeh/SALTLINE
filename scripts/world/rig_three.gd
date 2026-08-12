@@ -1146,6 +1146,14 @@ static func _ceilings(b: KIT.Bake) -> void:
 			[Vector3(30.0, soff_y, -21.0), Vector3(19.6, 0.08, 13.6)],   # kitchen
 			[Vector3(0.0, MAIN_Y + 3.32, 26.0), Vector3(27.4, 0.08, 7.4)],  # spa ground
 			[Vector3(29.0, DINE_ROOF - 0.45, 1.1), Vector3(21.2, 0.10, 21.4)],  # dining hall
+			# s64 — THE SUITES. The s56 pass finished every PUBLIC room and stopped, so the
+			# nine bedrooms — the rooms a guest actually spends the night in — kept the
+			# structural slab's raw treadplate underside as their ceiling. Two slabs cover
+			# the whole horseshoe: the west flank (rooms span x -40..-24, z -13..22) and the
+			# south run (x -40..-16, z -28..-13). Both stop clear of the west hall soffit at
+			# x -23.9 and the south hall's at z -12.9, so no two soffits are coplanar.
+			[Vector3(-32.0, soff_y, 4.5), Vector3(15.8, 0.08, 34.8)],
+			[Vector3(-28.0, soff_y, -20.5), Vector3(23.8, 0.08, 14.8)],
 			[Vector3(0.0, 19.1, 0.0), Vector3(66.0, 0.10, 46.0)]]:   # pool hall — under the girders
 		b.box(spec[0], spec[1], white, "hull", Vector3.ZERO)
 	# Recessed downlight dots where there are no pendants.
@@ -1164,6 +1172,11 @@ static func _ceilings(b: KIT.Bake) -> void:
 	b.box(Vector3(-20.0, MAIN_Y + 0.02, 4.5), Vector3(7.7, 0.04, 34.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
 	b.box(Vector3(-28.0, MAIN_Y + 0.02, -11.0), Vector3(23.7, 0.04, 3.7), MatLib.lino_floor(), "hull", Vector3.ZERO, true)
 	b.box(Vector3(0.0, MAIN_Y + 0.02, 26.0), Vector3(27.5, 0.04, 7.5), MatLib.wood(), "hull", Vector3.ZERO, true)
+	# And the suites' own floors — timber, the material the spa already pays for, under the
+	# whole horseshoe. SOLID, per the s56 cat lesson: a covering that exists only visually
+	# seats every down-ray 4 cm under the floor the player can see.
+	b.box(Vector3(-32.0, MAIN_Y + 0.02, 4.5), Vector3(15.9, 0.04, 34.9), MatLib.wood(), "hull", Vector3.ZERO, true)
+	b.box(Vector3(-28.0, MAIN_Y + 0.02, -20.5), Vector3(23.9, 0.04, 14.9), MatLib.wood(), "hull", Vector3.ZERO, true)
 
 ## A REAL PLANTER (s59). The old ones were a pot cylinder with a big green CONE on top —
 ## at close range they photographed as two-primitive "bulky lamps" (the owner's report,

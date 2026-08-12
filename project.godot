@@ -120,6 +120,7 @@ lights_and_shadows/directional_shadow/size=8192
 lights_and_shadows/directional_shadow/soft_shadow_filter_quality=1
 lights_and_shadows/positional_shadow/soft_shadow_filter_quality=3
 limits/opengl/max_renderable_lights=160
+limits/opengl/max_lights_per_object=24
 lights_and_shadows/positional_shadow/atlas_quadrant_0_subdiv=1
 lights_and_shadows/positional_shadow/atlas_quadrant_1_subdiv=1
 lights_and_shadows/positional_shadow/atlas_quadrant_2_subdiv=2

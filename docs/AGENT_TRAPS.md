@@ -1342,3 +1342,44 @@ caching, and geometry before anyone checked whether the edit EXISTED (`grep -c` 
 token: 0). The Edit tool ERRORS on a mismatched old_string; use it for source edits, and
 when a frame refuses to change across two different "fixes", the first check is whether
 the code being rendered contains the fix at all.
+
+## `max_lights_per_object` is EIGHT, and it is why every interior looked like a bunker
+
+This is the biggest single-line visual finding in the project so far, and three separate
+sessions worked *around* it without ever naming it.
+
+The symptom, reported by the owner in different words every time: interiors read as "a dim
+concrete car park with furniture in it". The s56 luxury pass answered it by adding white
+soffits and recessed downlights, and the rooms stayed flat. s64 answered it by giving the
+ANCHORAGE nine per-suite lights and warm colour, verified 65/65 omnis were being switched on
+by the breaker — and the suite still photographed almost black.
+
+The cause is not the lighting design. `gl_compatibility` applies at most
+`rendering/limits/opengl/max_lights_per_object` lights **per object**, and it was never set,
+so it sat at the engine default of **8**. Every wall and floor in the field is a `RigKit.Bake`
+chunk welded per (material, group, 48 m cell) — so an entire 48 m block of hotel is ONE
+object, and it receives EIGHT of the ~20 lights standing in it. Which eight is decided per
+object, not per pixel, so whole rooms simply never see their own ceiling light. Adding more
+lights cannot fix it; past eight, each new light makes it *more* likely a given room loses.
+
+Set to 24 in project.godot. Measured on `tests/VantagePerf.tscn`, 40-frame medians, 2 visits:
+the suite went from unreadably dark to a warmly lit timber room (same lights, same geometry —
+the ONLY change was the cap), and the cost was **+1.5 to 2 ms** on the rig-1 vantages, above
+the published noise floor on `deck_floodlit` (+1.69 vs 0.91 noise) and `submerged_deep`
+(+1.58 vs 0.47). 16 was tried as a cheaper compromise and rejected on the picture: it lights
+some chunks and not others, so a room comes out lit on one wall and black on the opposite one.
+
+**The general lesson: when a lighting change has no effect on the pixels, stop tuning the
+lights and check the renderer's per-object limit.** A batched world hits this far earlier
+than an unbatched one, because batching is exactly what makes one object cover many rooms —
+the draw-call win and this limit are the same trade, seen from two sides.
+
+## A `lamp_lens` is emissive GEOMETRY and illuminates NOTHING
+
+Adjacent to the above, and it cost s64 two render passes. `KIT.lamp_lens()` /
+`led_cove()` / `led_ring()` write a glowing *mesh*. They are what the rig reads as from
+another platform (see the emissive-surface trap above) and they cost nearly nothing — but
+they do not light a room, they only look like something that would. DEEPWELL's four new
+interiors were built with lenses on their ceilings and came back black; the core lab's only
+real omni sat at y 25, *above* its own 23.30 ceiling. A room a player stands in needs an
+entry in that rig's `_lights()` `pts` table, which pairs a lens WITH an `OmniLight3D`.
