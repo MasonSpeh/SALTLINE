@@ -3045,3 +3045,86 @@ clears it at the head but not lower down. Reverted, with the reason left in plac
 
 Gates: TestRunner 0 · RigFieldProbe 0 (chunks 218/240, far 149/150, 62 flights, 50 seats,
 107 bridge samples) · field-dress 348 props placed and settled.
+
+## s65 — the owner was right: three passes in, the luxury interior was still awful
+
+Owner, with a screenshot: *"The internal design is still absolutely awful after 3 runs. You have
+done a terrible job. Character still gets permanently stuck on the corners of railing... remove
+the BS Statues everywhere random. Make a fucking good plan first before shitting all over
+everything."* Then: *"Focusing on the luxury rig internal, improve."*
+
+Every one of those was correct and every one had a measurable cause. This session made a plan
+first, and the causes were found before anything was edited.
+
+**THE BEIGE WAS A MATERIAL BUG, NOT A TASTE PROBLEM.** s64's `hotel_plaster()` was still
+`Concrete012` — a map with 11.5 deg mean normal relief, i.e. photographed board-marked
+formwork; no tint makes formwork read as plaster. Its tint solved through `srgb_to_linear`
+to **#C5AE89 at 30.6% saturation** (1.7x the material it replaced, 3x `concrete()`) at
+**uv 1.40 = 0.71 m/tile**, the tightest architectural scale in the library — so on the drum,
+the four gallery slabs and the 17 m saucer (~24 repeats edge to edge) it mipped down to its
+own mean and stopped being texture at all. Too-warm mean x too-tight tile = a uniform beige
+fill. Rebuilt on the procedural `_fine()` grain; same cache key, so it cost nothing.
+
+**AND IT HAD BEEN PAINTED ON THE BUILDING.** The s64 swap was blanket — 19 STRUCTURAL sites
+against 6 interior-room ones — so the podium's exterior facade, both towers, the atrium drum,
+all four gallery slabs and every stair stringer were wearing a bedroom finish. 17 moved onto
+materials already live in `"hull"` here, at zero chunk cost. **Two of those picks were wrong
+and the frame convicted them**: `painted_steel` is a WEATHERED material and the gallery rings
+are the atrium's *ceiling* seen from the floor (a rusty mottled lid over a hotel lobby), while
+`dark_metal` turned the chord stairs into rust beams across the hero view. Both corrected.
+
+**THE ROOM HAD NO MATERIAL HIERARCHY AT ALL** — one tone on wall, ceiling, column, soffit,
+drum and floor, so nothing had a horizon line and the eye had nothing to measure the room
+against. New `MatLib.liner_panel()` runs as a 1.05 m **dado with a brass cap rail** out of
+`_wall_x`/`_wall_z`, so every interior partition gets it from one place. It is the one new
+material the budget could afford: far 149 -> **150/150**, measured.
+
+**THE SAUCER** — 17.2 m of blank disc filling a third of the owner's frame — is the aquarium's
+plinth now: dark lacquered riser, timber top, a 48-segment brass nosing, over the existing cove
+so it floats. **And everything on it was 0.30 m SUNK INTO it**: `Bake.cyl` positions by CENTRE,
+so the walking surface is `MAIN_Y+0.92`, but all four sofa/table groups were authored to `+0.62`
+and the ring planters to `MAIN_Y` against a tier topping at `+0.32`. That is why the sitting
+groups photographed as dark lumps rather than furniture.
+
+**THE STATUES WERE FURNITURE ORNAMENTS BLOWN UP TO HUMAN SCALE.** Three bronzes at r 13.80 —
+the middle of the 3.8 m ambulatory, the hotel's main circulation loop — on no plinth, as a set
+of 3 half-implying a 4-fold pattern with the 315 deg quadrant left empty, **scaled x2.5** from
+the 0.6 m shelf ornaments they are on rig 1, and solid enough to walk into. Each now stands at
+its true size on a console or a deco cabinet backed to one of the four glazed piers, and the
+empty quadrant gets the cabinet, the whale and a lamp. Five baked surfaces that carried nothing
+are dressed.
+
+**THE RAILINGS: A FIX RIG 1 HAS HAD SINCE s20.** `RigKit.rail_run()` emitted a collider
+spanning each run's full length with a square end cap; two runs meeting at a right angle give a
+capsule two slide directions that cancel. All three SALTLINE-0 rail builders shave
+`RAIL_END_SHAVE = 0.18` for exactly this reason — `grep -c SHAVE rig_kit.gd` was **0**. s59
+found it, fixed the symptom, and filed the real fix as its "top follow-up" in a DEVLOG
+paragraph and a review artifact, **never in KNOWN_ISSUES**, so six sessions of readers never
+saw it. Also found: the outboard rings' four runs share corner points, leaving a **0.9 x 0.9
+hole in the walking surface at every ring corner, 20 m over the sea**; and `_wedge_escape` moved
+along the SUM of the wall normals, which is ~zero for *opposed* faces, so it bailed on precisely
+the geometry that raised its own `opposed` flag. **Measured: mezzanine corners 0.83 m -> 0.94 m
+against a 0.74 m capsule.** `tests/RailCornerProbe.tscn` now walks a real capsule through every
+corner in the field, because neither existing instrument samples this geometry.
+
+**TWO PHYSICS KEYS THAT NEVER DID ANYTHING.** `project.godot` has declared enhanced internal
+edge removal since `af3861b`, but those two lines are the only keys in the file that repeat
+their own section name, so they resolved to `physics/physics/jolt_…` and nothing read them.
+Landed as its own commit with all four controller stair probes re-run around it.
+
+**RAIN FELL INDOORS** because `COVER_BOXES` is rig-1-only and the field was never entered into
+it — while the emitter, pinned 16 m above the player, spawned every drop at y 38 on the atrium
+floor: *inside* the drum, under its own roof. The table could not just be extended (24 slots,
+16 spent, and all three rigs yaw-rotated), so the shader takes 48 slots and a **per-box yaw**,
+rotating the drop about the box centre so a rotated room is tested square instead of fitted.
+17 volumes authored in rig-local frames; `rain_catcher` mirrors them, so indoor barrels stop
+collecting rain too.
+
+**THE LESSON WORTH KEEPING:** every one of these was findable from source and pixels, and none
+of them was found by the gates, because the gates check *reachability and budget* — not whether
+a material suits its surface, whether furniture sits on top of the thing it stands on, or
+whether two things occupy the same cubic metre. Three of this session's bugs (the sunk
+furniture, the beige, the indoor rain) were visible in a frame the owner looked at before I did.
+
+Gates: RailCornerProbe 0 · RigFieldProbe 0 (218 chunks, far 150/150) · TestRunner 0 ·
+StairHitch/Walk/Jam/Junction 0.
