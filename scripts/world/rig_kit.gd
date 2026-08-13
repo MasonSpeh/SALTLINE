@@ -324,6 +324,41 @@ static func deck_hole(b: Bake, rect: Rect2, hole: Rect2, y: float, thick: float 
 const RAIL_H: float = 1.12          ## top rail height above the walking surface
 const RAIL_BAR: float = 0.07
 
+## HOW FAR A RAIL RUN'S COLLISION STOPS SHORT OF ITS VISUAL STEEL AT EACH END.
+##
+## This is the corner-forgiveness shave, and it is the fix rig 1 has had since s20 while the
+## kit that builds MARROW, THE ANCHORAGE and DEEPWELL never received it — `grep -c SHAVE` on
+## this file returned 0 until s65. It was filed as the top follow-up of s59 ("the rail-post
+## chamfer at source"), deferred, and never entered into KNOWN_ISSUES, which is why the owner
+## has reported "permanently stuck on the corners of railing" in every session since.
+##
+## The mechanism, quoting rig_builder.gd's own note: a rail run ends in a square cap, and
+## where two runs meet those caps are two flat faces at right angles with an outside corner
+## between them. A capsule cutting the corner diagonally arrives on BOTH faces in the same
+## frame, gets a slide direction from each, and they cancel — the player stops dead on thin
+## air a hand's width from the rail. Pulling the invisible barrier back from the visual end
+## turns that hard corner into a rounded one: you slide off the end of the slab instead of
+## hitting its cap.
+##
+## It cannot open a hole. 0.18 m off each end only ever widens a gap that is already an
+## intended opening, and the narrowest a player capsule (radius 0.37) can pass through is
+## 0.74 m — four times this.
+const RAIL_END_SHAVE: float = 0.18
+
+## A rail's collision slab, shaved at both ends. `length` is the run's visual length; the
+## collider returned is shorter. Runs too short to shave keep their full length, because
+## taking 0.36 m off a 0.5 m stub would leave almost nothing to lean on.
+##
+## NOT used by `ring_rail`: that builds a continuous curve out of many short chained segments,
+## and shaving each one would perforate an unbroken barrier into a dashed line. The trap this
+## fixes is the RIGHT-ANGLE junction, which a smooth ring does not have.
+static func _rail_collider(b: Bake, pos: Vector3, cross: float, height: float,
+		length: float, rot: Vector3) -> void:
+	var l: float = length
+	if l > RAIL_END_SHAVE * 3.0:
+		l -= RAIL_END_SHAVE * 2.0
+	b.collider(pos, Vector3(cross, height, l), rot)
+
 ## One straight run of railing between two local XZ points, at walking height `y`.
 ## Visual: two horizontal bars + posts. Physical: ONE smooth full-height slab, so a capsule
 ## pressed against it cannot catch at the waist (rig_exterior._rail_slab's lesson).
@@ -347,7 +382,7 @@ static func rail_run(b: Bake, a: Vector2, c: Vector2, y: float, collide: bool = 
 	b.box(mid + Vector3(0, 0.09, 0), Vector3(0.05, 0.18, span), MatLib.rust_steel(), "detail",
 		Vector3(0, yaw, 0))
 	if collide:
-		b.collider(mid + Vector3(0, RAIL_H * 0.5 + 0.05, 0), Vector3(0.14, RAIL_H + 0.1, span),
+		_rail_collider(b, mid + Vector3(0, RAIL_H * 0.5 + 0.05, 0), 0.14, RAIL_H + 0.1, span,
 			Vector3(0, yaw, 0))
 
 ## Perimeter railing around a rect, with named side gaps. `gaps` is an array of
@@ -458,8 +493,8 @@ static func stair(b: Bake, from_p: Vector3, to_p: Vector3, width: float,
 		var off: Vector3 = side * (sg * (width * 0.5 + 0.05))
 		b.box(from_p + off + fwd * (run * 0.5) + Vector3(0, rise * 0.5 + 0.95, 0),
 			Vector3(0.07, 0.07, slope_len + 0.2), steel, "detail", Vector3(-angle, yaw, 0))
-		b.collider(from_p + off + fwd * (run * 0.5) + Vector3(0, rise * 0.5 + 0.55, 0),
-			Vector3(0.12, 1.3, slope_len + 0.2), Vector3(-angle, yaw, 0))
+		_rail_collider(b, from_p + off + fwd * (run * 0.5) + Vector3(0, rise * 0.5 + 0.55, 0),
+			0.12, 1.3, slope_len + 0.2, Vector3(-angle, yaw, 0))
 		var n_posts: int = maxi(2, int(run / 1.5))
 		for i in range(n_posts + 1):
 			var t2: float = float(i) / float(n_posts)
@@ -547,7 +582,7 @@ static func catwalk(b: Bake, a: Vector3, c: Vector3, width: float = 1.8,
 		if rails:
 			b.box(mid + off + Vector3(0, RAIL_H, 0), Vector3(0.06, 0.06, span), MatLib.galvanized(), "detail", rot)
 			b.box(mid + off + Vector3(0, RAIL_H * 0.55, 0), Vector3(0.06, 0.06, span), MatLib.galvanized(), "detail", rot)
-			b.collider(mid + off + Vector3(0, RAIL_H * 0.55, 0), Vector3(0.12, RAIL_H + 0.2, span), rot)
+			_rail_collider(b, mid + off + Vector3(0, RAIL_H * 0.55, 0), 0.12, RAIL_H + 0.2, span, rot)
 			var posts: int = maxi(2, int(span / 2.2))
 			for i in range(posts + 1):
 				var t: float = float(i) / float(posts)
@@ -584,6 +619,27 @@ static func railed_walk(b: Bake, a: Vector3, c: Vector3, width: float,
 			cursor = maxf(cursor, g[1])
 		if span - cursor > 0.5:
 			_walk_rail_seg(b, a + off, c + off, span, cursor, span)
+
+## THE CORNER OF AN OUTBOARD RING, which four `railed_walk` runs leave as a HOLE (s65).
+##
+## The rings on MARROW and DEEPWELL are four runs sharing their corner points. A run's deck
+## spans exactly `a`->`c` (see `catwalk`), so where the south run starts at x0 and the west
+## run starts at z0, the quadrant OUTBOARD of both — x < x0 and z < z0 — is covered by
+## neither: a `half` x `half` gap in the walking surface at every corner, 20 m over the sea,
+## with both outer rails ending at its edges rather than turning it. Neither the field probe
+## nor the 412-sample accessibility log samples these rings, which is why it survived.
+##
+## `cx`/`cz` are the shared corner point; `sx`/`sz` say which way the missing quadrant lies.
+static func mezz_corner(b: Bake, cx: float, cz: float, y: float, half: float,
+		sx: float, sz: float) -> void:
+	var ox: float = cx + sx * half * 0.5
+	var oz: float = cz + sz * half * 0.5
+	# Fill the quadrant exactly — no overlap with either run's deck, because two coplanar
+	# decks at the same y z-fight (the s64 dining-floor lesson).
+	catwalk(b, Vector3(cx + sx * half, y, oz), Vector3(cx, y, oz), half, false)
+	# And turn the two outboard edges, which currently end in mid-air.
+	rail_run(b, Vector2(cx + sx * half, cz + sz * half), Vector2(cx + sx * half, cz), y)
+	rail_run(b, Vector2(cx + sx * half, cz + sz * half), Vector2(cx, cz + sz * half), y)
 
 static func _walk_rail_seg(b: Bake, a: Vector3, c: Vector3, span: float, d0: float, d1: float) -> void:
 	var p0: Vector3 = a.lerp(c, d0 / span)

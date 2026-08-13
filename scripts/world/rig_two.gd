@@ -614,6 +614,9 @@ static func _mezzanine(b: KIT.Bake) -> void:
 	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z1), Vector3(x1, MEZZ_Y, z1), 1.8, [], [[20.6, 23.8]])
 	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z0), Vector3(x0, MEZZ_Y, z1), 1.8, [], [[6.6, 9.8]])
 	KIT.railed_walk(b, Vector3(x1, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z1), 1.8, [[41.4, 44.6]], [])
+	# The four corners the runs leave as holes — see KIT.mezz_corner.
+	for cs in [[x0, z0, -1.0, -1.0], [x1, z0, 1.0, -1.0], [x0, z1, -1.0, 1.0], [x1, z1, 1.0, 1.0]]:
+		KIT.mezz_corner(b, float(cs[0]), float(cs[1]), MEZZ_Y, 0.9, float(cs[2]), float(cs[3]))
 	# Four stairs up from the deck, heads at the ring's INNER (deck-side) edge — a
 	# centreline head runs its last metre of climb under the walkway slab.
 	for spec in [[Vector3(DECK.position.x + 1.4, MAIN_Y, -12.6), Vector3(x0 + 0.85, MEZZ_Y, -17.4)],

@@ -657,3 +657,50 @@ and the hero-feature shells. Everything below is known-absent, not broken.
 - **The driller's cabin is a solid block with a glass sticker**, not a room
   (`rig_four._drill_substructure`). Should be a `KIT.lookout()` on the same footprint so it can
   be entered and dressed like the control room now is.
+
+## RAILING CORNERS — FIXED s65, and why it took six sessions
+
+**The bug.** The player got *permanently stuck* on railing corners across MARROW, THE
+ANCHORAGE and DEEPWELL. Reported by the owner repeatedly.
+
+**Root cause.** `RigKit.rail_run()` emitted one box collider per rail run spanning the run's
+full authored length with a **square cap at each end**. Where two runs meet at a right angle
+those caps are two flat faces with an outside corner between them; a capsule cutting the
+corner diagonally touches both in the same frame, takes a slide direction from each, and they
+cancel — the player stops dead on thin air a hand's width from the rail.
+
+**SALTLINE-0 has never had this bug.** All three of its rail builders shave
+`RAIL_END_SHAVE = 0.18` off each collider end for exactly this reason, documented at length in
+`rig_builder.gd:189-201`. The KIT that builds the other three rigs simply never received it —
+`grep -c SHAVE scripts/world/rig_kit.gd` returned **0**.
+
+**Why it survived.** It was found in s59, fixed only at the *symptom* layer (the V-wedge
+escape), and the real fix was filed as "the rail-post chamfer at source" in a DEVLOG paragraph
+and a review artifact that called it *"the top follow-up"* — **and never entered here.** Six
+sessions of KNOWN_ISSUES readers never saw it. That is the process lesson: a follow-up that
+lives only in a session log is a follow-up that does not exist.
+
+**Fixed (s65):**
+- `rig_kit.gd` — `RAIL_END_SHAVE` + `_rail_collider()`, applied to `rail_run`, `catwalk`'s
+  rails and the stair handrail. **Deliberately NOT applied to `ring_rail`**, which builds a
+  continuous curve from many chained short segments; shaving those would perforate an unbroken
+  barrier into a dashed line, and a smooth ring has no right-angle junction to trap anyone.
+- `rig_kit.mezz_corner()` + call sites in `rig_two`/`rig_four` — the outboard rings' four runs
+  shared corner points, so the quadrant outboard of both was covered by **neither**: a
+  0.9 x 0.9 **hole in the walking surface at every ring corner, 20 m over the sea**, with both
+  outer rails ending at its edges rather than turning it.
+- `player_controller._wedge_escape()` — it moved along the **sum** of the wall normals, which
+  is ~zero for *opposed* faces, so it returned false on precisely the geometry that raised the
+  `opposed` flag. It now falls back to escaping **along the slot axis**.
+
+**Measured, by the new `tests/RailCornerProbe.tscn`:** mezzanine ring corners went from a
+0.83 m gate against a 0.74 m capsule to **0.94 m** (threshold 0.86); all 12 deck rail corners
+walk clear at every station. Gates re-run green: RigFieldProbe 0, TestRunner 0, and all four
+controller-driven stair probes (Hitch / Walk / Jam / Junction) 0.
+
+**Still open, related:** `project.godot` declares
+`physics/jolt_physics_3d/…/use_enhanced_internal_edge_removal=true` twice, but those are the
+only keys in the file that repeat their own section name, so they resolve to
+`physics/physics/jolt_…` and **nothing reads them**. Enhanced internal edge removal has never
+actually been on. Fixing the paths is a genuine global physics change and wants its own commit
+with the four stair probes re-run around it.

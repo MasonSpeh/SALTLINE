@@ -1375,7 +1375,36 @@ func _wedge_escape(flats: Array) -> bool:
 	for f in flats:
 		out += f
 	out.y = 0.0
+	# THE PARALLEL-SLOT CASE (s65). The bisector is the sum of the wall normals, which works
+	# for a genuine V — but the caller only reaches here when two normals are OPPOSED, and for
+	# a slot whose faces are exactly opposed (+X against -X) that sum CANCELS. So the escape
+	# returned false on precisely the geometry that raised the `opposed` flag, and the player
+	# got no assist at all. That is the shape a rail end cap makes against the rail opposite
+	# it: not a corner, a parallel-sided gate — measured at 0.83 m against a 0.74 m capsule on
+	# the mezzanine rings. There is no way OUT sideways there; the way out is ALONG the slot,
+	# so fall back to the slot's own axis and try both directions.
+	var axis: Vector3 = Vector3.ZERO
 	if out.length() < 0.05:
+		for f in flats:
+			var flat := Vector3(f.x, 0.0, f.z)
+			if flat.length() > 0.05:
+				axis = flat.normalized().cross(Vector3.UP).normalized()
+				break
+		if axis == Vector3.ZERO:
+			return false
+		# Both ways along the slot, nearest first; every candidate is still proved unoccupied
+		# and still has to have a floor under it, so this cannot post the player into steel or
+		# off a rim any more than the bisector case could.
+		for cand in [axis * 0.18, -axis * 0.18, axis * 0.4, -axis * 0.4,
+				axis * 0.4 + Vector3.UP * 0.14, -axis * 0.4 + Vector3.UP * 0.14]:
+			var slot_to := Transform3D(global_transform.basis, global_position + cand)
+			if test_move(slot_to, Vector3.ZERO, null, OCCUPANCY_MARGIN, true):
+				continue
+			if not test_move(slot_to, Vector3.DOWN * 1.4, null, OCCUPANCY_MARGIN, true):
+				continue
+			global_position += cand
+			velocity = Vector3.ZERO
+			return true
 		return false
 	out = out.normalized()
 	for cand in [out * 0.16, out * 0.34, out * 0.34 + Vector3.UP * 0.14, Vector3.UP * 0.28]:

@@ -761,6 +761,9 @@ static func _mezzanine(b: KIT.Bake) -> void:
 	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z1), Vector3(x1, MEZZ_Y, z1), 1.8, [], [[7.8, 11.0]])
 	KIT.railed_walk(b, Vector3(x0, MEZZ_Y, z0), Vector3(x0, MEZZ_Y, z1), 1.8, [], [[7.8, 11.0]])
 	KIT.railed_walk(b, Vector3(x1, MEZZ_Y, z0), Vector3(x1, MEZZ_Y, z1), 1.8, [[59.8, 63.0]], [])
+	# The four corners the runs leave as holes — see KIT.mezz_corner.
+	for cs in [[x0, z0, -1.0, -1.0], [x1, z0, 1.0, -1.0], [x0, z1, -1.0, 1.0], [x1, z1, 1.0, 1.0]]:
+		KIT.mezz_corner(b, float(cs[0]), float(cs[1]), MEZZ_Y, 0.9, float(cs[2]), float(cs[3]))
 	var steel: Material = MatLib.rust_steel()
 	for t in [-28.0, -14.0, 0.0, 14.0, 28.0]:
 		for side in [[Vector3(x0, MEZZ_Y, t), Vector3(DECK.position.x + 0.6, MAIN_Y + 0.2, t)],
