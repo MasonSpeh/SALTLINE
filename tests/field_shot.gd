@@ -121,6 +121,12 @@ func _ready() -> void:
 	# s64: the suite shot above looks at the CORRIDOR half of the room — the bed, and every
 	# piece of furniture hung off it, is behind that camera. It is part of why the suites
 	# have read as empty in every review frame since s54c. These look at the bed.
+	# s65: THE OWNER'S OWN VIEWPOINT — standing on the atrium ambulatory looking across the
+	# tank saucer at the water, with the sitting groups to one side. This is the frame that
+	# came back as sand-coloured mud, so it is the frame the fix has to be judged on.
+	await _look(_world(a_o, a_y, Vector3(-11.0, 22, -5.0)), _world(a_o, a_y, Vector3(2.0, 23.4, 5.0)), "s65_owner_view")
+	await _look(_world(a_o, a_y, Vector3(-13.5, 22, 4.0)), _world(a_o, a_y, Vector3(-2.0, 23.2, 4.0)), "s65_saucer_side")
+	await _look(_world(a_o, a_y, Vector3(-20.0, 22, -9.0)), _world(a_o, a_y, Vector3(-20.0, 23.4, 6.0)), "s65_west_hall_dado")
 	await _look(_world(a_o, a_y, Vector3(-27.5, 22, 3.75)), _world(a_o, a_y, Vector3(-37.8, 23.0, 3.75)), "s64_suite_bed")
 	await _look(_world(a_o, a_y, Vector3(-33.0, 22, 6.6)), _world(a_o, a_y, Vector3(-37.5, 22.8, 2.2)), "s64_suite_corner")
 	await _look(_world(a_o, a_y, Vector3(-36.0, 22, -18.0)), _world(a_o, a_y, Vector3(-36.0, 23.0, -26.5)), "s64_suite_south")

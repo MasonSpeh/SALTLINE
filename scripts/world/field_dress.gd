@@ -332,13 +332,50 @@ func MARROW() -> Array:
 ## THE ANCHORAGE — the luxury rig, and the one the owner cares most about.
 func ANCHORAGE() -> Array:
 	var rows: Array = [
-		# --- atrium floor
-		["bronze_whale_statue", Vector3(9.76, 22.12, 13.76), 210.0, 2.5],
-		["bronze_shark_statue", Vector3(-9.76, 22.12, 13.76), 150.0, 2.5],
-		["bronze_ray_statue", Vector3(-9.76, 22.12, -5.76), 30.0, 2.5],
-		["book_encyclopedia_set_01", Vector3(5.37, 23.07, 9.37), 45.0, 1.0],
-		["brass_vase_01", Vector3(-5.37, 23.07, 9.37), 0.0, 1.3],
-		["throw_pillows_01", Vector3(6, 23.07, -2.9), 315.0, 1.0],
+		# --- THE ATRIUM. Rewritten s65 after the owner's "remove the BS statues everywhere
+		#     random", which was exactly right. The three bronzes stood at r 13.80 — the MIDDLE
+		#     of the 3.8 m ambulatory, the hotel's main circulation loop — on no plinth, with no
+		#     fourth to complete the 4-fold pattern they half-implied, and SCALED x2.5 from the
+		#     0.6 m SHELF ORNAMENTS they are on rig 1 into 1.5 m floor sculptures solid enough
+		#     to walk into. A sculpture belongs on a piece of furniture against something.
+		#
+		#     So each one now stands on a console or a cabinet backed to one of the four glazed
+		#     PIERS (bays 1/4/7/10 at 45/135/225/315 deg, r 14.2 — the dead arcs between the
+		#     portal pairs, which is the one place round this ring where furniture does not
+		#     block a doorway), at its true size, facing the water. The 315 deg bay gets the
+		#     deco cabinet and the whale, because that is the quadrant the old set of three
+		#     left empty and it is why they read as random.
+		["chinese_cabinet", Vector3(10.04, 22.04, -6.04), 315.0, 1.0, "fix"],
+		["bronze_whale_statue", Vector3(10.04, 23.06, -6.04), 300.0, 1.0],
+		["vintage_oil_lamp", Vector3(9.15, 23.06, -6.9), 320.0, 1.0],
+		["brass_candleholders", Vector3(10.95, 23.06, -5.2), 300.0, 1.0],
+		["WoodenTable_03", Vector3(10.04, 22.04, 14.04), 225.0, 1.0, "fix"],
+		["bronze_shark_statue", Vector3(10.04, 22.82, 14.04), 215.0, 1.0],
+		["ceramic_vase_03", Vector3(9.25, 22.82, 13.3), 20.0, 1.0],
+		["WoodenTable_03", Vector3(-10.04, 22.04, 14.04), 135.0, 1.0, "fix"],
+		["bronze_ray_statue", Vector3(-10.04, 22.82, 14.04), 145.0, 1.0],
+		["WoodenTable_03", Vector3(-10.04, 22.04, -6.04), 45.0, 1.0, "fix"],
+		["antique_ceramic_vase_01", Vector3(-10.04, 22.82, -6.04), 30.0, 1.2],
+		["calathea_orbifolia_01", Vector3(-11.1, 22.04, -7.1), 0.0, 1.9, "fix"],
+		["calathea_orbifolia_01", Vector3(11.1, 22.04, 15.1), 0.0, 1.9, "fix"],
+		#     The four saucer-arc plants, replacing the baked card-cutout planters that stood
+		#     at r 10.4. Real models, on the lower tier (top MAIN_Y+0.32), one per quadrant.
+		["calathea_orbifolia_01", Vector3(7.55, 22.32, 11.55), 0.0, 2.0, "fix"],
+		["fern_02", Vector3(-7.55, 22.32, 11.55), 0.0, 1.9, "fix"],
+		["calathea_orbifolia_01", Vector3(-7.55, 22.32, -3.55), 0.0, 2.0, "fix"],
+		["anthurium_botany_01", Vector3(7.55, 22.32, -3.55), 0.0, 1.8, "fix"],
+		#     THE FOUR SITTING GROUPS. Five of their eight baked surfaces carried nothing at
+		#     all. Y is +0.34 on the old rows because the saucer's furniture was 0.30 m SUNK
+		#     into the plinth until this session — Bake.cyl positions by CENTRE, so the saucer
+		#     top is MAIN_Y+0.92 and everything on it had been authored to MAIN_Y+0.62.
+		["book_encyclopedia_set_01", Vector3(5.37, 23.40, 9.37), 45.0, 1.0],
+		["brass_vase_01", Vector3(-5.37, 23.40, 9.37), 0.0, 1.3],
+		["tea_set_01", Vector3(5.37, 23.40, -1.37), 30.0, 1.0],
+		["brass_pot_01", Vector3(-5.37, 23.40, -1.37), 200.0, 1.0],
+		["throw_pillows_01", Vector3(6.0, 23.43, -2.2), 315.0, 1.0],
+		["throw_pillows_01", Vector3(5.9, 23.43, 9.9), 225.0, 1.0],
+		["throw_pillows_01", Vector3(-5.9, 23.43, 9.9), 135.0, 1.0],
+		["throw_pillows_01", Vector3(-5.9, 23.43, -2.2), 45.0, 1.0],
 		# --- dining hall
 		["brass_candleholders", Vector3(24, 22.78, -5), 0.0, 1.2],
 		["wine_bottles_01", Vector3(23.8, 22.78, -4.2), 40.0, 1.0],

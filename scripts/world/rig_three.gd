@@ -146,6 +146,29 @@ static func build(b: KIT.Bake, host: Node3D) -> Dictionary:
 
 # ---------------------------------------------------------------- shared wall helpers
 
+## THE DECO DADO (s65). Height of the dark lacquered band that wraps every interior partition,
+## with a brass cap rail on top of it.
+##
+## This is the single change that stops the rooms reading as boxes. Before it, every interior
+## surface on the rig — wall, ceiling, column, soffit, the drum, the saucer — was ONE material
+## at ONE tone, so nothing had a horizon line and the eye had nothing to measure the room
+## against. A band at waist height gives the wall a base, a middle and a top; it is why a
+## liner interior reads as built rather than as extruded, and it is the "beautiful
+## craftsmanship" half of the brief.
+##
+## It is drawn PROUD of the wall on both faces (t + 0.05) so it casts its own shadow line, and
+## it is non-colliding — the partition behind it already carries the collision, and a dado you
+## can catch a shoulder on is the railing bug all over again.
+const DADO_H: float = 1.05
+
+static func _dado(b: KIT.Bake, base: Vector3, span: float, t: float, along_x: bool) -> void:
+	if span < 0.35:
+		return
+	var panel := Vector3(span, DADO_H, t + 0.05) if along_x else Vector3(t + 0.05, DADO_H, span)
+	var cap := Vector3(span, 0.07, t + 0.12) if along_x else Vector3(t + 0.12, 0.07, span)
+	b.box(base + Vector3(0, DADO_H * 0.5, 0), panel, MatLib.liner_panel(), "hull")
+	b.box(base + Vector3(0, DADO_H + 0.035, 0), cap, MatLib.brass(), "detail")
+
 ## A partition wall along X at fixed z, with door gaps (each 1.1 m + header above 2.1).
 static func _wall_x(b: KIT.Bake, x0: float, x1: float, z: float, y: float, h: float,
 		doors: Array = [], t: float = 0.18, mat: Material = null) -> void:
@@ -157,12 +180,14 @@ static func _wall_x(b: KIT.Bake, x0: float, x1: float, z: float, y: float, h: fl
 		if d - 0.55 - cursor > 0.05:
 			b.box(Vector3((cursor + d - 0.55) * 0.5, y + h * 0.5, z),
 				Vector3(d - 0.55 - cursor, h, t), m, "hull", Vector3.ZERO, true)
+			_dado(b, Vector3((cursor + d - 0.55) * 0.5, y, z), d - 0.55 - cursor, t, true)
 		b.box(Vector3(d, y + 2.1 + (h - 2.1) * 0.5, z), Vector3(1.1, h - 2.1, t), m, "hull",
 			Vector3.ZERO, true)
 		cursor = d + 0.55
 	if x1 - cursor > 0.05:
 		b.box(Vector3((cursor + x1) * 0.5, y + h * 0.5, z), Vector3(x1 - cursor, h, t), m,
 			"hull", Vector3.ZERO, true)
+		_dado(b, Vector3((cursor + x1) * 0.5, y, z), x1 - cursor, t, true)
 
 ## Same, along Z at fixed x.
 static func _wall_z(b: KIT.Bake, z0: float, z1: float, x: float, y: float, h: float,
@@ -175,12 +200,14 @@ static func _wall_z(b: KIT.Bake, z0: float, z1: float, x: float, y: float, h: fl
 		if d - 0.55 - cursor > 0.05:
 			b.box(Vector3(x, y + h * 0.5, (cursor + d - 0.55) * 0.5),
 				Vector3(t, h, d - 0.55 - cursor), m, "hull", Vector3.ZERO, true)
+			_dado(b, Vector3(x, y, (cursor + d - 0.55) * 0.5), d - 0.55 - cursor, t, false)
 		b.box(Vector3(x, y + 2.1 + (h - 2.1) * 0.5, d), Vector3(t, h - 2.1, 1.1), m, "hull",
 			Vector3.ZERO, true)
 		cursor = d + 0.55
 	if z1 - cursor > 0.05:
 		b.box(Vector3(x, y + h * 0.5, (cursor + z1) * 0.5), Vector3(t, h, z1 - cursor), m,
 			"hull", Vector3.ZERO, true)
+		_dado(b, Vector3(x, y, (cursor + z1) * 0.5), z1 - cursor, t, false)
 
 # ------------------------------------------------------------------------ substructure
 
@@ -206,7 +233,7 @@ static func _substructure(b: KIT.Bake) -> void:
 			# room): painted structure, not rust — exposed white bracing reads as
 			# architecture where a rusty diagonal behind the bar reads as neglect.
 			b.member(Vector3(seg2[0], 16.6, z), Vector3(seg2[1], 20.4, z), 0.42,
-				MatLib.hotel_plaster(), "hull")
+				MatLib.dark_metal(), "hull")
 	for z in [-22.0, 0.0, 22.0]:
 		b.box(Vector3(0.0, 20.0, z), Vector3(78.0, 1.5, 1.4), steel, "hull")
 	for x in LEG_X:
@@ -369,7 +396,7 @@ static func _main_deck(b: KIT.Bake) -> void:
 ## window band, and a roof that is the terrace. The drum rises through a railed square
 ## light-well; its corners (between square and circle) are glazed as skylights.
 static func _podium(b: KIT.Bake) -> void:
-	var white: Material = MatLib.hotel_plaster()
+	var white: Material = MatLib.painted_steel()
 	var glass_mat: Material = MatLib.glass(Color(0.60, 0.74, 0.78))
 	var doors: Array = [
 		["s", -10.0, 0],   # entrance, off the bridge apron
@@ -676,7 +703,7 @@ static func _food_court(b: KIT.Bake) -> void:
 
 static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	var c := Vector3(DRUM_C.x, 0.0, DRUM_C.y)
-	var white: Material = MatLib.hotel_plaster()
+	var white: Material = MatLib.galvanized()
 	var pane: Material = MatLib.glass(Color(0.62, 0.78, 0.84))
 	var chrome: Material = MatLib.galvanized()
 	var ribs: int = 12
@@ -727,9 +754,25 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	b.cyl(Vector3(c.x, ATRIUM_ROOF + 2.9, c.z), 2.2, 1.0, white, "hull", Vector3.ZERO, 1.4, 24)
 	# THE TANK and its saucer.
 	KIT.column_tank(b, TANK_C, TANK_R, TANK_Y0, TANK_Y1, 40)
-	b.cyl(Vector3(TANK_C.x, MAIN_Y + 0.16, TANK_C.y), 11.4, 0.32, MatLib.lino_floor(), "hull", Vector3.ZERO, -1.0, 32, true)
-	b.cyl(Vector3(TANK_C.x, MAIN_Y + 0.62, TANK_C.y), 8.6, 0.6, white, "hull", Vector3.ZERO, -1.0, 32, true)
-	KIT.ring_deck(b, Vector3(c.x, MAIN_Y + 0.04, c.z), 11.4, DRUM_R - 0.8, 0.16, MatLib.lino_floor(), 32)
+	b.cyl(Vector3(TANK_C.x, MAIN_Y + 0.16, TANK_C.y), 11.4, 0.32, MatLib.kitchen_tile(), "hull", Vector3.ZERO, -1.0, 32, true)
+	# THE SAUCER, rebuilt s65. It was a single 17.2 m disc of one material at 0.92 m — a blank
+	# waist-height mass filling a third of the owner's frame. It is the aquarium's plinth, so it
+	# is built like one now: a DARK LACQUERED DRUM for the riser, a TIMBER TOP, and a BRASS
+	# NOSING at the lip, with the existing cove strip reading as a shadow gap under the
+	# overhang so the disc appears to float and throws the tank's colour onto the floor.
+	b.cyl(Vector3(TANK_C.x, MAIN_Y + 0.62, TANK_C.y), 8.6, 0.6, MatLib.liner_panel(), "hull",
+		Vector3.ZERO, -1.0, 32, true)
+	b.cyl(Vector3(TANK_C.x, MAIN_Y + 0.94, TANK_C.y), 8.5, 0.04, MatLib.wood(), "hull",
+		Vector3.ZERO, -1.0, 32, true)
+	# The nosing is laid as 48 short segments in the "detail" group, NOT as a ring_deck: that
+	# helper emits into "hull", and brass was not yet a live hull material here, so one brass
+	# ring cost a FAR chunk and took the field to 151/150. Detail geometry is range-culled and
+	# free. Measured, not assumed — the probe caught it on the first run.
+	for ni in range(48):
+		var na: float = TAU * float(ni) / 48.0
+		b.box(Vector3(TANK_C.x + cos(na) * 8.55, MAIN_Y + 0.93, TANK_C.y + sin(na) * 8.55),
+			Vector3(0.22, 0.06, 1.14), MatLib.brass(), "detail", Vector3(0, -na, 0))
+	KIT.ring_deck(b, Vector3(c.x, MAIN_Y + 0.04, c.z), 11.4, DRUM_R - 0.8, 0.16, MatLib.kitchen_tile(), 32)
 	KIT.led_ring(b, Vector3(TANK_C.x, MAIN_Y + 0.36, TANK_C.y), 11.1, COVE, 32, 0.12, COVE_E)
 	KIT.led_ring(b, Vector3(TANK_C.x, MAIN_Y + 1.0, TANK_C.y), 8.8, COVE, 32, 0.1, COVE_E)
 	# SITTING AREAS around the tank: four arcs of sofas on the saucer, facing the glass.
@@ -737,11 +780,10 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 		var ka: float = TAU * float(k) / 4.0 + PI * 0.25
 		var kc := Vector3(TANK_C.x + cos(ka) * 9.3, 0, TANK_C.y + sin(ka) * 9.3)
 		var face: float = rad_to_deg(atan2(TANK_C.x - kc.x, TANK_C.y - kc.z))
-		_sofa(b, Vector3(kc.x, MAIN_Y + 0.62, kc.z), face, 3.0)
+		_sofa(b, Vector3(kc.x, MAIN_Y + 0.96, kc.z), face, 3.0)
 		var ta := Vector3(TANK_C.x + cos(ka) * 7.6, 0, TANK_C.y + sin(ka) * 7.6)
-		_low_table(b, Vector3(ta.x, MAIN_Y + 0.62, ta.z), 1.2)
-		var pa := Vector3(TANK_C.x + cos(ka + 0.35) * 10.4, 0, TANK_C.y + sin(ka + 0.35) * 10.4)
-		_planter(b, Vector3(pa.x, MAIN_Y, pa.z), 0.95)
+		_low_table(b, Vector3(ta.x, MAIN_Y + 0.96, ta.z), 1.2)
+		# (the planter that stood here is a real GLB plant now — see field_dress ANCHORAGE)
 	# THE GALLERIES: rings held back to GAL_IN so the void stays open, plus finished soffits.
 	# Each ring now carries STAIR OPENINGS at its arrivals — see _gallery_ring.
 	_gallery_ring(b, c, G1, GAL_IN + 0.8, [250.0, 70.0])
@@ -774,15 +816,15 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 			[G3, 105.0, GAL_IN], [G3, 285.0, GAL_IN], [G4, 55.0, GAL_IN + 0.8]]:
 		var pa: float = deg_to_rad(float(pad[1]))
 		KIT.ring_deck(b, Vector3(c.x, float(pad[0]) - 0.005, c.z), float(pad[2]) - 1.0, float(pad[2]) + 0.6,
-			0.28, MatLib.hotel_plaster(), 32, pa - 0.16, pa + 0.16)
+			0.28, MatLib.galvanized(), 32, pa - 0.16, pa + 0.16)
 	# TANK-TOP ACCESS: a flight from G4 up to an arc platform ringing the crown at 39.45,
 	# with the feeding hatch — this is where caught fish go in.
 	_chord_stair(b, c, G4, 39.45, 55.0, 20.0, GAL_IN + 1.1, 7.0)
 	# The arc ends at 20.5, not 24: the flight's approach runs through angles 24 -> 20, and
 	# a slab there swallowed its last 2.4 m of treads (same defect as the gallery arrivals).
-	KIT.ring_deck(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.65, 8.2, 0.3, MatLib.hotel_plaster(),
+	KIT.ring_deck(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.65, 8.2, 0.3, MatLib.galvanized(),
 		32, deg_to_rad(-10.0), deg_to_rad(20.5))
-	KIT.ring_deck(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.65, 8.2, 0.3, MatLib.hotel_plaster(),
+	KIT.ring_deck(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 5.65, 8.2, 0.3, MatLib.galvanized(),
 		32, deg_to_rad(46.0), deg_to_rad(52.0))
 	KIT.ring_rail(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 8.1, 32, true, deg_to_rad(-10.0), deg_to_rad(26.0))
 	KIT.ring_rail(b, Vector3(TANK_C.x, 39.45, TANK_C.y), 8.1, 32, true, deg_to_rad(46.0), deg_to_rad(52.0))
@@ -795,9 +837,9 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 		var rin2: float = spur[2]
 		KIT.catwalk(b, Vector3(c.x + cos(sa) * (rin2 + 0.3), sy, c.z + sin(sa) * (rin2 + 0.3)),
 			Vector3(TANK_C.x + cos(sa) * (SPUR_IN + 1.2), sy, TANK_C.y + sin(sa) * (SPUR_IN + 1.2)), 2.6, true,
-			-1000.0, MatLib.hotel_plaster(), MatLib.galvanized())
+			-1000.0, MatLib.galvanized(), MatLib.galvanized())
 		KIT.ring_deck(b, Vector3(TANK_C.x, sy, TANK_C.y), SPUR_IN - 0.6, SPUR_IN + 1.6, 0.3,
-			MatLib.hotel_plaster(), 32, sa - SPUR_HALF, sa + SPUR_HALF)
+			MatLib.galvanized(), 32, sa - SPUR_HALF, sa + SPUR_HALF)
 		KIT.ring_rail(b, Vector3(TANK_C.x, sy, TANK_C.y), SPUR_IN + 1.5, 32, true, sa - SPUR_HALF, sa + SPUR_HALF)
 		KIT.led_ring(b, Vector3(TANK_C.x, sy - 0.36, TANK_C.y), SPUR_IN + 1.5, COVE, 32, 0.1, COVE_E)
 	# CHANDELIERS — pulled in to r 7.4..8.6 so they hang in the open well, not through the
@@ -862,7 +904,7 @@ static func _atrium(b: KIT.Bake, host: Node3D) -> void:
 	# EAST TOWER LINK: its ground floor sits at G2 height, so it bridges straight into the
 	# gallery through an opened G2 bay (the door moved to the bridge line, z 8.1).
 	KIT.catwalk(b, Vector3(18.0, G2, 8.1), Vector3(15.0, G2, 8.1), 2.0, true, -1000.0,
-		MatLib.hotel_plaster(), MatLib.galvanized())
+		MatLib.galvanized(), MatLib.galvanized())
 
 ## Which drum bays are open portals at which level. Bays are indexed by rib: bay i spans
 ## angles i*30 .. (i+1)*30 degrees. East pair 11/0, north 2/3, west 5/6, south 8/9.
@@ -885,7 +927,7 @@ static func _chord_stair(b: KIT.Bake, c: Vector3, y0: float, y1: float,
 	# arrival frame the same way the rusted galleries did in s54b.
 	KIT.stair(b, Vector3(c.x + cos(a0) * r0, y0, c.z + sin(a0) * r0),
 		Vector3(c.x + cos(a1) * r1, y1, c.z + sin(a1) * r1), 1.7, true, true,
-		MatLib.galvanized(), MatLib.hotel_plaster())
+		MatLib.galvanized(), MatLib.galvanized())
 
 ## One gallery ring with STAIR OPENINGS. The chord stairs arrive 0.3 m INSIDE the ring's
 ## inner rim, and against a full-circle slab that means the last two treads, both
@@ -903,6 +945,9 @@ static func _chord_stair(b: KIT.Bake, c: Vector3, y0: float, y1: float,
 ## is tongues on the APPROACH side that overhang the climb (the s55 lesson, five shapes).
 static func _gallery_ring(b: KIT.Bake, c: Vector3, y: float, r_in: float, arrivals: Array) -> void:
 	var r_split: float = r_in + 1.25
+	# NOT painted_steel, tried and reverted in s65 ON THE FRAME: that material is weathered,
+	# and these rings are the ATRIUM'S CEILING when you stand on the floor and look up. A
+	# balcony soffit over a hotel lobby is an interior ceiling, so it takes the plaster.
 	var white: Material = MatLib.hotel_plaster()
 	KIT.ring_deck(b, Vector3(c.x, y, c.z), r_split, GAL_OUT, 0.3, white, 32)
 	KIT.ring_deck(b, Vector3(c.x, y - 0.44, c.z), r_split, GAL_OUT - 0.1, 0.12, white, 32)
@@ -976,12 +1021,12 @@ static func _terrace(b: KIT.Bake) -> void:
 	# WEST TOWER's first upper storey (floor 29.90, 0.5 over G2) — the mirror of s55's
 	# east-tower link, so both towers now hang off the drum.
 	KIT.stair(b, Vector3(-14.88, G1, 0.01), Vector3(-16.55, TERRACE, -0.44), 1.6, true, true,
-		MatLib.galvanized(), MatLib.hotel_plaster())
-	KIT.deck(b, Rect2(-17.6, -1.5, 1.6, 2.6), TERRACE, 0.24, MatLib.hotel_plaster())
+		MatLib.galvanized(), MatLib.galvanized())
+	KIT.deck(b, Rect2(-17.6, -1.5, 1.6, 2.6), TERRACE, 0.24, MatLib.galvanized())
 	KIT.catwalk(b, Vector3(-14.68, G2, 0.06), Vector3(-17.85, G2, -0.80), 1.7, true,
-		-1000.0, MatLib.hotel_plaster(), MatLib.galvanized())
+		-1000.0, MatLib.galvanized(), MatLib.galvanized())
 	KIT.stair(b, Vector3(-18.05, G2, -0.80), Vector3(-19.30, TERRACE + STOREY, -0.80), 1.1,
-		true, true, MatLib.galvanized(), MatLib.hotel_plaster())
+		true, true, MatLib.galvanized(), MatLib.galvanized())
 	# EXTERIOR STAIR up the west rim: main deck to terrace.
 	KIT.stair(b, Vector3(-41.0, MAIN_Y, -16.0), Vector3(-41.0, TERRACE, -6.0), 1.5, true, true)
 	KIT.catwalk(b, Vector3(-41.0, TERRACE, -6.0), Vector3(-38.6, TERRACE, -6.0), 1.8, false)
@@ -1010,7 +1055,7 @@ static func _terrace(b: KIT.Bake) -> void:
 # ------------------------------------------------------------------------------ TOWERS
 
 static func _towers(b: KIT.Bake) -> void:
-	var white: Material = MatLib.hotel_plaster()
+	var white: Material = MatLib.painted_steel()
 	var frost: Color = Color(0.60, 0.74, 0.78)
 	# WEST TOWER: three storeys off the terrace.
 	KIT.block(b, WEST_WING, TERRACE, 3, STOREY, white, {
@@ -1065,7 +1110,7 @@ static func _spa(b: KIT.Bake) -> void:
 	# basin. East: the sauna cabin with a lit stone bowl by its door.
 	var wood: Material = MatLib.wood()
 	for mz in [24.3, 27.6]:
-		b.box(Vector3(-9.5, MAIN_Y + 0.35, mz), Vector3(0.85, 0.62, 2.0), MatLib.hotel_plaster(), "hull", Vector3.ZERO, true)
+		b.box(Vector3(-9.5, MAIN_Y + 0.35, mz), Vector3(0.85, 0.62, 2.0), MatLib.wood(), "hull", Vector3.ZERO, true)
 		b.box(Vector3(-9.5, MAIN_Y + 0.70, mz), Vector3(0.80, 0.10, 1.95), MatLib.canvas(Color(0.82, 0.80, 0.74)), "detail")
 		b.cyl(Vector3(-9.5, MAIN_Y + 0.80, mz - 0.75), 0.10, 0.42, MatLib.canvas(Color(0.90, 0.89, 0.85)), "detail", Vector3(0, 0, deg_to_rad(90.0)))
 	b.box(Vector3(-4.5, MAIN_Y + 0.24, 26.0), Vector3(1.3, 0.48, 1.3), MatLib.kitchen_tile(), "hull", Vector3.ZERO, true)
@@ -1130,7 +1175,6 @@ static func _marina(b: KIT.Bake) -> void:
 ## the entrance axis, water in the hall, screens dividing the salon, a ring of light over
 ## the dais. Ocean-research-luxury: white, chrome, teal glass, warm brass.
 static func _decor(b: KIT.Bake) -> void:
-	var white: Material = MatLib.hotel_plaster()
 	# THE ENTRANCE CENTREPIECE: two interlocked glowing rings on a plinth, dead on the
 	# axis from the south door to the tank (the reference's ring sculpture, made ours).
 	var cp := Vector3(-10.0, MAIN_Y, -15.5)

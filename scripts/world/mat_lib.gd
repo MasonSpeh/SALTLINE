@@ -430,9 +430,32 @@ static func dirty_white_panel() -> StandardMaterial3D:
 ## garage": it IS a concrete garage. Same texture (so no new import), but tiled every ~0.7 m
 ## so the grain reads as plaster tooth instead of formwork, and tinted WARM — r > g > b —
 ## against the panel's faintly green white.
+## REBUILT s65, because the s64 version was the whole reason the owner's frame came back as
+## sand-coloured mud. Two independent faults, both measured:
+##
+##  1. IT WAS STILL CONCRETE012. That map carries 11.5 deg mean normal relief (see concrete()
+##     below) — board-marked formwork. No tint makes formwork read as plaster; the relief is
+##     in the normal map, not the colour.
+##  2. THE TINT WAS SAND. Solved through srgb_to_linear against the map's mean it landed on
+##     #C5AE89 at 30.6% saturation — 1.7x the dirty_white_panel it replaced and 3x concrete()
+##     — and it was tiled at uv 1.40 = 0.71 m/tile, the TIGHTEST architectural scale in this
+##     library. On the atrium drum, the four gallery slabs and the 17 m tank saucer that is
+##     ~24 repeats edge to edge, so the texture mips down to its own mean and stops being
+##     texture at all. Too-warm mean x too-tight tile = a uniform beige fill.
+##
+## So it is built on the procedural _fine() grain instead — the same helper medical_white and
+## kitchen_tile use. No photographed formwork, a warm off-white a shade off neutral rather
+## than a third of the way to orange, and matte. Same cache key, so this costs no draw chunk.
 static func hotel_plaster() -> StandardMaterial3D:
-	return _pbr("hotel_plaster", "Concrete012", Color(1.42, 1.34, 1.20), 1.40, 0.92, 0.0,
-		Color(0.86, 0.81, 0.73))
+	return _fine("hotel_plaster", Color(0.88, 0.855, 0.80), 0.90, 1717, 1.4, 0.06)
+
+## THE DECO DADO — dark lacquered timber, run as a waist-height band with a brass cap rail.
+## A horizontal band at human height is what makes a room read as designed rather than as a
+## box, and it is the craftsmanship half of the "futuristic oceanic liner" brief. Planks037A
+## at a tight uv and a deep tint so it reads as lacquer over grain, not as decking.
+static func liner_panel() -> StandardMaterial3D:
+	return _pbr("liner_panel", "Planks037A", Color(0.42, 0.27, 0.20), 0.9, 0.55, 0.0,
+		Color(0.24, 0.15, 0.11))
 
 ## A REAL BRASS, to replace flat(Color(0.55, 0.45, 0.22)) — an unlit, untextured mustard fill
 ## that was carrying the reception desk cap, every bar top, every dining-table leg and every
