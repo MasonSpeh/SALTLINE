@@ -97,8 +97,15 @@ bait_hook={
 
 common/physics_ticks_per_second=30
 3d/physics_engine="JoltPhysics3D"
-physics/jolt_physics_3d/motion_queries/use_enhanced_internal_edge_removal=true
-physics/jolt_physics_3d/simulation/use_enhanced_internal_edge_removal=true
+; THESE TWO KEYS WERE DEAD UNTIL s65. In project.godot the [section] name IS the first path
+; component, so `common/physics_ticks_per_second` above resolves to physics/common/... — but
+; these two repeated their own section and resolved to `physics/physics/jolt_physics_3d/...`,
+; which nothing in the engine reads. They are the only keys in this file that do that. So
+; enhanced internal edge removal has never actually been on, in either query or simulation,
+; despite the file claiming it since af3861b. It is what stops a capsule catching on the seam
+; between two adjacent box colliders inside one body — which is most of this rig's decking.
+jolt_physics_3d/motion_queries/use_enhanced_internal_edge_removal=true
+jolt_physics_3d/simulation/use_enhanced_internal_edge_removal=true
 
 [rendering]
 
