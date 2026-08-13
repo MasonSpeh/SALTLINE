@@ -121,6 +121,25 @@ func _ready() -> void:
 	# s64: the suite shot above looks at the CORRIDOR half of the room — the bed, and every
 	# piece of furniture hung off it, is behind that camera. It is part of why the suites
 	# have read as empty in every review frame since s54c. These look at the bed.
+	# s65: RAIN INDOORS. The field rigs had no entry in the shelter table at all, and the
+	# emitter is pinned 16 m above the player — so on the atrium floor at y 22 every drop was
+	# born at y 38, INSIDE the 18.5 m drum, and fell the whole way down past the galleries.
+	# These two frames are the proof: dry inside, still raining on the open deck.
+	var storm: Node = main.get_node_or_null("StormSystem")
+	if storm == null:
+		for n in main.get_children():
+			if n.get_script() != null and str(n.get_script().resource_path).ends_with("storm_system.gd"):
+				storm = n
+	if storm != null:
+		storm.call("trigger_storm")
+		# RAMP_IN_SEC is 22 s and the shot harness runs at ~1 fps windowed, so give the squall
+		# real time to reach full intensity rather than photographing a drizzle and calling it
+		# a downpour.
+		await get_tree().create_timer(26.0).timeout
+		print("[field-shot] storm forced, intensity ramped")
+	await _look(_world(a_o, a_y, Vector3(-11.0, 22, -5.0)), _world(a_o, a_y, Vector3(2.0, 23.4, 5.0)), "s65_rain_atrium_dry")
+	await _look(_world(a_o, a_y, Vector3(-46.0, 22, 0.0)), _world(a_o, a_y, Vector3(-46.0, 26.0, 20.0)), "s65_rain_outdoors_wet")
+
 	# s65: THE OWNER'S OWN VIEWPOINT — standing on the atrium ambulatory looking across the
 	# tank saucer at the water, with the sitting groups to one side. This is the frame that
 	# came back as sand-coloured mud, so it is the frame the fix has to be judged on.

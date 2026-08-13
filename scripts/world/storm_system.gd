@@ -37,6 +37,45 @@ const COVER_BOXES: Array = [
 	[23.0, 32.1, 13.0, 27.0, 34.8, 17.5],   # roof bulkhead hut
 ]
 
+## THE FIELD RIGS' COVER, added s65. COVER_BOXES above is rig 1 only, in world space, and
+## the three field rigs have had NO entry since they were built in s54 — so rain fell INSIDE
+## THE ANCHORAGE's atrium, which is what the owner photographed. It is worse than a missing
+## row: the emitter is pinned 16 m above the player (`_follow_player`), so standing on the
+## atrium floor at y 22 spawns every drop at y 38 — INSIDE the 18.5 m drum, under a roof at
+## 40.5 — and they fall the whole way down past the galleries.
+##
+## These are RIG-LOCAL boxes. `_push_cover_boxes` transforms each centre by its rig's
+## transform and hands the shader the rig's YAW alongside, because all three rigs are rotated
+## and an axis-aligned world box round a rotated room either over-covers (blanking rain in
+## plain sight outside the windows) or leaks at the corners.
+##
+## Format: rig id -> [ [min_x, min_y, min_z, max_x, max_y, max_z], ... ]
+const FIELD_COVER: Dictionary = {
+	"marrow": [
+		[-30.0, 14.0, 2.0, -4.0, 21.2, 20.0],      # mess block, both storeys, to the garden roof
+		[2.0, 14.0, 4.0, 26.0, 21.2, 19.0],        # plant hall
+		[-24.0, 14.0, -20.0, -4.0, 18.4, -8.0],    # hydroponics / bio lab
+		[-38.0, 6.8, -24.0, 38.0, 13.8, 24.0],     # the whole process deck, under the main slab
+	],
+	"anchorage": [
+		[-16.0, 22.0, -12.0, 16.0, 41.0, 20.0],    # THE ATRIUM DRUM, floor to glass roof
+		[-40.0, 22.0, -28.0, 40.0, 26.4, 22.0],    # the podium: every main-level room
+		[18.0, 22.0, -10.0, 40.0, 29.4, 18.0],     # the double-height dining hall
+		[-40.0, 26.2, -10.0, -18.0, 37.3, 18.0],   # west tower
+		[18.0, 29.4, -10.0, 40.0, 36.8, 18.0],     # east tower
+		[-14.0, 22.0, 22.0, 14.0, 29.4, 30.0],     # spa block
+		[-34.0, 15.4, -24.0, 34.0, 19.3, 24.0],    # leisure deck / pool hall
+		[-34.0, 8.8, -24.0, 34.0, 12.5, 24.0],     # plant deck
+	],
+	"deepwell": [
+		[-31.0, 20.0, 10.0, -9.0, 26.0, 24.0],     # shaker house
+		[10.0, 20.0, -26.0, 30.0, 26.6, -12.0],    # core sample lab, both storeys
+		[13.0, 26.6, -23.0, 24.0, 29.8, -15.0],    # control room
+		[-7.0, 20.0, -31.0, 5.0, 23.2, -24.0],     # decon airlock
+		[-27.0, 11.3, -27.0, 27.0, 18.4, 27.0],    # production deck, under the main slab
+	],
+}
+
 const RAMP_IN_SEC: float = 22.0
 const RAMP_OUT_SEC: float = 32.0
 const FIRST_DELAY_MIN: float = 45.0     # first squall within the first ~1 min so it's seen early
@@ -191,13 +230,42 @@ const COVER_MARGIN: float = 0.35
 func _push_cover_boxes() -> void:
 	var mins := PackedVector3Array()
 	var maxs := PackedVector3Array()
+	var yaws := PackedFloat32Array()
 	var m: float = COVER_MARGIN
+	# Rig 1, at the world origin with no rotation. The margin grows the box sideways and
+	# downward but never upward, because the top face IS the roof.
 	for b: Array in COVER_BOXES:
 		mins.append(Vector3(b[0] - m, b[1] - m, b[2] - m))
 		maxs.append(Vector3(b[3] + m, b[4], b[5] + m))
+		yaws.append(0.0)
+	# The field. Each box is authored in its rig's own frame; the CENTRE is transformed to
+	# world and the half-extents kept, so the shader can undo the rig's yaw about that centre
+	# and test the box square. Reading the origins from rig_field means these cannot drift
+	# apart from where the rigs actually stand.
+	var F := preload("res://scripts/world/rig_field.gd")
+	var rigs: Dictionary = {
+		"marrow": [F.MARROW_ORIGIN, F.MARROW_YAW],
+		"anchorage": [F.ANCHORAGE_ORIGIN, F.ANCHORAGE_YAW],
+		"deepwell": [F.DEEPWELL_ORIGIN, F.DEEPWELL_YAW],
+	}
+	for rid in FIELD_COVER.keys():
+		var spec: Array = rigs[rid]
+		var yaw: float = deg_to_rad(float(spec[1]))
+		var xf := Transform3D(Basis(Vector3.UP, yaw), spec[0] as Vector3)
+		for b2: Array in FIELD_COVER[rid]:
+			var lo := Vector3(b2[0] - m, b2[1] - m, b2[2] - m)
+			var hi := Vector3(b2[3] + m, b2[4], b2[5] + m)
+			var half: Vector3 = (hi - lo) * 0.5
+			var centre: Vector3 = xf * ((lo + hi) * 0.5)
+			mins.append(centre - half)
+			maxs.append(centre + half)
+			yaws.append(yaw)
 	_rain_shader.set_shader_parameter("box_min", mins)
 	_rain_shader.set_shader_parameter("box_max", maxs)
+	_rain_shader.set_shader_parameter("box_yaw", yaws)
 	_rain_shader.set_shader_parameter("box_count", mins.size())
+	print("[storm] %d covered volumes (%d on rig 1, %d across the field)" % [
+		mins.size(), COVER_BOXES.size(), mins.size() - COVER_BOXES.size()])
 
 func _build_flash() -> void:
 	_flash = DirectionalLight3D.new()

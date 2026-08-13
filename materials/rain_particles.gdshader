@@ -16,8 +16,16 @@ shader_type particles;
 uniform vec3 emit_extents = vec3(26.0, 0.5, 26.0);   // half-size of the emission sheet
 uniform vec3 wind_drift = vec3(0.0);                 // horizontal m/s, already scaled by intensity
 uniform float fall_speed = 36.0;                     // constant downward m/s
-uniform vec3 box_min[24];                            // covered-volume AABBs (world space)
-uniform vec3 box_max[24];
+// COVERED VOLUMES. 48 slots, not 24: rig 1 alone burned 16, and the three FIELD rigs — which
+// had NO cover at all until s65, so rain fell inside THE ANCHORAGE's atrium — need another 17
+// between them. Each box is stored as a world-space AABB CENTRED ON THE WORLD CENTRE of the
+// room, plus its owning rig's yaw. The field rigs are rotated (-16 / +10 / -6 deg), so an
+// axis-aligned test would either over-cover (blanking rain visibly outside the windows) or
+// leak at the corners; rotating the drop about the box centre by -yaw tests the box in its
+// own frame instead, which is exact. yaw 0 costs one compare and skips the maths.
+uniform vec3 box_min[48];
+uniform vec3 box_max[48];
+uniform float box_yaw[48];
 uniform int box_count = 0;
 
 // Self-contained LCG — engine-provided random helpers differ between renderers,
@@ -77,9 +85,18 @@ void process() {
 
 	// Scale the drop to zero (invisible) whenever it is inside a covered volume.
 	float vis = 1.0;
-	for (int k = 0; k < 24; k++) {
+	for (int k = 0; k < 48; k++) {
 		if (k >= box_count) { break; }
-		if (all(greaterThanEqual(pos, box_min[k])) && all(lessThanEqual(pos, box_max[k]))) {
+		vec3 q = pos;
+		float ya = box_yaw[k];
+		if (abs(ya) > 0.0001) {
+			vec3 bc = (box_min[k] + box_max[k]) * 0.5;
+			float cs = cos(-ya);
+			float sn = sin(-ya);
+			vec2 d = pos.xz - bc.xz;
+			q.xz = vec2(d.x * cs - d.y * sn, d.x * sn + d.y * cs) + bc.xz;
+		}
+		if (all(greaterThanEqual(q, box_min[k])) && all(lessThanEqual(q, box_max[k]))) {
 			vis = 0.0;
 			break;
 		}

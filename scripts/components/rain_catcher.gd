@@ -246,6 +246,26 @@ func _under_cover(p: Vector3) -> bool:
 				and p.y >= float(b[1]) - m and p.y <= float(b[4]) \
 				and p.z >= float(b[2]) - m and p.z <= float(b[5]) + m:
 			return true
+	# THE FIELD RIGS (s65). COVER_BOXES is rig 1 only, so until now a barrel standing in
+	# MARROW's mess hall or THE ANCHORAGE's atrium filled up in a storm — the same missing
+	# data as the rain that fell indoors, seen from the gameplay side. The field's boxes are
+	# authored in each rig's OWN frame and its rig is yaw-rotated, so the point is brought
+	# into that frame before the test rather than the box being fitted around it.
+	var F := preload("res://scripts/world/rig_field.gd")
+	var rigs: Dictionary = {
+		"marrow": [F.MARROW_ORIGIN, F.MARROW_YAW],
+		"anchorage": [F.ANCHORAGE_ORIGIN, F.ANCHORAGE_YAW],
+		"deepwell": [F.DEEPWELL_ORIGIN, F.DEEPWELL_YAW],
+	}
+	for rid in StormSystem.FIELD_COVER.keys():
+		var spec: Array = rigs[rid]
+		var xf := Transform3D(Basis(Vector3.UP, deg_to_rad(float(spec[1]))), spec[0] as Vector3)
+		var lp: Vector3 = xf.affine_inverse() * p
+		for b2: Array in StormSystem.FIELD_COVER[rid]:
+			if lp.x >= float(b2[0]) - m and lp.x <= float(b2[3]) + m \
+					and lp.y >= float(b2[1]) - m and lp.y <= float(b2[4]) \
+					and lp.z >= float(b2[2]) - m and lp.z <= float(b2[5]) + m:
+				return true
 	return false
 
 # ============================================================ what stands in the cradle
